@@ -102,7 +102,8 @@ function normalizeSkill(skill: ApiSkill): Skill {
     id: skill.id,
     name,
     description: skill.description ?? skill.trigger_pattern ?? '',
-    plugin: skill.plugin ?? (globalSkill ? 'Global skills' : 'Workspace skills'),
+    plugin:
+      skill.plugin ?? (globalSkill ? 'Global saved instructions' : 'Team space saved instructions'),
     pluginAuthor: skill.pluginAuthor ?? '',
     content: skill.content ?? '',
     path: skill.path ?? skill.id ?? name,

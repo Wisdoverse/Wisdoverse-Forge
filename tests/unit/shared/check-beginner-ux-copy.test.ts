@@ -12068,6 +12068,11 @@ export function SkillDetailModal() {
   return 'Workspace saved instructions'
 }
 `,
+      'src/app/shared/model/skills.store.ts': `
+function normalizeSkill() {
+  return { plugin: 'Workspace skills' }
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -12082,6 +12087,10 @@ export function SkillDetailModal() {
         expect.objectContaining({
           type: 'saved-instruction-source-label-copy',
           location: 'src/app/features/skills/SkillDetailModal.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-source-label-copy',
+          location: 'src/app/shared/model/skills.store.ts:3',
         }),
       ])
     )

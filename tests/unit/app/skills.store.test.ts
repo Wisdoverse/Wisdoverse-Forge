@@ -98,6 +98,28 @@ describe('skillHttpErrorMessage', () => {
 })
 
 describe('useSkillsStore errors', () => {
+  test('normalizes missing saved-instruction source names for team spaces', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        skills: [
+          {
+            id: 'skill-team-space',
+            organization_id: 'org-1',
+            name: 'release-check',
+            content: 'Check release notes',
+          },
+        ],
+      })
+    )
+
+    await useSkillsStore.getState().loadSkills()
+
+    const [skill] = useSkillsStore.getState().skills
+    expect(skill?.plugin).toBe('Team space saved instructions')
+    expect(skill?.plugin).not.toContain('Workspace')
+  })
+
   test('stores beginner guidance when skill loading fails', async () => {
     fetchMock.mockResolvedValue(response(503, { error: { message: 'database unavailable' } }))
 
