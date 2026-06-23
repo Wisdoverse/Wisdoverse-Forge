@@ -115,7 +115,7 @@ export function platformKeyErrorMessage(error: unknown): string {
     lower.includes('name required') ||
     lower.includes('invalid name')
   ) {
-    return 'Enter the tool or job name, then try again.'
+    return `Enter the tool or job name, then ${retry}.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `Wait a minute, then ${retry}. Forge is receiving too many outside tool access requests right now.`

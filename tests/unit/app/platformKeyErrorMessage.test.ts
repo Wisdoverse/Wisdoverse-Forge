@@ -23,7 +23,7 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       ),
-      'Enter the tool or job name, then try again.'
+      'Enter the tool or job name, then create this outside tool access key again.'
     )
   })
 
