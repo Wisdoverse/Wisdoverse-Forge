@@ -131,11 +131,12 @@ function displayFeedDetail(item: FeedItemType): string {
   if (item.type === 'task.blocked') {
     return taskBlockedPreview({ blockedHint: item.detail })
   }
-  if (item.type !== 'task.failed') return item.detail
-
-  if (!isRawTaskFailureDetail(item.detail)) return item.detail
-
-  return 'Open task details to read the recovery note, then retry or choose another agent.'
+  if (isRawTaskFailureDetail(item.detail)) {
+    return item.type === 'task.failed'
+      ? 'Open task details to read the recovery note, then retry or choose another agent.'
+      : 'Open task details to check the latest update.'
+  }
+  return item.detail
 }
 
 function formatTime(ts: number): string {
