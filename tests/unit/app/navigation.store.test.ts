@@ -73,6 +73,16 @@ describe('navigation.store', () => {
     expect(message).not.toContain('workspace access')
   })
 
+  it('turns plain role failures into team space access guidance', () => {
+    const message = navigationActionErrorMessage('workLane', 'create', 'owner role required')
+
+    expectBeginnerError(
+      message,
+      'Ask an owner or admin to update your team space access, then choose the project and create the waiting place again. You do not have permission to create the waiting place.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   it('turns team and project validation failures into team-space guidance', () => {
     const message = navigationActionErrorMessage(
       'teamProjects',
