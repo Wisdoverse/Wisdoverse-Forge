@@ -196,7 +196,7 @@ describe('ProvidersSection', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /disabled AI services status filter, 1 configured AI service/i,
+        name: /disabled AI services status filter, 1 saved AI service/i,
       })
     )
 
@@ -237,7 +237,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByRole('searchbox', { name: /search AI services/i })).toHaveValue('')
     expect(
       screen.getByRole('button', {
-        name: /all AI services status filter, 3 configured AI services/i,
+        name: /all AI services status filter, 3 saved AI services/i,
       })
     ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByText('OpenAI Production').length).toBeGreaterThan(0)
@@ -266,7 +266,7 @@ describe('ProvidersSection', () => {
     expect((await screen.findAllByText('OpenAI Production')).length).toBeGreaterThan(0)
     fireEvent.click(
       screen.getByRole('button', {
-        name: /AI services that need a connection check status filter, 0 configured AI services/i,
+        name: /AI services that need a connection check status filter, 0 saved AI services/i,
       })
     )
 
@@ -299,7 +299,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByRole('searchbox', { name: /search AI services/i })).toHaveValue('')
     expect(
       screen.getByRole('button', {
-        name: /all AI services status filter, 1 configured AI service/i,
+        name: /all AI services status filter, 1 saved AI service/i,
       })
     ).toHaveAttribute('aria-pressed', 'true')
   })
@@ -419,7 +419,9 @@ describe('ProvidersSection', () => {
     expect(within(providerSelect).queryByRole('option', { name: 'Anthropic' })).toBeNull()
     expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
     fireEvent.change(providerSelect, { target: { value: 'litellm' } })
-    expect(screen.getByRole('button', { name: /suggested service choice: gpt-4o-mini/i })).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /suggested service choice: gpt-4o-mini/i })
+    ).toBeDefined()
     expect(screen.queryByText(/gateway alias/i)).toBeNull()
     expect(screen.getByLabelText(/service address/i)).toBeDefined()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
@@ -471,7 +473,7 @@ describe('ProvidersSection', () => {
     expect(screen.getByText('Local Disabled')).toBeDefined()
     expect(
       screen.getByRole('button', {
-        name: /disabled AI services status filter, 1 configured AI service/i,
+        name: /disabled AI services status filter, 1 saved AI service/i,
       })
     ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('button', { name: /save AI service/i })).toBeNull()
@@ -483,7 +485,7 @@ describe('ProvidersSection', () => {
     )
     expect(
       screen.getByRole('button', {
-        name: /AI services that need a connection check status filter, 1 configured AI service/i,
+        name: /AI services that need a connection check status filter, 1 saved AI service/i,
       })
     ).toHaveAttribute('aria-pressed', 'true')
     expect(
