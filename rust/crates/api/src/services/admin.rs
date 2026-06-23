@@ -13,7 +13,7 @@ use crate::domain::admin::{
     AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery, AdminAgentListProjection,
     AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
     AdminOrgProjection, AdminRoleChange, AdminRolePolicy, AdminUserListProjection, AdminUserModificationPolicy,
-    AdminUserProjection, OrgControlPlaneSnapshot, admin_role_label, admin_user_deleted_audit_details,
+    AdminUserProjection, DeadEventPage, OrgControlPlaneSnapshot, admin_role_label, admin_user_deleted_audit_details,
     admin_user_role_audit_details,
 };
 pub(crate) use crate::domain::admin::{
@@ -358,6 +358,33 @@ impl AdminService {
     /// Check if the user has admin privileges. Returns an error if not.
     pub fn require_admin(auth_role: &str) -> AppResult<()> {
         AdminRolePolicy::require_admin(auth_role)
+    }
+
+    /// Platform-admin-only gate, keyed off the server-side `users.is_admin`
+    /// column (NOT the per-org membership role). Loads the caller's user row and
+    /// defers the verdict to the domain policy so the service owns the I/O and
+    /// the domain owns the error contract. Used for cross-org surfaces such as
+    /// the dead-letter reader.
+    pub async fn require_platform_admin(&self, user_id: Uuid) -> AppResult<()> {
+        let user = self.repo.find_user_by_id(user_id).await?;
+        AdminRolePolicy::require_platform_admin(user.is_admin)
+    }
+
+    /// List captured dead-letter rows as a paginated, cross-org projection
+    /// (platform admin only — enforced at the route). `page` is 1-based with a
+    /// floor of 1; `limit` is clamped to 1..=100 by [`AdminListPage`]. An optional
+    /// `reason` filters exactly.
+    pub(crate) async fn list_dead_events(
+        &self,
+        page: i64,
+        limit: i64,
+        reason: Option<&str>,
+    ) -> AppResult<DeadEventPage> {
+        let page = page.max(1);
+        let list_page = AdminListPage::new(limit, (page - 1).saturating_mul(limit));
+        let items = self.repo.list_dead_events(list_page.limit(), list_page.offset(), reason).await?;
+        let total = self.repo.count_dead_events(reason).await?;
+        Ok(DeadEventPage::new(items, total, page, list_page.limit()))
     }
 }
 
@@ -771,6 +798,25 @@ mod tests {
             .await
             .expect("count admins");
         assert_eq!(live_admins, 1, "exactly the protected admin remains");
+    }
+
+    /// The dead-letter reader gate keys off `users.is_admin`, not the per-org
+    /// JWT role. Seed one platform admin (passes) and one ordinary user (403),
+    /// proving a self-registered org owner cannot read the cross-org table.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn require_platform_admin_keys_off_is_admin_column(pool: PgPool) {
+        let service = admin_service(&pool);
+        let platform_admin = seed_user(&pool, "platform-admin@example.com", true).await;
+        let ordinary = seed_user(&pool, "ordinary@example.com", false).await;
+
+        service.require_platform_admin(platform_admin).await.expect("is_admin=true passes the gate");
+
+        let err = service.require_platform_admin(ordinary).await.expect_err("is_admin=false is rejected");
+        assert!(matches!(err.kind, ErrorKind::Forbidden(_)), "non-admin → 403 Forbidden, got {:?}", err.kind);
+
+        // An unknown user id is a 404 (the lookup fails before the gate).
+        let missing = service.require_platform_admin(Uuid::new_v4()).await.expect_err("unknown user");
+        assert!(matches!(missing.kind, ErrorKind::NotFound(_)), "unknown user → 404, got {:?}", missing.kind);
     }
 
     #[test]

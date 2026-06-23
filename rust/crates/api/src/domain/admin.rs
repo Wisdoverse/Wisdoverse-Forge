@@ -298,6 +298,48 @@ pub(crate) struct OrgControlPlaneSnapshot {
     pub(crate) stale_after_seconds: i64,
 }
 
+/// One captured dead-letter row (a permanently-dropped NATS envelope), as the
+/// owner-only admin reader serializes it. camelCase to match the sibling admin
+/// projections.
+///
+/// SECURITY: `payload_excerpt` is an UNTRUSTED, attacker- or work-controlled
+/// excerpt of the dropped message (a forged/stale envelope, or real task
+/// stdout/stderr for a `bad_payload` drop). It is stored-XSS-capable — any UI
+/// must render it as escaped plain text. `org_id`/`delivery_id` are NULL for the
+/// pre-auth early drops (most of them); the `subject` carries the agent UUID,
+/// which is the real debugging key. Doubles as the `query_as` target for the
+/// repository (precedent: `domain/agent.rs` already derives `sqlx::FromRow`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct DeadEventRow {
+    pub id: Uuid,
+    pub source: String,
+    pub reason: String,
+    pub subject: String,
+    pub detail: Option<String>,
+    pub delivery_id: Option<String>,
+    pub org_id: Option<Uuid>,
+    pub payload_excerpt: Option<String>,
+    pub recorded_at: DateTime<Utc>,
+}
+
+/// Paginated dead-letter list projection for `GET /admin/dead-events`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeadEventPage {
+    pub items: Vec<DeadEventRow>,
+    pub total: i64,
+    pub page: i64,
+    pub total_pages: i64,
+}
+
+impl DeadEventPage {
+    pub(crate) fn new(items: Vec<DeadEventRow>, total: i64, page: i64, limit: i64) -> Self {
+        let total_pages = if limit > 0 { (total + limit - 1) / limit } else { 0 };
+        Self { items, total, page, total_pages }
+    }
+}
+
 pub(crate) fn admin_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
@@ -518,6 +560,21 @@ impl AdminRolePolicy {
             _ => Err(ErrorKind::Forbidden("forbidden".into()).into()),
         }
     }
+
+    /// Platform-admin-only gate, keyed off the server-side `users.is_admin`
+    /// column — NOT the per-org membership role.
+    ///
+    /// This is the correct authority for cross-org surfaces that must not be
+    /// visible to a single-org admin/owner — e.g. the dead-letter reader, whose
+    /// `payload_excerpt` holds other orgs' dropped payloads. The JWT `role`
+    /// claim is the per-ORG membership role, and a self-registered user is
+    /// `owner` of their personal org, so gating on the claim would let any
+    /// registered user read the cross-org table. `users.is_admin` defaults to
+    /// `false` and is only settable by an existing admin, so it is not
+    /// self-assignable.
+    pub(crate) fn require_platform_admin(is_admin: bool) -> AppResult<()> {
+        if is_admin { Ok(()) } else { Err(ErrorKind::Forbidden("forbidden".into()).into()) }
+    }
 }
 
 /// Admin impersonation policy.
@@ -582,6 +639,53 @@ mod tests {
         assert!(AdminRolePolicy::require_admin("member").is_err());
         assert!(AdminRolePolicy::require_admin("viewer").is_err());
         assert!(AdminRolePolicy::require_admin("").is_err());
+    }
+
+    #[test]
+    fn require_platform_admin_gates_on_is_admin_flag() {
+        // The platform-admin gate keys off the server-side `users.is_admin`
+        // column, not the self-assignable per-org membership role. Cross-org
+        // dead-letter payloads must not reach a user who is merely `owner` of
+        // their own personal org.
+        assert!(AdminRolePolicy::require_platform_admin(true).is_ok());
+        let err = AdminRolePolicy::require_platform_admin(false).expect_err("non-admin must be rejected");
+        assert!(matches!(err.kind, ErrorKind::Forbidden(_)), "expected 403 for is_admin=false, got {err:?}");
+    }
+
+    #[test]
+    fn dead_event_row_serializes_camel_case_contract() {
+        use chrono::TimeZone;
+        let value = serde_json::to_value(DeadEventRow {
+            id: Uuid::nil(),
+            source: "events.ingest".into(),
+            reason: "signature_mismatch".into(),
+            subject: "events.ingest.cli.abc".into(),
+            detail: Some("agent abc".into()),
+            delivery_id: None,
+            org_id: None,
+            payload_excerpt: Some("{\"x\":1}".into()),
+            recorded_at: Utc.timestamp_millis_opt(1_700_000_000_000).unwrap(),
+        })
+        .unwrap();
+
+        assert_eq!(value["source"], "events.ingest");
+        assert_eq!(value["reason"], "signature_mismatch");
+        assert_eq!(value["subject"], "events.ingest.cli.abc");
+        assert_eq!(value["payloadExcerpt"], "{\"x\":1}");
+        assert!(value["orgId"].is_null());
+        assert!(value["deliveryId"].is_null());
+        assert!(value["recordedAt"].as_str().expect("recordedAt RFC3339").starts_with("2023-11-14T"));
+        // snake_case keys must not leak.
+        assert!(value.get("payload_excerpt").is_none());
+        assert!(value.get("recorded_at").is_none());
+    }
+
+    #[test]
+    fn dead_event_page_computes_total_pages() {
+        assert_eq!(DeadEventPage::new(vec![], 51, 1, 25).total_pages, 3);
+        assert_eq!(DeadEventPage::new(vec![], 50, 1, 25).total_pages, 2);
+        assert_eq!(DeadEventPage::new(vec![], 0, 1, 25).total_pages, 0);
+        assert_eq!(DeadEventPage::new(vec![], 10, 1, 0).total_pages, 0);
     }
 
     #[test]
