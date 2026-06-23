@@ -54,6 +54,29 @@ describe('taskFailureCopy', () => {
     expect(message).not.toContain('401')
   })
 
+  test('turns authorization header failures into a direct reconnect step', () => {
+    const message = taskFailurePreview('Authorization: Bearer live-access-123 rejected')
+
+    expect(message).toBe('Reconnect sign-in or service access, then retry.')
+    expect(message).not.toContain('Authorization')
+    expect(message).not.toContain('Bearer')
+    expect(message).not.toContain('live-access-123')
+  })
+
+  test('turns authorization header blocked hints into account access guidance', () => {
+    const message = taskBlockedPreview({
+      blockedHint: 'Authorization: Bearer live-access-123 rejected',
+      blockedReason: 'waiting_input',
+    })
+
+    expect(message).toBe(
+      'Waiting for account access. Add or reconnect the required service access, then retry.'
+    )
+    expect(message).not.toContain('Authorization')
+    expect(message).not.toContain('Bearer')
+    expect(message).not.toContain('live-access-123')
+  })
+
   test('turns busy or rate-limit blocked hints into plain wait guidance', () => {
     const message = taskBlockedPreview({
       blockedHint: 'Rate limit exceeded: 429 from provider',
@@ -98,6 +121,7 @@ describe('taskFailureCopy', () => {
   test('identifies raw failure details before they reach user-facing summaries', () => {
     expect(isRawTaskFailureDetail('command exited 1')).toBe(true)
     expect(isRawTaskFailureDetail('provider token rejected')).toBe(true)
+    expect(isRawTaskFailureDetail('Authorization: Bearer live-access-123 rejected')).toBe(true)
     expect(isRawTaskFailureDetail('Repository access needs reconnecting')).toBe(false)
   })
 })
