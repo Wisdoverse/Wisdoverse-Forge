@@ -6,7 +6,7 @@ const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
   load: 'Choose Check fix status again. Forge could not load the current fix check status.',
   approve:
-    'Choose Check again, confirm automated checks passed, then finish this fix again. The fix was not finished.',
+    'Choose Check fix status, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }
 
 export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
@@ -24,7 +24,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('bad credentials') ||
     text.includes('sign in again')
   ) {
-    return 'Sign in again, then choose Check again. Forge could not confirm your finish access.'
+    return 'Sign in again, then choose Check fix status. Forge could not confirm your finish access.'
   }
 
   if (
@@ -33,7 +33,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('permission') ||
     text.includes('resource not accessible')
   ) {
-    return 'Ask an owner or admin to check finish access for this code project, then try again.'
+    return 'Ask an owner or admin to check finish access for this code project, then choose Check fix status.'
   }
 
   if (
@@ -42,7 +42,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('no pull request') ||
     text.includes('pull request could not be found')
   ) {
-    return 'Open this task again from the Tasks page, then choose Check again. Forge could not find the fix check for this task.'
+    return 'Open this task again from the Tasks page, then choose Check fix status. Forge could not find the fix check for this task.'
   }
 
   if (
@@ -51,7 +51,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('mergeable state') ||
     text.includes('cannot be merged')
   ) {
-    return 'Choose Check again after the project code is updated. This fix needs the latest project code before it can finish.'
+    return 'Choose Check fix status after the project code is updated. This fix needs the latest project code before it can finish.'
   }
 
   if (
@@ -60,7 +60,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     text.includes('check_suite') ||
     text.includes('required status')
   ) {
-    return 'Wait for automated checks to finish, then choose Check again before finishing.'
+    return 'Wait for automated checks to finish, then choose Check fix status before finishing.'
   }
 
   const safeDetail = userSafeDetail(detail)

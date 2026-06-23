@@ -8542,7 +8542,7 @@ const own = 'The review system needs someone else to review changes you opened y
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Fix check status</span><span>Waiting for someone to check</span><a>Fix check page #42</a><button aria-label="Check fix status again">Check again</button></>
+  return <><span>Fix check status</span><span>Waiting for someone to check</span><a>Fix check page #42</a><button aria-label="Check fix status again">Check fix status</button></>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
@@ -8557,6 +8557,14 @@ const ACTION_FALLBACKS = {
 
   it('flags fix check status errors that do not name the check button', () => {
     const cwd = fixture({
+      'src/app/features/detail/ReviewSnapshotPanel.tsx': `
+function ReviewSnapshotPanel() {
+  return <>
+    <button aria-label="Check fix status again">Check again</button>
+    <p>Choose Check again after automated checks finish.</p>
+  </>
+}
+`,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
   load: 'Choose Check again, then try again. Forge could not load the current fix check status.',
@@ -8567,12 +8575,22 @@ const ACTION_FALLBACKS = {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'review-status-copy',
-        location: 'src/app/features/detail/model/reviewSnapshotErrorMessage.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/ReviewSnapshotPanel.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/ReviewSnapshotPanel.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/model/reviewSnapshotErrorMessage.ts:3',
+        }),
+      ])
+    )
   })
 
   it('flags saved-item history empty copy that does not explain how history starts', () => {
