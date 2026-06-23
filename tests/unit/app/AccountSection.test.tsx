@@ -428,8 +428,10 @@ describe('AccountSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert.textContent).toContain('The current password did not match this account')
-    expect(alert.textContent).toMatch(/^Re-enter the current password/)
+    expect(alert.textContent).toBe(
+      'Re-enter the current password, then choose Update password again. The current password did not match this account.'
+    )
+    expect(alert.textContent).not.toContain('change your password again')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('HTTP 422')
   })
