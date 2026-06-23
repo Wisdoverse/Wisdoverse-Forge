@@ -224,6 +224,16 @@ impl UserService {
         self.repo.find_by_id(scope, id).await
     }
 
+    /// Read the caller's GLOBAL platform-admin flag (`users.is_admin`).
+    ///
+    /// The JWT does NOT carry `is_admin`, so `/me` looks it up here — mirroring
+    /// how `AdminService::require_platform_admin` reads the same column — to
+    /// expose it as the `/me` `isAdmin` field. Pass the authenticated user's own
+    /// id.
+    pub(crate) async fn is_platform_admin(&self, user_id: UserId) -> AppResult<bool> {
+        self.repo.find_is_admin_by_id(user_id).await
+    }
+
     /// Update user profile (tenant-scoped).
     pub async fn update_profile(&self, scope: &TenantScope, id: UserId, display_name: Option<&str>) -> AppResult<User> {
         self.repo.update_profile(scope, id, display_name).await

@@ -25,6 +25,13 @@ pub struct OrgUserSearchResult {
     pub role: String,
 }
 
+/// Fixed advisory-lock key that serializes the first-user platform-admin
+/// bootstrap in [`UserRepository::create`]. Any stable constant works; `881`
+/// references the issue (#881) that introduced the platform-admin gate, so the
+/// intent is greppable. Taken with `pg_advisory_xact_lock` inside the
+/// registration transaction so it auto-releases at commit/rollback.
+const BOOTSTRAP_ADVISORY_LOCK_KEY: i64 = 881;
+
 /// Database access layer for users.
 pub struct UserRepository {
     pool: PgPool,
@@ -58,6 +65,22 @@ impl UserRepository {
         .ok_or_else(|| UserRepositoryPolicy::user_not_found(id))
     }
 
+    /// Read the caller's GLOBAL platform-admin flag (`users.is_admin`) by id.
+    ///
+    /// Per-user, NOT org-scoped: `is_admin` is a deployment-wide flag that
+    /// follows the account across organizations, so this keys off the user id
+    /// only (same pattern as `get_preferences`). Callers must pass the
+    /// authenticated user's own id (`scope.user_id()`). Backs the `/me`
+    /// `isAdmin` field so the frontend can gate the admin console exactly as the
+    /// backend platform-admin gate does. A soft-deleted/unknown user is a 404.
+    pub async fn find_is_admin_by_id(&self, user_id: UserId) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>("SELECT is_admin FROM users WHERE id = $1 AND deleted_at IS NULL")
+            .bind(user_id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| UserRepositoryPolicy::user_not_found(user_id))
+    }
+
     /// Create a new user (registration).
     ///
     /// Registration is fail-closed for email-domain organizations: an unverified
@@ -67,6 +90,17 @@ impl UserRepository {
     /// the user later.
     ///
     /// All steps run in one transaction so login works immediately after.
+    ///
+    /// Bootstrap (no-lockout): on a fresh deployment the very first registered
+    /// user is promoted to platform admin (`users.is_admin = true`). The
+    /// platform-admin gate (`AdminService::require_platform_admin`, #881) now
+    /// guards every cross-org `/admin/*` endpoint, and `is_admin` is only
+    /// settable by an existing admin — so without this, a brand-new install
+    /// would have no one able to administer it. The promotion is guarded by a
+    /// `COUNT(*) = 0` subquery and serialized by a transaction-scoped advisory
+    /// lock (see `BOOTSTRAP_ADVISORY_LOCK_KEY`), so it is race-safe (only the
+    /// first committer wins) and a no-op once any admin exists. Migration 072
+    /// covers deployments that pre-date this code.
     pub async fn create(&self, email: &str, password_hash: &str, display_name: Option<&str>) -> AppResult<User> {
         let mut tx = self.pool.begin().await?;
 
@@ -88,6 +122,34 @@ impl UserRepository {
                 _ => e.into(),
             }
         })?;
+
+        // First-user bootstrap: promote to platform admin only when there is not
+        // yet any (non-deleted) admin. The just-inserted row is excluded from the
+        // count via `id <> $1` (it defaults to `is_admin = false` anyway).
+        //
+        // Race-safety: under READ COMMITTED the `COUNT(*) = 0` subquery alone is
+        // NOT enough — two concurrent first-ever registrations each insert their
+        // own non-admin row in separate transactions, neither sees the other's
+        // uncommitted promotion, and BOTH would pass the guard and self-promote.
+        // A fixed-key transaction advisory lock serializes the bootstrap
+        // decision: the second registration blocks on the lock until the first
+        // commits (releasing the xact lock), then re-evaluates the COUNT against
+        // the now-committed admin row and promotes no one. The lock auto-releases
+        // at commit/rollback, so it never leaks even on the insert/update error
+        // paths.
+        sqlx::query("SELECT pg_advisory_xact_lock($1)").bind(BOOTSTRAP_ADVISORY_LOCK_KEY).execute(&mut *tx).await?;
+        let promotion = sqlx::query(
+            r#"UPDATE users
+                  SET is_admin = true
+                WHERE id = $1
+                  AND (SELECT COUNT(*) FROM users WHERE is_admin AND deleted_at IS NULL AND id <> $1) = 0"#,
+        )
+        .bind(user.id.as_uuid())
+        .execute(&mut *tx)
+        .await?;
+        // Reflect the actual outcome in the returned entity without a second
+        // SELECT: exactly one row is touched iff the promotion fired.
+        let user = User { is_admin: user.is_admin || promotion.rows_affected() == 1, ..user };
 
         let slug_base = email
             .split('@')
@@ -556,6 +618,70 @@ mod tests {
             .await
             .expect_err("merge must fail");
         assert!(matches!(merge_err.kind, agentforge_core::ErrorKind::NotFound(_)));
+    }
+
+    /// First-user bootstrap (#881): the very first registered account is
+    /// promoted to platform admin, but the second is not. This keeps a fresh
+    /// deployment from locking itself out of the platform-admin-gated `/admin/*`
+    /// surface while never minting extra admins.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn create_promotes_only_the_first_user_to_platform_admin(pool: sqlx::PgPool) {
+        let repo = UserRepository::new(pool.clone());
+
+        let first = repo.create("first@example.com", "hash", Some("First")).await.expect("create first user");
+        assert!(first.is_admin, "the first registered user becomes the platform admin");
+
+        let second = repo.create("second@example.com", "hash", Some("Second")).await.expect("create second user");
+        assert!(!second.is_admin, "the second registered user is NOT promoted");
+
+        // The returned entities must match the persisted rows (no second SELECT).
+        let stored_admin: bool = sqlx::query_scalar("SELECT is_admin FROM users WHERE email = $1")
+            .bind("first@example.com")
+            .fetch_one(&pool)
+            .await
+            .expect("read first user is_admin");
+        assert!(stored_admin, "first user's promotion is persisted");
+        let stored_member: bool = sqlx::query_scalar("SELECT is_admin FROM users WHERE email = $1")
+            .bind("second@example.com")
+            .fetch_one(&pool)
+            .await
+            .expect("read second user is_admin");
+        assert!(!stored_member, "second user stays a non-admin");
+
+        // Exactly one platform admin exists deployment-wide.
+        let admin_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE is_admin AND deleted_at IS NULL")
+            .fetch_one(&pool)
+            .await
+            .expect("count admins");
+        assert_eq!(admin_count, 1, "exactly one platform admin after two registrations");
+    }
+
+    /// `find_is_admin_by_id` reads the global flag for the `/me` `isAdmin` field
+    /// and 404s for unknown/soft-deleted users.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn find_is_admin_by_id_reads_global_flag(pool: sqlx::PgPool) {
+        let repo = UserRepository::new(pool.clone());
+
+        let admin_id = uuid::Uuid::new_v4();
+        sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, true)")
+            .bind(admin_id)
+            .bind(format!("admin-{admin_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed admin");
+        let member_id = uuid::Uuid::new_v4();
+        sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, false)")
+            .bind(member_id)
+            .bind(format!("member-{member_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed member");
+
+        assert!(repo.find_is_admin_by_id(UserId::from(admin_id)).await.expect("admin lookup"));
+        assert!(!repo.find_is_admin_by_id(UserId::from(member_id)).await.expect("member lookup"));
+
+        let missing = repo.find_is_admin_by_id(UserId::new()).await.expect_err("unknown user is 404");
+        assert!(matches!(missing.kind, agentforge_core::ErrorKind::NotFound(_)));
     }
 
     #[test]

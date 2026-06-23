@@ -7,12 +7,21 @@
  * - Remember Me support (longer refresh token)
  */
 
+import type { MeResponse } from '@shared/types'
+
 export interface AuthUser {
   id: string
   email: string
   username: string
   orgId?: string
   role?: string
+  /**
+   * GLOBAL platform-admin flag (`users.is_admin`). NOT in the JWT — it is
+   * populated from `GET /me` (see `fetchMe`). The admin console is gated on
+   * this, matching the backend platform-admin gate (#881), instead of the
+   * self-assignable per-org `role`.
+   */
+  isAdmin?: boolean
 }
 
 export interface LoginResult {
@@ -213,6 +222,8 @@ export class AuthManager {
       }
       this.scheduleRefresh(data.tokens.expiresIn)
       this.notifyCallbacks()
+      // Hydrate the global isAdmin flag (#881); persists + re-notifies on success.
+      void this.fetchMe()
       return { ok: true, user: this.user }
     } catch {
       return { ok: false, error: AUTH_LOGIN_NETWORK_ERROR }
@@ -245,6 +256,8 @@ export class AuthManager {
         this.saveToStorage()
         this.scheduleRefresh(data.tokens.expiresIn)
         this.notifyCallbacks()
+        // Hydrate the global isAdmin flag (#881); persists + re-notifies on success.
+        void this.fetchMe()
         return { ok: true, user: this.user, tokens: data.tokens }
       } else {
         // Email verification required - return user data but no tokens
@@ -359,6 +372,45 @@ export class AuthManager {
     return this.user
   }
 
+  /**
+   * Refresh the cached user from `GET /me`, populating the GLOBAL `isAdmin`
+   * flag. The JWT carries only the per-org `role`, not `is_admin`, so the admin
+   * console can only be gated correctly once this has run (#881).
+   *
+   * Persists the merged user to localStorage (`af:auth:user`) so the `/admin`
+   * route guard — which reads the stored user synchronously in `beforeLoad` —
+   * sees `isAdmin`. Best-effort: a network failure leaves the existing user
+   * untouched and returns `null` (the guard then fails closed). Notifies
+   * auth-change listeners so React state (`AuthProvider`) re-renders with the
+   * enriched user.
+   */
+  async fetchMe(): Promise<AuthUser | null> {
+    if (!this.accessToken) return null
+    try {
+      const res = await fetch(`${this.apiUrl}/me`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: this.getAuthHeader(),
+      })
+      if (!res.ok) return null
+      const data = (await res.json()) as Partial<MeResponse>
+      if (data?.ok !== true) return null
+      if (!this.user) return null
+      this.user = {
+        ...this.user,
+        isAdmin: data.isAdmin === true,
+        // Keep org/role in sync with the server's view when present.
+        orgId: typeof data.org_id === 'string' ? data.org_id : this.user.orgId,
+        role: typeof data.role === 'string' ? data.role : this.user.role,
+      }
+      this.saveToStorage()
+      this.notifyCallbacks()
+      return this.user
+    } catch {
+      return null
+    }
+  }
+
   getRememberMe(): boolean {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.rememberMe) ?? 'false')
@@ -392,6 +444,8 @@ export class AuthManager {
     this.saveToStorage()
     this.scheduleRefresh(data.tokens.expiresIn)
     this.notifyCallbacks()
+    // Hydrate the global isAdmin flag (#881); persists + re-notifies on success.
+    void this.fetchMe()
   }
 
   /** Resend verification email */
