@@ -498,7 +498,7 @@ function providerCountForFilter(providers: LlmProviderConfig[], filter: Provider
 }
 
 function configuredAiServicesLabel(count: number): string {
-  return `${count} configured AI ${count === 1 ? 'service' : 'services'}`
+  return `${count} saved AI ${count === 1 ? 'service' : 'services'}`
 }
 
 function providerStatusLabel(provider: LlmProviderConfig): string {
