@@ -42,7 +42,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
 
   if (status === 401) {
     const recovery = ACTION_RECOVERY[action]
-    return `Sign in again, then open ${recovery.location} and try again. Your sign-in expired.`
+    const retryStep =
+      action === 'startCliSignIn'
+        ? `${recovery.openStep} again, then reconnect the account`
+        : `${recovery.openStep} again`
+    return `Sign in again, then ${retryStep}. Your sign-in expired.`
   }
 
   if (status === 403) {

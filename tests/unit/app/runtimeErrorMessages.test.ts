@@ -15,7 +15,11 @@ describe('runtimeErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized')),
-      'Sign in again, then open Where agents work and try again. Your sign-in expired.'
+      'Sign in again, then open Settings and Where agents work again. Your sign-in expired.'
+    )
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', new Error('401 Unauthorized')),
+      'Sign in again, then open Settings, then Codex sign-in again, then reconnect the account. Your sign-in expired.'
     )
   })
 
