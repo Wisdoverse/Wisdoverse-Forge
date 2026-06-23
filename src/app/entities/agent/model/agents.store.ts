@@ -281,13 +281,13 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
 
   if (action === 'create') {
     if (normalized.includes('name')) {
-      return 'Name this agent, choose where it should work, then try creating it again.'
+      return 'Name this agent, choose where it should work, then choose Add agent again.'
     }
     if (normalized.includes('provider') || normalized.includes('model')) {
-      return 'Choose a tested AI service and model, then try creating this agent again.'
+      return 'Choose a tested AI service and model, then choose Add agent again.'
     }
     if (normalized.includes('workspace') || normalized.includes('project')) {
-      return 'Choose a team space and project you can access, then try creating this agent again.'
+      return 'Choose a team space and project you can access, then choose Add agent again.'
     }
   }
 

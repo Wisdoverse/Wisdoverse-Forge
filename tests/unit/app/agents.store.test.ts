@@ -108,7 +108,7 @@ describe('Agents Store', () => {
   test('uses AI service language for create validation failures', () => {
     expectBeginnerError(
       agentActionErrorMessage('create', apiError(422, { message: 'provider and model required' })),
-      'Choose a tested AI service and model, then try creating this agent again.'
+      'Choose a tested AI service and model, then choose Add agent again.'
     )
   })
 
@@ -161,9 +161,10 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Choose a team space and project you can access, then try creating this agent again.'
+      'Choose a team space and project you can access, then choose Add agent again.'
     )
     expect(message).not.toContain('Choose a workspace')
+    expect(message).not.toContain('try creating')
   })
 
   test('explains this-computer agent validation without CLI jargon', () => {
@@ -306,8 +307,9 @@ describe('Agents Store', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Name this agent, choose where it should work, then try creating it again.'
+      'Name this agent, choose where it should work, then choose Add agent again.'
     )
+    expect(useAgentsStore.getState().error).not.toContain('try creating')
   })
 
   test('stores the requested create-agent starting choice while opening the modal', () => {
