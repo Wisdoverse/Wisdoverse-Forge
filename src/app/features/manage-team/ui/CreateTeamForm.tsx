@@ -63,7 +63,11 @@ function createTeamErrorMessage(error: unknown): string {
   const lower = raw.toLowerCase()
   const code = teamCreateStatusCode(error)
 
-  if (/\b(database|sql|stack trace|traceback|exception|panic|token|secret)\b/i.test(raw)) {
+  if (
+    /\b(database|sql|stack trace|traceback|exception|panic|token|secret|internal server error)\b/i.test(
+      raw
+    )
+  ) {
     return 'Open Settings, then Teams again, then create this team. If it still fails, ask an owner or admin to check Teams in Settings.'
   }
 
