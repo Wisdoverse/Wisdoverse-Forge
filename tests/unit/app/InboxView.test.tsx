@@ -206,6 +206,32 @@ describe('InboxView', () => {
     expect(screen.queryByText(/Unauthorized/i)).toBeNull()
   })
 
+  test('hides raw details from older blocked notifications', async () => {
+    orchestrationApiMock.fetchInboxNotifications.mockResolvedValue([
+      {
+        id: 'task-owner:t-raw-blocked:blocked',
+        type: 'blocked',
+        taskId: 't-raw-blocked',
+        taskTitle: 'Refresh agent access',
+        message: 'panic: stack trace line 7 from raw command output',
+        taskHref: '/tasks',
+        ownerUserId: 'owner-1',
+        read: false,
+        timestamp: Date.now(),
+      },
+    ])
+
+    render(<InboxView />)
+
+    await screen.findByTestId('inbox-notification-task-owner:t-raw-blocked:blocked')
+    expect(
+      screen.getByText('Open the task, read the recovery note, then choose the next step.')
+    ).toBeDefined()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+  })
+
   test('summarizes the safest next action for beginners', () => {
     const store = useFeedStore.getState()
     store.addNotification({
