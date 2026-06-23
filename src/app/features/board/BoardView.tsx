@@ -528,7 +528,6 @@ function taskMatchesBoardFilters(task: TaskSummary, filters: BoardFilters): bool
   if (!query) return true
 
   return [
-    task.id,
     task.params.task,
     task.params.message,
     task.assignedAgentName,
