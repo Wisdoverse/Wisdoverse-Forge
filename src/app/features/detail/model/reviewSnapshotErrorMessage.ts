@@ -4,7 +4,7 @@ const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
-  load: 'Choose Check again, then try again. Forge could not load the current fix check status.',
+  load: 'Choose Check fix status again. Forge could not load the current fix check status.',
   approve:
     'Choose Check again, confirm automated checks passed, then finish this fix again. The fix was not finished.',
 }

@@ -8547,12 +8547,32 @@ function ReviewSnapshotPanel() {
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
 const ACTION_FALLBACKS = {
-  load: 'Choose Check again, then try again. Forge could not load the current fix check status.',
+  load: 'Choose Check fix status again. Forge could not load the current fix check status.',
 }
 `,
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags fix check status errors that do not name the check button', () => {
+    const cwd = fixture({
+      'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
+const ACTION_FALLBACKS = {
+  load: 'Choose Check again, then try again. Forge could not load the current fix check status.',
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'review-status-copy',
+        location: 'src/app/features/detail/model/reviewSnapshotErrorMessage.ts:3',
+      }),
+    ])
   })
 
   it('flags saved-item history empty copy that does not explain how history starts', () => {

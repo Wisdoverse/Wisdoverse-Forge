@@ -166,7 +166,7 @@ describe('ReviewSnapshotPanel', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose Check again, then try again. Forge could not load the current fix check status.'
+      'Choose Check fix status again. Forge could not load the current fix check status.'
     )
     expect(alert).not.toHaveTextContent('Refresh review status')
     expect(alert).not.toHaveTextContent('Refresh fix review')

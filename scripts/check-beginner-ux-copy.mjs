@@ -181,6 +181,7 @@ const REVIEW_STATUS_JARGON_PATTERNS = [
   /\breview changes\b/i,
   /\bcode review access\b/i,
   /\bcould not find the review\b/i,
+  /\bChoose Check again, then try again\. Forge could not load the current fix check status\./i,
 ]
 
 const NOTE_SPACE_JARGON_PATTERNS = [
