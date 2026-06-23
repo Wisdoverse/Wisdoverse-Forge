@@ -202,6 +202,28 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/Missing token/i)).toBeNull()
   })
 
+  test('hides camelCase access token values in saved details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Tool access check',
+              accessToken: 'secret-camel-token-value',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-camel-token-value/i)).toBeNull()
+    expect(screen.queryByText(/accessToken/i)).toBeNull()
+  })
+
   test('turns technical saved-detail summaries into plain next steps', () => {
     render(
       <ContextEvidenceList
@@ -264,9 +286,7 @@ describe('ContextEvidenceList', () => {
 
     fireEvent.click(screen.getByText('Show saved details'))
 
-    expect(screen.getAllByText(/Behind-the-scenes details were hidden/i).length).toBeGreaterThan(
-      0
-    )
+    expect(screen.getAllByText(/Behind-the-scenes details were hidden/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/technical problem/i)).toBeNull()
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()
