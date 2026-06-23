@@ -199,6 +199,12 @@ Acceptance:
 - Empty states prefer a direct action over conceptual explanation.
 - Frontend remains within strict FSD boundaries.
 
+Progress:
+
+- Tasks: the global New Task flow now shows an `aria-live` success state after a
+  task is saved, with the next step to watch the board and open the task when it
+  is ready to check. Covered by `tests/unit/app/AppLayout.test.tsx`.
+
 ### Phase 4 - CLI and docs path
 
 Deliverables:
