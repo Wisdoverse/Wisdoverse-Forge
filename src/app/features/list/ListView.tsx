@@ -615,7 +615,6 @@ function taskSearchText(task: TaskSummary): string {
     task.params.task,
     task.params.message,
     task.assignedAgentName,
-    task.assignedTo,
     task.priority,
     task.state,
     task.error,

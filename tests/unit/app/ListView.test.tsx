@@ -344,6 +344,33 @@ describe('ListView', () => {
     expect(screen.getByText('Build settings')).toBeDefined()
   })
 
+  test('does not match hidden agent ids in task list search', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'working-with-hidden-agent',
+        state: 'working',
+        params: { task: 'Write customer handoff note', message: 'Summarize the next step' },
+        assignedTo: 'agent-hidden-42',
+        priority: 'normal',
+        progress: 10,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText('Write customer handoff note')).toBeDefined()
+    expect(screen.getByText('Chosen agent')).toBeDefined()
+    fireEvent.change(screen.getByRole('searchbox', { name: /search task list/i }), {
+      target: { value: 'agent-hidden-42' },
+    })
+
+    const emptyState = screen.getByTestId('list-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks')
+    expect(screen.queryByText('Write customer handoff note')).toBeNull()
+  })
+
   test('explains search-only and filter-only empty task lists', () => {
     useBoardStore.getState().setTasks([
       {
