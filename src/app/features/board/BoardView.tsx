@@ -6,7 +6,7 @@ import { useContextFeaturesStore } from '@app/shared/model/context-features.stor
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { useNavigationStore } from '@app/entities/navigation'
 import { KanbanColumn } from './KanbanColumn'
-import { TaskCard } from './TaskCard'
+import { TaskCard, taskCardSearchText } from './TaskCard'
 import {
   orchestrationApi,
   type ParticipantSummary,
@@ -82,8 +82,13 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   const [displayMode, setDisplayMode] = useState<BoardDisplayMode>('comfortable')
   const workload = useMemo(() => summarizeWorkload(columns), [columns])
   const boardFilters = useMemo(
-    () => ({ searchQuery, priorityFilter, assigneeFilter }),
-    [assigneeFilter, priorityFilter, searchQuery]
+    () => ({
+      searchQuery,
+      priorityFilter,
+      assigneeFilter,
+      canOpenPublishPreview: canPublishWithContext,
+    }),
+    [assigneeFilter, canPublishWithContext, priorityFilter, searchQuery]
   )
   const visibleColumns = useMemo(
     () => filterBoardColumns(columns, boardFilters),
@@ -490,6 +495,7 @@ interface BoardFilters {
   searchQuery: string
   priorityFilter: BoardPriorityFilter
   assigneeFilter: BoardAssigneeFilter
+  canOpenPublishPreview: boolean
 }
 
 function summarizeWorkload(columns: Record<ColumnId, TaskSummary[]>): BoardWorkloadSnapshot {
@@ -527,16 +533,9 @@ function taskMatchesBoardFilters(task: TaskSummary, filters: BoardFilters): bool
   const query = filters.searchQuery.trim().toLowerCase()
   if (!query) return true
 
-  return [
-    task.params.task,
-    task.params.message,
-    task.assignedAgentName,
-    task.priority,
-    task.blockedHint,
-    task.error,
-  ]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(query))
+  return taskCardSearchText(task, {
+    canOpenPublishPreview: filters.canOpenPublishPreview,
+  }).includes(query)
 }
 
 function summarizeBoardFilters(

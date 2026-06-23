@@ -395,6 +395,35 @@ describe('BoardView', () => {
     expect(screen.queryByText('Write customer handoff note')).toBeNull()
   })
 
+  test('does not match hidden task descriptions in board search', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'brief-hidden-1',
+        state: 'backlog',
+        params: {
+          task: 'Prepare customer summary',
+          message: 'internal-only rollout migration note',
+        },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(await screen.findByText('Prepare customer summary')).toBeDefined()
+    expect(screen.queryByText('internal-only rollout migration note')).toBeNull()
+    fireEvent.change(screen.getByTestId('board-search'), {
+      target: { value: 'internal-only rollout migration note' },
+    })
+
+    const emptyState = screen.getByTestId('board-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding every task')
+    expect(screen.queryByText('Prepare customer summary')).toBeNull()
+  })
+
   test('filters board cards by priority and assignee state', async () => {
     mockGetTasks.mockResolvedValueOnce([
       {
