@@ -115,8 +115,9 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+      'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/then try again/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/update what you can do/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 403/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
