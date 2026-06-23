@@ -9,6 +9,7 @@ use tokio::sync::oneshot;
 
 use crate::config::Config;
 use crate::mcp::client::{OutboundMcp, OutboundMcpClient};
+use crate::realtime::Broadcaster;
 
 use super::activities::WorkflowActivities;
 use super::runtime::WorkflowRuntime;
@@ -58,14 +59,16 @@ pub async fn build_live_workflow_components(
     config: &Config,
     store: Option<Arc<dyn Store>>,
     outbound_mcp: Option<Arc<dyn OutboundMcp>>,
+    broadcaster: Option<Arc<Broadcaster>>,
 ) -> anyhow::Result<Option<WorkflowRuntimeComponents>> {
     build_live_workflow_components_with_factory(
         config,
         store,
         outbound_mcp,
+        broadcaster,
         |config: Config| async move { connect_temporal_client(&config).await },
-        |client, outbound_mcp, store| {
-            let activities = WorkflowActivities::new(outbound_mcp, store);
+        |client, outbound_mcp, store, broadcaster| {
+            let activities = WorkflowActivities::new(outbound_mcp, store, broadcaster);
             start_worker(client, activities)
         },
     )
@@ -76,13 +79,19 @@ pub async fn build_live_workflow_components_with_factory<Connect, ConnectFut, St
     config: &Config,
     store: Option<Arc<dyn Store>>,
     outbound_mcp: Option<Arc<dyn OutboundMcp>>,
+    broadcaster: Option<Arc<Broadcaster>>,
     connect: Connect,
     start: Start,
 ) -> anyhow::Result<Option<WorkflowRuntimeComponents>>
 where
     Connect: Fn(Config) -> ConnectFut,
     ConnectFut: Future<Output = anyhow::Result<temporalio_client::Client>>,
-    Start: Fn(temporalio_client::Client, Arc<dyn OutboundMcp>, Arc<dyn Store>) -> anyhow::Result<WorkflowWorkerHandle>,
+    Start: Fn(
+        temporalio_client::Client,
+        Arc<dyn OutboundMcp>,
+        Arc<dyn Store>,
+        Option<Arc<Broadcaster>>,
+    ) -> anyhow::Result<WorkflowWorkerHandle>,
 {
     let Some(store) = store else {
         return Ok(None);
@@ -100,7 +109,7 @@ where
     let client = connect(config.clone()).await?;
     let runtime: Arc<dyn WorkflowRuntime> = Arc::new(TemporalWorkflowRuntime::new(client.clone(), store.clone()));
     let service = Arc::new(WorkflowService::new(store.clone(), runtime));
-    let worker = start(client, outbound_mcp, store)?;
+    let worker = start(client, outbound_mcp, store, broadcaster)?;
     Ok(Some(WorkflowRuntimeComponents { service, worker }))
 }
 
@@ -111,20 +120,22 @@ pub async fn build_workflow_runtime(
     config: &Config,
     store: Option<Arc<dyn Store>>,
     outbound_mcp: Option<Arc<dyn OutboundMcp>>,
+    broadcaster: Option<Arc<Broadcaster>>,
 ) -> (Option<WorkflowRuntimeComponents>, WorkflowRuntimeStatus) {
     let timeout = std::time::Duration::from_secs(config.temporal_connect_timeout_secs.max(1));
     build_workflow_runtime_with_factory(
         config,
         store,
         outbound_mcp,
+        broadcaster,
         move |config: Config| async move {
             match tokio::time::timeout(timeout, connect_temporal_client(&config)).await {
                 Ok(result) => result,
                 Err(_) => Err(anyhow!("temporal connect timed out after {}s", timeout.as_secs())),
             }
         },
-        |client, outbound_mcp, store| {
-            let activities = WorkflowActivities::new(outbound_mcp, store);
+        |client, outbound_mcp, store, broadcaster| {
+            let activities = WorkflowActivities::new(outbound_mcp, store, broadcaster);
             start_worker(client, activities)
         },
     )
@@ -136,20 +147,26 @@ pub async fn build_workflow_runtime_with_factory<Connect, ConnectFut, Start>(
     config: &Config,
     store: Option<Arc<dyn Store>>,
     outbound_mcp: Option<Arc<dyn OutboundMcp>>,
+    broadcaster: Option<Arc<Broadcaster>>,
     connect: Connect,
     start: Start,
 ) -> (Option<WorkflowRuntimeComponents>, WorkflowRuntimeStatus)
 where
     Connect: Fn(Config) -> ConnectFut,
     ConnectFut: Future<Output = anyhow::Result<temporalio_client::Client>>,
-    Start: Fn(temporalio_client::Client, Arc<dyn OutboundMcp>, Arc<dyn Store>) -> anyhow::Result<WorkflowWorkerHandle>,
+    Start: Fn(
+        temporalio_client::Client,
+        Arc<dyn OutboundMcp>,
+        Arc<dyn Store>,
+        Option<Arc<Broadcaster>>,
+    ) -> anyhow::Result<WorkflowWorkerHandle>,
 {
     // Distinguish "intentionally off" from "tried and failed": when temporal is
     // disabled or no store is configured, the inner builder returns Ok(None).
     if !config.temporal_enabled || store.is_none() {
         return (None, WorkflowRuntimeStatus::Disabled);
     }
-    match build_live_workflow_components_with_factory(config, store, outbound_mcp, connect, start).await {
+    match build_live_workflow_components_with_factory(config, store, outbound_mcp, broadcaster, connect, start).await {
         Ok(Some(components)) => (Some(components), WorkflowRuntimeStatus::Up),
         Ok(None) => (None, WorkflowRuntimeStatus::Disabled),
         Err(err) => {
@@ -231,7 +248,7 @@ mod tests {
     async fn build_runtime_disabled_when_temporal_off() {
         let config = Config { temporal_enabled: false, ..Default::default() };
         let store: Option<Arc<dyn Store>> = Some(Arc::new(MemoryStore::default()));
-        let (components, status) = build_workflow_runtime(&config, store, None).await;
+        let (components, status) = build_workflow_runtime(&config, store, None, None).await;
         assert!(components.is_none());
         assert_eq!(status, WorkflowRuntimeStatus::Disabled);
     }
@@ -244,8 +261,9 @@ mod tests {
             &config,
             store,
             None,
+            None,
             |_c| async { Err(anyhow::anyhow!("temporal down")) },
-            |_c, _m, _s| Err(anyhow::anyhow!("unreachable")),
+            |_c, _m, _s, _b| Err(anyhow::anyhow!("unreachable")),
         )
         .await;
         assert!(components.is_none());

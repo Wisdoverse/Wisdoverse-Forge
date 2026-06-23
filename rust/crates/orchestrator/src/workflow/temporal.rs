@@ -395,6 +395,7 @@ fn execute_node(
                             node_name: node.name.clone(),
                             config: node.config.clone(),
                             dep_results,
+                            org_id: workflow_input.org_id.clone(),
                         },
                         standard_activity_options(),
                     )
@@ -414,6 +415,7 @@ fn execute_node(
                         node_name: node.name.clone(),
                         config: node.config.clone(),
                         timeout_secs,
+                        org_id: workflow_input.org_id.clone(),
                     },
                     human_review_activity_options(Duration::from_secs(timeout_secs)),
                 );
