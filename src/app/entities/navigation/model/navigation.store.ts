@@ -224,32 +224,32 @@ export function navigationActionErrorMessage(
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
-    return `Check your connection, then open the left menu and try to ${actionPhrase} again.`
+    return `Check your connection, then open the left menu and ${actionPhrase} again.`
   }
 
   if (status === 401) {
-    return `Sign in again, then open the left menu and try to ${actionPhrase} again.`
+    return `Sign in again, then open the left menu and ${actionPhrase} again.`
   }
   if (status === 403) {
     return navigationPermissionMessage(area, action)
   }
   if (status === 404) {
-    return `Open the left menu and try to ${actionPhrase} again. ${navigationAreaNotReadyMessage(area)}`
+    return `Open the left menu and ${actionPhrase} again. ${navigationAreaNotReadyMessage(area)}`
   }
   if (status === 409) {
-    return 'Open the left menu, check the current teams and projects, then try again. The left menu changed while you were working.'
+    return `Open the left menu, check the current teams and projects, then ${actionPhrase} again. The left menu changed while you were working.`
   }
   if (status === 422) {
     return navigationValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `Wait a moment, then try to ${actionPhrase} again. The left menu is busy.`
+    return `Wait a moment, then ${actionPhrase} again. The left menu is busy.`
   }
   if (status >= 500) {
     return 'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams or Projects in Settings.'
   }
 
-  return `Open the left menu and try to ${actionPhrase} again.`
+  return `Open the left menu and ${actionPhrase} again.`
 }
 
 function navigationValidationMessage(
@@ -264,7 +264,7 @@ function navigationValidationMessage(
       return 'Name this waiting place, choose its project, then create it again.'
     }
     if (normalized.includes('project')) {
-      return 'Choose the project where tasks should wait, then try again.'
+      return 'Choose the project where tasks should wait, then create the waiting place again.'
     }
     return action === 'create'
       ? 'Check the waiting place name and project, then create it again.'
@@ -275,7 +275,7 @@ function navigationValidationMessage(
     return 'Choose a team space you can access, then open the left menu and load its teams and projects again.'
   }
 
-  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, then open the left menu and try again.`
+  return `Check the ${NAVIGATION_AREA_LABELS[area]} selection, then open the left menu and ${navigationActionPhrase(area, action)} again.`
 }
 
 function lsGet(key: string): string | null {
