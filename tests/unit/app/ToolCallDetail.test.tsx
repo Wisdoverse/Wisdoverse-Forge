@@ -123,6 +123,48 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
   })
 
+  test('turns reversed expired access errors into reconnect guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'token expired' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.queryByText(/token expired/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+  })
+
+  test('turns revoked access errors into reconnect guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'token revoked' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.queryByText(/token revoked/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+  })
+
   test('hides technical tool failure details from summaries and extra details', () => {
     render(
       <ToolCallDetail
@@ -159,6 +201,77 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/raw command output/i)).toBeNull()
   })
 
+  test('turns HTTP status failures into plain guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'HTTP 401 Unauthorized from provider endpoint' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/This step hit a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/HTTP 401/i)).toBeNull()
+    expect(screen.queryByText(/provider endpoint/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(screen.getAllByText(/This step hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Unauthorized/i)).toBeNull()
+  })
+
+  test('turns provider endpoint failures into plain guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'provider endpoint failed during payload validation' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/This step hit a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/provider endpoint/i)).toBeNull()
+    expect(screen.queryByText(/payload validation/i)).toBeNull()
+  })
+
+  test('hides bearer authorization commands in tool details', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          input: {
+            command: 'curl -H "Authorization: Bearer saved-secret-token" https://api.example.com',
+          },
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(
+      screen.getByText(/Account access details were hidden.*reconnect the required account access/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Authorization/i)).toBeNull()
+    expect(screen.queryByText(/Bearer/i)).toBeNull()
+    expect(screen.queryByText(/saved-secret-token/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
+
+    expect(
+      screen.getAllByText(
+        /Account access details were hidden.*reconnect the required account access/i
+      ).length
+    ).toBeGreaterThan(0)
+  })
+
   test('hides account access values even when a tool saves them under a plain field', () => {
     render(
       <ToolCallDetail
@@ -193,6 +306,24 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/abc123/i)).toBeNull()
   })
 
+  test('hides prefixed api key fields in tool details', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          input: { xApiKey: 'secret-prefixed-api-key-value' },
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-prefixed-api-key-value/i)).toBeNull()
+    expect(screen.queryByText(/xApiKey/i)).toBeNull()
+  })
+
   test('turns command output fields into beginner next steps instead of raw logs', () => {
     render(
       <ToolCallDetail
@@ -211,7 +342,9 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
     expect(
-      screen.getByText(/What the command showed: The command result was saved.*before relying on it/i)
+      screen.getByText(
+        /What the command showed: The command result was saved.*before relying on it/i
+      )
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Problem details: The command problem details were saved.*before retrying/i)

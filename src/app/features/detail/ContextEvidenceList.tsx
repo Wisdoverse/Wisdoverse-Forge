@@ -224,12 +224,15 @@ function safeEvidenceValue(value: unknown, key = ''): unknown {
 }
 
 function isSensitiveEvidenceKey(key: string): boolean {
-  return /\b(token|secret|password|api[_-]?key|credential|credentials)\b/i.test(key)
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return /(token|secret|password|apikey|privatekey|credential)/.test(normalized)
 }
 
 function safeEvidenceString(value: string): string {
   if (
-    /\b(missing|invalid|expired)\s+(token|credential|credentials|api\s*key|secret)\b/i.test(value)
+    /\b(?:(?:missing|invalid|expired|revoked)\s+(?:token|credential|credentials|api\s*key|secret)|(?:token|credential|credentials|api\s*key|secret)\s+(?:missing|invalid|expired|revoked))\b/i.test(
+      value
+    )
   ) {
     return MISSING_ACCESS_MESSAGE
   }
@@ -243,7 +246,9 @@ function safeEvidenceString(value: string): string {
 }
 
 function containsSensitiveEvidenceText(value: string): boolean {
-  return /\b(secret\s+token|token\s+secret|api\s*key|password|credential)\b/i.test(value)
+  return /\b(authorization|bearer|secret\s+token|token\s+secret|access\s+token|refresh\s+token|api\s*key|private\s+key|password|credential)\b/i.test(
+    value
+  )
 }
 
 function containsTechnicalEvidenceText(value: string): boolean {

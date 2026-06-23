@@ -450,6 +450,8 @@ function adminNetworkErrorMessage(resource: AdminResource): string {
 }
 
 function adminErrorMessage(err: unknown, resource: AdminResource): string {
+  const detail = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  if (detail.toLowerCase().includes('role required')) return adminHttpErrorMessage(resource, 403)
   return err instanceof AdminUserFacingError ? err.message : adminNetworkErrorMessage(resource)
 }
 

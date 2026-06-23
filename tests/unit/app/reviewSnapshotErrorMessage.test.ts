@@ -13,4 +13,13 @@ describe('reviewSnapshotErrorMessage', () => {
       'Wait for automated checks to finish, then choose Check fix status before finishing.'
     )
   })
+
+  test('turns role-required finish checks into access guidance', () => {
+    const message = reviewSnapshotErrorMessage('load', 'owner role required')
+
+    expect(message).toBe(
+      'Ask an owner or admin to check finish access for this code project, then choose Check fix status.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
 })

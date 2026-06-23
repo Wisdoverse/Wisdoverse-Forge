@@ -61,6 +61,9 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
   const text = errorText(error).toLowerCase()
   const code = statusCode(error)
 
+  if (text.includes('role required')) {
+    return `Ask an owner or admin to let you check AI service connections, then choose Check connection for ${providerLabel} again.`
+  }
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
     return `Check that the saved service access key can use the saved service choice for ${providerLabel}, then save and choose Check connection again.`
   }

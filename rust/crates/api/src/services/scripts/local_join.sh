@@ -12,6 +12,10 @@ BINARY_BASE_URL="__AGENTFORGE_BINARY_BASE_URL__"
 JOIN_CODE="${AGENTFORGE_JOIN_CODE:-}"
 WORK_DIR=""
 
+shell_quote() {
+    printf "'%s'" "$(printf "%s" "$1" | sed "s/'/'\\\\''/g")"
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --code) JOIN_CODE="${2:-}"; shift 2 ;;
@@ -94,6 +98,6 @@ fi
 echo ""
 echo "Agent connected. Leave this window open while the agent is in use; press Ctrl+C to disconnect."
 echo "Environment saved to $FINAL_ENV — reconnect later with:"
-echo "  sh -c 'set -a; . $FINAL_ENV; set +a; exec agentforge-sidecar'"
+printf "  set -a; . %s; set +a; exec %s\n" "$(shell_quote "$FINAL_ENV")" "$(shell_quote "$SIDECAR")"
 echo ""
 exec "$SIDECAR"

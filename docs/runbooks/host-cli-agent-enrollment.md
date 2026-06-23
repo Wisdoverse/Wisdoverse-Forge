@@ -49,10 +49,27 @@ GitHub releases by default. Operators can point it at an internal mirror with
 `HOST_JOIN_BINARY_BASE_URL` (see
 [Configuration](../guides/configuration.md)).
 
-To reconnect later without a new code, re-run the saved environment:
+To reconnect later without a new code, use the reconnect command printed by the
+script. If you need to type it again, use the saved environment for your
+operating system.
+
+For macOS or Linux Terminal:
 
 ```bash
-sh -c 'set -a; . ~/.agentforge/agents/<agent-id>.env; set +a; exec agentforge-sidecar'
+set -a
+. ~/.agentforge/agents/<agent-id>.env
+set +a
+exec ~/.agentforge/bin/agentforge-sidecar
+```
+
+If `agentforge-sidecar` is installed on `PATH`, you can use
+`exec agentforge-sidecar` on the last line instead.
+
+For Windows PowerShell:
+
+```powershell
+. "$env:USERPROFILE\.agentforge\agents\<agent-id>.ps1"
+& "$env:USERPROFILE\.agentforge\bin\agentforge-sidecar.exe"
 ```
 
 Everything below is the manual path — useful when you want to verify binaries
@@ -75,8 +92,6 @@ Use this path when:
 
 Do not use this path for API/provider agents or container-backed Agents created
 entirely inside the platform.
-
-## Requirements
 
 ## Before you start
 

@@ -62,7 +62,7 @@ export function agentGroupErrorMessage(err: unknown): string {
   if (code === 401 || text.includes('unauthorized')) {
     return 'Sign in again, choose the project, and set up where tasks wait again. The waiting place was not created.'
   }
-  if (code === 403 || text.includes('forbidden')) {
+  if (code === 403 || text.includes('forbidden') || text.includes('role required')) {
     return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
   }
   if (code === 404) {

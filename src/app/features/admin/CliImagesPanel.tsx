@@ -128,6 +128,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('unauthorized') ||
     detail.includes('forbidden') ||
     detail.includes('permission') ||
+    detail.includes('role required') ||
     detail.includes('auth')
   ) {
     return 'Ask an owner or admin to check tool package access in Admin, then choose Check now. This can block agent tool updates.'

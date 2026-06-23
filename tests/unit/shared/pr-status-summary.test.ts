@@ -74,6 +74,34 @@ describe('PR status summary', () => {
     expect(item.reasons).toContain('failing check: Unit Tests')
   })
 
+  it('ignores stale failed check reruns when a later check with the same name passed', () => {
+    const item = classifyPullRequest(
+      pr({
+        statusCheckRollup: [
+          {
+            conclusion: 'FAILURE',
+            name: 'Beginner UX / First-Time User Path',
+            status: 'COMPLETED',
+          },
+          {
+            conclusion: 'SUCCESS',
+            name: 'Beginner UX / First-Time User Path',
+            status: 'COMPLETED',
+          },
+          {
+            conclusion: '',
+            name: 'Rust Tests',
+            status: 'IN_PROGRESS',
+          },
+        ],
+      })
+    )
+
+    expect(item.status).toBe('WAIT')
+    expect(item.failedChecks).toEqual([])
+    expect(item.reasons).toContain('pending check: Rust Tests')
+  })
+
   it('marks missing auto-merge as ACTION for open PRs', () => {
     const item = classifyPullRequest(pr({ autoMergeRequest: null, statusCheckRollup: [] }))
 

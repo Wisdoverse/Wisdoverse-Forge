@@ -625,11 +625,17 @@ function agentControlErrorMessage(error: string): string {
   if (
     normalized.includes('permission') ||
     normalized.includes('forbidden') ||
+    normalized.includes('role required') ||
     /\b403\b/.test(error)
   ) {
     return 'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
   }
-  if (normalized.includes('unauthorized') || /\b401\b/.test(error)) {
+  if (
+    normalized.includes('unauthorized') ||
+    normalized.includes('authorization') ||
+    normalized.includes('bearer') ||
+    /\b401\b/.test(error)
+  ) {
     return 'Sign in again, reopen this agent, then try the action once more.'
   }
   if (normalized.includes('conflict') || /\b409\b/.test(error)) {

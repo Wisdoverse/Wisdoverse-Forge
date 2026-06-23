@@ -16,6 +16,7 @@ export function savedInstructionAudienceLabel(source: string, fallback: string):
   const normalized = label.toLowerCase()
 
   if (normalized === 'team space saved instructions') return 'Saved for this team space'
+  if (normalized === 'project saved instructions') return 'Saved for this project'
   if (normalized === 'global saved instructions') return 'Saved for everyone'
   if (normalized === 'saved instructions') return 'Saved as a saved instruction'
 

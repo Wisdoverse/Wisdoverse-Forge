@@ -49,6 +49,17 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('role')
   })
 
+  test('maps role-required resource failures without treating them as validation errors', () => {
+    const message = workspaceResourceErrorMessage('project', 'delete', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then open Settings, then Projects, and delete the project again. You do not have permission to delete this project.'
+    )
+    expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('Agents and Tasks')
+  })
+
   test('uses structured validation details to name the field to fix', () => {
     const message = workspaceResourceErrorMessage('project', 'update', {
       status: '422',

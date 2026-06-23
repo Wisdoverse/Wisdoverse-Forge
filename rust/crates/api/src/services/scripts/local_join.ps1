@@ -10,6 +10,10 @@ $ServerUrl = '__AGENTFORGE_SERVER_URL__'
 $BinaryBaseUrl = '__AGENTFORGE_BINARY_BASE_URL__'
 $JoinCode = $env:AGENTFORGE_JOIN_CODE
 
+function Quote-PowerShellLiteral([string]$Value) {
+    return "'" + ($Value -replace "'", "''") + "'"
+}
+
 if ([string]::IsNullOrWhiteSpace($JoinCode)) {
     Write-Error "Missing pairing code. Re-copy the full join command from the Create Agent dialog."
     exit 2
@@ -65,6 +69,8 @@ if ($Tool -and -not (Get-Command $Tool -ErrorAction SilentlyContinue)) {
 
 Write-Host ""
 Write-Host "Agent connected. Leave this window open while the agent is in use; press Ctrl+C to disconnect."
-Write-Host "Environment saved to $EnvFile - reconnect later by running that file, then agentforge-sidecar."
+Write-Host "Environment saved to $EnvFile. Reconnect later with:"
+Write-Host ". $(Quote-PowerShellLiteral $EnvFile)"
+Write-Host "& $(Quote-PowerShellLiteral $Sidecar)"
 Write-Host ""
 & $Sidecar

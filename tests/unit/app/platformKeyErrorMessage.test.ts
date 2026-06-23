@@ -18,6 +18,16 @@ describe('platformKeyErrorMessage', () => {
     )
   })
 
+  test('turns role-required errors into an owner or admin step', () => {
+    const message = platformKeyErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to let you create or remove outside tool access keys.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains missing names as the next field to fix', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage(

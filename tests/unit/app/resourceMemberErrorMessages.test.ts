@@ -64,6 +64,16 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('update what you can do')
   })
 
+  test('maps role-required failures to an owner or admin action', () => {
+    const message = resourceMemberErrorMessage('add', 'Project', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to give you access to manage people here, then open Members for this project. You do not have permission right now.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('keeps lost selection messages safe even before modal error mapping', () => {
     expect(resourceMemberSelectionLostMessage('Team')).toBe(
       'This team is no longer selected. Close Members, choose the team again, then add or change people.'

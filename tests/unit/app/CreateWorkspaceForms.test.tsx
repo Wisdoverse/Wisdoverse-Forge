@@ -114,6 +114,21 @@ describe('workspace setup create forms', () => {
     expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
   })
 
+  test('shows team creation access guidance for plain role failures', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('owner role required'))
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Ask an owner or admin to let you create teams in this team space.')
+      expect(alert).not.toHaveTextContent('owner role required')
+    })
+  })
+
   test('explains that a project needs a team before it can be created', () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
@@ -349,6 +364,23 @@ describe('workspace setup create forms', () => {
       expect(alert).not.toHaveTextContent('HTTP 404')
     })
     expect(onSave).toHaveBeenCalled()
+  })
+
+  test('shows project creation access guidance for plain role failures', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('owner role required'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Blocked Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Ask an owner or admin to let you create projects in this team.')
+      expect(alert).not.toHaveTextContent('owner role required')
+    })
   })
 
   test('does not expose raw server details when project creation fails', async () => {

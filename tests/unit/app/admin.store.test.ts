@@ -123,6 +123,18 @@ describe('useAdminStore loading errors', () => {
     expect(useAdminStore.getState().usersError).not.toContain('role')
   })
 
+  test('stores admin access guidance when user loading throws a role failure', async () => {
+    authFetchMock.mockRejectedValue(new Error('owner role required'))
+
+    await useAdminStore.getState().loadUsers()
+
+    expectBeginnerError(
+      useAdminStore.getState().usersError,
+      'Ask an owner or admin to give you Admin access, then open Admin and choose User access. You do not have access to the admin user list.'
+    )
+    expect(useAdminStore.getState().usersError).not.toContain('owner role required')
+  })
+
   test('stores a connection recovery step when organization loading cannot reach the server', async () => {
     authFetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 

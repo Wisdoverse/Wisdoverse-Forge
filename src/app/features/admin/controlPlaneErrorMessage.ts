@@ -62,7 +62,12 @@ export function controlPlaneErrorMessage(error: unknown): string {
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
     return 'Sign in again, then open Admin and choose Agent coordination before choosing Check again. Forge could not load agent coordination status because your sign-in expired.'
   }
-  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+  if (
+    code === 403 ||
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('role required')
+  ) {
     return 'Ask an owner or admin to give you Admin access, then open Admin and choose Agent coordination before choosing Check again. You do not have access to agent coordination status.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {

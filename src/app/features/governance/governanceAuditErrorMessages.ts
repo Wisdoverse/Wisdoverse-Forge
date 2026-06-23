@@ -26,7 +26,12 @@ export function governanceAuditErrorMessage(
     return `Your sign-in expired. Sign in again, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
-  if (status === 403) {
+  if (
+    status === 403 ||
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('role required')
+  ) {
     return `Ask an owner or admin to update your team space access, then ${ACTION_RETRY_STEPS[action]}. You do not have permission to view or export change history.`
   }
 

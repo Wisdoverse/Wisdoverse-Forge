@@ -408,20 +408,20 @@ describe('SkillsView', () => {
       .mockReturnValueOnce(createRequest.promise)
 
     const createdSkillResponse = {
+      ok: true,
+      json: async () => ({
         ok: true,
-        json: async () => ({
-          ok: true,
-          data: {
-            id: 'skill-frontend-review',
-            organization_id: 'org-1',
-            name: 'frontend-review',
-            description: 'Review frontend flows',
-            trigger_pattern: 'frontend',
-            content: 'Check UI states and regressions',
-            enabled: true,
-          },
-        }),
-      } as Response
+        data: {
+          id: 'skill-frontend-review',
+          organization_id: 'org-1',
+          name: 'frontend-review',
+          description: 'Review frontend flows',
+          trigger_pattern: 'frontend',
+          content: 'Check UI states and regressions',
+          enabled: true,
+        },
+      }),
+    } as Response
 
     render(<SkillsView />)
 
@@ -456,6 +456,10 @@ describe('SkillsView', () => {
     await waitFor(() => {
       expect(screen.getByText('frontend-review')).toBeDefined()
     })
+    const confirmation = screen.getByText(
+      'Saved "frontend-review". Open it to check or reuse it on a task.'
+    )
+    expect(confirmation).toHaveAttribute('aria-live', 'polite')
 
     expect(fetchMock).toHaveBeenLastCalledWith(
       '/api/v1/skills',
@@ -581,6 +585,27 @@ describe('SkillsView', () => {
     expect(alert).toHaveTextContent('Saved instructions need to load again.')
     expect(alert).toHaveTextContent('Choose Check saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('database unavailable')
+  })
+
+  test('shows access recovery when saved instructions fail from a role error', async () => {
+    render(<SkillsView />)
+    await waitFor(() => {
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
+    })
+
+    act(() => {
+      useSkillsStore.setState({
+        skills: [],
+        installedSkills: [],
+        loading: false,
+        error: 'owner role required',
+        searchQuery: '',
+      })
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('After an owner or admin updates your access')
+    expect(alert).not.toHaveTextContent('owner role required')
   })
 
   test('shows beginner guidance when skill creation is denied', async () => {

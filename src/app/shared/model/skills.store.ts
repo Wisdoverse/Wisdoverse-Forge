@@ -97,17 +97,25 @@ const initialState = {
 
 function normalizeSkill(skill: ApiSkill): Skill {
   const name = skill.name ?? 'Untitled skill'
-  const globalSkill = !skill.organization_id
+  const globalSkill = !skill.organization_id && !skill.scope_kind
+  const marketplace =
+    skill.scope_kind === 'project' ? 'project' : globalSkill ? 'global' : 'workspace'
+  const source =
+    skill.scope_kind === 'project'
+      ? 'Project saved instructions'
+      : globalSkill
+        ? 'Global saved instructions'
+        : 'Team space saved instructions'
   return {
     id: skill.id,
     name,
     description: skill.description ?? skill.trigger_pattern ?? '',
-    plugin: skill.plugin ?? (globalSkill ? 'Global skills' : 'Workspace skills'),
+    plugin: skill.plugin ?? source,
     pluginAuthor: skill.pluginAuthor ?? '',
     content: skill.content ?? '',
     path: skill.path ?? skill.id ?? name,
     installed: skill.installed ?? skill.enabled ?? true,
-    marketplace: skill.marketplace ?? (globalSkill ? 'global' : 'workspace'),
+    marketplace: skill.marketplace ?? marketplace,
     cliTool: skill.cliTool ?? '',
     triggerPattern: skill.trigger_pattern ?? '',
   }
@@ -214,6 +222,14 @@ function skillResponseErrorMessage(
   data: SkillsResponse | Record<string, unknown>
 ): string {
   const detail = errorDetail(data)
+  const normalized = detail?.toLowerCase() ?? ''
+  if (
+    normalized.includes('role required') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('permission')
+  ) {
+    return skillHttpErrorMessage(action, 403)
+  }
   if (detail)
     return action === 'create'
       ? skillValidationMessage(detail)

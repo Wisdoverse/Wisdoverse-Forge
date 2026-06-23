@@ -98,6 +98,72 @@ describe('skillHttpErrorMessage', () => {
 })
 
 describe('useSkillsStore errors', () => {
+  test('normalizes missing saved-instruction source names for team spaces', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        skills: [
+          {
+            id: 'skill-team-space',
+            organization_id: 'org-1',
+            name: 'release-check',
+            content: 'Check release notes',
+          },
+        ],
+      })
+    )
+
+    await useSkillsStore.getState().loadSkills()
+
+    const [skill] = useSkillsStore.getState().skills
+    expect(skill?.plugin).toBe('Team space saved instructions')
+    expect(skill?.plugin).not.toContain('Workspace')
+  })
+
+  test('uses scope kind before missing organization id when labeling saved instructions', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        skills: [
+          {
+            id: 'skill-team-scope',
+            scope_kind: 'team',
+            name: 'handoff-check',
+            content: 'Check the handoff',
+          },
+        ],
+      })
+    )
+
+    await useSkillsStore.getState().loadSkills()
+
+    const [skill] = useSkillsStore.getState().skills
+    expect(skill?.plugin).toBe('Team space saved instructions')
+    expect(skill?.marketplace).toBe('workspace')
+  })
+
+  test('labels project-scoped saved instructions as project saved instructions', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        skills: [
+          {
+            id: 'skill-project-scope',
+            scope_kind: 'project',
+            name: 'release-check',
+            content: 'Check the release',
+          },
+        ],
+      })
+    )
+
+    await useSkillsStore.getState().loadSkills()
+
+    const [skill] = useSkillsStore.getState().skills
+    expect(skill?.plugin).toBe('Project saved instructions')
+    expect(skill?.marketplace).toBe('project')
+  })
+
   test('stores beginner guidance when skill loading fails', async () => {
     fetchMock.mockResolvedValue(response(503, { error: { message: 'database unavailable' } }))
 
@@ -138,6 +204,19 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow('Check the matching words, then save the instruction again.')
+  })
+
+  test('throws access guidance when saved-instruction create responses carry role details', async () => {
+    fetchMock.mockResolvedValue(response(200, { ok: false, error: 'owner role required' }))
+
+    await expect(
+      useSkillsStore.getState().createSkill({
+        name: 'release-check',
+        content: 'Check release notes',
+      })
+    ).rejects.toThrow(
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
+    )
   })
 
   test('throws a connection recovery step when skill creation cannot reach the server', async () => {

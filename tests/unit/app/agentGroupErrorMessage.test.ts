@@ -20,6 +20,15 @@ describe('agentGroupErrorMessage', () => {
     expect(message).not.toContain('owner role required')
   })
 
+  test('turns role-required failures into an owner or admin next step', () => {
+    const message = agentGroupErrorMessage('owner role required')
+
+    expect(message).toBe(
+      'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains naming conflicts without leaking raw API wording', () => {
     expect(agentGroupErrorMessage(new Error('API 409 lane conflict'))).toBe(
       'Use a different name, then create the waiting place again. A waiting place with this name may already exist.'

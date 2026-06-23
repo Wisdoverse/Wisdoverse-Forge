@@ -43,6 +43,17 @@ describe('workspaceSettingsErrorMessage', () => {
     expect(message).not.toContain('workspace access')
   })
 
+  test('maps role-required failures to team space access guidance', () => {
+    const message = workspaceSettingsErrorMessage('team', 'load', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then open Settings, then Teams again. You do not have access to these team settings right now.'
+    )
+    expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('workspace access')
+  })
+
   test('maps structured auth failures to a sign-in step without workspace wording', () => {
     const message = workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' })
 

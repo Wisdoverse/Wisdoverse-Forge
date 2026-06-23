@@ -47,7 +47,12 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
     return `Sign in again, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
-  if (status === 403) {
+  if (
+    status === 403 ||
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('role required')
+  ) {
     return `Ask an owner or admin to give you access to the Tasks page, then ${ACTION_RETRY_STEPS[action]}. You do not have permission to change this board.`
   }
 

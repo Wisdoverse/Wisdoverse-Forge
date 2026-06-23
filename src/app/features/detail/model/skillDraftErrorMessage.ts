@@ -53,6 +53,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     code === 403 ||
     text.includes('forbidden') ||
     text.includes('permission') ||
+    text.includes('role required') ||
     text.includes('let you create saved instructions') ||
     text.includes('cannot create workspace instructions')
   ) {

@@ -196,10 +196,126 @@ describe('ContextEvidenceList', () => {
     fireEvent.click(screen.getByText('Show saved details'))
 
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
     expect(screen.queryByText(/private-api-key/i)).toBeNull()
     expect(screen.queryByText(/Missing token/i)).toBeNull()
+  })
+
+  test('turns reversed expired access errors into reconnect guidance', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'token expired',
+              error: 'credential expired',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/token expired/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/credential expired/i)).toBeNull()
+  })
+
+  test('turns revoked access errors into reconnect guidance', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'token revoked',
+              error: 'revoked credential',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/token revoked/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/revoked credential/i)).toBeNull()
+  })
+
+  test('hides camelCase access token values in saved details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Tool access check',
+              accessToken: 'secret-camel-token-value',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-camel-token-value/i)).toBeNull()
+    expect(screen.queryByText(/accessToken/i)).toBeNull()
+  })
+
+  test('hides prefixed api key values in saved details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Tool access check',
+              xApiKey: 'secret-prefixed-api-key-value',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-prefixed-api-key-value/i)).toBeNull()
+    expect(screen.queryByText(/xApiKey/i)).toBeNull()
+  })
+
+  test('hides bearer authorization text in saved details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Request details',
+              headers: 'Authorization: Bearer saved-secret-token',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Bearer saved-secret-token/i)).toBeNull()
+    expect(screen.queryByText(/Authorization/i)).toBeNull()
   })
 
   test('turns technical saved-detail summaries into plain next steps', () => {
@@ -264,9 +380,7 @@ describe('ContextEvidenceList', () => {
 
     fireEvent.click(screen.getByText('Show saved details'))
 
-    expect(screen.getAllByText(/Behind-the-scenes details were hidden/i).length).toBeGreaterThan(
-      0
-    )
+    expect(screen.getAllByText(/Behind-the-scenes details were hidden/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/technical problem/i)).toBeNull()
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/postgres\.internal/i)).toBeNull()

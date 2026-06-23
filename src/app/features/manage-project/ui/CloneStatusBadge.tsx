@@ -102,7 +102,9 @@ function statusCodeFromError(error: unknown): number | null {
     }
   }
 
-  return parseStatusCode(error instanceof Error ? error.message : error)
+  const detail = error instanceof Error ? error.message : error
+  if (typeof detail === 'string' && detail.toLowerCase().includes('role required')) return 403
+  return parseStatusCode(detail)
 }
 
 function cloneRetryErrorMessage(error: unknown): string {

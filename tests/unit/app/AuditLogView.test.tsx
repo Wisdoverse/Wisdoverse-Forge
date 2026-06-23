@@ -170,9 +170,7 @@ describe('AuditLogView', () => {
     expect(
       screen.queryByPlaceholderText(/team space, work area, team, or project reference/i)
     ).toBeNull()
-    expect(
-      screen.queryByPlaceholderText(/team space, work area, team, or project ID/i)
-    ).toBeNull()
+    expect(screen.queryByPlaceholderText(/team space, work area, team, or project ID/i)).toBeNull()
     expect(
       screen.queryByPlaceholderText(/team space, work area, team, or project code/i)
     ).toBeNull()
@@ -184,7 +182,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/Paste the exact person from Forge only when an owner or admin gives you one/i)
+      screen.getByPlaceholderText(
+        /Paste the exact person from Forge only when an owner or admin gives you one/i
+      )
     ).toBeDefined()
     expect(screen.queryByPlaceholderText(/person reference only when/i)).toBeNull()
     expect(screen.queryByPlaceholderText(/exact person ID/i)).toBeNull()
@@ -364,6 +364,28 @@ describe('AuditLogView', () => {
     expect(screen.queryByText(/audit-secret-token/i)).toBeNull()
     expect(screen.queryByText(/private-audit-key/i)).toBeNull()
     expect(screen.queryByText(/Missing token/i)).toBeNull()
+  })
+
+  test('hides bearer authorization text in audit change details', async () => {
+    fetchGovernanceAudit.mockResolvedValueOnce({
+      ...auditResponse,
+      entries: [
+        {
+          ...auditResponse.entries[0],
+          details: {
+            note: 'Authorization: Bearer audit-secret-token',
+          },
+        },
+      ],
+    })
+
+    render(<AuditLogView />)
+
+    await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
+    expect(screen.getByText(/Hidden for safety/i)).toBeDefined()
+    expect(screen.queryByText(/Authorization/i)).toBeNull()
+    expect(screen.queryByText(/Bearer/i)).toBeNull()
+    expect(screen.queryByText(/audit-secret-token/i)).toBeNull()
   })
 
   test('explains how to recover from an empty audit result', async () => {

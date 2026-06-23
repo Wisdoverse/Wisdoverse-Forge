@@ -30,6 +30,16 @@ describe('governanceAuditErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
+  test('turns role-required failures into team space access guidance', () => {
+    const message = governanceAuditErrorMessage('loadAudit', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then choose Check change history again. You do not have permission to view or export change history.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 

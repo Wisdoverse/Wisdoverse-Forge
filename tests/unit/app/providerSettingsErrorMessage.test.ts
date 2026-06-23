@@ -52,6 +52,13 @@ describe('providerSettingsErrorMessage', () => {
     )
   })
 
+  test('turns role-required errors into an owner or admin step', () => {
+    const message = providerSettingsErrorMessage('owner role required')
+
+    expectBeginnerMessage(message, 'Ask an owner or admin to let you manage AI services.')
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains duplicate providers with a safe next action', () => {
     const message = providerSettingsErrorMessage('API 409 duplicate provider')
 

@@ -13,6 +13,9 @@ export function workspaceResourceErrorMessage(
   const status = statusFromError(error)
   const detail = status === null || status === 400 || status === 422 ? safeDetail(error) : null
 
+  if (detail?.toLowerCase().includes('role required')) {
+    return permissionMessage(resource, action)
+  }
   if (!status) {
     if (detail) {
       return validationMessage(resource, action, detail)
@@ -24,7 +27,7 @@ export function workspaceResourceErrorMessage(
     return `Sign in again, then open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to update your team space access, then open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}. You do not have permission to ${permissionAction(action)} this ${resource}.`
+    return permissionMessage(resource, action)
   }
   if (status === 404) {
     return `Open Settings, then ${resourceSettingsSection(resource)}, and choose an existing ${resource}.`
@@ -66,6 +69,13 @@ function resourceSettingsSection(resource: WorkspaceResourceKind): string {
 
 function permissionAction(action: WorkspaceResourceAction): string {
   return action === 'update' ? 'save' : 'delete'
+}
+
+function permissionMessage(
+  resource: WorkspaceResourceKind,
+  action: WorkspaceResourceAction
+): string {
+  return `Ask an owner or admin to update your team space access, then open Settings, then ${resourceSettingsSection(resource)}, and ${retryPhrase(resource, action)}. You do not have permission to ${permissionAction(action)} this ${resource}.`
 }
 
 function retryPhrase(resource: WorkspaceResourceKind, action: WorkspaceResourceAction): string {

@@ -179,6 +179,7 @@ function agentErrorStatus(error: unknown): number | null {
   }
 
   const raw = rawAgentErrorMessage(error)
+  if (raw?.toLowerCase().includes('role required')) return 403
   const match = raw?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
   return match ? Number(match[1]) : null
 }

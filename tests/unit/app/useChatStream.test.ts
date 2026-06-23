@@ -158,6 +158,27 @@ describe('chatStreamEventErrorMessage', () => {
     expect(message).not.toContain('token')
   })
 
+  it('maps streamed role failures to team space access guidance', () => {
+    const message = chatStreamEventErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
+  it('hides streamed authorization header details behind access guidance', () => {
+    const message = chatStreamEventErrorMessage('Authorization: Bearer live-access-123 rejected')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
+    )
+    expect(message).not.toContain('Authorization')
+    expect(message).not.toContain('Bearer')
+  })
+
   it('maps context limit errors to old-message guidance', () => {
     const message = chatStreamEventErrorMessage('context window exceeded')
 
