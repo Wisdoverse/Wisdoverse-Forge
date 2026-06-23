@@ -79,7 +79,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
 
   if (status && status >= 500) {
     const recovery = ACTION_RECOVERY[action]
-    return `${sentenceCase(recovery.openStep)} again, then try again. Forge could not check ${recovery.target} right now. If it still fails, ask an owner or admin to check ${recovery.location} in Settings.`
+    const retryStep =
+      action === 'startCliSignIn'
+        ? `${recovery.openStep} again, then reconnect the account`
+        : `${recovery.openStep} again`
+    return `${sentenceCase(retryStep)}. Forge could not check ${recovery.target} right now. If it still fails, ask an owner or admin to check ${recovery.location} in Settings.`
   }
 
   return runtimeValidationMessage(action, detail)

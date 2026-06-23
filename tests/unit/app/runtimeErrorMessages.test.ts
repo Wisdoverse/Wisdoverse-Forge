@@ -94,12 +94,19 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Where agents work again, then try again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings and Where agents work again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('turns local sign-in service failures into a reconnect step', () => {
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', new Error('HTTP 500')),
+      'Open Settings, then Codex sign-in again, then reconnect the account. Forge could not check the Codex sign-in page right now. If it still fails, ask an owner or admin to check Codex sign-in in Settings.'
+    )
   })
 
   test('turns setup rate limits into a wait and retry step', () => {
