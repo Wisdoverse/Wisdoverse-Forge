@@ -104,7 +104,7 @@ describe('ContextUsageDashboard', () => {
     render(<ContextUsageDashboard data={{ ...baseData, isStale: true }} />)
 
     expect(screen.getByTestId('context-usage-stale-banner').textContent).toContain(
-      'Choose Load analytics again before making decisions from them.'
+      'Choose Check analytics again before making decisions from them.'
     )
   })
 
