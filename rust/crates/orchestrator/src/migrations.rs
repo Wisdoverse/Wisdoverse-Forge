@@ -38,6 +38,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("006_audit_logs.sql", include_str!("../migrations/006_audit_logs.sql")),
     ("007_teams_multitenant.sql", include_str!("../migrations/007_teams_multitenant.sql")),
     ("008_adopt_legacy_integer_schema.sql", include_str!("../migrations/008_adopt_legacy_integer_schema.sql")),
+    ("009_task_dispatches.sql", include_str!("../migrations/009_task_dispatches.sql")),
 ];
 
 /// Run pending orchestrator migrations against the database.

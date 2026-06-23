@@ -23,6 +23,7 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/{id}", axum::routing::get(get).patch(update))
         .route("/{id}/assign", axum::routing::post(assign))
         .route("/{id}/transition", axum::routing::post(transition))
+        .route("/{id}/dispatch", axum::routing::get(get_dispatch))
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -176,6 +177,14 @@ async fn assign(
                 if let (Some(agent_provider), Some(outbound_mcp)) =
                     (req.agent_provider.clone(), state.outbound_mcp.clone())
                 {
+                    // Create the dispatch record synchronously before spawning.
+                    // This is the durability contract: if create_dispatch fails the
+                    // client receives an error rather than a silent partial state.
+                    let dispatch_id = match store.create_dispatch(&task.id, &identity.org_id).await {
+                        Ok(id) => id,
+                        Err(err) => return map_error(err),
+                    };
+
                     let store = store.clone();
                     let task_id = task.id.clone();
                     let org_id = identity.org_id.clone();
@@ -183,7 +192,15 @@ async fn assign(
                     let description = task.description.clone();
                     let project_id = req.project_id.clone().unwrap_or_default();
                     let agent_directory = state.agent_directory.clone();
+                    let spawn_dispatch_id = dispatch_id.clone();
                     tokio::spawn(async move {
+                        let dispatch_id = spawn_dispatch_id;
+
+                        // Mark as starting (best-effort — a failure here must not abort the spawn).
+                        if let Err(err) = store.update_dispatch(&dispatch_id, &org_id, "starting", None, None).await {
+                            tracing::warn!(%task_id, error = %err, "failed to update dispatch to starting");
+                        }
+
                         let session = match outbound_mcp
                             .session_create(CreateSessionArgs {
                                 project_id,
@@ -195,6 +212,12 @@ async fn assign(
                             Ok(session) => session,
                             Err(err) => {
                                 tracing::error!(%task_id, error = %err, "failed to create outbound MCP session");
+                                if let Err(ue) = store
+                                    .update_dispatch(&dispatch_id, &org_id, "failed", Some(&err.to_string()), None)
+                                    .await
+                                {
+                                    tracing::warn!(%task_id, error = %ue, "failed to record dispatch failure");
+                                }
                                 return;
                             }
                         };
@@ -211,25 +234,74 @@ async fn assign(
                             store.set_session_id(&task_id, &org_id, session.session_id().to_string()).await
                         {
                             tracing::error!(%task_id, error = %err, "failed to persist task session id");
+                            if let Err(ue) = store
+                                .update_dispatch(&dispatch_id, &org_id, "failed", Some(&err.to_string()), None)
+                                .await
+                            {
+                                tracing::warn!(%task_id, error = %ue, "failed to record dispatch failure");
+                            }
                             return;
+                        }
+
+                        // Record session_id in the dispatch (best-effort).
+                        if let Err(err) = store
+                            .update_dispatch(&dispatch_id, &org_id, "starting", None, Some(session.session_id()))
+                            .await
+                        {
+                            tracing::warn!(%task_id, error = %err, "failed to record session_id in dispatch");
                         }
 
                         let prompt = task_prompt(&title, &description);
                         if let Err(err) = outbound_mcp.session_prompt(session.session_id(), &prompt).await {
                             tracing::error!(%task_id, error = %err, "failed to send outbound MCP prompt");
+                            if let Err(ue) = store
+                                .update_dispatch(&dispatch_id, &org_id, "failed", Some(&err.to_string()), None)
+                                .await
+                            {
+                                tracing::warn!(%task_id, error = %ue, "failed to record dispatch failure");
+                            }
                             return;
                         }
 
                         if let Err(err) = store.update_state(&task_id, &org_id, TaskState::Working).await {
                             tracing::error!(%task_id, error = %err, "failed to transition task to working");
+                            if let Err(ue) = store
+                                .update_dispatch(&dispatch_id, &org_id, "failed", Some(&err.to_string()), None)
+                                .await
+                            {
+                                tracing::warn!(%task_id, error = %ue, "failed to record dispatch failure");
+                            }
+                            return;
+                        }
+
+                        if let Err(err) = store.update_dispatch(&dispatch_id, &org_id, "started", None, None).await {
+                            tracing::warn!(%task_id, error = %err, "failed to update dispatch to started");
                         }
                     });
-                }
 
-                (StatusCode::OK, Json(json!({"ok": true, "task": task}))).into_response()
+                    (StatusCode::OK, Json(json!({"ok": true, "task": task, "dispatchId": dispatch_id}))).into_response()
+                } else {
+                    (StatusCode::OK, Json(json!({"ok": true, "task": task}))).into_response()
+                }
             }
             Err(err) => map_error(err),
         },
+        Err(err) => map_error(err),
+    }
+}
+
+async fn get_dispatch(State(state): State<AppState>, headers: HeaderMap, Path(id): Path<String>) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    match store.get_dispatch(&id, &identity.org_id).await {
+        Ok(dispatch) => (StatusCode::OK, Json(json!({"ok": true, "dispatch": dispatch}))).into_response(),
         Err(err) => map_error(err),
     }
 }

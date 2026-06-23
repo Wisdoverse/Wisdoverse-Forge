@@ -9,17 +9,18 @@ use sqlx::{PgPool, QueryBuilder, Row};
 use tokio::sync::Mutex;
 
 use super::errors::{Result, TaskError};
-use super::model::{Task, TaskFilter, TaskPriority, TaskState, UpdateTaskRequest};
+use super::model::{Task, TaskDispatch, TaskFilter, TaskPriority, TaskState, UpdateTaskRequest};
 use super::store::Store;
 
 pub struct MemoryStore {
     seq: AtomicU64,
     tasks: Mutex<HashMap<String, Task>>,
+    dispatches: Mutex<Vec<TaskDispatch>>,
 }
 
 impl MemoryStore {
     pub fn new() -> Self {
-        Self { seq: AtomicU64::new(1), tasks: Mutex::new(HashMap::new()) }
+        Self { seq: AtomicU64::new(1), tasks: Mutex::new(HashMap::new()), dispatches: Mutex::new(Vec::new()) }
     }
 }
 
@@ -134,6 +135,57 @@ impl Store for MemoryStore {
         task.state = state;
         task.updated_at = Utc::now();
         Ok(())
+    }
+
+    async fn create_dispatch(&self, task_id: &str, org_id: &str) -> Result<String> {
+        let mut dispatches = self.dispatches.lock().await;
+        let n = dispatches.len() + 1;
+        let id = format!("dispatch-{n}");
+        let now = Utc::now();
+        dispatches.push(TaskDispatch {
+            id: id.clone(),
+            task_id: task_id.to_string(),
+            org_id: org_id.to_string(),
+            status: "queued".to_string(),
+            attempt: 1,
+            last_error: None,
+            session_id: None,
+            created_at: now,
+            updated_at: now,
+        });
+        Ok(id)
+    }
+
+    async fn update_dispatch(
+        &self,
+        dispatch_id: &str,
+        org_id: &str,
+        status: &str,
+        last_error: Option<&str>,
+        session_id: Option<&str>,
+    ) -> Result<()> {
+        let mut dispatches = self.dispatches.lock().await;
+        let dispatch =
+            dispatches.iter_mut().find(|d| d.id == dispatch_id && d.org_id == org_id).ok_or(TaskError::NotFound)?;
+        dispatch.status = status.to_string();
+        if let Some(err) = last_error {
+            dispatch.last_error = Some(err.to_string());
+        }
+        if let Some(sid) = session_id {
+            dispatch.session_id = Some(sid.to_string());
+        }
+        dispatch.updated_at = Utc::now();
+        Ok(())
+    }
+
+    async fn get_dispatch(&self, task_id: &str, org_id: &str) -> Result<TaskDispatch> {
+        let dispatches = self.dispatches.lock().await;
+        dispatches
+            .iter()
+            .filter(|d| d.task_id == task_id && d.org_id == org_id)
+            .max_by_key(|d| d.created_at)
+            .cloned()
+            .ok_or(TaskError::NotFound)
     }
 }
 
@@ -352,6 +404,93 @@ impl Store for PgTaskStore {
         }
         Ok(())
     }
+
+    async fn create_dispatch(&self, task_id: &str, org_id: &str) -> Result<String> {
+        let row = sqlx::query(
+            "INSERT INTO task_dispatches (task_id, org_id, status, attempt) \
+             VALUES ($1, $2, 'queued', 1) \
+             RETURNING id::text AS id",
+        )
+        .bind(task_id)
+        .bind(org_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|err| TaskError::Internal(format!("create dispatch: {err}")))?;
+
+        row.try_get("id").map_err(|err| TaskError::Internal(format!("read dispatch id: {err}")))
+    }
+
+    async fn update_dispatch(
+        &self,
+        dispatch_id: &str,
+        org_id: &str,
+        status: &str,
+        last_error: Option<&str>,
+        session_id: Option<&str>,
+    ) -> Result<()> {
+        let mut qb = QueryBuilder::new("UPDATE task_dispatches SET updated_at = NOW(), status = ");
+        qb.push_bind(status);
+        if let Some(err) = last_error {
+            qb.push(", last_error = ").push_bind(err);
+        }
+        if let Some(sid) = session_id {
+            qb.push(", session_id = ").push_bind(sid);
+        }
+        qb.push(" WHERE id = CAST(").push_bind(dispatch_id).push(" AS uuid) AND org_id = ").push_bind(org_id);
+
+        let result = qb
+            .build()
+            .execute(&self.pool)
+            .await
+            .map_err(|err| TaskError::Internal(format!("update dispatch: {err}")))?;
+        // Mirror the other update_* methods: a 0-row update means the dispatch
+        // (or its org scope) was not found. Surfacing NotFound lets the spawn's
+        // best-effort wrapper log it instead of silently leaving a stale status.
+        if result.rows_affected() == 0 {
+            return Err(TaskError::NotFound);
+        }
+        Ok(())
+    }
+
+    async fn get_dispatch(&self, task_id: &str, org_id: &str) -> Result<TaskDispatch> {
+        let row = sqlx::query(
+            "SELECT id::text AS id, task_id, org_id, status, attempt, last_error, session_id, created_at, updated_at \
+             FROM task_dispatches \
+             WHERE task_id = $1 AND org_id = $2 \
+             ORDER BY created_at DESC \
+             LIMIT 1",
+        )
+        .bind(task_id)
+        .bind(org_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|err| TaskError::Internal(format!("get dispatch: {err}")))?
+        .ok_or(TaskError::NotFound)?;
+
+        row_to_dispatch(&row)
+    }
+}
+
+fn row_to_dispatch(row: &PgRow) -> Result<TaskDispatch> {
+    Ok(TaskDispatch {
+        id: row.try_get("id").map_err(|err| TaskError::Internal(format!("read dispatch id: {err}")))?,
+        task_id: row.try_get("task_id").map_err(|err| TaskError::Internal(format!("read dispatch task_id: {err}")))?,
+        org_id: row.try_get("org_id").map_err(|err| TaskError::Internal(format!("read dispatch org_id: {err}")))?,
+        status: row.try_get("status").map_err(|err| TaskError::Internal(format!("read dispatch status: {err}")))?,
+        attempt: row.try_get("attempt").map_err(|err| TaskError::Internal(format!("read dispatch attempt: {err}")))?,
+        last_error: row
+            .try_get("last_error")
+            .map_err(|err| TaskError::Internal(format!("read dispatch last_error: {err}")))?,
+        session_id: row
+            .try_get("session_id")
+            .map_err(|err| TaskError::Internal(format!("read dispatch session_id: {err}")))?,
+        created_at: row
+            .try_get("created_at")
+            .map_err(|err| TaskError::Internal(format!("read dispatch created_at: {err}")))?,
+        updated_at: row
+            .try_get("updated_at")
+            .map_err(|err| TaskError::Internal(format!("read dispatch updated_at: {err}")))?,
+    })
 }
 
 fn row_to_task(row: &PgRow) -> Result<Task> {

@@ -153,6 +153,20 @@ pub struct AssignRequest {
     pub project_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskDispatch {
+    pub id: String,
+    pub task_id: String,
+    pub org_id: String,
+    pub status: String,
+    pub attempt: i32,
+    pub last_error: Option<String>,
+    pub session_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TaskFilter {
     pub org_id: String,
