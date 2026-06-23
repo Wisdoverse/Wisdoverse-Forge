@@ -8,7 +8,7 @@ use sqlx::{FromRow, PgPool, QueryBuilder};
 use uuid::Uuid;
 
 use crate::domain::admin::{
-    AdminAgentSort, AdminRepositoryPolicy, OrgControlPlaneSnapshot, SortOrder, admin_user_not_found_error,
+    AdminAgentSort, AdminRepositoryPolicy, DeadEventRow, OrgControlPlaneSnapshot, SortOrder, admin_user_not_found_error,
 };
 
 /// Filter parameters for the admin agent list query.
@@ -611,6 +611,71 @@ impl AdminRepository {
         .await?;
         Ok(rows)
     }
+
+    /// List dead-letter rows (permanently-dropped NATS envelopes), newest first,
+    /// across ALL organizations. PLATFORM-scoped on purpose — `dead_events` is
+    /// cross-org by design (most rows are pre-auth drops with a NULL `org_id`),
+    /// following the `list_all_users` / `list_agents` unscoped-platform precedent
+    /// in this file. The route gates this to platform OWNER only. An optional
+    /// `reason` filters exactly (bound, never interpolated); blank input behaves
+    /// like "no filter".
+    pub async fn list_dead_events(
+        &self,
+        limit: i64,
+        offset: i64,
+        reason: Option<&str>,
+    ) -> AppResult<Vec<DeadEventRow>> {
+        let rows = match Self::reason_filter(reason) {
+            Some(reason) => {
+                sqlx::query_as::<_, DeadEventRow>(
+                    r#"SELECT id, source, reason, subject, detail, delivery_id, org_id, payload_excerpt, recorded_at
+                       FROM dead_events
+                       WHERE reason = $3
+                       ORDER BY recorded_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(limit)
+                .bind(offset)
+                .bind(reason)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            None => {
+                sqlx::query_as::<_, DeadEventRow>(
+                    r#"SELECT id, source, reason, subject, detail, delivery_id, org_id, payload_excerpt, recorded_at
+                       FROM dead_events
+                       ORDER BY recorded_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await?
+            }
+        };
+        Ok(rows)
+    }
+
+    /// Count dead-letter rows matching the same optional `reason` filter as
+    /// [`Self::list_dead_events`], for pagination metadata. Platform-scoped.
+    pub async fn count_dead_events(&self, reason: Option<&str>) -> AppResult<i64> {
+        let total = match Self::reason_filter(reason) {
+            Some(reason) => {
+                sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM dead_events WHERE reason = $1")
+                    .bind(reason)
+                    .fetch_one(&self.pool)
+                    .await?
+            }
+            None => sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM dead_events").fetch_one(&self.pool).await?,
+        };
+        Ok(total)
+    }
+
+    /// Normalise an optional reason filter: whitespace-only input behaves like
+    /// "no filter". The value is bound, never interpolated.
+    fn reason_filter(reason: Option<&str>) -> Option<&str> {
+        reason.map(str::trim).filter(|s| !s.is_empty())
+    }
 }
 
 /// One container-runtime agent that references a container, plus its OWN tenant
@@ -1000,5 +1065,58 @@ mod tests {
         // If ORG_BUSY_WITHOUT_WORK_SQL lost its org filter, org A's busy
         // participant would leak into org B's count here.
         assert_eq!(snap_b.busy_participants_without_work, 0, "org B sees none of org A's busy participants");
+    }
+
+    /// Insert one dead_events row. `org` is optional so the cross-org / NULL-org
+    /// nature of the table is exercised.
+    async fn seed_dead_event(pool: &PgPool, source: &str, reason: &str, subject: &str, org: Option<Uuid>) {
+        sqlx::query(
+            "INSERT INTO dead_events (source, reason, subject, org_id, payload_excerpt) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(source)
+        .bind(reason)
+        .bind(subject)
+        .bind(org)
+        .bind(format!("excerpt for {subject}"))
+        .execute(pool)
+        .await
+        .expect("seed dead event");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn dead_events_paginate_newest_first_and_filter_by_reason(pool: PgPool) {
+        let repo = AdminRepository::new(pool.clone());
+        let org_a = Uuid::new_v4();
+
+        // Mixed reasons across orgs incl. a NULL-org row (the common pre-auth drop).
+        seed_dead_event(&pool, "events.ingest", "signature_mismatch", "events.ingest.cli.a", None).await;
+        seed_dead_event(&pool, "events.ingest", "agent_unknown", "events.ingest.cli.b", Some(org_a)).await;
+        seed_dead_event(&pool, "orchestration.result", "signature_mismatch", "orchestration.result.c", None).await;
+        seed_dead_event(&pool, "orchestration.result", "bad_subject", "orchestration.result.d", Some(org_a)).await;
+
+        // Unfiltered count + cross-org visibility (a NULL-org row is included).
+        assert_eq!(repo.count_dead_events(None).await.expect("count all"), 4);
+        let all = repo.list_dead_events(50, 0, None).await.expect("list all");
+        assert_eq!(all.len(), 4);
+        assert!(all.iter().any(|r| r.org_id.is_none()), "a NULL-org drop is listed");
+
+        // Newest first: the last seeded row (bad_subject) sorts first.
+        assert_eq!(all[0].reason, "bad_subject");
+
+        // Reason filter (bound, exact).
+        assert_eq!(repo.count_dead_events(Some("signature_mismatch")).await.expect("count filtered"), 2);
+        let filtered = repo.list_dead_events(50, 0, Some("signature_mismatch")).await.expect("list filtered");
+        assert_eq!(filtered.len(), 2);
+        assert!(filtered.iter().all(|r| r.reason == "signature_mismatch"));
+
+        // Blank reason behaves like "no filter".
+        assert_eq!(repo.count_dead_events(Some("   ")).await.expect("blank count"), 4);
+
+        // Pagination: limit 1 returns the newest, offset 1 the next.
+        let page0 = repo.list_dead_events(1, 0, None).await.expect("page 0");
+        let page1 = repo.list_dead_events(1, 1, None).await.expect("page 1");
+        assert_eq!(page0.len(), 1);
+        assert_eq!(page1.len(), 1);
+        assert_ne!(page0[0].id, page1[0].id, "pages do not overlap");
     }
 }

@@ -15,6 +15,7 @@
 //! spot forgery attempts on their dashboards without reading per-message
 //! logs.
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -27,6 +28,8 @@ use serde_json::json;
 use sqlx::PgPool;
 use tokio::sync::watch;
 use uuid::Uuid;
+
+use crate::dead_events::{DeadEvent, DeadEventRecorder, payload_excerpt};
 
 use agentforge_core::orchestration_protocol::{
     RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskOutcome, TaskResult, parse_result_subject_with_prefix,
@@ -142,6 +145,11 @@ pub struct OrchestrationResultWorker<L, W, H> {
     writer: W,
     hmac: H,
     config: OrchestrationResultConsumerConfig,
+    /// Optional dead-letter recorder. Defaulted `None` so every existing
+    /// construction site (tests, the free `handle_message*` path) compiles
+    /// unchanged; production wiring installs a `SqlxDeadEventRecorder` via
+    /// [`Self::with_dead_event_recorder`].
+    dead_events: Option<Arc<dyn DeadEventRecorder>>,
 }
 
 impl<L, W, H> OrchestrationResultWorker<L, W, H>
@@ -224,7 +232,14 @@ where
             ));
         }
 
-        Ok(Self { consumer, lookup, writer, hmac, config })
+        Ok(Self { consumer, lookup, writer, hmac, config, dead_events: None })
+    }
+
+    /// Install a dead-letter recorder. Builder so production wiring opts in
+    /// without changing the `connect*` signatures (and their test sites).
+    pub fn with_dead_event_recorder(mut self, recorder: Arc<dyn DeadEventRecorder>) -> Self {
+        self.dead_events = Some(recorder);
+        self
     }
 
     pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
@@ -257,6 +272,23 @@ where
                                     }
                                     Err(HandleError::Unauthorized { reason, detail }) => {
                                         tracing::warn!(%reason, %detail, %subject, "orchestration result rejected");
+                                        // Dead-letter the permanently-dropped message before the
+                                        // Term ack so an operator has a durable record. Best-effort:
+                                        // `record` logs its own failures and never blocks the ack.
+                                        // org_id/delivery_id are NULL here — these drops are pre-lookup.
+                                        if let Some(recorder) = &self.dead_events {
+                                            recorder
+                                                .record(DeadEvent {
+                                                    source: "orchestration.result",
+                                                    reason: reason.to_string(),
+                                                    subject: subject.clone(),
+                                                    detail: Some(detail),
+                                                    delivery_id: None,
+                                                    org_id: None,
+                                                    payload_excerpt: payload_excerpt(&payload),
+                                                })
+                                                .await;
+                                        }
                                         let _ = message.ack_with(AckKind::Term).await;
                                     }
                                     Err(HandleError::Transient(err)) => {
