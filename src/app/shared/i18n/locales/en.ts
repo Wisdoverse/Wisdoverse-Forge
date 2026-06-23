@@ -441,7 +441,7 @@ export const en = {
     loginSuccess: 'You are signed in.',
     logoutSuccess: 'You are signed out.',
     registerSuccess: 'Your account is ready. You can sign in now.',
-    invalidCredentials: 'Check your email and password, then try again.',
+    invalidCredentials: 'Check your email and password, then choose Sign in again.',
     accountLocked:
       'This account is temporarily locked. Wait a few minutes, then try again or ask an owner or admin for help.',
     agentExpired: 'Your sign-in expired. Sign in again to continue.',

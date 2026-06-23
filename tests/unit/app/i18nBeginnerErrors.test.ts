@@ -74,6 +74,8 @@ describe('beginner error translations', () => {
   test('authentication entry messages give clear next steps', () => {
     expect(en.auth.loginSuccess).toBe('You are signed in.')
     expect(en.auth.invalidCredentials).toContain('Check your email and password')
+    expect(en.auth.invalidCredentials).toContain('choose Sign in again')
+    expect(en.auth.invalidCredentials).not.toContain('then try again')
     expect(en.auth.accountLocked).toContain('Wait a few minutes')
     expect(en.auth.accountLocked).toContain('owner or admin')
     expect(en.auth.agentExpired).toContain('Sign in again')
@@ -84,6 +86,8 @@ describe('beginner error translations', () => {
 
     expect(zh.auth.loginSuccess).toBe('你已登录。')
     expect(zh.auth.invalidCredentials).toContain('检查邮箱和密码')
+    expect(zh.auth.invalidCredentials).toContain('选择登录')
+    expect(zh.auth.invalidCredentials).not.toContain('然后重试')
     expect(zh.auth.accountLocked).toContain('等几分钟后重试')
     expect(zh.auth.accountLocked).toContain('管理员')
     expect(zh.auth.agentExpired).toContain('重新登录后继续')

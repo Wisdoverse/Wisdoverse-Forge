@@ -434,7 +434,7 @@ export const zh: TranslationKeys = {
     loginSuccess: '你已登录。',
     logoutSuccess: '你已退出登录。',
     registerSuccess: '账户已准备好，现在可以登录。',
-    invalidCredentials: '请检查邮箱和密码，然后重试。',
+    invalidCredentials: '请检查邮箱和密码，然后选择登录。',
     accountLocked: '这个账户暂时被锁定。请等几分钟后重试，或让所有者/管理员帮忙。',
     agentExpired: '登录已过期。请重新登录后继续。',
     passwordResetSent: '请查看邮箱里的密码重置链接。',
