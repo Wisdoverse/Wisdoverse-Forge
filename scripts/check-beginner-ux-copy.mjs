@@ -1177,6 +1177,7 @@ const SAVED_INSTRUCTION_TOOL_TOOLTIP_PATTERNS = [
 const SAVED_INSTRUCTION_SOURCE_LABEL_PATTERNS = [
   /\bWorkspace saved instructions\b/i,
   /\bWorkspace skills\b/i,
+  /\bSaved in (?:Team space|Project|Global) saved instructions\b/i,
   /\bSaved instructions library\b/i,
   /保存的说明库/,
 ]

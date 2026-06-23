@@ -12100,7 +12100,7 @@ function normalizeSkill() {
     const cwd = fixture({
       'src/app/features/skills/SkillCard.tsx': `
 export function SkillCard() {
-  return 'Saved in Team space saved instructions by Platform team'
+  return 'Saved for this team space by Platform team'
 }
 `,
       'src/app/features/skills/SkillDetailModal.tsx': `
@@ -12111,6 +12111,28 @@ export function SkillDetailModal() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags saved instruction card copy that exposes the source label', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Saved in Team space saved instructions by Platform team'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'saved-instruction-source-label-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+      ])
+    )
   })
 
   it('flags saved instruction publishing copy that still says workspace', () => {
