@@ -133,7 +133,7 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('provider is not configured') ||
     lower.includes('provider not configured')
   ) {
-    return 'Ask an owner or admin to check code access settings, then try again.'
+    return 'Ask an owner or admin to check code access settings, then open Settings and Code access again.'
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `Wait a minute, then ${retry}. Forge is receiving too many code access requests right now.`

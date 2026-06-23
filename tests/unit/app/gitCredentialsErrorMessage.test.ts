@@ -37,6 +37,13 @@ describe('gitCredentialsErrorMessage', () => {
     )
   })
 
+  test('turns unconfigured providers into a Code access recovery step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('provider is not configured'),
+      'Ask an owner or admin to check code access settings, then open Settings and Code access again.'
+    )
+  })
+
   test('turns delete failures into a remove-specific next step', () => {
     const message = gitCredentialsErrorMessage('Settings could not delete Git credential. HTTP 500')
 
