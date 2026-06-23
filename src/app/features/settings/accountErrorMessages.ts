@@ -43,7 +43,7 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
 function retryPhrase(action: AccountErrorAction): string {
   return action === 'changePassword'
     ? 'choose Update password again'
-    : 'rename the team space again'
+    : 'choose Save team space name again'
 }
 
 function settingsAreaLabel(action: AccountErrorAction): string {
@@ -54,7 +54,7 @@ function networkMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
     return `Check your connection, then ${retryPhrase(action)}. The password change did not finish.`
   }
-  return 'Check your connection, then rename the team space again. The team space rename did not finish.'
+  return `Check your connection, then ${retryPhrase(action)}. The team space rename did not finish.`
 }
 
 function permissionMessage(action: AccountErrorAction): string {

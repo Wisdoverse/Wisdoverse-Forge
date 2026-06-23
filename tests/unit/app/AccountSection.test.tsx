@@ -406,6 +406,24 @@ describe('AccountSection', () => {
     expect(alert.textContent).not.toContain('Forbidden')
   })
 
+  test('names the Save team space name button when rename cannot connect', async () => {
+    const updateOrg = vi.fn().mockRejectedValue(new Error('Network error'))
+    useNavigationStore.setState({ updateOrg })
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Team Space Name'), {
+      target: { value: 'Acme Support' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then choose Save team space name again. The team space rename did not finish.'
+    )
+    expect(alert.textContent).not.toContain('rename the team space again')
+    expect(alert.textContent).not.toContain('Network error')
+  })
+
   test('shows a password recovery step instead of raw validation details', async () => {
     changePasswordMock.mockRejectedValue(
       Object.assign(new Error('HTTP 422'), {
