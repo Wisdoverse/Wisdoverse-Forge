@@ -84,7 +84,8 @@ describe('SkillDetailModal', () => {
       />
     )
 
-    expect(screen.getByText('Needs setup before use')).toBeInTheDocument()
+    expect(screen.getByText('Check before use')).toBeInTheDocument()
+    expect(screen.queryByText('Needs setup before use')).toBeNull()
     expect(screen.queryByText(/needs install/i)).toBeNull()
     expect(screen.getByText('Works with any agent')).toBeInTheDocument()
     expect(

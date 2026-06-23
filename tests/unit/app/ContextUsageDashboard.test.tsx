@@ -35,6 +35,15 @@ function analytics(overrides: Partial<ContextUsageAnalytics> = {}): ContextUsage
 }
 
 describe('ContextUsageDashboard', () => {
+  test('tells first-time users how saved item reuse starts', () => {
+    render(<ContextUsageDashboard data={null} />)
+
+    expect(
+      screen.getByText('Appears after agents reuse saved notes or instructions')
+    ).toBeDefined()
+    expect(screen.queryByText('Updated when data is available')).toBeNull()
+  })
+
   test('explains empty reuse states without stale-threshold jargon', () => {
     const previousSavedNotesCopy = new RegExp(['saved', 'memories'].join('\\s+'), 'i')
 
@@ -77,7 +86,7 @@ describe('ContextUsageDashboard', () => {
 
     const banner = screen.getByTestId('context-usage-stale-banner')
     expect(banner).toHaveTextContent('These numbers are more than 12h old')
-    expect(banner).toHaveTextContent('Choose Load analytics again before making decisions')
+    expect(banner).toHaveTextContent('Choose Check analytics again before making decisions')
     expect(banner).not.toHaveTextContent('Snapshot')
   })
 
@@ -109,7 +118,7 @@ describe('ContextUsageDashboard', () => {
       />
     )
 
-    expect(screen.getByText('Choose Load analytics again to update this time')).toBeDefined()
+    expect(screen.getByText('Choose Check analytics again to update this time')).toBeDefined()
     const item = screen.getByTestId('context-usage-item')
     expect(item.textContent).toContain(
       'Builder Agent · Check where this ran · Check what kind of task it was'

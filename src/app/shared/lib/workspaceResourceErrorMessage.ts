@@ -30,13 +30,13 @@ export function workspaceResourceErrorMessage(
     return `Open Settings, then ${resourceSettingsSection(resource)}, and choose an existing ${resource}.`
   }
   if (status === 409) {
-    return `Open Settings, then ${resourceSettingsSection(resource)}, check the current ${resource}, then try again. This ${resource} changed while you were editing.`
+    return `Open Settings, then ${resourceSettingsSection(resource)}, check the current ${resource}, then ${retryPhrase(resource, action)}. This ${resource} changed while you were editing.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(resource, action, detail)
   }
   if (status === 429) {
-    return `Settings is busy. Wait a moment, then ${retryPhrase(resource, action)}.`
+    return `Wait a moment, then ${retryPhrase(resource, action)}. Settings is busy.`
   }
   if (status >= 500) {
     return workspaceResourceUnavailableMessage(resource, action)
@@ -82,8 +82,8 @@ function validationMessage(
   if (action === 'update') {
     if (normalized.includes('name')) {
       return resource === 'team'
-        ? 'Enter a team name, then save again.'
-        : 'Enter a project name, then save again.'
+        ? 'Enter a team name, then save this team name again.'
+        : 'Enter a project name, then save this project name again.'
     }
     return resource === 'team'
       ? 'Check the team name and description, then save again.'

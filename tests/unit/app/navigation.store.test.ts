@@ -48,7 +48,7 @@ describe('navigation.store', () => {
         'load',
         apiError(401, { error: 'token expired' })
       ),
-      'Sign in again, then open the left menu and try to load team spaces again.'
+      'Sign in again, then open the left menu and load team spaces again.'
     )
   })
 
@@ -91,7 +91,7 @@ describe('navigation.store', () => {
   it('turns navigation conflicts into a current teams and projects check step', () => {
     expectBeginnerError(
       navigationActionErrorMessage('teamProjects', 'load', apiError(409, { message: 'conflict' })),
-      'Open the left menu, check the current teams and projects, then try again. The left menu changed while you were working.'
+      'Open the left menu, check the current teams and projects, then load teams and projects again. The left menu changed while you were working.'
     )
   })
 
@@ -104,11 +104,18 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then open the left menu and try to load waiting places again.'
+      'Check your connection, then open the left menu and load waiting places again.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
     expect(message).not.toContain('sidebar')
+  })
+
+  it('turns busy left menu responses into an action-first retry step', () => {
+    expectBeginnerError(
+      navigationActionErrorMessage('workLane', 'create', { statusCode: 429 }),
+      'Wait a moment, then create the waiting place again. The left menu is busy.'
+    )
   })
 
   it('uses structured validation details for waiting place names', () => {
@@ -364,7 +371,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Check your connection, then open the left menu and try to load waiting places again.'
+      'Check your connection, then open the left menu and load waiting places again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })
@@ -403,7 +410,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Choose the project where tasks should wait, then try again.'
+      'Choose the project where tasks should wait, then create the waiting place again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('project is required')
     expect(useNavigationStore.getState().error).not.toContain('task queue')

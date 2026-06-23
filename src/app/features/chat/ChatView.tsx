@@ -18,6 +18,7 @@ import type { AgentMessageRow } from '@shared/types'
 import { TurnItem } from './TurnItem'
 import { ChatComposer } from './ChatComposer'
 import { useChatStream } from './useChatStream'
+import { toolCallSearchText } from './ToolCallDetail'
 
 interface ChatViewProps {
   agentId: string
@@ -92,10 +93,10 @@ function conversationFilterEmptyCopy(
 
   if (filter === 'attention') {
     return {
-      title: 'Use All if you expected a blocker',
-      detail: 'No message is stuck, failed, waiting, or asking for your help in this view.',
+      title: 'Use All if you expected a next step',
+      detail: 'No message needs your next step in this view.',
       nextStep:
-        'Next: use All to read the full conversation, or send a short follow-up if you expected a blocker.',
+        'Next: use All to read the full conversation, or send a short follow-up if you expected the agent to be waiting for you.',
     }
   }
 
@@ -259,7 +260,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          Loading updates...
+          Checking updates...
         </div>
       </div>
     )
@@ -269,7 +270,7 @@ export function ChatView({ agentId }: ChatViewProps) {
     return (
       <ChatErrorNotice
         message={error}
-        actionLabel="Retry conversation"
+        actionLabel="Check conversation again"
         onAction={() => void fetchEvents(agentId)}
       />
     )
@@ -737,7 +738,7 @@ function conversationFilterActionLabel(filter: ConversationFilter): string {
     case 'tool':
       return 'Show work steps'
     case 'attention':
-      return 'Show stuck, failed, waiting, or help-needed updates'
+      return 'Show updates that need your next step'
   }
 }
 
@@ -834,22 +835,11 @@ function turnNeedsAttention(turn: Turn): boolean {
 }
 
 function messageSearchText(message: AgentMessageRow): string {
-  return [messageRoleLabel(message.role), message.content, message.model, message.finishReason]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
+  return [messageRoleLabel(message.role), message.content].filter(Boolean).join(' ').toLowerCase()
 }
 
 function turnSearchText(turn: Turn): string {
-  return [
-    turn.prompt,
-    turn.response,
-    ...turn.toolCalls.flatMap((call) => [
-      call.tool,
-      JSON.stringify(call.input),
-      JSON.stringify(call.output),
-    ]),
-  ]
+  return [turn.prompt, turn.response, ...turn.toolCalls.map(toolCallSearchText)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()

@@ -61,7 +61,7 @@ describe('ReviewSnapshotPanel', () => {
       'Forge is checking whether this fix is ready to finish and automated checks have passed.'
     )
     expect(loading).toHaveTextContent(
-      'If this takes more than a moment, choose Check again or ask an owner or admin to confirm finish access.'
+      'If this takes more than a moment, choose Check fix status or ask an owner or admin to confirm finish access.'
     )
     expect(loading).toHaveTextContent(
       'Success looks like automated check status and a Finish this fix button when it is safe.'
@@ -84,7 +84,8 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.getByText('Automated checks passed')).toBeInTheDocument()
     expect(screen.queryByText(/Build checks/i)).toBeNull()
     expect(screen.getByLabelText('Check fix status again')).toBeInTheDocument()
-    expect(screen.getByText('Check again')).toBeInTheDocument()
+    expect(screen.getByText('Check fix status')).toBeInTheDocument()
+    expect(screen.queryByText('Check again')).toBeNull()
     expect(screen.queryByLabelText('Refresh review status')).toBeNull()
     expect(screen.getByText('Check the changes')).toBeInTheDocument()
     expect(screen.queryByText(/changed files/i)).toBeNull()
@@ -115,7 +116,7 @@ describe('ReviewSnapshotPanel', () => {
 
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
     expect(screen.getByText(/automated checks pass/i)).toBeInTheDocument()
-    expect(screen.getByText(/choose check again after they finish/i)).toBeInTheDocument()
+    expect(screen.getByText(/choose check fix status after they finish/i)).toBeInTheDocument()
     expect(screen.queryByText(/use refresh/i)).toBeNull()
     expect(screen.queryByText(/build checks/i)).toBeNull()
     expect(screen.queryByText(/merge unlocks/i)).toBeNull()
@@ -132,7 +133,9 @@ describe('ReviewSnapshotPanel', () => {
     const button = screen.getByTestId('review-approve')
     expect(button).toBeDisabled()
     expect(screen.getByText(/finish after the agent opens the fix check page/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/choose check again after it appears/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/choose check fix status after it appears/i).length).toBeGreaterThan(
+      0
+    )
     expect(screen.queryByText(/review page/i)).toBeNull()
     expect(screen.queryByText(/use refresh/i)).toBeNull()
     expect(screen.queryByText(/merge unlocks/i)).toBeNull()
@@ -166,7 +169,7 @@ describe('ReviewSnapshotPanel', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose Check again, then try again. Forge could not load the current fix check status.'
+      'Choose Check fix status again. Forge could not load the current fix check status.'
     )
     expect(alert).not.toHaveTextContent('Refresh review status')
     expect(alert).not.toHaveTextContent('Refresh fix review')

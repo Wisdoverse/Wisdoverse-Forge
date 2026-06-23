@@ -339,7 +339,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-3">
         <fieldset>
-          <legend className={uiStyles.label}>Choose code setup</legend>
+          <legend className={uiStyles.label}>Choose how to add code</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label
               htmlFor={codeSetupLaterId}

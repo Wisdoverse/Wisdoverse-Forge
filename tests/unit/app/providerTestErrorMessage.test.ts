@@ -13,14 +13,14 @@ describe('providerTestErrorMessage', () => {
   test('turns invalid key details into setup guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage('Invalid key', 'Anthropic Review'),
-      'Check the service access key, saved setup, and service address for Anthropic Review, then save and choose Check connection again.'
+      'Check the service access key, saved service choice, and service address for Anthropic Review, then save and choose Check connection again.'
     )
   })
 
-  test('turns permission failures into access key and saved setup guidance', () => {
+  test('turns permission failures into access key and saved service choice guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage(new Error('HTTP 403: Forbidden'), 'OpenAI Production'),
-      'Check that the saved service access key can use the saved setup for OpenAI Production, then save and choose Check connection again.'
+      'Check that the saved service access key can use the saved service choice for OpenAI Production, then save and choose Check connection again.'
     )
   })
 

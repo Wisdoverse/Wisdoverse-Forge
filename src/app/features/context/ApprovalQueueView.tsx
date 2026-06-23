@@ -95,7 +95,7 @@ const REJECT_CHECKLIST = [
 const SOURCE_MISSING_LABEL = 'Task details need to load'
 const SOURCE_MISSING_DETAIL = 'Save unlocks after the original task details load.'
 const SOURCE_MISSING_NEXT_STEP =
-  'Load saved items again, then save after the original task details load.'
+  'Check saved items again, then save after the original task details load.'
 
 interface ApprovalQueueEmptyState {
   title: string
@@ -286,7 +286,7 @@ export function ApprovalQueueView() {
             type="button"
             onClick={() => void loadCandidates()}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
-            title="Load saved items again"
+            title="Check saved items again"
           >
             <RefreshCw
               size={15}
@@ -294,7 +294,7 @@ export function ApprovalQueueView() {
               className={cn(loading && 'animate-spin')}
               aria-hidden="true"
             />
-            <span>Load saved items again</span>
+            <span>Check saved items again</span>
           </button>
         </section>
 
@@ -628,7 +628,7 @@ function DecisionPanel({
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
                   Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly. Copy the team or project sharing code from Settings under
+                  shares it more broadly. Copy the team or project sharing text from Settings under
                   Teams or Projects.
                 </div>
 
@@ -1014,9 +1014,9 @@ function reuseAudienceLabel(value: ContextCandidateSummary['proposed_scope_kind'
 }
 
 function scopeSharingCodeLabel(value: ContextScopeKind): string {
-  if (value === 'team') return 'team sharing code'
-  if (value === 'project') return 'project sharing code'
-  return `${titleCase(value)} sharing code`
+  if (value === 'team') return 'team sharing text'
+  if (value === 'project') return 'project sharing text'
+  return `${titleCase(value)} sharing text`
 }
 
 function candidatePreview(candidate: ContextCandidateSummary): string {

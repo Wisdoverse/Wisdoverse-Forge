@@ -9,7 +9,11 @@ describe('workspaceSettingsErrorMessage', () => {
   }
 
   test('names the exact Settings section instead of a combined Teams and Projects page', () => {
-    const message = workspaceSettingsErrorMessage('project', 'load', new TypeError('Failed to fetch'))
+    const message = workspaceSettingsErrorMessage(
+      'project',
+      'load',
+      new TypeError('Failed to fetch')
+    )
 
     expect(message).toContain('open Settings, then Projects again')
     expect(message).not.toContain('Settings and Teams and Projects')
@@ -42,10 +46,7 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps structured auth failures to a sign-in step without workspace wording', () => {
     const message = workspaceSettingsErrorMessage('team', 'load', { statusCode: '401' })
 
-    expectBeginnerMessage(
-      message,
-      'Sign in again, then open Settings, then Teams again.'
-    )
+    expectBeginnerMessage(message, 'Sign in again, then open Settings, then Teams again.')
     expect(message).not.toContain('workspace teams')
   })
 
@@ -65,7 +66,7 @@ describe('workspaceSettingsErrorMessage', () => {
       detail: 'name is required',
     })
 
-    expectBeginnerMessage(message, 'Enter a project name, then try again.')
+    expectBeginnerMessage(message, 'Enter a project name, then create this project again.')
     expect(message).not.toContain('The project was not created')
     expect(message).not.toContain('name is required')
   })
@@ -101,7 +102,24 @@ describe('workspaceSettingsErrorMessage', () => {
   test('maps duplicate create failures to a name change next step', () => {
     expectBeginnerMessage(
       workspaceSettingsErrorMessage('project', 'create', 'Code: 409 already exists'),
-      'Use a different name, then try again.'
+      'Use a different name, then create this project again.'
+    )
+  })
+
+  test('uses direct create steps for team name validation failures', () => {
+    expectBeginnerMessage(
+      workspaceSettingsErrorMessage('team', 'create', {
+        status: 422,
+        detail: 'name is required',
+      }),
+      'Enter a team name, then choose Create team again.'
+    )
+    expectBeginnerMessage(
+      workspaceSettingsErrorMessage('team', 'create', {
+        status: 422,
+        detail: 'invalid format',
+      }),
+      'Check the team name, then choose Create team again.'
     )
   })
 
@@ -191,5 +209,18 @@ describe('workspaceSettingsErrorMessage', () => {
       'Check your connection, then create this project again. Forge could not connect while creating it.'
     )
     expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('uses a direct create step for unknown create failures', () => {
+    const message = workspaceSettingsErrorMessage('project', 'create', {
+      message: 'unexpected project setup parser detail',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Create this project again. If it still fails, ask an owner or admin to check Projects in Settings.'
+    )
+    expect(message).not.toContain('Try to')
+    expect(message).not.toContain('parser')
   })
 })

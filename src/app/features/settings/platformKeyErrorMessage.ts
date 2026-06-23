@@ -115,10 +115,10 @@ export function platformKeyErrorMessage(error: unknown): string {
     lower.includes('name required') ||
     lower.includes('invalid name')
   ) {
-    return 'Enter the tool or job name, then try again.'
+    return `Enter the tool or job name, then ${retry}.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+    return `Wait a minute, then ${retry}. Forge is receiving too many outside tool access requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
@@ -134,5 +134,5 @@ export function platformKeyErrorMessage(error: unknown): string {
     return 'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check outside tool access settings.`
 }

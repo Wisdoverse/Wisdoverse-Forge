@@ -62,7 +62,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
   const code = statusCode(error)
 
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
-    return `Check that the saved service access key can use the saved setup for ${providerLabel}, then save and choose Check connection again.`
+    return `Check that the saved service access key can use the saved service choice for ${providerLabel}, then save and choose Check connection again.`
   }
   if (
     code === 400 ||
@@ -71,10 +71,10 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     text.includes('api key') ||
     text.includes('authentication')
   ) {
-    return `Check the service access key, saved setup, and service address for ${providerLabel}, then save and choose Check connection again.`
+    return `Check the service access key, saved service choice, and service address for ${providerLabel}, then save and choose Check connection again.`
   }
   if (code === 404 || text.includes('not found')) {
-    return `Check the saved setup and service address for ${providerLabel}, then choose Check connection again. The saved setup or service address was not found.`
+    return `Check the saved service choice and service address for ${providerLabel}, then choose Check connection again. The saved service choice or service address was not found.`
   }
   if (code === 408 || code === 429 || text.includes('rate limit') || text.includes('too many')) {
     return `Wait a minute, then check ${providerLabel} again. This AI service is receiving too many checks right now.`

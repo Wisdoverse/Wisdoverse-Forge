@@ -139,10 +139,10 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Paste the safe public key line from the .pub file, then save again.'
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
-    return 'Check the access name and safe public key line, then try again.'
+    return `Check the access name and safe public key line, then ${retry}.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+    return `Wait a minute, then ${retry}. Forge is receiving too many SSH code access requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
@@ -155,5 +155,5 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check SSH code access settings.`
 }

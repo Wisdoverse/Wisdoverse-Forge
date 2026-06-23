@@ -57,7 +57,7 @@ describe('Agents Store', () => {
   test('turns expired sessions into a sign-in step', () => {
     expectBeginnerError(
       agentActionErrorMessage('load', apiError(401, { error: 'token expired' })),
-      'Sign in again, then open Agents and try to load agents again.'
+      'Sign in again, then open Agents again to load agents.'
     )
   })
 
@@ -69,9 +69,10 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to update your team space access, then try to delete the agent again. You do not have permission to delete the agent.'
+      'Ask an owner or admin to update your team space access, then choose Delete again. You do not have permission to delete the agent.'
     )
     expect(message).not.toContain('workspace role')
+    expect(message).not.toContain('try to delete')
   })
 
   test('turns raw network failures into connection guidance', () => {
@@ -100,14 +101,14 @@ describe('Agents Store', () => {
         status: '429',
         error: 'rate limit exceeded',
       }),
-      'Wait a moment, then try to send the instruction again. The Agents page is busy.'
+      'Wait a moment, then send the instruction again. The Agents page is busy.'
     )
   })
 
   test('uses AI service language for create validation failures', () => {
     expectBeginnerError(
       agentActionErrorMessage('create', apiError(422, { message: 'provider and model required' })),
-      'Choose a tested AI service and model, then try creating this agent again.'
+      'Choose a tested AI service and model, then choose Add agent again.'
     )
   })
 
@@ -132,15 +133,23 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Open Agents, then try to restart the agent again. Forge could not restart the agent.'
+      'Open Agents, choose this agent, then restart it again. Forge could not restart the agent.'
     )
     expect(message).not.toContain('teapot')
+    expect(message).not.toContain('try to restart')
+  })
+
+  test('keeps missing load failures on the Agents page', () => {
+    const message = agentActionErrorMessage('load', apiError(404, { message: 'not found' }))
+
+    expectBeginnerError(message, 'Open Agents again to load agents. This agent could not be found.')
+    expect(message).not.toContain('choose this agent')
   })
 
   test('starts delete conflicts with a current-status check step', () => {
     expectBeginnerError(
       agentActionErrorMessage('delete', apiError(409, { message: 'version changed' })),
-      'Open Agents, check the current status, then try again. This agent changed while you were deleting it.'
+      'Open Agents, check the current status, then choose Delete again. This agent changed while you were deleting it.'
     )
   })
 
@@ -152,9 +161,10 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Choose a team space and project you can access, then try creating this agent again.'
+      'Choose a team space and project you can access, then choose Add agent again.'
     )
     expect(message).not.toContain('Choose a workspace')
+    expect(message).not.toContain('try creating')
   })
 
   test('explains this-computer agent validation without CLI jargon', () => {
@@ -179,11 +189,26 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('database')
     expect(message).not.toContain('local agent')
     expect(message).not.toContain('setup command')
+  })
+
+  test('turns file-work server failures into concrete agent action steps', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('create', apiError(503, { message: 'runtime unavailable' })),
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
+    expectBeginnerError(
+      agentActionErrorMessage('start', apiError(503, { message: 'runtime unavailable' })),
+      'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
+    expectBeginnerError(
+      agentActionErrorMessage('restart', apiError(503, { message: 'runtime unavailable' })),
+      'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
   })
 
   test('initializes with empty agents', () => {
@@ -282,8 +307,9 @@ describe('Agents Store', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Name this agent, choose where it should work, then try creating it again.'
+      'Name this agent, choose where it should work, then choose Add agent again.'
     )
+    expect(useAgentsStore.getState().error).not.toContain('try creating')
   })
 
   test('stores the requested create-agent starting choice while opening the modal', () => {
@@ -402,7 +428,7 @@ describe('Agents Store', () => {
     expect(result).toBeNull()
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(useAgentsStore.getState().error).not.toContain('database')
     expect(useAgentsStore.getState().error).not.toContain('local agent')
@@ -421,7 +447,7 @@ describe('Agents Store', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
+      'Wait for the current work to finish, open Agents and choose this agent again, then send the instruction again. This agent is already working.'
     )
   })
 })

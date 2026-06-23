@@ -59,7 +59,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Ask an owner or admin to let you create saved instructions, then save again. ${failure}`
   }
   if (code === 404) {
-    return `Refresh the task, then save the instruction again. ${failure} Saved instruction access may have changed.`
+    return `Open this task again, then save the instruction again. ${failure} Saved instruction access may have changed.`
   }
   if (
     code === 409 ||

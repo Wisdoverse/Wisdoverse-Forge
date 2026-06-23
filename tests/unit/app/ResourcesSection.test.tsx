@@ -130,15 +130,15 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Load agent sizes again.')
+    expect(alert).toHaveTextContent('Check agent sizes again.')
     expect(alert).toHaveTextContent('Agent sizes decide how much computer power and memory')
     expect(alert).toHaveTextContent('agent that edits project files')
-    expect(alert).toHaveTextContent('Load this list again before creating or changing agents')
+    expect(alert).toHaveTextContent('Check this list again before creating or changing agents')
     expect(alert).not.toHaveTextContent('managed workspace')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('Reload sizes')
 
-    fireEvent.click(screen.getByRole('button', { name: /load again/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check again/i }))
     expect(loadResourceProfilesMock).toHaveBeenCalledTimes(2)
   })
 
@@ -151,7 +151,7 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByRole('button', { name: /loading agent sizes/i })).toBeDisabled()
+    expect(within(alert).getByRole('button', { name: /checking agent sizes/i })).toBeDisabled()
     expect(within(alert).queryByRole('button', { name: 'Loading...' })).toBeNull()
   })
 })

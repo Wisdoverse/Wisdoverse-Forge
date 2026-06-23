@@ -219,7 +219,7 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
-            Agent try: {readableRunStatus(run.status)}
+            Agent work: {readableRunStatus(run.status)}
           </p>
           <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
             Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
@@ -241,13 +241,13 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
 function workAttemptReferenceLabel(id: string): string {
   const trimmed = id.trim()
   if (!trimmed) {
-    return 'Open this task again from the Tasks page to check the help code.'
+    return 'Open this task again from the Tasks page to check the work help text.'
   }
-  return `Help code ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+  return `Work help text ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function runSourceNeedsCheck(runSource: string): boolean {
-  return runSource.includes('you should check')
+  return runSource.includes('shown in Settings')
 }
 
 function runSourceLabel(run: TaskRunSummary): string {
@@ -294,7 +294,7 @@ function aiServiceLabel(providerName?: string): string | null {
     case 'local':
       return 'a local AI service'
     default:
-      return looksLikeSlug(trimmed, normalized) ? 'an AI service you should check' : trimmed
+      return looksLikeSlug(trimmed, normalized) ? 'an AI service shown in Settings' : trimmed
   }
 }
 
@@ -316,7 +316,7 @@ function workToolLabel(tool?: string): string | null {
     case '':
       return null
     default:
-      return 'a work tool you should check'
+      return 'a work tool shown in Settings'
   }
 }
 

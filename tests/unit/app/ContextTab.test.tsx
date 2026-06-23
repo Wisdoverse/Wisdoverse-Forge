@@ -12,6 +12,14 @@ afterEach(cleanup)
 
 const now = new Date('2026-05-06T07:00:00.000Z').toISOString()
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 function applied(overrides: Partial<AppliedContextItem>): AppliedContextItem {
   return {
     injectionId:
@@ -381,12 +389,13 @@ describe('ContextTab', () => {
   })
 
   test('loads complete saved note content only after the user asks for it', async () => {
-    const readMemoryContent = vi.fn(async () => ({
+    const request = deferred({
       id: 'memory-1',
       content: 'Full memory content loaded on demand.',
       content_redacted: false,
       sensitivity: 'internal' as const,
-    }))
+    })
+    const readMemoryContent = vi.fn(() => request.promise)
 
     render(
       <ContextTab
@@ -412,6 +421,14 @@ describe('ContextTab', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /show complete saved note/i }))
 
     expect(readMemoryContent).toHaveBeenCalledWith('memory-1')
+    expect(await screen.findByRole('button', { name: /opening complete saved note/i })).toBeDisabled()
+    expect(screen.queryByText('Loading complete saved note…')).toBeNull()
+    request.resolve({
+      id: 'memory-1',
+      content: 'Full memory content loaded on demand.',
+      content_redacted: false,
+      sensitivity: 'internal',
+    })
     expect(await screen.findByText('Full memory content loaded on demand.')).toBeDefined()
   })
 

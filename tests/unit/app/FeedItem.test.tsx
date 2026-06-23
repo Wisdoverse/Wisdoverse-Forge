@@ -110,4 +110,21 @@ describe('FeedItem', () => {
     expect(screen.getByLabelText(/the agent shared progress on this task/i)).toBeDefined()
     expect(screen.queryByLabelText(/reported progress/i)).toBeNull()
   })
+
+  test('hides raw technical details from progress updates', () => {
+    render(
+      <FeedItem
+        item={{
+          ...baseItem,
+          detail: 'HTTP 500 panic: stack trace line 7 from raw command output',
+        }}
+      />
+    )
+
+    expect(screen.getByText('Open task details to check the latest update.')).toBeDefined()
+    expect(screen.queryByText(/HTTP 500/i)).toBeNull()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+  })
 })

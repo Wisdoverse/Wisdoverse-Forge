@@ -6,7 +6,7 @@ import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResource
 import type { CloneSummary, NavProject, UpdateProjectInput } from '@app/entities/project'
 import { CloneStatusBadge } from './CloneStatusBadge'
 
-const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save again.'
+const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save this project name again.'
 const PROJECT_DELETE_CONFIRMATION_MESSAGE =
   'Delete this project from Settings and the left menu. Agents using this project will be moved out of it. Choose Keep if you are not sure.'
 

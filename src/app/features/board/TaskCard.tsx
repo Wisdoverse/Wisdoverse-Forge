@@ -264,6 +264,52 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
   )
 }
 
+export function taskCardSearchText(
+  task: TaskSummary,
+  options: { canOpenPublishPreview?: boolean; displayMode?: TaskCardProps['displayMode'] } = {}
+): string {
+  const resultArtifacts = taskResultArtifacts(task.result)
+  const contextCounts = normalizedContextCounts(task.contextCounts)
+  const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
+  const priorityKey = taskMachineKey(task.priority)
+  const compact = options.displayMode === 'compact'
+  const nextStep = compact
+    ? null
+    : taskNextStep(task, {
+        canOpenPublishPreview: Boolean(options.canOpenPublishPreview),
+        hasAssignee,
+        hasBrief: taskHasBrief(task),
+        resultCount: resultArtifacts.length,
+      })
+  const failurePreview =
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+  const blockedPreview =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
+
+  return [
+    task.params.task,
+    taskStateLabel(task.state),
+    priorityKey !== 'normal' ? taskPriorityLabel(task.priority) : null,
+    hasAssignee ? (task.assignedAgentName ?? 'Chosen agent') : 'Needs agent',
+    contextCounts.total > 0 ? formatContextCountsLabel(contextCounts) : null,
+    task.state === 'completed' && resultArtifacts.length > 0
+      ? `${resultArtifacts.length} file${resultArtifacts.length === 1 ? '' : 's'}`
+      : null,
+    nextStep,
+    failurePreview,
+    blockedPreview,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
 function normalizedContextCounts(counts?: TaskContextCounts): TaskContextCounts {
   const appliedMemories = nonNegativeCount(counts?.appliedMemories)
   const appliedSkills = nonNegativeCount(counts?.appliedSkills)

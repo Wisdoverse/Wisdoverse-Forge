@@ -366,7 +366,8 @@ describe('SkillsView', () => {
     const summary = await screen.findByTestId('skill-reuse-summary')
     expect(within(summary).getByText('Total')).toBeDefined()
     expect(within(summary).getAllByText('Ready to use').length).toBeGreaterThan(0)
-    expect(within(summary).getAllByText('Needs setup').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByText('Check before use').length).toBeGreaterThan(0)
+    expect(within(summary).queryByText('Needs setup')).toBeNull()
     expect(within(summary).queryByText('Needs install')).toBeNull()
     expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
     expect(within(summary).getByText('Show saved instructions')).toBeDefined()
@@ -378,7 +379,7 @@ describe('SkillsView', () => {
     const filters = within(summary).getByRole('group', { name: /saved instruction filter/i })
     expect(
       within(filters).getByRole('button', {
-        name: /show saved instructions that need setup before use, 1 matching saved instruction/i,
+        name: /show saved instructions to check before use, 1 matching saved instruction/i,
       })
     ).toBeDefined()
     expect(
@@ -529,10 +530,10 @@ describe('SkillsView', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Open Saved instructions again to load the list.')
-    expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
+    expect(alert).toHaveTextContent('Choose Check saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
-    expect(screen.getByRole('button', { name: /load saved instructions again/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /check saved instructions again/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull()
   })
 
@@ -555,8 +556,30 @@ describe('SkillsView', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Saved instructions need to load again.')
-    expect(alert).toHaveTextContent('Choose Load saved instructions again to load the list.')
+    expect(alert).toHaveTextContent('Choose Check saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
+    expect(alert).not.toHaveTextContent('database unavailable')
+  })
+
+  test('hides backend details without status codes when saved instructions fail to load', async () => {
+    render(<SkillsView />)
+    await waitFor(() => {
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
+    })
+
+    act(() => {
+      useSkillsStore.setState({
+        skills: [],
+        installedSkills: [],
+        loading: false,
+        error: 'database unavailable',
+        searchQuery: '',
+      })
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Saved instructions need to load again.')
+    expect(alert).toHaveTextContent('Choose Check saved instructions again to load the list.')
     expect(alert).not.toHaveTextContent('database unavailable')
   })
 
@@ -602,6 +625,6 @@ describe('SkillsView', () => {
   test('shows loading state while fetching', () => {
     useSkillsStore.setState({ loading: true })
     render(<SkillsView />)
-    expect(screen.getByText(/loading saved instructions/i)).toBeDefined()
+    expect(screen.getByText('Checking saved instructions...')).toBeDefined()
   })
 })

@@ -41,7 +41,9 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
 }
 
 function retryPhrase(action: AccountErrorAction): string {
-  return action === 'changePassword' ? 'change your password again' : 'rename the team space again'
+  return action === 'changePassword'
+    ? 'choose Update password again'
+    : 'choose Save team space name again'
 }
 
 function settingsAreaLabel(action: AccountErrorAction): string {
@@ -50,9 +52,9 @@ function settingsAreaLabel(action: AccountErrorAction): string {
 
 function networkMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
-    return 'Check your connection, then change your password again. The password change did not finish.'
+    return `Check your connection, then ${retryPhrase(action)}. The password change did not finish.`
   }
-  return 'Check your connection, then rename the team space again. The team space rename did not finish.'
+  return `Check your connection, then ${retryPhrase(action)}. The team space rename did not finish.`
 }
 
 function permissionMessage(action: AccountErrorAction): string {
@@ -64,26 +66,26 @@ function permissionMessage(action: AccountErrorAction): string {
 
 function conflictMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
-    return 'Open Account settings again, then change your password again. Your account changed while this form was open.'
+    return `Open Account settings again, then ${retryPhrase(action)}. Your account changed while this form was open.`
   }
-  return 'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
+  return `Open Account settings again, check the current team space name, then ${retryPhrase(action)}. This team space changed while you were editing.`
 }
 
 function validationMessage(action: AccountErrorAction, detail?: string | null): string {
   const normalizedDetail = detail?.toLowerCase() ?? ''
   if (action === 'changePassword') {
     if (normalizedDetail.includes('current password') || normalizedDetail.includes('incorrect')) {
-      return 'Re-enter the current password, then try again. The current password did not match this account.'
+      return `Re-enter the current password, then ${retryPhrase(action)}. The current password did not match this account.`
     }
     if (normalizedDetail.includes('new password') || normalizedDetail.includes('password')) {
-      return 'Choose a new password that meets the password rules, then try again.'
+      return `Choose a new password that meets the password rules, then ${retryPhrase(action)}.`
     }
-    return 'Check the current password and make sure the new password meets the requirements, then try again.'
+    return `Check the current password and make sure the new password meets the requirements, then ${retryPhrase(action)}.`
   }
   if (normalizedDetail.includes('already exists') || normalizedDetail.includes('taken')) {
-    return 'Choose a different display name, then try again. That team space name is already in use.'
+    return `Choose a different display name, then ${retryPhrase(action)}. That team space name is already in use.`
   }
-  return 'Use a team space name between 1 and 100 characters, then try again.'
+  return `Use a team space name between 1 and 100 characters, then ${retryPhrase(action)}.`
 }
 
 function shouldUseDetail(status: number | null): boolean {

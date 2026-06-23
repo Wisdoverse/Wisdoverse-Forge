@@ -25,7 +25,7 @@ export const en = {
     filter: 'Filter',
     sort: 'Sort',
     refresh: 'Refresh',
-    loading: 'Loading...',
+    loading: 'Checking...',
     saving: 'Saving...',
     deleting: 'Deleting...',
     processing: 'Processing...',
@@ -159,7 +159,7 @@ export const en = {
         title: 'Where tasks wait',
         emptyWithProject: 'Set up where tasks wait for this project.',
         emptyWithoutProject: 'Select a project, then set up where tasks wait.',
-        why: 'This gives new work a place to wait until the next available agent picks it up.',
+        why: 'This gives new work a place to wait until the next available agent starts it.',
         success: 'A waiting place exists for the selected project.',
         create: 'Set up waiting place',
         review: 'Check waiting places',
@@ -167,7 +167,7 @@ export const en = {
       task: {
         title: 'First task',
         emptyWithRouting:
-          'Write one small task. Forge puts it where tasks wait until the next available agent picks it up.',
+          'Write one small task. Forge puts it where tasks wait until the next available agent starts it.',
         emptyWithoutRouting: 'Set up where tasks wait before the first task.',
         emptyWithoutProject:
           'Create or choose a project, then set up where tasks wait before the first task.',
@@ -179,7 +179,7 @@ export const en = {
       },
       review: {
         title: 'Check the result',
-        empty: 'After an agent picks up a task, open it to see progress and results.',
+        empty: 'After an agent starts a task, open it to see progress and results.',
         inFlight: 'A task has an agent. Check progress from the board.',
         ready: '{{count}} completed task ready to check.',
         why: 'Checking the result helps you decide whether the agent returned useful output you can trust.',
@@ -441,7 +441,7 @@ export const en = {
     loginSuccess: 'You are signed in.',
     logoutSuccess: 'You are signed out.',
     registerSuccess: 'Your account is ready. You can sign in now.',
-    invalidCredentials: 'Check your email and password, then try again.',
+    invalidCredentials: 'Check your email and password, then choose Sign in again.',
     accountLocked:
       'This account is temporarily locked. Wait a few minutes, then try again or ask an owner or admin for help.',
     agentExpired: 'Your sign-in expired. Sign in again to continue.',
@@ -462,7 +462,7 @@ export const en = {
     fillAllFields: 'Fill in every field, then try again.',
     fillRequiredFields: 'Fill in the required fields, then try again.',
     networkError:
-      'Check your connection, then try signing in again. Forge could not reach sign-in.',
+      'Check your connection, then choose Sign in again. Forge could not reach sign-in.',
   },
 
   // =========================================================================
@@ -617,7 +617,7 @@ export const en = {
   // =========================================================================
   workshop: {
     title: 'Visual map',
-    loading: 'Loading visual map...',
+    loading: 'Checking visual map...',
     loadError: 'Open Agents, wait until one shows Ready, then open Visual map again.',
     controls: {
       zoom: 'Use the agent list to find an agent',
@@ -674,7 +674,7 @@ export const en = {
       description:
         'Choose where agents can open files, then check tools and sign-ins before sending tasks.',
       saving: 'Saving...',
-      loading: 'Loading where agents work...',
+      loading: 'Checking where agents can work...',
       couldNotLoad:
         'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
@@ -710,7 +710,7 @@ export const en = {
       close: 'Done',
       subtitle: 'Reusable instructions agents can apply during task work.',
       statusReady: 'Ready to use',
-      statusNeedsInstall: 'Needs setup before use',
+      statusNeedsInstall: 'Check before use',
       cliFit: 'Best with {{tool}}',
       unknownToolFit: 'Check work tool in Settings',
       allAgentsFit: 'Works with any agent',
@@ -918,7 +918,7 @@ export const en = {
     closeMenu: 'Close menu',
     expandSection: 'Expand section',
     collapseSection: 'Collapse section',
-    loading: 'Loading, please wait',
+    loading: 'Checking, please wait',
     error: 'Check the message, then try again.',
     success: 'Operation successful',
     required: 'Fill in this field, then try again',

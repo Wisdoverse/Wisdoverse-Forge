@@ -55,7 +55,7 @@ describe('workspaceResourceErrorMessage', () => {
       detail: 'project name is required',
     })
 
-    expectBeginnerMessage(message, 'Enter a project name, then save again.')
+    expectBeginnerMessage(message, 'Enter a project name, then save this project name again.')
     expect(message).not.toContain('project name is required')
   })
 
@@ -122,9 +122,16 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings, then Projects, check the current project, then try again. This project changed while you were editing.'
+      'Open Settings, then Projects, check the current project, then save the project again. This project changed while you were editing.'
     )
     expect(message).not.toContain('review the current')
+  })
+
+  test('turns busy settings responses into an action-first retry step', () => {
+    expectBeginnerMessage(
+      workspaceResourceErrorMessage('team', 'delete', { status: 429 }),
+      'Wait a moment, then delete the team again. Settings is busy.'
+    )
   })
 
   test('turns server failures into a concrete team and project recovery step', () => {

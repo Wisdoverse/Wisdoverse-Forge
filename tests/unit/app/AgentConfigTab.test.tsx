@@ -198,7 +198,8 @@ describe('AgentConfigTab', () => {
   it('tells users to check setup when a chat-only agent has no model details', () => {
     render(<AgentConfigTab agentId="missing-model" />)
 
-    expect(screen.getByText(/Check AI model setup/i)).toBeInTheDocument()
+    expect(screen.getByText(/Check AI model/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Check AI model setup/i)).toBeNull()
     expect(screen.queryByText(/AI model not reported/i)).toBeNull()
     expect(screen.queryByText(/Model not reported/i)).toBeNull()
   })

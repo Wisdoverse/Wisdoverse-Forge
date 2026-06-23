@@ -15,7 +15,11 @@ describe('runtimeErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', new Error('401 Unauthorized')),
-      'Sign in again, then open Where agents work and try again. Your sign-in expired.'
+      'Sign in again, then open Settings and Where agents work again. Your sign-in expired.'
+    )
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', new Error('401 Unauthorized')),
+      'Sign in again, then open Settings, then Codex sign-in again, then reconnect the account. Your sign-in expired.'
     )
   })
 
@@ -90,7 +94,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Where agents work again, then try again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Open Settings and Where agents work again. Forge could not check Where agents work right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('worker')
@@ -98,17 +102,28 @@ describe('runtimeErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('turns local sign-in service failures into a reconnect step', () => {
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', new Error('HTTP 500')),
+      'Open Settings, then Codex sign-in again, then reconnect the account. Forge could not check the Codex sign-in page right now. If it still fails, ask an owner or admin to check Codex sign-in in Settings.'
+    )
+  })
+
   test('turns setup rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { code: '429' }),
-      'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
+      'Wait a minute, then open Settings and Where agents work again. Forge is receiving too many setup requests right now.'
+    )
+    expectBeginnerMessage(
+      runtimeErrorMessage('startCliSignIn', { code: '429' }),
+      'Wait a minute, then open Settings, then Codex sign-in again, then reconnect the account. Forge is receiving too many setup requests right now.'
     )
   })
 
   test('turns changed setup status into a current-status check step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { statusCode: 409 }),
-      'Open Settings and Where agents work again, check the current status, then try again. The choices in Where agents work changed while you were working.'
+      'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load. The choices in Where agents work changed while you were working.'
     )
   })
 })
@@ -192,6 +207,16 @@ describe('runtimeSettingsErrorMessage', () => {
         reason: 'update runtime settings conflict',
       }),
       'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
+    )
+  })
+
+  test('turns changed loaded work choices into an open-settings step', () => {
+    expectBeginnerMessage(
+      runtimeSettingsErrorMessage({
+        status: 409,
+        reason: 'runtime settings conflict',
+      }),
+      'Open Settings and Where agents work again, check the current choices, then open Settings and Where agents work again. The choices in Where agents work changed while you were working.'
     )
   })
 })

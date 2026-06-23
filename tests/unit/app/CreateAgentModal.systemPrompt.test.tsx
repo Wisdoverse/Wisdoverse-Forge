@@ -74,7 +74,7 @@ describe('CreateAgentModal agent instructions', () => {
 
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /project files/i }))
-    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Result checker/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('button', { name: /add agent/i }))
@@ -102,7 +102,7 @@ describe('CreateAgentModal agent instructions', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Result checker/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
@@ -127,7 +127,7 @@ describe('CreateAgentModal agent instructions', () => {
     useAgentsStore.setState({ createAgent } as never)
 
     render(<CreateAgentModal />)
-    fireEvent.change(screen.getByPlaceholderText(/Frontend Agent/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Result checker/i), {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))

@@ -335,4 +335,19 @@ describe('GitCredentialsSection', () => {
     expect(alert).not.toHaveTextContent('API')
     expect(alert).not.toHaveTextContent('provider github')
   })
+
+  test('hides backend details without status codes in code access errors', async () => {
+    useSettingsStore.setState({
+      gitCredentialsError: 'database unavailable',
+    })
+
+    render(<GitCredentialsSection />)
+
+    await waitFor(() => expect(loadGitCredentialsMock).toHaveBeenCalled())
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(alert).not.toHaveTextContent('database unavailable')
+  })
 })

@@ -93,23 +93,27 @@ function PasswordChangeForm() {
     setSuccess(false)
 
     if (!hasCurrentPassword) {
-      setError('Enter your current password, then try again.')
+      setError('Enter your current password, then choose Update password again.')
       document.getElementById('account-current-password')?.focus()
       return
     }
-    const passwordRuleError = passwordRuleMessage(form.newPassword)
+    const passwordRuleError = passwordRuleMessage(form.newPassword, 'choose Update password again')
     if (passwordRuleError) {
       setError(passwordRuleError)
       document.getElementById('account-new-password')?.focus()
       return
     }
     if (form.currentPassword === form.newPassword) {
-      setError('Choose a new password that is different from the current password.')
+      setError(
+        'Choose a new password that is different from the current password, then choose Update password again.'
+      )
       document.getElementById('account-new-password')?.focus()
       return
     }
     if (form.newPassword !== form.confirmPassword) {
-      setError('The two new passwords do not match. Re-enter them and try again.')
+      setError(
+        'The two new passwords do not match. Re-enter both new password fields, then choose Update password again.'
+      )
       document.getElementById('account-confirm-password')?.focus()
       return
     }

@@ -37,12 +37,17 @@ describe('KanbanColumn', () => {
     expect(screen.getByText('Need a starting point?')).toBeDefined()
     const examples = screen.getByRole('group', { name: /task examples/i })
     fireEvent.click(
-      within(examples).getByRole('button', { name: /Check setup and list the next safe step/i })
+      within(examples).getByRole('button', {
+        name: /Check what is ready and list the next safe step/i,
+      })
     )
 
     expect(screen.getByLabelText('Task goal')).toHaveValue(
-      'Check setup and list the next safe step'
+      'Check what is ready and list the next safe step'
     )
+    expect(
+      within(examples).queryByRole('button', { name: /Check setup and list the next safe step/i })
+    ).toBeNull()
     expect(
       within(examples).queryByRole('button', { name: /Review setup and list the next safe step/i })
     ).toBeNull()
@@ -51,7 +56,7 @@ describe('KanbanColumn', () => {
 
     await waitFor(() =>
       expect(onQuickCreate).toHaveBeenCalledWith(
-        'Check setup and list the next safe step',
+        'Check what is ready and list the next safe step',
         'backlog'
       )
     )

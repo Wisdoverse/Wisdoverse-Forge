@@ -51,7 +51,7 @@ const EMPTY_STALE = {
 
 function updatedAtLabel(timestamp: string): string {
   const value = Date.parse(timestamp)
-  if (Number.isNaN(value)) return 'Choose Load analytics again to update this time'
+  if (Number.isNaN(value)) return 'Choose Check analytics again to update this time'
   const seconds = Math.max(0, Math.floor((Date.now() - value) / 1000))
   if (seconds < 3600) return `Updated ${Math.max(1, Math.floor(seconds / 60))}m ago`
   if (seconds < 86_400) return `Updated ${Math.floor(seconds / 3600)}h ago`
@@ -90,7 +90,9 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
             Saved item reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {data ? updatedAtLabel(data.lastRefreshedAt) : 'Updated when data is available'}
+            {data
+              ? updatedAtLabel(data.lastRefreshedAt)
+              : 'Appears after agents reuse saved notes or instructions'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
             Use this view to keep saved notes and instructions that help work finish, and check
@@ -104,7 +106,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
             <span>
-              These numbers are more than {data.staleAfterHours}h old. Choose Load analytics again
+              These numbers are more than {data.staleAfterHours}h old. Choose Check analytics again
               before making decisions from them.
             </span>
           </div>

@@ -11,7 +11,7 @@ import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Client as PgClient } from 'pg'
-import { connect as connectNats } from 'nats'
+import { connect as connectNats } from '@nats-io/transport-node'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, '../../..')

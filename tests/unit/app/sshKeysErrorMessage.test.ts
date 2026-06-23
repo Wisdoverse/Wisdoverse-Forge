@@ -40,6 +40,13 @@ describe('sshKeysErrorMessage', () => {
     )
   })
 
+  test('turns generic missing SSH code access fields into a save step', () => {
+    expectBeginnerMessage(
+      sshKeysErrorMessage({ status: 422, reason: 'name and key are required' }),
+      'Check the access name and safe public key line, then save this SSH code access again.'
+    )
+  })
+
   test('keeps Settings store validation messages on the save path', () => {
     const message = sshKeysErrorMessage(
       'Add a label, paste a valid public SSH key, then save the SSH key again.'
@@ -95,7 +102,7 @@ describe('sshKeysErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+      'Wait a minute, then open Settings and SSH code access again. Forge is receiving too many SSH code access requests right now.'
     )
   })
 
@@ -106,6 +113,17 @@ describe('sshKeysErrorMessage', () => {
       message,
       'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
     )
+    expect(message).not.toContain('parser')
+  })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = sshKeysErrorMessage({ reason: 'saving access hit parser edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+    )
+    expect(message).not.toContain('Try to')
     expect(message).not.toContain('parser')
   })
 })

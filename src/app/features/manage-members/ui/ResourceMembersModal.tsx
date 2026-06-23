@@ -395,7 +395,7 @@ export function ResourceMembersModal({
                   role="status"
                   className="px-4 py-10 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
                 >
-                  Loading members…
+                  Checking who can access this {resourceLabel.toLowerCase()}…
                 </div>
               ) : members.length === 0 ? (
                 <div
@@ -578,8 +578,8 @@ function describeCandidateStatus({
 }): { selectLabel: string; detail: string } {
   if (loading) {
     return {
-      selectLabel: 'Loading team-space people',
-      detail: 'Loading people in this team space and the people already listed below.',
+      selectLabel: 'Checking team-space people',
+      detail: 'Checking who is already listed and who can be added.',
     }
   }
   if (users.length === 0) {

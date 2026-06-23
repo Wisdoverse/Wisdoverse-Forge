@@ -37,6 +37,13 @@ describe('gitCredentialsErrorMessage', () => {
     )
   })
 
+  test('turns unconfigured providers into a Code access recovery step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('provider is not configured'),
+      'Ask an owner or admin to check code access settings, then open Settings and Code access again.'
+    )
+  })
+
   test('turns delete failures into a remove-specific next step', () => {
     const message = gitCredentialsErrorMessage('Settings could not delete Git credential. HTTP 500')
 
@@ -93,7 +100,7 @@ describe('gitCredentialsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+      'Wait a minute, then open Settings and Code access again. Forge is receiving too many code access requests right now.'
     )
   })
 
@@ -104,6 +111,17 @@ describe('gitCredentialsErrorMessage', () => {
       message,
       'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
     )
+    expect(message).not.toContain('vault')
+  })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = gitCredentialsErrorMessage({ message: 'saving code access hit vault edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('Try to')
     expect(message).not.toContain('vault')
   })
 })

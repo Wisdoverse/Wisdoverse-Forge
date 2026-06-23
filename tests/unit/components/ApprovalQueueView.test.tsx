@@ -165,9 +165,9 @@ describe('ApprovalQueueView', () => {
       .setup()
       .selectOptions(within(dialog).getByTestId('context-approval-scope-kind'), 'team')
     expect(within(dialog).getByRole('status')).toHaveTextContent(
-      /paste the team sharing code before saving/i
+      /paste the team sharing text before saving/i
     )
-    expect(within(dialog).getByLabelText(/team sharing code/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/team sharing text/i)).toBeInTheDocument()
     expect(within(dialog).getByText(/settings under teams or projects/i)).toBeInTheDocument()
     expect(within(dialog).queryByText(/team or project code from settings/i)).toBeNull()
     expect(within(dialog).queryByLabelText(/^team code$/i)).toBeNull()

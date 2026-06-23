@@ -235,7 +235,7 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
     return `Choose a different ${label} name, then open the left menu and save again.`
   }
   if (normalized.includes('name')) {
-    return `Enter a ${label} name, then save again.`
+    return `Enter a ${label} name, then save this ${label} name again from the left menu.`
   }
 
   return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
@@ -645,7 +645,10 @@ export function ProjectTree({
 
     const name = teamEditor.name.trim()
     if (!name) {
-      setTeamEditor({ ...teamEditor, error: 'Enter a team name, then save again.' })
+      setTeamEditor({
+        ...teamEditor,
+        error: 'Enter a team name, then save this team name again from the left menu.',
+      })
       return
     }
 
@@ -669,7 +672,10 @@ export function ProjectTree({
 
     const name = projectEditor.name.trim()
     if (!name) {
-      setProjectEditor({ ...projectEditor, error: 'Enter a project name, then save again.' })
+      setProjectEditor({
+        ...projectEditor,
+        error: 'Enter a project name, then save this project name again from the left menu.',
+      })
       return
     }
 
@@ -904,13 +910,13 @@ export function ProjectTree({
             <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
             <ProjectMenuItem
               Icon={Copy}
-              label="Copy project ID for help"
-              detail="Use this only when another page or an owner or admin asks for this project ID"
+              label="Copy project help text"
+              detail="Use this only when another page or an owner or admin asks for this project help text"
               onClick={() =>
                 void handleCopyProjectValue(
                   projectMenu.project.id,
-                  'Project ID copied',
-                  'project ID'
+                  'Project help text copied',
+                  'project help text'
                 )
               }
             />
@@ -1126,8 +1132,8 @@ export function ProjectTree({
 }
 
 function manualCopyFailureMessage(valueLabel: string): string {
-  if (valueLabel === 'project ID') {
-    return 'Use this project ID only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+  if (valueLabel === 'project help text') {
+    return 'Use this project help text only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
   }
 
   if (valueLabel === 'project link preview') {

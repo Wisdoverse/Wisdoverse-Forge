@@ -217,6 +217,16 @@ describe('ChatView', () => {
     expect(screen.queryByText(/You can send once loading finishes/i)).toBeNull()
   })
 
+  test('uses check wording while updates load', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({ messages: [], messagesLoading: true })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    expect(screen.getByText('Checking updates...')).toBeDefined()
+    expect(screen.queryByText('Loading updates...')).toBeNull()
+  })
+
   test('guides empty managed workspace history toward routed work', () => {
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({ turns: [] })
@@ -262,12 +272,12 @@ describe('ChatView', () => {
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
   })
 
-  test('shows a clear retry path when workspace conversation history cannot load', () => {
+  test('shows a clear recovery path when workspace chat history cannot load', () => {
     const fetchEvents = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [cliAgent] })
     seedChatState({
       error:
-        'Retry conversation to load conversation history. Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.',
+        'Check conversation again to load the chat history. Check your connection, then choose Check conversation again. Forge could not connect while loading this conversation.',
       fetchEvents,
     })
 
@@ -276,11 +286,11 @@ describe('ChatView', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Check this conversation')
-    expect(alert).toHaveTextContent('Check your connection, then choose Retry conversation again.')
+    expect(alert).toHaveTextContent('Check your connection, then choose Check conversation again.')
     expect(alert).not.toHaveTextContent('HTTP')
     expect(alert).not.toHaveTextContent('Failed to fetch')
 
-    fireEvent.click(screen.getByRole('button', { name: /retry conversation/i }))
+    fireEvent.click(screen.getByRole('button', { name: /check conversation again/i }))
     expect(fetchEvents).toHaveBeenCalledWith(cliAgent.id)
   })
 
@@ -289,7 +299,7 @@ describe('ChatView', () => {
     seedChatState({
       messages: [message('Earlier answer')],
       error:
-        'Retry conversation to load conversation history. Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.',
+        'Check conversation again to load the chat history. Wait a few minutes, then choose Check conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.',
     })
 
     render(<ChatView agentId={providerAgent.id} />)
@@ -384,7 +394,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+        name: /show updates that need your next step, 1 matching update/i,
       })
     )
     expect(screen.getByText('Billing flow is blocked by a missing secret')).toBeInTheDocument()
@@ -428,6 +438,75 @@ describe('ChatView', () => {
     expect(screen.queryByText('No work steps are showing yet')).toBeNull()
   })
 
+  test('searches provider chat by visible message text only', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Billing answer is ready', {
+          id: 'assistant-visible',
+          model: 'claude-sonnet-hidden',
+          finishReason: 'internal-stop',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    fireEvent.change(screen.getByTestId('conversation-search'), {
+      target: { value: 'claude-sonnet-hidden' },
+    })
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(
+      within(emptyState).getByText('Search did not find a conversation update')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Billing answer is ready')).toBeNull()
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
+    fireEvent.change(screen.getByTestId('conversation-search'), {
+      target: { value: 'billing answer' },
+    })
+
+    expect(screen.getByText('Billing answer is ready')).toBeInTheDocument()
+    expect(screen.queryByText('claude-sonnet-hidden')).toBeNull()
+    expect(screen.queryByText('internal-stop')).toBeNull()
+  })
+
+  test('searches managed workspace chat by safe work-step text only', () => {
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({
+      turns: [
+        turn({
+          id: 'turn-with-secret',
+          prompt: 'Check deploy',
+          response: 'Deploy check finished',
+          toolCalls: [
+            {
+              toolUseId: 'tool-1',
+              tool: 'bash',
+              input: { command: 'npm test', apiKey: 'secret-token-42' },
+              success: true,
+            },
+          ],
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    expect(screen.getByText('Deploy check finished')).toBeInTheDocument()
+    expect(screen.getByText(/agent saved a work step/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('conversation-search'), {
+      target: { value: 'secret-token-42' },
+    })
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(
+      within(emptyState).getByText('Search did not find a conversation update')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Deploy check finished')).toBeNull()
+  })
+
   test('explains an empty You filter without operator jargon', () => {
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({
@@ -469,15 +548,13 @@ describe('ChatView', () => {
     const filters = screen.getByTestId('conversation-filter-group')
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show stuck, failed, waiting, or help-needed updates, 0 matching updates/i,
+        name: /show updates that need your next step, 0 matching updates/i,
       })
     )
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
-    expect(emptyState).toHaveTextContent('Use All if you expected a blocker')
-    expect(emptyState).toHaveTextContent(
-      'No message is stuck, failed, waiting, or asking for your help in this view.'
-    )
+    expect(emptyState).toHaveTextContent('Use All if you expected a next step')
+    expect(emptyState).toHaveTextContent('No message needs your next step in this view.')
     expect(emptyState).toHaveTextContent('use All to read the full conversation')
     expect(emptyState).not.toHaveTextContent('No help requests are open')
   })
@@ -543,7 +620,7 @@ describe('ChatView', () => {
     ).toBeInTheDocument()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show stuck, failed, waiting, or help-needed updates, 1 matching update/i,
+        name: /show updates that need your next step, 1 matching update/i,
       })
     )
     expect(screen.getByText(/Deploy failed because credentials are missing/i)).toBeInTheDocument()

@@ -39,6 +39,15 @@ describe('skillDraftErrorMessage', () => {
     )
   })
 
+  test('maps missing saved-instruction access to reopening the task', () => {
+    const message = skillDraftErrorMessage(new Error('HTTP 404'))
+
+    expect(message).toBe(
+      'Open this task again, then save the instruction again. Saved instruction was not saved. Saved instruction access may have changed.'
+    )
+    expect(message).not.toContain('Refresh the task')
+  })
+
   test('explains structured duplicate names without leaking raw API text', () => {
     const message = skillDraftErrorMessage({
       detail: 'duplicate saved instruction name',

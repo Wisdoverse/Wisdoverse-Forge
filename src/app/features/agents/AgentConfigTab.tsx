@@ -62,7 +62,7 @@ function isMissingModelLabel(label: string): boolean {
 
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Check AI model setup'
+  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Check AI model'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {

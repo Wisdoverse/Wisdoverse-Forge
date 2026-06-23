@@ -106,7 +106,7 @@ function cliToolToProvider(cliTool?: CliTool): string {
     case 'opencode':
       return 'OpenAI'
     default:
-      return 'Check AI service setup'
+      return 'Check AI service'
   }
 }
 
@@ -123,7 +123,7 @@ function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
     // Provider+prompt agents: backend carries the real provider/model keys.
     // CLI-tool agents: backend leaves them null, fall back to cliTool-derived labels.
     provider: agent.provider ?? cliToolToProvider(agent.cliTool),
-    model: agent.model ?? agent.cliTool ?? 'Check AI model setup',
+    model: agent.model ?? agent.cliTool ?? 'Check AI model',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,

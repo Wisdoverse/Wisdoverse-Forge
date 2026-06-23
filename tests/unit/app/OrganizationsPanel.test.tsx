@@ -120,7 +120,7 @@ describe('OrganizationsPanel', () => {
     expect(within(emptyState).getByText('Create or sync a team space first')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        /Create or sync a team space before creating teams, projects, people, or places where new tasks wait/i
+        'Create or sync a team space before creating teams, projects, people, or places where new tasks wait. If you expected data here, confirm your admin access and check again after Forge is ready.'
       )
     ).toBeDefined()
     expect(
@@ -135,6 +135,15 @@ describe('OrganizationsPanel', () => {
     ).toBeDefined()
     expect(within(emptyState).queryByText(/agent work queues/i)).toBeNull()
     expect(within(emptyState).queryByText('No team spaces are visible yet')).toBeNull()
+  })
+
+  test('explains team-space loading as checking', () => {
+    useAdminStore.setState({ orgs: [], orgsLoading: true })
+
+    render(<OrganizationsPanel />)
+
+    expect(screen.getByText('Checking team spaces…')).toBeDefined()
+    expect(screen.queryByText('Loading team spaces…')).toBeNull()
   })
 
   test('adds recovery guidance when organizations fail to load', async () => {

@@ -79,22 +79,26 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByRole('button', { name: /close detail panel/i })).toBeNull()
   })
 
-  test('labels the task reference instead of showing a bare task id', () => {
+  test('labels the task help text instead of showing a bare task id', () => {
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    expect(screen.getByText('Task reference task-1')).toBeDefined()
+    expect(screen.getByText('Task help text task-1')).toBeDefined()
+    expect(screen.queryByText('Task reference task-1')).toBeNull()
     expect(screen.queryByText('Task ID task-1')).toBeNull()
     expect(screen.queryByText(/^task-1$/)).toBeNull()
     expect(screen.queryByText(/Support reference task-1/i)).toBeNull()
   })
 
-  test('tells users where to reopen the task when the task reference is missing', () => {
+  test('tells users where to reopen the task when the task help text is missing', () => {
     render(<TaskDetailPanel task={{ ...mockTask, id: ' ' }} onClose={() => {}} />)
 
     expect(
-      screen.getByText('Open this task again from the Tasks page to check the task reference.')
+      screen.getByText('Open this task again from the Tasks page to check the task help text.')
     ).toBeDefined()
     expect(screen.queryByText('Refresh task details')).toBeNull()
+    expect(
+      screen.queryByText('Open this task again from the Tasks page to check the task reference.')
+    ).toBeNull()
     expect(screen.queryByText('Support reference not reported')).toBeNull()
   })
 
@@ -152,9 +156,12 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText(/allow it to continue or update the task/i)).toBeDefined()
     expect(screen.getByText('Task story')).toBeDefined()
     expect(screen.getByText('Agent work history')).toBeDefined()
-    expect(await screen.findByText('Agent try: In progress')).toBeDefined()
-    expect(screen.getByText(/used a work tool you should check/i)).toBeDefined()
-    expect(screen.getByText(/help code run-1234/i)).toBeDefined()
+    expect(await screen.findByText('Agent work: In progress')).toBeDefined()
+    expect(screen.queryByText(/Agent try/i)).toBeNull()
+    expect(screen.getByText(/used a work tool shown in Settings/i)).toBeDefined()
+    expect(screen.queryByText(/work tool you should check/i)).toBeNull()
+    expect(screen.getByText(/work help text run-1234/i)).toBeDefined()
+    expect(screen.queryByText(/help code run-1234/i)).toBeNull()
     expect(screen.queryByText(/work attempt code run-1234/i)).toBeNull()
     expect(screen.queryByText(/work attempt ID run-1234/i)).toBeNull()
     expect(screen.queryByText(/support reference run-1234/i)).toBeNull()
@@ -320,7 +327,11 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
       'returns to where tasks wait'
     )
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
+      'try it again'
+    )
     expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('queue')
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('attempt')
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
     await waitFor(() => expect(orchestrationApiMock.retryTask).toHaveBeenCalledWith('task-1'))

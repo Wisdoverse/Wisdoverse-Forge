@@ -138,7 +138,8 @@ describe('TeamsSection', () => {
     fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
     fireEvent.click(screen.getByRole('button', { name: /create team/i }))
 
-    expect(await screen.findByText(/Enter a team name, then try again/i)).toBeDefined()
+    expect(await screen.findByText(/Enter a team name, then choose Create team again/i)).toBeDefined()
+    expect(screen.queryByText(/then try again/i)).toBeNull()
     expect(screen.queryByText(/team name is required/i)).toBeNull()
   })
 

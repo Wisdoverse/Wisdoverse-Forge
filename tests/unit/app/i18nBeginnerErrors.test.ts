@@ -3,6 +3,13 @@ import { en } from '@app/shared/i18n/locales/en'
 import { zh } from '@app/shared/i18n/locales/zh'
 
 describe('beginner error translations', () => {
+  test('common loading copy says Forge is checking', () => {
+    expect(en.common.loading).toBe('Checking...')
+    expect(en.a11y.loading).toBe('Checking, please wait')
+    expect(zh.common.loading).toBe('正在检查...')
+    expect(zh.a11y.loading).toBe('正在检查，请稍候')
+  })
+
   test('English common errors lead with recovery steps', () => {
     expect(en.errors.generic).toMatch(/^Try again/)
     expect(en.errors.generic).toContain('check app health')
@@ -11,7 +18,8 @@ describe('beginner error translations', () => {
     expect(en.errors.timeout).toMatch(/^Wait a moment/)
     expect(en.errors.notFound).toMatch(/^Open this page again/)
     expect(en.errors.serverError).toMatch(/^Wait a moment/)
-    expect(en.auth.networkError).toContain('signing in')
+    expect(en.auth.networkError).toContain('choose Sign in again')
+    expect(en.auth.networkError).not.toContain('try signing in')
     expect(en.auth.networkError).not.toContain('service')
     expect(en.errors.network).not.toContain('service')
     expect(en.errors.serverError).not.toContain('service')
@@ -66,6 +74,8 @@ describe('beginner error translations', () => {
   test('authentication entry messages give clear next steps', () => {
     expect(en.auth.loginSuccess).toBe('You are signed in.')
     expect(en.auth.invalidCredentials).toContain('Check your email and password')
+    expect(en.auth.invalidCredentials).toContain('choose Sign in again')
+    expect(en.auth.invalidCredentials).not.toContain('then try again')
     expect(en.auth.accountLocked).toContain('Wait a few minutes')
     expect(en.auth.accountLocked).toContain('owner or admin')
     expect(en.auth.agentExpired).toContain('Sign in again')
@@ -76,6 +86,8 @@ describe('beginner error translations', () => {
 
     expect(zh.auth.loginSuccess).toBe('你已登录。')
     expect(zh.auth.invalidCredentials).toContain('检查邮箱和密码')
+    expect(zh.auth.invalidCredentials).toContain('选择登录')
+    expect(zh.auth.invalidCredentials).not.toContain('然后重试')
     expect(zh.auth.accountLocked).toContain('等几分钟后重试')
     expect(zh.auth.accountLocked).toContain('管理员')
     expect(zh.auth.agentExpired).toContain('重新登录后继续')
@@ -177,6 +189,8 @@ describe('beginner error translations', () => {
     expect(en.groups.confirmDelete).toContain('tasks need another waiting place')
     expect(JSON.stringify(en.groups)).not.toContain('task queue')
     expect(JSON.stringify(en.gettingStarted.steps.routing)).not.toContain('task queue')
+    expect(JSON.stringify(en.gettingStarted.steps)).not.toContain('picks it up')
+    expect(JSON.stringify(en.gettingStarted.steps)).not.toContain('picks up')
     expect(en.prompt.noAgentSelected).toBe('Choose an agent before sending work.')
     expect(en.skills.detail.noDescription).toContain('Check the reusable instructions')
     expect(en.skills.detail.triggerHelper).toContain('Use this saved instruction')
@@ -185,7 +199,7 @@ describe('beginner error translations', () => {
     expect(en.skills.detail.unknownAuthor).toContain('show who keeps this updated')
     expect(en.skills.detail.unknownToolTooltip).toContain('Open Settings')
     expect(en.skills.detail.nextStepReady).toContain('when creating a task')
-    expect(en.skills.detail.statusNeedsInstall).toBe('Needs setup before use')
+    expect(en.skills.detail.statusNeedsInstall).toBe('Check before use')
     expect(en.skills.detail.nextStepNeedsInstall).toContain('finish setup')
     expect(en.skills.detail.nextStepNeedsInstall).not.toContain('install')
     expect(en.skills.detail.unknownAuthor).not.toContain('not listed yet')
@@ -209,6 +223,7 @@ describe('beginner error translations', () => {
     expect(zh.groups.confirmDelete).toContain('其他等待位置')
     expect(JSON.stringify(zh.groups)).not.toContain('任务队列')
     expect(JSON.stringify(zh.gettingStarted.steps.routing)).not.toContain('任务队列')
+    expect(JSON.stringify(zh.gettingStarted.steps)).not.toContain('领取')
     expect(zh.prompt.noAgentSelected).toBe('请先选择一个智能体，再发送任务。')
     expect(zh.skills.detail.noDescription).toContain('查看下面的可复用说明')
     expect(zh.skills.detail.triggerHelper).toContain('可以推荐')
@@ -217,7 +232,7 @@ describe('beginner error translations', () => {
     expect(zh.skills.detail.unknownAuthor).toContain('查看谁负责更新它')
     expect(zh.skills.detail.unknownToolTooltip).toContain('打开设置')
     expect(zh.skills.detail.nextStepReady).toContain('创建任务')
-    expect(zh.skills.detail.statusNeedsInstall).toBe('需要先完成设置')
+    expect(zh.skills.detail.statusNeedsInstall).toBe('使用前检查')
     expect(zh.skills.detail.nextStepNeedsInstall).toContain('所有者或管理员')
     expect(zh.skills.detail.nextStepNeedsInstall).not.toContain('安装')
     expect(zh.skills.detail.unknownAuthor).not.toContain('暂未列出')
@@ -482,7 +497,7 @@ describe('beginner error translations', () => {
 
   test('visual map labels avoid old scene and draw-mode jargon', () => {
     expect(en.workshop.title).toBe('Visual map')
-    expect(en.workshop.loading).toBe('Loading visual map...')
+    expect(en.workshop.loading).toBe('Checking visual map...')
     expect(en.workshop.loadError).toContain('Open Agents')
     expect(en.workshop.loadError).toContain('open Visual map again')
     expect(en.workshop.controls.select).toBe('Choose an agent from the list or map')
@@ -495,7 +510,7 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(en.workshop.controls)).not.toContain('Scroll to zoom')
 
     expect(zh.workshop.title).toBe('视觉地图')
-    expect(zh.workshop.loading).toBe('加载视觉地图...')
+    expect(zh.workshop.loading).toBe('正在检查视觉地图...')
     expect(zh.workshop.loadError).toContain('请打开智能体')
     expect(zh.workshop.loadError).toContain('重新打开视觉地图')
     expect(zh.workshop.controls.select).toBe('从列表或地图中选择智能体')
@@ -588,6 +603,11 @@ describe('beginner error translations', () => {
     expect(chinese.detail).toContain('你拥有的智能体')
     expect(chinese.detail).toContain('智能体所有者')
     expect(chinese.title).not.toContain('无权操作')
+  })
+
+  test('runtime settings loading copy says what Forge is checking', () => {
+    expect(en.settings.runtime.loading).toBe('Checking where agents can work...')
+    expect(zh.settings.runtime.loading).toBe('正在检查智能体可以在哪里工作...')
   })
 
   test('chat-only agent lifecycle errors start with the next user action', () => {

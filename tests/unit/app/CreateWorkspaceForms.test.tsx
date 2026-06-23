@@ -72,6 +72,48 @@ describe('workspace setup create forms', () => {
     expect(onSave).toHaveBeenCalledWith('Support Ops')
   })
 
+  test('does not show backend details from a half-formatted team creation error', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Check your connection, then create this team again. database unavailable')
+      )
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+  })
+
+  test('does not show raw server error names from a half-formatted team creation error', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Check your connection, then create this team again. Internal Server Error')
+      )
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
+      expect(alert).not.toHaveTextContent('Internal Server Error')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+  })
+
   test('explains that a project needs a team before it can be created', () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
@@ -130,7 +172,7 @@ describe('workspace setup create forms', () => {
   test('starts with the no-code path and reveals the code link only when selected', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByText('Choose code setup')).toBeInTheDocument()
+    expect(screen.getByText('Choose how to add code')).toBeInTheDocument()
     expect(screen.getByLabelText(/create this project without code/i)).toBeChecked()
     expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
     expect(screen.getByText(/Use this when you want a place for tasks now/i)).toBeInTheDocument()

@@ -106,7 +106,7 @@ const AGENT_READY_BRIEF_POINTS = [
 const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
 const TASK_WAITING_PLACE_REQUIRED_ERROR = 'Set up where tasks wait before saving this task.'
 const ASSIGNED_AGENT_NOT_READY_ERROR =
-  'Choose a ready agent, or leave this set to Let the next ready agent pick it up.'
+  'Choose a ready agent, or leave this set to Let the next ready agent start it.'
 
 interface TaskFormModalProps {
   isOpen: boolean
@@ -168,14 +168,14 @@ export function TaskFormModal({
   const projectSelectionSettled = Boolean(projectId && selectedProjectId === projectId)
   const workLaneReady = Boolean(projectSelectionSettled && selectedTaskGroupId)
   const readinessTitle = selectingProject
-    ? 'Loading this project'
+    ? 'Checking where new tasks will wait'
     : workLaneReady
       ? 'Task can be created'
       : 'Set up where tasks wait before creating this task'
   const readinessDetail = selectingProject
     ? 'Wait a moment while Forge finds where new tasks wait for this project.'
     : workLaneReady
-      ? `New tasks will wait in ${waitingPlaceDisplayName(selectedTaskGroupName)} until a ready agent picks them up.`
+      ? `New tasks will wait in ${waitingPlaceDisplayName(selectedTaskGroupName)} until a ready agent starts them.`
       : 'Create one place for new work to wait, then return here.'
   const waitingPlaceSetupSteps =
     selectedProject && !selectingProject && !workLaneReady
@@ -212,7 +212,7 @@ export function TaskFormModal({
       ? 'Set up where tasks wait first. Then this task will have a safe place to wait.'
       : taskWillWaitForAgent
         ? 'After you save, the task waits here until an agent is ready.'
-        : 'After you create it, the next ready agent can pick it up from this project.'
+        : 'After you create it, the next ready agent can start it from this project.'
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -697,7 +697,7 @@ export function TaskFormModal({
               className="mt-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
             >
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Make this task easy to pick up
+                Make this task easy to start
               </p>
               <div className="mt-2 grid gap-1.5">
                 {briefCues.map((cue) => (
@@ -758,7 +758,7 @@ export function TaskFormModal({
                   htmlFor="task-assigned-to"
                   className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Who should pick it up?
+                  Who should start it?
                 </label>
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {assignableAgents.length} ready
@@ -769,7 +769,7 @@ export function TaskFormModal({
                 {...register('assignedTo')}
                 className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
               >
-                <option value="">Let the next ready agent pick it up</option>
+                <option value="">Let the next ready agent start it</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a.status)}>
                     {a.name} ({agentStatusLabel(a.status)})

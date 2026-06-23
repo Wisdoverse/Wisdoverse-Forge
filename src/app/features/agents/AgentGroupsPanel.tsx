@@ -23,7 +23,7 @@ import { waitingPlaceDisplayName } from '@app/entities/agent-group'
 import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
-const DEFAULT_GROUP_DESCRIPTION = 'Project tasks wait here until an available agent picks them up.'
+const DEFAULT_GROUP_DESCRIPTION = 'Project tasks wait here until an available agent starts them.'
 const ROUTING_SEARCH_HELP =
   'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
 
@@ -237,7 +237,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            These shared waiting places tell agents where to pick up new work. Set up one place, add
+            These shared waiting places tell agents where to start new work. Set up one place, add
             agents, then send tasks there.
           </p>
           {selectedProject && (
@@ -309,7 +309,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
               })
             ) : (
               <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-                Set up the first waiting place so agents know where to pick up tasks.
+                Set up the first waiting place so agents know where to start tasks.
               </div>
             )}
           </div>
@@ -398,7 +398,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
                     Create the first task for this waiting place, then choose it so agents know
-                    where to pick up the task.
+                    where to start the task.
                     <span className="mt-1 block">
                       Success looks like a task showing Waiting to start or Working here.
                     </span>
@@ -704,14 +704,10 @@ function filterAndSortGroupTasks(tasks: TaskSummary[], query: string): TaskSumma
 function groupTaskSearchText(task: TaskSummary): string {
   return [
     routedTaskTitle(task),
-    task.params.task,
-    task.params.message,
+    TASK_STATE_LABELS[task.state],
+    routedTaskAssignment(task),
+    routedTaskNextStep(task),
     task.assignedAgentName,
-    task.assignedTo,
-    task.priority,
-    task.state,
-    task.error,
-    task.blockedHint,
   ]
     .filter(Boolean)
     .join(' ')

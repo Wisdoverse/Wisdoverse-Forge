@@ -98,6 +98,15 @@ function renderMembersModal({
 }
 
 describe('ResourceMembersModal', () => {
+  test('explains member loading as access checking', () => {
+    renderMembersModal()
+
+    expect(screen.getByText('Checking who can access this project…')).toBeDefined()
+    expect(screen.getByText('Checking team-space people')).toBeDefined()
+    expect(screen.queryByText('Loading members…')).toBeNull()
+    expect(screen.queryByText('Loading team-space people')).toBeNull()
+  })
+
   test('guides users before adding the first resource member', async () => {
     const { addMember } = renderMembersModal()
 
