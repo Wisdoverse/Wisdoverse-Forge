@@ -161,7 +161,7 @@ describe('workspace management rows', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Enter a team name, then save again.')
+    expect(alert).toHaveTextContent('Enter a team name, then save this team name again.')
     expect(screen.queryByText('Team name is required')).toBeNull()
     expect(onUpdate).not.toHaveBeenCalled()
   })
@@ -186,7 +186,7 @@ describe('workspace management rows', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Enter a project name, then save again.')
+    expect(alert).toHaveTextContent('Enter a project name, then save this project name again.')
     expect(screen.queryByText('Project name is required')).toBeNull()
     expect(onUpdate).not.toHaveBeenCalled()
   })

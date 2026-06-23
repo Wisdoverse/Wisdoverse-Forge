@@ -235,7 +235,7 @@ function renameValidationMessage(target: RenameTarget, detail: string | null): s
     return `Choose a different ${label} name, then open the left menu and save again.`
   }
   if (normalized.includes('name')) {
-    return `Enter a ${label} name, then save again.`
+    return `Enter a ${label} name, then save this ${label} name again from the left menu.`
   }
 
   return `Open the left menu, choose the current ${label}, then save this ${label} name again. The ${title.toLowerCase()} name was not saved.`
@@ -645,7 +645,10 @@ export function ProjectTree({
 
     const name = teamEditor.name.trim()
     if (!name) {
-      setTeamEditor({ ...teamEditor, error: 'Enter a team name, then save again.' })
+      setTeamEditor({
+        ...teamEditor,
+        error: 'Enter a team name, then save this team name again from the left menu.',
+      })
       return
     }
 
@@ -669,7 +672,10 @@ export function ProjectTree({
 
     const name = projectEditor.name.trim()
     if (!name) {
-      setProjectEditor({ ...projectEditor, error: 'Enter a project name, then save again.' })
+      setProjectEditor({
+        ...projectEditor,
+        error: 'Enter a project name, then save this project name again from the left menu.',
+      })
       return
     }
 

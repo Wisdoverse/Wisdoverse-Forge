@@ -587,7 +587,9 @@ describe('Sidebar', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Enter a team name, then save again.')
+    expect(alert).toHaveTextContent(
+      'Enter a team name, then save this team name again from the left menu.'
+    )
     expect(screen.queryByText('Team name is required')).not.toBeInTheDocument()
     expect(teamApi.updateTeam).not.toHaveBeenCalled()
   })
@@ -707,7 +709,9 @@ describe('Sidebar', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(await screen.findByText(/Enter a project name, then save again/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Enter a project name, then save this project name again/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/project name is required/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
@@ -799,7 +803,9 @@ describe('Sidebar', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Enter a project name, then save again.')
+    expect(alert).toHaveTextContent(
+      'Enter a project name, then save this project name again from the left menu.'
+    )
     expect(screen.queryByText('Project name is required')).not.toBeInTheDocument()
     expect(projectApi.updateProject).not.toHaveBeenCalled()
   })

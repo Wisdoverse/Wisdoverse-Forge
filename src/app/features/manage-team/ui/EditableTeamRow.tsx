@@ -5,7 +5,7 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
 import type { NavTeam, UpdateTeamInput } from '@app/entities/team'
 
-const EMPTY_TEAM_NAME_MESSAGE = 'Enter a team name, then save again.'
+const EMPTY_TEAM_NAME_MESSAGE = 'Enter a team name, then save this team name again.'
 const TEAM_DELETE_CONFIRMATION_MESSAGE =
   'Delete this team from Settings and the left menu. Projects in this team will also disappear from the left menu. Choose Keep if you are not sure.'
 

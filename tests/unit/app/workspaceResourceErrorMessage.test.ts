@@ -55,7 +55,7 @@ describe('workspaceResourceErrorMessage', () => {
       detail: 'project name is required',
     })
 
-    expectBeginnerMessage(message, 'Enter a project name, then save again.')
+    expectBeginnerMessage(message, 'Enter a project name, then save this project name again.')
     expect(message).not.toContain('project name is required')
   })
 
