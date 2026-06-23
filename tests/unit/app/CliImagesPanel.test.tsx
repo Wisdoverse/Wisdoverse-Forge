@@ -133,6 +133,25 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/exact package/i)).toBeNull()
   })
 
+  test('turns tool update role failures into access recovery guidance', async () => {
+    const loadCliImages = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus({
+        tools: [claudeTool({ state: 'failed', lastError: 'owner role required' })],
+      }),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages,
+    })
+
+    render(<CliImagesPanel />)
+
+    await waitFor(() => expect(loadCliImages).toHaveBeenCalledOnce())
+    expect(screen.getByText(/check tool package access in Admin/i)).toBeDefined()
+    expect(screen.queryByText(/owner role required/i)).toBeNull()
+  })
+
   test('uses the saved update cadence and pauses hidden tabs', async () => {
     vi.useFakeTimers()
     const loadCliImages = vi.fn()
