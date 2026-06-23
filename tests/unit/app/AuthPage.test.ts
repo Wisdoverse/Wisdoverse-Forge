@@ -356,6 +356,37 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).not.toContain('users_email_key')
   })
 
+  test('turns invalid account email failures into the create button action', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        register: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'INVALID_EMAIL',
+          error: 'invalid email address',
+        }),
+      })
+    )
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
+    if (emailInput) emailInput.value = 'new'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Enter a valid email address, then choose Create account and continue again.'
+    )
+    expect(bodyText()).not.toContain('try creating')
+    expect(bodyText()).not.toContain('invalid email address')
+  })
+
   test('shows reset-token users what password change will affect', async () => {
     const page = new AuthPage(createAuthManager(), 'login', 'reset-token')
 

@@ -108,7 +108,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('invalid email') ||
     lowerDetail.includes('email address')
   ) {
-    return 'Enter a valid email address, then try creating the account again.'
+    return 'Enter a valid email address, then choose Create account and continue again.'
   }
 
   return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account creation settings.'
