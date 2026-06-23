@@ -134,4 +134,13 @@ describe('ControlPlanePanel', () => {
     expect(message).not.toContain('role')
     expect(message).not.toContain('Control Plane')
   })
+
+  test('maps plain role-required access errors to the same recovery step', () => {
+    const message = controlPlaneErrorMessage('owner role required')
+
+    expect(message).toBe(
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent coordination before choosing Check again. You do not have access to agent coordination status.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
 })
