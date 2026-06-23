@@ -108,7 +108,7 @@ describe('accountErrorMessage', () => {
   test('turns team space conflicts into a current-name check step', () => {
     expectBeginnerMessage(
       accountErrorMessage('renameOrganization', { statusCode: 409 }),
-      'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
+      'Open Account settings again, check the current team space name, then rename the team space again. This team space changed while you were editing.'
     )
   })
 
