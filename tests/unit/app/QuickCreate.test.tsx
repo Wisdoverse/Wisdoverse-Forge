@@ -90,6 +90,10 @@ describe('QuickCreate', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Ship onboarding copy', 'backlog'))
     await waitFor(() => expect(screen.queryByRole('textbox', { name: /task goal/i })).toBeNull())
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(
+      'Task idea saved in Not sent yet. Open the new card to add details and choose an agent.'
+    )
   })
 
   test('names the save progress while a task idea is being saved', async () => {

@@ -211,6 +211,9 @@ Progress:
 - Tasks: the global New Task flow now shows an `aria-live` success state after a
   task is saved, with the next step to watch the board and open the task when it
   is ready to check. Covered by `tests/unit/app/AppLayout.test.tsx`.
+- Tasks: quick task ideas now show an `aria-live` success state after saving,
+  with the next step to open the new card, add details, and choose an agent.
+  Covered by `tests/unit/app/QuickCreate.test.tsx`.
 
 ### Phase 4 - CLI and docs path
 

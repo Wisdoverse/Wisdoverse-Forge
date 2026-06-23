@@ -22,6 +22,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const submittedRef = useRef(false)
@@ -33,6 +34,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
     if (isOpen) {
       submittedRef.current = false
       setError(null)
+      setSavedMessage(null)
       inputRef.current?.focus()
     }
   }, [isOpen])
@@ -62,6 +64,9 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
       }
       setTitle('')
       setError(null)
+      setSavedMessage(
+        'Task idea saved in Not sent yet. Open the new card to add details and choose an agent.'
+      )
       setIsOpen(false)
     } catch {
       submittedRef.current = false
@@ -87,14 +92,24 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
 
   if (!isOpen) {
     return (
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-      >
-        <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>Add task idea</span>
-      </button>
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setSavedMessage(null)
+            setIsOpen(true)
+          }}
+          className="inline-flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+        >
+          <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>Add task idea</span>
+        </button>
+        {savedMessage && (
+          <p role="status" aria-live="polite" className="px-3 text-ui-caption text-apple-green">
+            {savedMessage}
+          </p>
+        )}
+      </>
     )
   }
 
