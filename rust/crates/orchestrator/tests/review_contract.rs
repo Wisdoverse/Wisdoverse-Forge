@@ -60,6 +60,10 @@ async fn reviews_support_create_comment_and_approve_round_trip() {
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(review_created["review"]["state"], "pending");
     assert_eq!(review_created["review"]["diffRef"], "manual");
+    // SLA wiring (#801): the create handler stamps an SLA deadline from config,
+    // so the response must carry a dueAt — guards against the config→field wiring
+    // silently regressing.
+    assert!(review_created["review"]["dueAt"].is_string(), "create response must include dueAt");
     let review_id = review_created["review"]["id"].as_str().expect("review id").to_string();
 
     let list_req = Request::builder()

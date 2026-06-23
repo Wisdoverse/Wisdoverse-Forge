@@ -135,7 +135,7 @@ impl PgReviewStore {
 impl Store for PgReviewStore {
     async fn create(&self, review: &mut CodeReview) -> Result<()> {
         let row = sqlx::query(
-            "INSERT INTO code_reviews (task_id, session_id, diff_ref, diff_snapshot, state, assigned_to, org_id, created_by)              VALUES (CAST($1 AS uuid), $2, $3, $4, $5, CAST($6 AS uuid), $7, CAST($8 AS uuid))              RETURNING id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                        assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at"
+            "INSERT INTO code_reviews (task_id, session_id, diff_ref, diff_snapshot, state, assigned_to, org_id, created_by, due_at)              VALUES (CAST($1 AS uuid), $2, $3, $4, $5, CAST($6 AS uuid), $7, CAST($8 AS uuid), $9)              RETURNING id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                        assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at, due_at"
         )
         .bind(&review.task_id)
         .bind(&review.session_id)
@@ -145,6 +145,7 @@ impl Store for PgReviewStore {
         .bind(review.assigned_to.as_deref())
         .bind(&review.org_id)
         .bind(&review.created_by)
+        .bind(review.due_at)
         .fetch_one(&self.pool)
         .await
         .map_err(|err| ReviewError::Internal(format!("insert review: {err}")))?;
@@ -154,7 +155,7 @@ impl Store for PgReviewStore {
 
     async fn get_by_id(&self, id: &str, org_id: &str) -> Result<ReviewWithComments> {
         let row = sqlx::query(
-            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at              FROM code_reviews WHERE id = CAST($1 AS uuid) AND org_id = $2"
+            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at, due_at              FROM code_reviews WHERE id = CAST($1 AS uuid) AND org_id = $2"
         )
         .bind(id)
         .bind(org_id)
@@ -180,7 +181,7 @@ impl Store for PgReviewStore {
     async fn list(&self, filter: ReviewFilter) -> Result<Vec<CodeReview>> {
         let limit = if filter.limit == 0 { 50 } else { filter.limit };
         let mut qb = QueryBuilder::new(
-            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at              FROM code_reviews WHERE org_id = ",
+            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at, due_at              FROM code_reviews WHERE org_id = ",
         );
         qb.push_bind(&filter.org_id);
         if let Some(task_id) = filter.task_id.as_deref() {
@@ -346,6 +347,7 @@ fn row_to_review(row: &PgRow) -> Result<CodeReview> {
         updated_at: row
             .try_get("updated_at")
             .map_err(|err| ReviewError::Internal(format!("read updated_at: {err}")))?,
+        due_at: row.try_get("due_at").map_err(|err| ReviewError::Internal(format!("read due_at: {err}")))?,
     })
 }
 
