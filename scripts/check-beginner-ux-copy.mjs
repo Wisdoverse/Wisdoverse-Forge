@@ -2118,6 +2118,7 @@ const TASK_DETAIL_ACTION_FAILURE_FIRST_PATTERNS = [
   /['"`]\s*The task was not sent with selected notes\. Review/i,
   /['"`]\s*The task was not retried\. Refresh/i,
   /\bretry this task action\b/i,
+  /\bchoos(?:e|ing) the action again\b/i,
 ]
 
 const BOARD_LOAD_FAILURE_FIRST_PATTERNS = [

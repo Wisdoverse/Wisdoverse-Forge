@@ -16366,6 +16366,12 @@ const ACTION_FALLBACKS = {
 function authMessage() {
   return 'Sign in again, then retry this task action.'
 }
+function networkRecoveryMessage() {
+  return 'If it still does not update, check your connection, open this task again from the Tasks page, then choose the action again.'
+}
+function busyTaskActionMessage() {
+  return 'Wait a moment before choosing the action again.'
+}
 `,
     })
 
@@ -16397,6 +16403,14 @@ function authMessage() {
         expect.objectContaining({
           type: 'task-detail-action-copy',
           location: 'src/app/features/detail/taskDetailErrorMessages.ts:10',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:13',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:16',
         }),
       ])
     )
