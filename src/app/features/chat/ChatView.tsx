@@ -834,10 +834,7 @@ function turnNeedsAttention(turn: Turn): boolean {
 }
 
 function messageSearchText(message: AgentMessageRow): string {
-  return [messageRoleLabel(message.role), message.content, message.model, message.finishReason]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
+  return [messageRoleLabel(message.role), message.content].filter(Boolean).join(' ').toLowerCase()
 }
 
 function turnSearchText(turn: Turn): string {

@@ -438,6 +438,40 @@ describe('ChatView', () => {
     expect(screen.queryByText('No work steps are showing yet')).toBeNull()
   })
 
+  test('searches provider chat by visible message text only', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Billing answer is ready', {
+          id: 'assistant-visible',
+          model: 'claude-sonnet-hidden',
+          finishReason: 'internal-stop',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    fireEvent.change(screen.getByTestId('conversation-search'), {
+      target: { value: 'claude-sonnet-hidden' },
+    })
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(
+      within(emptyState).getByText('Search did not find a conversation update')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Billing answer is ready')).toBeNull()
+
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
+    fireEvent.change(screen.getByTestId('conversation-search'), {
+      target: { value: 'billing answer' },
+    })
+
+    expect(screen.getByText('Billing answer is ready')).toBeInTheDocument()
+    expect(screen.queryByText('claude-sonnet-hidden')).toBeNull()
+    expect(screen.queryByText('internal-stop')).toBeNull()
+  })
+
   test('explains an empty You filter without operator jargon', () => {
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({
