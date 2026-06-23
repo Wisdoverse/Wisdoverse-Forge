@@ -139,7 +139,7 @@ export function sshKeysErrorMessage(error: unknown): string {
     return 'Paste the safe public key line from the .pub file, then save again.'
   }
   if (code === 422 || lower.includes('required') || lower.includes('missing')) {
-    return 'Check the access name and safe public key line, then try again.'
+    return `Check the access name and safe public key line, then ${retry}.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
     return `Wait a minute, then ${retry}. Forge is receiving too many SSH code access requests right now.`

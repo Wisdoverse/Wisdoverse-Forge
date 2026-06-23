@@ -40,6 +40,13 @@ describe('sshKeysErrorMessage', () => {
     )
   })
 
+  test('turns generic missing SSH code access fields into a save step', () => {
+    expectBeginnerMessage(
+      sshKeysErrorMessage({ status: 422, reason: 'name and key are required' }),
+      'Check the access name and safe public key line, then save this SSH code access again.'
+    )
+  })
+
   test('keeps Settings store validation messages on the save path', () => {
     const message = sshKeysErrorMessage(
       'Add a label, paste a valid public SSH key, then save the SSH key again.'
