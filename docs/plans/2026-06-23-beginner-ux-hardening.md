@@ -225,6 +225,9 @@ Progress:
   sign in, check agents, and enroll local Host CLI agents.
 - `rust/crates/cli/src/cmd/root.rs` has a focused unit test covering the
   beginner setup commands in root help.
+- Host CLI one-command join now prints reconnect commands that use the resolved
+  `agentforge-sidecar` path instead of assuming it is on `PATH`, and the runbook
+  gives both macOS/Linux and Windows PowerShell reconnect examples.
 
 ### Phase 5 - Completion audit
 
