@@ -123,6 +123,19 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
   })
 
+  test('turns changed-agent failures into a concrete status check', () => {
+    useAgentsStore.setState({ error: 'HTTP 409: Conflict' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Open Agents, choose this agent again, check whether it is Ready, Working, or Offline, then run the agent action again. This agent changed while you were working.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/then try again/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 409/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Conflict/i)
+  })
+
   test('turns connection failures into a clear agent-selection step', () => {
     useAgentsStore.setState({ error: 'Failed to fetch' } as never)
 

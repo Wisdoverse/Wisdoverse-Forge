@@ -633,7 +633,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Sign in again, reopen this agent, then try the action once more.'
   }
   if (normalized.includes('conflict') || /\b409\b/.test(error)) {
-    return 'Open Agents, choose this agent again, confirm the latest status, then try again. This agent changed while you were working.'
+    return 'Open Agents, choose this agent again, check whether it is Ready, Working, or Offline, then run the agent action again. This agent changed while you were working.'
   }
   if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
     return 'Wait a moment, then open Agents and choose this agent again. The agent controls are busy.'
