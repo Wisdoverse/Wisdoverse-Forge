@@ -4,11 +4,15 @@ const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Er
 const FEEDBACK_RETRY_STEP = 'choose the feedback option again'
 const FEEDBACK_OPTION_STEP =
   'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item'
+const FEEDBACK_PERMISSION_MESSAGE = `Ask an owner or admin to give you access to this saved item, then ${FEEDBACK_RETRY_STEP}. You do not have permission to save feedback for this saved item.`
 
 export function feedbackErrorMessage(error?: unknown): string {
   const status = statusFromError(error)
   const detail = status === null || status === 400 || status === 422 ? safeDetail(error) : null
 
+  if (detail?.toLowerCase().includes('role required')) {
+    return FEEDBACK_PERMISSION_MESSAGE
+  }
   if (!status) {
     if (detail) {
       return validationMessage(detail)
@@ -20,7 +24,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     return `Sign in again, then ${FEEDBACK_RETRY_STEP}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to give you access to this saved item, then ${FEEDBACK_RETRY_STEP}. You do not have permission to save feedback for this saved item.`
+    return FEEDBACK_PERMISSION_MESSAGE
   }
   if (status === 404) {
     return `Open task details again, choose this saved item again, then ${FEEDBACK_RETRY_STEP}. This saved item could not be found.`

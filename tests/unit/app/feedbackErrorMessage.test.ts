@@ -27,6 +27,16 @@ describe('feedbackErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
+  test('turns role-required failures into saved item access guidance', () => {
+    const message = feedbackErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to give you access to this saved item, then choose the feedback option again. You do not have permission to save feedback for this saved item.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns validation details into a feedback choice step', () => {
     const message = feedbackErrorMessage(new Error('HTTP 422: {"message":"vote is required"}'))
 
