@@ -33,6 +33,15 @@ describe('skillDraftErrorMessage', () => {
     expect(message).not.toContain('workspace instructions')
   })
 
+  test('turns role-required failures into an owner or admin next step', () => {
+    const message = skillDraftErrorMessage('owner role required')
+
+    expect(message).toBe(
+      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains duplicate names without leaking raw API text', () => {
     expect(skillDraftErrorMessage(new Error('API 409: duplicate name'))).toBe(
       'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
