@@ -515,6 +515,32 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).not.toContain('could not reach the service')
   })
 
+  test('explains password update failures with the save button action', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        resetPassword: vi.fn().mockRejectedValue(new Error('password policy rejected')),
+      }),
+      'login',
+      'reset-token'
+    )
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Review the password checklist, enter a password that passes every item, then choose Save new password again. Password could not be updated.'
+    )
+    expect(bodyText()).not.toContain('password policy rejected')
+    expect(bodyText()).not.toContain('Check the password rules, then try again')
+  })
+
   test('shows a visible recovery step when verification resend fails', async () => {
     const page = new AuthPage(
       createAuthManager({

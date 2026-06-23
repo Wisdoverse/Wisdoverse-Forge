@@ -181,7 +181,7 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
     if (lowerDetail.includes('expired') || lowerDetail.includes('invalid')) {
       return 'Request a new reset email, then open the newest link. This reset link may have expired.'
     }
-    return 'Check the password rules, then try again. Password could not be updated.'
+    return 'Review the password checklist, enter a password that passes every item, then choose Save new password again. Password could not be updated.'
   }
 
   if (action === 'forgot-password') {
