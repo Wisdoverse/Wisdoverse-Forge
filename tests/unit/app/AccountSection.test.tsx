@@ -175,7 +175,7 @@ describe('AccountSection', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose a new password that is different from the current password.'
+      'Choose a new password that is different from the current password, then choose Update password again.'
     )
     expect(screen.getByLabelText('New Password')).toHaveFocus()
     expect(changePasswordMock).not.toHaveBeenCalled()
@@ -193,7 +193,9 @@ describe('AccountSection', () => {
     fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
 
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Enter your current password, then change your password again.')
+    expect(alert).toHaveTextContent(
+      'Enter your current password, then choose Update password again.'
+    )
     expect(screen.getByLabelText('Current Password')).toHaveFocus()
     expect(changePasswordMock).not.toHaveBeenCalled()
   })
@@ -214,7 +216,7 @@ describe('AccountSection', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent(
-      'The two new passwords do not match. Re-enter both new password fields, then change your password again.'
+      'The two new passwords do not match. Re-enter both new password fields, then choose Update password again.'
     )
     expect(screen.getByLabelText('Confirm New Password')).toHaveFocus()
     expect(changePasswordMock).not.toHaveBeenCalled()

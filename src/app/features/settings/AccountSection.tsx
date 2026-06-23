@@ -93,7 +93,7 @@ function PasswordChangeForm() {
     setSuccess(false)
 
     if (!hasCurrentPassword) {
-      setError('Enter your current password, then change your password again.')
+      setError('Enter your current password, then choose Update password again.')
       document.getElementById('account-current-password')?.focus()
       return
     }
@@ -104,13 +104,15 @@ function PasswordChangeForm() {
       return
     }
     if (form.currentPassword === form.newPassword) {
-      setError('Choose a new password that is different from the current password.')
+      setError(
+        'Choose a new password that is different from the current password, then choose Update password again.'
+      )
       document.getElementById('account-new-password')?.focus()
       return
     }
     if (form.newPassword !== form.confirmPassword) {
       setError(
-        'The two new passwords do not match. Re-enter both new password fields, then change your password again.'
+        'The two new passwords do not match. Re-enter both new password fields, then choose Update password again.'
       )
       document.getElementById('account-confirm-password')?.focus()
       return
