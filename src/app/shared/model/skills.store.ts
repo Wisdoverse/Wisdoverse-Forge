@@ -100,12 +100,17 @@ function normalizeSkill(skill: ApiSkill): Skill {
   const globalSkill = !skill.organization_id && !skill.scope_kind
   const marketplace =
     skill.scope_kind === 'project' ? 'project' : globalSkill ? 'global' : 'workspace'
+  const source =
+    skill.scope_kind === 'project'
+      ? 'Project saved instructions'
+      : globalSkill
+        ? 'Global saved instructions'
+        : 'Team space saved instructions'
   return {
     id: skill.id,
     name,
     description: skill.description ?? skill.trigger_pattern ?? '',
-    plugin:
-      skill.plugin ?? (globalSkill ? 'Global saved instructions' : 'Team space saved instructions'),
+    plugin: skill.plugin ?? source,
     pluginAuthor: skill.pluginAuthor ?? '',
     content: skill.content ?? '',
     path: skill.path ?? skill.id ?? name,

@@ -82,6 +82,18 @@ describe('SkillCard', () => {
     expect(screen.queryByText(/by\s*$/)).toBeNull()
   })
 
+  test('shows project-scoped saved instructions as saved for this project', () => {
+    render(
+      <SkillCard
+        skill={{ ...baseSkill, plugin: 'Project saved instructions' }}
+        onClick={() => {}}
+      />
+    )
+
+    expect(screen.getByText(/saved for this project by platform team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/saved in project saved instructions/i)).toBeNull()
+  })
+
   test('opens the selected skill', () => {
     const onClick = vi.fn()
     render(<SkillCard skill={baseSkill} onClick={onClick} />)

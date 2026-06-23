@@ -142,6 +142,28 @@ describe('useSkillsStore errors', () => {
     expect(skill?.marketplace).toBe('workspace')
   })
 
+  test('labels project-scoped saved instructions as project saved instructions', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        skills: [
+          {
+            id: 'skill-project-scope',
+            scope_kind: 'project',
+            name: 'release-check',
+            content: 'Check the release',
+          },
+        ],
+      })
+    )
+
+    await useSkillsStore.getState().loadSkills()
+
+    const [skill] = useSkillsStore.getState().skills
+    expect(skill?.plugin).toBe('Project saved instructions')
+    expect(skill?.marketplace).toBe('project')
+  })
+
   test('stores beginner guidance when skill loading fails', async () => {
     fetchMock.mockResolvedValue(response(503, { error: { message: 'database unavailable' } }))
 
