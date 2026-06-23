@@ -8,6 +8,9 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
   const status = statusFromAccountError(error)
   const detail = shouldUseDetail(status) ? safeDetailFromAccountError(error) : null
 
+  if (detail?.toLowerCase().includes('role required')) {
+    return permissionMessage(action)
+  }
   if (!status) {
     if (detail) {
       return validationMessage(action, detail)

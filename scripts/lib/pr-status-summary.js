@@ -140,7 +140,7 @@ function getPendingChecks(checks) {
 function normalizeChecks(checks) {
   if (!Array.isArray(checks)) return []
 
-  return checks.map((check) => {
+  const normalized = checks.map((check) => {
     const outcome = normalizeToken(check.conclusion ?? check.state)
     const status = normalizeToken(check.status ?? check.state)
     return {
@@ -151,6 +151,8 @@ function normalizeChecks(checks) {
         (!PASS_CHECK_CONCLUSIONS.has(outcome) && !ACTION_CHECK_CONCLUSIONS.has(outcome)),
     }
   })
+
+  return [...new Map(normalized.map((check) => [check.name, check])).values()]
 }
 
 function checkName(check) {

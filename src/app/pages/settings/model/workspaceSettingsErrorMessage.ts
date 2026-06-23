@@ -185,7 +185,12 @@ export function workspaceSettingsErrorMessage(
   if (code === 401 || text.includes('unauthorized')) {
     return `Sign in again, then ${retry}.`
   }
-  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+  if (
+    code === 403 ||
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('role required')
+  ) {
     return permissionMessage(resource, action)
   }
   if (code === 404 || text.includes('endpoint is not available')) {

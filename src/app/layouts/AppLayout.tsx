@@ -115,6 +115,7 @@ export function AppLayout({
   }, [])
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [taskFormOpen, setTaskFormOpen] = useState(false)
+  const [taskCreatedMessage, setTaskCreatedMessage] = useState<string | null>(null)
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const selectedTaskId = useBoardStore((s) => s.selectedTaskId)
   const selectedGroupId = useBoardStore((s) => s.selectedGroupId)
@@ -150,6 +151,10 @@ export function AppLayout({
   useEffect(() => {
     if (selectedTaskId) setPanelCollapsed(false)
   }, [selectedTaskId])
+
+  useEffect(() => {
+    if (!activePath.startsWith('/tasks')) setTaskCreatedMessage(null)
+  }, [activePath])
 
   // Refresh the participant list every time the modal opens so a newly
   // registered agent shows up without a page reload. Failures are ignored —
@@ -237,6 +242,7 @@ export function AppLayout({
 
   const handleCreateTaskForProject = useCallback(
     async (projectId: string) => {
+      setTaskCreatedMessage(null)
       if (!(await selectProject(projectId))) {
         // One retry: the common cause is a transient fetch failure, and the
         // task form would otherwise claim the project has nowhere tasks can wait.
@@ -253,6 +259,7 @@ export function AppLayout({
   )
 
   const handleNewTaskAction = useCallback(() => {
+    setTaskCreatedMessage(null)
     if (!selectedProjectId && !hasProjectOptions) {
       handleNavigate('/settings/projects')
       return
@@ -344,6 +351,16 @@ export function AppLayout({
           }
           onCmdK={() => setCmdkOpen(true)}
         />
+        {taskCreatedMessage && (
+          <div
+            data-testid="task-created-status"
+            role="status"
+            aria-live="polite"
+            className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-4 py-2 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark"
+          >
+            {taskCreatedMessage}
+          </div>
+        )}
         <main data-testid="main-content" className="flex-1 overflow-auto rounded-panel">
           {children}
         </main>
@@ -413,6 +430,7 @@ export function AppLayout({
           handleNavigate('/agents')
         }}
         onSubmit={async (data) => {
+          setTaskCreatedMessage(null)
           if (!data.projectId) {
             throw new Error('Choose a project before creating a task.')
           }
@@ -441,6 +459,9 @@ export function AppLayout({
           })
           if (response.ok && response.task) {
             upsertTask(response.task)
+            setTaskCreatedMessage(
+              'Task saved on the board. Watch it there for progress, then open it when it is ready to check.'
+            )
             return
           }
           throw response

@@ -74,6 +74,16 @@ describe('accountErrorMessage', () => {
     expect(message).not.toContain('Forbidden')
   })
 
+  test('maps role-required team space failures to an owner or admin action', () => {
+    const message = accountErrorMessage('renameOrganization', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access. You do not have permission to rename this team space.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns account settings failures into a retry and owner step', () => {
     const message = accountErrorMessage('renameOrganization', new Error('HTTP 500'))
 

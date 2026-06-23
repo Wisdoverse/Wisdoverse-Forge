@@ -70,10 +70,10 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
   const code = statusCode(err)
   const text = structuredErrorMessage(err).toLowerCase()
 
-  if (code === 401 || text.includes('unauthorized')) {
+  if (code === 401 || text.includes('unauthorized') || text.includes('authorization: bearer')) {
     return `${base} Sign in again, then reopen this chat.`
   }
-  if (code === 403 || text.includes('forbidden')) {
+  if (code === 403 || text.includes('forbidden') || text.includes('role required')) {
     return `${base} Ask an owner or admin to give you access to this agent.`
   }
   if (code === 404) {

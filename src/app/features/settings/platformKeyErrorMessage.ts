@@ -103,7 +103,12 @@ export function platformKeyErrorMessage(error: unknown): string {
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
     return `Sign in again, then ${retry}. Your sign-in expired.`
   }
-  if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
+  if (
+    code === 403 ||
+    lower.includes('permission') ||
+    lower.includes('forbidden') ||
+    lower.includes('role required')
+  ) {
     return 'Ask an owner or admin to let you create or remove outside tool access keys.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {

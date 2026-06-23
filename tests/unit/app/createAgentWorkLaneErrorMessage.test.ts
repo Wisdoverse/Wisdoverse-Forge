@@ -32,6 +32,16 @@ describe('createAgentWorkLaneErrorMessage', () => {
     expect(message).not.toContain('task queue')
   })
 
+  test('turns role-required failures into an owner or admin next step', () => {
+    const message = createAgentWorkLaneErrorMessage('owner role required')
+
+    expect(message).toBe(
+      'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
+    )
+    expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('task queue')
+  })
+
   test('turns duplicate waiting-place failures into an existing-place step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('API 409: duplicate lane'))).toBe(
       'Open the project again, then choose the existing waiting place. A starter waiting place may already exist.'

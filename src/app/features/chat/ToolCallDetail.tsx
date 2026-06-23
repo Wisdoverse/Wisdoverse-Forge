@@ -142,12 +142,15 @@ function outputMessageForKey(key: string): string | null {
 }
 
 function isSensitiveKey(key: string): boolean {
-  return /\b(token|secret|password|api[_-]?key|credential|credentials)\b/i.test(key)
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return /(token|secret|password|apikey|credential)/.test(normalized)
 }
 
 function safeToolString(value: string): string {
   if (
-    /\b(missing|invalid|expired)\s+(token|credential|credentials|api\s*key|secret)\b/i.test(value)
+    /\b(?:(?:missing|invalid|expired|revoked)\s+(?:token|credential|credentials|api\s*key|secret)|(?:token|credential|credentials|api\s*key|secret)\s+(?:missing|invalid|expired|revoked))\b/i.test(
+      value
+    )
   ) {
     return MISSING_ACCESS_MESSAGE
   }
@@ -161,13 +164,13 @@ function safeToolString(value: string): string {
 }
 
 function containsSensitiveAccessText(value: string): boolean {
-  return /\b(secret\s+token|token\s+secret|private\s+api\s*key|api\s*key\s+[\w.-]{4,}|password\s+[\w.-]{4,}|credential\s+[\w.-]{4,})\b/i.test(
+  return /\b(authorization\s*:\s*bearer|bearer\s+[\w.-]{4,}|secret\s+token|token\s+secret|private\s+api\s*key|api\s*key\s+[\w.-]{4,}|password\s+[\w.-]{4,}|credential\s+[\w.-]{4,})\b/i.test(
     value
   )
 }
 
 function containsTechnicalProblemText(value: string): boolean {
-  return /\b(panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database)\b/i.test(
+  return /\b((?:API|HTTP)\s*\d{3}|status code|GraphQL|panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database|connection refused|(?:provider|endpoint|payload|schema)\b.{0,32}\b(?:failed|failure|error|validation|timeout|unauthorized)|(?:failed|failure|error|validation|timeout|unauthorized)\b.{0,32}\b(?:provider|endpoint|payload|schema))\b/i.test(
     value
   )
 }

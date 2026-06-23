@@ -20,6 +20,15 @@ describe('agentPluginErrorMessage', () => {
     expect(message).not.toContain('missing plugin permission')
   })
 
+  test('turns role-required save errors into operator recovery guidance', () => {
+    const message = agentPluginErrorMessage('save', 'owner role required')
+
+    expect(message).toBe(
+      "Ask an owner or admin to give you access to this agent's tools. The switch was returned to its previous setting."
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns structured save conflicts into a wait and retry step', () => {
     const message = agentPluginErrorMessage('save', {
       code: '409',

@@ -149,6 +149,16 @@ describe('runtimeSettingsErrorMessage', () => {
     )
   })
 
+  test('turns role-required runtime setting failures into an owner or admin step', () => {
+    const message = runtimeSettingsErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin for access to change Where agents work.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains network failures in user-facing terms', () => {
     const message = runtimeSettingsErrorMessage(new TypeError('Failed to fetch'))
 

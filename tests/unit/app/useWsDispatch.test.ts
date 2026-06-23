@@ -594,6 +594,39 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).not.toContain('raw command output')
   })
 
+  it('hides role-policy completed task messages in owner notifications', () => {
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        task: {
+          id: 'task-owner-message-role',
+          groupId: 'g1',
+          state: 'completed',
+          method: 'code',
+          params: { task: 'Update team access notes', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          result: {
+            message: 'owner role required',
+          },
+          priority: 'normal',
+          progress: 100,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    const notifications = useFeedStore.getState().notifications
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0].message).toContain(
+      'Finished with a summary to check. Open the task details before using the result.'
+    )
+    expect(notifications[0].message).not.toContain('owner role required')
+  })
+
   it('notifies the credential owner when a tool account expires', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 

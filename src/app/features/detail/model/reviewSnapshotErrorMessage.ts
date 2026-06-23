@@ -31,6 +31,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     code === 403 ||
     text.includes('forbidden') ||
     text.includes('permission') ||
+    text.includes('role required') ||
     text.includes('resource not accessible')
   ) {
     return 'Ask an owner or admin to check finish access for this code project, then choose Check fix status.'

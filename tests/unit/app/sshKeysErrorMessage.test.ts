@@ -23,6 +23,14 @@ describe('sshKeysErrorMessage', () => {
     )
   })
 
+  test('explains role-required errors without treating them as missing fields', () => {
+    const message = sshKeysErrorMessage('owner role required')
+
+    expectBeginnerMessage(message, 'Ask an owner or admin for access to manage SSH code access.')
+    expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('access name')
+  })
+
   test('explains duplicate keys with a safe next action', () => {
     const message = sshKeysErrorMessage('API 409 duplicate key')
 

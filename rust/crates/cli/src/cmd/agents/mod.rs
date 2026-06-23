@@ -45,7 +45,10 @@ pub enum AgentsSubcommand {
     Get(get::GetArgs),
     /// Create a new agent
     Create(create::CreateArgs),
-    /// Enroll a local Host CLI agent into the remote control plane
+    /// Connect a local work tool as a managed Agent
+    #[command(
+        long_about = "Connects a local work tool to the remote Forge platform so it can receive tasks as a managed Agent.\n\nBefore you run this command, connect to your Forge server with `agentforge config set server https://forge.example.com` and sign in with `agentforge auth login --token <platform-token>`.\n\nRun it from the local folder where the Agent is allowed to work. Success looks like a launch block for Terminal or PowerShell, then the Agent appears online in the web UI after the sidecar starts."
+    )]
     EnrollLocal(enroll_local::EnrollLocalArgs),
     /// Update an agent
     Update(update::UpdateArgs),

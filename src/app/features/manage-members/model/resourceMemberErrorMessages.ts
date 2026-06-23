@@ -141,6 +141,7 @@ function statusFromResourceMemberError(error: unknown): number | null {
   }
 
   const detail = rawDetailFromResourceMemberError(error)
+  if (detail?.toLowerCase().includes('role required')) return 403
   const match = detail?.match(/\b(?:API|HTTP|Server error\s*\()? ?(\d{3})\b/i)
   return match ? Number(match[1]) : null
 }

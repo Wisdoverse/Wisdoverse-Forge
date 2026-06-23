@@ -63,7 +63,12 @@ export function systemHealthErrorMessage(error: unknown): string {
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
     return 'Sign in again, then open Admin and choose App health before choosing Check now. Forge could not check app health because your sign-in expired.'
   }
-  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+  if (
+    code === 403 ||
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('role required')
+  ) {
     return 'Ask an owner or admin to give you Admin access, then open Admin and choose App health before choosing Check now. Forge could not check app health because you do not have access to app health checks.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {

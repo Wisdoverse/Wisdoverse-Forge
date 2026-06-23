@@ -619,6 +619,11 @@ describe('AppLayout', () => {
       )
     })
     expect(screen.queryByRole('dialog')).toBeNull()
+    const status = screen.getByTestId('task-created-status')
+    expect(status).toHaveAttribute('role', 'status')
+    expect(status).toHaveTextContent(
+      'Task saved on the board. Watch it there for progress, then open it when it is ready to check.'
+    )
   })
 
   test('shows beginner guidance when New Task does not return a created task', async () => {

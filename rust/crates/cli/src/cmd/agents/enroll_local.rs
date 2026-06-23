@@ -28,28 +28,28 @@ impl ShellFormat {
 
 #[derive(Debug, clap::Args)]
 pub struct EnrollLocalArgs {
-    /// CLI tool available on the local machine (claude, codex, gemini, opencode)
+    /// Local work tool installed on this machine: claude, codex, gemini, or opencode
     #[arg(long)]
     pub tool: String,
-    /// Agent display name
+    /// Name shown in the Agents page, for example "Host Codex"
     #[arg(long)]
     pub name: Option<String>,
-    /// Optional model override passed to the local CLI
+    /// Optional model name to pass to the local work tool
     #[arg(long)]
     pub model: Option<String>,
-    /// Workspace ID to associate the agent with
+    /// Workspace ID from the web UI; usually optional when --project is set
     #[arg(long)]
     pub workspace: Option<String>,
-    /// Project ID to associate the agent with
+    /// Project ID from the web UI where this Agent should receive tasks
     #[arg(long)]
     pub project: Option<String>,
-    /// Local working directory where the sidecar command will be launched
+    /// Local folder where the Agent may read and write work files
     #[arg(long)]
     pub cwd: Option<String>,
-    /// Shell syntax for the local sidecar launch block
+    /// Shell for the launch block: bash on macOS/Linux, powershell on Windows
     #[arg(long, value_enum)]
     pub shell_format: Option<ShellFormat>,
-    /// Print only the local sidecar launch block in table mode
+    /// Print only the launch block so it can be copied or saved
     #[arg(long)]
     pub shell: bool,
 }
@@ -185,7 +185,25 @@ fn powershell_quote(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
     use serde_json::json;
+
+    #[test]
+    fn enroll_local_help_starts_with_operator_setup() {
+        let mut cmd = crate::cmd::root::Cli::command();
+        let agents = cmd.find_subcommand_mut("agents").expect("agents subcommand");
+        let enroll = agents.find_subcommand_mut("enroll-local").expect("enroll-local subcommand");
+        let help = enroll.render_long_help().to_string();
+
+        assert!(help.contains("Connects a local work tool to the remote Forge platform"));
+        assert!(help.contains("agentforge config set server"));
+        assert!(help.contains("https://forge.example.com"));
+        assert!(help.contains("agentforge auth login --token <platform-token>"));
+        assert!(help.contains("Local work tool installed on this machine"));
+        assert!(help.contains("Project ID from the web UI"));
+        assert!(help.contains("Terminal or PowerShell"));
+        assert!(!help.contains("associate the agent"));
+    }
 
     #[test]
     fn formats_bash_launch_command_from_enrollment_env() {

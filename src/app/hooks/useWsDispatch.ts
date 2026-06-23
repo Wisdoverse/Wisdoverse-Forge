@@ -456,6 +456,7 @@ function safeCompletionMessage(message: string): string {
     /\b(401|403|500|502|503|504)\b/.test(trimmed) ||
     lower.includes('unauthorized') ||
     lower.includes('forbidden') ||
+    lower.includes('role required') ||
     lower.includes('panic') ||
     lower.includes('stack trace') ||
     lower.includes('traceback') ||

@@ -123,21 +123,25 @@ type RenameTarget = 'team' | 'project'
 function parseApiStatus(error: unknown): { status: number | null; detail: string | null } {
   if (error && typeof error === 'object' && !(error instanceof Error)) {
     const record = error as Record<string, unknown>
+    const detail = detailFromRecord(record)
     return {
-      status: firstStatus(record.statusCode, record.status, record.code),
-      detail: detailFromRecord(record),
+      status:
+        firstStatus(record.statusCode, record.status, record.code) ?? statusFromDetail(detail),
+      detail,
     }
   }
 
   if (!(error instanceof Error)) {
-    return typeof error === 'string' && error.trim()
-      ? { status: null, detail: error.trim() }
-      : { status: null, detail: null }
+    const detail = typeof error === 'string' && error.trim() ? error.trim() : null
+    return { status: statusFromDetail(detail), detail }
   }
 
   const message = error.message.trim()
   const match = /^API\s+(\d{3}):\s*(.*)$/s.exec(message)
-  if (!match) return { status: null, detail: message || null }
+  if (!match) {
+    const detail = message || null
+    return { status: statusFromDetail(detail), detail }
+  }
 
   const status = Number(match[1])
   const body = match[2]?.trim()
@@ -154,6 +158,10 @@ function parseApiStatus(error: unknown): { status: number | null; detail: string
   }
 
   return { status, detail: body }
+}
+
+function statusFromDetail(detail: string | null): number | null {
+  return detail?.toLowerCase().includes('role required') ? 403 : null
 }
 
 function firstStatus(...values: unknown[]): number | null {

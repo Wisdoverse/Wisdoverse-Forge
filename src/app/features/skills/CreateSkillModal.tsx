@@ -2,12 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSkillsStore, type Skill } from '@app/shared/model/skills.store'
 import { createSkillErrorMessage } from './model/createSkillErrorMessage'
 
 interface CreateSkillModalProps {
   open: boolean
   onClose: () => void
+  onCreated?: (skill: Skill) => void
 }
 
 const emptyForm = {
@@ -77,7 +78,7 @@ const skillTemplates = [
   },
 ]
 
-export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
+export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalProps) {
   const createSkill = useSkillsStore((state) => state.createSkill)
   const [form, setForm] = useState(emptyForm)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -145,12 +146,13 @@ export function CreateSkillModal({ open, onClose }: CreateSkillModalProps) {
     setError(null)
     setFieldError(null)
     try {
-      await createSkill({
+      const skill = await createSkill({
         name,
         description: form.description.trim() || undefined,
         trigger_pattern: form.triggerPattern.trim() || undefined,
         content,
       })
+      onCreated?.(skill)
       onClose()
     } catch (err) {
       setError(createSkillErrorMessage(err))

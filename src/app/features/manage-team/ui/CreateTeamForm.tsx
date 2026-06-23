@@ -88,7 +88,12 @@ function createTeamErrorMessage(error: unknown): string {
   if (code === 401 || lower.includes('unauthorized') || lower.includes('sign in again')) {
     return 'Sign in again, then create this team.'
   }
-  if (code === 403 || lower.includes('forbidden') || lower.includes('permission')) {
+  if (
+    code === 403 ||
+    lower.includes('forbidden') ||
+    lower.includes('permission') ||
+    lower.includes('role required')
+  ) {
     return 'Ask an owner or admin to let you create teams in this team space.'
   }
   if (code === 404) {

@@ -427,8 +427,34 @@ mod tests {
             assert!(rendered.contains("/api/v1/agents/local-join/claim"), "script calls the claim endpoint");
             assert!(rendered.contains(DEFAULT_BINARY_BASE_URL), "default binary base baked in");
         }
-        assert!(svc.join_script(JoinScriptShell::Sh).starts_with("#!/bin/sh\n"));
-        assert!(svc.join_script(JoinScriptShell::Sh).contains("Codes expire after 15 minutes"));
+        let sh = svc.join_script(JoinScriptShell::Sh);
+        let ps = svc.join_script(JoinScriptShell::PowerShell);
+        assert!(sh.starts_with("#!/bin/sh\n"));
+        assert!(sh.contains("Codes expire after 15 minutes"));
+        assert!(sh.contains(r#"shell_quote "$SIDECAR""#), "sh reconnect hint uses the resolved sidecar path");
+        assert!(
+            ps.contains("Quote-PowerShellLiteral $Sidecar"),
+            "PowerShell reconnect hint uses the resolved sidecar path"
+        );
+        assert!(!sh.contains("exec agentforge-sidecar'"), "sh reconnect hint must not require PATH after download");
+        assert!(
+            !ps.contains("then agentforge-sidecar"),
+            "PowerShell reconnect hint must not require PATH after download"
+        );
+    }
+
+    #[test]
+    fn join_script_templates_print_resolved_reconnect_paths() {
+        assert!(JOIN_SCRIPT_SH.contains(r#"shell_quote "$SIDECAR""#), "sh template uses the resolved sidecar path");
+        assert!(
+            JOIN_SCRIPT_PS1.contains("Quote-PowerShellLiteral $Sidecar"),
+            "PowerShell template uses the resolved sidecar path"
+        );
+        assert!(!JOIN_SCRIPT_SH.contains("exec agentforge-sidecar'"), "sh reconnect hint must not require PATH");
+        assert!(
+            !JOIN_SCRIPT_PS1.contains("then agentforge-sidecar"),
+            "PowerShell reconnect hint must not require PATH"
+        );
     }
 
     /// Parity: enrolling a host-cli agent then replaying the same idempotency

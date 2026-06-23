@@ -104,6 +104,7 @@ function errorStatus(err: unknown, normalizedDetail: string): number | null {
     }
   }
 
+  if (normalizedDetail.includes('role required')) return 403
   const match = normalizedDetail.match(/\b(401|403|404|409|422|429|5\d{2})\b/)
   return match ? Number(match[1]) : null
 }

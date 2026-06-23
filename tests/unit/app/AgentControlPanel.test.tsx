@@ -126,6 +126,17 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
   })
 
+  test('turns role failures into agent management guidance', () => {
+    useAgentsStore.setState({ error: 'owner role required' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/owner role required/i)
+  })
+
   test('turns changed-agent failures into a concrete status check', () => {
     useAgentsStore.setState({ error: 'HTTP 409: Conflict' } as never)
 
@@ -148,6 +159,21 @@ describe('AgentControlPanel', () => {
       'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Failed to fetch/i)
+  })
+
+  test('turns authorization header failures into sign-in guidance', () => {
+    useAgentsStore.setState({
+      error: 'Authorization: Bearer agent-secret-token rejected',
+    } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Sign in again, reopen this agent, then try the action once more.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Authorization/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Bearer/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/agent-secret-token/i)
   })
 
   test('keeps generic recovery steps aligned with Ready status wording', () => {
@@ -290,9 +316,7 @@ describe('AgentControlPanel', () => {
       'placeholder',
       'Check this AI service before sending a message.'
     )
-    expect(messageInput).toHaveAccessibleDescription(
-      /choose Check connection for this service/i
-    )
+    expect(messageInput).toHaveAccessibleDescription(/choose Check connection for this service/i)
     expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled()
     expect(sendPromptMock).not.toHaveBeenCalled()
   })

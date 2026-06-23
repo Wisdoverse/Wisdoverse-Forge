@@ -72,7 +72,12 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
           ''
         )
   }
-  if (code === 403) {
+  if (
+    code === 403 ||
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('role required')
+  ) {
     return action === 'load'
       ? `${base} Ask an owner or admin to give you access to this agent's tools.`
       : saveMessage("Ask an owner or admin to give you access to this agent's tools.", '')

@@ -24,6 +24,16 @@ describe('providerTestErrorMessage', () => {
     )
   })
 
+  test('turns role-required failures into an owner or admin step', () => {
+    const message = providerTestErrorMessage('owner role required', 'OpenAI Production')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to let you check AI service connections, then choose Check connection for OpenAI Production again.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns network failures into service address guidance', () => {
     const message = providerTestErrorMessage(new TypeError('Failed to fetch'), 'Local Lab')
 

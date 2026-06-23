@@ -128,7 +128,12 @@ export function billingErrorMessage(err: unknown, area: BillingErrorArea): strin
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
     return `Sign in again, then open Billing and choose Check billing again to load ${target}.`
   }
-  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+  if (
+    code === 403 ||
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('role required')
+  ) {
     return `Ask an owner or admin to give you billing access, then choose Check billing again to load ${target}.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
@@ -153,7 +158,12 @@ export function billingActionErrorMessage(err: unknown, action: BillingActionAre
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
     return `Sign in again, then open Billing and ${retry}.`
   }
-  if (code === 403 || text.includes('permission') || text.includes('forbidden')) {
+  if (
+    code === 403 ||
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('role required')
+  ) {
     return `Ask an owner or admin to give you billing access, then ${retry}.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {

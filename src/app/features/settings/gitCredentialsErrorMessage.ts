@@ -111,7 +111,12 @@ export function gitCredentialsErrorMessage(error: unknown): string {
   if (code === 401 || lower.includes('sign in again') || lower.includes('unauthorized')) {
     return `Sign in again, then ${retry}. Your sign-in expired.`
   }
-  if (code === 403 || lower.includes('permission') || lower.includes('forbidden')) {
+  if (
+    code === 403 ||
+    lower.includes('permission') ||
+    lower.includes('forbidden') ||
+    lower.includes('role required')
+  ) {
     return 'Ask an owner or admin to let you manage code access.'
   }
   if (

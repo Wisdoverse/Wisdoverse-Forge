@@ -17,7 +17,12 @@ export function taskFailurePreview(error?: string | null): string {
   ) {
     return 'Stopped because access is missing. Ask an owner or admin for help.'
   }
-  if (lowerMessage.includes('unauthorized') || /\b401\b/.test(message)) {
+  if (
+    lowerMessage.includes('unauthorized') ||
+    lowerMessage.includes('authorization') ||
+    lowerMessage.includes('bearer') ||
+    /\b401\b/.test(message)
+  ) {
     return 'Reconnect sign-in or service access, then retry.'
   }
 
@@ -36,6 +41,8 @@ export function isRawTaskFailureDetail(message: string): boolean {
       trimmed
     ) ||
     raw.includes('unauthorized') ||
+    raw.includes('authorization') ||
+    raw.includes('bearer') ||
     raw.includes('non-zero') ||
     raw.includes('provider') ||
     /\b(?:credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(trimmed)
@@ -79,7 +86,10 @@ function beginnerBlockedHint(hint: string): string {
   if (/\b(?:quota|rate limit|rate limited)\b/i.test(hint) || /\b429\b/.test(hint)) {
     return 'Too much work is running right now. Wait a bit, then retry or ask an owner for help.'
   }
-  if (/\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint)) {
+  if (
+    /\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint) ||
+    /\b(?:authorization|bearer)\b/i.test(hint)
+  ) {
     return 'Waiting for account access. Add or reconnect the required service access, then retry.'
   }
   if (/\bapproval\b/i.test(hint)) {

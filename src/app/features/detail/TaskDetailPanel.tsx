@@ -368,7 +368,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             </div>
           )}
           {recoveryError && (
-            <div className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+            >
               {recoveryError}
             </div>
           )}

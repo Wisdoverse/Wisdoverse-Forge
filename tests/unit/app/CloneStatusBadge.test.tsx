@@ -236,6 +236,28 @@ describe('CloneStatusBadge', () => {
     })
   })
 
+  it('surfaces a plain retry role failure as a beginner-safe inline message', async () => {
+    vi.spyOn(projectApi, 'retryClone').mockRejectedValue(new Error('owner role required'))
+
+    render(
+      <CloneStatusBadge
+        projectId="p1"
+        status="failed"
+        variant="detail"
+        clone={summary({ status: 'failed', errorMessage: 'boom' })}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('clone-retry-p1'))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Ask an owner or admin to let you copy code')
+      expect(alert).toHaveTextContent('You do not have permission right now')
+      expect(alert).not.toHaveTextContent('owner role required')
+    })
+  })
+
   it('does not show raw server details when retrying clone fails', async () => {
     vi.spyOn(projectApi, 'retryClone').mockRejectedValue(
       new Error('API 500: database unavailable while updating clone attempt')

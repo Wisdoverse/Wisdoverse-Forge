@@ -76,6 +76,16 @@ describe('approvalQueueErrorMessage', () => {
     expect(message).not.toContain(['saved', 'memories'].join(' '))
   })
 
+  test('turns role-required failures into saved item access guidance', () => {
+    const message = approvalQueueErrorMessage('approveCandidate', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to let you save or skip saved notes and instructions, then choose Save item again. You do not have permission right now.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns validation details into a scope next step', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', {

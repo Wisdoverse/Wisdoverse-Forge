@@ -30,6 +30,15 @@ describe('chatErrorMessage', () => {
     )
   })
 
+  test('maps role-required errors to agent access guidance', () => {
+    const message = chatErrorMessage('load', 'owner role required')
+
+    expect(message).toBe(
+      'Check conversation again to load the chat history. Ask an owner or admin to give you access to this agent.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('maps structured sign-in errors without exposing token details', () => {
     const message = chatErrorMessage('load', {
       code: '401',
@@ -52,6 +61,20 @@ describe('chatErrorMessage', () => {
       'Check conversation again to load the chat history. Sign in again, then reopen this chat.'
     )
     expect(message).not.toContain('chat session expired')
+  })
+
+  test('maps authorization header failures to sign-in guidance', () => {
+    const message = chatErrorMessage(
+      'load',
+      new Error('Authorization: Bearer chat-secret-token rejected')
+    )
+
+    expect(message).toBe(
+      'Check conversation again to load the chat history. Sign in again, then reopen this chat.'
+    )
+    expect(message).not.toContain('Authorization')
+    expect(message).not.toContain('Bearer')
+    expect(message).not.toContain('chat-secret-token')
   })
 
   test('maps structured clear conflicts to a wait and retry step', () => {

@@ -36,6 +36,16 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
+  test('describes role-required read failures as view access problems', () => {
+    const message = taskDetailErrorMessage('loadRuns', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains network failures without exposing only a transport error', () => {
     const message = taskDetailErrorMessage('loadRuns', new TypeError('Failed to fetch'))
 

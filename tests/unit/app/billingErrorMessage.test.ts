@@ -32,6 +32,15 @@ describe('billingErrorMessage', () => {
     expect(message).not.toContain('policy denied')
   })
 
+  test('turns role-required details into a billing access step', () => {
+    const message = billingErrorMessage('owner role required', 'usage')
+
+    expect(message).toBe(
+      'Ask an owner or admin to give you billing access, then choose Check billing again to load usage.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns structured rate limits into a wait and refresh step', () => {
     const message = billingErrorMessage(
       { serverError: 'too many billing provider calls', statusCode: 429 },
@@ -103,6 +112,15 @@ describe('billingActionErrorMessage', () => {
       'Ask an owner or admin to give you billing access, then try opening the billing management page again.'
     )
     expect(message).not.toContain('forbidden')
+  })
+
+  test('turns role-required action failures into a billing access step', () => {
+    const message = billingActionErrorMessage('owner role required', 'checkout')
+
+    expect(message).toBe(
+      'Ask an owner or admin to give you billing access, then try opening the secure payment page again.'
+    )
+    expect(message).not.toContain('owner role required')
   })
 
   test('uses a safe checkout fallback when no action error is available', () => {
