@@ -140,10 +140,7 @@ function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: strin
       (filter === 'overridden' && plugin.hasOverride)
     if (!matchesFilter) return false
     if (!normalized) return true
-    return [plugin.name, plugin.description, plugin.id, plugin.version]
-      .join(' ')
-      .toLowerCase()
-      .includes(normalized)
+    return [plugin.name, plugin.description].join(' ').toLowerCase().includes(normalized)
   })
 }
 
