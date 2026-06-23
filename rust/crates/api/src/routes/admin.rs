@@ -12,6 +12,7 @@
 //! - `POST   /api/v1/admin/impersonate/end`    — end impersonation
 //! - `GET    /api/v1/admin/impersonation-log`  — list impersonation history
 //! - `GET    /api/v1/admin/stats`              — system stats
+//! - `GET    /api/v1/admin/dead-events`        — platform-admin-only cross-org dead-letter list (`{ ok, data }`)
 //! - `GET    /api/v1/admin/cli-images`         — CLI agent-image updater status
 //! - `POST   /api/v1/admin/cli-images/:tool/roll` — roll running agents of a tool
 //! - `POST   /api/v1/admin/cli-images/:tool/build` — build the claude image locally
@@ -307,6 +308,37 @@ async fn bulk_delete_admin_agents(
     Ok(Json(admin_bulk_delete_response(results)))
 }
 
+/// Query parameters for `GET /admin/dead-events`: 1-based `page`, `limit`
+/// (clamped to 1..=100 by the service), and an optional exact `reason` filter.
+#[derive(Debug, Deserialize)]
+pub struct DeadEventsQuery {
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_agents_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// `GET /api/v1/admin/dead-events` — paginated, cross-org list of captured
+/// dead-letter rows (permanently-dropped NATS envelopes), newest first.
+///
+/// PLATFORM-ADMIN-ONLY: gated on the server-side `users.is_admin` column, NOT
+/// the per-org membership role. The view is cross-org by design, so a
+/// self-registered user who is `owner` of their personal org must not reach it —
+/// a non-admin gets 403. `payload_excerpt` is UNTRUSTED (stored-XSS-capable, may
+/// contain other orgs' task output); any UI must render it escaped.
+async fn list_dead_events(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(query): Query<DeadEventsQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
+    let page = service.list_dead_events(query.page, query.limit, query.reason.as_deref()).await?;
+    Ok(Json(admin_data_response(page)))
+}
+
 /// `GET /api/v1/admin/cli-images` — read-only status of the CLI agent-image
 /// auto-updater: per-tool image state, local/remote digests, last check/error,
 /// and a rough per-tool live-container count. Deployment-global (no tenant
@@ -372,6 +404,7 @@ pub fn admin_routes() -> Router<AppState> {
         .route("/admin/impersonation-log", get(list_impersonation_log))
         .route("/admin/stats", get(get_stats))
         .route("/admin/control-plane", get(get_control_plane))
+        .route("/admin/dead-events", get(list_dead_events))
         .route("/admin/cli-images", get(list_cli_image_status))
         .route("/admin/cli-images/{tool}/roll", post(roll_cli_image))
         .route("/admin/cli-images/{tool}/build", post(build_cli_image))
@@ -456,6 +489,25 @@ mod tests {
         assert!(AdminService::require_admin("admin").is_ok());
         assert!(AdminService::require_admin("member").is_err());
         assert!(AdminService::require_admin("viewer").is_err());
+    }
+
+    // The dead-letter reader gate is now keyed off `users.is_admin`
+    // (`AdminService::require_platform_admin`), which loads the caller's user
+    // row — see the `#[sqlx::test]` `require_platform_admin_keys_off_is_admin_column`
+    // in services::admin and the pure-policy test in domain::admin.
+
+    #[test]
+    fn dead_events_query_defaults_and_custom() {
+        let query: DeadEventsQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.page, 1);
+        assert_eq!(query.limit, 25);
+        assert!(query.reason.is_none());
+
+        let query: DeadEventsQuery =
+            serde_json::from_str(r#"{"page": 2, "limit": 50, "reason": "signature_mismatch"}"#).unwrap();
+        assert_eq!(query.page, 2);
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.reason.as_deref(), Some("signature_mismatch"));
     }
 
     // ========================================================================

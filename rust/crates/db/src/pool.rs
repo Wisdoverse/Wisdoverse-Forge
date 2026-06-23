@@ -144,6 +144,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("068_project_clone.sql", include_str!("../migrations/068_project_clone.sql")),
     ("069_orchestration_pr_tracking.sql", include_str!("../migrations/069_orchestration_pr_tracking.sql")),
     ("070_self_fix_loop_bounds.sql", include_str!("../migrations/070_self_fix_loop_bounds.sql")),
+    ("071_dead_events.sql", include_str!("../migrations/071_dead_events.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

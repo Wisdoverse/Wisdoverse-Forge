@@ -34,6 +34,7 @@
 //! sidecar publisher, the wire schema, and the `events` table; that is tracked
 //! separately rather than bolted on here.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
@@ -50,6 +51,8 @@ use uuid::Uuid;
 use agentforge_core::AgentStatus;
 use agentforge_core::event_protocol::parse_events_ingest_subject;
 use agentforge_core::orchestration_protocol::SignedEnvelope;
+
+use crate::dead_events::{DeadEvent, DeadEventRecorder, SqlxDeadEventRecorder, payload_excerpt};
 
 pub const EVENTS_STREAM: &str = "EVENTS";
 // Reuse the legacy durable on the shared workqueue stream instead of trying
@@ -160,15 +163,39 @@ pub enum BroadcastEnvelope {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsumeError {
-    #[error("permanent event rejection: {0}")]
-    Permanent(#[source] anyhow::Error),
+    /// A permanent rejection (Term drop). `reason` is the structured drop reason
+    /// — `signature_mismatch`, `agent_unknown`, etc. for auth drops, or the
+    /// generic `"permanent"` for the non-auth permanent rejections (malformed
+    /// payload data, agent disappeared mid-flight). It is carried separately from
+    /// the `source` error string so the dead-letter writer can query/group by it;
+    /// without it the structured reason is otherwise swallowed into the anyhow
+    /// string before the consumer's Term site.
+    #[error("permanent event rejection ({reason}): {source}")]
+    Permanent {
+        reason: &'static str,
+        #[source]
+        source: anyhow::Error,
+    },
     #[error("transient event processing failure: {0}")]
     Transient(#[source] anyhow::Error),
 }
 
 impl ConsumeError {
+    /// A permanent rejection whose reason is not separately classified. Kept for
+    /// any genuinely-unclassifiable site; the known non-auth permanent drops use
+    /// [`Self::permanent_with_reason`] so their `dead_events.reason` is queryable,
+    /// matching the orchestration path. Auth drops go through [`reject_unauthorized`].
+    #[allow(dead_code)]
     fn permanent(message: impl Into<anyhow::Error>) -> Self {
-        Self::Permanent(message.into())
+        Self::Permanent { reason: "permanent", source: message.into() }
+    }
+
+    /// A permanent rejection carrying a specific, queryable structured `reason`
+    /// (e.g. `bad_subject`, `payload_not_object`). Mirrors how
+    /// [`reject_unauthorized`] tags the auth drops, so every dead-letter row has
+    /// a reason an operator can filter on.
+    fn permanent_with_reason(reason: &'static str, message: impl Into<anyhow::Error>) -> Self {
+        Self::Permanent { reason, source: message.into() }
     }
 
     fn transient(message: impl Into<anyhow::Error>) -> Self {
@@ -266,7 +293,10 @@ struct DecodedEvent {
 /// unauthenticated or stale envelope can never succeed.
 fn reject_unauthorized(reason: &'static str, detail: impl std::fmt::Display) -> ConsumeError {
     metrics::counter!("event_ingest_unauthorized_total", "reason" => reason).increment(1);
-    ConsumeError::Permanent(anyhow!("{reason}: {detail}"))
+    // Carry the structured `reason` on the variant (not just folded into the
+    // error string) so the dead-letter row for an events.ingest drop is queryable
+    // by reason, exactly like the orchestration.result path.
+    ConsumeError::Permanent { reason, source: anyhow!("{reason}: {detail}") }
 }
 
 #[derive(Clone)]
@@ -325,12 +355,9 @@ where
             return Err(reject_unauthorized("signature_mismatch", format!("agent {agent_id}")));
         }
 
-        let target = self
-            .agents
-            .resolve(agent_id)
-            .await
-            .map_err(ConsumeError::transient)?
-            .ok_or_else(|| ConsumeError::permanent(anyhow!("agent {agent_id} not found")))?;
+        let target = self.agents.resolve(agent_id).await.map_err(ConsumeError::transient)?.ok_or_else(|| {
+            ConsumeError::permanent_with_reason("agent_not_found", anyhow!("agent {agent_id} not found"))
+        })?;
 
         let decoded = decode_event(target, envelope)?;
 
@@ -341,10 +368,10 @@ where
                 .await
                 .map_err(ConsumeError::transient)?;
             if !updated {
-                return Err(ConsumeError::permanent(anyhow!(
-                    "agent {} disappeared during runtime patch",
-                    decoded.persisted.agent_id
-                )));
+                return Err(ConsumeError::permanent_with_reason(
+                    "agent_disappeared",
+                    anyhow!("agent {} disappeared during runtime patch", decoded.persisted.agent_id),
+                ));
             }
         }
 
@@ -375,9 +402,9 @@ where
 /// so the cross-check against the envelope's `agent_id` is stable across the
 /// migration. Anything else is a permanent reject (forged/unsupported subject).
 fn parse_subject_agent_id(subject: &str) -> std::result::Result<Uuid, ConsumeError> {
-    parse_events_ingest_subject(subject)
-        .map(|parsed| parsed.agent_id)
-        .ok_or_else(|| ConsumeError::permanent(anyhow!("unsupported event subject {subject}")))
+    parse_events_ingest_subject(subject).map(|parsed| parsed.agent_id).ok_or_else(|| {
+        ConsumeError::permanent_with_reason("bad_subject", anyhow!("unsupported event subject {subject}"))
+    })
 }
 
 fn decode_event(target: AgentTarget, envelope: SignedEventEnvelope) -> std::result::Result<DecodedEvent, ConsumeError> {
@@ -440,7 +467,10 @@ fn normalize_event_data(
     let mut object = match data {
         Value::Object(map) => map,
         _ => {
-            return Err(ConsumeError::permanent(anyhow!("event payload data must be a JSON object")));
+            return Err(ConsumeError::permanent_with_reason(
+                "payload_not_object",
+                anyhow!("event payload data must be a JSON object"),
+            ));
         }
     };
 
@@ -687,6 +717,10 @@ impl BroadcastBus for NatsBroadcastBus {
 pub struct EventStreamWorker {
     consumer: PullConsumer,
     logic: EventConsumer<SqlxEventStore, SqlxAgentDirectory, NatsBroadcastBus, SqlxHmacSecretLookup>,
+    /// Optional dead-letter recorder. `connect` installs a real
+    /// `SqlxDeadEventRecorder`; the field stays `Option` so a future builder or
+    /// test can construct the worker without one without changing the shape.
+    dead_events: Option<Arc<dyn DeadEventRecorder>>,
 }
 
 impl EventStreamWorker {
@@ -723,6 +757,10 @@ impl EventStreamWorker {
         // zero, and a `== 0` gate would pass on a dead/never-run consumer.
         metrics::counter!("agentforge_nats_legacy_subject_received_total", "subject" => "events.ingest").increment(0);
 
+        // Dead-letter recorder: persist permanently-dropped envelopes so an
+        // operator has a durable record of why agent X's events were rejected.
+        let dead_events: Arc<dyn DeadEventRecorder> = Arc::new(SqlxDeadEventRecorder::new(pool.clone()));
+
         Ok(Self {
             consumer,
             logic: EventConsumer::new(
@@ -731,7 +769,16 @@ impl EventStreamWorker {
                 NatsBroadcastBus::new(client),
                 SqlxHmacSecretLookup::new(pool),
             ),
+            dead_events: Some(dead_events),
         })
+    }
+
+    /// Override the dead-letter recorder (e.g. a test capture). Production
+    /// `connect` already installs a `SqlxDeadEventRecorder`; this lets a caller
+    /// swap it without changing the `connect` signature.
+    pub fn with_dead_event_recorder(mut self, recorder: Arc<dyn DeadEventRecorder>) -> Self {
+        self.dead_events = Some(recorder);
+        self
     }
 
     pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
@@ -784,6 +831,25 @@ impl EventStreamWorker {
             Ok(envelope) => envelope,
             Err(err) => {
                 tracing::warn!(error = %err, %subject, "dropping malformed event envelope");
+                // A body that won't even decode into an envelope is a PERMANENT
+                // drop the feature promises to capture. Count it on the same
+                // unauthorized series the other event drops use, then dead-letter
+                // it before the Term ack. Best-effort: `record` logs its own
+                // failures and never blocks the ack.
+                metrics::counter!("event_ingest_unauthorized_total", "reason" => "envelope_decode_failed").increment(1);
+                if let Some(recorder) = &self.dead_events {
+                    recorder
+                        .record(DeadEvent {
+                            source: "events.ingest",
+                            reason: "envelope_decode_failed".to_string(),
+                            subject: subject.clone(),
+                            detail: Some(err.to_string()),
+                            delivery_id: None,
+                            org_id: None,
+                            payload_excerpt: payload_excerpt(&message.payload),
+                        })
+                        .await;
+                }
                 if let Err(ack_err) = message.ack().await {
                     tracing::warn!(error = %ack_err, %subject, "failed to ack malformed event envelope");
                 }
@@ -797,8 +863,25 @@ impl EventStreamWorker {
                     tracing::warn!(error = %err, %subject, "failed to ack processed event");
                 }
             }
-            Err(ConsumeError::Permanent(err)) => {
-                tracing::warn!(error = %err, %subject, "dropping permanently invalid event");
+            Err(ConsumeError::Permanent { reason, source }) => {
+                tracing::warn!(error = %source, %reason, %subject, "dropping permanently invalid event");
+                // Dead-letter the drop before the Term ack. Best-effort: `record`
+                // logs its own failures and never blocks the ack. org_id/delivery_id
+                // are NULL — events.ingest carries no delivery id and the drop is
+                // pre-/at-auth, so no trustworthy org is available.
+                if let Some(recorder) = &self.dead_events {
+                    recorder
+                        .record(DeadEvent {
+                            source: "events.ingest",
+                            reason: reason.to_string(),
+                            subject: subject.clone(),
+                            detail: Some(source.to_string()),
+                            delivery_id: None,
+                            org_id: None,
+                            payload_excerpt: payload_excerpt(&message.payload),
+                        })
+                        .await;
+                }
                 if let Err(ack_err) = message.ack().await {
                     tracing::warn!(error = %ack_err, %subject, "failed to ack rejected event");
                 }
@@ -838,8 +921,32 @@ mod tests {
     fn subject_parser_rejects_other_subjects() {
         for bad in ["events.broadcast.org", "events.ingest.bogus.not-a-uuid", "events.ingest.>"] {
             let err = parse_subject_agent_id(bad).unwrap_err();
-            assert!(matches!(err, ConsumeError::Permanent(_)), "expected permanent reject for {bad}");
+            // The drop must carry the queryable `bad_subject` reason (not the
+            // generic `permanent`) so the dead_events row is filterable, matching
+            // the orchestration path.
+            assert!(
+                matches!(err, ConsumeError::Permanent { reason: "bad_subject", .. }),
+                "expected bad_subject permanent reject for {bad}, got {err:?}"
+            );
         }
+    }
+
+    #[test]
+    fn non_object_payload_data_drops_with_payload_not_object_reason() {
+        // A non-object `data` is a permanent drop tagged `payload_not_object` so
+        // the dead_events row is queryable by reason.
+        let err = normalize_event_data(
+            "pre_tool_use".to_string(),
+            serde_json::json!(["not", "an", "object"]),
+            None,
+            Uuid::now_v7(),
+            chrono::Utc::now().timestamp(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, ConsumeError::Permanent { reason: "payload_not_object", .. }),
+            "expected payload_not_object reason, got {err:?}"
+        );
     }
 
     #[test]

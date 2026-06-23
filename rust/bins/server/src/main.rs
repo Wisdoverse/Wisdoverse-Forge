@@ -23,8 +23,8 @@ use agentforge_jobs::{
     DependencyReconcileWorker, EventStreamWorker, OrchestrationMetricsWorker, OrchestrationOutboxPublisher,
     OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
     ParticipantLivenessWorker, PresenceBackend, SelfFixReviewReaperWorker, SqlxAgentOwnerLookup,
-    SqlxCredentialHmacSecretLookup, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup, SqlxParticipantLookup,
-    SqlxTaskWriter, blocked_task_reaper::BlockedTaskReaperWorker,
+    SqlxCredentialHmacSecretLookup, SqlxDeadEventRecorder, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup,
+    SqlxParticipantLookup, SqlxTaskWriter, blocked_task_reaper::BlockedTaskReaperWorker,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -277,6 +277,9 @@ async fn main() -> Result<()> {
             .await
             {
                 Ok(worker) => {
+                    // Dead-letter permanently-dropped (Term'd) result envelopes so an
+                    // operator has a durable record of forged/stale/unknown-agent drops.
+                    let worker = worker.with_dead_event_recorder(Arc::new(SqlxDeadEventRecorder::new(pool.clone())));
                     let worker_shutdown = shutdown_rx.clone();
                     Some(tokio::spawn(async move { worker.run(worker_shutdown).await }))
                 }
