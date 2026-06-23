@@ -112,7 +112,7 @@ describe('runtimeErrorMessage', () => {
   test('turns changed setup status into a current-status check step', () => {
     expectBeginnerMessage(
       runtimeErrorMessage('loadAgentSignals', { statusCode: 409 }),
-      'Open Settings and Where agents work again, check the current status, then try again. The choices in Where agents work changed while you were working.'
+      'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load. The choices in Where agents work changed while you were working.'
     )
   })
 })
@@ -196,6 +196,16 @@ describe('runtimeSettingsErrorMessage', () => {
         reason: 'update runtime settings conflict',
       }),
       'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
+    )
+  })
+
+  test('turns changed loaded work choices into an open-settings step', () => {
+    expectBeginnerMessage(
+      runtimeSettingsErrorMessage({
+        status: 409,
+        reason: 'runtime settings conflict',
+      }),
+      'Open Settings and Where agents work again, check the current choices, then open Settings and Where agents work again. The choices in Where agents work changed while you were working.'
     )
   })
 })

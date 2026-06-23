@@ -57,7 +57,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
 
   if (status === 409) {
     const recovery = ACTION_RECOVERY[action]
-    return `${sentenceCase(recovery.openStep)} again, check the current status, then try again. The choices in ${recovery.location} changed while you were working.`
+    return `${ACTION_FALLBACKS[action]} The choices in ${recovery.location} changed while you were working.`
   }
 
   if (status === 422) {
@@ -120,7 +120,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   if (status === 409) {
     return isSaveAction
       ? 'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
-      : 'Open Settings and Where agents work again, check the current choices, then try again. The choices in Where agents work changed while you were working.'
+      : 'Open Settings and Where agents work again, check the current choices, then open Settings and Where agents work again. The choices in Where agents work changed while you were working.'
   }
 
   if (status === 422) {
