@@ -704,13 +704,10 @@ function filterAndSortGroupTasks(tasks: TaskSummary[], query: string): TaskSumma
 function groupTaskSearchText(task: TaskSummary): string {
   return [
     routedTaskTitle(task),
-    task.params.task,
-    task.params.message,
+    TASK_STATE_LABELS[task.state],
+    routedTaskAssignment(task),
+    routedTaskNextStep(task),
     task.assignedAgentName,
-    task.priority,
-    task.state,
-    task.error,
-    task.blockedHint,
   ]
     .filter(Boolean)
     .join(' ')

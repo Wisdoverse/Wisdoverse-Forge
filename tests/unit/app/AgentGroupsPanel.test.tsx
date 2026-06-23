@@ -304,6 +304,32 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText('Prepare customer handoff')).toBeNull()
   })
 
+  test('does not match hidden blocked details in waiting place search', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'blocked-credentials',
+        state: 'blocked',
+        params: { task: 'Reconnect account access', message: 'Agent needs access' },
+        blockedHint: 'Missing SSH key secret for git provider.',
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText('Reconnect account access')).toBeInTheDocument()
+    expect(screen.getByText(/needs agent .* waiting for account access/i)).toBeInTheDocument()
+    expect(screen.queryByText(/SSH key/i)).toBeNull()
+    expect(screen.queryByText(/git provider/i)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('Search tasks in this waiting place'), {
+      target: { value: 'SSH key' },
+    })
+
+    const emptyState = screen.getByTestId('task-routing-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks in this waiting place')
+    expect(screen.queryByText('Reconnect account access')).toBeNull()
+  })
+
   test('explains the next step when a waiting place has no routed tasks', () => {
     seedRoutingState([])
 
