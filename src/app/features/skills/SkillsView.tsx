@@ -34,7 +34,8 @@ interface SavedInstructionsEmptyState {
   action: 'create' | 'reset'
 }
 
-const RAW_LOAD_ERROR_PATTERN = /\b(?:API|HTTP|Code:)\s*\(?\d{3}\b/i
+const RAW_LOAD_ERROR_PATTERN =
+  /\b(?:(?:API|HTTP|Code:)\s*\(?\d{3}|database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 
 export function SkillsView() {
   const {

@@ -561,6 +561,28 @@ describe('SkillsView', () => {
     expect(alert).not.toHaveTextContent('database unavailable')
   })
 
+  test('hides backend details without status codes when saved instructions fail to load', async () => {
+    render(<SkillsView />)
+    await waitFor(() => {
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
+    })
+
+    act(() => {
+      useSkillsStore.setState({
+        skills: [],
+        installedSkills: [],
+        loading: false,
+        error: 'database unavailable',
+        searchQuery: '',
+      })
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Saved instructions need to load again.')
+    expect(alert).toHaveTextContent('Choose Check saved instructions again to load the list.')
+    expect(alert).not.toHaveTextContent('database unavailable')
+  })
+
   test('shows beginner guidance when skill creation is denied', async () => {
     const user = userEvent.setup()
     fetchMock
