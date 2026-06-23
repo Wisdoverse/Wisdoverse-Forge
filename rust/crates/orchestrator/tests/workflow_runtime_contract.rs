@@ -39,8 +39,9 @@ async fn low_level_builder_surfaces_temporal_connect_errors() {
         &config,
         Some(Arc::new(MemoryWorkflowStore::new())),
         None,
+        None,
         |_cfg| async { anyhow::bail!("connect temporal: dial tcp: no such host") },
-        |_client, _mcp, _store| unreachable!(),
+        |_client, _mcp, _store, _b| unreachable!(),
     )
     .await;
 
@@ -63,7 +64,8 @@ async fn boot_path_classifies_temporal_connect_failure_as_unreachable() {
         ..Config::default()
     };
 
-    let (components, status) = build_workflow_runtime(&config, Some(Arc::new(MemoryWorkflowStore::new())), None).await;
+    let (components, status) =
+        build_workflow_runtime(&config, Some(Arc::new(MemoryWorkflowStore::new())), None, None).await;
 
     assert!(components.is_none(), "no runtime components when Temporal is unreachable");
     assert_eq!(status, WorkflowRuntimeStatus::Unreachable, "boot must degrade, not abort");
