@@ -146,6 +146,7 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
             chrono::Utc::now()
                 + chrono::Duration::seconds(i64::try_from(state.config.review_sla_secs).unwrap_or(i64::MAX)),
         ),
+        escalated_at: None,
     };
 
     match store.create(&mut review).await {
