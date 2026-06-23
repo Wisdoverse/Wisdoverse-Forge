@@ -125,7 +125,7 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+    return 'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
   }
   if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
     return 'Choose Password sign-in or a listed sign-in button, then start sign-in again. Sign-in was cancelled.'

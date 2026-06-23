@@ -160,8 +160,9 @@ describe('AuthPage beginner guidance', () => {
 
     expect(exchangeAuthCode).toHaveBeenCalledWith('callback-code')
     expect(bodyText()).toContain(
-      'Check your connection, then try signing in again. Forge could not reach sign-in.'
+      'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
     )
+    expect(bodyText()).not.toContain('try signing in')
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
     expect(window.location.search).toBe('')

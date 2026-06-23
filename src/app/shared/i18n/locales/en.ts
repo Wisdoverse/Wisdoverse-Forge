@@ -462,7 +462,7 @@ export const en = {
     fillAllFields: 'Fill in every field, then try again.',
     fillRequiredFields: 'Fill in the required fields, then try again.',
     networkError:
-      'Check your connection, then try signing in again. Forge could not reach sign-in.',
+      'Check your connection, then choose Sign in again. Forge could not reach sign-in.',
   },
 
   // =========================================================================
