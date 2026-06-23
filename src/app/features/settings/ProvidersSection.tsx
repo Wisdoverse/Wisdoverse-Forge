@@ -2069,6 +2069,7 @@ export function ProvidersSection() {
   const [supportedProviders, setSupportedProviders] = useState<ProviderInfo[]>([])
   const [providerSearch, setProviderSearch] = useState('')
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
+  const [savedProviderName, setSavedProviderName] = useState<string | null>(null)
   const nextStep = useMemo(() => providerNextStep(providers), [providers])
   const { vendors, gateways } = useMemo(() => {
     const source = supportedProviders.length > 0 ? supportedProviders : FALLBACK_SUPPORTED_PROVIDERS
@@ -2102,6 +2103,9 @@ export function ProvidersSection() {
     const result = await saveProvider(input)
     setSaving(false)
     if (result) {
+      setSavedProviderName(result.displayName)
+      setProviderSearch('')
+      setProviderFilter('all')
       setShowForm(false)
     }
   }
@@ -2132,6 +2136,7 @@ export function ProvidersSection() {
 
   function handleNextStepAction(action: ProviderNextAction) {
     if (action === 'add-provider') {
+      setSavedProviderName(null)
       setShowForm(true)
       return
     }
@@ -2172,6 +2177,15 @@ export function ProvidersSection() {
       {providersError && (
         <div role="alert" aria-live="polite" className={uiStyles.error}>
           {providersError}
+        </div>
+      )}
+      {savedProviderName && !providersError && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-apple-green/30 bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
+        >
+          {savedProviderName} saved. Choose Check connection before agents use this AI service.
         </div>
       )}
 

@@ -306,6 +306,16 @@ describe('ProvidersSection', () => {
 
   test('guides an empty provider setup into the catalog and saves a built-in vendor', async () => {
     useSettingsStore.setState({ providers: [] })
+    saveProviderMock.mockResolvedValueOnce({
+      id: 'provider-anthropic',
+      provider: 'anthropic',
+      displayName: 'Anthropic',
+      model: 'claude-sonnet-4-20250514',
+      priority: 1,
+      isEnabled: true,
+      isDefault: false,
+      lastTestStatus: 'untested',
+    })
 
     render(<ProvidersSection />)
 
@@ -374,6 +384,11 @@ describe('ProvidersSection', () => {
           apiKey: 'sk-test',
         })
       )
+    )
+    const confirmation = await screen.findByRole('status')
+    expect(confirmation).toHaveAttribute('aria-live', 'polite')
+    expect(confirmation).toHaveTextContent(
+      'Anthropic saved. Choose Check connection before agents use this AI service.'
     )
   })
 
