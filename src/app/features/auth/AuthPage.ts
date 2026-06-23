@@ -57,7 +57,8 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('disabled') ||
     lowerDetail.includes('locked') ||
     lowerDetail.includes('suspended') ||
-    lowerDetail.includes('forbidden')
+    lowerDetail.includes('forbidden') ||
+    lowerDetail.includes('role required')
   ) {
     return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }
