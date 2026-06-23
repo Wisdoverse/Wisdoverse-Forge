@@ -220,6 +220,29 @@ describe('AccountSection', () => {
     expect(changePasswordMock).not.toHaveBeenCalled()
   })
 
+  test('names the Update password button when the new password misses a rule', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'longpassword' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'longpassword' },
+    })
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Add at least one uppercase letter to the password, then choose Update password again.'
+    )
+    expect(alert).not.toHaveTextContent('then try again')
+    expect(screen.getByLabelText('New Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
   test('shows the same password rules used by sign-up and reset', async () => {
     renderAccountSection()
 

@@ -380,7 +380,9 @@ describe('AuthPage beginner guidance', () => {
       .querySelector<HTMLFormElement>('#register-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
-    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(bodyText()).toContain(
+      'Add at least one uppercase letter to the password, then choose Create account and continue again.'
+    )
     expect(document.querySelector<HTMLInputElement>('#register-password')).toBe(
       document.activeElement
     )
@@ -490,7 +492,7 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'Use at least 12 characters for the new password. Add a few more characters, then try again.'
+      'Use at least 12 characters for the new password. Add a few more characters, then choose Save new password again.'
     )
   })
 
@@ -507,7 +509,9 @@ describe('AuthPage beginner guidance', () => {
       .querySelector<HTMLFormElement>('#reset-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
-    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(bodyText()).toContain(
+      'Add at least one uppercase letter to the password, then choose Save new password again.'
+    )
     expect(resetPassword).not.toHaveBeenCalled()
   })
 

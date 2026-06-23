@@ -604,7 +604,10 @@ export class AuthPage {
       )
       return
     }
-    const passwordRuleError = passwordRuleMessage(password)
+    const passwordRuleError = passwordRuleMessage(
+      password,
+      'choose Create account and continue again'
+    )
     if (passwordRuleError) {
       this.setError(passwordRuleError)
       this.container?.querySelector<HTMLInputElement>('#register-password')?.focus()
@@ -1045,7 +1048,7 @@ export class AuthPage {
         this.shakeCard()
         return
       }
-      const passwordRuleError = passwordRuleMessage(password)
+      const passwordRuleError = passwordRuleMessage(password, 'choose Save new password again')
       if (passwordRuleError) {
         errorDiv.textContent = passwordRuleError
         errorDiv.style.display = ''

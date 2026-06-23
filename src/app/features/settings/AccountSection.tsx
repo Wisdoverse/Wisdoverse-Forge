@@ -97,7 +97,7 @@ function PasswordChangeForm() {
       document.getElementById('account-current-password')?.focus()
       return
     }
-    const passwordRuleError = passwordRuleMessage(form.newPassword)
+    const passwordRuleError = passwordRuleMessage(form.newPassword, 'choose Update password again')
     if (passwordRuleError) {
       setError(passwordRuleError)
       document.getElementById('account-new-password')?.focus()

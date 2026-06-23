@@ -46,6 +46,10 @@ export function passwordRuleStates(password: string): PasswordRuleState[] {
   ]
 }
 
-export function passwordRuleMessage(password: string): string | null {
-  return passwordRuleStates(password).find((rule) => !rule.met)?.missingMessage ?? null
+export function passwordRuleMessage(password: string, retryAction = 'try again'): string | null {
+  return (
+    passwordRuleStates(password)
+      .find((rule) => !rule.met)
+      ?.missingMessage.replace('try again', retryAction) ?? null
+  )
 }
