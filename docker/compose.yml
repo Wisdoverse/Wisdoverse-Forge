@@ -819,6 +819,12 @@ services:
       - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp
       - ORCHESTRATOR_MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
       - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
+      # Realtime relay (issue #879): the orchestrator publishes workflow:* and
+      # review.escalated events to `broadcast.{org_id}` so the main API forwards
+      # them to browser sockets. Without this the relay is a deployed no-op. Use
+      # the SAME BACKEND credential as agentforge-server (above) — `broadcast.>`
+      # publish is denied to per-agent/sidecar NATS creds by the auth callout.
+      - ORCHESTRATOR_NATS_URL=${NATS_URL:-nats://backend:${NATS_BACKEND_PASSWORD:?NATS_BACKEND_PASSWORD required}@nats:4222}
       - ORCHESTRATOR_REDIS_URL=redis://redis:6379/0
       - ORCHESTRATOR_TEMPORAL_ENABLED=true
       - ORCHESTRATOR_TEMPORAL_HOST=temporal-internal:7233

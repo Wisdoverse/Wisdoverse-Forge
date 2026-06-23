@@ -97,6 +97,14 @@ pub struct Config {
     #[serde(default)]
     pub jwt_signing_key: Option<String>,
 
+    /// NATS server URL for the realtime relay. When set, the in-process
+    /// `Broadcaster` also publishes every event to `broadcast.{org_id}`, which
+    /// the main API forwards verbatim to browser clients. Unset → in-process
+    /// only (no NATS dependency, no panic). Must resolve to a BACKEND
+    /// credential: the `broadcast.>` subject is denied to per-agent sidecar JWTs.
+    #[serde(default)]
+    pub nats_url: Option<String>,
+
     #[serde(default)]
     pub mcp_server_enabled: bool,
 
@@ -158,6 +166,7 @@ impl Default for Config {
             log_level: default_log_level(),
             internal_token: None,
             jwt_signing_key: None,
+            nats_url: None,
             mcp_server_enabled: false,
             mcp_server_org: String::new(),
             opensearch_url: default_opensearch_url(),
@@ -191,6 +200,9 @@ impl Config {
             log_level: read("ORCHESTRATOR_LOG_LEVEL").unwrap_or_else(default_log_level),
             internal_token: read("ORCHESTRATOR_INTERNAL_TOKEN"),
             jwt_signing_key,
+            // Prefer an orchestrator-specific override, fall back to the shared
+            // deploy-wide `NATS_URL` so a single compose value enables the relay.
+            nats_url: read("ORCHESTRATOR_NATS_URL").or_else(|| read("NATS_URL")),
             mcp_server_enabled: read("ORCHESTRATOR_MCP_SERVER_ENABLED")
                 .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
                 .unwrap_or(false),
@@ -274,5 +286,32 @@ mod tests {
     #[test]
     fn review_escalation_disabled_by_default() {
         assert!(!Config::default().review_escalation_enabled);
+    }
+
+    #[test]
+    fn nats_url_is_none_by_default() {
+        assert!(Config::default().nats_url.is_none());
+    }
+
+    #[test]
+    fn nats_url_prefers_orchestrator_override_then_shared_then_none() {
+        // No env → None (in-process-only relay).
+        temp_env::with_vars([("ORCHESTRATOR_NATS_URL", None::<&str>), ("NATS_URL", None)], || {
+            assert_eq!(Config::load().expect("load").nats_url, None);
+        });
+        // Only the shared deploy-wide value → used.
+        temp_env::with_vars(
+            [("ORCHESTRATOR_NATS_URL", None::<&str>), ("NATS_URL", Some("nats://shared:4222"))],
+            || {
+                assert_eq!(Config::load().expect("load").nats_url.as_deref(), Some("nats://shared:4222"));
+            },
+        );
+        // Orchestrator-specific override wins over the shared value.
+        temp_env::with_vars(
+            [("ORCHESTRATOR_NATS_URL", Some("nats://orch:4222")), ("NATS_URL", Some("nats://shared:4222"))],
+            || {
+                assert_eq!(Config::load().expect("load").nats_url.as_deref(), Some("nats://orch:4222"));
+            },
+        );
     }
 }

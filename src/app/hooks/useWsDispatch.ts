@@ -14,6 +14,10 @@ import {
   handleCloneStatusWsMessage,
   type CloneStatusWsMessage,
 } from '@app/features/manage-project/model/cloneRealtime'
+import {
+  handleOrchestrationWsMessage,
+  type OrchestrationRealtimeMessage,
+} from '@app/features/orchestration/model/orchestrationRealtime'
 
 interface WsMessage {
   type: string
@@ -166,6 +170,16 @@ export function dispatchWsMessage(msg: WsMessage) {
     case 'context_application.recorded':
     case 'context_feedback.submitted': {
       handleContextWsMessage(msg as ContextRealtimeMessage)
+      break
+    }
+
+    // Orchestrator realtime events relayed via NATS broadcast.{org_id} and
+    // forwarded verbatim by the Rust API on this same socket. `msg.payload`
+    // carries the event body; the extra `orgId` is ignored (socket is scoped).
+    case 'workflow:status':
+    case 'workflow:node_status':
+    case 'review.escalated': {
+      handleOrchestrationWsMessage(msg as OrchestrationRealtimeMessage)
       break
     }
 

@@ -115,6 +115,11 @@ export function InboxView() {
       unreadNotifications.find((notification) => notification.type === 'credential_expired') ??
       unreadNotifications.find((notification) => notification.type === 'blocked') ??
       unreadNotifications.find((notification) => notification.type === 'failed') ??
+      // An overdue review needs a human decision before work continues, so it
+      // must be surfaced as the next step ahead of any non-action update (a
+      // newer completed/assigned item would otherwise win the newest-unread
+      // fallback below).
+      unreadNotifications.find((notification) => notification.type === 'review_escalated') ??
       unreadNotifications[0] ??
       orderedNotifications[0]
     )
@@ -430,7 +435,8 @@ function isActionNotification(notification: Notification): boolean {
   return (
     notification.type === 'blocked' ||
     notification.type === 'failed' ||
-    notification.type === 'credential_expired'
+    notification.type === 'credential_expired' ||
+    notification.type === 'review_escalated'
   )
 }
 
@@ -467,6 +473,8 @@ function nextStepTitle(notification: Notification): string {
       return 'Open the newest mention'
     case 'cli_image_updated':
       return 'Check the latest agent tool update'
+    case 'review_escalated':
+      return 'Approve or reject the overdue review'
   }
 }
 
@@ -485,7 +493,11 @@ function nextStepDescription(
       : `${credentialCount} account connections need reconnecting. Start here because access problems can block new tasks.`
   }
 
-  if (notification.type === 'blocked' || notification.type === 'failed') {
+  if (
+    notification.type === 'blocked' ||
+    notification.type === 'failed' ||
+    notification.type === 'review_escalated'
+  ) {
     return needsActionCount === 1
       ? 'This is the only item that needs action. Open it and decide the next owner step.'
       : `${needsActionCount} items need action. Start with the newest item that needs help.`
@@ -510,6 +522,8 @@ function nextStepActionLabel(notification: Notification): string {
       return 'Open mention'
     case 'cli_image_updated':
       return 'Open tool updates'
+    case 'review_escalated':
+      return 'Open review'
   }
 }
 
