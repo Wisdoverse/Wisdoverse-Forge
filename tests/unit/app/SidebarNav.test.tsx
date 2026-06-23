@@ -8,7 +8,7 @@ import { useSettingsStore } from '@app/shared/model/settings.store'
 
 const navigateMock = vi.fn()
 const logoutMock = vi.fn()
-const authState = vi.hoisted(() => ({ role: 'admin' as string }))
+const authState = vi.hoisted(() => ({ role: 'admin' as string, isAdmin: true }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
@@ -17,7 +17,9 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@app/shared/model/auth.context', () => ({
   useAuth: () => ({
     authManager: { logout: logoutMock },
-    user: { role: authState.role },
+    // The Admin link is gated on the server-side platform-admin flag
+    // (`users.is_admin`), NOT the per-org role — see #881.
+    user: { role: authState.role, isAdmin: authState.isAdmin },
     isAuthenticated: true,
     isLoading: false,
   }),
@@ -26,6 +28,7 @@ vi.mock('@app/shared/model/auth.context', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   authState.role = 'admin'
+  authState.isAdmin = true
   useContextFeaturesStore.setState({
     governance: true,
     preview: false,
@@ -114,8 +117,11 @@ describe('SidebarNav', () => {
 
   const adminItem = { name: /admin: manage team spaces, people, and app health/i }
 
-  test('owners see the admin link (matches the backend require_admin gate)', () => {
-    authState.role = 'owner'
+  test('platform admins see the admin link (matches the backend require_platform_admin gate)', () => {
+    // is_admin is the gate now, not the per-org role: an org "member" who is a
+    // platform admin still sees it.
+    authState.role = 'member'
+    authState.isAdmin = true
     render(
       <SidebarNav
         expanded={false}
@@ -127,9 +133,12 @@ describe('SidebarNav', () => {
     expect(screen.getByRole('button', adminItem)).toBeInTheDocument()
   })
 
-  test('non-admin/owner roles do not see the admin link', () => {
-    for (const role of ['member', 'viewer', 'user']) {
+  test('non-platform-admins do not see the admin link, even org owners', () => {
+    // The previously-vulnerable case: an org "owner" (self-assignable role) that
+    // is NOT a platform admin must NOT see the admin link (#881).
+    for (const role of ['owner', 'admin', 'member', 'viewer', 'user']) {
       authState.role = role
+      authState.isAdmin = false
       render(
         <SidebarNav
           expanded={false}

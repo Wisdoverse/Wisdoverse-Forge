@@ -28,8 +28,10 @@ use uuid::Uuid;
 // Seed helpers
 // ---------------------------------------------------------------------------
 
-/// Seed a minimal (organization + workspace + user + admin membership) tuple.
-/// Returns `(org_id, workspace_id, user_id)`; workspace_id == org_id.
+/// Seed a minimal (organization + workspace + PLATFORM ADMIN user + owner
+/// membership) tuple. Returns `(org_id, workspace_id, user_id)`;
+/// workspace_id == org_id. `GET /admin/agents` is cross-org and gated on
+/// `users.is_admin` (#881), so the seeded user is a real platform admin.
 async fn seed_admin_org(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
     let org_id = Uuid::new_v4();
     let user_id = Uuid::new_v4();
@@ -48,12 +50,12 @@ async fn seed_admin_org(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
         .await
         .expect("seed workspace");
 
-    sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, true)")
         .bind(user_id)
         .bind(format!("u-{user_id}@example.com"))
         .execute(pool)
         .await
-        .expect("seed user");
+        .expect("seed platform admin user");
 
     sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'owner')")
         .bind(org_id)
