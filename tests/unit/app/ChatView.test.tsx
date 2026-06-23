@@ -472,6 +472,41 @@ describe('ChatView', () => {
     expect(screen.queryByText('internal-stop')).toBeNull()
   })
 
+  test('searches managed workspace chat by safe work-step text only', () => {
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({
+      turns: [
+        turn({
+          id: 'turn-with-secret',
+          prompt: 'Check deploy',
+          response: 'Deploy check finished',
+          toolCalls: [
+            {
+              toolUseId: 'tool-1',
+              tool: 'bash',
+              input: { command: 'npm test', apiKey: 'secret-token-42' },
+              success: true,
+            },
+          ],
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    expect(screen.getByText('Deploy check finished')).toBeInTheDocument()
+    expect(screen.getByText(/agent saved a work step/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('conversation-search'), {
+      target: { value: 'secret-token-42' },
+    })
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(
+      within(emptyState).getByText('Search did not find a conversation update')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Deploy check finished')).toBeNull()
+  })
+
   test('explains an empty You filter without operator jargon', () => {
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({

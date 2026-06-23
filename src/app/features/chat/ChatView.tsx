@@ -18,6 +18,7 @@ import type { AgentMessageRow } from '@shared/types'
 import { TurnItem } from './TurnItem'
 import { ChatComposer } from './ChatComposer'
 import { useChatStream } from './useChatStream'
+import { toolCallSearchText } from './ToolCallDetail'
 
 interface ChatViewProps {
   agentId: string
@@ -838,15 +839,7 @@ function messageSearchText(message: AgentMessageRow): string {
 }
 
 function turnSearchText(turn: Turn): string {
-  return [
-    turn.prompt,
-    turn.response,
-    ...turn.toolCalls.flatMap((call) => [
-      call.tool,
-      JSON.stringify(call.input),
-      JSON.stringify(call.output),
-    ]),
-  ]
+  return [turn.prompt, turn.response, ...turn.toolCalls.map(toolCallSearchText)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
