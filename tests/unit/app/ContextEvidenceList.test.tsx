@@ -224,6 +224,28 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/accessToken/i)).toBeNull()
   })
 
+  test('hides prefixed api key values in saved details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Tool access check',
+              xApiKey: 'secret-prefixed-api-key-value',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-prefixed-api-key-value/i)).toBeNull()
+    expect(screen.queryByText(/xApiKey/i)).toBeNull()
+  })
+
   test('hides bearer authorization text in saved details', () => {
     render(
       <ContextEvidenceList

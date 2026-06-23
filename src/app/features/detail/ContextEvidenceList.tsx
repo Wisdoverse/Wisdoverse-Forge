@@ -224,9 +224,8 @@ function safeEvidenceValue(value: unknown, key = ''): unknown {
 }
 
 function isSensitiveEvidenceKey(key: string): boolean {
-  return /\b(token|access[_-]?token|refresh[_-]?token|secret|password|api[_-]?key|private[_-]?key|credential|credentials)\b/i.test(
-    key
-  )
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return /(token|secret|password|apikey|privatekey|credential)/.test(normalized)
 }
 
 function safeEvidenceString(value: string): string {
