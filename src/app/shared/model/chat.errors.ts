@@ -80,10 +80,14 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
     return `${base} Open Agents, choose this agent again, then open Chat. This agent or conversation may have changed.`
   }
   if (code === 409) {
-    return `${base} Another chat action is still saving. Wait a moment, then try again.`
+    return action === 'load'
+      ? `${base} Wait a moment, then choose Check conversation again. Another chat action is still saving.`
+      : `${base} Wait a moment, then clear chat again if you still want to remove the messages. Another chat action is still saving.`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `${base} Too many chat requests are happening right now. Wait a minute, then try again.`
+    return action === 'load'
+      ? `${base} Wait a minute, then choose Check conversation again. Too many chat requests are happening right now.`
+      : `${base} Wait a minute, then clear chat again if you still want to remove the messages. Too many chat requests are happening right now.`
   }
   if (code != null && code >= 500) {
     return `${base} ${serviceRecoveryMessage(action)}`

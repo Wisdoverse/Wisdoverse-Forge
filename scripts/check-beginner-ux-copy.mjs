@@ -2332,6 +2332,8 @@ const CHAT_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+`\$\{base\} Forge could not read this conversation\./,
   /^\s*return\s+`\$\{base\} Refresh the page; this agent or conversation may have changed\./,
   /^\s*return\s+`\$\{base\} Refresh the chat, then try again\. Forge could not read this conversation\./,
+  /^\s*return\s+`\$\{base\} Another chat action is still saving\. Wait/,
+  /^\s*return\s+`\$\{base\} Too many chat requests are happening right now\. Wait/,
   /\b`\$\{base\} Try again\. If it still fails, ask an owner or admin to check this agent(?:'s)? [^`]+?\.`/,
 ]
 

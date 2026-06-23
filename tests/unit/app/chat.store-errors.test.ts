@@ -61,7 +61,7 @@ describe('chatErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Chat was not cleared. Another chat action is still saving. Wait a moment, then try again.'
+      'Chat was not cleared. Wait a moment, then clear chat again if you still want to remove the messages. Another chat action is still saving.'
     )
     expect(message).not.toContain('delete already in progress')
   })
@@ -86,7 +86,7 @@ describe('chatErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Check conversation again to load the chat history. Too many chat requests are happening right now. Wait a minute, then try again.'
+      'Check conversation again to load the chat history. Wait a minute, then choose Check conversation again. Too many chat requests are happening right now.'
     )
     expect(message).not.toContain('provider history')
   })

@@ -18086,6 +18086,12 @@ function changed(base) {
 function unreadable(base) {
   return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
 }
+function busy(base) {
+  return \`\${base} Another chat action is still saving. Wait a moment, then try again.\`
+}
+function rateLimit(base) {
+  return \`\${base} Too many chat requests are happening right now. Wait a minute, then try again.\`
+}
 `,
     })
 
@@ -18113,6 +18119,14 @@ function unreadable(base) {
         expect.objectContaining({
           type: 'chat-error-copy',
           location: 'src/app/shared/model/chat.errors.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:21',
         }),
       ])
     )
