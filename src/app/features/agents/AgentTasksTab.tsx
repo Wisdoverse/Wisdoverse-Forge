@@ -626,9 +626,14 @@ function taskMatchesFilter(task: TaskSummary, filter: AgentTaskFilter, query: st
   return [
     task.params.task,
     task.params.message,
-    task.blockedHint,
-    task.blockedReason,
-    task.error,
+    task.state === 'blocked'
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : undefined,
+    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : undefined,
   ].some((value) => value?.toLowerCase().includes(normalizedQuery))
 }
 

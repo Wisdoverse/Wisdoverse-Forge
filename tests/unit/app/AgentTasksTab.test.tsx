@@ -238,6 +238,29 @@ describe('AgentTasksTab', () => {
     expect(screen.queryByText('Deploy service')).toBeNull()
   })
 
+  test('does not match hidden blocked details in agent task search', async () => {
+    getTasksByAgentMock.mockResolvedValue([
+      makeTask({
+        id: 'blocked',
+        state: 'blocked',
+        params: { task: 'Reconnect account access', message: 'Agent needs access' },
+        blockedHint: 'Needs SSH key',
+      }),
+    ])
+
+    render(<AgentTasksTab agentId="agent-1" />)
+
+    await screen.findByText('Reconnect account access')
+    expect(screen.getByTestId('agent-task-blocked-blocked')).toHaveTextContent(
+      'Waiting for account access'
+    )
+    fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'SSH key' } })
+
+    const emptyState = screen.getByTestId('agent-tasks-filter-empty')
+    expect(emptyState).toHaveTextContent("Search is hiding this agent's work")
+    expect(screen.queryByText('Reconnect account access')).toBeNull()
+  })
+
   test('shows a filtered empty state', async () => {
     getTasksByAgentMock.mockResolvedValue([
       makeTask({
