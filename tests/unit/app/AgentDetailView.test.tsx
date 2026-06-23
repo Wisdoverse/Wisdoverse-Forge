@@ -251,7 +251,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
   })
 
-  test('explains custom file folders before showing the folder path', () => {
+  test('explains managed file folders without showing the internal folder path', () => {
     render(
       <AgentDetailView
         agent={{ ...containerAgent, cwd: '/workspace/projects/platform' }}
@@ -259,8 +259,8 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getByText('Agent work folder: /workspace/projects/platform')).toBeDefined()
-    expect(screen.queryByText('/workspace/projects/platform')).toBeNull()
+    expect(screen.getByText('Shared project files')).toBeDefined()
+    expect(document.body.textContent).not.toContain('/workspace/projects/platform')
   })
 
   test('guides active work into the Tasks tab', async () => {
