@@ -113,7 +113,12 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
       : 'Sign in again, then open Where agents work. Your sign-in expired.'
   }
 
-  if (status === 403) {
+  if (
+    status === 403 ||
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('role required')
+  ) {
     return isSaveAction
       ? 'Ask an owner or admin for access to change Where agents work, then save again. Where agents work could not be saved.'
       : 'Ask an owner or admin for access to change Where agents work.'
