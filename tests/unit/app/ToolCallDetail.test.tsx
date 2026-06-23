@@ -242,6 +242,36 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/payload validation/i)).toBeNull()
   })
 
+  test('hides bearer authorization commands in tool details', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          input: {
+            command: 'curl -H "Authorization: Bearer saved-secret-token" https://api.example.com',
+          },
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(
+      screen.getByText(/Account access details were hidden.*reconnect the required account access/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Authorization/i)).toBeNull()
+    expect(screen.queryByText(/Bearer/i)).toBeNull()
+    expect(screen.queryByText(/saved-secret-token/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
+
+    expect(
+      screen.getAllByText(
+        /Account access details were hidden.*reconnect the required account access/i
+      ).length
+    ).toBeGreaterThan(0)
+  })
+
   test('hides account access values even when a tool saves them under a plain field', () => {
     render(
       <ToolCallDetail

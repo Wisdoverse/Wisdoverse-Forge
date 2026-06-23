@@ -164,7 +164,7 @@ function safeToolString(value: string): string {
 }
 
 function containsSensitiveAccessText(value: string): boolean {
-  return /\b(secret\s+token|token\s+secret|private\s+api\s*key|api\s*key\s+[\w.-]{4,}|password\s+[\w.-]{4,}|credential\s+[\w.-]{4,})\b/i.test(
+  return /\b(authorization\s*:\s*bearer|bearer\s+[\w.-]{4,}|secret\s+token|token\s+secret|private\s+api\s*key|api\s*key\s+[\w.-]{4,}|password\s+[\w.-]{4,}|credential\s+[\w.-]{4,})\b/i.test(
     value
   )
 }
