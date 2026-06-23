@@ -1,6 +1,6 @@
 # Beginner UX hardening plan
 
-Status: **In progress**
+Status: **Complete**
 Created: 2026-06-23
 Tracking issue: [#867](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/867)
 Branch: `ux-saved-instruction-source-defaults`
@@ -143,6 +143,15 @@ Progress:
 - Saved instructions: `ok:false` create responses with role/access details now
   reuse the saved-instruction access guidance instead of validation copy.
   Covered by `tests/unit/app/skills.store.test.ts`.
+- Phase 1 audit: active browser error helpers and direct `catch`/`role="alert"`
+  paths were checked against
+  `docs/architecture/product-ux-direction.md` and
+  `scripts/check-beginner-ux-copy.mjs`. Confirmed active recovery surfaces are
+  covered by focused helper or rendered-flow tests, including auth, agents,
+  board/task detail, chat, saved instructions, settings runtime/providers/code
+  access, workspace team/project/resource management, project code copy,
+  governance, admin, billing, analytics, inbox, navigation, and context
+  feedback. No additional active raw-error leak was confirmed in this audit.
 
 ### Phase 2 - First-run and setup flow
 
@@ -320,6 +329,25 @@ Acceptance:
 - The issue checklist has evidence for every checked item.
 - The active goal can only be marked complete after this audit proves completion.
 
+Progress:
+
+- Requirement audit: `docs/architecture/product-ux-direction.md` was used as
+  the standard for the final pass. The plan inventory now has evidence for
+  first-run setup, task-first work, agents as managed teammates, runtime setup,
+  task details, saved-instruction reuse, workspace/project routing, recoverable
+  errors, destructive-action confirmation, progressive detail, cross-platform
+  CLI setup, and testable operator paths.
+- Phase status: Phase 0 through Phase 4 are checked and each surface in the
+  Phase 0 inventory is `DONE`. The remaining product gaps in
+  `product-ux-direction.md` are future product scope, not blockers for this
+  beginner-UX hardening issue.
+- Final checks passed on 2026-06-23:
+  `npm run beginner:ux:copy`, `npm run fsd:check`, `npm run format:check`,
+  `npx prettier --check docs/plans/2026-06-23-beginner-ux-hardening.md`,
+  `npm run lint`, `npm run typecheck`, `npm run test:unit` (173 files / 2506
+  tests), `npm run build`, `git diff --check`, and the repository
+  banned-reference scan.
+
 ## Working rules
 
 - One coherent PR for this project; small fixes can be committed to the active
@@ -334,8 +362,8 @@ Acceptance:
 ## Initial issue checklist
 
 - [x] Phase 0: create the surface inventory and classify each item.
-- [ ] Phase 1: audit and fix confirmed active error/recovery leaks.
+- [x] Phase 1: audit and fix confirmed active error/recovery leaks.
 - [x] Phase 2: settle `/start` skip/hide/reset behavior.
 - [x] Phase 3: review core work surfaces against the UX checklist.
 - [x] Phase 4: audit CLI and docs for beginner-safe, cross-platform setup.
-- [ ] Phase 5: complete the evidence-based completion audit.
+- [x] Phase 5: complete the evidence-based completion audit.
