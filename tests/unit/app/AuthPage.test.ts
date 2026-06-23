@@ -105,6 +105,39 @@ describe('AuthPage beginner guidance', () => {
     )
   })
 
+  test('names the Sign in button when required sign-in fields are missing', async () => {
+    const login = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ login }))
+
+    await page.show()
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'Enter your email address and password, then choose Sign in.'
+    )
+    expect(bodyText()).not.toContain('Enter your email address and password to sign in.')
+    expect(login).not.toHaveBeenCalled()
+  })
+
+  test('names the Create account button when required account fields are missing', async () => {
+    const register = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ register }))
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'Enter an email address and type the new password twice, then choose Create account and continue.'
+    )
+    expect(bodyText()).not.toContain('type the new password twice to create your account')
+    expect(register).not.toHaveBeenCalled()
+  })
+
   test('turns sign-in URL errors into beginner recovery guidance', async () => {
     window.history.replaceState(
       {},

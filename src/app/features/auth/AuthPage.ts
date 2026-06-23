@@ -575,7 +575,7 @@ export class AuthPage {
     const rememberMe =
       this.container?.querySelector<HTMLInputElement>('#login-remember')?.checked ?? false
     if (!email || !password) {
-      this.setError('Enter your email address and password to sign in.')
+      this.setError('Enter your email address and password, then choose Sign in.')
       return
     }
     this.setLoading('login-submit', true)
@@ -600,7 +600,7 @@ export class AuthPage {
     const username = this.getInput('register-username') || undefined
     if (!email || !password || !confirm) {
       this.setError(
-        'Enter an email address and type the new password twice to create your account.'
+        'Enter an email address and type the new password twice, then choose Create account and continue.'
       )
       return
     }
