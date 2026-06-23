@@ -30,7 +30,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+    return 'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
   }
   if (
     code.includes('RATE') ||
@@ -39,7 +39,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('rate limit') ||
     lowerDetail.includes('429')
   ) {
-    return 'Wait a few minutes, then try signing in again. Too many sign-in attempts.'
+    return 'Wait a few minutes, then choose Sign in again. Too many sign-in attempts.'
   }
   if (
     code.includes('INVALID') ||
@@ -51,7 +51,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('not found') ||
     lowerDetail.includes('unauthorized')
   ) {
-    return 'Check your email and password, then try signing in again.'
+    return 'Check your email and password, then choose Sign in again.'
   }
   if (
     lowerDetail.includes('disabled') ||
@@ -62,7 +62,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }
 
-  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+  return 'Wait a minute, then choose Sign in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 
 function authRegisterErrorMessage(result: AuthFailure): string {

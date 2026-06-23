@@ -203,11 +203,38 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+      'Wait a minute, then choose Sign in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
     )
+    expect(bodyText()).not.toContain('Try signing in again')
     expect(bodyText()).not.toContain('sign-in setup')
     expect(bodyText()).not.toContain('database unavailable')
     expect(bodyText()).not.toContain('HTTP 500')
+  })
+
+  test('names the Sign in button for invalid email sign-in credentials', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        login: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'INVALID_CREDENTIALS',
+          error: 'invalid credentials',
+        }),
+      })
+    )
+
+    await page.show()
+    const emailInput = document.querySelector<HTMLInputElement>('#login-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#login-password')
+    if (emailInput) emailInput.value = 'operator@example.com'
+    if (passwordInput) passwordInput.value = 'WrongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain('Check your email and password, then choose Sign in again.')
+    expect(bodyText()).not.toContain('try signing in')
+    expect(bodyText()).not.toContain('invalid credentials')
   })
 
   test('explains email sign-in connection failures without raw network text', async () => {
@@ -231,8 +258,9 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Check your connection, then try signing in again. Forge could not reach sign-in.'
+      'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
     )
+    expect(bodyText()).not.toContain('try signing in')
     expect(bodyText()).not.toContain('Network error')
   })
 
