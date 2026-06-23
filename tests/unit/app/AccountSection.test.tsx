@@ -181,6 +181,45 @@ describe('AccountSection', () => {
     expect(changePasswordMock).not.toHaveBeenCalled()
   })
 
+  test('names the retry action when the current password is missing', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Enter your current password, then change your password again.')
+    expect(screen.getByLabelText('Current Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
+  test('names the retry action when new passwords do not match', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'OtherPassword123!' },
+    })
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'The two new passwords do not match. Re-enter both new password fields, then change your password again.'
+    )
+    expect(screen.getByLabelText('Confirm New Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
   test('shows the same password rules used by sign-up and reset', async () => {
     renderAccountSection()
 

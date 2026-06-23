@@ -93,7 +93,7 @@ function PasswordChangeForm() {
     setSuccess(false)
 
     if (!hasCurrentPassword) {
-      setError('Enter your current password, then try again.')
+      setError('Enter your current password, then change your password again.')
       document.getElementById('account-current-password')?.focus()
       return
     }
@@ -109,7 +109,9 @@ function PasswordChangeForm() {
       return
     }
     if (form.newPassword !== form.confirmPassword) {
-      setError('The two new passwords do not match. Re-enter them and try again.')
+      setError(
+        'The two new passwords do not match. Re-enter both new password fields, then change your password again.'
+      )
       document.getElementById('account-confirm-password')?.focus()
       return
     }
