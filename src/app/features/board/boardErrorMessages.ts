@@ -44,11 +44,11 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 401) {
-    return 'Sign in again, then open the board and try this action again.'
+    return `Sign in again, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
   if (status === 403) {
-    return 'Ask an owner or admin to give you access to the Tasks page, then open it and try again. You do not have permission to change this board.'
+    return `Ask an owner or admin to give you access to the Tasks page, then ${ACTION_RETRY_STEPS[action]}. You do not have permission to change this board.`
   }
 
   if (status === 404) {
@@ -56,7 +56,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status === 409) {
-    return 'Choose Check tasks again so you see the latest tasks, then try again. The task board changed while you were working.'
+    return `Choose Check tasks again so you see the latest tasks, then ${ACTION_RETRY_STEPS[action]}. The task board changed while you were working.`
   }
 
   if (status === 422) {
