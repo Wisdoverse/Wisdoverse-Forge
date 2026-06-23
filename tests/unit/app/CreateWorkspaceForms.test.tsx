@@ -351,6 +351,23 @@ describe('workspace setup create forms', () => {
     expect(onSave).toHaveBeenCalled()
   })
 
+  test('shows project creation access guidance for plain role failures', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('owner role required'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Blocked Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Ask an owner or admin to let you create projects in this team.')
+      expect(alert).not.toHaveTextContent('owner role required')
+    })
+  })
+
   test('does not expose raw server details when project creation fails', async () => {
     const onSave = vi
       .fn()
