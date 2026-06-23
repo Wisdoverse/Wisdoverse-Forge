@@ -25,6 +25,16 @@ describe('boardActionErrorMessage', () => {
     )
   })
 
+  test('turns role-required failures into board access guidance', () => {
+    const message = boardActionErrorMessage('moveTask', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to give you access to the Tasks page, then move the task again. You do not have permission to change this board.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('explains network failures without exposing only a transport error', () => {
     const message = boardActionErrorMessage('loadReadiness', new TypeError('Failed to fetch'))
 
