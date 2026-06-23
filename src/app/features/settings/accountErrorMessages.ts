@@ -73,17 +73,17 @@ function validationMessage(action: AccountErrorAction, detail?: string | null): 
   const normalizedDetail = detail?.toLowerCase() ?? ''
   if (action === 'changePassword') {
     if (normalizedDetail.includes('current password') || normalizedDetail.includes('incorrect')) {
-      return 'Re-enter the current password, then try again. The current password did not match this account.'
+      return `Re-enter the current password, then ${retryPhrase(action)}. The current password did not match this account.`
     }
     if (normalizedDetail.includes('new password') || normalizedDetail.includes('password')) {
-      return 'Choose a new password that meets the password rules, then try again.'
+      return `Choose a new password that meets the password rules, then ${retryPhrase(action)}.`
     }
-    return 'Check the current password and make sure the new password meets the requirements, then try again.'
+    return `Check the current password and make sure the new password meets the requirements, then ${retryPhrase(action)}.`
   }
   if (normalizedDetail.includes('already exists') || normalizedDetail.includes('taken')) {
-    return 'Choose a different display name, then try again. That team space name is already in use.'
+    return `Choose a different display name, then ${retryPhrase(action)}. That team space name is already in use.`
   }
-  return 'Use a team space name between 1 and 100 characters, then try again.'
+  return `Use a team space name between 1 and 100 characters, then ${retryPhrase(action)}.`
 }
 
 function shouldUseDetail(status: number | null): boolean {

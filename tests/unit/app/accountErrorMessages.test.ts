@@ -55,7 +55,7 @@ describe('accountErrorMessage', () => {
     const message = accountErrorMessage('changePassword', error)
 
     expect(message).toBe(
-      'Re-enter the current password, then try again. The current password did not match this account.'
+      'Re-enter the current password, then change your password again. The current password did not match this account.'
     )
     expect(message).not.toContain('Code: 422.')
     expect(message).not.toContain('Details:')
@@ -99,10 +99,20 @@ describe('accountErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Choose a different display name, then try again. That team space name is already in use.'
+      'Choose a different display name, then rename the team space again. That team space name is already in use.'
     )
     expect(message).not.toContain('organization')
     expect(message).not.toContain('Details:')
+  })
+
+  test('turns team space length validation into a rename step', () => {
+    expectBeginnerMessage(
+      accountErrorMessage('renameOrganization', {
+        statusCode: 422,
+        serverError: 'name must be between 1 and 100 characters',
+      }),
+      'Use a team space name between 1 and 100 characters, then rename the team space again.'
+    )
   })
 
   test('turns team space conflicts into a current-name check step', () => {
