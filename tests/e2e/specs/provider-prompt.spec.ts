@@ -312,8 +312,10 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     const providerSelect = page.locator('select#agent-provider')
     await expect(providerSelect).toHaveValue(PROV_CONFIG_ID, { timeout: 5000 })
 
-    // Fill name + system prompt after the provider selection has settled
-    await page.getByPlaceholder(/Frontend Agent/).fill('My LLM Agent')
+    // Fill name + system prompt after the provider selection has settled.
+    // Target the stable input id (not the placeholder text, which is UX copy
+    // that changed in #860 and silently broke this assertion).
+    await page.locator('input#agent-name').fill('My LLM Agent')
     await page.locator('textarea#systemPrompt').fill('Be concise.')
 
     // Submit through the in-dialog action; the page-level open button is
