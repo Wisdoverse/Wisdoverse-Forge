@@ -170,7 +170,7 @@ function containsSensitiveAccessText(value: string): boolean {
 }
 
 function containsTechnicalProblemText(value: string): boolean {
-  return /\b((?:API|HTTP)\s*\d{3}|status code|GraphQL|panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database|connection refused)\b/i.test(
+  return /\b((?:API|HTTP)\s*\d{3}|status code|GraphQL|panic|stack trace|traceback|exception|stdout|stderr|raw command output|docker socket|internal error|database|connection refused|(?:provider|endpoint|payload|schema)\b.{0,32}\b(?:failed|failure|error|validation|timeout|unauthorized)|(?:failed|failure|error|validation|timeout|unauthorized)\b.{0,32}\b(?:provider|endpoint|payload|schema))\b/i.test(
     value
   )
 }

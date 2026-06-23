@@ -224,6 +224,24 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/Unauthorized/i)).toBeNull()
   })
 
+  test('turns provider endpoint failures into plain guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'provider endpoint failed during payload validation' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/This step hit a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/provider endpoint/i)).toBeNull()
+    expect(screen.queryByText(/payload validation/i)).toBeNull()
+  })
+
   test('hides account access values even when a tool saves them under a plain field', () => {
     render(
       <ToolCallDetail
