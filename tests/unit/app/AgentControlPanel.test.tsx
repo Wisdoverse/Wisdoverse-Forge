@@ -82,12 +82,14 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(/Open Agents, choose this agent again/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/Follow the step below/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Read the next line, then run the agent action again.'
+    )
     expect(screen.getByRole('alert')).toHaveTextContent(/Forge could not finish the change/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check this agent's connection and access in Agents/i
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/Use the recovery step below/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Follow the step below/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/check this agent setup/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
@@ -207,8 +209,8 @@ describe('AgentControlPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/Follow the step below/i)
-    expect(alert).not.toHaveTextContent(/Use the recovery step below/i)
+    expect(alert).toHaveTextContent('Read the next line, then run the agent action again.')
+    expect(alert).not.toHaveTextContent(/Follow the step below/i)
     expect(alert).toHaveTextContent(
       /Open Agents, choose this agent again, confirm it still shows Ready/i
     )
