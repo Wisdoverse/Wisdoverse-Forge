@@ -62,7 +62,12 @@ export function createAgentWorkLaneErrorMessage(error: unknown): string {
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
     return 'Sign in again, open New agent again, and set up where tasks wait again. The waiting place was not created.'
   }
-  if (code === 403 || text.includes('forbidden') || text.includes('permission')) {
+  if (
+    code === 403 ||
+    text.includes('forbidden') ||
+    text.includes('permission') ||
+    text.includes('role required')
+  ) {
     return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
   }
   if (code === 404) {
