@@ -140,6 +140,12 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
         created_by: identity.user_id.clone(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
+        // i64::try_from guards the u64->i64 cast: a pathological env value can't
+        // wrap to a negative (past) deadline; saturate at i64::MAX instead.
+        due_at: Some(
+            chrono::Utc::now()
+                + chrono::Duration::seconds(i64::try_from(state.config.review_sla_secs).unwrap_or(i64::MAX)),
+        ),
     };
 
     match store.create(&mut review).await {
