@@ -35,7 +35,7 @@ interface SavedInstructionsEmptyState {
 }
 
 const RAW_LOAD_ERROR_PATTERN =
-  /\b(?:(?:API|HTTP|Code:)\s*\(?\d{3}|database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+  /\b(?:(?:API|HTTP|Code:)\s*\(?\d{3}|database|sql|stack trace|traceback|exception|panic|internal server error|role required)\b/i
 
 export function SkillsView() {
   const {
@@ -275,7 +275,11 @@ function savedInstructionsLoadRecoveryMessage(error: string): string {
   if (normalized.includes('sign in')) {
     return 'After signing in, choose Check saved instructions again.'
   }
-  if (normalized.includes('permission') || normalized.includes('access')) {
+  if (
+    normalized.includes('permission') ||
+    normalized.includes('access') ||
+    normalized.includes('role required')
+  ) {
     return 'After an owner or admin updates your access, choose Check saved instructions again.'
   }
   if (normalized.includes('connect') || normalized.includes('connection')) {

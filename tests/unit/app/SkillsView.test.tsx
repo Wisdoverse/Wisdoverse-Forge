@@ -583,6 +583,27 @@ describe('SkillsView', () => {
     expect(alert).not.toHaveTextContent('database unavailable')
   })
 
+  test('shows access recovery when saved instructions fail from a role error', async () => {
+    render(<SkillsView />)
+    await waitFor(() => {
+      expect(screen.getByText(/create your first saved instruction/i)).toBeDefined()
+    })
+
+    act(() => {
+      useSkillsStore.setState({
+        skills: [],
+        installedSkills: [],
+        loading: false,
+        error: 'owner role required',
+        searchQuery: '',
+      })
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('After an owner or admin updates your access')
+    expect(alert).not.toHaveTextContent('owner role required')
+  })
+
   test('shows beginner guidance when skill creation is denied', async () => {
     const user = userEvent.setup()
     fetchMock
