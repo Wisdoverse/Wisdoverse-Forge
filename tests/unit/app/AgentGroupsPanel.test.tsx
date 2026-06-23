@@ -281,6 +281,29 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
   })
 
+  test('does not match hidden agent ids in waiting place search', () => {
+    seedRoutingState([
+      makeTask({
+        id: 'hidden-agent-task',
+        state: 'queued',
+        params: { task: 'Prepare customer handoff', message: 'Summarize the next step' },
+        assignedTo: 'agent-hidden-42',
+      }),
+    ])
+
+    render(<AgentGroupsPanel />)
+
+    expect(screen.getByText('Prepare customer handoff')).toBeInTheDocument()
+    expect(screen.getByText(/chosen agent .* waiting for an available agent/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Search tasks in this waiting place'), {
+      target: { value: 'agent-hidden-42' },
+    })
+
+    const emptyState = screen.getByTestId('task-routing-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks in this waiting place')
+    expect(screen.queryByText('Prepare customer handoff')).toBeNull()
+  })
+
   test('explains the next step when a waiting place has no routed tasks', () => {
     seedRoutingState([])
 
