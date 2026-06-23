@@ -174,3 +174,184 @@ async fn assign_with_agent_provider_starts_session_and_moves_task_to_working() {
     assert_eq!(refreshed.agentforge_session_id.as_deref(), Some("agent-42"));
     assert_eq!(refreshed.state, TaskState::Working);
 }
+
+#[tokio::test]
+async fn assign_inserts_queued_dispatch_before_spawn_and_returns_dispatch_id() {
+    let state = AppState::test_task_internal_token("secret-token", "org-test", "cli-user")
+        .with_outbound_mcp_test_success("agent-42");
+    let task_store = state.task_store.as_ref().expect("task store").clone();
+
+    let mut task = Task {
+        id: String::new(),
+        workflow_id: None,
+        title: "Dispatch tracking test".to_string(),
+        description: "Verify dispatch is inserted synchronously".to_string(),
+        state: TaskState::Pending,
+        priority: TaskPriority::Normal,
+        assigned_to: None,
+        review_id: None,
+        agentforge_session_id: None,
+        depends_on: Vec::new(),
+        created_by: "cli-user".to_string(),
+        org_id: "org-test".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    task_store.create(&mut task).await.expect("create task");
+
+    let app = state.router();
+    let req = Request::builder()
+        .method("POST")
+        .uri(format!("/api/v1/tasks/{}/assign", task.id))
+        .header(header::AUTHORIZATION, "Bearer secret-token")
+        .header("X-Org-ID", "org-test")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"participantId":"agent-user","agentProvider":"claude","projectId":"proj-1"}"#))
+        .unwrap();
+
+    let (status, body) = json_response(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["ok"], true);
+    // dispatchId must be present in the response.
+    let dispatch_id = body["dispatchId"].as_str().expect("dispatchId in response").to_string();
+    assert!(!dispatch_id.is_empty());
+
+    // The dispatch record must exist immediately after the response.
+    let dispatch = task_store.get_dispatch(&task.id, "org-test").await.expect("dispatch record");
+    assert_eq!(dispatch.id, dispatch_id);
+    assert_eq!(dispatch.task_id, task.id);
+    assert_eq!(dispatch.org_id, "org-test");
+    // Status will be 'queued', 'starting', or 'started' depending on spawn timing.
+    assert!(
+        ["queued", "starting", "started"].contains(&dispatch.status.as_str()),
+        "unexpected dispatch status: {}",
+        dispatch.status
+    );
+
+    // After the spawn completes the task must be Working and dispatch must be 'started'.
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let final_dispatch = task_store.get_dispatch(&task.id, "org-test").await.expect("final dispatch");
+    assert_eq!(final_dispatch.status, "started");
+    assert!(final_dispatch.last_error.is_none());
+}
+
+#[tokio::test]
+async fn assign_with_failing_session_create_leaves_dispatch_failed() {
+    let state = AppState::test_task_internal_token("secret-token", "org-test", "cli-user")
+        .with_outbound_mcp_test_failure("simulated session_create error");
+    let task_store = state.task_store.as_ref().expect("task store").clone();
+
+    let mut task = Task {
+        id: String::new(),
+        workflow_id: None,
+        title: "Dispatch failure test".to_string(),
+        description: "Verify dispatch is failed when session_create errors".to_string(),
+        state: TaskState::Pending,
+        priority: TaskPriority::Normal,
+        assigned_to: None,
+        review_id: None,
+        agentforge_session_id: None,
+        depends_on: Vec::new(),
+        created_by: "cli-user".to_string(),
+        org_id: "org-test".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    task_store.create(&mut task).await.expect("create task");
+
+    let app = state.router();
+    let req = Request::builder()
+        .method("POST")
+        .uri(format!("/api/v1/tasks/{}/assign", task.id))
+        .header(header::AUTHORIZATION, "Bearer secret-token")
+        .header("X-Org-ID", "org-test")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"participantId":"agent-user","agentProvider":"claude","projectId":"proj-1"}"#))
+        .unwrap();
+
+    let (status, body) = json_response(app, req).await;
+    // Assign itself succeeds — the spawn failure is asynchronous.
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["ok"], true);
+    assert_eq!(body["task"]["state"], "assigned");
+    let dispatch_id = body["dispatchId"].as_str().expect("dispatchId in response");
+    assert!(!dispatch_id.is_empty());
+
+    // Allow the spawn to run and fail.
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    // Task must remain Assigned (not Working) since session creation failed.
+    let refreshed = task_store.get_by_id(&task.id, "org-test").await.expect("reload task");
+    assert_eq!(refreshed.state, TaskState::Assigned);
+    assert!(refreshed.agentforge_session_id.is_none());
+
+    // Dispatch must be 'failed' with a last_error.
+    let dispatch = task_store.get_dispatch(&task.id, "org-test").await.expect("dispatch record");
+    assert_eq!(dispatch.status, "failed");
+    assert!(dispatch.last_error.as_deref().unwrap_or("").contains("simulated session_create error"));
+}
+
+#[tokio::test]
+async fn get_dispatch_endpoint_returns_dispatch_for_task() {
+    let state = AppState::test_task_internal_token("secret-token", "org-test", "cli-user")
+        .with_outbound_mcp_test_success("agent-99");
+    let task_store = state.task_store.as_ref().expect("task store").clone();
+
+    let mut task = Task {
+        id: String::new(),
+        workflow_id: None,
+        title: "GET dispatch endpoint test".to_string(),
+        description: String::new(),
+        state: TaskState::Pending,
+        priority: TaskPriority::Normal,
+        assigned_to: None,
+        review_id: None,
+        agentforge_session_id: None,
+        depends_on: Vec::new(),
+        created_by: "cli-user".to_string(),
+        org_id: "org-test".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    task_store.create(&mut task).await.expect("create task");
+
+    let app = state.router();
+
+    // Trigger assign to create a dispatch.
+    let assign_req = Request::builder()
+        .method("POST")
+        .uri(format!("/api/v1/tasks/{}/assign", task.id))
+        .header(header::AUTHORIZATION, "Bearer secret-token")
+        .header("X-Org-ID", "org-test")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"participantId":"agent-user","agentProvider":"claude","projectId":"proj-1"}"#))
+        .unwrap();
+    let (status, _) = json_response(app.clone(), assign_req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // GET /{id}/dispatch must return the dispatch.
+    let get_req = Request::builder()
+        .method("GET")
+        .uri(format!("/api/v1/tasks/{}/dispatch", task.id))
+        .header(header::AUTHORIZATION, "Bearer secret-token")
+        .header("X-Org-ID", "org-test")
+        .body(Body::empty())
+        .unwrap();
+    let (status, body) = json_response(app.clone(), get_req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["ok"], true);
+    assert_eq!(body["dispatch"]["taskId"], task.id);
+    assert_eq!(body["dispatch"]["orgId"], "org-test");
+
+    // A different org must get 404 (tenant isolation).
+    let other_org_req = Request::builder()
+        .method("GET")
+        .uri(format!("/api/v1/tasks/{}/dispatch", task.id))
+        .header(header::AUTHORIZATION, "Bearer secret-token")
+        .header("X-Org-ID", "org-other")
+        .body(Body::empty())
+        .unwrap();
+    let (status, body) = json_response(app, other_org_req).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["ok"], false);
+}

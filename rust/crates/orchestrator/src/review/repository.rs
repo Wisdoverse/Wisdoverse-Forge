@@ -93,6 +93,8 @@ impl Store for MemoryStore {
     /// Updates only the in-memory review state.  The in-memory test double is
     /// single-aggregate and cannot mirror the `tasks` table; transactional
     /// two-table behavior is covered exclusively by the `PgReviewStore` sqlx tests.
+    /// A `feedback` comment, when present, is appended together with the state
+    /// change so the test double mirrors the PG store's atomic comment+verdict.
     async fn apply_verdict(
         &self,
         review_id: &str,
@@ -100,6 +102,7 @@ impl Store for MemoryStore {
         new_review_state: crate::review::model::ReviewState,
         _task_id: &str,
         _new_task_state: crate::task::TaskState,
+        feedback: Option<&ReviewComment>,
     ) -> Result<()> {
         let mut reviews = self.reviews.lock().await;
         let Some(review) = reviews.get_mut(review_id).filter(|r| r.review.org_id == org_id) else {
@@ -107,6 +110,13 @@ impl Store for MemoryStore {
         };
         review.review.state = new_review_state;
         review.review.updated_at = Utc::now();
+        if let Some(feedback) = feedback {
+            let mut comment = feedback.clone();
+            comment.id = format!("comment-{}", self.comment_seq.fetch_add(1, Ordering::Relaxed));
+            comment.review_id = review_id.to_string();
+            comment.created_at = Utc::now();
+            review.comments.push(comment);
+        }
         Ok(())
     }
 }
@@ -125,7 +135,7 @@ impl PgReviewStore {
 impl Store for PgReviewStore {
     async fn create(&self, review: &mut CodeReview) -> Result<()> {
         let row = sqlx::query(
-            "INSERT INTO code_reviews (task_id, session_id, diff_ref, diff_snapshot, state, assigned_to, org_id, created_by)              VALUES (CAST($1 AS uuid), $2, $3, $4, $5, CAST($6 AS uuid), $7, CAST($8 AS uuid))              RETURNING id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                        assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at"
+            "INSERT INTO code_reviews (task_id, session_id, diff_ref, diff_snapshot, state, assigned_to, org_id, created_by, due_at)              VALUES (CAST($1 AS uuid), $2, $3, $4, $5, CAST($6 AS uuid), $7, CAST($8 AS uuid), $9)              RETURNING id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                        assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at, due_at"
         )
         .bind(&review.task_id)
         .bind(&review.session_id)
@@ -135,6 +145,7 @@ impl Store for PgReviewStore {
         .bind(review.assigned_to.as_deref())
         .bind(&review.org_id)
         .bind(&review.created_by)
+        .bind(review.due_at)
         .fetch_one(&self.pool)
         .await
         .map_err(|err| ReviewError::Internal(format!("insert review: {err}")))?;
@@ -144,7 +155,7 @@ impl Store for PgReviewStore {
 
     async fn get_by_id(&self, id: &str, org_id: &str) -> Result<ReviewWithComments> {
         let row = sqlx::query(
-            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at              FROM code_reviews WHERE id = CAST($1 AS uuid) AND org_id = $2"
+            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at, due_at              FROM code_reviews WHERE id = CAST($1 AS uuid) AND org_id = $2"
         )
         .bind(id)
         .bind(org_id)
@@ -170,7 +181,7 @@ impl Store for PgReviewStore {
     async fn list(&self, filter: ReviewFilter) -> Result<Vec<CodeReview>> {
         let limit = if filter.limit == 0 { 50 } else { filter.limit };
         let mut qb = QueryBuilder::new(
-            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at              FROM code_reviews WHERE org_id = ",
+            "SELECT id::text AS id, task_id::text AS task_id, session_id, diff_ref, diff_snapshot, state,                     assigned_to::text AS assigned_to, org_id, created_by::text AS created_by, created_at, updated_at, due_at              FROM code_reviews WHERE org_id = ",
         );
         qb.push_bind(&filter.org_id);
         if let Some(task_id) = filter.task_id.as_deref() {
@@ -253,6 +264,7 @@ impl Store for PgReviewStore {
         new_review_state: ReviewState,
         task_id: &str,
         new_task_state: crate::task::TaskState,
+        feedback: Option<&ReviewComment>,
     ) -> Result<()> {
         let mut tx =
             self.pool.begin().await.map_err(|err| ReviewError::Internal(format!("begin transaction: {err}")))?;
@@ -284,6 +296,23 @@ impl Store for PgReviewStore {
         if task_result.rows_affected() == 0 {
             // tx drops here, rolling back automatically
             return Err(ReviewError::NotFound);
+        }
+
+        // Feedback comment (reject path) shares the verdict transaction: a rollback
+        // above leaves no orphan comment on a still-pending review.
+        if let Some(feedback) = feedback {
+            sqlx::query(
+                "INSERT INTO review_comments (review_id, author_id, body, file_path, line) \
+                 VALUES (CAST($1 AS uuid), CAST($2 AS uuid), $3, $4, $5)",
+            )
+            .bind(review_id)
+            .bind(&feedback.author_id)
+            .bind(&feedback.body)
+            .bind(feedback.file_path.as_deref())
+            .bind(feedback.line)
+            .execute(&mut *tx)
+            .await
+            .map_err(|err| ReviewError::Internal(format!("insert feedback comment in verdict tx: {err}")))?;
         }
 
         tx.commit().await.map_err(|err| ReviewError::Internal(format!("commit verdict tx: {err}")))?;
@@ -318,6 +347,7 @@ fn row_to_review(row: &PgRow) -> Result<CodeReview> {
         updated_at: row
             .try_get("updated_at")
             .map_err(|err| ReviewError::Internal(format!("read updated_at: {err}")))?,
+        due_at: row.try_get("due_at").map_err(|err| ReviewError::Internal(format!("read due_at: {err}")))?,
     })
 }
 

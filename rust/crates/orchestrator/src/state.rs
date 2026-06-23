@@ -159,6 +159,10 @@ impl AppState {
         self.with_outbound_mcp(Arc::new(FixedOutboundMcp::successful(session_id)))
     }
 
+    pub fn with_outbound_mcp_test_failure(self, error: &str) -> Self {
+        self.with_outbound_mcp(Arc::new(FailingOutboundMcp { error: error.to_string() }))
+    }
+
     pub fn with_metrics_store(mut self, metrics_store: Arc<dyn MetricsStore>) -> Self {
         self.metrics_store = Some(metrics_store);
         self
@@ -226,8 +230,14 @@ impl AppState {
         let agent_directory = build_agent_directory(pool.as_ref());
         let metrics_store =
             build_metrics_store(pool.as_ref(), task_store.clone(), review_store.clone(), agent_directory.clone());
-        let (workflow_components, workflow_runtime) =
-            build_workflow_runtime(config.as_ref(), workflow_store.clone(), outbound_mcp.clone()).await;
+        let broadcaster = Arc::new(Broadcaster::new());
+        let (workflow_components, workflow_runtime) = build_workflow_runtime(
+            config.as_ref(),
+            workflow_store.clone(),
+            outbound_mcp.clone(),
+            Some(broadcaster.clone()),
+        )
+        .await;
         let workflow_service = workflow_components.as_ref().map(|components| components.service.clone());
         let workflow_worker = workflow_components.map(|components| components.worker);
         let mcp_server = build_mcp_server(config.as_ref());
@@ -251,7 +261,7 @@ impl AppState {
                 agent_directory,
                 metrics_store,
                 metrics_cache: Arc::new(MetricsCache::with_default_ttl()),
-                broadcaster: Arc::new(Broadcaster::new()),
+                broadcaster,
                 workflow_runtime,
             },
             workflow_worker,
@@ -343,6 +353,29 @@ fn build_workflow_store(pool: Option<&PgPool>) -> Option<Arc<dyn WorkflowStore>>
 
 struct FixedOutboundMcp {
     session_id: String,
+}
+
+struct FailingOutboundMcp {
+    error: String,
+}
+
+#[async_trait]
+impl OutboundMcp for FailingOutboundMcp {
+    async fn session_create(&self, _args: CreateSessionArgs) -> anyhow::Result<CreateSessionResult> {
+        Err(anyhow::anyhow!("{}", self.error))
+    }
+
+    async fn session_prompt(&self, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("{}", self.error))
+    }
+
+    async fn session_destroy(&self, _agent_id: &str) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("{}", self.error))
+    }
+
+    async fn session_status(&self, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
+        Err(anyhow::anyhow!("{}", self.error))
+    }
 }
 
 impl FixedOutboundMcp {

@@ -140,6 +140,12 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
         created_by: identity.user_id.clone(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
+        // i64::try_from guards the u64->i64 cast: a pathological env value can't
+        // wrap to a negative (past) deadline; saturate at i64::MAX instead.
+        due_at: Some(
+            chrono::Utc::now()
+                + chrono::Duration::seconds(i64::try_from(state.config.review_sla_secs).unwrap_or(i64::MAX)),
+        ),
     };
 
     match store.create(&mut review).await {
@@ -204,7 +210,7 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
     }
 
     if let Err(err) = store
-        .apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed)
+        .apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed, None)
         .await
     {
         return map_error(err);
@@ -256,8 +262,9 @@ async fn reject(
         return error(StatusCode::CONFLICT, "review cannot be rejected from its current state");
     }
 
-    // Persist feedback as a ReviewComment.
-    let mut comment = ReviewComment {
+    // Feedback comment is written inside the verdict transaction (below) so a
+    // rollback cannot leave an orphan comment on a still-pending review.
+    let comment = ReviewComment {
         id: String::new(),
         review_id: id.clone(),
         author_id: identity.user_id.clone(),
@@ -266,9 +273,6 @@ async fn reject(
         line: None,
         created_at: chrono::Utc::now(),
     };
-    if let Err(err) = store.add_comment(&id, &identity.org_id, &mut comment).await {
-        return map_error(err);
-    }
 
     if let Err(err) = store
         .apply_verdict(
@@ -277,6 +281,7 @@ async fn reject(
             ReviewState::ChangesRequested,
             &review.review.task_id,
             TaskState::ChangesRequested,
+            Some(&comment),
         )
         .await
     {

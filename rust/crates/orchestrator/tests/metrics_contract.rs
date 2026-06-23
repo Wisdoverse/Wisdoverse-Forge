@@ -91,6 +91,7 @@ async fn dashboard_metrics_reflect_real_task_and_review_data() {
         created_by: "cli-user".to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
+        due_at: None,
     };
     review_store.create(&mut review).await.expect("create review");
 
@@ -103,6 +104,10 @@ async fn dashboard_metrics_reflect_real_task_and_review_data() {
     assert_eq!(body["metrics"]["completedToday"], 1);
     assert_eq!(body["metrics"]["activeAgents"], 0);
     assert_eq!(body["metrics"]["pendingReviews"], 1);
+    assert_eq!(body["metrics"]["overdueReviews"], 0);
+    assert_eq!(body["metrics"]["approvedReviews"], 0);
+    assert_eq!(body["metrics"]["changesRequestedReviews"], 0);
+    assert_eq!(body["metrics"]["rejectedReviews"], 0);
 }
 
 #[tokio::test]
@@ -124,6 +129,7 @@ async fn agent_and_latency_metrics_aggregate_from_real_store_data() {
         created_by: "cli-user".to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
+        due_at: None,
     };
     review_store.create(&mut review).await.expect("create review");
     review_store.update_state(&review.id, "org-test", ReviewState::Approved).await.expect("approve review");
