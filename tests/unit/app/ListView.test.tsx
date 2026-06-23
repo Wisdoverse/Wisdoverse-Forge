@@ -371,6 +371,36 @@ describe('ListView', () => {
     expect(screen.queryByText('Write customer handoff note')).toBeNull()
   })
 
+  test('does not match hidden task descriptions in task list search', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'working-with-hidden-description',
+        state: 'working',
+        params: {
+          task: 'Prepare customer summary',
+          message: 'internal-only rollout migration note',
+        },
+        assignedAgentName: 'Research Helper',
+        priority: 'normal',
+        progress: 10,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+    ])
+
+    render(<ListView />)
+
+    expect(screen.getByText('Prepare customer summary')).toBeDefined()
+    expect(screen.queryByText('internal-only rollout migration note')).toBeNull()
+    fireEvent.change(screen.getByRole('searchbox', { name: /search task list/i }), {
+      target: { value: 'internal-only rollout migration note' },
+    })
+
+    const emptyState = screen.getByTestId('list-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks')
+    expect(screen.queryByText('Prepare customer summary')).toBeNull()
+  })
+
   test('explains search-only and filter-only empty task lists', () => {
     useBoardStore.getState().setTasks([
       {

@@ -613,12 +613,10 @@ function taskMatchesListFilter(task: TaskSummary, filter: ListTaskFilter): boole
 function taskSearchText(task: TaskSummary): string {
   return [
     task.params.task,
-    task.params.message,
-    task.assignedAgentName,
-    task.priority,
-    task.state,
-    task.error,
-    task.blockedHint,
+    taskNextAction(task),
+    taskAgentLabel(task),
+    taskPriorityLabel(task.priority),
+    taskStateLabel(task.state, { completedLabel: 'Done' }),
   ]
     .filter(Boolean)
     .join(' ')
