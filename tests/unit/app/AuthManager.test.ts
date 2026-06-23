@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthManager } from '@app/shared/auth/AuthManager'
 
 const LOGIN_NETWORK_FALLBACK =
-  'Check your connection, then try signing in again. Forge could not connect.'
+  'Check your connection, then choose Sign in again. Forge could not connect.'
 const REGISTER_NETWORK_FALLBACK =
   'Check your connection, then create the account again. Forge could not connect.'
 
@@ -38,6 +38,7 @@ describe('AuthManager beginner-safe errors', () => {
     const result = await manager.login('dev@example.com', 'password')
 
     expect(result.error).toBe(LOGIN_NETWORK_FALLBACK)
+    expect(result.error).not.toContain('try signing in')
     expect(result.error).not.toContain('Network error')
     manager.dispose()
   })
@@ -49,8 +50,9 @@ describe('AuthManager beginner-safe errors', () => {
     const result = await manager.login('dev@example.com', 'password')
 
     expect(result.error).toBe(
-      'Check your email and password, then try signing in again. Forge could not finish sign-in.'
+      'Check your email and password, then choose Sign in again. Forge could not finish sign-in.'
     )
+    expect(result.error).not.toContain('try signing in')
     expect(result.error).not.toContain('Login failed')
     manager.dispose()
   })

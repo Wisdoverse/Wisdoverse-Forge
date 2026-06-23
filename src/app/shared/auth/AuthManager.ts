@@ -37,11 +37,11 @@ const STORAGE_KEYS = {
 } as const
 
 const AUTH_LOGIN_NETWORK_ERROR =
-  'Check your connection, then try signing in again. Forge could not connect.'
+  'Check your connection, then choose Sign in again. Forge could not connect.'
 const AUTH_REGISTER_NETWORK_ERROR =
   'Check your connection, then create the account again. Forge could not connect.'
 const AUTH_LOGIN_FALLBACK =
-  'Check your email and password, then try signing in again. Forge could not finish sign-in.'
+  'Check your email and password, then choose Sign in again. Forge could not finish sign-in.'
 const AUTH_REGISTER_FALLBACK =
   'Check the account details, then create the account again. Forge could not finish account creation.'
 const AUTH_SSO_EXCHANGE_FALLBACK =
