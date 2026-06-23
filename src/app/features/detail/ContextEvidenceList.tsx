@@ -245,7 +245,9 @@ function safeEvidenceString(value: string): string {
 }
 
 function containsSensitiveEvidenceText(value: string): boolean {
-  return /\b(secret\s+token|token\s+secret|api\s*key|password|credential)\b/i.test(value)
+  return /\b(authorization|bearer|secret\s+token|token\s+secret|access\s+token|refresh\s+token|api\s*key|private\s+key|password|credential)\b/i.test(
+    value
+  )
 }
 
 function containsTechnicalEvidenceText(value: string): boolean {

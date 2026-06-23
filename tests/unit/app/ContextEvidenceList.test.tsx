@@ -224,6 +224,28 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/accessToken/i)).toBeNull()
   })
 
+  test('hides bearer authorization text in saved details', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              title: 'Request details',
+              headers: 'Authorization: Bearer saved-secret-token',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Bearer saved-secret-token/i)).toBeNull()
+    expect(screen.queryByText(/Authorization/i)).toBeNull()
+  })
+
   test('turns technical saved-detail summaries into plain next steps', () => {
     render(
       <ContextEvidenceList
