@@ -201,6 +201,29 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/raw command output/i)).toBeNull()
   })
 
+  test('turns HTTP status failures into plain guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'HTTP 401 Unauthorized from provider endpoint' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/This step hit a problem/i)).toBeInTheDocument()
+    expect(screen.queryByText(/HTTP 401/i)).toBeNull()
+    expect(screen.queryByText(/provider endpoint/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(screen.getAllByText(/This step hit a problem/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Unauthorized/i)).toBeNull()
+  })
+
   test('hides account access values even when a tool saves them under a plain field', () => {
     render(
       <ToolCallDetail
