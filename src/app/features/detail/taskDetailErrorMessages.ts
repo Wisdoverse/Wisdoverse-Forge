@@ -40,7 +40,8 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this task action.'
+    const fallback = ACTION_FALLBACKS[action]
+    return `Sign in again, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)}`
   }
 
   if (status === 403) {

@@ -11,7 +11,11 @@ describe('taskDetailErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('loadContext', new Error('401 Unauthorized')),
-      'Sign in again, then retry this task action.'
+      'Sign in again, then open this task again from the Tasks page to load saved notes and work history.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('retryTask', new Error('401 Unauthorized')),
+      'Sign in again, then open this task again from the Tasks page, then choose Retry task again. The task was not retried.'
     )
   })
 

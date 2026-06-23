@@ -16345,6 +16345,9 @@ const ACTION_FALLBACKS = {
   publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
   retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
 }
+function authMessage() {
+  return 'Sign in again, then retry this task action.'
+}
 `,
     })
 
@@ -16372,6 +16375,10 @@ const ACTION_FALLBACKS = {
         expect.objectContaining({
           type: 'task-detail-action-copy',
           location: 'src/app/features/detail/taskDetailErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:10',
         }),
       ])
     )
