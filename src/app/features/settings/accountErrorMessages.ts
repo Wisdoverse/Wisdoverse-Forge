@@ -66,7 +66,7 @@ function permissionMessage(action: AccountErrorAction): string {
 
 function conflictMessage(action: AccountErrorAction): string {
   if (action === 'changePassword') {
-    return 'Open Account settings again, then change your password again. Your account changed while this form was open.'
+    return `Open Account settings again, then ${retryPhrase(action)}. Your account changed while this form was open.`
   }
   return `Open Account settings again, check the current team space name, then ${retryPhrase(action)}. This team space changed while you were editing.`
 }

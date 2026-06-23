@@ -385,6 +385,33 @@ describe('AccountSection', () => {
     expect(alert.textContent).not.toContain('token expired')
   })
 
+  test('names the Update password button when the account changes during password update', async () => {
+    changePasswordMock.mockRejectedValue(
+      Object.assign(new Error('HTTP 409'), {
+        statusCode: 409,
+      })
+    )
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Open Account settings again, then choose Update password again. Your account changed while this form was open.'
+    )
+    expect(alert.textContent).not.toContain('change your password again')
+    expect(alert.textContent).not.toContain('HTTP 409')
+  })
+
   test('shows permission guidance when team space rename is denied', async () => {
     const updateOrg = vi.fn().mockRejectedValue(new Error('API 403: Forbidden'))
     useNavigationStore.setState({ updateOrg })
