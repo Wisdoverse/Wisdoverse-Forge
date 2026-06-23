@@ -625,7 +625,6 @@ function taskMatchesFilter(task: TaskSummary, filter: AgentTaskFilter, query: st
 
   return [
     task.params.task,
-    task.params.message,
     task.state === 'blocked'
       ? taskBlockedPreview({
           blockedHint: task.blockedHint,
