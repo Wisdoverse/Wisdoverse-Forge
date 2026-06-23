@@ -148,7 +148,9 @@ describe('ProvidersSection', () => {
     expect(screen.queryByText('AI Services')).toBeNull()
     expect(screen.getByRole('button', { name: /^add AI service$/i })).toBeDefined()
     expect(screen.queryByText('Add AI Service')).toBeNull()
-    expect(screen.getByText('Saved service choice: gpt-5.4')).toBeDefined()
+    expect(screen.getAllByText('Answer setting saved').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Saved service choice: gpt-5.4')).toBeNull()
+    expect(screen.queryByText(/gpt-5\.4/)).toBeNull()
     expect(
       screen
         .getAllByText(/Key saved:/)

@@ -631,7 +631,6 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
   const {
     id,
     displayName,
-    model,
     isEnabled,
     isDefault,
     apiKeyPrefix,
@@ -727,7 +726,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
               <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Saved service choice: {model}
+                Answer setting saved
               </span>
               {apiKeyPrefix && (
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
