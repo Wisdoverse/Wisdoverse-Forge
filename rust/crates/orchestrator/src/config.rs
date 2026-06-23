@@ -41,6 +41,10 @@ fn default_dispatch_timeout_secs() -> u64 {
     3600
 }
 
+fn default_review_escalation_grace_secs() -> u64 {
+    3600
+}
+
 fn default_mcp_endpoint() -> String {
     "http://localhost:4003/mcp".to_string()
 }
@@ -129,6 +133,12 @@ pub struct Config {
     #[serde(default = "default_review_sla_secs")]
     pub review_sla_secs: u64,
 
+    #[serde(default)]
+    pub review_escalation_enabled: bool,
+
+    #[serde(default = "default_review_escalation_grace_secs")]
+    pub review_escalation_grace_secs: u64,
+
     #[serde(default = "default_dispatch_timeout_secs")]
     pub dispatch_timeout_secs: u64,
 
@@ -160,6 +170,8 @@ impl Default for Config {
             temporal_namespace: default_temporal_namespace(),
             temporal_connect_timeout_secs: default_temporal_connect_timeout_secs(),
             review_sla_secs: default_review_sla_secs(),
+            review_escalation_enabled: false,
+            review_escalation_grace_secs: default_review_escalation_grace_secs(),
             dispatch_timeout_secs: default_dispatch_timeout_secs(),
             mcp_endpoint: default_mcp_endpoint(),
             mcp_token: String::new(),
@@ -201,6 +213,12 @@ impl Config {
             review_sla_secs: read("ORCHESTRATOR_REVIEW_SLA_SECS")
                 .and_then(|value| value.parse().ok())
                 .unwrap_or_else(default_review_sla_secs),
+            review_escalation_enabled: read("ORCHESTRATOR_REVIEW_ESCALATION_ENABLED")
+                .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
+                .unwrap_or(false),
+            review_escalation_grace_secs: read("ORCHESTRATOR_REVIEW_ESCALATION_GRACE_SECS")
+                .and_then(|value| value.parse().ok())
+                .unwrap_or_else(default_review_escalation_grace_secs),
             dispatch_timeout_secs: read("ORCHESTRATOR_DISPATCH_TIMEOUT_SECS")
                 .and_then(|value| value.parse().ok())
                 .unwrap_or_else(default_dispatch_timeout_secs),
@@ -246,5 +264,15 @@ mod tests {
     #[test]
     fn dispatch_timeout_defaults_to_1h() {
         assert_eq!(default_dispatch_timeout_secs(), 3600);
+    }
+
+    #[test]
+    fn review_escalation_grace_defaults_to_1h() {
+        assert_eq!(default_review_escalation_grace_secs(), 3600);
+    }
+
+    #[test]
+    fn review_escalation_disabled_by_default() {
+        assert!(!Config::default().review_escalation_enabled);
     }
 }

@@ -92,6 +92,7 @@ async fn dashboard_metrics_reflect_real_task_and_review_data() {
         created_at: Utc::now(),
         updated_at: Utc::now(),
         due_at: None,
+        escalated_at: None,
     };
     review_store.create(&mut review).await.expect("create review");
 
@@ -130,6 +131,7 @@ async fn agent_and_latency_metrics_aggregate_from_real_store_data() {
         created_at: Utc::now(),
         updated_at: Utc::now(),
         due_at: None,
+        escalated_at: None,
     };
     review_store.create(&mut review).await.expect("create review");
     review_store.update_state(&review.id, "org-test", ReviewState::Approved).await.expect("approve review");

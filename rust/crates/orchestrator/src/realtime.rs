@@ -40,31 +40,49 @@ impl Broadcaster {
         Self { next_id: AtomicU64::new(1), clients: Mutex::new(HashMap::new()) }
     }
 
+    /// Lock the client registry, recovering from a poisoned mutex instead of
+    /// propagating the panic. A WS handler that panics while holding this lock
+    /// must not cascade into every other caller — in particular the detached
+    /// reapers (`dispatch_reaper`, `review_escalation_reaper`) call `broadcast`
+    /// from a `tokio::spawn`, where a panic would silently kill the task forever
+    /// with no "loop exited" log. A torn client registry degrades to a dropped
+    /// notification (best-effort already), never a process-wide cascade.
+    fn clients(&self) -> std::sync::MutexGuard<'_, HashMap<String, Client>> {
+        self.clients.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     pub fn subscribe(&self, org_id: &str) -> (String, mpsc::Receiver<Event>) {
         let client_id = format!("ws-{}", self.next_id.fetch_add(1, Ordering::Relaxed));
         let (tx, rx) = mpsc::channel(64);
-        self.clients
-            .lock()
-            .expect("websocket client lock poisoned")
-            .insert(client_id.clone(), Client { org_id: org_id.to_string(), tx });
+        self.clients().insert(client_id.clone(), Client { org_id: org_id.to_string(), tx });
         (client_id, rx)
     }
 
     pub fn unsubscribe(&self, client_id: &str) {
-        self.clients.lock().expect("websocket client lock poisoned").remove(client_id);
+        self.clients().remove(client_id);
     }
 
     pub fn broadcast(&self, event: Event) {
-        let clients = self.clients.lock().expect("websocket client lock poisoned");
+        let clients = self.clients();
         for client in clients.values() {
             if client.org_id == event.org_id {
-                let _ = client.tx.try_send(event.clone());
+                // Best-effort fan-out. A closed channel is a normal disconnect
+                // (the handler loop ended and unsubscribe is pending) — silent.
+                // A FULL channel is a slow consumer dropping a real notification,
+                // which is worth a debug breadcrumb so the gap is observable.
+                if let Err(mpsc::error::TrySendError::Full(_)) = client.tx.try_send(event.clone()) {
+                    tracing::debug!(
+                        org_id = %event.org_id,
+                        event_kind = %event.kind,
+                        "realtime broadcast dropped: client channel full (slow consumer)"
+                    );
+                }
             }
         }
     }
 
     pub fn client_count(&self) -> usize {
-        self.clients.lock().expect("websocket client lock poisoned").len()
+        self.clients().len()
     }
 }
 

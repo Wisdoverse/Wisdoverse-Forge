@@ -113,6 +113,7 @@ async fn create_review_persists_due_at(pool: PgPool) {
         created_at: Utc::now(),
         updated_at: Utc::now(),
         due_at: Some(expected_due_at),
+        escalated_at: None,
     };
 
     let store = PgReviewStore::new(pool.clone());
