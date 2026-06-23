@@ -85,6 +85,21 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('People for this project are not available')
   })
 
+  test('turns member conflicts into a current access check and named retry step', () => {
+    const message = resourceMemberErrorMessage(
+      'updateRole',
+      'Project',
+      new Error('API 409: {"message":"role already changed"}')
+    )
+
+    expectBeginnerMessage(
+      message,
+      "Open Members for this project again, check who has access, then save the access change again. This person's access changed while you were editing."
+    )
+    expect(message).not.toContain('API 409')
+    expect(message).not.toContain('role already changed')
+  })
+
   test('uses structured validation details to explain missing access choices', () => {
     const message = resourceMemberErrorMessage('add', 'Project', {
       status: '422',

@@ -38,7 +38,7 @@ export function resourceMemberErrorMessage(
     return `Open Members for this ${resource} again, or choose another ${resource}. This ${resource} may have changed or been removed.`
   }
   if (status === 409) {
-    return `Open Members for this ${resource} again, check who has access, then try again. This person's access changed while you were editing.`
+    return `Open Members for this ${resource} again, check who has access, then ${retrySummary(action, resource)}. This person's access changed while you were editing.`
   }
   if (status === 422) {
     return validationMessage(action, resource, detail)
