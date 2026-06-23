@@ -91,7 +91,7 @@ This inventory is the work queue for the remaining phases. Status means:
 | Billing                                                      | `src/app/routes/billing.tsx`, `src/app/features/billing/*`, `src/app/shared/model/billing.store.ts`                                                                                                    | `BillingBeginnerGuidance.test.tsx`, `BillingPage.test.tsx`, `BillingView.test.tsx`, `billingErrorMessage.test.ts`                                                                                                                                                                                                           | DONE   | Current billing guidance and access errors have focused tests. Recheck during final audit.                                                                      |
 | Inbox and activity feed                                      | `src/app/routes/inbox.tsx`, `src/app/features/inbox/*`, `src/app/features/feed/*`, `src/app/shared/model/feed.store.ts`                                                                                | `InboxView.test.tsx`, `feed.store.test.ts`, `AgentStatusBar.test.tsx`                                                                                                                                                                                                                                                       | WAIT   | Phase 3 should verify that needs-action and empty states still point users to the next work item rather than only summarizing status.                           |
 | Saved-item review and change history                         | `src/app/routes/context.tsx`, `src/app/routes/context-audit.tsx`, `src/app/features/context/*`, `src/app/features/governance/*`                                                                        | `ApprovalQueueView.test.tsx`, `AuditLogView.test.tsx`, `approvalQueueErrorMessages.test.ts`, `governanceAuditErrorMessages.test.ts`                                                                                                                                                                                         | DONE   | Current route loading, permission, network, and export guidance have focused tests. Recheck during final audit.                                                 |
-| Platform CLI and operator docs                               | `rust/bins/cli`, `rust/crates/cli`, `docs/guides/cli-platform-support.md`, setup/deployment runbooks                                                                                                   | no single frontend test suite; validate with docs review and relevant CLI tests when implementation changes                                                                                                                                                                                                                 | ACTION | Phase 4 owns the cross-platform copy-paste path and should state prerequisites, success, and next steps for Linux, macOS, and Windows.                          |
+| Platform CLI and operator docs                               | `rust/bins/cli`, `rust/crates/cli`, `docs/guides/cli-platform-support.md`, setup/deployment runbooks                                                                                                   | no single frontend test suite; validate with docs review and relevant CLI tests when implementation changes                                                                                                                                                                                                                 | ACTION | Phase 4 root CLI help now starts with setup commands. Continue the release/runbook cross-platform audit before closing Phase 4.                                 |
 | Global UX gates                                              | `scripts/check-beginner-ux-copy.mjs`, `tests/unit/shared/check-beginner-ux-copy.test.ts`, `docs/architecture/product-ux-direction.md`                                                                  | `npm run beginner:ux:copy`, `check-beginner-ux-copy.test.ts`, `i18nBeginnerErrors.test.ts`                                                                                                                                                                                                                                  | DONE   | Keep this as a guardrail. Extend only when a repeated class of issue escapes focused tests.                                                                     |
 
 ## Plan
@@ -214,6 +214,17 @@ Acceptance:
 - Docs state prerequisites before commands.
 - Commands use placeholders clearly.
 - Success and next steps are explicit.
+
+Progress:
+
+- `docs/guides/cli-platform-support.md` already documents Linux, macOS, and
+  Windows install paths with prerequisites, checksums, smoke tests, success
+  states, and next commands.
+- The Platform CLI root help no longer frames the tool as a developer/agent
+  shortcut. It now tells first-time operators to connect to a Forge server,
+  sign in, check agents, and enroll local Host CLI agents.
+- `rust/crates/cli/src/cmd/root.rs` has a focused unit test covering the
+  beginner setup commands in root help.
 
 ### Phase 5 - Completion audit
 

@@ -5,8 +5,8 @@ use clap::{CommandFactory, FromArgMatches, Parser};
 #[derive(Parser)]
 #[command(
     name = "agentforge",
-    about = "Wisdoverse Forge CLI — manage AI agents from the command line",
-    long_about = "Wisdoverse Forge CLI provides shell-based access to the Wisdoverse Forge platform for developers and AI agents.",
+    about = "Wisdoverse Forge CLI — manage team agents and local setup",
+    long_about = "Wisdoverse Forge CLI helps operators connect to a Forge server, sign in, check agents, and enroll local Host CLI agents. Start with `agentforge config set server https://forge.example.com`, then `agentforge auth login --token <platform-token>`.",
     disable_help_subcommand = true,
     arg_required_else_help = true
 )]
@@ -134,5 +134,21 @@ impl Cli {
             Some(Subcommand::Version) => "version".into(),
             Some(Subcommand::Completion(_)) => "completion".into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::CommandFactory;
+
+    #[test]
+    fn root_help_starts_with_operator_setup() {
+        let help = Cli::command().render_long_help().to_string();
+
+        assert!(help.contains("connect to a Forge server"));
+        assert!(help.contains("agentforge config set server https://forge.example.com"));
+        assert!(help.contains("agentforge auth login --token <platform-token>"));
+        assert!(!help.contains("developers and AI agents"));
     }
 }
