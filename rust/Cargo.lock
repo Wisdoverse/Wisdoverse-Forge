@@ -300,7 +300,9 @@ version = "0.1.0"
 dependencies = [
  "agentforge-core",
  "agentforge-db",
+ "agentforge-infra",
  "anyhow",
+ "async-nats",
  "async-trait",
  "axum",
  "chrono",

@@ -322,6 +322,39 @@ describe('InboxView', () => {
     expect(nextStep).not.toHaveTextContent('Check the retry steps before retrying')
   })
 
+  test('surfaces an unread overdue review as the next step over a newer non-action update', () => {
+    const store = useFeedStore.getState()
+    // Newer, but only an informational update — must NOT win the next-step slot.
+    store.addNotification({
+      id: 'n-newer-completed',
+      type: 'completed',
+      taskId: 't-done',
+      taskTitle: 'Fresh completed result',
+      message: 'Ready for review',
+      read: false,
+      timestamp: Date.now(),
+    })
+    // Older, but action-bearing: an overdue review needs a human decision.
+    store.addNotification({
+      id: 'review-escalated:r-1',
+      type: 'review_escalated',
+      taskId: 't-review',
+      taskTitle: 'A review is overdue and needs attention',
+      message: 'Approve or reject this review in your task list so work can continue.',
+      taskHref: '/tasks',
+      read: false,
+      timestamp: Date.now() - 5000,
+    })
+
+    render(<InboxView />)
+
+    const nextStep = screen.getByTestId('inbox-next-step')
+    expect(nextStep).toHaveTextContent('Approve or reject the overdue review')
+    expect(nextStep).toHaveTextContent('This is the only item that needs action')
+    expect(nextStep).not.toHaveTextContent('Open the latest completed result when you have time')
+    expect(within(nextStep).getByRole('button', { name: /open review/i })).toBeDefined()
+  })
+
   test('summarizes all-read action items as history instead of urgent work', () => {
     useFeedStore.getState().addNotification({
       id: 'n-read-credential',

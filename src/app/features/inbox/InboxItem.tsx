@@ -96,6 +96,17 @@ const TYPE_CONFIG: Record<
       'Open Admin, then Agent tool updates, to check each work tool. New agents use the update automatically.',
     template: 'task-lifecycle',
   },
+  review_escalated: {
+    Icon: AlertTriangle,
+    color: 'text-apple-red',
+    unreadBg: 'bg-apple-red/[0.05]',
+    dot: 'bg-apple-red',
+    label: 'Review overdue',
+    actionLabel: 'Open review',
+    guidance:
+      'Find the waiting review in your task list, then approve or reject it so work can continue.',
+    template: 'task-lifecycle',
+  },
 }
 
 const RELATIVE_TIME = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
