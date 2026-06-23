@@ -40,6 +40,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("008_adopt_legacy_integer_schema.sql", include_str!("../migrations/008_adopt_legacy_integer_schema.sql")),
     ("009_task_dispatches.sql", include_str!("../migrations/009_task_dispatches.sql")),
     ("010_review_sla.sql", include_str!("../migrations/010_review_sla.sql")),
+    ("011_task_dispatches_reap_index.sql", include_str!("../migrations/011_task_dispatches_reap_index.sql")),
 ];
 
 /// Run pending orchestrator migrations against the database.

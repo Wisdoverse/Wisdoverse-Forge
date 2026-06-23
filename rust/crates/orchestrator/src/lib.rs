@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod auth;
 pub mod config;
+pub mod dispatch_reaper;
 pub mod knowledge;
 pub mod mcp;
 pub mod metrics;
