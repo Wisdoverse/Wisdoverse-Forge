@@ -180,9 +180,11 @@ test.describe('First-use Start checklist', () => {
       .click({ timeout: 30000 })
 
     await expect(page.getByRole('heading', { name: 'Setup checklist' })).toBeVisible()
-    await expect(page.getByText(/hidden from the left menu right now/i)).toBeVisible()
+    await expect(
+      page.getByText(/hidden from the left menu, so new sign-ins open Tasks by default/i)
+    ).toBeVisible()
 
-    await page.getByRole('button', { name: /Show setup checklist/i }).click({ timeout: 30000 })
+    await page.getByRole('button', { name: /Reset setup checklist/i }).click({ timeout: 30000 })
     expect(preferences.current().gettingStartedDismissed).toBe(false)
     await expect(page.getByRole('status')).toContainText('back in the left menu')
     await expect(page.locator('[data-testid="sidebar-nav-start"]')).toBeVisible()
