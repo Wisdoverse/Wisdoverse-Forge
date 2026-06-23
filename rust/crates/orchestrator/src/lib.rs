@@ -8,6 +8,7 @@ pub mod metrics;
 mod migrations;
 pub mod realtime;
 pub mod review;
+pub mod review_escalation_reaper;
 pub mod router;
 pub mod state;
 pub mod task;

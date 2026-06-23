@@ -64,6 +64,11 @@ pub struct CodeReview {
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due_at: Option<DateTime<Utc>>,
+    /// Set by the escalation reaper (#871) when an overdue review past its grace
+    /// window is escalated. NULL = not yet escalated; a timestamp = escalated once
+    /// (the idempotency guard). Never written by the verdict state machine.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escalated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

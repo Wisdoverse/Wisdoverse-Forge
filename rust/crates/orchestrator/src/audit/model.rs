@@ -24,6 +24,8 @@ pub enum AuditAction {
     ReviewReject,
     #[serde(rename = "review.comment")]
     ReviewComment,
+    #[serde(rename = "review.escalated")]
+    ReviewEscalated,
     #[serde(rename = "workflow.create")]
     WorkflowCreate,
     #[serde(rename = "workflow.run")]
@@ -72,6 +74,7 @@ impl AuditAction {
             Self::ReviewApprove => "review.approve",
             Self::ReviewReject => "review.reject",
             Self::ReviewComment => "review.comment",
+            Self::ReviewEscalated => "review.escalated",
             Self::WorkflowCreate => "workflow.create",
             Self::WorkflowRun => "workflow.run",
             Self::WorkflowCancel => "workflow.cancel",
@@ -107,6 +110,7 @@ impl FromStr for AuditAction {
             "review.approve" => Ok(Self::ReviewApprove),
             "review.reject" => Ok(Self::ReviewReject),
             "review.comment" => Ok(Self::ReviewComment),
+            "review.escalated" => Ok(Self::ReviewEscalated),
             "workflow.create" => Ok(Self::WorkflowCreate),
             "workflow.run" => Ok(Self::WorkflowRun),
             "workflow.cancel" => Ok(Self::WorkflowCancel),
