@@ -228,6 +228,9 @@ Progress:
 - Host CLI one-command join now prints reconnect commands that use the resolved
   `agentforge-sidecar` path instead of assuming it is on `PATH`, and the runbook
   gives both macOS/Linux and Windows PowerShell reconnect examples.
+- `agentforge agents enroll-local --help` now states the sign-in prerequisite,
+  local work folder expectation, success state, and beginner-safe option
+  descriptions for project, tool, shell, and launch-block output.
 
 ### Phase 5 - Completion audit
 
