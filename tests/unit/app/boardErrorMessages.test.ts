@@ -11,7 +11,7 @@ describe('boardActionErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('loadTasks', new Error('401 Unauthorized')),
-      'Sign in again, then open the board and try this action again.'
+      'Sign in again, then choose Check tasks again.'
     )
   })
 
@@ -21,7 +21,7 @@ describe('boardActionErrorMessage', () => {
         status: '403',
         serverError: 'missing board policy',
       }),
-      'Ask an owner or admin to give you access to the Tasks page, then open it and try again. You do not have permission to change this board.'
+      'Ask an owner or admin to give you access to the Tasks page, then move the task again. You do not have permission to change this board.'
     )
   })
 
@@ -43,7 +43,14 @@ describe('boardActionErrorMessage', () => {
   test('keeps network recovery tied to the board action', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new TypeError('Connection refused')),
-      'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved. If it still does not update, check your connection, then move the task again.'
+      'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved. If it still does not update, check your connection, then move the task again.'
+    )
+  })
+
+  test('turns board conflicts into a current task check step', () => {
+    expectBeginnerMessage(
+      boardActionErrorMessage('moveTask', new Error('HTTP 409')),
+      'Choose Check tasks again so you see the latest tasks, then move the task again. The task board changed while you were working.'
     )
   })
 
@@ -85,7 +92,7 @@ describe('boardActionErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Refresh tasks to load tasks. If it still fails, ask an owner or admin to check task board access.'
+      'Choose Check tasks again to load tasks. If it still fails, ask an owner or admin to check task board access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -102,7 +109,7 @@ describe('boardActionErrorMessage', () => {
   test('keeps moved-back task failures actionable without repeating the refresh step', () => {
     expectBeginnerMessage(
       boardActionErrorMessage('moveTask', new Error('HTTP 500')),
-      'Choose Refresh tasks, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
+      'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved. If it still fails, ask an owner or admin to check task board actions.'
     )
   })
 

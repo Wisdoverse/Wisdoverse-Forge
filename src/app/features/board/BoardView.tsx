@@ -6,7 +6,7 @@ import { useContextFeaturesStore } from '@app/shared/model/context-features.stor
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { useNavigationStore } from '@app/entities/navigation'
 import { KanbanColumn } from './KanbanColumn'
-import { TaskCard } from './TaskCard'
+import { TaskCard, taskCardSearchText } from './TaskCard'
 import {
   orchestrationApi,
   type ParticipantSummary,
@@ -82,8 +82,13 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   const [displayMode, setDisplayMode] = useState<BoardDisplayMode>('comfortable')
   const workload = useMemo(() => summarizeWorkload(columns), [columns])
   const boardFilters = useMemo(
-    () => ({ searchQuery, priorityFilter, assigneeFilter }),
-    [assigneeFilter, priorityFilter, searchQuery]
+    () => ({
+      searchQuery,
+      priorityFilter,
+      assigneeFilter,
+      canOpenPublishPreview: canPublishWithContext,
+    }),
+    [assigneeFilter, canPublishWithContext, priorityFilter, searchQuery]
   )
   const visibleColumns = useMemo(
     () => filterBoardColumns(columns, boardFilters),
@@ -349,7 +354,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
               onClick={() => void loadTasksForGroup(selectedGroupId, true)}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-apple-red/20 bg-white px-3 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-white/[0.04]"
             >
-              Refresh tasks
+              Check tasks again
             </button>
           ) : null}
         </div>
@@ -490,6 +495,7 @@ interface BoardFilters {
   searchQuery: string
   priorityFilter: BoardPriorityFilter
   assigneeFilter: BoardAssigneeFilter
+  canOpenPublishPreview: boolean
 }
 
 function summarizeWorkload(columns: Record<ColumnId, TaskSummary[]>): BoardWorkloadSnapshot {
@@ -527,17 +533,9 @@ function taskMatchesBoardFilters(task: TaskSummary, filters: BoardFilters): bool
   const query = filters.searchQuery.trim().toLowerCase()
   if (!query) return true
 
-  return [
-    task.id,
-    task.params.task,
-    task.params.message,
-    task.assignedAgentName,
-    task.priority,
-    task.blockedHint,
-    task.error,
-  ]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(query))
+  return taskCardSearchText(task, {
+    canOpenPublishPreview: filters.canOpenPublishPreview,
+  }).includes(query)
 }
 
 function summarizeBoardFilters(

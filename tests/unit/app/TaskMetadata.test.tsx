@@ -82,6 +82,36 @@ describe('TaskMetadata', () => {
     )
   })
 
+  test('describes active work check-in timing without lease wording', () => {
+    render(
+      <TaskMetadata
+        task={{
+          ...mockTask,
+          state: 'working',
+          assignedAgentName: 'Build Agent',
+          leaseExpiresAt: new Date(Date.now() + 60000).toISOString(),
+        }}
+      />
+    )
+
+    expect(screen.getByText(/Agent check-in due/i)).toBeDefined()
+    expect(screen.queryByText(/Lease expires/i)).toBeNull()
+  })
+
+  test('labels retry count with work context', () => {
+    render(<TaskMetadata task={{ ...mockTask, attempt: 2 }} />)
+
+    expect(screen.getByText('Work try 2')).toBeDefined()
+    expect(screen.queryByText('Try 2')).toBeNull()
+    expect(screen.queryByText(/Attempt 2/i)).toBeNull()
+  })
+
+  test('does not show a broken retry label when the count is missing', () => {
+    render(<TaskMetadata task={mockTask} />)
+
+    expect(screen.queryByText(/Attempt undefined|Try undefined/i)).toBeNull()
+  })
+
   test('turns credential blocked guidance into an account-access recovery step', () => {
     render(
       <TaskMetadata

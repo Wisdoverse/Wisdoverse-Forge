@@ -129,7 +129,8 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(within(dialog).getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(within(dialog).getByText('Who can reuse it')).toBeDefined()
-    expect(within(dialog).getByText(/team or project sharing code from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/team or project sharing text from Settings/i)).toBeDefined()
+    expect(within(dialog).queryByText(/team or project sharing code from Settings/i)).toBeNull()
     expect(within(dialog).queryByText(/team or project ID from Settings/i)).toBeNull()
     expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
     expect(within(dialog).getByText('Team only')).toBeDefined()
@@ -140,9 +141,10 @@ describe('ApprovalQueueView', () => {
 
     await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
 
-    expect(within(dialog).getAllByText(/team sharing code/i).length).toBeGreaterThan(0)
-    expect(within(dialog).getByPlaceholderText(/team sharing code from Settings/i)).toBeDefined()
-    expect(within(dialog).getByText(/Paste the team sharing code before saving/i)).toBeDefined()
+    expect(within(dialog).getAllByText(/team sharing text/i).length).toBeGreaterThan(0)
+    expect(within(dialog).getByPlaceholderText(/team sharing text from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/Paste the team sharing text before saving/i)).toBeDefined()
+    expect(within(dialog).queryByText(/team sharing code/i)).toBeNull()
     expect(within(dialog).queryByText('Team ID')).toBeNull()
     expect(within(dialog).queryByPlaceholderText(/Team ID from Settings/i)).toBeNull()
     expect(within(dialog).queryByText('Team support reference')).toBeNull()
@@ -206,7 +208,7 @@ describe('ApprovalQueueView', () => {
     expect(saveButton).toBeDisabled()
     expect(saveButton).toHaveAttribute(
       'title',
-      'Load saved items again, then save after the original task details load.'
+      'Check saved items again, then save after the original task details load.'
     )
   })
 
@@ -285,7 +287,9 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('data-testid', 'context-approval-error')
-    expect(error.textContent).toContain('Check your connection, then choose Load saved items again')
+    expect(error.textContent).toContain(
+      'Check your connection, then choose Check saved items again'
+    )
     expect(error.textContent).toContain(
       'Forge could not connect while loading saved notes and instructions'
     )
@@ -304,7 +308,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('data-testid', 'context-approval-error')
-    expect(error.textContent).toContain('Choose Load saved items again, then open this item')
+    expect(error.textContent).toContain('Choose Check saved items again, then open this item')
     expect(error.textContent).toContain('It changed while you were checking it')
     expect(error.textContent).not.toContain('Refresh the list')
     expect(error.textContent).not.toContain('Code:')

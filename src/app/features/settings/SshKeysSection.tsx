@@ -333,7 +333,7 @@ export function SshKeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Key name' },
-    { label: 'Saved key check code' },
+    { label: 'Saved key check text' },
     { label: 'Accepted by Forge' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },

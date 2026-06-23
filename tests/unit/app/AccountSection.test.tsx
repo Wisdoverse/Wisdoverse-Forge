@@ -175,8 +175,72 @@ describe('AccountSection', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose a new password that is different from the current password.'
+      'Choose a new password that is different from the current password, then choose Update password again.'
     )
+    expect(screen.getByLabelText('New Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
+  test('names the retry action when the current password is missing', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Enter your current password, then choose Update password again.'
+    )
+    expect(screen.getByLabelText('Current Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
+  test('names the retry action when new passwords do not match', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'OtherPassword123!' },
+    })
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'The two new passwords do not match. Re-enter both new password fields, then choose Update password again.'
+    )
+    expect(screen.getByLabelText('Confirm New Password')).toHaveFocus()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
+  test('names the Update password button when the new password misses a rule', async () => {
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'longpassword' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'longpassword' },
+    })
+    fireEvent.submit(screen.getByLabelText('Current Password').closest('form')!)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Add at least one uppercase letter to the password, then choose Update password again.'
+    )
+    expect(alert).not.toHaveTextContent('then try again')
     expect(screen.getByLabelText('New Password')).toHaveFocus()
     expect(changePasswordMock).not.toHaveBeenCalled()
   })
@@ -321,6 +385,33 @@ describe('AccountSection', () => {
     expect(alert.textContent).not.toContain('token expired')
   })
 
+  test('names the Update password button when the account changes during password update', async () => {
+    changePasswordMock.mockRejectedValue(
+      Object.assign(new Error('HTTP 409'), {
+        statusCode: 409,
+      })
+    )
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Current Password'), {
+      target: { value: 'old-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'NewPassword123!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /update password/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Open Account settings again, then choose Update password again. Your account changed while this form was open.'
+    )
+    expect(alert.textContent).not.toContain('change your password again')
+    expect(alert.textContent).not.toContain('HTTP 409')
+  })
+
   test('shows permission guidance when team space rename is denied', async () => {
     const updateOrg = vi.fn().mockRejectedValue(new Error('API 403: Forbidden'))
     useNavigationStore.setState({ updateOrg })
@@ -340,6 +431,24 @@ describe('AccountSection', () => {
     expect(alert.textContent).not.toContain('organization')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
+  })
+
+  test('names the Save team space name button when rename cannot connect', async () => {
+    const updateOrg = vi.fn().mockRejectedValue(new Error('Network error'))
+    useNavigationStore.setState({ updateOrg })
+    renderAccountSection()
+
+    fireEvent.change(screen.getByLabelText('Team Space Name'), {
+      target: { value: 'Acme Support' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save team space name/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then choose Save team space name again. The team space rename did not finish.'
+    )
+    expect(alert.textContent).not.toContain('rename the team space again')
+    expect(alert.textContent).not.toContain('Network error')
   })
 
   test('shows a password recovery step instead of raw validation details', async () => {
@@ -364,8 +473,10 @@ describe('AccountSection', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert.textContent).toContain('The current password did not match this account')
-    expect(alert.textContent).toMatch(/^Re-enter the current password/)
+    expect(alert.textContent).toBe(
+      'Re-enter the current password, then choose Update password again. The current password did not match this account.'
+    )
+    expect(alert.textContent).not.toContain('change your password again')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain('HTTP 422')
   })

@@ -60,7 +60,7 @@ function agentStatusLabel(status: string): string {
     case 'offline':
       return 'Not connected'
     default:
-      return status.trim() ? 'Check agent status' : 'Refresh agents to confirm status'
+      return status.trim() ? 'Check agent status' : 'Check agents again to confirm status'
   }
 }
 
@@ -72,7 +72,7 @@ function readableValue(value: string | null | undefined, fallback: string): stri
 function agentOwnerLabel(agent: AdminAgent): string {
   return readableValue(
     agent.ownerUsername,
-    readableValue(agent.ownerEmail, 'Refresh agents to load owner')
+    readableValue(agent.ownerEmail, 'Check agents again to load owner')
   )
 }
 
@@ -353,7 +353,7 @@ export function AgentsPanel() {
                       'text-ui-caption text-secondary-light dark:text-secondary-dark'
                     )}
                   >
-                    {readableValue(agent.projectName, 'Refresh agents to load project')}
+                    {readableValue(agent.projectName, 'Check agents again to load project')}
                   </td>
                   <td
                     className={cn(

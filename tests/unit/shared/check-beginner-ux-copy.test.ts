@@ -669,6 +669,12 @@ function oldRemoveMessage() {
 function oldDuplicateMessage() {
   return 'Refresh the list, then choose a different name or remove the old service first. An AI service with this name or setup already exists.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check AI service settings.\`
+}
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+}
 `,
     })
 
@@ -701,6 +707,14 @@ function oldDuplicateMessage() {
           type: 'provider-settings-error-copy',
           location: 'src/app/features/settings/providerSettingsErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:21',
+        }),
+        expect.objectContaining({
+          type: 'provider-settings-error-copy',
+          location: 'src/app/features/settings/providerSettingsErrorMessage.ts:24',
+        }),
       ])
     )
   })
@@ -712,7 +726,7 @@ function providerSettingsErrorMessage(action) {
   if (action === 'save') return 'Paste the service access key from the selected AI service, then save again.'
   if (action === 'remove') return 'Open Settings and AI services again, then remove this AI service again.'
   if (action === 'load') return 'Open Settings and AI services again.'
-  return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+  return 'Wait a minute, then open Settings and AI services again. Forge is receiving too many AI service requests right now.'
 }
 `,
     })
@@ -792,6 +806,9 @@ function ModelQuickPicks() {
 function ProviderCard({ testing }) {
   return <span>{testing ? 'Checking' : 'Check'}</span>
 }
+function SetupChoiceCopy() {
+  return 'Service setup. Show setup choices. Suggested service setups. Keep the suggested setup unless your service guide gives you a different setup name.'
+}
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
 function CreateAgentModal() {
@@ -865,6 +882,10 @@ function settingsValidationMessage() {
         }),
         expect.objectContaining({
           type: 'provider-setup-copy',
+          location: 'src/app/features/settings/ProvidersSection.tsx:28',
+        }),
+        expect.objectContaining({
+          type: 'provider-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:3',
         }),
         expect.objectContaining({
@@ -903,19 +924,19 @@ const PROVIDER_SETUP_STEPS = [
   { label: 'Save, then make it ready', value: 'After saving, choose Check connection. You are done when it shows Ready.' },
 ]
 function CatalogPanel() {
-  return 'Forge fills in the setup choices for you. After saving, choose Check connection. You are done when it shows Ready.'
+  return 'Forge fills in the service choices for you. After saving, choose Check connection. You are done when it shows Ready.'
 }
 function ModelField() {
-  return 'Service setup. Keep the suggested setup unless your service guide gives you a different setup name.'
+  return 'Service choice. Keep the suggested service choice unless your service guide gives you a different choice name.'
 }
 function RegionToggle() {
   return 'Service website region'
 }
 function CatalogGrid() {
-  return 'Standard setup · Coding plan · China or global website address'
+  return 'Standard service · Coding plan · China or global website address'
 }
 function ModelQuickPicks() {
-  return 'Suggested setup: gpt-4o-mini'
+  return 'Suggested service choice: gpt-4o-mini'
 }
 `,
       'src/app/features/agents/CreateAgentModal.tsx': `
@@ -940,17 +961,17 @@ function ChatView() {
 `,
       'src/app/features/settings/providerTestErrorMessage.ts': `
 function providerTestErrorMessage() {
-  return 'Check the service access key, saved setup, and service address, then save and choose Check connection again.'
+  return 'Check the service access key, saved service choice, and service address, then save and choose Check connection again.'
 }
 `,
       'src/app/features/settings/providerSettingsErrorMessage.ts': `
 function providerSettingsErrorMessage() {
-  return 'Keep the suggested service setup or choose the setup name from your service guide, then save again.'
+  return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
 }
 `,
       'src/app/shared/model/settings.store.ts': `
 function settingsValidationMessage() {
-  return 'Choose the AI service, keep the suggested setup, add the service access key if needed, then save again.'
+  return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
 }
 `,
     })
@@ -966,6 +987,8 @@ function CreateAgentModal() {
     <section>
       <p>Open AI service settings, add a service, paste the service access key, save it, then choose Check connection. Come back when the service shows Ready.</p>
       <p>Open AI service settings, add a service, save it, then choose Check connection until it says Ready.</p>
+      <option>Anthropic · saved setup</option>
+      <label>Saved AI service setup</label>
     </section>
   )
 }
@@ -984,6 +1007,14 @@ function CreateAgentModal() {
         expect.objectContaining({
           type: 'create-agent-ai-service-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-ai-service-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'create-agent-ai-service-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:8',
         }),
       ])
     )
@@ -1520,6 +1551,12 @@ function oldLoadMessage() {
 function oldRemoveMessage() {
   return 'Refresh Settings, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check code access settings.\`
+}
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+}
 `,
     })
 
@@ -1548,6 +1585,14 @@ function oldRemoveMessage() {
           type: 'code-access-error-copy',
           location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:15',
         }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'code-access-error-copy',
+          location: 'src/app/features/settings/gitCredentialsErrorMessage.ts:21',
+        }),
       ])
     )
   })
@@ -1559,7 +1604,7 @@ function gitCredentialsErrorMessage(action) {
   if (action === 'save') return 'Paste a new code access key from GitHub or GitLab, then save again.'
   if (action === 'remove') return 'Open Settings and Code access again, then remove code access again.'
   if (action === 'load') return 'Open Settings and Code access again.'
-  return 'Wait a minute, then try again. Forge is receiving too many code access requests right now.'
+  return 'Wait a minute, then open Settings and Code access again. Forge is receiving too many code access requests right now.'
 }
 `,
     })
@@ -1584,6 +1629,12 @@ function oldLoadMessage() {
 }
 function oldRemoveMessage() {
   return 'Refresh Settings, then remove this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+}
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check SSH code access settings.\`
+}
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
 }
 `,
     })
@@ -1613,6 +1664,14 @@ function oldRemoveMessage() {
           type: 'ssh-code-access-error-copy',
           location: 'src/app/features/settings/sshKeysErrorMessage.ts:15',
         }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-error-copy',
+          location: 'src/app/features/settings/sshKeysErrorMessage.ts:21',
+        }),
       ])
     )
   })
@@ -1624,7 +1683,7 @@ function sshKeysErrorMessage(action) {
   if (action === 'save') return 'Add a name for this access, then save again.'
   if (action === 'remove') return 'Open Settings and SSH code access again, then remove this SSH code access again.'
   if (action === 'load') return 'Open Settings and SSH code access again.'
-  return 'Wait a minute, then try again. Forge is receiving too many SSH code access requests right now.'
+  return 'Wait a minute, then open Settings and SSH code access again. Forge is receiving too many SSH code access requests right now.'
 }
 `,
     })
@@ -1652,6 +1711,12 @@ function oldRemoveMessage() {
 }
 function oldDuplicateMessage() {
   return 'Refresh the list, then choose a different name or remove the old key first. An outside tool access key with this name already exists.'
+}
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check outside tool access settings.\`
+}
+function genericRateLimitMessage() {
+  return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
 }
 `,
     })
@@ -1685,6 +1750,14 @@ function oldDuplicateMessage() {
           type: 'platform-key-error-copy',
           location: 'src/app/features/settings/platformKeyErrorMessage.ts:18',
         }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:21',
+        }),
+        expect.objectContaining({
+          type: 'platform-key-error-copy',
+          location: 'src/app/features/settings/platformKeyErrorMessage.ts:24',
+        }),
       ])
     )
   })
@@ -1696,7 +1769,7 @@ function platformKeyErrorMessage(action) {
   if (action === 'create') return 'Enter the tool or job name, then try again.'
   if (action === 'remove') return 'Open Settings and Outside tool access keys again, then remove this outside tool access key again.'
   if (action === 'load') return 'Open Settings and Outside tool access keys again.'
-  return 'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+  return 'Wait a minute, then open Settings and Outside tool access keys again. Forge is receiving too many outside tool access requests right now.'
 }
 `,
     })
@@ -2163,6 +2236,18 @@ function plainTeamLoadMessage() {
 function plainProjectLoadMessage() {
   return 'Refresh Settings to load projects.'
 }
+function stitchedFallback(retry) {
+  return \`Try to \${retry}. If it still fails, ask an owner or admin to check Projects in Settings.\`
+}
+function duplicateCreateMessage() {
+  return 'Use a different name, then try again.'
+}
+function teamNameMessage() {
+  return 'Enter a team name, then try again.'
+}
+function teamGenericNameMessage() {
+  return 'Check the team name, then try again.'
+}
 `,
     })
 
@@ -2203,6 +2288,22 @@ function plainProjectLoadMessage() {
           type: 'workspace-settings-error-copy',
           location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:24',
         }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:27',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:30',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:33',
+        }),
+        expect.objectContaining({
+          type: 'workspace-settings-error-copy',
+          location: 'src/app/pages/settings/model/workspaceSettingsErrorMessage.ts:36',
+        }),
       ])
     )
   })
@@ -2216,7 +2317,7 @@ function workspaceSettingsErrorMessage(action) {
   if (action === 'network') return 'Check your connection, then open Settings and Teams and Projects again, then choose Projects.'
   if (action === 'busy') return 'Wait a minute, then open Settings and Teams and Projects again, then choose Teams. Too many setup changes are happening right now.'
   if (action === 'server') return 'Open Settings and Teams and Projects again, then choose Projects. If it still fails, ask an owner or admin to check team and project settings.'
-  return 'Enter a project name, then try again.'
+  return 'Enter a project name, then create this project again.'
 }
 `,
     })
@@ -2847,7 +2948,7 @@ function runtimeLabel(runtime) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function runSourceLabel(run) {
-  return run.provider ? 'an AI service that needs review' : 'a work tool that needs review'
+  return run.provider ? 'an AI service you should check' : 'a work tool you should check'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -2897,12 +2998,12 @@ function fallbackCliToolLabel(tool) {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 export function agentAiServiceLabel(provider) {
-  return provider ? 'Check AI service' : 'Check AI service setup'
+  return provider ? 'Check AI service' : 'Check AI service'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function cliToolLabel(tool) {
-  return tool ? 'Check work tool' : 'Check AI service setup'
+  return tool ? 'Check work tool' : 'Check AI service'
 }
 `,
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
@@ -2912,7 +3013,7 @@ function runtimeLabel(runtime) {
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function runSourceLabel(run) {
-  return run.provider ? 'an AI service you should check' : 'a work tool you should check'
+  return run.provider ? 'an AI service shown in Settings' : 'a work tool shown in Settings'
 }
 `,
       'src/app/features/settings/RuntimeSection.tsx': `
@@ -4027,12 +4128,16 @@ function taskSupportReference() {
 function taskReferenceLabel(id) {
   return \`Task ID \${id}\`
 }
+function oldTaskReferenceLabel(id) {
+  return \`Task reference \${id}\`
+}
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function supportRunReference(id) {
   return 'refresh task details to check'
 }
 function workAttemptReferenceLabel(id) {
+  if (!id) return 'Open this task again from the Tasks page to check the help code.'
   return 'Work attempt code run-1234'
 }
 function taskUpdateGuide() {
@@ -4056,6 +4161,10 @@ function taskUpdateGuide() {
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/TaskDetailPanel.tsx:9',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:3',
         }),
         expect.objectContaining({
@@ -4064,7 +4173,11 @@ function taskUpdateGuide() {
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
-          location: 'src/app/features/detail/HistoryTab.tsx:9',
+          location: 'src/app/features/detail/HistoryTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'task-support-reference-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:10',
         }),
       ])
     )
@@ -4074,15 +4187,15 @@ function taskUpdateGuide() {
     const cwd = fixture({
       'src/app/features/detail/TaskDetailPanel.tsx': `
 function taskSupportReference() {
-  return 'Open this task again from the Tasks page to check the task reference.'
+  return 'Open this task again from the Tasks page to check the task help text.'
 }
 function taskReferenceLabel(id) {
-  return \`Task reference \${id}\`
+  return \`Task help text \${id}\`
 }
 `,
       'src/app/features/detail/HistoryTab.tsx': `
 function workAttemptReferenceLabel(id) {
-  return 'Open this task again from the Tasks page to check the help code.'
+  return 'Open this task again from the Tasks page to check the work help text.'
 }
 `,
     })
@@ -4158,27 +4271,29 @@ function emptyInstructionBadge() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-config-detail-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:3',
-      }),
-      expect.objectContaining({
-        type: 'agent-config-detail-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:7',
-      }),
-      expect.objectContaining({
-        type: 'agent-config-detail-copy',
-        location: 'src/app/features/agents/AgentConfigTab.tsx:11',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-config-detail-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-config-detail-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'agent-config-detail-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:11',
+        }),
+      ])
+    )
   })
 
   it('accepts agent configuration detail copy that names what to check', () => {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Check AI model setup'
+  return 'Check AI model'
 }
 
 function cliToolLabel() {
@@ -4258,7 +4373,7 @@ function agentValidationMessage() {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Model not reported',
+  model: 'Check AI model setup',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -4266,33 +4381,49 @@ const info = {
   model: agent.model ?? agent.cliTool ?? 'unknown',
 }
 `,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function modelLabel() {
+  return 'Check AI model setup'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toEqual([
-      expect.objectContaining({
-        type: 'agent-model-copy',
-        location: 'src/app/entities/agent/model/agents.store.ts:3',
-      }),
-      expect.objectContaining({
-        type: 'agent-model-copy',
-        location: 'src/app/shared/model/agents.store.ts:3',
-      }),
-    ])
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'agent-model-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-model-copy',
+          location: 'src/app/shared/model/agents.store.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-model-copy',
+          location: 'src/app/features/agents/AgentConfigTab.tsx:3',
+        }),
+      ])
+    )
   })
 
-  it('accepts agent model fallback copy that tells users to check model setup', () => {
+  it('accepts agent model fallback copy that tells users to check the AI model', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Check AI model setup',
+  model: 'Check AI model',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 const info = {
-  model: agent.model ?? agent.cliTool ?? 'Check AI model setup',
+  model: agent.model ?? agent.cliTool ?? 'Check AI model',
+}
+`,
+      'src/app/features/agents/AgentConfigTab.tsx': `
+function modelLabel() {
+  return 'Check AI model'
 }
 `,
     })
@@ -4309,12 +4440,12 @@ function agentAiServiceLabel() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function managedToAgentInfo() {
-  return { provider: 'AI service not reported' }
+  return { provider: 'Check AI service setup' }
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function cliToolToProvider() {
-  return 'AI service not reported'
+  return 'Check AI service setup'
 }
 `,
     })
@@ -4341,21 +4472,21 @@ function cliToolToProvider() {
     expect(result.findings).toHaveLength(3)
   })
 
-  it('accepts agent AI service fallback copy that tells users to check service setup', () => {
+  it('accepts agent AI service fallback copy that tells users what to check', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/display-labels.ts': `
 function agentAiServiceLabel() {
-  return 'Check AI service setup'
+  return 'Check AI service'
 }
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 function managedToAgentInfo() {
-  return { provider: 'Check AI service setup' }
+  return { provider: 'Check AI service' }
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 function cliToolToProvider() {
-  return 'Check AI service setup'
+  return 'Check AI service'
 }
 `,
     })
@@ -4398,6 +4529,9 @@ function WorkStylePicker() {
 function TemplateHint() {
   return <span>Fills in the agent name</span>
 }
+function NameField() {
+  return <input placeholder="e.g. Frontend Agent" />
+}
 const AGENT_ROLE_TEMPLATES = [{
   label: 'Review work',
   name: 'Review Helper'
@@ -4416,6 +4550,10 @@ function applyRoleTemplate() {
         expect.objectContaining({
           type: 'agent-template-role-copy',
           sample: expect.stringContaining('Fills in the agent name'),
+        }),
+        expect.objectContaining({
+          type: 'agent-template-role-copy',
+          sample: expect.stringContaining('Frontend Agent'),
         }),
         expect.objectContaining({
           type: 'agent-template-role-copy',
@@ -4584,7 +4722,7 @@ function validationMessage() {
   return 'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
 }
 function FieldLabel() {
-  return <label>Saved AI service setup</label>
+  return <label>Saved AI service choice</label>
 }
 function HelpText() {
   return <p>This comes from the checked AI service in Settings. You do not need to change it here.</p>
@@ -6278,7 +6416,7 @@ function completionSummary() {
   return 'Open the task details to confirm what changed before using the result.'
 }
 function safeCompletionMessage() {
-  return 'Finished with a summary you should check. Open the task details before using the result.'
+  return 'Finished with a summary to check. Open the task details before using the result.'
 }
 function stdoutSummary() {
   return 'Finished with a text result. Open the task details to check it before using it.'
@@ -6830,7 +6968,7 @@ function runtimeChecklistCopy() {
 }
 
 function credentialStatusCopy() {
-  return 'Choose Check again to refresh work tool sign-ins. If they still cannot be checked, ask an owner or admin to check work tool sign-ins.'
+  return 'Choose Check again to check Codex sign-in. If it still cannot be checked, ask an owner or admin to check Codex sign-in in Settings.'
 }
 
 function heartbeatStatusCopy() {
@@ -6864,6 +7002,10 @@ function runtimeConflictMessage() {
 function runtimeRateLimitMessage() {
   return 'Wait a minute, then refresh Settings. Too many setup requests are happening right now.'
 }
+
+function runtimeGenericRateLimitMessage() {
+  return 'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
+}
 `,
     })
 
@@ -6887,6 +7029,10 @@ function runtimeRateLimitMessage() {
         expect.objectContaining({
           type: 'runtime-error-copy',
           location: 'src/app/features/settings/runtimeErrorMessages.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'runtime-error-copy',
+          location: 'src/app/features/settings/runtimeErrorMessages.ts:19',
         }),
       ])
     )
@@ -6986,6 +7132,7 @@ export function RuntimeSection() {
     <>
       <h3>Start Codex sign-in here</h3>
       <p>Start here when Codex or another work tool asks for login.</p>
+      <p>If it still does not appear, ask an owner or admin to check work tool sign-ins.</p>
       <h3>Sign in to Codex CLI and work tools</h3>
       <RuntimeChecklistRow title="Codex and CLI sign-ins" />
     </>
@@ -7206,7 +7353,7 @@ export function agentControlErrorMessage() {
 `,
       'src/app/entities/agent/model/agents.store.ts': `
 export function agentServerMessage() {
-  return 'Wait a moment, then try again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+  return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -7366,6 +7513,14 @@ function checklistCopy() {
   return 'No work tool setup status yet. Check again after the tools finish setting up.'
 }
 
+function checklistBadge() {
+  return 'Needs setup'
+}
+
+function toolBadge() {
+  return 'Setup needed'
+}
+
 function heartbeatCopy() {
   return 'No agent has been seen online yet. Start or wake an agent, then check again.'
 }
@@ -7400,6 +7555,14 @@ function runtimeReadinessSummary() {
         expect.objectContaining({
           type: 'runtime-setup-status-copy',
           location: 'src/app/features/settings/RuntimeSection.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:19',
+        }),
+        expect.objectContaining({
+          type: 'runtime-setup-status-copy',
+          location: 'src/app/features/settings/RuntimeSection.tsx:23',
         }),
       ])
     )
@@ -8198,6 +8361,7 @@ export function DecisionCopy({ approving }) {
       <p>Next: switch back to Pending when you only want items waiting for a decision.</p>
       <Field label="Team code" />
       <p>My team or This project shares it more broadly and needs the team or project code from Settings.</p>
+      <Field label="team sharing code" />
       <option>Team internal</option>
     </section>
   )
@@ -8250,6 +8414,10 @@ export function DecisionCopy({ approving }) {
           type: 'approval-queue-check-copy',
           sample: expect.stringContaining('team or project code from Settings'),
         }),
+        expect.objectContaining({
+          type: 'approval-queue-check-copy',
+          sample: expect.stringContaining('team sharing code'),
+        }),
       ])
     )
   })
@@ -8275,8 +8443,8 @@ export function DecisionCopy({ approving }) {
       <button><span>Do not save</span></button>
       <Field label="Why not save it?" />
       <p>Next: switch back to Needs your check when you only want items waiting for a decision.</p>
-      <Field label="team sharing code" />
-      <p>My team or This project shares it more broadly. Copy the team or project sharing code from Settings under Teams or Projects.</p>
+      <Field label="team sharing text" />
+      <p>My team or This project shares it more broadly. Copy the team or project sharing text from Settings under Teams or Projects.</p>
       <option>Team only</option>
     </section>
   )
@@ -8374,7 +8542,27 @@ const own = 'The review system needs someone else to review changes you opened y
     const cwd = fixture({
       'src/app/features/detail/ReviewSnapshotPanel.tsx': `
 function ReviewSnapshotPanel() {
-  return <><span>Fix check status</span><span>Waiting for someone to check</span><a>Fix check page #42</a><button aria-label="Check fix status again">Check again</button></>
+  return <><span>Fix check status</span><span>Waiting for someone to check</span><a>Fix check page #42</a><button aria-label="Check fix status again">Check fix status</button></>
+}
+`,
+      'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
+const ACTION_FALLBACKS = {
+  load: 'Choose Check fix status again. Forge could not load the current fix check status.',
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags fix check status errors that do not name the check button', () => {
+    const cwd = fixture({
+      'src/app/features/detail/ReviewSnapshotPanel.tsx': `
+function ReviewSnapshotPanel() {
+  return <>
+    <button aria-label="Check fix status again">Check again</button>
+    <p>Choose Check again after automated checks finish.</p>
+  </>
 }
 `,
       'src/app/features/detail/model/reviewSnapshotErrorMessage.ts': `
@@ -8384,7 +8572,25 @@ const ACTION_FALLBACKS = {
 `,
     })
 
-    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/ReviewSnapshotPanel.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/ReviewSnapshotPanel.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'review-status-copy',
+          location: 'src/app/features/detail/model/reviewSnapshotErrorMessage.ts:3',
+        }),
+      ])
+    )
   })
 
   it('flags saved-item history empty copy that does not explain how history starts', () => {
@@ -9307,6 +9513,10 @@ function agentUnknownMessage(actionPhrase) {
 function agentCreatedStartFailureMessage() {
   return 'Agent was created, but it could not start yet. It will stay in the list. Ask an owner or admin to check Where agents run.'
 }
+
+function agentFileWorkMessage() {
+  return 'Wait a moment, then try again. Forge could not prepare file work for agents right now.'
+}
 `,
     })
 
@@ -9351,6 +9561,10 @@ function agentCreatedStartFailureMessage() {
           type: 'agent-store-error-copy',
           location: 'src/app/entities/agent/model/agents.store.ts:35',
         }),
+        expect.objectContaining({
+          type: 'agent-store-error-copy',
+          location: 'src/app/entities/agent/model/agents.store.ts:39',
+        }),
       ])
     )
   })
@@ -9379,7 +9593,7 @@ function agentChangedMessage() {
 }
 
 function agentServerMessage() {
-  return 'Wait a moment, then choose New agent again. Forge could not prepare the setup text for this computer right now.'
+  return 'Wait a moment, then open Agents and choose New agent again. Forge could not prepare the setup text for this computer right now.'
 }
 
 function agentRuntimeMessage() {
@@ -9392,6 +9606,10 @@ function agentUnknownMessage(actionPhrase) {
 
 function agentCreatedStartFailureMessage() {
   return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but it could not start yet.'
+}
+
+function agentFileWorkMessage() {
+  return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now.'
 }
 `,
     })
@@ -9582,6 +9800,9 @@ export function readableRunStatus() {
 export function emptyRunStatus() {
   return 'Refresh task status'
 }
+export function runTitle() {
+  return 'Agent try: Waiting to start'
+}
 `,
       'src/app/features/detail/ContextTab.tsx': `
 export function runStatusLabel() {
@@ -9605,6 +9826,10 @@ export function emptyRunStatus() {
         expect.objectContaining({
           type: 'task-detail-run-status-copy',
           location: 'src/app/features/detail/HistoryTab.tsx:6',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-run-status-copy',
+          location: 'src/app/features/detail/HistoryTab.tsx:9',
         }),
         expect.objectContaining({
           type: 'task-detail-run-status-copy',
@@ -10094,6 +10319,64 @@ function toolEmptyNextStep() {
         }),
       ])
     )
+  })
+
+  it('flags chat attention filters that expose internal status jargon', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterActionLabel() {
+  return 'Show stuck, failed, waiting, or help-needed updates'
+}
+
+function attentionEmptyTitle() {
+  return 'Use All if you expected a blocker'
+}
+
+function attentionEmptyDetail() {
+  return 'No message is stuck, failed, waiting, or asking for your help in this view.'
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'chat-attention-filter-copy',
+          location: 'src/app/features/chat/ChatView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'chat-attention-filter-copy',
+          location: 'src/app/features/chat/ChatView.tsx:7',
+        }),
+        expect.objectContaining({
+          type: 'chat-attention-filter-copy',
+          location: 'src/app/features/chat/ChatView.tsx:11',
+        }),
+      ])
+    )
+  })
+
+  it('accepts chat attention filters that explain the next step', () => {
+    const cwd = fixture({
+      'src/app/features/chat/ChatView.tsx': `
+function conversationFilterActionLabel() {
+  return 'Show updates that need your next step'
+}
+
+function attentionEmptyTitle() {
+  return 'Use All if you expected a next step'
+}
+
+function attentionEmptyDetail() {
+  return 'No message needs your next step in this view.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
   it('flags help entry points that use review for ordinary checks', () => {
@@ -10704,6 +10987,9 @@ function DetailRow() {
 export function safeCompletionMessage() {
   return 'Finished with a summary that needs review. Open the task details before using the result.'
 }
+export function oldCompletionMessage() {
+  return 'Finished with a summary you should check. Open the task details before using the result.'
+}
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
 export function approvalQueueEmptyState() {
@@ -10730,12 +11016,16 @@ export function approvalQueueEmptyState() {
     const result = checkBeginnerUxCopy({ cwd })
 
     expect(result.ok).toBe(false)
-    expect(result.findings).toHaveLength(5)
+    expect(result.findings).toHaveLength(6)
     expect(result.findings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: 'vague-needs-review-copy',
           location: 'src/app/hooks/useWsDispatch.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'vague-needs-review-copy',
+          location: 'src/app/hooks/useWsDispatch.ts:6',
         }),
         expect.objectContaining({
           type: 'vague-needs-review-copy',
@@ -10761,7 +11051,7 @@ export function approvalQueueEmptyState() {
     const cwd = fixture({
       'src/app/hooks/useWsDispatch.ts': `
 export function safeCompletionMessage() {
-  return 'Finished with a summary you should check. Open the task details before using the result.'
+  return 'Finished with a summary to check. Open the task details before using the result.'
 }
 `,
       'src/app/features/context/ApprovalQueueView.tsx': `
@@ -10803,7 +11093,7 @@ export function RuntimeSection() {
 `,
       'src/app/features/settings/ProvidersSection.tsx': `
 export function ProvidersSection() {
-  return <h3>AI service setup needs attention</h3>
+  return <h3>AI service needs attention</h3>
 }
 `,
       'src/app/features/admin/CliImagesPanel.tsx': `
@@ -10945,7 +11235,7 @@ export function RuntimeSection() {
 `,
       'src/app/features/settings/ProvidersSection.tsx': `
 export function ProvidersSection() {
-  return <h3>Finish AI service setup</h3>
+  return <h3>Finish adding AI service</h3>
 }
 `,
       'src/app/features/admin/CliImagesPanel.tsx': `
@@ -11521,6 +11811,22 @@ const PAGE_META = {
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'manage team spaces, users, and system health' }
 `,
+      'src/app/features/admin/AdminLayout.tsx': `
+const SECTIONS = [
+  { id: 'health', label: 'App health', group: 'App setup' },
+  { id: 'control-plane', label: 'Control Plane', group: 'App setup' },
+]
+`,
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function ControlPlanePanel() {
+  return <h2>Control Plane health</h2>
+}
+`,
+      'src/app/features/admin/controlPlaneErrorMessage.ts': `
+export function controlPlaneErrorMessage() {
+  return 'Open Admin and choose Control Plane, then choose Check again.'
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -11536,6 +11842,14 @@ const item = { description: 'manage team spaces, users, and system health' }
           type: 'admin-nav-copy',
           sample: expect.stringContaining('users, and system health'),
         }),
+        expect.objectContaining({
+          type: 'admin-nav-copy',
+          sample: expect.stringContaining('App setup'),
+        }),
+        expect.objectContaining({
+          type: 'admin-nav-copy',
+          sample: expect.stringContaining('Control Plane'),
+        }),
       ])
     )
   })
@@ -11549,6 +11863,54 @@ const PAGE_META = {
 `,
       'src/app/layouts/sidebar/SidebarNav.tsx': `
 const item = { description: 'manage team spaces, people, and app health' }
+`,
+      'src/app/features/admin/AdminLayout.tsx': `
+const SECTIONS = [
+  { id: 'health', label: 'App health', group: 'App checks' },
+  { id: 'control-plane', label: 'Agent coordination', group: 'App checks' },
+]
+`,
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function ControlPlanePanel() {
+  return <h2>Agent coordination check</h2>
+}
+`,
+      'src/app/features/admin/controlPlaneErrorMessage.ts': `
+export function controlPlaneErrorMessage() {
+  return 'Open Admin and choose Agent coordination, then choose Check again.'
+}
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags Admin coordination status copy that only says needs attention', () => {
+    const cwd = fixture({
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function SignalRow() {
+  return <span aria-label="Agents not checking in: 1, needs attention">1</span>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'admin-coordination-status-copy',
+        location: 'src/app/features/admin/ControlPlanePanel.tsx:3',
+      }),
+    ])
+  })
+
+  it('accepts Admin coordination status copy that names the next check', () => {
+    const cwd = fixture({
+      'src/app/features/admin/ControlPlanePanel.tsx': `
+export function SignalRow() {
+  return <span aria-label="Agents not checking in: 1, check this value">1</span>
+}
 `,
     })
 
@@ -12736,7 +13098,7 @@ function validation() {
 function savedMessage() {
   return 'SSH code access saved. Create a small task with a git@ code link to confirm agents can open it. If it cannot read the repository, come back here and replace this key.'
 }
-const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }]
+const tableHeaders = [{ label: 'Safety check' }, { label: 'Key type' }, { label: 'Saved key check code' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
@@ -12811,6 +13173,10 @@ export function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'ssh-code-access-jargon-copy',
+          sample: expect.stringContaining('Saved key check code'),
+        }),
+        expect.objectContaining({
+          type: 'ssh-code-access-jargon-copy',
           sample: expect.stringContaining('read the repository'),
         }),
         expect.objectContaining({
@@ -12855,7 +13221,7 @@ function validation() {
 function savedMessage() {
   return 'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
 }
-const tableHeaders = [{ label: 'Saved key check code' }, { label: 'Accepted by Forge' }]
+const tableHeaders = [{ label: 'Saved key check text' }, { label: 'Accepted by Forge' }]
 `,
       'src/app/features/settings/sshKeysErrorMessage.ts': `
 export function sshKeysErrorMessage() {
@@ -14474,10 +14840,11 @@ function fallback() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags quick task examples that say review setup', () => {
+  it('flags quick task examples that say check or review setup', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
 const QUICK_TASK_EXAMPLES = [
+  'Check setup and list the next safe step',
   'Review setup and list the next safe step',
 ]
 `,
@@ -14491,14 +14858,18 @@ const QUICK_TASK_EXAMPLES = [
         type: 'quick-create-example-copy',
         location: 'src/app/features/board/QuickCreate.tsx:3',
       }),
+      expect.objectContaining({
+        type: 'quick-create-example-copy',
+        location: 'src/app/features/board/QuickCreate.tsx:4',
+      }),
     ])
   })
 
-  it('accepts quick task examples that say check setup', () => {
+  it('accepts quick task examples that say what to check', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
 const QUICK_TASK_EXAMPLES = [
-  'Check setup and list the next safe step',
+  'Check what is ready and list the next safe step',
 ]
 `,
     })
@@ -14699,6 +15070,9 @@ export function missingGroupMessage() {
 export function agentGroupErrorMessage() {
   return 'Refresh this page, then choose the project again. The waiting place was not created.'
 }
+export function retryMessage() {
+  return 'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now.'
+}
 `,
       'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts': `
 export function createAgentWorkLaneErrorMessage() {
@@ -14719,6 +15093,10 @@ export function createAgentWorkLaneErrorMessage() {
         expect.objectContaining({
           type: 'agent-task-queue-error-copy',
           location: 'src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts:3',
+        }),
+        expect.objectContaining({
+          type: 'agent-task-queue-error-copy',
+          location: 'src/app/features/agents/model/agentGroupErrorMessage.ts:6',
         }),
       ])
     )
@@ -15145,9 +15523,21 @@ export function SkillsView() {
   return <>
     <SkillStat label="Installed" />
     <SkillStat label="Available" />
+    <SkillStat label="Needs setup" />
     <span>Choose Save instruction or refresh this page.</span>
   </>
 }
+`,
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Needs setup before use'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { skills: { detail: { statusNeedsInstall: 'Needs setup before use' } } }
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = { skills: { detail: { statusNeedsInstall: '需要先完成设置' } } }
 `,
       'src/app/features/skills/CreateSkillModal.tsx': `
 const SKILL_REVIEW_POINTS = [
@@ -15189,6 +15579,22 @@ export function CreateSkillModal() {
           location: 'src/app/features/skills/SkillsView.tsx:10',
         }),
         expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:11',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillCard.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/shared/i18n/locales/en.ts:2',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/shared/i18n/locales/zh.ts:2',
+        }),
+        expect.objectContaining({
           type: 'saved-instruction-create-field-copy',
           location: 'src/app/features/skills/CreateSkillModal.tsx:3',
         }),
@@ -15213,15 +15619,26 @@ export function CreateSkillModal() {
       'src/app/features/skills/SkillsView.tsx': `
 const SKILL_FILTER_LABELS = {
   installed: 'Ready to use',
-  available: 'Needs install',
+  available: 'Check before use',
 }
 export function SkillsView() {
   return <>
     <SkillStat label="Ready to use" />
-    <SkillStat label="Needs install" />
+    <SkillStat label="Check before use" />
     <span>Save instruction</span>
   </>
 }
+`,
+      'src/app/features/skills/SkillCard.tsx': `
+export function SkillCard() {
+  return 'Check before use'
+}
+`,
+      'src/app/shared/i18n/locales/en.ts': `
+export const en = { skills: { detail: { statusNeedsInstall: 'Check before use' } } }
+`,
+      'src/app/shared/i18n/locales/zh.ts': `
+export const zh = { skills: { detail: { statusNeedsInstall: '使用前检查' } } }
 `,
       'src/app/features/skills/CreateSkillModal.tsx': `
 const SKILL_REVIEW_POINTS = [
@@ -15633,7 +16050,7 @@ function AuditRow({ entry }) {
     const cwd = fixture({
       'src/app/features/governance/AuditLogView.tsx': `
 function auditActorLabel(actorUserId) {
-  return actorUserId ? \`Person reference \${shortId(actorUserId)}\` : 'System'
+  return actorUserId ? \`Team member \${shortId(actorUserId)}\` : 'System'
 }
 `,
     })
@@ -15657,6 +16074,7 @@ function AuditRow({ entry }) {
 }
 
 function auditActorLabel(actorUserId) {
+  if (actorUserId) return \`Person reference \${shortId(actorUserId)}\`
   return actorUserId ? \`Person code \${shortId(actorUserId)}\` : 'System'
 }
 `,
@@ -15696,6 +16114,10 @@ function auditActorLabel(actorUserId) {
         expect.objectContaining({
           type: 'governance-audit-reference-copy',
           sample: '<input placeholder="Paste the exact person code only when needed" />',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-reference-copy',
+          sample: 'if (actorUserId) return `Person reference ${shortId(actorUserId)}`',
         }),
         expect.objectContaining({
           type: 'governance-audit-reference-copy',
@@ -15790,6 +16212,9 @@ function navigationActionErrorMessage(actionPhrase) {
 function staleNavigationRetryMessage(actionPhrase) {
   return \`Ask an owner or admin to update your team space access, then refresh the left menu to \${actionPhrase}. You do not have permission to \${actionPhrase}.\`
 }
+function busyNavigationRetryMessage(actionPhrase) {
+  return \`The left menu is busy. Wait a moment, then try to \${actionPhrase} again.\`
+}
 `,
     })
 
@@ -15805,6 +16230,10 @@ function staleNavigationRetryMessage(actionPhrase) {
         expect.objectContaining({
           type: 'navigation-error-copy',
           location: 'src/app/entities/navigation/model/navigation.store.ts:6',
+        }),
+        expect.objectContaining({
+          type: 'navigation-error-copy',
+          location: 'src/app/entities/navigation/model/navigation.store.ts:9',
         }),
       ])
     )
@@ -15934,6 +16363,15 @@ const ACTION_FALLBACKS = {
   publishTask: 'The task was not sent with selected notes. Review the saved notes, then try again.',
   retryTask: 'The task was not retried. Refresh the task, then try Retry task again.',
 }
+function authMessage() {
+  return 'Sign in again, then retry this task action.'
+}
+function networkRecoveryMessage() {
+  return 'If it still does not update, check your connection, open this task again from the Tasks page, then choose the action again.'
+}
+function busyTaskActionMessage() {
+  return 'Wait a moment before choosing the action again.'
+}
 `,
     })
 
@@ -15961,6 +16399,18 @@ const ACTION_FALLBACKS = {
         expect.objectContaining({
           type: 'task-detail-action-copy',
           location: 'src/app/features/detail/taskDetailErrorMessages.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:10',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:13',
+        }),
+        expect.objectContaining({
+          type: 'task-detail-action-copy',
+          location: 'src/app/features/detail/taskDetailErrorMessages.ts:16',
         }),
       ])
     )
@@ -17438,7 +17888,8 @@ function authRecoveryErrorMessage() {
 }
 `,
       'src/app/shared/auth/AuthManager.ts': `
-const AUTH_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
+const AUTH_LOGIN_NETWORK_ERROR = 'Check your connection, then try signing in again. Forge could not connect.'
+const AUTH_REGISTER_NETWORK_ERROR = 'Check your connection, then create the account again. Forge could not connect.'
 `,
       'src/app/shared/api/legacy/AgentAPI.ts': `
 const LEGACY_API_NETWORK_ERROR = 'Check your connection, then try again. Forge could not connect.'
@@ -17694,6 +18145,12 @@ function changed(base) {
 function unreadable(base) {
   return \`\${base} Refresh the chat, then try again. Forge could not read this conversation.\`
 }
+function busy(base) {
+  return \`\${base} Another chat action is still saving. Wait a moment, then try again.\`
+}
+function rateLimit(base) {
+  return \`\${base} Too many chat requests are happening right now. Wait a minute, then try again.\`
+}
 `,
     })
 
@@ -17721,6 +18178,14 @@ function unreadable(base) {
         expect.objectContaining({
           type: 'chat-error-copy',
           location: 'src/app/shared/model/chat.errors.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'chat-error-copy',
+          location: 'src/app/shared/model/chat.errors.ts:21',
         }),
       ])
     )
@@ -17765,6 +18230,10 @@ function settingsPermissionMessage(actionPhrase) {
 function oldSettingsRefreshMessage(actionPhrase) {
   return \`Refresh Settings, then try to \${actionPhrase} again.\`
 }
+
+function oldSettingsBusyMessage(actionPhrase) {
+  return \`The Settings page is busy. Wait a moment, then try to \${actionPhrase} again.\`
+}
 `,
     })
 
@@ -17788,6 +18257,10 @@ function oldSettingsRefreshMessage(actionPhrase) {
         expect.objectContaining({
           type: 'settings-store-error-copy',
           location: 'src/app/shared/model/settings.store.ts:15',
+        }),
+        expect.objectContaining({
+          type: 'settings-store-error-copy',
+          location: 'src/app/shared/model/settings.store.ts:19',
         }),
       ])
     )
@@ -17833,6 +18306,9 @@ function staleSettingsRecoveryMessage() {
 }
 function staleSettingsPermissionMessage() {
   return 'Ask an owner or admin to update your team space access, then save the team again in Settings. You do not have permission to save this team.'
+}
+function busySettingsMessage() {
+  return 'Settings is busy. Wait a moment, then delete the team again.'
 }
 `,
       'src/app/layouts/sidebar/ProjectTree.tsx': `
@@ -17897,6 +18373,10 @@ function staleLeftMenuConflictMessage() {
         expect.objectContaining({
           type: 'workspace-resource-copy',
           location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:18',
+        }),
+        expect.objectContaining({
+          type: 'workspace-resource-copy',
+          location: 'src/app/shared/lib/workspaceResourceErrorMessage.ts:21',
         }),
         expect.objectContaining({
           type: 'workspace-resource-copy',
@@ -18077,6 +18557,7 @@ const SSO_FALLBACK = 'Auth code exchange failed'
 const RESEND_FALLBACK = 'Failed to resend'
 const FORGOT_FALLBACK = 'Failed to send reset email'
 const RESET_FALLBACK = 'Failed to reset password'
+const NETWORK_FALLBACK = 'Check your connection, then try again. Forge could not connect.'
 `,
     })
 
@@ -18108,6 +18589,10 @@ const RESET_FALLBACK = 'Failed to reset password'
         expect.objectContaining({
           type: 'auth-manager-copy',
           location: 'src/app/shared/auth/AuthManager.ts:7',
+        }),
+        expect.objectContaining({
+          type: 'auth-manager-copy',
+          location: 'src/app/shared/auth/AuthManager.ts:8',
         }),
       ])
     )
@@ -18256,7 +18741,7 @@ function ProjectSetupPath() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p><p>Use a code link that starts with https://. Links that start with git@ go in SSH code access.</p><p>Use an https:// code link without account details, or leave the code link blank.</p></>
+  return <><legend>Choose code setup</legend><label>Git repository URL</label><input placeholder="https://github.com/org/repo.git" /><p>Clone an existing repo into this project.</p><p>Use a code link that starts with https://. Links that start with git@ go in SSH code access.</p><p>Use an https:// code link without account details, or leave the code link blank.</p></>
 }
 `,
     })
@@ -18266,6 +18751,10 @@ function CreateProjectForm() {
     expect(result.ok).toBe(false)
     expect(result.findings).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'project-create-code-link-copy',
+          sample: expect.stringContaining('Choose code setup'),
+        }),
         expect.objectContaining({
           type: 'project-create-code-link-copy',
           sample: expect.stringContaining('Git repository URL'),
@@ -18294,7 +18783,7 @@ function CreateProjectForm() {
     const cwd = fixture({
       'src/app/features/manage-project/ui/CreateProjectForm.tsx': `
 function CreateProjectForm() {
-  return <><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>On GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
+  return <><legend>Choose how to add code</legend><label>Code link</label><input placeholder="https://github.com/team/project.git" /><p>Forge copies that code into this project.</p><p>On GitHub or GitLab, choose Code, choose HTTPS, then copy that link. If you only see an SSH link, leave this blank and set up SSH code access in Settings first.</p><p>Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.</p></>
 }
 `,
     })
@@ -18485,6 +18974,7 @@ function ProjectTree({ projectMenu }) {
   return <p>{projectMenu.team.name} team · link name {projectMenu.project.slug}</p>
   return <p>{projectMenu.team.name} team · name used in links {projectMenu.project.slug}</p>
   return <button>Copy project code</button>
+  return <button>Copy project ID for help</button>
   return <p>Use this only when another page or support asks for this project code</p>
   return <p>Project code copied</p>
   return <p>Select the project code below</p>

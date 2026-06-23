@@ -201,16 +201,14 @@ export function AnalyticsDashboard() {
           className="min-h-5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
           aria-live="polite"
         >
-          {loading
-            ? `Refreshing ${selectedDateRangeLabel}...`
-            : `Showing ${selectedDateRangeLabel}`}
+          {loading ? `Checking ${selectedDateRangeLabel}...` : `Showing ${selectedDateRangeLabel}`}
         </p>
 
         {/* Date range selector */}
         <div className="flex items-center gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
           {DATE_RANGE_OPTIONS.map((opt) => {
             const selected = dateRange === opt.value
-            const stateLabel = selected ? (loading ? ', refreshing now' : ', selected') : ''
+            const stateLabel = selected ? (loading ? ', checking now' : ', selected') : ''
 
             return (
               <button
@@ -464,7 +462,7 @@ function AnalyticsErrorPanel({
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-ui-body font-semibold">Load analytics again</p>
+          <p className="text-ui-body font-semibold">Check analytics again</p>
           <p className="mt-1 text-ui-body">{message}</p>
         </div>
         <button
@@ -473,7 +471,7 @@ function AnalyticsErrorPanel({
           disabled={loading}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? 'Loading analytics...' : 'Load analytics again'}
+          {loading ? 'Checking analytics...' : 'Check analytics again'}
         </button>
       </div>
     </div>

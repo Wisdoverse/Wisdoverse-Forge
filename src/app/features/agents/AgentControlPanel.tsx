@@ -177,7 +177,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
-            <span>Follow the step below, then try again.</span>
+            <span>Read the next line, then run the agent action again.</span>
             <span>{agentControlErrorMessage(controlError)}</span>
           </div>
         </div>
@@ -627,13 +627,13 @@ function agentControlErrorMessage(error: string): string {
     normalized.includes('forbidden') ||
     /\b403\b/.test(error)
   ) {
-    return 'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+    return 'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
   }
   if (normalized.includes('unauthorized') || /\b401\b/.test(error)) {
     return 'Sign in again, reopen this agent, then try the action once more.'
   }
   if (normalized.includes('conflict') || /\b409\b/.test(error)) {
-    return 'Open Agents, choose this agent again, confirm the latest status, then try again. This agent changed while you were working.'
+    return 'Open Agents, choose this agent again, check whether it is Ready, Working, or Offline, then run the agent action again. This agent changed while you were working.'
   }
   if (normalized.includes('rate limit') || /\b429\b/.test(error)) {
     return 'Wait a moment, then open Agents and choose this agent again. The agent controls are busy.'
@@ -646,7 +646,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return "Open Agents, choose this agent again, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
+    return "Open Agents, choose this agent again, then run the agent action again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
   }
 
   return "Open Agents, choose this agent again, and confirm the latest status before trying once more. If you started or restarted file work, wait for Ready or Working. If it keeps failing, ask an owner or admin to check your agent access and this agent's connection in Agents."

@@ -81,13 +81,18 @@ describe('AgentControlPanel', () => {
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Open Agents, choose this agent again/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/Follow the step below/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Open Agents, choose this agent again, then run the agent action again/i
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Read the next line, then run the agent action again.'
+    )
     expect(screen.getByRole('alert')).toHaveTextContent(/Forge could not finish the change/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check this agent's connection and access in Agents/i
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/Use the recovery step below/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/then try again/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Follow the step below/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/check this agent setup/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Start request failed/i)
@@ -113,11 +118,25 @@ describe('AgentControlPanel', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to let you manage this agent, then try again. You do not have permission to change this agent.'
+      'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/then try again/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/update what you can do/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 403/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
+  })
+
+  test('turns changed-agent failures into a concrete status check', () => {
+    useAgentsStore.setState({ error: 'HTTP 409: Conflict' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Open Agents, choose this agent again, check whether it is Ready, Working, or Offline, then run the agent action again. This agent changed while you were working.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/then try again/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 409/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Conflict/i)
   })
 
   test('turns connection failures into a clear agent-selection step', () => {
@@ -207,8 +226,8 @@ describe('AgentControlPanel', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
-    expect(alert).toHaveTextContent(/Follow the step below/i)
-    expect(alert).not.toHaveTextContent(/Use the recovery step below/i)
+    expect(alert).toHaveTextContent('Read the next line, then run the agent action again.')
+    expect(alert).not.toHaveTextContent(/Follow the step below/i)
     expect(alert).toHaveTextContent(
       /Open Agents, choose this agent again, confirm it still shows Ready/i
     )

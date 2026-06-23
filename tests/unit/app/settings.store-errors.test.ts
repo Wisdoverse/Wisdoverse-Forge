@@ -97,14 +97,14 @@ describe('settingsActionErrorMessage', () => {
   test('turns expired auth into a sign-in step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'load', statusError(401, 'HTTP 401')),
-      'Sign in again, then open Settings and try to load AI service settings again.'
+      'Sign in again, then open Settings and AI services again.'
     )
   })
 
   test('turns permission failures into an admin role step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden')),
-      'Ask an owner or admin to give you access to outside tool access keys, then try to create the outside tool access key again. You do not have permission to create the outside tool access key.'
+      'Ask an owner or admin to give you access to outside tool access keys, then create the outside tool access key again. You do not have permission to create the outside tool access key.'
     )
   })
 
@@ -116,7 +116,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to give you access to outside tool access keys, then try to create the outside tool access key again. You do not have permission to create the outside tool access key.'
+      'Ask an owner or admin to give you access to outside tool access keys, then create the outside tool access key again. You do not have permission to create the outside tool access key.'
     )
     expect(message).not.toContain('policy denied')
   })
@@ -153,7 +153,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns field validation details into a provider setup step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(422, 'model is required')),
-      'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+      'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
     )
   })
 
@@ -222,7 +222,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then try to save the AI service again. Forge could not connect while updating Settings.'
+      'Check your connection, then save the AI service again. Forge could not connect while updating Settings.'
     )
     expect(message).not.toContain('Network error')
   })
@@ -235,7 +235,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'The Settings page is busy. Wait a moment, then try to update Where agents work again.'
+      'Wait a moment, then update Where agents work again. The Settings page is busy.'
     )
     expect(message).not.toContain('runtime writes')
   })
@@ -243,7 +243,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns settings conflicts into a current-value check step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('providers', 'save', statusError(409, 'conflict')),
-      'This AI service changed or already exists. Open Settings and AI services again, check the current value, then try to save the AI service again.'
+      'This AI service changed or already exists. Open Settings and AI services again, check the current value, then save the AI service again.'
     )
   })
 
@@ -292,7 +292,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to let you manage code access, then try to save the code access again. You do not have permission to save the code access.'
+      'Ask an owner or admin to let you manage code access, then save the code access again. You do not have permission to save the code access.'
     )
     expect(message).not.toContain('Git credential')
     expect(message).not.toContain('Git credentials')

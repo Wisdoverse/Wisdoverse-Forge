@@ -11,7 +11,11 @@ describe('taskDetailErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('loadContext', new Error('401 Unauthorized')),
-      'Sign in again, then retry this task action.'
+      'Sign in again, then open this task again from the Tasks page to load saved notes and work history.'
+    )
+    expectBeginnerMessage(
+      taskDetailErrorMessage('retryTask', new Error('401 Unauthorized')),
+      'Sign in again, then open this task again from the Tasks page, then choose Retry task again. The task was not retried.'
     )
   })
 
@@ -28,7 +32,7 @@ describe('taskDetailErrorMessage', () => {
         statusCode: '403',
         serverError: 'owner role required',
       }),
-      'Ask an owner or admin to let you update this task, then open it again from the Tasks page and try again. You do not have permission to change this task.'
+      'Ask an owner or admin to let you update this task, then open this task again from the Tasks page, then choose Cancel again. The task was not canceled. You do not have permission to change this task.'
     )
   })
 
@@ -50,8 +54,9 @@ describe('taskDetailErrorMessage', () => {
     const message = taskDetailErrorMessage('cancelTask', new TypeError('Network error'))
 
     expect(message).toContain('Open this task again from the Tasks page, then choose Cancel again.')
-    expect(message).toContain('open this task again from the Tasks page')
-    expect(message).toContain('choose the action again')
+    expect(message).toContain('check your connection before choosing Cancel again')
+    expect(message).not.toContain('choose the action again')
+    expect(message).not.toContain('choosing the action again')
     expect(message).not.toContain('try again. Task actions are busy')
     expect(message).not.toContain('check your connection and try again')
   })
@@ -135,11 +140,11 @@ describe('taskDetailErrorMessage', () => {
   test('turns agent and saved-note validation details into task-detail recovery steps', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('agent required')),
-      'Choose an available agent, then open this task again from the Tasks page and choose the action again.'
+      'Choose an available agent, then send the task again.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('context selection changed')),
-      'Check the selected saved notes, then open this task again from the Tasks page and choose the action again.'
+      'Check the selected saved notes, then send the task again.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('publish failed')),
@@ -161,11 +166,11 @@ describe('taskDetailErrorMessage', () => {
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 409')),
-      'Open this task again from the Tasks page, then try again. This task changed while you were working.'
+      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried. This task changed while you were working.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 429')),
-      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried. Wait a moment before choosing the action again. Task actions are busy right now.'
+      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried. Wait a moment before choosing Retry task again. Task actions are busy right now.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('loadRuns', new Error('HTTP 429')),

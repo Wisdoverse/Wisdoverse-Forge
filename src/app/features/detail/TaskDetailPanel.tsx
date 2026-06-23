@@ -521,8 +521,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
 function taskReferenceLabel(id: string): string {
   const trimmed = id.trim()
-  if (!trimmed) return 'Open this task again from the Tasks page to check the task reference.'
-  return `Task reference ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
+  if (!trimmed) return 'Open this task again from the Tasks page to check the task help text.'
+  return `Task help text ${trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed}`
 }
 
 function resultFileKindLabel(mimeType: string): string {
@@ -543,7 +543,7 @@ function taskRecoveryGuidance(
     return {
       title: 'Try the task again when the request is still useful',
       detail:
-        'Use Retry task after checking the brief. The task returns to where tasks wait so an agent can make another attempt.',
+        'Use Retry task after checking the brief. The task returns to where tasks wait so an agent can try it again.',
     }
   }
   if (canApprove) {

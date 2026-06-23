@@ -42,7 +42,11 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
 
   if (status === 401) {
     const recovery = ACTION_RECOVERY[action]
-    return `Sign in again, then open ${recovery.location} and try again. Your sign-in expired.`
+    const retryStep =
+      action === 'startCliSignIn'
+        ? `${recovery.openStep} again, then reconnect the account`
+        : `${recovery.openStep} again`
+    return `Sign in again, then ${retryStep}. Your sign-in expired.`
   }
 
   if (status === 403) {
@@ -57,7 +61,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
 
   if (status === 409) {
     const recovery = ACTION_RECOVERY[action]
-    return `${sentenceCase(recovery.openStep)} again, check the current status, then try again. The choices in ${recovery.location} changed while you were working.`
+    return `${ACTION_FALLBACKS[action]} The choices in ${recovery.location} changed while you were working.`
   }
 
   if (status === 422) {
@@ -65,12 +69,21 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
   }
 
   if (status === 429) {
-    return 'Wait a moment, then try again. Forge is receiving too many setup requests right now.'
+    const recovery = ACTION_RECOVERY[action]
+    const retryStep =
+      action === 'startCliSignIn'
+        ? `${recovery.openStep} again, then reconnect the account`
+        : `${recovery.openStep} again`
+    return `Wait a minute, then ${retryStep}. Forge is receiving too many setup requests right now.`
   }
 
   if (status && status >= 500) {
     const recovery = ACTION_RECOVERY[action]
-    return `${sentenceCase(recovery.openStep)} again, then try again. Forge could not check ${recovery.target} right now. If it still fails, ask an owner or admin to check ${recovery.location} in Settings.`
+    const retryStep =
+      action === 'startCliSignIn'
+        ? `${recovery.openStep} again, then reconnect the account`
+        : `${recovery.openStep} again`
+    return `${sentenceCase(retryStep)}. Forge could not check ${recovery.target} right now. If it still fails, ask an owner or admin to check ${recovery.location} in Settings.`
   }
 
   return runtimeValidationMessage(action, detail)
@@ -115,7 +128,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   if (status === 409) {
     return isSaveAction
       ? 'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
-      : 'Open Settings and Where agents work again, check the current choices, then try again. The choices in Where agents work changed while you were working.'
+      : 'Open Settings and Where agents work again, check the current choices, then open Settings and Where agents work again. The choices in Where agents work changed while you were working.'
   }
 
   if (status === 422) {

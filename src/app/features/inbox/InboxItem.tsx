@@ -183,6 +183,9 @@ function displayNotificationMessage(notification: Notification): string {
   if (notification.type === 'failed') {
     return failedNotificationMessage(notification.message)
   }
+  if (isRawTaskFailureDetail(notification.message)) {
+    return 'Open the task, read the recovery note, then choose the next step.'
+  }
   return notification.message
 }
 

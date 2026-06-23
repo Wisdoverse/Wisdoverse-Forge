@@ -31,8 +31,11 @@ describe('QuickCreate', () => {
     expect(screen.getByText(/then choose an agent/i)).toBeDefined()
     expect(screen.queryByRole('button', { name: /\+ add task/i })).toBeNull()
     expect(screen.queryByText(/quick add/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /check setup and list the next safe step/i }))
-      .toBeDefined()
+    expect(
+      screen.getByRole('button', { name: /check what is ready and list the next safe step/i })
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /check setup and list the next safe step/i }))
+      .toBeNull()
     expect(
       screen.queryByRole('button', { name: /review setup and list the next safe step/i })
     ).toBeNull()

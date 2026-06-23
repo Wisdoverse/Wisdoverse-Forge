@@ -273,6 +273,21 @@ function toolOutcome(call: ToolCall): {
   }
 }
 
+export function toolCallSearchText(call: ToolCall): string {
+  return [
+    toolDisplayName(call.tool),
+    toolOutcome(call).label,
+    toolOutcome(call).helper,
+    toolDataSummary(call.input, 'request'),
+    formatExtraDetails(call.input),
+    call.output ? toolDataSummary(call.output, 'result') : null,
+    call.output ? formatExtraDetails(call.output) : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
 export function ToolCallDetail({ call }: { call: ToolCall }) {
   const [expanded, setExpanded] = useState(false)
   const [showRequestDetails, setShowRequestDetails] = useState(false)

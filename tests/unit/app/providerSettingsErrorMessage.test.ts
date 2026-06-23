@@ -21,7 +21,7 @@ describe('providerSettingsErrorMessage', () => {
   test('turns missing model errors into a model step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage('HTTP 422: model is required'),
-      'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+      'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
     )
   })
 
@@ -110,7 +110,7 @@ describe('providerSettingsErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+      'Wait a minute, then open Settings and AI services again. Forge is receiving too many AI service requests right now.'
     )
   })
 
@@ -121,6 +121,17 @@ describe('providerSettingsErrorMessage', () => {
       message,
       'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
     )
+    expect(message).not.toContain('parser')
+  })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = providerSettingsErrorMessage({ message: 'saving provider hit parser edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+    )
+    expect(message).not.toContain('Try to')
     expect(message).not.toContain('parser')
   })
 })

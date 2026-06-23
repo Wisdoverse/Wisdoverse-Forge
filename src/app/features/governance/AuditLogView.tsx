@@ -117,9 +117,9 @@ const COMMON_EVENT_TYPES = [
 const INPUT_CLASS =
   'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
 const HIDDEN_AUDIT_DETAIL_VALUE =
-  'Hidden for safety. Keep secrets hidden, choose Refresh change history, then export again.'
+  'Hidden for safety. Keep secrets hidden, choose Check change history again, then export again.'
 const MISSING_AUDIT_ACCESS_MESSAGE =
-  'Reconnect the needed account access, then choose Refresh change history again. This saved change needs access before it can be shown.'
+  'Reconnect the needed account access, then choose Check change history again. This saved change needs access before it can be shown.'
 const REPEATED_AUDIT_DETAIL_VALUE = 'Repeated detail omitted.'
 
 export function AuditLogView() {
@@ -321,9 +321,9 @@ export function AuditLogView() {
               data-testid="governance-audit-refresh"
               onClick={() => void loadAudit(filters)}
               disabled={loading}
-              aria-label="Refresh change history"
+              aria-label="Check change history again"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
-              title="Refresh change history"
+              title="Check change history again"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
             </button>
@@ -348,7 +348,7 @@ export function AuditLogView() {
               name="scopeId"
               autoComplete="off"
               onChange={(event) => updateFilter('scopeId', event.target.value)}
-              placeholder="Paste an exact team space, work area, team, or project ID only when an owner or admin gives you one"
+              placeholder="Paste the exact team space, work area, team, or project from Forge only when an owner or admin gives you one"
               className={INPUT_CLASS}
             />
           </Field>
@@ -358,7 +358,7 @@ export function AuditLogView() {
               name="userId"
               autoComplete="off"
               onChange={(event) => updateFilter('userId', event.target.value)}
-              placeholder="Paste an exact person ID only when an owner or admin gives you one"
+              placeholder="Paste the exact person from Forge only when an owner or admin gives you one"
               className={INPUT_CLASS}
             />
           </Field>
@@ -447,7 +447,7 @@ export function AuditLogView() {
                         framed={false}
                         title="Checking change history"
                         detail="Forge is checking saved note and saved instruction changes for this team space."
-                        nextStep="If this takes more than a moment, choose Refresh change history or ask an owner or admin to check change history access."
+                        nextStep="If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access."
                         success="Success looks like history rows or a Show all change history step."
                       />
                     </td>
@@ -553,14 +553,12 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
             testId="governance-audit-item-reference"
             icon="visible"
             label="Visible saved item"
-            value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
             label="Protected saved item"
-            value={entry.auditSubjectHash}
           />
         )}
         {entry.detailsRedacted && (
@@ -605,12 +603,10 @@ function SubjectLine({
   testId,
   icon,
   label,
-  value,
 }: {
   testId: string
   icon: 'visible' | 'hash'
   label: string
-  value: string
 }) {
   const Icon = icon === 'visible' ? ShieldCheck : Fingerprint
   return (
@@ -618,12 +614,6 @@ function SubjectLine({
       <Icon size={14} className="shrink-0 text-apple-blue" aria-hidden="true" />
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
         {label}
-      </span>
-      <span
-        className="truncate font-mono text-ui-caption"
-        aria-label={`${label}: ${shortId(value)}`}
-      >
-        {shortId(value)}
       </span>
     </div>
   )
@@ -831,7 +821,7 @@ function auditAreaLabel(kind: GovernanceAuditScopeKind | null | undefined): stri
 }
 
 function auditActorLabel(actorUserId: string | null | undefined): string {
-  return actorUserId ? `Person reference ${shortId(actorUserId)}` : 'System'
+  return actorUserId ? `Team member ${shortId(actorUserId)}` : 'System'
 }
 
 function readableCodeLabel(value: string, options: { fallback: string }): string {

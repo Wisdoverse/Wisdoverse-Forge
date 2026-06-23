@@ -23,7 +23,7 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       ),
-      'Enter the tool or job name, then try again.'
+      'Enter the tool or job name, then create this outside tool access key again.'
     )
   })
 
@@ -85,7 +85,7 @@ describe('platformKeyErrorMessage', () => {
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then try again. Forge is receiving too many outside tool access requests right now.'
+      'Wait a minute, then open Settings and Outside tool access keys again. Forge is receiving too many outside tool access requests right now.'
     )
   })
 
@@ -96,6 +96,17 @@ describe('platformKeyErrorMessage', () => {
       message,
       'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
     )
+    expect(message).not.toContain('parser')
+  })
+
+  test('uses a direct create step for unknown create failures', () => {
+    const message = platformKeyErrorMessage({ message: 'creating platform key hit parser edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Create this outside tool access key again. If it still fails, ask an owner or admin to check outside tool access settings.'
+    )
+    expect(message).not.toContain('Try to')
     expect(message).not.toContain('parser')
   })
 })

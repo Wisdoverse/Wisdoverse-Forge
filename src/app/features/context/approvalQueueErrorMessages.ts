@@ -4,14 +4,14 @@ const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
     'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
   loadQueue:
-    'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
+    'Choose Check saved items again so you see the latest saved items. Saved items could not load.',
   rejectCandidate:
-    'Choose Load saved items again, then choose Do not save again. The item stayed on the list.',
+    'Choose Check saved items again, then choose Do not save again. The item stayed on the list.',
 }
 
 const ACTION_RETRY_STEPS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate: 'choose Save item again',
-  loadQueue: 'choose Load saved items again',
+  loadQueue: 'choose Check saved items again',
   rejectCandidate: 'choose Do not save again',
 }
 
@@ -33,11 +33,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 404) {
-    return 'Choose Load saved items again so you see the latest saved items. This item was not found.'
+    return 'Choose Check saved items again so you see the latest saved items. This item was not found.'
   }
 
   if (status === 409) {
-    return 'Choose Load saved items again, then open this item. It changed while you were checking it.'
+    return 'Choose Check saved items again, then open this item. It changed while you were checking it.'
   }
 
   if (status === 422) {
@@ -57,7 +57,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Check your connection, then choose Load saved items again. Forge could not connect while loading saved notes and instructions.'
+    return 'Check your connection, then choose Check saved items again. Forge could not connect while loading saved notes and instructions.'
   }
   return `Check your connection, then ${ACTION_RETRY_STEPS[action]}. Forge could not connect while saving your choice.`
 }
@@ -129,7 +129,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'Choose Load saved items again, then check who can reuse the selected items. Saved items could not load.'
+      ? 'Choose Check saved items again, then check who can reuse the selected items. Saved items could not load.'
       : `Choose who can reuse it and check the original task details, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('sensitivity')) {

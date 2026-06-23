@@ -407,6 +407,15 @@ describe('AgentListView', () => {
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
 
+    fireEvent.change(screen.getByTestId('agent-search'), {
+      target: { value: 'text-review-model' },
+    })
+    expect(screen.getByTestId('agent-filter-empty')).toBeDefined()
+    expect(screen.queryByText('Review Analyst')).toBeNull()
+
+    fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'review analyst' } })
+    expect(screen.getByText('Review Analyst')).toBeDefined()
+
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: '' } })
     const workLocationFilters = screen.getByRole('group', { name: /work location filter/i })
     expect(within(workLocationFilters).queryByRole('button', { name: /text only\s*1/i })).toBeNull()
@@ -525,7 +534,7 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     expect(screen.getByText('Where Tasks Wait')).toBeDefined()
-    expect(screen.getByText(/shared waiting places tell agents where to pick up/i)).toBeDefined()
+    expect(screen.getByText(/shared waiting places tell agents where to start new work/i)).toBeDefined()
     expect(screen.queryByText(/agents check for tasks/i)).toBeNull()
     expect(screen.queryByText(/task queues/i)).toBeNull()
     fireEvent.change(screen.getByLabelText(/waiting place name/i), {
@@ -538,7 +547,7 @@ describe('AgentListView', () => {
         'p1',
         expect.objectContaining({
           name: 'Frontend Delivery',
-          description: 'Project tasks wait here until an available agent picks them up.',
+          description: 'Project tasks wait here until an available agent starts them.',
         })
       )
     )

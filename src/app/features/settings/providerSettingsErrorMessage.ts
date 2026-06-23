@@ -88,7 +88,7 @@ function validationGuidance(lower: string): string {
     return 'Paste the service access key from the selected AI service, then save again.'
   }
   if (lower.includes('model')) {
-    return 'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+    return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
   }
   if (lower.includes('base url') || lower.includes('base_url')) {
     return 'Add the service address for this AI service, then save again.'
@@ -96,7 +96,7 @@ function validationGuidance(lower: string): string {
   if (lower.includes('provider')) {
     return 'Choose an AI service from the list, then save again.'
   }
-  return 'Choose the AI service, keep the suggested setup, add the service access key if needed, then save again.'
+  return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
 }
 
 export function providerSettingsErrorMessage(error: unknown): string {
@@ -125,7 +125,7 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return validationGuidance(lower)
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return 'Wait a minute, then try again. Forge is receiving too many AI service requests right now.'
+    return `Wait a minute, then ${retry}. Forge is receiving too many AI service requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
@@ -147,5 +147,5 @@ export function providerSettingsErrorMessage(error: unknown): string {
     return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
   }
 
-  return `Try to ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check AI service settings.`
 }

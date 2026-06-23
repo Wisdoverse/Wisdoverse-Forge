@@ -251,7 +251,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
   })
 
-  test('explains custom file folders before showing the folder path', () => {
+  test('explains managed file folders without showing the internal folder path', () => {
     render(
       <AgentDetailView
         agent={{ ...containerAgent, cwd: '/workspace/projects/platform' }}
@@ -259,8 +259,8 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getByText('Agent work folder: /workspace/projects/platform')).toBeDefined()
-    expect(screen.queryByText('/workspace/projects/platform')).toBeNull()
+    expect(screen.getByText('Shared project files')).toBeDefined()
+    expect(document.body.textContent).not.toContain('/workspace/projects/platform')
   })
 
   test('guides active work into the Tasks tab', async () => {
@@ -328,6 +328,20 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('Send a task to create the first update.')).toBeNull()
   })
 
+  test('does not suggest new work when a ready agent history cannot load', async () => {
+    getTasksByAgentMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
+
+    expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
+    expect(
+      screen.getByText(
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work."
+      )
+    ).toBeDefined()
+    expect(screen.queryByText('Send a small first task')).toBeNull()
+  })
+
   test('guides pending managed workspace agents to the live work tab', () => {
     render(
       <AgentDetailView
@@ -363,6 +377,7 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/terminal access/i)).toBeNull()
     expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
+    expect(screen.queryByText('Loading live work...')).toBeNull()
     expect(screen.getByRole('button', { name: /start file work/i })).toBeDefined()
   })
 

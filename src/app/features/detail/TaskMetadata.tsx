@@ -31,6 +31,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
   const guidance = taskMetadataGuidance(task, hasAssignee)
   const stateKey = taskMachineKey(task.state)
   const priorityKey = taskMachineKey(task.priority)
+  const attemptLabel = taskAttemptLabel(task.attempt)
 
   return (
     <div className="flex flex-col gap-3 py-3">
@@ -52,15 +53,17 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         >
           {taskPriorityLabel(task.priority)}
         </span>
-        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-gray-5 text-apple-gray-2 tabular-nums">
-          Attempt {task.attempt}
-        </span>
+        {attemptLabel && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-gray-5 text-apple-gray-2 tabular-nums">
+            {attemptLabel}
+          </span>
+        )}
       </div>
 
-      {/* Lease countdown — only while the task is actively held by a worker */}
+      {/* Agent check-in countdown while work is active. */}
       {task.state === 'working' && task.leaseExpiresAt != null && (
         <p className="text-[10px] text-secondary-light dark:text-secondary-dark">
-          Lease expires {formatRelativeTime(task.leaseExpiresAt)}
+          Agent check-in due {formatRelativeTime(task.leaseExpiresAt)}
         </p>
       )}
 
@@ -113,6 +116,12 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       </div>
     </div>
   )
+}
+
+function taskAttemptLabel(attempt: number): string | null {
+  if (!Number.isInteger(attempt) || attempt < 1) return null
+  if (attempt === 1) return 'First work try'
+  return `Work try ${attempt}`
 }
 
 function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {

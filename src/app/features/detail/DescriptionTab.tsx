@@ -355,13 +355,13 @@ function assignedAgentDetail(task: TaskSummary): string {
 function assignedAgentLoadingDetail(task: TaskSummary): string {
   switch (task.state) {
     case 'working':
-      return 'An agent is working on this task, but its name has not loaded yet. Refresh this task so you can confirm the right agent.'
+      return 'An agent is working on this task, but its name has not loaded yet. Open this task again so you can confirm the right agent.'
     case 'completed':
-      return 'An agent finished this task, but its name has not loaded yet. Refresh this task so you can confirm who handled it.'
+      return 'An agent finished this task, but its name has not loaded yet. Open this task again so you can confirm who handled it.'
     case 'failed':
-      return 'An agent tried this task, but its name has not loaded yet. Refresh this task so you can confirm who to retry with.'
+      return 'An agent tried this task, but its name has not loaded yet. Open this task again so you can confirm who to retry with.'
     default:
-      return 'An agent was chosen, but its name has not loaded yet. Refresh this task so you can confirm the right agent before sending it.'
+      return 'An agent was chosen, but its name has not loaded yet. Open this task again so you can confirm the right agent before sending it.'
   }
 }
 

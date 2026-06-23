@@ -32,7 +32,7 @@ function SignalRow({ label, value, warnNonZero = false, unit = '' }: SignalRowPr
           isWarning ? 'text-apple-red' : 'text-foreground-light dark:text-foreground-dark'
         )}
         aria-label={
-          isWarning ? `${label}: ${valueText}, needs attention` : `${label}: ${valueText}`
+          isWarning ? `${label}: ${valueText}, check this value` : `${label}: ${valueText}`
         }
       >
         {valueText}
@@ -55,23 +55,23 @@ interface SignalDef {
 const SIGNAL_DEFS: readonly SignalDef[] = [
   {
     key: 'assignmentOutboxBacklog',
-    label: 'Unpublished assignment events',
+    label: 'Assignment updates waiting to send',
     warnNonZero: true,
   },
   {
     key: 'assignmentOutboxOldestAgeSeconds',
-    label: 'Oldest unpublished event (s)',
+    label: 'Oldest waiting assignment update (s)',
     warnNonZero: true,
     unit: 's',
   },
   {
     key: 'staleParticipants',
-    label: 'Stale participants',
+    label: 'Agents not checking in',
     warnNonZero: true,
   },
   {
     key: 'expiredWorkingLeases',
-    label: 'Expired working leases',
+    label: 'Work check-ins overdue',
     warnNonZero: true,
   },
   {
@@ -106,11 +106,11 @@ export function ControlPlanePanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Control-plane health</h2>
+          <h2 className={uiStyles.sectionTitle}>Agent coordination check</h2>
           <p className={uiStyles.sectionDescription}>
-            Org-scoped orchestration signals: checks when opened, then refreshes every 30 seconds
-            while Admin is open. Any non-zero value below may indicate a wedged loop; investigate if
-            a value stays non-zero across refreshes.
+            Checks whether agents are receiving work, checking in, and finishing handoffs. This
+            checks when opened, then every 30 seconds while Admin is open. Any non-zero value below
+            may need an owner to check stuck work.
           </p>
         </div>
         <button
@@ -119,7 +119,7 @@ export function ControlPlanePanel() {
           disabled={controlPlaneLoading}
           className={uiStyles.secondaryButton}
         >
-          {controlPlaneLoading ? 'Refreshing' : 'Refresh'}
+          {controlPlaneLoading ? 'Checking' : 'Check again'}
         </button>
       </div>
 
@@ -134,7 +134,7 @@ export function ControlPlanePanel() {
       {controlPlaneLoading && !controlPlane && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Loading control-plane snapshot
+            Checking agent coordination
           </p>
         </div>
       )}
@@ -155,13 +155,13 @@ export function ControlPlanePanel() {
           </div>
 
           <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Stale threshold: no heartbeat in {controlPlane.staleAfterSeconds}s counts as a stale
-            participant.
+            Check-in rule: no agent update for {controlPlane.staleAfterSeconds}s counts as not
+            checking in.
           </p>
 
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Queue depth (job_queue) is platform-global and not shown here; see{' '}
-            <span className="font-mono">/metrics</span> for the Prometheus gauges.
+            Background task backlog is not shown in this team view. Owners can open{' '}
+            <span className="font-mono">/metrics</span> when they need platform-wide numbers.
           </p>
         </>
       )}

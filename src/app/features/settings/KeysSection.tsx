@@ -155,7 +155,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-ui-caption font-semibold">
-            Outside tool access key created - save this value now
+            Access key created. Save this value now.
           </p>
           <p className="mb-2 text-ui-caption text-apple-blue/80">
             This full access value is shown only once. Save it in a password manager before choosing
@@ -373,7 +373,7 @@ export function KeysSection() {
         <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
           {keysLoading && apiKeys.length === 0 ? (
             <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading access keys…
+              Checking outside tool access…
             </div>
           ) : apiKeys.length === 0 ? (
             <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />

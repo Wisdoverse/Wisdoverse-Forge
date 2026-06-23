@@ -30,7 +30,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+    return 'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
   }
   if (
     code.includes('RATE') ||
@@ -39,7 +39,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('rate limit') ||
     lowerDetail.includes('429')
   ) {
-    return 'Wait a few minutes, then try signing in again. Too many sign-in attempts.'
+    return 'Wait a few minutes, then choose Sign in again. Too many sign-in attempts.'
   }
   if (
     code.includes('INVALID') ||
@@ -51,7 +51,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('not found') ||
     lowerDetail.includes('unauthorized')
   ) {
-    return 'Check your email and password, then try signing in again.'
+    return 'Check your email and password, then choose Sign in again.'
   }
   if (
     lowerDetail.includes('disabled') ||
@@ -62,7 +62,7 @@ function authLoginErrorMessage(result: AuthFailure): string {
     return 'Ask an owner or admin to check your access. This account is not allowed to sign in here.'
   }
 
-  return 'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+  return 'Wait a minute, then choose Sign in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 
 function authRegisterErrorMessage(result: AuthFailure): string {
@@ -108,7 +108,7 @@ function authRegisterErrorMessage(result: AuthFailure): string {
     lowerDetail.includes('invalid email') ||
     lowerDetail.includes('email address')
   ) {
-    return 'Enter a valid email address, then try creating the account again.'
+    return 'Enter a valid email address, then choose Create account and continue again.'
   }
 
   return 'Check the fields, then create the account again. If it still fails, ask an owner or admin to check account creation settings.'
@@ -125,10 +125,10 @@ function authSignInErrorMessage(error: unknown): string {
     lowerDetail.includes('load failed')
 
   if (networkFailed) {
-    return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
+    return 'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
   }
   if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
-    return 'Choose a sign-in option, then try again. Sign-in was cancelled.'
+    return 'Choose Password sign-in or a listed sign-in button, then start sign-in again. Sign-in was cancelled.'
   }
   if (
     lowerDetail.includes('invalid_grant') ||
@@ -155,7 +155,7 @@ function authSignInErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to check the sign-in option for this page. This sign-in option is not ready.'
   }
 
-  return 'Choose a sign-in option and try again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+  return 'Choose Password sign-in or a listed sign-in button, then start sign-in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 
 function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {
@@ -181,7 +181,7 @@ function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): s
     if (lowerDetail.includes('expired') || lowerDetail.includes('invalid')) {
       return 'Request a new reset email, then open the newest link. This reset link may have expired.'
     }
-    return 'Check the password rules, then try again. Password could not be updated.'
+    return 'Review the password checklist, enter a password that passes every item, then choose Save new password again. Password could not be updated.'
   }
 
   if (action === 'forgot-password') {
@@ -575,7 +575,7 @@ export class AuthPage {
     const rememberMe =
       this.container?.querySelector<HTMLInputElement>('#login-remember')?.checked ?? false
     if (!email || !password) {
-      this.setError('Enter your email address and password to sign in.')
+      this.setError('Enter your email address and password, then choose Sign in.')
       return
     }
     this.setLoading('login-submit', true)
@@ -600,11 +600,14 @@ export class AuthPage {
     const username = this.getInput('register-username') || undefined
     if (!email || !password || !confirm) {
       this.setError(
-        'Enter an email address and type the new password twice to create your account.'
+        'Enter an email address and type the new password twice, then choose Create account and continue.'
       )
       return
     }
-    const passwordRuleError = passwordRuleMessage(password)
+    const passwordRuleError = passwordRuleMessage(
+      password,
+      'choose Create account and continue again'
+    )
     if (passwordRuleError) {
       this.setError(passwordRuleError)
       this.container?.querySelector<HTMLInputElement>('#register-password')?.focus()
@@ -612,7 +615,7 @@ export class AuthPage {
     }
     if (password !== confirm) {
       this.setError(
-        'The two passwords do not match. Re-enter both password fields, then try again.'
+        'The two passwords do not match. Re-enter both password fields, then choose Create account and continue again.'
       )
       this.container?.querySelector<HTMLInputElement>('#register-confirm')?.focus()
       return
@@ -1040,12 +1043,12 @@ export class AuthPage {
 
       if (password !== confirm) {
         errorDiv.textContent =
-          'The two passwords do not match. Re-enter both fields, then try again.'
+          'The two passwords do not match. Re-enter both fields, then choose Save new password again.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
       }
-      const passwordRuleError = passwordRuleMessage(password)
+      const passwordRuleError = passwordRuleMessage(password, 'choose Save new password again')
       if (passwordRuleError) {
         errorDiv.textContent = passwordRuleError
         errorDiv.style.display = ''

@@ -105,6 +105,39 @@ describe('AuthPage beginner guidance', () => {
     )
   })
 
+  test('names the Sign in button when required sign-in fields are missing', async () => {
+    const login = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ login }))
+
+    await page.show()
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'Enter your email address and password, then choose Sign in.'
+    )
+    expect(bodyText()).not.toContain('Enter your email address and password to sign in.')
+    expect(login).not.toHaveBeenCalled()
+  })
+
+  test('names the Create account button when required account fields are missing', async () => {
+    const register = vi.fn().mockResolvedValue({ ok: true })
+    const page = new AuthPage(createAuthManager({ register }))
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(bodyText()).toContain(
+      'Enter an email address and type the new password twice, then choose Create account and continue.'
+    )
+    expect(bodyText()).not.toContain('type the new password twice to create your account')
+    expect(register).not.toHaveBeenCalled()
+  })
+
   test('turns sign-in URL errors into beginner recovery guidance', async () => {
     window.history.replaceState(
       {},
@@ -123,6 +156,34 @@ describe('AuthPage beginner guidance', () => {
     expect(window.location.search).toBe('')
   })
 
+  test('turns cancelled sign-in into a concrete sign-in choice', async () => {
+    window.history.replaceState({}, '', '/login?auth_error=access_denied%3A%20cancelled')
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'Choose Password sign-in or a listed sign-in button, then start sign-in again. Sign-in was cancelled.'
+    )
+    expect(bodyText()).not.toContain('access_denied')
+    expect(bodyText()).not.toContain('then try again')
+    expect(window.location.search).toBe('')
+  })
+
+  test('turns unknown sign-in URL errors into a concrete sign-in choice', async () => {
+    window.history.replaceState({}, '', '/login?auth_error=unexpected_oops')
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'Choose Password sign-in or a listed sign-in button, then start sign-in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+    )
+    expect(bodyText()).not.toContain('unexpected_oops')
+    expect(bodyText()).not.toContain('Choose a sign-in option and try again')
+    expect(window.location.search).toBe('')
+  })
+
   test('shows a recovery step when provider sign-in callback fails', async () => {
     window.history.replaceState({}, '', '/login?auth_code=callback-code')
     const exchangeAuthCode = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
@@ -132,8 +193,9 @@ describe('AuthPage beginner guidance', () => {
 
     expect(exchangeAuthCode).toHaveBeenCalledWith('callback-code')
     expect(bodyText()).toContain(
-      'Check your connection, then try signing in again. Forge could not reach sign-in.'
+      'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
     )
+    expect(bodyText()).not.toContain('try signing in')
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
     expect(window.location.search).toBe('')
@@ -175,11 +237,38 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Try signing in again in a minute. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+      'Wait a minute, then choose Sign in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
     )
+    expect(bodyText()).not.toContain('Try signing in again')
     expect(bodyText()).not.toContain('sign-in setup')
     expect(bodyText()).not.toContain('database unavailable')
     expect(bodyText()).not.toContain('HTTP 500')
+  })
+
+  test('names the Sign in button for invalid email sign-in credentials', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        login: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'INVALID_CREDENTIALS',
+          error: 'invalid credentials',
+        }),
+      })
+    )
+
+    await page.show()
+    const emailInput = document.querySelector<HTMLInputElement>('#login-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#login-password')
+    if (emailInput) emailInput.value = 'operator@example.com'
+    if (passwordInput) passwordInput.value = 'WrongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain('Check your email and password, then choose Sign in again.')
+    expect(bodyText()).not.toContain('try signing in')
+    expect(bodyText()).not.toContain('invalid credentials')
   })
 
   test('explains email sign-in connection failures without raw network text', async () => {
@@ -203,8 +292,9 @@ describe('AuthPage beginner guidance', () => {
     await flushAsyncWork()
 
     expect(bodyText()).toContain(
-      'Check your connection, then try signing in again. Forge could not reach sign-in.'
+      'Check your connection, then choose Sign in again. Forge could not reach sign-in.'
     )
+    expect(bodyText()).not.toContain('try signing in')
     expect(bodyText()).not.toContain('Network error')
   })
 
@@ -265,8 +355,9 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'The two passwords do not match. Re-enter both password fields, then try again.'
+      'The two passwords do not match. Re-enter both password fields, then choose Create account and continue again.'
     )
+    expect(bodyText()).not.toContain('Re-enter both password fields, then try again.')
     expect(document.querySelector<HTMLInputElement>('#register-confirm')).toBe(
       document.activeElement
     )
@@ -289,7 +380,9 @@ describe('AuthPage beginner guidance', () => {
       .querySelector<HTMLFormElement>('#register-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
-    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(bodyText()).toContain(
+      'Add at least one uppercase letter to the password, then choose Create account and continue again.'
+    )
     expect(document.querySelector<HTMLInputElement>('#register-password')).toBe(
       document.activeElement
     )
@@ -327,6 +420,37 @@ describe('AuthPage beginner guidance', () => {
     expect(bodyText()).not.toContain('users_email_key')
   })
 
+  test('turns invalid account email failures into the create button action', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        register: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'INVALID_EMAIL',
+          error: 'invalid email address',
+        }),
+      })
+    )
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
+    if (emailInput) emailInput.value = 'new'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Enter a valid email address, then choose Create account and continue again.'
+    )
+    expect(bodyText()).not.toContain('try creating')
+    expect(bodyText()).not.toContain('invalid email address')
+  })
+
   test('shows reset-token users what password change will affect', async () => {
     const page = new AuthPage(createAuthManager(), 'login', 'reset-token')
 
@@ -350,8 +474,9 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'The two passwords do not match. Re-enter both fields, then try again.'
+      'The two passwords do not match. Re-enter both fields, then choose Save new password again.'
     )
+    expect(bodyText()).not.toContain('Re-enter both fields, then try again.')
   })
 
   test('guides reset-token users when the new password is too short', async () => {
@@ -367,7 +492,7 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'Use at least 12 characters for the new password. Add a few more characters, then try again.'
+      'Use at least 12 characters for the new password. Add a few more characters, then choose Save new password again.'
     )
   })
 
@@ -384,7 +509,9 @@ describe('AuthPage beginner guidance', () => {
       .querySelector<HTMLFormElement>('#reset-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
-    expect(bodyText()).toContain('Add at least one uppercase letter to the password, then try again.')
+    expect(bodyText()).toContain(
+      'Add at least one uppercase letter to the password, then choose Save new password again.'
+    )
     expect(resetPassword).not.toHaveBeenCalled()
   })
 
@@ -483,6 +610,32 @@ describe('AuthPage beginner guidance', () => {
     )
     expect(bodyText()).not.toContain('Failed to fetch')
     expect(bodyText()).not.toContain('could not reach the service')
+  })
+
+  test('explains password update failures with the save button action', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        resetPassword: vi.fn().mockRejectedValue(new Error('password policy rejected')),
+      }),
+      'login',
+      'reset-token'
+    )
+
+    await page.show()
+    const passwordInput = document.querySelector<HTMLInputElement>('#reset-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#reset-confirm')
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    document
+      .querySelector<HTMLFormElement>('#reset-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain(
+      'Review the password checklist, enter a password that passes every item, then choose Save new password again. Password could not be updated.'
+    )
+    expect(bodyText()).not.toContain('password policy rejected')
+    expect(bodyText()).not.toContain('Check the password rules, then try again')
   })
 
   test('shows a visible recovery step when verification resend fails', async () => {

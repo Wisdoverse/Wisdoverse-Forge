@@ -14,7 +14,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then change your password again. The password change did not finish.'
+      'Check your connection, then choose Update password again. The password change did not finish.'
     )
     expect(message).toContain('Check your connection')
     expect(message).not.toContain('Failed to fetch')
@@ -27,7 +27,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then rename the team space again. The team space rename did not finish.'
+      'Check your connection, then choose Save team space name again. The team space rename did not finish.'
     )
     expect(message).not.toContain('opening team space settings')
     expect(message).not.toContain('Network error')
@@ -55,7 +55,7 @@ describe('accountErrorMessage', () => {
     const message = accountErrorMessage('changePassword', error)
 
     expect(message).toBe(
-      'Re-enter the current password, then try again. The current password did not match this account.'
+      'Re-enter the current password, then choose Update password again. The current password did not match this account.'
     )
     expect(message).not.toContain('Code: 422.')
     expect(message).not.toContain('Details:')
@@ -79,7 +79,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Account settings again, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+      'Open Account settings again, then choose Save team space name again. If it still fails, ask an owner or admin to check account settings.'
     )
     expect(message).not.toContain('Team space name could not be saved')
     expect(message).not.toContain('Organization')
@@ -99,30 +99,40 @@ describe('accountErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Choose a different display name, then try again. That team space name is already in use.'
+      'Choose a different display name, then choose Save team space name again. That team space name is already in use.'
     )
     expect(message).not.toContain('organization')
     expect(message).not.toContain('Details:')
   })
 
+  test('turns team space length validation into a rename step', () => {
+    expectBeginnerMessage(
+      accountErrorMessage('renameOrganization', {
+        statusCode: 422,
+        serverError: 'name must be between 1 and 100 characters',
+      }),
+      'Use a team space name between 1 and 100 characters, then choose Save team space name again.'
+    )
+  })
+
   test('turns team space conflicts into a current-name check step', () => {
     expectBeginnerMessage(
       accountErrorMessage('renameOrganization', { statusCode: 409 }),
-      'Open Account settings again, check the current team space name, then try again. This team space changed while you were editing.'
+      'Open Account settings again, check the current team space name, then choose Save team space name again. This team space changed while you were editing.'
     )
   })
 
   test('turns password conflicts into an account settings navigation step', () => {
     expectBeginnerMessage(
       accountErrorMessage('changePassword', { statusCode: 409 }),
-      'Open Account settings again, then change your password again. Your account changed while this form was open.'
+      'Open Account settings again, then choose Update password again. Your account changed while this form was open.'
     )
   })
 
   test('turns account rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       accountErrorMessage('changePassword', { statusCode: 429 }),
-      'Wait a moment, then change your password again. Forge is receiving too many account settings requests right now.'
+      'Wait a moment, then choose Update password again. Forge is receiving too many account settings requests right now.'
     )
   })
 
@@ -131,7 +141,7 @@ describe('accountErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Account settings again, then rename the team space again. If it still fails, ask an owner or admin to check account settings.'
+      'Open Account settings again, then choose Save team space name again. If it still fails, ask an owner or admin to check account settings.'
     )
     expect(message).not.toContain('Account settings could not')
   })

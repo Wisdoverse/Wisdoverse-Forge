@@ -695,16 +695,7 @@ function filterAndSortAgents(
 }
 
 function agentSearchText(agent: AgentInfo): string {
-  return [
-    agent.name,
-    agent.provider,
-    agent.model,
-    agent.cliTool,
-    agent.cwd,
-    agent.workspaceName,
-    agent.projectName,
-    agent.currentTask,
-  ]
+  return [agent.name, agent.provider, agent.workspaceName, agent.projectName, agent.currentTask]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()

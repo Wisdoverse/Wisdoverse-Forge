@@ -22,7 +22,7 @@ describe('agentGroupErrorMessage', () => {
 
   test('explains naming conflicts without leaking raw API wording', () => {
     expect(agentGroupErrorMessage(new Error('API 409 lane conflict'))).toBe(
-      'Use a different name, then try creating the waiting place again. A waiting place with this name may already exist.'
+      'Use a different name, then create the waiting place again. A waiting place with this name may already exist.'
     )
   })
 
@@ -33,7 +33,7 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Use a different name, then try creating the waiting place again. A waiting place with this name may already exist.'
+      'Use a different name, then create the waiting place again. A waiting place with this name may already exist.'
     )
     expect(message).not.toContain('lane conflict')
   })
@@ -51,7 +51,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then try creating the waiting place again. Forge could not connect while setting up where tasks wait.'
+      'Check your connection, then create the waiting place again. Forge could not connect while setting up where tasks wait.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -60,7 +60,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new Error('Server error 503: database unavailable'))
 
     expect(message).toBe(
-      'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
+      'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
     )
     expect(message).not.toContain('Server error')
     expect(message).not.toContain('platform')
@@ -73,9 +73,21 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Wait a few minutes, then try setting up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
+      'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
+  })
+
+  test('uses direct retry actions for sign-in, busy, and fallback cases', () => {
+    expect(agentGroupErrorMessage(new Error('HTTP 401'))).toBe(
+      'Sign in again, choose the project, and set up where tasks wait again. The waiting place was not created.'
+    )
+    expect(agentGroupErrorMessage(new Error('API 429'))).toBe(
+      'Wait a minute, then create the waiting place again. Too many waiting-place changes are happening right now.'
+    )
+    expect(agentGroupErrorMessage('unexpected lane parser detail')).toBe(
+      'Create the waiting place again. If it still fails, ask an owner or admin to check where tasks wait in this project. The waiting place was not created.'
+    )
   })
 })

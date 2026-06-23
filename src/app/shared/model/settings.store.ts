@@ -223,6 +223,15 @@ function settingsOpenSectionStep(area: SettingsErrorArea): string {
   return `open Settings and ${SETTINGS_SECTION_LABELS[area]} again`
 }
 
+function settingsRetryStep(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  actionPhrase: string
+): string {
+  if (action === 'load') return settingsOpenSectionStep(area)
+  return `${actionPhrase} again`
+}
+
 function startSettingsOpenSectionStep(area: SettingsErrorArea): string {
   const step = settingsOpenSectionStep(area)
   return `${step.charAt(0).toUpperCase()}${step.slice(1)}`
@@ -236,7 +245,7 @@ function settingsConnectionMessage(
   if (action === 'load') {
     return `Check your connection, then ${settingsOpenSectionStep(area)}. Forge could not connect while loading Settings.`
   }
-  return `Check your connection, then try to ${actionPhrase} again. Forge could not connect while updating Settings.`
+  return `Check your connection, then ${settingsRetryStep(area, action, actionPhrase)}. Forge could not connect while updating Settings.`
 }
 
 function settingsUnavailableMessage(
@@ -248,21 +257,21 @@ function settingsUnavailableMessage(
   const retryStep =
     action === 'load'
       ? startSettingsOpenSectionStep(area)
-      : `${startSettingsOpenSectionStep(area)}, then try to ${actionPhrase} again`
+      : `${startSettingsOpenSectionStep(area)}, then ${settingsRetryStep(area, action, actionPhrase)}`
   return `${retryStep}. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check Settings.`
 }
 
 function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
   if (area === 'gitCredentials') {
-    return `Ask an owner or admin to let you manage code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+    return `Ask an owner or admin to let you manage code access, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (area === 'sshKeys') {
-    return `Ask an owner or admin to let you manage SSH code access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+    return `Ask an owner or admin to let you manage SSH code access, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
   if (area === 'resourceProfiles') {
-    return `Ask an owner or admin to let you manage work capacity, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+    return `Ask an owner or admin to let you manage work capacity, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
   }
-  return `Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  return `Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
 }
 
 export function settingsActionErrorMessage(
@@ -285,7 +294,7 @@ export function settingsActionErrorMessage(
   }
 
   if (status === 401) {
-    return `Sign in again, then open Settings and try to ${actionPhrase} again.`
+    return `Sign in again, then ${settingsRetryStep(area, action, actionPhrase)}.`
   }
   if (status === 403) {
     return settingsPermissionMessage(area, actionPhrase)
@@ -294,23 +303,22 @@ export function settingsActionErrorMessage(
     return `${startSettingsOpenSectionStep(area)}. If it still does not show up, ask an owner or admin to check Settings.`
   }
   if (status === 409) {
-    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. ${startSettingsOpenSectionStep(area)}, check the current value, then try to ${actionPhrase} again.`
+    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. ${startSettingsOpenSectionStep(area)}, check the current value, then ${settingsRetryStep(area, action, actionPhrase)}.`
   }
   if (status === 422) {
     return settingsValidationMessage(area, action, detail)
   }
   if (status === 429) {
-    return `The Settings page is busy. Wait a moment, then try to ${actionPhrase} again.`
+    return `Wait a moment, then ${settingsRetryStep(area, action, actionPhrase)}. The Settings page is busy.`
   }
   if (status >= 500) {
     return settingsUnavailableMessage(area, actionPhrase, action)
   }
 
-  const retryStep =
-    action === 'load'
-      ? startSettingsOpenSectionStep(area)
-      : `${startSettingsOpenSectionStep(area)}, then try to ${actionPhrase} again`
-  return `${retryStep}. Settings could not ${actionPhrase}.`
+  if (action === 'load') {
+    return `Open Settings and ${SETTINGS_SECTION_LABELS[area]} again. Settings could not ${actionPhrase}.`
+  }
+  return `Open Settings and ${SETTINGS_SECTION_LABELS[area]} again, then ${settingsRetryStep(area, action, actionPhrase)}. Settings could not ${actionPhrase}.`
 }
 
 function settingsValidationMessage(
@@ -329,7 +337,7 @@ function settingsValidationMessage(
       return 'Paste the service access key from the selected AI service, then save again.'
     }
     if (normalized.includes('model')) {
-      return 'Keep the suggested service setup or choose the model name from your service guide, then save again.'
+      return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
     }
     if (normalized.includes('base url') || normalized.includes('base_url')) {
       return 'Add the service address for this AI service, then save again.'
@@ -337,7 +345,7 @@ function settingsValidationMessage(
     if (normalized.includes('provider')) {
       return 'Choose an AI service from the list, then save again.'
     }
-    return 'Choose the AI service, keep the suggested setup, add the service access key if needed, then save again.'
+    return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
   }
 
   if (area === 'apiKeys') {

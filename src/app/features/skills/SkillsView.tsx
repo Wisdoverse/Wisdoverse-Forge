@@ -18,8 +18,8 @@ const SKILL_FILTERS: { value: SkillFilter; label: string; ariaLabel: string }[] 
   },
   {
     value: 'available',
-    label: 'Needs setup',
-    ariaLabel: 'Show saved instructions that need setup before use',
+    label: 'Check before use',
+    ariaLabel: 'Show saved instructions to check before use',
   },
   {
     value: 'cli',
@@ -34,7 +34,8 @@ interface SavedInstructionsEmptyState {
   action: 'create' | 'reset'
 }
 
-const RAW_LOAD_ERROR_PATTERN = /\b(?:API|HTTP|Code:)\s*\(?\d{3}\b/i
+const RAW_LOAD_ERROR_PATTERN =
+  /\b(?:(?:API|HTTP|Code:)\s*\(?\d{3}|database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 
 export function SkillsView() {
   const {
@@ -148,7 +149,7 @@ export function SkillsView() {
             <div className="grid gap-2 sm:grid-cols-4">
               <SkillStat label="Total" value={stats.total} Icon={BrainCircuit} />
               <SkillStat label="Ready to use" value={stats.installed} Icon={CheckCircle2} />
-              <SkillStat label="Needs setup" value={stats.available} Icon={Circle} />
+              <SkillStat label="Check before use" value={stats.available} Icon={Circle} />
               <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
             </div>
             <div className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
@@ -179,7 +180,7 @@ export function SkillsView() {
         {loading && (
           <div className="flex h-full items-center justify-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Loading saved instructions...
+              Checking saved instructions...
             </p>
           </div>
         )}
@@ -203,7 +204,7 @@ export function SkillsView() {
               onClick={() => void loadSkills()}
               className={uiStyles.primaryButton}
             >
-              Load saved instructions again
+              Check saved instructions again
             </button>
           </div>
         )}
@@ -272,15 +273,15 @@ function savedInstructionsLoadErrorMessage(error: string): string {
 function savedInstructionsLoadRecoveryMessage(error: string): string {
   const normalized = error.toLowerCase()
   if (normalized.includes('sign in')) {
-    return 'After signing in, choose Load saved instructions again.'
+    return 'After signing in, choose Check saved instructions again.'
   }
   if (normalized.includes('permission') || normalized.includes('access')) {
-    return 'After an owner or admin updates your access, choose Load saved instructions again.'
+    return 'After an owner or admin updates your access, choose Check saved instructions again.'
   }
   if (normalized.includes('connect') || normalized.includes('connection')) {
-    return 'Check your connection, then choose Load saved instructions again.'
+    return 'Check your connection, then choose Check saved instructions again.'
   }
-  return 'Choose Load saved instructions again to load the list.'
+  return 'Choose Check saved instructions again to load the list.'
 }
 
 function savedInstructionsEmptyState({
@@ -378,7 +379,7 @@ function skillToolbarStatus({
   error: string | null
 }) {
   if (loading) return 'Checking saved instructions'
-  if (error) return 'Load saved instructions again to continue.'
+  if (error) return 'Check saved instructions again to continue.'
   if (visibleCount > 0) {
     return `${visibleCount} saved instruction${visibleCount === 1 ? '' : 's'}`
   }

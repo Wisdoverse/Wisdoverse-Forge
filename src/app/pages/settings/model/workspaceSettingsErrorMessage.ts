@@ -106,7 +106,9 @@ function loadMessage(resource: WorkspaceSettingsResource): string {
 
 function retryPhrase(resource: WorkspaceSettingsResource, action: WorkspaceSettingsAction): string {
   const label = resourceLabel(resource)
-  return action === 'load' ? settingsWorkspaceStep(resource) : `create this ${label} again`
+  if (action === 'load') return settingsWorkspaceStep(resource)
+  if (resource === 'team') return 'choose Create team again'
+  return `create this ${label} again`
 }
 
 function connectionMessage(
@@ -195,20 +197,20 @@ export function workspaceSettingsErrorMessage(
   }
   if (code === 409 || text.includes('already exists')) {
     return action === 'create'
-      ? 'Use a different name, then try again.'
+      ? `Use a different name, then ${retry}.`
       : `${load} Another setup change is still saving. Wait a moment, then open ${resourcePageLabel(resource)} again.`
   }
   if (code === 422 || text.includes('invalid')) {
     if (resource === 'project' && action === 'create') {
       const codeLinkMessage = projectCodeLinkValidationMessage(detail)
       if (codeLinkMessage) return codeLinkMessage
-      if (detail.includes('name')) return 'Enter a project name, then try again.'
+      if (detail.includes('name')) return `Enter a project name, then ${retry}.`
       return 'Check the project name, team, and code link. You can leave the code link blank, then create this project again.'
     }
     if (detail.includes('name')) {
-      return `Enter a ${resourceLabel(resource)} name, then try again.`
+      return `Enter a ${resourceLabel(resource)} name, then ${retry}.`
     }
-    return `Check the ${resourceLabel(resource)} name, then try again.`
+    return `Check the ${resourceLabel(resource)} name, then ${retry}.`
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
     return action === 'load'
@@ -224,5 +226,5 @@ export function workspaceSettingsErrorMessage(
 
   return action === 'load'
     ? `${load} If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
-    : `Try to ${retry}. If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
+    : `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check ${resourcePageLabel(resource)} in Settings.`
 }

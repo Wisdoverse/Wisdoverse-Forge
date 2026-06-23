@@ -40,14 +40,16 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 401) {
-    return 'Sign in again, then retry this task action.'
+    const fallback = ACTION_FALLBACKS[action]
+    return `Sign in again, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)}`
   }
 
   if (status === 403) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
       return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     }
-    return 'Ask an owner or admin to let you update this task, then open it again from the Tasks page and try again. You do not have permission to change this task.'
+    const fallback = ACTION_FALLBACKS[action]
+    return `Ask an owner or admin to let you update this task, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)} You do not have permission to change this task.`
   }
 
   if (status === 404) {
@@ -55,7 +57,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 409) {
-    return 'Open this task again from the Tasks page, then try again. This task changed while you were working.'
+    return `${ACTION_FALLBACKS[action]} This task changed while you were working.`
   }
 
   if (status === 422) {
@@ -77,14 +79,14 @@ function busyTaskActionMessage(action: TaskDetailErrorAction): string {
   if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
     return 'Wait a moment, then open this task again from the Tasks page. Task details are busy right now.'
   }
-  return `${ACTION_FALLBACKS[action]} Wait a moment before choosing the action again. Task actions are busy right now.`
+  return `${ACTION_FALLBACKS[action]} Wait a moment before ${retryActionStep(action)}. Task actions are busy right now.`
 }
 
 function networkRecoveryMessage(action: TaskDetailErrorAction): string {
   if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
     return 'If it still does not load, check your connection, then open this task again from the Tasks page.'
   }
-  return 'If it still does not update, check your connection, open this task again from the Tasks page, then choose the action again.'
+  return `If it still does not update, check your connection before ${retryActionStep(action)}.`
 }
 
 function serviceRecoveryMessage(action: TaskDetailErrorAction): string {
@@ -92,6 +94,15 @@ function serviceRecoveryMessage(action: TaskDetailErrorAction): string {
     return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task details access.`
   }
   return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task action access.`
+}
+
+function retryActionStep(action: TaskDetailErrorAction): string {
+  if (action === 'approveTask') return 'choosing Allow and continue again'
+  if (action === 'blockTask') return 'choosing Needs help again'
+  if (action === 'cancelTask') return 'choosing Cancel again'
+  if (action === 'publishTask') return 'sending the task again'
+  if (action === 'retryTask') return 'choosing Retry task again'
+  return 'opening this task again from the Tasks page'
 }
 
 function errorDetail(err: unknown): string {
@@ -156,10 +167,16 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
     return 'This task is already in progress. Wait for the current work to finish, then open this task again from the Tasks page.'
   }
   if (normalized.includes('agent')) {
-    return 'Choose an available agent, then open this task again from the Tasks page and choose the action again.'
+    if (action === 'publishTask') {
+      return 'Choose an available agent, then send the task again.'
+    }
+    return ACTION_FALLBACKS[action]
   }
   if (normalized.includes('context')) {
-    return 'Check the selected saved notes, then open this task again from the Tasks page and choose the action again.'
+    if (action === 'publishTask') {
+      return 'Check the selected saved notes, then send the task again.'
+    }
+    return ACTION_FALLBACKS[action]
   }
   if (normalized.includes('approval') || normalized.includes('approve')) {
     return 'Check that the task is still waiting for your decision, then choose Allow and continue again.'

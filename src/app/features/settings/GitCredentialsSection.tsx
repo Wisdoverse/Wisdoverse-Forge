@@ -26,7 +26,7 @@ const GIT_CREDENTIAL_SETUP_STEPS = [
 ]
 
 const RAW_GIT_CREDENTIAL_ERROR_PATTERN =
-  /\b(?:Details:|invalid token|invalid provider|invalid host|bad credentials|expired token|token expired|HTTP|API|Server error|Code:|Network error|Failed to fetch|forbidden|unauthorized|not configured)\b/i
+  /\b(?:Details:|invalid token|invalid provider|invalid host|bad credentials|expired token|token expired|HTTP|API|Server error|Code:|Network error|Failed to fetch|forbidden|unauthorized|not configured|database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 
 function looksLikeProjectCodeLink(value: string): boolean {
   const text = value.trim()

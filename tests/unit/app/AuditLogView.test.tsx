@@ -85,7 +85,7 @@ describe('AuditLogView', () => {
       'Forge is checking saved note and saved instruction changes for this team space.'
     )
     expect(loading).toHaveTextContent(
-      'If this takes more than a moment, choose Refresh change history or ask an owner or admin to check change history access.'
+      'If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access.'
     )
     expect(loading).toHaveTextContent(
       'Success looks like history rows or a Show all change history step.'
@@ -138,7 +138,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Hidden review-note rows')).toBeNull()
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
     expect(screen.queryByText('Hidden support-note rows')).toBeNull()
-    expect(screen.getByLabelText('Refresh change history')).toBeDefined()
+    expect(screen.getByLabelText('Check change history again')).toBeDefined()
     expect(screen.queryByLabelText('Refresh audit history')).toBeNull()
     expect(screen.getByLabelText('Export change history')).toBeDefined()
     expect(screen.queryByLabelText('Export audit history')).toBeNull()
@@ -164,11 +164,17 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Exact work area')).toBeDefined()
     expect(
       screen.getByPlaceholderText(
-        /exact team space, work area, team, or project ID only when an owner or admin gives you one/i
+        /exact team space, work area, team, or project from Forge only when an owner or admin gives you one/i
       )
     ).toBeDefined()
     expect(
       screen.queryByPlaceholderText(/team space, work area, team, or project reference/i)
+    ).toBeNull()
+    expect(
+      screen.queryByPlaceholderText(/team space, work area, team, or project ID/i)
+    ).toBeNull()
+    expect(
+      screen.queryByPlaceholderText(/team space, work area, team, or project code/i)
     ).toBeNull()
     expect(screen.getByRole('option', { name: 'Team space' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Work area' })).toBeDefined()
@@ -178,9 +184,10 @@ describe('AuditLogView', () => {
     expect(screen.queryByRole('option', { name: 'Organization' })).toBeNull()
     expect(screen.getByText('Exact person')).toBeDefined()
     expect(
-      screen.getByPlaceholderText(/Paste an exact person ID only when an owner or admin gives you one/i)
+      screen.getByPlaceholderText(/Paste the exact person from Forge only when an owner or admin gives you one/i)
     ).toBeDefined()
     expect(screen.queryByPlaceholderText(/person reference only when/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/exact person ID/i)).toBeNull()
     expect(screen.queryByPlaceholderText(/exact person (?:code|ID) only when needed/i)).toBeNull()
     expect(screen.queryByText(/work area support reference/i)).toBeNull()
     expect(screen.queryByText(/person support reference/i)).toBeNull()
@@ -207,8 +214,9 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
-    expect(screen.getByText('Person reference user-1')).toBeDefined()
-    expect(screen.getByText('Person reference user-2')).toBeDefined()
+    expect(screen.getByText('Team member user-1')).toBeDefined()
+    expect(screen.getByText('Team member user-2')).toBeDefined()
+    expect(screen.queryByText('Person reference user-1')).toBeNull()
     expect(screen.queryByText('Person code user-1')).toBeNull()
     expect(screen.queryByText('Person ID user-1')).toBeNull()
     expect(screen.queryByText('user-1')).toBeNull()
@@ -228,7 +236,9 @@ describe('AuditLogView', () => {
     expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
       'Visible item ID'
     )
-    expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
+    expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
+      '11111111'
+    )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
       'Protected saved item'
     )
@@ -238,7 +248,7 @@ describe('AuditLogView', () => {
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'Hidden item ID'
     )
-    expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
+    expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'f9f0b5b53a'
     )
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)
@@ -403,11 +413,11 @@ describe('AuditLogView', () => {
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain(
-      'Choose Refresh change history, then apply the filters again.'
+      'Choose Check change history again, then apply the filters again.'
     )
     expect(error.textContent).not.toContain('audit view')
     expect(error.textContent).toContain(
-      'check your connection and choose Refresh change history again'
+      'check your connection and choose Check change history again'
     )
     expect(error.textContent).not.toContain('refresh the page')
     expect(error.textContent).not.toMatch(/failed to fetch/i)

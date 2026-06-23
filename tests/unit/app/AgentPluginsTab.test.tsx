@@ -187,6 +187,43 @@ describe('AgentPluginsTab', () => {
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
+  test('searches only visible tool names and summaries', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        plugins: [
+          {
+            pluginId: 'internal-command-runner',
+            name: 'Command Runner',
+            version: '2026.06-internal',
+            description: 'Run approved command workflows',
+            pluginEnabled: true,
+            enabled: null,
+          },
+        ],
+      }),
+    })
+
+    render(<AgentPluginsTab agentId="agent-1" />)
+
+    await screen.findByText('Command Runner')
+    fireEvent.change(screen.getByTestId('agent-plugin-search'), {
+      target: { value: '2026.06-internal' },
+    })
+
+    const empty = screen.getByTestId('agent-plugin-filter-empty')
+    expect(within(empty).getByText('Search is hiding tools')).toBeDefined()
+    expect(screen.queryByText('Command Runner')).toBeNull()
+
+    fireEvent.click(within(empty).getByRole('button', { name: /show all tools/i }))
+    fireEvent.change(screen.getByTestId('agent-plugin-search'), {
+      target: { value: 'command workflows' },
+    })
+
+    expect(screen.getByText('Command Runner')).toBeDefined()
+  })
+
   test('explains search-only empty tool lists', async () => {
     fetchMock.mockResolvedValueOnce(pluginResponse())
 

@@ -124,7 +124,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
           aria-label="Check fix status again"
         >
           <RefreshCw size={11} className={loading ? 'animate-spin' : undefined} />
-          Check again
+          Check fix status
         </button>
       </div>
 
@@ -142,7 +142,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
         <BeginnerLoadingState
           title="Checking finish readiness"
           detail="Forge is checking whether this fix is ready to finish and automated checks have passed."
-          nextStep="If this takes more than a moment, choose Check again or ask an owner or admin to confirm finish access."
+          nextStep="If this takes more than a moment, choose Check fix status or ask an owner or admin to confirm finish access."
           success="Success looks like automated check status and a Finish this fix button when it is safe."
           testId="review-snapshot-loading"
           framed={false}
@@ -164,8 +164,8 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             </a>
           ) : (
             <p className="text-xs text-secondary-light dark:text-secondary-dark">
-              The agent is still preparing the fix check page for this fix. Choose Check again after
-              it appears.
+              The agent is still preparing the fix check page for this fix. Choose Check fix status
+              after it appears.
             </p>
           )}
 
@@ -225,13 +225,14 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             </button>
             {!merged && !hasPullRequest && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                You can finish after the agent opens the fix check page. Choose Check again after it
-                appears.
+                You can finish after the agent opens the fix check page. Choose Check fix status
+                after it appears.
               </p>
             )}
             {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
               <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-                You can finish after automated checks pass. Choose Check again after they finish.
+                You can finish after automated checks pass. Choose Check fix status after they
+                finish.
               </p>
             )}
           </div>

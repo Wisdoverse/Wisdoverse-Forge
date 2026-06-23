@@ -175,8 +175,10 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask()} />)
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
-    expect(screen.getByText(/Used a work tool you should check/i)).toBeInTheDocument()
-    expect(screen.getByText(/Help code run-tool/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used a work tool shown in Settings/i)).toBeInTheDocument()
+    expect(screen.queryByText(/work tool you should check/i)).toBeNull()
+    expect(screen.getByText(/Work help text run-tool/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Help code run-tool/i)).toBeNull()
     expect(screen.queryByText(/Work attempt code run-tool/i)).toBeNull()
     expect(screen.queryByText(/Work attempt ID run-tool/i)).toBeNull()
     expect(screen.queryByText(/Support reference run-tool/i)).toBeNull()
@@ -185,7 +187,7 @@ describe('HistoryTab', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('tells users where to reopen the task when a help code is missing', async () => {
+  test('tells users where to reopen the task when work help text is missing', async () => {
     getTaskRunsMock.mockResolvedValue([
       {
         id: ' ',
@@ -202,8 +204,9 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(
-      screen.getByText('Open this task again from the Tasks page to check the help code.')
+      screen.getByText('Open this task again from the Tasks page to check the work help text.')
     ).toBeInTheDocument()
+    expect(screen.queryByText(/help code/i)).toBeNull()
     expect(screen.queryByText(/refresh task details/i)).toBeNull()
     expect(screen.queryByText(/Work attempt code refresh/i)).toBeNull()
     expect(screen.queryByText(/work attempt code/i)).toBeNull()
@@ -256,7 +259,8 @@ describe('HistoryTab', () => {
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
     expect(screen.getByText(/Used a custom AI service/i)).toBeInTheDocument()
-    expect(screen.getByText(/Used an AI service you should check/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used an AI service shown in Settings/i)).toBeInTheDocument()
+    expect(screen.queryByText(/AI service you should check/i)).toBeNull()
     expect(screen.queryByText(/openai_compatible/i)).toBeNull()
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()
@@ -292,9 +296,10 @@ describe('HistoryTab', () => {
 
     render(<HistoryTab task={makeTask()} />)
 
-    expect(await screen.findByText('Agent try: Waiting to start')).toBeInTheDocument()
-    expect(screen.getByText('Agent try: Check task status')).toBeInTheDocument()
-    expect(screen.getByText('Agent try: Open task details to check status')).toBeInTheDocument()
+    expect(await screen.findByText('Agent work: Waiting to start')).toBeInTheDocument()
+    expect(screen.getByText('Agent work: Check task status')).toBeInTheDocument()
+    expect(screen.getByText('Agent work: Open task details to check status')).toBeInTheDocument()
+    expect(screen.queryByText(/Agent try/i)).toBeNull()
     expect(screen.queryByText('Work attempt: Waiting to start')).toBeNull()
     expect(screen.queryByText('Work attempt: Refresh task status')).toBeNull()
     expect(screen.queryByText('Work attempt: Status not reported')).toBeNull()

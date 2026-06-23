@@ -206,6 +206,32 @@ describe('InboxView', () => {
     expect(screen.queryByText(/Unauthorized/i)).toBeNull()
   })
 
+  test('hides raw details from older blocked notifications', async () => {
+    orchestrationApiMock.fetchInboxNotifications.mockResolvedValue([
+      {
+        id: 'task-owner:t-raw-blocked:blocked',
+        type: 'blocked',
+        taskId: 't-raw-blocked',
+        taskTitle: 'Refresh agent access',
+        message: 'panic: stack trace line 7 from raw command output',
+        taskHref: '/tasks',
+        ownerUserId: 'owner-1',
+        read: false,
+        timestamp: Date.now(),
+      },
+    ])
+
+    render(<InboxView />)
+
+    await screen.findByTestId('inbox-notification-task-owner:t-raw-blocked:blocked')
+    expect(
+      screen.getByText('Open the task, read the recovery note, then choose the next step.')
+    ).toBeDefined()
+    expect(screen.queryByText(/panic/i)).toBeNull()
+    expect(screen.queryByText(/stack trace/i)).toBeNull()
+    expect(screen.queryByText(/raw command output/i)).toBeNull()
+  })
+
   test('summarizes the safest next action for beginners', () => {
     const store = useFeedStore.getState()
     store.addNotification({
@@ -578,13 +604,13 @@ describe('InboxView', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check your connection, then choose Load updates again. Saved updates could not be loaded'
+      'Check your connection, then choose Check updates again. Saved updates could not be loaded'
     )
     expect(alert.textContent).not.toMatch(/^Saved updates could not be loaded/)
 
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /load updates again/i }))
-    expect(screen.getByRole('button', { name: /loading updates/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /check updates again/i }))
+    expect(screen.getByRole('button', { name: /checking updates/i })).toBeDisabled()
     expect(orchestrationApiMock.fetchInboxNotifications).toHaveBeenCalledTimes(2)
 
     retry.resolve([])

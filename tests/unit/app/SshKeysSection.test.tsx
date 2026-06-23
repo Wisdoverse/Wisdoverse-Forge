@@ -189,7 +189,8 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
-    expect(screen.getByText('Saved key check code')).toBeDefined()
+    expect(screen.getByText('Saved key check text')).toBeDefined()
+    expect(screen.queryByText('Saved key check code')).toBeNull()
     expect(screen.getByText('Accepted by Forge')).toBeDefined()
     expect(screen.getByText('Recommended for new access')).toBeDefined()
     expect(screen.queryByText('Safety check')).toBeNull()

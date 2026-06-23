@@ -126,7 +126,7 @@ describe('BoardView', () => {
     expect(error.textContent).toContain('Sign in again')
     expect(error.textContent).not.toContain('Code:')
     expect(error.textContent).not.toContain('401 Unauthorized')
-    expect(within(error).getByRole('button', { name: /refresh tasks/i })).toBeDefined()
+    expect(within(error).getByRole('button', { name: /check tasks again/i })).toBeDefined()
     expect(within(error).queryByRole('button', { name: /try again/i })).toBeNull()
   })
 
@@ -137,7 +137,7 @@ describe('BoardView', () => {
     render(<BoardView />)
 
     const error = await screen.findByTestId('board-error')
-    fireEvent.click(within(error).getByRole('button', { name: /refresh tasks/i }))
+    fireEvent.click(within(error).getByRole('button', { name: /check tasks again/i }))
 
     await waitFor(() => expect(mockGetTasks).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByTestId('board-error')).toBeNull())
@@ -368,6 +368,60 @@ describe('BoardView', () => {
     fireEvent.click(within(emptyState).getByRole('button', { name: /show all tasks/i }))
     expect(screen.getByText('API migration')).toBeDefined()
     expect(screen.getByText('Dashboard polish')).toBeDefined()
+  })
+
+  test('does not match hidden task ids in board search', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'internal-ticket-42',
+        state: 'backlog',
+        params: { task: 'Write customer handoff note', message: 'Summarize the next step' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(await screen.findByText('Write customer handoff note')).toBeDefined()
+    fireEvent.change(screen.getByTestId('board-search'), {
+      target: { value: 'internal-ticket-42' },
+    })
+
+    const emptyState = screen.getByTestId('board-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding every task')
+    expect(screen.queryByText('Write customer handoff note')).toBeNull()
+  })
+
+  test('does not match hidden task descriptions in board search', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'brief-hidden-1',
+        state: 'backlog',
+        params: {
+          task: 'Prepare customer summary',
+          message: 'internal-only rollout migration note',
+        },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(await screen.findByText('Prepare customer summary')).toBeDefined()
+    expect(screen.queryByText('internal-only rollout migration note')).toBeNull()
+    fireEvent.change(screen.getByTestId('board-search'), {
+      target: { value: 'internal-only rollout migration note' },
+    })
+
+    const emptyState = screen.getByTestId('board-filter-empty')
+    expect(emptyState).toHaveTextContent('Search is hiding every task')
+    expect(screen.queryByText('Prepare customer summary')).toBeNull()
   })
 
   test('filters board cards by priority and assignee state', async () => {
