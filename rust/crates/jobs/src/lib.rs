@@ -32,6 +32,7 @@ pub mod auth_lookup;
 pub mod blocked_task_reaper;
 pub mod cli_image_updater;
 pub mod credential_consumer;
+pub mod dead_events;
 pub mod dependency_reconcile;
 pub mod event_consumer;
 pub mod orchestration_metrics;
@@ -55,6 +56,9 @@ pub use cli_image_updater::{
 pub use credential_consumer::{
     AgentOwner, AgentOwnerLookup, CredentialStreamWorker, CredentialWriter, HandleError as CredentialHandleError,
     SqlxAgentOwnerLookup, SqlxHmacSecretLookup as SqlxCredentialHmacSecretLookup, credentials_filter,
+};
+pub use dead_events::{
+    DEAD_EVENT_PAYLOAD_MAX_BYTES, DeadEvent, DeadEventRecorder, SqlxDeadEventRecorder, payload_excerpt,
 };
 pub use dependency_reconcile::{DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker};
 pub use event_consumer::{
@@ -97,6 +101,7 @@ pub fn register_metrics() {
     blocked_task_reaper::register_metrics();
     cli_image_updater::register_metrics();
     credential_consumer::register_metrics();
+    dead_events::register_metrics();
     dependency_reconcile::register_metrics();
     event_consumer::register_metrics();
     orchestration_metrics::register_metrics();

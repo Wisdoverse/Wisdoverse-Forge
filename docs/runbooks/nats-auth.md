@@ -175,6 +175,88 @@ Stopping an agent triggers a two-step revocation in `containers.rs::stop_agent`:
 
 If the API crashes between steps 1 and 2, an orphaned JWT lives at most 15 min (TTL) before expiring naturally. The DB clear alone is sufficient for correctness; the KICK is a latency optimization.
 
+## Debugging dropped events: dead-letter capture
+
+When the backend consumer permanently rejects an inbound envelope — bad HMAC
+signature, unknown agent, bad subject, stale timestamp, or a malformed body — it
+`Term`-drops the message. Before this feature the raw message vanished with only
+a log line and a `*_unauthorized_total` counter increment, so an operator asking
+"why aren't agent X's events showing up?" had nothing durable to inspect.
+
+The consumers now record each permanent drop to the `dead_events` table. One row
+per drop carries:
+
+- `source` — `events.ingest` or `orchestration.result`.
+- `reason` — the structured drop reason, e.g. `signature_mismatch`,
+  `agent_unknown`, `bad_subject`, `timestamp_outside_window`.
+- `subject` — the NATS subject. **This carries the agent UUID**, which is the
+  real key for "which agent is dropping?" — most drops are pre-authentication, so
+  `org_id` is `NULL`.
+- `detail` — short human context built at the reject site.
+- `payload_excerpt` — a truncated (<= 8 KiB) excerpt of the raw dropped message.
+- `recorded_at` — drop time (the list is newest-first).
+
+What is **not** recorded: transient/retryable errors (they redeliver and usually
+succeed) and the `orchestration_inbox` dedup hit (a deduped replay was handled
+successfully — that is idempotency working, not a drop). Recording is
+best-effort: if the `dead_events` INSERT fails, the consumer still `Term`s the
+message and logs a warning. That failure is **not** silent — it increments
+`dead_event_record_errors_total{source}` (primed to zero at startup) and logs at
+`error!` level. A rising value means the `dead_events` table is broken or
+missing and drops are **not** being captured even though the reader looks empty;
+treat an empty table plus a non-zero error counter as "capture is down", not "no
+drops". A lost dead-letter row never blocks or crashes the consumer.
+
+One more **known limitation**: a TRANSIENT error that _never_ succeeds and
+exhausts the consumer's `max_deliver` redeliveries is dropped by the JetStream
+broker without ever reaching the consumer's terminal (`Term`) path, so **no
+dead-letter row is written** for it — the consumer simply never sees a terminal
+event. Such losses are not invisible: they show up as a rising
+`*_transient_errors_total` counter. If that counter climbs while `dead_events`
+stays flat, look for a stuck-transient (e.g. a DB outage) exhausting redelivery,
+not a permanent drop.
+
+### How to read it
+
+`GET /api/v1/admin/dead-events` returns the cross-org list, newest first,
+paginated:
+
+```bash
+# Newest 25 drops (any reason). A platform-admin JWT is required
+# (the caller's users.is_admin must be true — see "Access and safety").
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:4003/api/v1/admin/dead-events?page=1&limit=25"
+
+# Filter to one reason, e.g. forged signatures.
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:4003/api/v1/admin/dead-events?reason=signature_mismatch"
+```
+
+Response shape: `{ "ok": true, "data": { "items": [...], "total", "page",
+"totalPages" } }`. Each item is the row above in camelCase
+(`payloadExcerpt`, `recordedAt`, …).
+
+### Access and safety
+
+- **Platform-admin-only.** The reader is gated on the server-side
+  `users.is_admin` column (a **platform admin**, NOT the per-org `owner`/`admin`
+  membership role). This distinction matters: the JWT `role` claim is the per-ORG
+  membership role, and a self-registered user is `owner` of their own personal
+  org — gating on the claim would let any registered user read the cross-org
+  table. `users.is_admin` defaults to `false` and is only settable by an existing
+  admin, so it is not self-assignable. The view is cross-org by design (auth
+  drops have no trustworthy org), so any non-platform-admin caller gets `403`.
+- **`payload_excerpt` is UNTRUSTED.** It is an attacker- or work-controlled
+  excerpt of the dropped message (a forged/stale `SignedEnvelope`, or for a
+  `bad_payload` drop, real task `stdout`/`stderr`). It is **not** a secret leak
+  (the envelope carries only the HMAC digest, never the per-agent key), but it
+  **may contain task output** and is stored-XSS-capable: any UI **must render it
+  as escaped plain text**. The 8 KiB cap bounds table growth from a flooding or
+  oversized payload.
+- **No TTL prune yet.** A sustained drop flood signals an attack or
+  misconfiguration; the `recorded_at` index keeps a future prune reaper cheap,
+  but it is deferred until volume justifies it.
+
 ## What's NOT fixed by this phase
 
 - **Sidecar compromise within its own UUID** — a compromised sidecar can still spoof its own `events.ingest.<self>`, `orchestration.result.<self>`, or `sidecar.<self>.heartbeat`. Issue #39's HMAC envelope signing catches forged results; heartbeat spoofing has low blast radius.

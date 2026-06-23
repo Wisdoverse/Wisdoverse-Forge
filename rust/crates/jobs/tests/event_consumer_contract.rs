@@ -1,5 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -419,7 +422,7 @@ async fn rejects_event_with_wrong_hmac_signature() {
     let forged = sign_event("attacker-key", agent_id, event_payload("pre_tool_use"), chrono::Utc::now().timestamp());
     let err = consumer.handle(&subject(agent_id), forged).await.unwrap_err();
 
-    assert!(matches!(err, ConsumeError::Permanent(_)), "bad signature must be permanent: {err}");
+    assert!(matches!(err, ConsumeError::Permanent { .. }), "bad signature must be permanent: {err}");
     assert!(err.to_string().contains("signature_mismatch"), "err = {err}");
     assert!(store.snapshot().await.is_empty(), "forged event must not persist");
     assert!(agents.runtime_patches().await.is_empty(), "forged event must not patch the agent row");
@@ -530,4 +533,160 @@ async fn rejects_event_subject_envelope_agent_mismatch() {
     assert!(store.snapshot().await.is_empty());
     assert!(agents.runtime_patches().await.is_empty());
     assert!(bus.published().await.is_empty());
+}
+
+// -------------------------------------------------------------------
+// #811 dead-letter capture for the EVENT INGEST worker (NATS-gated).
+// Mirrors `forged_result_is_recorded_as_a_dead_event` for the orchestration
+// path: a permanently-dropped events.ingest message must be captured to the
+// recorder before the worker Terms it. Skips when no NATS / DB is reachable.
+// -------------------------------------------------------------------
+
+use agentforge_infra::nats::connect_nats;
+use agentforge_jobs::{
+    DEAD_EVENT_PAYLOAD_MAX_BYTES, DeadEvent, DeadEventRecorder, EVENTS_FILTER, EVENTS_STREAM, EventStreamWorker,
+};
+use async_nats::jetstream::{self, stream};
+use sqlx::PgPool;
+use tokio::sync::watch;
+
+/// Collects every dead event the event worker records.
+#[derive(Default)]
+struct CapturingDeadEventRecorder {
+    events: Mutex<Vec<DeadEvent>>,
+}
+
+#[async_trait]
+impl DeadEventRecorder for CapturingDeadEventRecorder {
+    async fn record(&self, ev: DeadEvent) {
+        self.events.lock().await.push(ev);
+    }
+}
+
+/// Connect to a local NATS server, skipping (returning `None`) when unavailable
+/// so CI without infra still passes. Mirrors the orchestration contract test.
+async fn try_connect() -> Option<async_nats::Client> {
+    for (label, url) in nats_candidates() {
+        match tokio::time::timeout(Duration::from_millis(500), connect_nats(&url)).await {
+            Ok(Ok(client)) => return Some(client),
+            Ok(Err(err)) => eprintln!("skipping: NATS connect {label}: {err}"),
+            Err(_) => eprintln!("skipping: NATS connect {label}: timeout"),
+        }
+    }
+    None
+}
+
+fn nats_candidates() -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    let docker_env = read_docker_env();
+    let mut push = |label: String, url: String| {
+        if seen.insert(url.clone()) {
+            out.push((label, url));
+        }
+    };
+    if let Ok(url) = std::env::var("NATS_URL") {
+        push("env:NATS_URL".to_string(), url);
+    }
+    if let Some(url) = docker_env.get("NATS_URL").cloned() {
+        push("docker/.env:NATS_URL".to_string(), url);
+    }
+    let port = std::env::var("NATS_PORT")
+        .ok()
+        .or_else(|| docker_env.get("NATS_PORT").cloned())
+        .unwrap_or_else(|| "4222".to_string());
+    if let Some(password) =
+        std::env::var("NATS_BACKEND_PASSWORD").ok().or_else(|| docker_env.get("NATS_BACKEND_PASSWORD").cloned())
+    {
+        push("docker/.env backend user".to_string(), format!("nats://backend:{password}@127.0.0.1:{port}"));
+    }
+    push("localhost anonymous".to_string(), format!("nats://127.0.0.1:{port}"));
+    out
+}
+
+fn read_docker_env() -> HashMap<String, String> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../docker/.env");
+    let Ok(contents) = fs::read_to_string(path) else {
+        return HashMap::new();
+    };
+    contents
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let (key, value) = line.split_once('=')?;
+            Some((key.trim().to_string(), value.trim().to_string()))
+        })
+        .collect()
+}
+
+/// Ensure the production `EVENTS` JetStream stream exists (the worker's `connect`
+/// opens it by name). WorkQueue retention so each test message is consumed once.
+async fn ensure_events_stream(client: async_nats::Client) {
+    let js = jetstream::new(client);
+    js.create_or_update_stream(stream::Config {
+        name: EVENTS_STREAM.to_string(),
+        subjects: vec![EVENTS_FILTER.to_string()],
+        retention: stream::RetentionPolicy::WorkQueue,
+        storage: stream::StorageType::File,
+        max_age: Duration::from_secs(24 * 60 * 60),
+        discard: stream::DiscardPolicy::Old,
+        ..Default::default()
+    })
+    .await
+    .expect("ensure EVENTS stream");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn malformed_event_envelope_is_recorded_as_a_dead_event(pool: PgPool) {
+    // A body that won't decode into a SignedEventEnvelope is a permanent drop the
+    // worker must dead-letter (source="events.ingest", reason="envelope_decode_failed")
+    // before it acks. Pre-decode, so org_id is NULL and the DB is never touched
+    // by the handler — only the recorder is exercised.
+    let Some(client) = try_connect().await else {
+        return;
+    };
+    ensure_events_stream(client.clone()).await;
+
+    let recorder = Arc::new(CapturingDeadEventRecorder::default());
+    let worker = EventStreamWorker::connect(pool.clone(), client.clone())
+        .await
+        .expect("connect event worker")
+        .with_dead_event_recorder(recorder.clone());
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let handle = tokio::spawn(async move { worker.run(shutdown_rx).await });
+
+    let agent_id = Uuid::now_v7();
+    let event_subject = format!("events.ingest.{agent_id}");
+    // Oversized non-JSON body → decode fails AND the stored excerpt must truncate.
+    let garbage = vec![b'Q'; DEAD_EVENT_PAYLOAD_MAX_BYTES * 2];
+    let js = jetstream::new(client.clone());
+    js.publish(event_subject.clone(), garbage.into())
+        .await
+        .expect("publish malformed accepted")
+        .await
+        .expect("publish malformed ack");
+
+    let mut captured = Vec::new();
+    for _ in 0..40 {
+        captured = recorder.events.lock().await.clone();
+        if !captured.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    assert_eq!(captured.len(), 1, "exactly one dead event for the malformed envelope");
+    let ev = &captured[0];
+    assert_eq!(ev.source, "events.ingest");
+    assert_eq!(ev.reason, "envelope_decode_failed");
+    assert_eq!(ev.subject, event_subject);
+    assert!(ev.org_id.is_none(), "org_id is NULL on a pre-decode drop");
+    let excerpt = ev.payload_excerpt.as_ref().expect("excerpt stored");
+    assert!(excerpt.len() <= DEAD_EVENT_PAYLOAD_MAX_BYTES, "excerpt truncated at the cap");
+
+    let _ = shutdown_tx.send(true);
+    let _ = tokio::time::timeout(Duration::from_secs(2), handle).await;
 }
