@@ -25,6 +25,16 @@ describe('systemHealthErrorMessage', () => {
     )
   })
 
+  test('turns role-required failures into an Admin access next step', () => {
+    const message = systemHealthErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to give you Admin access, then open Admin and choose App health before choosing Check now. Forge could not check app health because you do not have access to app health checks.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns missing routes into an Admin view recovery step', () => {
     const message = systemHealthErrorMessage({ statusCode: '404' })
 
