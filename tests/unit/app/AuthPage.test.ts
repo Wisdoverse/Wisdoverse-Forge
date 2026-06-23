@@ -123,6 +123,34 @@ describe('AuthPage beginner guidance', () => {
     expect(window.location.search).toBe('')
   })
 
+  test('turns cancelled sign-in into a concrete sign-in choice', async () => {
+    window.history.replaceState({}, '', '/login?auth_error=access_denied%3A%20cancelled')
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'Choose Password sign-in or a listed sign-in button, then start sign-in again. Sign-in was cancelled.'
+    )
+    expect(bodyText()).not.toContain('access_denied')
+    expect(bodyText()).not.toContain('then try again')
+    expect(window.location.search).toBe('')
+  })
+
+  test('turns unknown sign-in URL errors into a concrete sign-in choice', async () => {
+    window.history.replaceState({}, '', '/login?auth_error=unexpected_oops')
+    const page = new AuthPage(createAuthManager())
+
+    await page.show()
+
+    expect(bodyText()).toContain(
+      'Choose Password sign-in or a listed sign-in button, then start sign-in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+    )
+    expect(bodyText()).not.toContain('unexpected_oops')
+    expect(bodyText()).not.toContain('Choose a sign-in option and try again')
+    expect(window.location.search).toBe('')
+  })
+
   test('shows a recovery step when provider sign-in callback fails', async () => {
     window.history.replaceState({}, '', '/login?auth_code=callback-code')
     const exchangeAuthCode = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))

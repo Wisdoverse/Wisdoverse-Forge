@@ -128,7 +128,7 @@ function authSignInErrorMessage(error: unknown): string {
     return 'Check your connection, then try signing in again. Forge could not reach sign-in.'
   }
   if (lowerDetail.includes('access_denied') || lowerDetail.includes('cancel')) {
-    return 'Choose a sign-in option, then try again. Sign-in was cancelled.'
+    return 'Choose Password sign-in or a listed sign-in button, then start sign-in again. Sign-in was cancelled.'
   }
   if (
     lowerDetail.includes('invalid_grant') ||
@@ -155,7 +155,7 @@ function authSignInErrorMessage(error: unknown): string {
     return 'Ask an owner or admin to check the sign-in option for this page. This sign-in option is not ready.'
   }
 
-  return 'Choose a sign-in option and try again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
+  return 'Choose Password sign-in or a listed sign-in button, then start sign-in again. If it still fails, ask an owner or admin to check the sign-in option for this page.'
 }
 
 function authRecoveryErrorMessage(action: AuthRecoveryAction, error: unknown): string {
