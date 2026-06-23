@@ -72,6 +72,27 @@ describe('workspace setup create forms', () => {
     expect(onSave).toHaveBeenCalledWith('Support Ops')
   })
 
+  test('does not show backend details from a half-formatted team creation error', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Check your connection, then create this team again. database unavailable')
+      )
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+  })
+
   test('explains that a project needs a team before it can be created', () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
 
