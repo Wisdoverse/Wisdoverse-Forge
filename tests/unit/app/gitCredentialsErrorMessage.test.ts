@@ -37,6 +37,13 @@ describe('gitCredentialsErrorMessage', () => {
     )
   })
 
+  test('turns role-required failures into an owner or admin next step', () => {
+    const message = gitCredentialsErrorMessage('owner role required')
+
+    expectBeginnerMessage(message, 'Ask an owner or admin to let you manage code access.')
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns unconfigured providers into a Code access recovery step', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('provider is not configured'),
