@@ -21,8 +21,14 @@ const VALID_TASK_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked"
 const KANBAN_DROP_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed"];
 const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent"];
 const VALID_PARTICIPANT_STATUSES: &[&str] = &["available", "busy", "offline"];
-const VALID_BLOCKED_REASONS: &[&str] =
-    &["waiting_agent", "waiting_dependency", "waiting_input", "waiting_approval", "quota_exceeded"];
+const VALID_BLOCKED_REASONS: &[&str] = &[
+    "waiting_agent",
+    "waiting_dependency",
+    "waiting_input",
+    "waiting_approval",
+    "quota_exceeded",
+    "waiting_verification",
+];
 
 /// Validated pagination request for orchestration task lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -408,6 +414,11 @@ pub(crate) struct CreateTaskParamsInput<'a> {
     pub(crate) inputs: Option<&'a Value>,
     pub(crate) env: Option<&'a Value>,
     pub(crate) api_keys: Option<&'a Value>,
+    /// Opt-in completion contract (#793/#875). Stored verbatim as
+    /// `params.expectedResult` so `core::ExpectedResult::from_params` can parse it
+    /// at completion time. Kept as a raw `Value` on purpose: over-typing here would
+    /// silently drop sub-keys a newer producer adds.
+    pub(crate) expected_result: Option<&'a Value>,
 }
 
 pub(crate) fn create_task_request_parts(
@@ -432,6 +443,13 @@ pub(crate) fn create_task_request_parts(
         }
         if let Some(api_keys) = p.api_keys {
             out.insert("apiKeys".into(), api_keys.clone());
+        }
+        // #793/#875: persist the opt-in completion contract verbatim so the NATS
+        // result consumer can read it back. Without this the verifier never fires
+        // for API-created tasks because the contract is dropped before the row is
+        // written.
+        if let Some(expected_result) = p.expected_result {
+            out.insert("expectedResult".into(), expected_result.clone());
         }
         Value::Object(out)
     });
@@ -653,7 +671,15 @@ impl TaskStatusPolicy {
 pub(crate) struct TaskLifecyclePolicy;
 
 impl TaskLifecyclePolicy {
-    pub(crate) fn ensure_can_complete(status: &str) -> AppResult<()> {
+    /// Completion is normally only valid from `working`. The one exception is a
+    /// `waiting_verification` hold (#793/#875): the agent already finished and the
+    /// only thing standing between the task and `completed` is the operator
+    /// accepting the suspect result. Without this carve-out the "mark it done" the
+    /// FE copy advertises is a dead click — the held card stays `blocked`.
+    pub(crate) fn ensure_can_complete(status: &str, blocked_reason: Option<&str>) -> AppResult<()> {
+        if status == "blocked" && blocked_reason == Some("waiting_verification") {
+            return Ok(());
+        }
         Self::ensure_working_action(status, "complete")
     }
 
@@ -817,22 +843,39 @@ impl TaskPatchPolicy {
         Ok(())
     }
 
+    /// Operator-resolution targets allowed out of a `waiting_verification` hold.
+    /// A held task's suspect result needs a human decision: accept it
+    /// (`completed`), re-run it (`queued`/`working`), or shelve it (`backlog`).
+    /// Cancel is allowed for every blocked reason below.
+    const VERIFICATION_HOLD_RESOLUTIONS: &'static [&'static str] = &["completed", "queued", "working", "backlog"];
+
     pub(crate) fn ensure_current_allows_transition(
         current_status: &str,
         current_blocked_reason: Option<&str>,
         transition_state: Option<&str>,
     ) -> AppResult<()> {
-        if current_status == "blocked"
-            && !BlockedTaskPolicy::reason_allows_dispatch(current_blocked_reason)
-            && !matches!(transition_state, Some("canceled"))
-        {
-            return Err(ErrorKind::Validation(format!(
-                "task is blocked on {}; use its unblock path before dispatching",
-                current_blocked_reason.unwrap_or("unknown")
-            ))
-            .into());
+        if current_status != "blocked" || BlockedTaskPolicy::reason_allows_dispatch(current_blocked_reason) {
+            return Ok(());
         }
-        Ok(())
+        // Cancel is the universal escape hatch for any held task.
+        if matches!(transition_state, Some("canceled")) {
+            return Ok(());
+        }
+        // #793/#875: a `waiting_verification` hold is human-gated, not a dispatch
+        // dead-end. Allow the operator-resolution targets the FE copy advertises
+        // (accept / re-run / shelve). Auto-dispatch is unaffected: it keys off
+        // `reason_allows_dispatch`, which still excludes `waiting_verification`, so
+        // a held task stays human-gated and is never auto-claimed.
+        if current_blocked_reason == Some("waiting_verification")
+            && transition_state.is_some_and(|state| Self::VERIFICATION_HOLD_RESOLUTIONS.contains(&state))
+        {
+            return Ok(());
+        }
+        Err(ErrorKind::Validation(format!(
+            "task is blocked on {}; use its unblock path before dispatching",
+            current_blocked_reason.unwrap_or("unknown")
+        ))
+        .into())
     }
 
     pub(crate) fn plan(
@@ -995,6 +1038,19 @@ impl BlockedTaskPolicy {
         .into())
     }
 
+    /// Guard for the EXPLICIT operator dispatch path (`POST /tasks/:id/dispatch`
+    /// and a kanban drag to "working"). Same as `ensure_can_enter_dispatch` plus a
+    /// #793/#875 carve-out: an operator may re-run a `waiting_verification` hold.
+    /// The auto-sweep deliberately does NOT use this — it keeps `can_enter_dispatch`
+    /// (and the `next_dispatchable` SQL filter), so a held task is never
+    /// auto-claimed and stays human-gated.
+    pub(crate) fn ensure_operator_can_dispatch(status: &str, blocked_reason: Option<&str>) -> AppResult<()> {
+        if status == "blocked" && blocked_reason == Some("waiting_verification") {
+            return Ok(());
+        }
+        Self::ensure_can_enter_dispatch(status, blocked_reason)
+    }
+
     pub(crate) fn no_available_participants_error() -> ErrorKind {
         ErrorKind::Validation("no available participants for dispatch".into())
     }
@@ -1098,6 +1154,7 @@ impl BlockedTaskPolicy {
                 let limit = metadata.and_then(|m| m.get("limit")).and_then(|v| v.as_i64()).unwrap_or(0);
                 format!("配额超限（{used}/{limit}）")
             }
+            "waiting_verification" => "完成结果未通过 expectedResult 校验，已暂留待人工复核".into(),
             other => format!("阻塞: {other}"),
         }
     }
@@ -1194,6 +1251,7 @@ mod tests {
             inputs: None,
             env: None,
             api_keys: None,
+            expected_result: None,
         };
 
         let (title, description, params_value) =
@@ -1217,6 +1275,7 @@ mod tests {
             inputs: Some(&inputs),
             env: Some(&env),
             api_keys: Some(&api_keys),
+            expected_result: None,
         };
 
         let (title, description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1228,6 +1287,51 @@ mod tests {
         assert_eq!(params_value["inputs"]["ticket"], "WIS-1");
         assert_eq!(params_value["env"]["REGION"], "eu");
         assert_eq!(params_value["apiKeys"]["anthropic"], "ref");
+    }
+
+    #[test]
+    fn create_task_request_parts_persists_expected_result_verbatim() {
+        // #793/#875 regression guard: a client POSTing `params.expectedResult` must
+        // have it land in the stored params JSONB verbatim, otherwise the NATS
+        // completion verifier (which reads `params.expectedResult`) never fires for
+        // API-created tasks. This is the test that would have caught the drop bug.
+        let expected_result = json!({ "contains": "tests passed" });
+        let params = CreateTaskParamsInput {
+            task: Some("Run suite"),
+            message: Some("verify"),
+            required_inputs: &[],
+            inputs: None,
+            env: None,
+            api_keys: None,
+            expected_result: Some(&expected_result),
+        };
+
+        let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
+        let params_value = params_value.expect("params");
+
+        assert!(params_value.get("expectedResult").is_some(), "expectedResult must survive into stored params");
+        assert_eq!(params_value["expectedResult"], expected_result, "contract must be stored verbatim");
+        // And the persisted shape must be exactly what core::ExpectedResult parses.
+        let parsed = agentforge_core::completion_verifier::ExpectedResult::from_params(Some(&params_value))
+            .expect("stored contract must parse back into ExpectedResult");
+        assert_eq!(parsed.contains.as_deref(), Some("tests passed"));
+    }
+
+    #[test]
+    fn create_task_request_parts_omits_expected_result_when_absent() {
+        let params = CreateTaskParamsInput {
+            task: Some("Plain"),
+            message: Some("no contract"),
+            required_inputs: &[],
+            inputs: None,
+            env: None,
+            api_keys: None,
+            expected_result: None,
+        };
+
+        let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
+        let params_value = params_value.expect("params");
+        assert!(params_value.get("expectedResult").is_none(), "no contract → no expectedResult key");
     }
 
     #[test]
@@ -1595,6 +1699,23 @@ mod tests {
         assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("blocked", Some("waiting_agent")).is_ok());
         assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("blocked", Some("waiting_input")).is_err());
         assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("completed", None).is_err());
+        // #793/#875: the AUTO-sweep guard must NEVER admit a verification hold, so
+        // a held task is never auto-claimed.
+        assert!(BlockedTaskPolicy::ensure_can_enter_dispatch("blocked", Some("waiting_verification")).is_err());
+        assert!(!BlockedTaskPolicy::can_enter_dispatch("blocked", Some("waiting_verification")));
+    }
+
+    #[test]
+    fn operator_dispatch_allows_verification_hold_rerun_but_not_other_holds() {
+        // #793/#875: an operator re-running a verification hold is allowed on the
+        // EXPLICIT dispatch path...
+        assert!(BlockedTaskPolicy::ensure_operator_can_dispatch("blocked", Some("waiting_verification")).is_ok());
+        // ...while normal dispatchable states still pass...
+        assert!(BlockedTaskPolicy::ensure_operator_can_dispatch("queued", None).is_ok());
+        assert!(BlockedTaskPolicy::ensure_operator_can_dispatch("blocked", Some("waiting_agent")).is_ok());
+        // ...and other holds still reject (no regression).
+        assert!(BlockedTaskPolicy::ensure_operator_can_dispatch("blocked", Some("waiting_input")).is_err());
+        assert!(BlockedTaskPolicy::ensure_operator_can_dispatch("blocked", Some("waiting_approval")).is_err());
     }
 
     #[test]
@@ -1837,14 +1958,25 @@ mod tests {
 
     #[test]
     fn task_lifecycle_policy_guards_complete_and_fail() {
-        assert!(TaskLifecyclePolicy::ensure_can_complete("working").is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_complete("working", None).is_ok());
         assert!(TaskLifecyclePolicy::ensure_can_fail("working").is_ok());
 
-        let complete_error = validation_message(TaskLifecyclePolicy::ensure_can_complete("queued"));
+        let complete_error = validation_message(TaskLifecyclePolicy::ensure_can_complete("queued", None));
         let fail_error = validation_message(TaskLifecyclePolicy::ensure_can_fail("completed"));
 
         assert_eq!(complete_error, "can only complete working tasks, current status: queued");
         assert_eq!(fail_error, "can only fail working tasks, current status: completed");
+    }
+
+    #[test]
+    fn waiting_verification_hold_can_be_marked_done_by_operator() {
+        // #793/#875: accepting a held result is the FE's "mark it done" — it must
+        // pass ensure_can_complete even though the task is `blocked`, not `working`.
+        assert!(TaskLifecyclePolicy::ensure_can_complete("blocked", Some("waiting_verification")).is_ok());
+        // Other blocked reasons must NOT be completable directly (no regression).
+        assert!(TaskLifecyclePolicy::ensure_can_complete("blocked", Some("waiting_input")).is_err());
+        assert!(TaskLifecyclePolicy::ensure_can_complete("blocked", Some("waiting_approval")).is_err());
+        assert!(TaskLifecyclePolicy::ensure_can_complete("blocked", None).is_err());
     }
 
     #[test]
@@ -1948,6 +2080,51 @@ mod tests {
 
         assert!(blocked_error.contains("task is blocked on waiting_input"));
         assert!(unassign_error.contains("cannot unassign a working task"));
+    }
+
+    #[test]
+    fn waiting_verification_hold_allows_operator_resolution() {
+        // #793/#875: a verification hold is human-gated, not a dead-end. The
+        // operator-resolution targets the FE copy advertises must be reachable.
+        for target in ["completed", "queued", "working", "backlog", "canceled"] {
+            assert!(
+                TaskPatchPolicy::ensure_current_allows_transition(
+                    "blocked",
+                    Some("waiting_verification"),
+                    Some(target),
+                )
+                .is_ok(),
+                "waiting_verification hold must allow operator transition to {target}",
+            );
+        }
+    }
+
+    #[test]
+    fn waiting_verification_carve_out_does_not_regress_other_blocked_reasons() {
+        // The carve-out is scoped to waiting_verification: other non-dispatch
+        // blocked reasons must still reject the same operator-resolution targets
+        // (only `canceled` stays universally allowed).
+        for reason in ["waiting_input", "waiting_approval", "waiting_dependency", "quota_exceeded"] {
+            for blocked_target in ["completed", "queued", "working", "backlog"] {
+                assert!(
+                    TaskPatchPolicy::ensure_current_allows_transition("blocked", Some(reason), Some(blocked_target))
+                        .is_err(),
+                    "{reason} must still reject → {blocked_target}",
+                );
+            }
+            assert!(
+                TaskPatchPolicy::ensure_current_allows_transition("blocked", Some(reason), Some("canceled")).is_ok(),
+                "{reason} must still allow → canceled",
+            );
+        }
+    }
+
+    #[test]
+    fn waiting_verification_is_retryable() {
+        // The kanban re-run path goes through ensure_can_retry; a verification hold
+        // must pass it (only waiting_approval gates retry).
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_verification"), false).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_verification"), true).is_ok());
     }
 
     #[test]

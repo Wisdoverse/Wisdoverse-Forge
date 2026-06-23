@@ -35,6 +35,7 @@ use agentforge_core::orchestration_protocol::{
     RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskOutcome, TaskResult, parse_result_subject_with_prefix,
     result_subject_wildcard,
 };
+use agentforge_core::{CompletionVerifier, ExpectedResult};
 use agentforge_db::entities::OrchestrationTask;
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 
@@ -511,11 +512,19 @@ pub fn register_metrics() {
         "Count of messages received on a pre-#457 un-namespaced subject; label = subject. \
          The legacy-drop deploy is gated on the relevant series holding at zero."
     );
+    metrics::describe_counter!(
+        "agentforge_orchestration_completion_verification_held_total",
+        "#793/#875 completed results held in blocked/waiting_verification because they \
+         failed their opt-in params.expectedResult contract"
+    );
 
     metrics::counter!("agentforge_orchestration_result_unauthorized_total", "reason" => "none").increment(0);
     metrics::counter!("agentforge_orchestration_result_transient_errors_total", "stage" => "none").increment(0);
     metrics::counter!("agentforge_orchestration_result_ack_errors_total", "kind" => "none").increment(0);
     metrics::counter!("agentforge_orchestration_inbox_duplicate_total").increment(0);
+    // #793/#875: prime the held series at zero so it exists at startup (matches the
+    // prime-at-zero convention every other counter here follows).
+    metrics::counter!("agentforge_orchestration_completion_verification_held_total").increment(0);
     metrics::histogram!("agentforge_orchestration_result_apply_seconds", "outcome" => "success").record(0.0);
     // Materialise the orchestration.result drain series at 0 so the legacy-drop
     // gate distinguishes a true zero from an absent ("no data") series.
@@ -625,37 +634,122 @@ impl TaskWriter for SqlxTaskWriter {
             return Ok(());
         }
 
-        // A single UPDATE enforces three invariants at once: tenant scope,
-        // working-state guard (transitions from any other status silently no-op),
-        // and the result/error column pick. We also stamp completed_at and
-        // progress the same way `set_result` does on the HTTP path so the UI
-        // renders identically whether the task was completed via the kanban or
-        // the worker bridge.
-        let updated = sqlx::query_as::<_, OrchestrationTask>(
-            r#"UPDATE orchestration_tasks
-               SET status = $3,
-                   result = CASE WHEN $3 = 'completed' THEN $4 ELSE result END,
-                   error  = CASE WHEN $3 = 'failed'    THEN $4 ELSE error  END,
-                   progress = CASE WHEN $3 = 'completed' THEN 100 ELSE progress END,
-                   lease_expires_at = NULL,
-                   retryable = FALSE,
-                   completed_at = NOW(),
-                   updated_at = NOW()
-               WHERE id = $1
-                 AND organization_id = $2
-                 AND status = 'working'
-                 AND last_assignment_id = $5
-                 AND attempt = $6
-               RETURNING *"#,
-        )
-        .bind(task_id)
-        .bind(organization_id)
-        .bind(status)
-        .bind(&body)
-        .bind(delivery_id)
-        .bind(attempt)
-        .fetch_optional(&mut *tx)
-        .await?;
+        // #793/#875 completion verifier (NATS path, opt-in): a `Completed` result
+        // for a task that carries a `params.expectedResult` contract is checked
+        // against that contract BEFORE the status write. On a miss we hold the task
+        // in `blocked / waiting_verification` instead of `completed` so an operator
+        // reviews the suspect result rather than trusting a silent false success.
+        // `Failed` outcomes are already failures and are never re-verified; tasks
+        // with no contract take the existing completed path byte-for-byte. The dedup
+        // INSERT above runs at most once per delivery, so this SELECT is off the
+        // duplicate hot path.
+        let verification_failure: Option<String> = if status == "completed" {
+            // The column is nullable JSONB, so the scalar is `Option<Value>`; one
+            // `flatten` collapses "no row matched" and "row with NULL params".
+            let params: Option<serde_json::Value> = sqlx::query_scalar::<_, Option<serde_json::Value>>(
+                r#"SELECT params FROM orchestration_tasks WHERE id = $1 AND organization_id = $2"#,
+            )
+            .bind(task_id)
+            .bind(organization_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .flatten();
+
+            match ExpectedResult::from_params(params.as_ref()) {
+                Some(expected) => CompletionVerifier::verify(&expected, &body).err(),
+                None => None,
+            }
+        } else {
+            None
+        };
+
+        let updated = if let Some(reason) = verification_failure.as_deref() {
+            // Held write: a NEW parallel query that carries the SAME working-state
+            // and assignment guards as the completed UPDATE below, but transitions
+            // `working -> blocked / waiting_verification` and stores the agent's
+            // result so the operator can see what was rejected. Deliberately does
+            // NOT set completed_at, progress=100, or retryable — the task did not
+            // complete. The hot completed UPDATE is left untouched.
+            //
+            // #793/#875 FIX 5: the held counter is NOT incremented here. A stale
+            // assignment can make this guarded UPDATE match 0 rows; counting before
+            // confirming the row would over-count. We increment after the
+            // `updated.is_some()` check below instead.
+            tracing::info!(
+                task_id = %task_id,
+                delivery_id = ?delivery_id,
+                attempt,
+                %organization_id,
+                reason,
+                "Completed result failed its expectedResult contract; holding for verification",
+            );
+            sqlx::query_as::<_, OrchestrationTask>(
+                r#"UPDATE orchestration_tasks
+                   SET status = 'blocked',
+                       blocked_reason = 'waiting_verification',
+                       result = $3,
+                       lease_expires_at = NULL,
+                       updated_at = NOW()
+                   WHERE id = $1
+                     AND organization_id = $2
+                     AND status = 'working'
+                     AND last_assignment_id = $4
+                     AND attempt = $5
+                   RETURNING *"#,
+            )
+            .bind(task_id)
+            .bind(organization_id)
+            .bind(&body)
+            .bind(delivery_id)
+            .bind(attempt)
+            .fetch_optional(&mut *tx)
+            .await?
+        } else {
+            // A single UPDATE enforces three invariants at once: tenant scope,
+            // working-state guard (transitions from any other status silently no-op),
+            // and the result/error column pick. We also stamp completed_at and
+            // progress the same way `set_result` does on the HTTP path so the UI
+            // renders identically whether the task was completed via the kanban or
+            // the worker bridge.
+            sqlx::query_as::<_, OrchestrationTask>(
+                r#"UPDATE orchestration_tasks
+                   SET status = $3,
+                       result = CASE WHEN $3 = 'completed' THEN $4 ELSE result END,
+                       error  = CASE WHEN $3 = 'failed'    THEN $4 ELSE error  END,
+                       progress = CASE WHEN $3 = 'completed' THEN 100 ELSE progress END,
+                       lease_expires_at = NULL,
+                       retryable = FALSE,
+                       completed_at = NOW(),
+                       updated_at = NOW()
+                   WHERE id = $1
+                     AND organization_id = $2
+                     AND status = 'working'
+                     AND last_assignment_id = $5
+                     AND attempt = $6
+                   RETURNING *"#,
+            )
+            .bind(task_id)
+            .bind(organization_id)
+            .bind(status)
+            .bind(&body)
+            .bind(delivery_id)
+            .bind(attempt)
+            .fetch_optional(&mut *tx)
+            .await?
+        };
+
+        // Effective TASK status that the rest of the flow keys off: a held task is
+        // `blocked`, not `completed`. This gates the self-fix enqueue (skipped on a
+        // hold), the failure-notification branch, and the broadcast action mapping.
+        //
+        // The RUN status is tracked separately: a held task's execution attempt
+        // genuinely finished (the agent ran and returned a result), so the
+        // `task_runs` row is `completed`. The verification verdict is a task-level
+        // concern, and `task_runs.status` has a CHECK that only permits
+        // queued/working/completed/failed/canceled — `blocked` would violate it.
+        let held = verification_failure.is_some();
+        let status = if held { "blocked" } else { status };
+        let run_status = if held { "completed" } else { status };
 
         let Some(updated_task) = updated else {
             tracing::warn!(
@@ -670,6 +764,13 @@ impl TaskWriter for SqlxTaskWriter {
             return Ok(());
         };
 
+        // #793/#875 FIX 5: only now that the held UPDATE confirmably matched a row
+        // (a stale assignment would have no-op'd to None above) do we count the
+        // hold. This keeps the metric one-per-real-hold rather than one-per-attempt.
+        if held {
+            metrics::counter!("agentforge_orchestration_completion_verification_held_total").increment(1);
+        }
+
         sqlx::query(
             r#"UPDATE task_runs
                   SET status = $3,
@@ -682,7 +783,7 @@ impl TaskWriter for SqlxTaskWriter {
         )
         .bind(organization_id)
         .bind(task_id)
-        .bind(status)
+        .bind(run_status)
         .bind(delivery_id.to_string())
         .execute(&mut *tx)
         .await?;
@@ -714,6 +815,23 @@ impl TaskWriter for SqlxTaskWriter {
                 &updated_task,
                 assigned_agent_name.as_deref(),
                 TaskOwnerNotificationKind::Failed,
+            )
+            .await?;
+        }
+
+        // #793/#875 FIX 3: a verification hold must leave a DURABLE inbox row, not
+        // just an ephemeral WS broadcast, so the task owner sees it even if they
+        // were not watching the live feed. Mirrors the `failed` branch above and
+        // the HTTP quota-block path. Same tx → commits atomically with the held
+        // UPDATE and rolls back if anything below fails. The upsert is idempotent
+        // (keyed on task_owner_notification_id) and lifecycle_detail renders the
+        // `waiting_verification` blocked_reason. Gated strictly on `held`.
+        if held {
+            upsert_task_owner_lifecycle_notification_in_tx(
+                &mut tx,
+                &updated_task,
+                assigned_agent_name.as_deref(),
+                TaskOwnerNotificationKind::Blocked,
             )
             .await?;
         }
@@ -756,6 +874,10 @@ impl SqlxTaskWriter {
         let action = match status {
             "completed" => "task.completed",
             "failed" => "task.failed",
+            // A verification hold transitions to `blocked`; surface it as a
+            // needs-action `task.blocked` (the frontend ActivityFeed treats
+            // `task.blocked` as needs-action), never as `task.completed`.
+            "blocked" => "task.blocked",
             _ => "task.updated",
         };
         if let Err(err) = publish_task_update(client, task, assigned_agent_name, action).await {
@@ -1150,5 +1272,150 @@ mod tests {
 
         let job = crate::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "t2").await.unwrap();
         assert!(job.is_none(), "non-self_fix completion must not enqueue a PR job");
+    }
+
+    // -------------------------------------------------------------------
+    // #793/#875 completion verifier (NATS path, opt-in): a Completed result
+    // whose serialized form does NOT contain `params.expectedResult.contains`
+    // must be held in `blocked / waiting_verification` instead of `completed`,
+    // with the agent's result still stored and `completed_at` left NULL. A
+    // matching one completes exactly as today.
+    // -------------------------------------------------------------------
+
+    /// Attach an `expectedResult.contains` contract to a seeded task's params.
+    async fn set_expected_contains(pool: &sqlx::PgPool, task_id: Uuid, contains: &str) {
+        sqlx::query("UPDATE orchestration_tasks SET params = $2 WHERE id = $1")
+            .bind(task_id)
+            .bind(json!({ "task": "do it", "expectedResult": { "contains": contains } }))
+            .execute(pool)
+            .await
+            .expect("set expectedResult contract");
+    }
+
+    /// Read back the task's terminal state fields for assertions.
+    async fn fetch_task_state(
+        pool: &sqlx::PgPool,
+        task_id: Uuid,
+    ) -> (String, Option<String>, Option<serde_json::Value>, bool) {
+        let row: (String, Option<String>, Option<serde_json::Value>, Option<chrono::DateTime<chrono::Utc>>) =
+            sqlx::query_as(
+                r#"SELECT status, blocked_reason, result, completed_at
+                   FROM orchestration_tasks WHERE id = $1"#,
+            )
+            .bind(task_id)
+            .fetch_one(pool)
+            .await
+            .expect("fetch task state");
+        (row.0, row.1, row.2, row.3.is_some())
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn completion_failing_expected_contract_is_held_for_verification(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
+        set_expected_contains(&pool, task_id, "tests passed").await;
+
+        // stdout does NOT contain "tests passed" -> verification miss -> hold.
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Completed { stdout: "build failed".to_string() },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let (status, blocked_reason, stored_result, has_completed_at) = fetch_task_state(&pool, task_id).await;
+        assert_eq!(status, "blocked", "held task must be blocked, not completed");
+        assert_eq!(blocked_reason.as_deref(), Some("waiting_verification"));
+        assert!(!has_completed_at, "held task must not stamp completed_at");
+        let stored = stored_result.expect("held task still stores the agent's result");
+        assert_eq!(stored["stdout"], "build failed", "the rejected result is preserved for the operator");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn completion_matching_expected_contract_completes(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
+        set_expected_contains(&pool, task_id, "tests passed").await;
+
+        // stdout DOES contain "tests passed" -> verification ok -> completed.
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Completed { stdout: "all 42 tests passed".to_string() },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let (status, blocked_reason, stored_result, has_completed_at) = fetch_task_state(&pool, task_id).await;
+        assert_eq!(status, "completed", "matching result must complete");
+        assert_eq!(blocked_reason, None);
+        assert!(has_completed_at, "completed task stamps completed_at");
+        assert_eq!(stored_result.expect("result stored")["stdout"], "all 42 tests passed");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn completion_without_contract_completes_unchanged(pool: sqlx::PgPool) {
+        // No expectedResult on params at all -> existing completed path, byte-for-byte.
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
+
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Completed { stdout: "whatever".to_string() },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let (status, blocked_reason, _, has_completed_at) = fetch_task_state(&pool, task_id).await;
+        assert_eq!(status, "completed");
+        assert_eq!(blocked_reason, None);
+        assert!(has_completed_at);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn failed_outcome_is_never_verified(pool: sqlx::PgPool) {
+        // Even with a contract, a Failed outcome is already a failure and is not
+        // held for verification.
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
+        set_expected_contains(&pool, task_id, "tests passed").await;
+
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Failed { stderr: "boom".to_string(), exit_code: Some(1) },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let (status, blocked_reason, _, _) = fetch_task_state(&pool, task_id).await;
+        assert_eq!(status, "failed", "Failed outcomes bypass verification");
+        assert_eq!(blocked_reason, None);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn held_self_fix_completion_does_not_enqueue_pr_job(pool: sqlx::PgPool) {
+        // A self-fix task that fails verification did NOT complete, so its PR
+        // bridge job must not be enqueued (acceptance criterion 7).
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, true).await;
+        set_expected_contains(&pool, task_id, "tests passed").await;
+
+        let result = TaskResult {
+            delivery_id: Some(delivery_id),
+            attempt: Some(1),
+            task_id,
+            agent_id,
+            outcome: TaskOutcome::Completed { stdout: "build failed".to_string() },
+        };
+        SqlxTaskWriter::new(pool.clone()).apply(org_id, result).await.unwrap();
+
+        let (status, blocked_reason, _, _) = fetch_task_state(&pool, task_id).await;
+        assert_eq!(status, "blocked");
+        assert_eq!(blocked_reason.as_deref(), Some("waiting_verification"));
+
+        let job = crate::queue::dequeue(&pool, agentforge_core::SELF_FIX_PR_QUEUE, "held").await.unwrap();
+        assert!(job.is_none(), "a held self-fix task must not enqueue a PR job");
     }
 }
