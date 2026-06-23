@@ -148,7 +148,9 @@ function isSensitiveKey(key: string): boolean {
 
 function safeToolString(value: string): string {
   if (
-    /\b(missing|invalid|expired)\s+(token|credential|credentials|api\s*key|secret)\b/i.test(value)
+    /\b(?:(?:missing|invalid|expired)\s+(?:token|credential|credentials|api\s*key|secret)|(?:token|credential|credentials|api\s*key|secret)\s+(?:missing|invalid|expired))\b/i.test(
+      value
+    )
   ) {
     return MISSING_ACCESS_MESSAGE
   }

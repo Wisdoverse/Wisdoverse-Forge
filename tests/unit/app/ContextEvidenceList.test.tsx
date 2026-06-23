@@ -196,10 +196,35 @@ describe('ContextEvidenceList', () => {
     fireEvent.click(screen.getByText('Show saved details'))
 
     expect(screen.getAllByText(/Hidden for safety/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/secret-token-value/i)).toBeNull()
     expect(screen.queryByText(/private-api-key/i)).toBeNull()
     expect(screen.queryByText(/Missing token/i)).toBeNull()
+  })
+
+  test('turns reversed expired access errors into reconnect guidance', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'token expired',
+              error: 'credential expired',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/token expired/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/credential expired/i)).toBeNull()
   })
 
   test('hides camelCase access token values in saved details', () => {
