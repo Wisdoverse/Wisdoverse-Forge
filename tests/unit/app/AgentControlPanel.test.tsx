@@ -150,6 +150,21 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Failed to fetch/i)
   })
 
+  test('turns authorization header failures into sign-in guidance', () => {
+    useAgentsStore.setState({
+      error: 'Authorization: Bearer agent-secret-token rejected',
+    } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Sign in again, reopen this agent, then try the action once more.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Authorization/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/Bearer/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/agent-secret-token/i)
+  })
+
   test('keeps generic recovery steps aligned with Ready status wording', () => {
     useAgentsStore.setState({ error: 'Unexpected control result' } as never)
 
@@ -290,9 +305,7 @@ describe('AgentControlPanel', () => {
       'placeholder',
       'Check this AI service before sending a message.'
     )
-    expect(messageInput).toHaveAccessibleDescription(
-      /choose Check connection for this service/i
-    )
+    expect(messageInput).toHaveAccessibleDescription(/choose Check connection for this service/i)
     expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled()
     expect(sendPromptMock).not.toHaveBeenCalled()
   })
