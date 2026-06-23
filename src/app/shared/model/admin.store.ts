@@ -463,6 +463,12 @@ function adminUserActionRecovery(action: AdminUserAction): string {
   return action === 'change-role' ? 'the access change' : 'the removal'
 }
 
+function adminUserActionRetryStep(action: AdminUserAction): string {
+  return action === 'change-role'
+    ? 'choose Save access again'
+    : 'choose Remove, then choose Remove account again'
+}
+
 /**
  * Beginner-first message for a failed user action. Guard rejections (own
  * account, last admin, unknown access level) arrive as HTTP 422 with a
@@ -483,24 +489,24 @@ export function adminUserActionErrorMessage(
   }
 
   if (status === 401) {
-    return `Your sign-in expired. Sign in again, then open Admin and choose User access before retrying ${adminUserActionRecovery(action)}.`
+    return `Your sign-in expired. Sign in again, then open Admin and choose User access, then ${adminUserActionRetryStep(action)}.`
   }
   if (status === 403) {
     return action === 'change-role'
-      ? 'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
-      : 'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
+      ? `Ask an owner or admin to give you Admin access, then ${adminUserActionRetryStep(action)}. You do not have access to change user access.`
+      : `Ask an owner or admin to give you Admin access, then ${adminUserActionRetryStep(action)}. You do not have access to remove user accounts.`
   }
   if (status === 404) {
     return 'Open Admin and choose User access to see the latest accounts. This user is no longer in the list.'
   }
   if (status >= 500) {
-    return `Open Admin and choose User access, then try again. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check User access in Admin.`
+    return `Open Admin and choose User access, then ${adminUserActionRetryStep(action)}. Forge could not finish ${adminUserActionRecovery(action)} right now. If it still fails, ask an owner or admin to check User access in Admin.`
   }
-  return `Open Admin and choose User access, then try again. The ${label} did not go through.`
+  return `Open Admin and choose User access, then ${adminUserActionRetryStep(action)}. The ${label} did not go through.`
 }
 
 function adminUserActionNetworkMessage(action: AdminUserAction): string {
-  return `Check your connection, then open Admin and choose User access before trying again. The ${adminUserActionLabel(action)} did not finish.`
+  return `Check your connection, then open Admin and choose User access, then ${adminUserActionRetryStep(action)}. The ${adminUserActionLabel(action)} did not finish.`
 }
 
 function adminUserActionError(err: unknown, action: AdminUserAction): string {

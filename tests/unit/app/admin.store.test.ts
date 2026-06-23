@@ -141,7 +141,7 @@ describe('useAdminStore loading errors', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAdminStore.getState().userActionError,
-      'Ask an owner or admin to give you Admin access, then save again. You do not have access to change user access.'
+      'Ask an owner or admin to give you Admin access, then choose Save access again. You do not have access to change user access.'
     )
     expect(useAdminStore.getState().userActionError).not.toContain('role')
   })
@@ -555,9 +555,10 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'Check your connection, then open Admin and choose User access before trying again. The removal did not finish.'
+      'Check your connection, then open Admin and choose User access, then choose Remove, then choose Remove account again. The removal did not finish.'
     )
     expect(useAdminStore.getState().userActionError).not.toContain('server')
+    expect(useAdminStore.getState().userActionError).not.toContain('trying again')
     expect(useAdminStore.getState().users).toHaveLength(2)
   })
 
@@ -569,9 +570,10 @@ describe('useAdminStore loading errors', () => {
 
     expect(ok).toBe(false)
     expect(useAdminStore.getState().userActionError).toBe(
-      'Check your connection, then open Admin and choose User access before trying again. The access change did not finish.'
+      'Check your connection, then open Admin and choose User access, then choose Save access again. The access change did not finish.'
     )
     expect(useAdminStore.getState().userActionError).not.toContain('server')
+    expect(useAdminStore.getState().userActionError).not.toContain('trying again')
     expect(useAdminStore.getState().users[1]?.role).toBe('member')
   })
 
@@ -583,24 +585,28 @@ describe('useAdminStore loading errors', () => {
 
   test('adminUserActionErrorMessage maps statuses to operator steps', () => {
     expect(adminUserActionErrorMessage('change-role', 401)).toBe(
-      'Your sign-in expired. Sign in again, then open Admin and choose User access before retrying the access change.'
+      'Your sign-in expired. Sign in again, then open Admin and choose User access, then choose Save access again.'
+    )
+    expect(adminUserActionErrorMessage('change-role', 403)).toBe(
+      'Ask an owner or admin to give you Admin access, then choose Save access again. You do not have access to change user access.'
     )
     expect(adminUserActionErrorMessage('remove', 403)).toBe(
-      'Ask an owner or admin to give you Admin access, then try again. You do not have access to remove user accounts.'
+      'Ask an owner or admin to give you Admin access, then choose Remove, then choose Remove account again. You do not have access to remove user accounts.'
     )
     expect(adminUserActionErrorMessage('remove', 404)).toBe(
       'Open Admin and choose User access to see the latest accounts. This user is no longer in the list.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).toBe(
-      'Open Admin and choose User access, then try again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check User access in Admin.'
+      'Open Admin and choose User access, then choose Save access again. Forge could not finish the access change right now. If it still fails, ask an owner or admin to check User access in Admin.'
     )
     // 422 without a usable detail falls back to the generic retry step.
     expect(adminUserActionErrorMessage('change-role', 422)).toBe(
-      'Open Admin and choose User access, then try again. The access change did not go through.'
+      'Open Admin and choose User access, then choose Save access again. The access change did not go through.'
     )
     expect(adminUserActionErrorMessage('change-role', 500, { error: 'db down' })).not.toContain(
       'db down'
     )
+    expect(adminUserActionErrorMessage('remove', 403)).not.toContain('try again')
   })
 
   test('a legacy {ok,data} users body leaves users empty instead of crashing', async () => {
