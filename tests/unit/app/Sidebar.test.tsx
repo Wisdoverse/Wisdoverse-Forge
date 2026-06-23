@@ -553,6 +553,25 @@ describe('Sidebar', () => {
     expect(screen.queryByText(/403/i)).not.toBeInTheDocument()
   })
 
+  it('explains plain team rename role failures without raw policy text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(new Error('owner role required'))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Ask an owner or admin to let you edit this team/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+  })
+
   it('explains team rename connection failures without raw network text', async () => {
     seedProjectTree()
     vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(new TypeError('Failed to fetch'))
