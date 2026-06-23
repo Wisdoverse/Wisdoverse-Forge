@@ -126,6 +126,17 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Forbidden/i)
   })
 
+  test('turns role failures into agent management guidance', () => {
+    useAgentsStore.setState({ error: 'owner role required' } as never)
+
+    render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/owner role required/i)
+  })
+
   test('turns changed-agent failures into a concrete status check', () => {
     useAgentsStore.setState({ error: 'HTTP 409: Conflict' } as never)
 

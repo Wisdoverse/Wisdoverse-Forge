@@ -625,6 +625,7 @@ function agentControlErrorMessage(error: string): string {
   if (
     normalized.includes('permission') ||
     normalized.includes('forbidden') ||
+    normalized.includes('role required') ||
     /\b403\b/.test(error)
   ) {
     return 'Ask an owner or admin to let you manage this agent, then return to Agents and run the agent action again. You do not have permission to change this agent.'
