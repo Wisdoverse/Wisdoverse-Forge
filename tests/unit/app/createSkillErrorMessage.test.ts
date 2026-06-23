@@ -61,6 +61,16 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('You do not have permission')
   })
 
+  test('maps role-required failures to saved instruction access guidance', () => {
+    const message = createSkillErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('maps missing saved instruction routes to a page refresh step', () => {
     expectBeginnerMessage(
       createSkillErrorMessage(new Error('HTTP 404: Not Found')),
