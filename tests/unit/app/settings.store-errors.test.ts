@@ -121,6 +121,16 @@ describe('settingsActionErrorMessage', () => {
     expect(message).not.toContain('policy denied')
   })
 
+  test('turns plain role failures into an admin role step', () => {
+    const message = settingsActionErrorMessage('gitCredentials', 'save', 'owner role required')
+
+    expectBeginnerError(
+      message,
+      'Ask an owner or admin to let you manage code access, then save the code access again. You do not have permission to save the code access.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns platform key validation details into access-key guidance', () => {
     const message = settingsActionErrorMessage(
       'apiKeys',

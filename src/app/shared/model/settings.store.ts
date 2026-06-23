@@ -172,6 +172,7 @@ function statusFromSettingsError(error: unknown): number | null {
   }
 
   const message = settingsErrorDetail(error)
+  if (message?.toLowerCase().includes('role required')) return 403
   const match = message?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
   return match ? Number(match[1]) : null
 }
