@@ -11,6 +11,21 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let (state, workflow_worker) = AppState::live_with_runtime(config).await?;
+
+    if let Some(pool) = state.pool.clone() {
+        let ttl = state.config.dispatch_timeout_secs;
+        tokio::spawn(async move {
+            agentforge_orchestrator::dispatch_reaper::DispatchReaperWorker::new(pool, ttl).run().await;
+            tracing::error!(
+                "dispatch reaper loop exited unexpectedly — stuck task_dispatches will no longer be aged out"
+            );
+        });
+    } else {
+        tracing::warn!(
+            "dispatch reaper not started: orchestrator has no database pool — stuck task_dispatches will not be aged out"
+        );
+    }
+
     let app = state.clone().router();
 
     let addr = format!("{}:{}", state.config.host, state.config.port);
