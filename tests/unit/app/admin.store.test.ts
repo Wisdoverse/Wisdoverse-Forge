@@ -83,8 +83,9 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Open Admin and choose App health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
+      'Open Admin and choose App health, then choose Check now again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
     )
+    expect(message).not.toContain('then try again')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
     expect(message).not.toContain('Admin setup')
@@ -153,8 +154,9 @@ describe('useAdminStore loading errors', () => {
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'Open Admin and choose App health, then try again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
+      'Open Admin and choose App health, then choose Check now again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
     )
+    expect(useAdminStore.getState().healthError).not.toContain('then try again')
     expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
     expect(useAdminStore.getState().healthError).not.toContain('Admin setup')
   })

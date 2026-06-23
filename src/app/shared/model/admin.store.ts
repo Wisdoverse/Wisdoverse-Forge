@@ -390,6 +390,10 @@ function openAdminResourceStep(resource: AdminResource): string {
   return `open Admin and choose ${adminResourceSectionLabel(resource)}`
 }
 
+function adminResourceRetryStep(resource: AdminResource): string {
+  return resource === 'health' ? 'choose Check now again' : 'try again'
+}
+
 function adminErrorDetail(data: Record<string, unknown>): string | null {
   if (typeof data.error === 'string' && data.error.trim()) return data.error.trim()
   if (
@@ -435,7 +439,7 @@ export function adminHttpErrorMessage(
     return `Wait a moment, then ${openAdminResourceStep(resource)} before trying again. Forge is receiving too many Admin requests right now.`
   }
   if (status >= 500) {
-    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
+    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then ${adminResourceRetryStep(resource)}. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
   }
 
   return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check ${label} in Admin.`
