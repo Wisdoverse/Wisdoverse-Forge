@@ -230,7 +230,7 @@ function isSensitiveEvidenceKey(key: string): boolean {
 
 function safeEvidenceString(value: string): string {
   if (
-    /\b(?:(?:missing|invalid|expired)\s+(?:token|credential|credentials|api\s*key|secret)|(?:token|credential|credentials|api\s*key|secret)\s+(?:missing|invalid|expired))\b/i.test(
+    /\b(?:(?:missing|invalid|expired|revoked)\s+(?:token|credential|credentials|api\s*key|secret)|(?:token|credential|credentials|api\s*key|secret)\s+(?:missing|invalid|expired|revoked))\b/i.test(
       value
     )
   ) {

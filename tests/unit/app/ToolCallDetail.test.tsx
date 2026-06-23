@@ -144,6 +144,27 @@ describe('ToolCallDetail', () => {
     expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
   })
 
+  test('turns revoked access errors into reconnect guidance', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          output: { error: 'token revoked' },
+          success: false,
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+
+    expect(screen.getByText(/Required account access is missing/i)).toBeInTheDocument()
+    expect(screen.queryByText(/token revoked/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+  })
+
   test('hides technical tool failure details from summaries and extra details', () => {
     render(
       <ToolCallDetail

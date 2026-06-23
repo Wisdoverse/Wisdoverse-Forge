@@ -227,6 +227,31 @@ describe('ContextEvidenceList', () => {
     expect(screen.queryByText(/credential expired/i)).toBeNull()
   })
 
+  test('turns revoked access errors into reconnect guidance', () => {
+    render(
+      <ContextEvidenceList
+        evidence={[
+          evidence({
+            payload: {
+              ok: false,
+              summary: 'token revoked',
+              error: 'revoked credential',
+            },
+          }),
+        ]}
+        revokedItems={[]}
+      />
+    )
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/token revoked/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show saved details'))
+
+    expect(screen.getAllByText(/Required account access is missing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/revoked credential/i)).toBeNull()
+  })
+
   test('hides camelCase access token values in saved details', () => {
     render(
       <ContextEvidenceList
