@@ -32,7 +32,7 @@ describe('taskDetailErrorMessage', () => {
         statusCode: '403',
         serverError: 'owner role required',
       }),
-      'Ask an owner or admin to let you update this task, then open it again from the Tasks page and try again. You do not have permission to change this task.'
+      'Ask an owner or admin to let you update this task, then open this task again from the Tasks page, then choose Cancel again. The task was not canceled. You do not have permission to change this task.'
     )
   })
 
@@ -166,7 +166,7 @@ describe('taskDetailErrorMessage', () => {
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 409')),
-      'Open this task again from the Tasks page, then try again. This task changed while you were working.'
+      'Open this task again from the Tasks page, then choose Retry task again. The task was not retried. This task changed while you were working.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('retryTask', new Error('HTTP 429')),

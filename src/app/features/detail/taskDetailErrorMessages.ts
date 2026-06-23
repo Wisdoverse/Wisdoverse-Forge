@@ -48,7 +48,8 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
       return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     }
-    return 'Ask an owner or admin to let you update this task, then open it again from the Tasks page and try again. You do not have permission to change this task.'
+    const fallback = ACTION_FALLBACKS[action]
+    return `Ask an owner or admin to let you update this task, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)} You do not have permission to change this task.`
   }
 
   if (status === 404) {
@@ -56,7 +57,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status === 409) {
-    return 'Open this task again from the Tasks page, then try again. This task changed while you were working.'
+    return `${ACTION_FALLBACKS[action]} This task changed while you were working.`
   }
 
   if (status === 422) {
