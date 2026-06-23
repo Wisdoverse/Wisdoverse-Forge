@@ -878,5 +878,8 @@ function safeAuditDetailString(value: string): string {
   if (accessIssue.test(value) || reversedAccessIssue.test(value)) {
     return MISSING_AUDIT_ACCESS_MESSAGE
   }
+  if (/\b(authorization\s*:\s*bearer|bearer\s+[\w.-]{4,})\b/i.test(value)) {
+    return HIDDEN_AUDIT_DETAIL_VALUE
+  }
   return value
 }
