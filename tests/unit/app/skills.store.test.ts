@@ -120,6 +120,28 @@ describe('useSkillsStore errors', () => {
     expect(skill?.plugin).not.toContain('Workspace')
   })
 
+  test('uses scope kind before missing organization id when labeling saved instructions', async () => {
+    fetchMock.mockResolvedValue(
+      response(200, {
+        ok: true,
+        skills: [
+          {
+            id: 'skill-team-scope',
+            scope_kind: 'team',
+            name: 'handoff-check',
+            content: 'Check the handoff',
+          },
+        ],
+      })
+    )
+
+    await useSkillsStore.getState().loadSkills()
+
+    const [skill] = useSkillsStore.getState().skills
+    expect(skill?.plugin).toBe('Team space saved instructions')
+    expect(skill?.marketplace).toBe('workspace')
+  })
+
   test('stores beginner guidance when skill loading fails', async () => {
     fetchMock.mockResolvedValue(response(503, { error: { message: 'database unavailable' } }))
 

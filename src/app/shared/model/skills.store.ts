@@ -97,7 +97,9 @@ const initialState = {
 
 function normalizeSkill(skill: ApiSkill): Skill {
   const name = skill.name ?? 'Untitled skill'
-  const globalSkill = !skill.organization_id
+  const globalSkill = !skill.organization_id && !skill.scope_kind
+  const marketplace =
+    skill.scope_kind === 'project' ? 'project' : globalSkill ? 'global' : 'workspace'
   return {
     id: skill.id,
     name,
@@ -108,7 +110,7 @@ function normalizeSkill(skill: ApiSkill): Skill {
     content: skill.content ?? '',
     path: skill.path ?? skill.id ?? name,
     installed: skill.installed ?? skill.enabled ?? true,
-    marketplace: skill.marketplace ?? (globalSkill ? 'global' : 'workspace'),
+    marketplace: skill.marketplace ?? marketplace,
     cliTool: skill.cliTool ?? '',
     triggerPattern: skill.trigger_pattern ?? '',
   }
