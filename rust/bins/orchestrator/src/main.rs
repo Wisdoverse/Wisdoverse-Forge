@@ -26,6 +26,31 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
+    if state.config.review_escalation_enabled {
+        if let Some(pool) = state.pool.clone() {
+            let broadcaster = state.broadcaster.clone();
+            let audit_store = state.audit_store.clone();
+            let grace = state.config.review_escalation_grace_secs;
+            tokio::spawn(async move {
+                agentforge_orchestrator::review_escalation_reaper::ReviewEscalationReaperWorker::new(
+                    pool,
+                    broadcaster,
+                    audit_store,
+                    grace,
+                )
+                .run()
+                .await;
+                tracing::error!(
+                    "review escalation reaper loop exited unexpectedly — overdue reviews will no longer be escalated"
+                );
+            });
+        } else {
+            tracing::warn!(
+                "review escalation reaper enabled but orchestrator has no database pool — overdue reviews will not be escalated"
+            );
+        }
+    }
+
     let app = state.clone().router();
 
     let addr = format!("{}:{}", state.config.host, state.config.port);
