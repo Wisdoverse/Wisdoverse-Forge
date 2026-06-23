@@ -54,6 +54,20 @@ describe('chatErrorMessage', () => {
     expect(message).not.toContain('chat session expired')
   })
 
+  test('maps authorization header failures to sign-in guidance', () => {
+    const message = chatErrorMessage(
+      'load',
+      new Error('Authorization: Bearer chat-secret-token rejected')
+    )
+
+    expect(message).toBe(
+      'Check conversation again to load the chat history. Sign in again, then reopen this chat.'
+    )
+    expect(message).not.toContain('Authorization')
+    expect(message).not.toContain('Bearer')
+    expect(message).not.toContain('chat-secret-token')
+  })
+
   test('maps structured clear conflicts to a wait and retry step', () => {
     const message = chatErrorMessage('clear', {
       reason: 'conversation delete already in progress',
