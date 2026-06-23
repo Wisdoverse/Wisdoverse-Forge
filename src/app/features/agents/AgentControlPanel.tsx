@@ -646,7 +646,7 @@ function agentControlErrorMessage(error: string): string {
     return 'Check your connection, then open Agents and choose this agent again. Forge could not connect while changing this agent.'
   }
   if (/\b5\d\d\b/.test(error)) {
-    return "Open Agents, choose this agent again, then try again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
+    return "Open Agents, choose this agent again, then run the agent action again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
   }
 
   return "Open Agents, choose this agent again, and confirm the latest status before trying once more. If you started or restarted file work, wait for Ready or Working. If it keeps failing, ask an owner or admin to check your agent access and this agent's connection in Agents."

@@ -81,7 +81,9 @@ describe('AgentControlPanel', () => {
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Open Agents, choose this agent again/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Open Agents, choose this agent again, then run the agent action again/i
+    )
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Read the next line, then run the agent action again.'
     )
@@ -89,6 +91,7 @@ describe('AgentControlPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check this agent's connection and access in Agents/i
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/then try again/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/Follow the step below/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/check this agent setup/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
