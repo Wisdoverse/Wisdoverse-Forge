@@ -90,6 +90,34 @@ function agentActionPhrase(action: AgentErrorAction): string {
   }
 }
 
+function agentRetryAction(action: AgentErrorAction): string {
+  switch (action) {
+    case 'load':
+      return 'open Agents again to load agents'
+    case 'create':
+    case 'enrollLocal':
+      return 'choose New agent again'
+    case 'updateInstructions':
+      return 'save the instructions again'
+    case 'delete':
+      return 'choose Delete again'
+    case 'sendPrompt':
+      return 'send the instruction again'
+    case 'start':
+      return 'start it again'
+    case 'restart':
+      return 'restart it again'
+  }
+}
+
+function agentRetryFromAgents(action: AgentErrorAction): string {
+  if (action === 'load') return 'Open Agents again to load agents'
+  if (action === 'create' || action === 'enrollLocal') {
+    return 'Open Agents and choose New agent again'
+  }
+  return `Open Agents, choose this agent, then ${agentRetryAction(action)}`
+}
+
 function rawAgentErrorMessage(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) return error.trim()
   if (error instanceof Error && error.message.trim()) return error.message.trim()
@@ -213,13 +241,20 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
   }
 
   if (status === 401) {
-    return `Sign in again, then open Agents and try to ${actionPhrase} again.`
+    const retry = agentRetryFromAgents(action)
+    return `Sign in again, then ${retry.charAt(0).toLowerCase()}${retry.slice(1)}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to update your team space access, then try to ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+    return `Ask an owner or admin to update your team space access, then ${agentRetryAction(action)}. You do not have permission to ${actionPhrase}.`
   }
   if (status === 404) {
-    return 'Open Agents, choose the current agent, then try again. This agent could not be found.'
+    if (action === 'load') {
+      return 'Open Agents again to load agents. This agent could not be found.'
+    }
+    if (action === 'create' || action === 'enrollLocal') {
+      return 'Open Agents and choose New agent again. This agent could not be found.'
+    }
+    return `Open Agents, choose this agent, then ${agentRetryAction(action)}. This agent could not be found.`
   }
   if (status === 409) {
     return agentConflictMessage(action, detail)
@@ -228,13 +263,13 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     return agentValidationMessage(action, detail)
   }
   if (status === 429) {
-    return `Wait a moment, then try to ${actionPhrase} again. The Agents page is busy.`
+    return `Wait a moment, then ${agentRetryAction(action)}. The Agents page is busy.`
   }
   if (status >= 500) {
     return agentServerMessage(action)
   }
 
-  return `Open Agents, then try to ${actionPhrase} again. Forge could not ${actionPhrase}.`
+  return `${agentRetryFromAgents(action)}. Forge could not ${actionPhrase}.`
 }
 
 function agentValidationMessage(action: AgentErrorAction, detail: string | null): string {
@@ -269,18 +304,18 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
     return agentRuntimeRecoveryMessage(detail)
   }
 
-  return `Check the agent details, open Agents and choose this agent again, then try to ${agentActionPhrase(action)} again.`
+  return `Check the agent details, open Agents and choose this agent again, then ${agentRetryAction(action)}.`
 }
 
 function agentConflictMessage(action: AgentErrorAction, detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('working') || normalized.includes('busy')) {
-    return 'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
+    return `Wait for the current work to finish, open Agents and choose this agent again, then ${agentRetryAction(action)}. This agent is already working.`
   }
   if (action === 'delete') {
-    return 'Open Agents, check the current status, then try again. This agent changed while you were deleting it.'
+    return 'Open Agents, check the current status, then choose Delete again. This agent changed while you were deleting it.'
   }
-  return 'Open Agents, check this agent status, then try again. This agent changed while you were working.'
+  return `Open Agents, check this agent status, then ${agentRetryAction(action)}. This agent changed while you were working.`
 }
 
 function agentServerMessage(action: AgentErrorAction): string {
@@ -299,7 +334,7 @@ function agentServerMessage(action: AgentErrorAction): string {
   if (action === 'restart') {
     return 'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
-  return `Open Agents, then try to ${agentActionPhrase(action)} again. If it still fails, ask an owner or admin to check Where agents work in Settings.`
+  return `${agentRetryFromAgents(action)}. If it still fails, ask an owner or admin to check Where agents work in Settings.`
 }
 
 function agentRuntimeRecoveryMessage(detail: string | null): string {

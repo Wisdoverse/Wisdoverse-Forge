@@ -57,7 +57,7 @@ describe('Agents Store', () => {
   test('turns expired sessions into a sign-in step', () => {
     expectBeginnerError(
       agentActionErrorMessage('load', apiError(401, { error: 'token expired' })),
-      'Sign in again, then open Agents and try to load agents again.'
+      'Sign in again, then open Agents again to load agents.'
     )
   })
 
@@ -69,9 +69,10 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to update your team space access, then try to delete the agent again. You do not have permission to delete the agent.'
+      'Ask an owner or admin to update your team space access, then choose Delete again. You do not have permission to delete the agent.'
     )
     expect(message).not.toContain('workspace role')
+    expect(message).not.toContain('try to delete')
   })
 
   test('turns raw network failures into connection guidance', () => {
@@ -100,7 +101,7 @@ describe('Agents Store', () => {
         status: '429',
         error: 'rate limit exceeded',
       }),
-      'Wait a moment, then try to send the instruction again. The Agents page is busy.'
+      'Wait a moment, then send the instruction again. The Agents page is busy.'
     )
   })
 
@@ -132,15 +133,23 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Open Agents, then try to restart the agent again. Forge could not restart the agent.'
+      'Open Agents, choose this agent, then restart it again. Forge could not restart the agent.'
     )
     expect(message).not.toContain('teapot')
+    expect(message).not.toContain('try to restart')
+  })
+
+  test('keeps missing load failures on the Agents page', () => {
+    const message = agentActionErrorMessage('load', apiError(404, { message: 'not found' }))
+
+    expectBeginnerError(message, 'Open Agents again to load agents. This agent could not be found.')
+    expect(message).not.toContain('choose this agent')
   })
 
   test('starts delete conflicts with a current-status check step', () => {
     expectBeginnerError(
       agentActionErrorMessage('delete', apiError(409, { message: 'version changed' })),
-      'Open Agents, check the current status, then try again. This agent changed while you were deleting it.'
+      'Open Agents, check the current status, then choose Delete again. This agent changed while you were deleting it.'
     )
   })
 
@@ -436,7 +445,7 @@ describe('Agents Store', () => {
     expect(result).toBe(false)
     expectBeginnerError(
       useAgentsStore.getState().error,
-      'Wait for the current work to finish, open Agents and choose this agent again, then try again. This agent is already working.'
+      'Wait for the current work to finish, open Agents and choose this agent again, then send the instruction again. This agent is already working.'
     )
   })
 })
