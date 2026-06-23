@@ -79,14 +79,19 @@ fn default_users_limit() -> i64 {
     25
 }
 
-/// `GET /api/v1/admin/users` — paginated user list (admin only).
+/// `GET /api/v1/admin/users` — paginated, cross-org user list.
+///
+/// PLATFORM-ADMIN-ONLY: gated on the server-side `users.is_admin` column, NOT
+/// the per-org JWT membership role. The list spans every organization, so a
+/// self-registered user who is `owner` of their personal org must not reach it
+/// (closes #881). All sibling cross-org admin endpoints use the same gate.
 async fn list_users(
     State(state): State<AppState>,
     auth: AuthUser,
     Query(query): Query<AdminUsersQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let page = service.list_user_page(query.page, query.limit, query.search.as_deref()).await?;
     Ok(Json(admin_user_list_response(page)))
 }
@@ -98,16 +103,21 @@ pub struct UpdateUserRoleRequest {
     pub role: String,
 }
 
-/// `PUT /api/v1/admin/users/:id` — change a user's global access level
-/// (admin only). Answers `{ ok, user }` with the updated user projection.
+/// `PUT /api/v1/admin/users/:id` — change a user's global access level.
+/// Answers `{ ok, user }` with the updated user projection.
+///
+/// PLATFORM-ADMIN-ONLY (`users.is_admin`). This sets the global `is_admin`
+/// flag, so gating it on the self-assignable per-org role would be a direct
+/// privilege-escalation path (any registered user is `owner` of their own org);
+/// see #881. The per-handler owner/last-admin/self guards are unchanged.
 async fn update_admin_user_role(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateUserRoleRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let user = service.update_user_role(&auth.scope, id, &body.role).await?;
     Ok(Json(admin_user_role_response(user)))
 }
@@ -119,8 +129,8 @@ async fn delete_admin_user(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     service.delete_user(&auth.scope, id).await?;
     Ok(Json(admin_delete_response()))
 }
@@ -132,28 +142,32 @@ async fn list_organizations(
     auth: AuthUser,
     Query(query): Query<ListQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let (organizations, total) = service.list_org_page(query.limit, query.offset).await?;
     Ok(Json(admin_org_list_response(organizations, total)))
 }
 
 /// `POST /api/v1/admin/impersonate` — start impersonation.
+///
+/// PLATFORM-ADMIN-ONLY (`users.is_admin`): impersonation mints a session as any
+/// target user across any org, so it must never be reachable via the per-org
+/// role (#881).
 async fn start_impersonation(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(req): Json<ImpersonateRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let log = service.start_impersonation(&auth.scope, req.target_user_id, req.reason.as_deref()).await?;
     Ok(Json(admin_data_response(log)))
 }
 
 /// `POST /api/v1/admin/impersonate/end` — end impersonation.
 async fn end_impersonation(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let log = service.end_impersonation(&auth.scope).await?;
     Ok(Json(admin_data_response(log)))
 }
@@ -164,25 +178,30 @@ async fn list_impersonation_log(
     auth: AuthUser,
     Query(query): Query<ListQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let logs = service.list_impersonation_log(&auth.scope, query.limit, query.offset).await?;
     Ok(Json(admin_data_response(logs)))
 }
 
 /// `GET /api/v1/admin/stats` — system-wide statistics.
 async fn get_stats(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let stats = service.stats().await?;
     Ok(Json(admin_data_response(stats)))
 }
 
 /// `GET /api/v1/admin/control-plane` — org-scoped orchestration control-plane
 /// snapshot — the "is a loop wedged" signals the metrics worker emits as
-/// Prometheus gauges, readable without a Prometheus stack. Admin-gated; scoped
-/// to the caller's org. `job_queue` depth is platform-global (no org column) and
+/// Prometheus gauges, readable without a Prometheus stack. Scoped to the
+/// caller's org. `job_queue` depth is platform-global (no org column) and
 /// intentionally not included.
+///
+/// ORG-SCOPED on purpose: this keeps the per-org `require_admin` gate (NOT the
+/// platform-admin gate the cross-org endpoints use). The data never leaves the
+/// caller's own org, so a legitimate org admin/owner must be able to read their
+/// own org's health — flipping it to platform-admin would wrongly 403 them.
 async fn get_control_plane(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
     AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
@@ -266,8 +285,8 @@ async fn list_admin_agents(
     auth: AuthUser,
     Query(query): Query<AdminAgentsQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let page = service.list_agent_page(query.as_service_input()).await?;
     Ok(Json(admin_agent_list_response(page)))
 }
@@ -278,8 +297,8 @@ async fn get_admin_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let detail = service.get_agent_detail(id).await?;
     Ok(Json(admin_agent_detail_response(detail)))
 }
@@ -290,8 +309,8 @@ async fn delete_admin_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     service.delete_agent(id).await?;
     Ok(Json(admin_delete_response()))
 }
@@ -302,8 +321,8 @@ async fn bulk_delete_admin_agents(
     auth: AuthUser,
     Json(body): Json<BulkDeleteRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
     let service = make_service(&state);
+    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let results = service.bulk_delete_agents_checked(&body.ids).await?;
     Ok(Json(admin_bulk_delete_response(results)))
 }
@@ -344,7 +363,7 @@ async fn list_dead_events(
 /// and a rough per-tool live-container count. Deployment-global (no tenant
 /// scope) since image state is per host; admin-gated.
 async fn list_cli_image_status(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
+    make_service(&state).require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     let report = state.cli_image_service().status_report().await?;
     Ok(Json(cli_image_status_response(report)))
 }
@@ -360,7 +379,7 @@ async fn roll_cli_image(
     auth: AuthUser,
     Path(tool): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
+    make_service(&state).require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     // Defense-in-depth: reject claude/unknown at the route too (the service
     // re-checks). 422, not 404 — the path matched; the tool is just not rollable.
     RollToolPolicy::ensure_rollable(&tool)?;
@@ -382,7 +401,7 @@ async fn build_cli_image(
     auth: AuthUser,
     Path(tool): Path<String>,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    AdminService::require_admin(&auth.role)?;
+    make_service(&state).require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     // Defense-in-depth: reject non-claude at the route too (the service
     // re-checks). 422, not 404 — the path matched; the tool is just not built
     // locally.

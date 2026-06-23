@@ -117,10 +117,12 @@ export function SidebarNav({
   const { authManager, user } = useAuth()
   const navigate = useNavigate()
   const { t } = useTranslation()
-  // Mirror the backend admin gate (`AdminService::require_admin`) and the /admin
-  // route guard: owner AND admin can reach the admin console. Gating the nav link
-  // on `admin` alone hid it from owners who can actually open /admin.
-  const isAdmin = user?.role === 'admin' || user?.role === 'owner'
+  // Mirror the backend platform-admin gate (`AdminService::require_platform_admin`,
+  // #881) and the /admin route guard: only a platform admin (`users.is_admin`)
+  // reaches the admin console. The flag is hydrated from `/me` (it is not in the
+  // JWT); gating on the self-assignable per-org `role` would surface the link to
+  // every org owner.
+  const isAdmin = user?.isAdmin === true
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const pendingContextCount = useContextStore((s) => s.pendingCandidateCount)
   // Start is opt-in from Settings. Unknown or missing preferences keep the

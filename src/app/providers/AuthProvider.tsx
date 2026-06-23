@@ -24,6 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
+    // Hydrate the GLOBAL `isAdmin` flag from `/me` (not in the JWT) so the admin
+    // console gate matches the backend platform-admin authority (#881). fetchMe
+    // persists the enriched user and fires onAuthChange, which updates state.
+    async function hydrateIsAdmin() {
+      const enriched = await am.fetchMe()
+      if (enriched) setUser({ ...enriched })
+    }
+
     // Check initial auth state - try refresh if we have a refresh token but expired access
     async function checkAuth() {
       if (am.isAuthenticated()) {
@@ -31,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAuthenticated(true)
         setUser(am.getUser())
         setIsLoading(false)
+        void hydrateIsAdmin()
         return
       }
 
@@ -40,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initLegacyApis(am, () => am.logout())
         setIsAuthenticated(true)
         setUser(am.getUser())
+        void hydrateIsAdmin()
       } else {
         setIsAuthenticated(false)
         setUser(null)

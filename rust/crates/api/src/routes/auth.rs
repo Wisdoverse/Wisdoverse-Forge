@@ -120,8 +120,15 @@ pub async fn reset_password(State(state): State<AppState>, Json(req): Json<Reset
 ///
 /// Requires a valid JWT in the `Authorization: Bearer <token>` header.
 /// The `AuthUser` extractor handles token validation automatically.
-pub async fn me(auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(auth_me_response(auth.scope.user_id().as_uuid(), auth.scope.org_id().as_uuid(), auth.role)))
+///
+/// `isAdmin` reflects the GLOBAL `users.is_admin` flag. The JWT carries only the
+/// per-org membership `role`, not `is_admin`, so the flag is looked up from the
+/// DB here (same column the backend platform-admin gate reads). This lets the
+/// frontend gate the admin console on the real platform-admin authority (#881)
+/// instead of the self-assignable per-org role.
+pub async fn me(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
+    let is_admin = make_service(&state).is_platform_admin(auth.scope.user_id()).await?;
+    Ok(Json(auth_me_response(auth.scope.user_id().as_uuid(), auth.scope.org_id().as_uuid(), auth.role, is_admin)))
 }
 
 /// `GET /api/v1/auth/providers` — list configured SSO providers.

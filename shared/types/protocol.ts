@@ -158,3 +158,24 @@ export type ClientMessage =
   | { type: 'terminal_data'; payload: { agentId: string; data: string } }
   | { type: 'terminal_resize'; payload: { agentId: string; cols: number; rows: number } }
   | { type: 'subscribe_channel'; payload: { channel: string; scope: 'active_all' } }
+
+// ============================================================================
+// REST: GET /api/v1/me
+// ============================================================================
+
+/**
+ * Response body for `GET /api/v1/me`.
+ *
+ * `isAdmin` (camelCase) is the GLOBAL `users.is_admin` flag, looked up
+ * server-side (the JWT does NOT carry it). The frontend gates the admin console
+ * on this — the same platform-admin authority the backend `/admin/*` gate uses
+ * (#881) — not the self-assignable per-org `role`. The snake_case `user_id` /
+ * `org_id` / `role` fields preserve the legacy contract.
+ */
+export interface MeResponse {
+  ok: boolean
+  user_id: string
+  org_id: string
+  role: string
+  isAdmin: boolean
+}
