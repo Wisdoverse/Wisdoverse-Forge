@@ -93,6 +93,8 @@ impl Store for MemoryStore {
     /// Updates only the in-memory review state.  The in-memory test double is
     /// single-aggregate and cannot mirror the `tasks` table; transactional
     /// two-table behavior is covered exclusively by the `PgReviewStore` sqlx tests.
+    /// A `feedback` comment, when present, is appended together with the state
+    /// change so the test double mirrors the PG store's atomic comment+verdict.
     async fn apply_verdict(
         &self,
         review_id: &str,
@@ -100,6 +102,7 @@ impl Store for MemoryStore {
         new_review_state: crate::review::model::ReviewState,
         _task_id: &str,
         _new_task_state: crate::task::TaskState,
+        feedback: Option<&ReviewComment>,
     ) -> Result<()> {
         let mut reviews = self.reviews.lock().await;
         let Some(review) = reviews.get_mut(review_id).filter(|r| r.review.org_id == org_id) else {
@@ -107,6 +110,13 @@ impl Store for MemoryStore {
         };
         review.review.state = new_review_state;
         review.review.updated_at = Utc::now();
+        if let Some(feedback) = feedback {
+            let mut comment = feedback.clone();
+            comment.id = format!("comment-{}", self.comment_seq.fetch_add(1, Ordering::Relaxed));
+            comment.review_id = review_id.to_string();
+            comment.created_at = Utc::now();
+            review.comments.push(comment);
+        }
         Ok(())
     }
 }
@@ -253,6 +263,7 @@ impl Store for PgReviewStore {
         new_review_state: ReviewState,
         task_id: &str,
         new_task_state: crate::task::TaskState,
+        feedback: Option<&ReviewComment>,
     ) -> Result<()> {
         let mut tx =
             self.pool.begin().await.map_err(|err| ReviewError::Internal(format!("begin transaction: {err}")))?;
@@ -284,6 +295,23 @@ impl Store for PgReviewStore {
         if task_result.rows_affected() == 0 {
             // tx drops here, rolling back automatically
             return Err(ReviewError::NotFound);
+        }
+
+        // Feedback comment (reject path) shares the verdict transaction: a rollback
+        // above leaves no orphan comment on a still-pending review.
+        if let Some(feedback) = feedback {
+            sqlx::query(
+                "INSERT INTO review_comments (review_id, author_id, body, file_path, line) \
+                 VALUES (CAST($1 AS uuid), CAST($2 AS uuid), $3, $4, $5)",
+            )
+            .bind(review_id)
+            .bind(&feedback.author_id)
+            .bind(&feedback.body)
+            .bind(feedback.file_path.as_deref())
+            .bind(feedback.line)
+            .execute(&mut *tx)
+            .await
+            .map_err(|err| ReviewError::Internal(format!("insert feedback comment in verdict tx: {err}")))?;
         }
 
         tx.commit().await.map_err(|err| ReviewError::Internal(format!("commit verdict tx: {err}")))?;
