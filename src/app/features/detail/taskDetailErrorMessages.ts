@@ -44,7 +44,12 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
     return `Sign in again, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)}`
   }
 
-  if (status === 403) {
+  if (
+    status === 403 ||
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('role required')
+  ) {
     if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
       return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     }
