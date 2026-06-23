@@ -459,15 +459,17 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.queryByLabelText(/work folder/i)).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-anthropic')
-    expect(screen.getByLabelText(/^saved ai service choice$/i)).toHaveValue('claude-sonnet-4-6')
-    expect(screen.getByLabelText(/^saved ai service choice$/i)).toHaveAttribute(
-      'placeholder',
-      'Filled from AI service settings'
-    )
+    expect(screen.getByText('Answer setting from Settings')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('claude-sonnet-4-6')).toBeNull()
+    expect(screen.queryByLabelText(/^saved ai service choice$/i)).toBeNull()
     expect(screen.queryByLabelText(/^ai model$/i)).toBeNull()
-    expect(screen.getByText(/choose the AI service name you set up/i)).toBeInTheDocument()
-    expect(screen.getByText(/comes from the checked AI service in Settings/i)).toBeInTheDocument()
-    expect(screen.getByText(/you do not need to change it here/i)).toBeInTheDocument()
+    expect(screen.getByText(/choose the AI service you set up/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/forge uses the answer setting that is already checked in Settings/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/you do not need to choose anything else here/i)).toBeInTheDocument()
+    expect(screen.queryByText(/saved service choice/i)).toBeNull()
+    expect(screen.queryByText(/filled from AI service settings/i)).toBeNull()
     expect(screen.queryByText(/AI services settings/i)).toBeNull()
     const review = screen.getByTestId('agent-create-review')
     expect(
@@ -896,7 +898,8 @@ describe('CreateAgentModal', () => {
     expect(screen.getByRole('radio', { name: /simple chat agent/i })).toBeChecked()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
     expect(screen.getByLabelText(/^ai service$/i)).toHaveValue('provider-1')
-    expect(screen.getByLabelText(/^saved ai service choice$/i)).toHaveValue('gpt-5.5')
+    expect(screen.getByText('Answer setting from Settings')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('gpt-5.5')).toBeNull()
 
     fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
     fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
@@ -911,6 +914,8 @@ describe('CreateAgentModal', () => {
   })
 
   test('selecting a configured provider seeds its model from the gateway', async () => {
+    const createAgent = vi.fn().mockResolvedValue(true)
+    useAgentsStore.setState({ createAgent } as never)
     useSettingsStore.setState({
       providers: [
         {
@@ -942,13 +947,19 @@ describe('CreateAgentModal', () => {
     fireEvent.change(screen.getByLabelText(/^ai service$/i), {
       target: { value: 'provider-openai' },
     })
+    expect(screen.queryByDisplayValue('gpt-5.4')).toBeNull()
 
-    await waitFor(() => {
-      expect(screen.getByLabelText(/^saved ai service choice$/i)).toHaveValue('gpt-5.4')
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Provider Worker' } })
+    fireEvent.click(screen.getByRole('button', { name: /^add agent$/i }))
+
+    await waitFor(() => expect(createAgent).toHaveBeenCalledTimes(1))
+    expect(createAgent.mock.calls[0][0]).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5.4',
     })
   })
 
-  test('lists configured providers (including China-region) by display name and saved service choice', async () => {
+  test('lists configured providers (including China-region) by display name and ready Settings status', async () => {
     useSettingsStore.setState({
       providers: [
         {
@@ -979,22 +990,22 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
 
     const providerSelect = screen.getByLabelText(/^ai service$/i)
-    // Each option shows the display name and says the service choice is already saved.
+    // Each option shows the display name and keeps the technical model name out of the flow.
     expect(
-      within(providerSelect).getByRole('option', { name: /zhipu glm · saved service choice/i })
+      within(providerSelect).getByRole('option', { name: /zhipu glm · ready in settings/i })
     ).toBeInTheDocument()
     expect(
-      within(providerSelect).getByRole('option', { name: /anthropic · saved service choice/i })
+      within(providerSelect).getByRole('option', { name: /anthropic · ready in settings/i })
     ).toBeInTheDocument()
     expect(
-      within(providerSelect).queryByRole('option', { name: /saved setup/i })
+      within(providerSelect).queryByRole('option', { name: /saved service choice/i })
     ).not.toBeInTheDocument()
+    expect(within(providerSelect).queryByRole('option', { name: /glm-4.7/i })).not.toBeInTheDocument()
 
     fireEvent.change(providerSelect, { target: { value: 'provider-zhipu' } })
 
-    await waitFor(() => {
-      expect(screen.getByLabelText(/^saved ai service choice$/i)).toHaveValue('glm-4.7')
-    })
+    expect(screen.getByText('Answer setting from Settings')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('glm-4.7')).toBeNull()
   })
 
   test('submits cli kind without provider/model fields', async () => {

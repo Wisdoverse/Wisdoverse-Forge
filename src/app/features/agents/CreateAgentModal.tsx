@@ -446,8 +446,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setCopyError(null)
   }, [createModalOpen, defaultValues, reset, setError])
 
-  // When the user switches the configured provider, seed the model box with
-  // that provider's model so the agent never points at a mismatched model.
+  // Keep the hidden submission value in sync with the selected AI service so
+  // the create flow does not need to show a raw model name to first-time users.
   useEffect(() => {
     if (!providerId) return
     const model = providerOptionModel(providerOptions, providerId)
@@ -484,11 +484,12 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     }
     if (data.kind === 'provider') {
       const selected = providerOptions.find((option) => option.id === data.providerId)
+      const selectedModel = selected?.model.trim() || (data.model ?? '').trim()
       if (!selected) {
         setFormError(NO_READY_AI_SERVICE_ERROR)
         return
       }
-      if (!data.model.trim()) {
+      if (!selectedModel) {
         setFormError(
           'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
         )
@@ -498,7 +499,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         ...base,
         kind: 'provider',
         provider: selected.provider,
-        model: data.model.trim(),
+        model: selectedModel,
         systemPrompt: data.systemPrompt.trim() || undefined,
       })
     } else if (data.kind === 'local-cli') {
@@ -1139,36 +1140,27 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       >
                         {providerOptions.map((option) => (
                           <option key={option.id} value={option.id}>
-                            {option.label} · saved service choice
+                            {option.label} · Ready in Settings
                           </option>
                         ))}
                       </select>
                       <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Choose the AI service name you set up in Settings. Forge uses its saved
-                        service choice automatically.
+                        Choose the AI service you set up in Settings.
                       </p>
                     </div>
                     <div>
-                      <label
-                        htmlFor="agent-model"
-                        className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-                      >
-                        Saved AI service choice
-                      </label>
-                      <input
-                        id="agent-model"
-                        {...register('model')}
-                        readOnly
-                        aria-describedby="agent-model-help"
-                        className="h-10 w-full rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                        placeholder="Filled from AI service settings"
-                      />
+                      <div className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                        Answer setting from Settings
+                      </div>
+                      <div className="w-full rounded-[18px] border border-black/[0.08] bg-black/[0.025] px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
+                        Ready
+                      </div>
                       <p
                         id="agent-model-help"
                         className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                       >
-                        This comes from the checked AI service in Settings. You do not need to
-                        change it here.
+                        Forge uses the answer setting that is already checked in Settings. You do
+                        not need to choose anything else here.
                       </p>
                     </div>
                   </>
