@@ -167,6 +167,12 @@ impl Store for MemoryStore {
         let mut dispatches = self.dispatches.lock().await;
         let dispatch =
             dispatches.iter_mut().find(|d| d.id == dispatch_id && d.org_id == org_id).ok_or(TaskError::NotFound)?;
+        // Mirror the PgTaskStore guard: do not overwrite a reaper-set 'failed'
+        // status. A late-completing spawn calling update_dispatch after the
+        // reaper has already flipped to 'failed' must be a no-op.
+        if dispatch.status == "failed" {
+            return Err(TaskError::NotFound);
+        }
         dispatch.status = status.to_string();
         if let Some(err) = last_error {
             dispatch.last_error = Some(err.to_string());
@@ -436,7 +442,11 @@ impl Store for PgTaskStore {
         if let Some(sid) = session_id {
             qb.push(", session_id = ").push_bind(sid);
         }
-        qb.push(" WHERE id = CAST(").push_bind(dispatch_id).push(" AS uuid) AND org_id = ").push_bind(org_id);
+        qb.push(" WHERE id = CAST(")
+            .push_bind(dispatch_id)
+            .push(" AS uuid) AND org_id = ")
+            .push_bind(org_id)
+            .push(" AND status NOT IN ('failed')");
 
         let result = qb
             .build()
@@ -444,8 +454,10 @@ impl Store for PgTaskStore {
             .await
             .map_err(|err| TaskError::Internal(format!("update dispatch: {err}")))?;
         // Mirror the other update_* methods: a 0-row update means the dispatch
-        // (or its org scope) was not found. Surfacing NotFound lets the spawn's
-        // best-effort wrapper log it instead of silently leaving a stale status.
+        // (or its org scope) was not found, or the dispatch is already in a
+        // terminal 'failed' state (reaper-set). Surfacing NotFound lets the
+        // spawn's best-effort wrapper log it instead of silently overwriting a
+        // reaper-assigned failure verdict.
         if result.rows_affected() == 0 {
             return Err(TaskError::NotFound);
         }
@@ -522,4 +534,38 @@ fn row_to_task(row: &PgRow) -> Result<Task> {
         created_at: row.try_get("created_at").map_err(|err| TaskError::Internal(format!("read created_at: {err}")))?,
         updated_at: row.try_get("updated_at").map_err(|err| TaskError::Internal(format!("read updated_at: {err}")))?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Fix #3: A dispatch already in `failed` status must not be moved to
+    /// `started` (or any other status) by `update_dispatch`. This guards the
+    /// race where a late-completing spawn calls `update_dispatch` after the
+    /// reaper has already flipped the row to `failed`.
+    #[tokio::test]
+    async fn update_dispatch_does_not_overwrite_failed() {
+        let store = MemoryStore::new();
+
+        // Create a dispatch and manually drive it to 'failed' (simulating the
+        // reaper having already acted).
+        let dispatch_id = store.create_dispatch("task-x", "org-x").await.expect("create dispatch");
+        store
+            .update_dispatch(&dispatch_id, "org-x", "failed", Some("dispatch_timeout"), None)
+            .await
+            .expect("reaper sets failed");
+
+        // A late spawn now tries to move it to 'started'.
+        let result = store.update_dispatch(&dispatch_id, "org-x", "started", None, None).await;
+        assert!(
+            matches!(result, Err(TaskError::NotFound)),
+            "update_dispatch must return NotFound when the dispatch is already failed, got: {result:?}"
+        );
+
+        // The status must still be 'failed' with the original last_error.
+        let dispatch = store.get_dispatch("task-x", "org-x").await.expect("get dispatch");
+        assert_eq!(dispatch.status, "failed", "status must remain failed");
+        assert_eq!(dispatch.last_error.as_deref(), Some("dispatch_timeout"), "last_error must not be overwritten");
+    }
 }
