@@ -122,7 +122,7 @@ describe('workspaceResourceErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings, then Projects, check the current project, then try again. This project changed while you were editing.'
+      'Open Settings, then Projects, check the current project, then save the project again. This project changed while you were editing.'
     )
     expect(message).not.toContain('review the current')
   })

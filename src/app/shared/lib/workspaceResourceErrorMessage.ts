@@ -30,7 +30,7 @@ export function workspaceResourceErrorMessage(
     return `Open Settings, then ${resourceSettingsSection(resource)}, and choose an existing ${resource}.`
   }
   if (status === 409) {
-    return `Open Settings, then ${resourceSettingsSection(resource)}, check the current ${resource}, then try again. This ${resource} changed while you were editing.`
+    return `Open Settings, then ${resourceSettingsSection(resource)}, check the current ${resource}, then ${retryPhrase(resource, action)}. This ${resource} changed while you were editing.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(resource, action, detail)
