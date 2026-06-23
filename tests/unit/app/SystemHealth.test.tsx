@@ -185,6 +185,31 @@ describe('SystemHealth', () => {
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
   })
 
+  test('turns service role failures into access recovery guidance', async () => {
+    const loadHealth = vi.fn()
+    useAdminStore.setState({
+      ...originalAdminState,
+      health: {
+        status: 'unhealthy',
+        checks: {
+          database: {
+            status: 'down',
+            error: 'owner role required',
+          },
+        },
+      },
+      healthLoading: false,
+      healthError: null,
+      loadHealth,
+    })
+
+    render(<SystemHealth />)
+
+    await waitFor(() => expect(loadHealth).toHaveBeenCalledOnce())
+    expect(screen.getByText(/This area had an access problem/i)).toBeDefined()
+    expect(screen.queryByText(/owner role required/i)).toBeNull()
+  })
+
   test('turns service setup errors into owner or admin next steps', async () => {
     const loadHealth = vi.fn()
     useAdminStore.setState({

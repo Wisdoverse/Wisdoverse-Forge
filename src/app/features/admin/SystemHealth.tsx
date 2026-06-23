@@ -145,7 +145,8 @@ function serviceIssueNote(error: string): string {
     detail.includes('credential') ||
     detail.includes('unauthorized') ||
     detail.includes('forbidden') ||
-    detail.includes('permission')
+    detail.includes('permission') ||
+    detail.includes('role required')
   ) {
     return 'This area had an access problem. Ask an owner or admin to check Saved Data in Admin, then choose Check now.'
   }
