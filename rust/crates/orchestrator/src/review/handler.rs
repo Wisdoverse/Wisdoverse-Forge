@@ -13,10 +13,9 @@ use crate::state::AppState;
 use crate::task::TaskState;
 
 use super::errors::ReviewError;
-use super::model::{
-    AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState, can_transition,
-};
+use super::model::{AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState};
 use super::store::Store;
+use super::verdict::{VerdictError, apply_review_verdict};
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -51,8 +50,33 @@ fn require_store(state: &AppState) -> Result<Arc<dyn Store>, Response> {
 fn map_error(err: ReviewError) -> Response {
     match err {
         ReviewError::NotFound => error(StatusCode::NOT_FOUND, "review not found"),
+        // InvalidInput is caller-supplied and safe to surface verbatim.
         ReviewError::InvalidInput(message) => error(StatusCode::BAD_REQUEST, &message),
-        ReviewError::Internal(message) => error(StatusCode::INTERNAL_SERVER_ERROR, &message),
+        // Internal wraps raw SQLx/store errors; do NOT leak them to the client.
+        // Log the detail server-side and return a generic message instead.
+        ReviewError::Internal(message) => {
+            tracing::error!(error = %message, "internal review error");
+            error(StatusCode::INTERNAL_SERVER_ERROR, "internal review error")
+        }
+    }
+}
+
+/// Map the transport-independent [`VerdictError`] to the existing HTTP responses.
+///
+/// `IllegalTransition` is intentionally NOT handled here: the approve and reject
+/// call sites map it to their own 409 message ("...approved..." vs "...rejected...")
+/// to preserve the pre-refactor HTTP contract exactly.
+fn map_verdict_error(err: VerdictError) -> Response {
+    match err {
+        VerdictError::NotFound => error(StatusCode::NOT_FOUND, "review not found"),
+        VerdictError::SelfApproval => error(StatusCode::FORBIDDEN, "cannot approve your own review"),
+        VerdictError::Review(review_err) => map_error(review_err),
+        // Fail-closed audit: the verdict committed but the audit write failed. The
+        // raw detail is already logged server-side in `record_verdict_audit`; return
+        // a generic message so the internal error never reaches the client.
+        VerdictError::Audit(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "failed to record review audit"),
+        // Handled per call site; unreachable but kept total to avoid silent drift.
+        VerdictError::IllegalTransition => error(StatusCode::CONFLICT, "illegal review transition"),
     }
 }
 
@@ -195,41 +219,28 @@ async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
         Err(response) => return response,
     };
 
-    let review = match store.get_by_id(&id, &identity.org_id).await {
-        Ok(review) => review,
-        Err(err) => return map_error(err),
-    };
-
-    // State-machine guard: only legal transitions are allowed.
-    if !can_transition(review.review.state, ReviewState::Approved) {
-        return error(StatusCode::CONFLICT, "review cannot be approved from its current state");
-    }
-
-    // Self-approval guard: the creator cannot approve their own review.
-    if review.review.created_by == identity.user_id {
-        return error(StatusCode::FORBIDDEN, "cannot approve your own review");
-    }
-
-    if let Err(err) = store
-        .apply_verdict(&id, &identity.org_id, ReviewState::Approved, &review.review.task_id, TaskState::Completed, None)
-        .await
+    // Shared verdict path (#841): the HTTP and MCP entry points apply the verdict
+    // and write the audit record through one function so they cannot diverge.
+    // actor_type = "human" here -- this is the authenticated session user.
+    match apply_review_verdict(
+        store.as_ref(),
+        state.audit_store.as_deref(),
+        &identity.org_id,
+        &identity.user_id,
+        "human",
+        &id,
+        ReviewState::Approved,
+        TaskState::Completed,
+        None,
+    )
+    .await
     {
-        return map_error(err);
+        Ok(verdict) => (StatusCode::OK, Json(json!({"ok": true, "state": verdict}))).into_response(),
+        Err(VerdictError::IllegalTransition) => {
+            error(StatusCode::CONFLICT, "review cannot be approved from its current state")
+        }
+        Err(err) => map_verdict_error(err),
     }
-
-    // Audit -- fail-closed: an audit write error returns 500. NOTE: the verdict
-    // (apply_verdict) has already committed by this point, so a 500 here means the
-    // audit record failed, NOT the state change -- the review IS approved. Audit is
-    // a separate write (not in the verdict tx) because audit policy lives in the
-    // handler, not the store; the 500 is loud-on-audit-failure by design.
-    if let Err(response) =
-        record_audit(&state, AuditAction::ReviewApprove, Some(id.clone()), identity.org_id, identity.user_id, None)
-            .await
-    {
-        return response;
-    }
-
-    (StatusCode::OK, Json(json!({"ok": true, "state": ReviewState::Approved}))).into_response()
 }
 
 async fn reject(
@@ -253,61 +264,28 @@ async fn reject(
         None => return error(StatusCode::BAD_REQUEST, "feedback is required"),
     };
 
-    let review = match store.get_by_id(&id, &identity.org_id).await {
-        Ok(review) => review,
-        Err(err) => return map_error(err),
-    };
-
-    // State-machine guard: only legal transitions are allowed.
-    if !can_transition(review.review.state, ReviewState::ChangesRequested) {
-        return error(StatusCode::CONFLICT, "review cannot be rejected from its current state");
-    }
-
-    // Feedback comment is written inside the verdict transaction (below) so a
-    // rollback cannot leave an orphan comment on a still-pending review.
-    let comment = ReviewComment {
-        id: String::new(),
-        review_id: id.clone(),
-        author_id: identity.user_id.clone(),
-        body: feedback.clone(),
-        file_path: None,
-        line: None,
-        created_at: chrono::Utc::now(),
-    };
-
-    if let Err(err) = store
-        .apply_verdict(
-            &id,
-            &identity.org_id,
-            ReviewState::ChangesRequested,
-            &review.review.task_id,
-            TaskState::ChangesRequested,
-            Some(&comment),
-        )
-        .await
-    {
-        return map_error(err);
-    }
-
-    // Audit -- fail-closed: an audit write error returns 500. NOTE: the verdict
-    // (apply_verdict) has already committed by this point, so a 500 here means the
-    // audit record failed, NOT the state change -- the review IS changes-requested.
-    // Audit is a separate write (not in the verdict tx) because audit policy lives
-    // in the handler, not the store; the 500 is loud-on-audit-failure by design.
-    if let Err(response) = record_audit(
-        &state,
-        AuditAction::ReviewReject,
-        Some(id.clone()),
-        identity.org_id,
-        identity.user_id,
-        Some(json!({"feedback": feedback})),
+    // Shared verdict path (#841): the feedback comment is written inside the
+    // verdict transaction and the audit record carries it under `changes`.
+    // actor_type = "human" -- this is the authenticated session user.
+    match apply_review_verdict(
+        store.as_ref(),
+        state.audit_store.as_deref(),
+        &identity.org_id,
+        &identity.user_id,
+        "human",
+        &id,
+        ReviewState::ChangesRequested,
+        TaskState::ChangesRequested,
+        Some(&feedback),
     )
     .await
     {
-        return response;
+        Ok(verdict) => (StatusCode::OK, Json(json!({"ok": true, "state": verdict}))).into_response(),
+        Err(VerdictError::IllegalTransition) => {
+            error(StatusCode::CONFLICT, "review cannot be rejected from its current state")
+        }
+        Err(err) => map_verdict_error(err),
     }
-
-    (StatusCode::OK, Json(json!({"ok": true, "state": ReviewState::ChangesRequested}))).into_response()
 }
 
 async fn add_comment(
