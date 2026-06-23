@@ -105,6 +105,7 @@ export function chatStreamEventErrorMessage(detail: unknown): string {
   if (
     text.includes('permission') ||
     text.includes('forbidden') ||
+    text.includes('role required') ||
     text.includes('unauthorized') ||
     text.includes('authorization') ||
     text.includes('bearer')

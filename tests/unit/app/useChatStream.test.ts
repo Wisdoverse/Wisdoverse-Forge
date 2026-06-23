@@ -158,6 +158,16 @@ describe('chatStreamEventErrorMessage', () => {
     expect(message).not.toContain('token')
   })
 
+  it('maps streamed role failures to team space access guidance', () => {
+    const message = chatStreamEventErrorMessage('owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   it('hides streamed authorization header details behind access guidance', () => {
     const message = chatStreamEventErrorMessage('Authorization: Bearer live-access-123 rejected')
 
