@@ -18,6 +18,13 @@ describe('agentTasksErrorMessage', () => {
     expect(message).not.toContain('policy denied')
   })
 
+  test('maps role-required failures to agent work access guidance', () => {
+    const message = agentTasksErrorMessage('owner role required')
+
+    expect(message).toBe("Ask an owner or admin to give you access to this agent's work list.")
+    expect(message).not.toContain('owner role required')
+  })
+
   test('maps structured rate limits to a wait and retry step', () => {
     const message = agentTasksErrorMessage({
       error: 'too many task query requests',

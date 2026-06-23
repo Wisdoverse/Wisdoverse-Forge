@@ -46,7 +46,7 @@ export function agentTasksErrorMessage(err: unknown): string {
   if (code === 401 || text.includes('unauthorized')) {
     return 'Sign in again, then reopen this agent to load its work list.'
   }
-  if (code === 403 || text.includes('forbidden')) {
+  if (code === 403 || text.includes('forbidden') || text.includes('role required')) {
     return "Ask an owner or admin to give you access to this agent's work list."
   }
   if (code === 404) {
