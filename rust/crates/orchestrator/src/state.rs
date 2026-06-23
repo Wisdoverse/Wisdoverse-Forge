@@ -150,6 +150,70 @@ impl AppState {
         })
     }
 
+    /// Build a Postgres-backed test state for the MCP review-tool contract tests.
+    ///
+    /// Wires the real `PgReviewStore` / `PgTaskStore` / `PgAuditStore` and a
+    /// Postgres `Provisioner` (so internal-token requests resolve to real
+    /// participant ids), enables the MCP server, and gates it on `token`. This is
+    /// the `#[sqlx::test]` analogue of `test_review_internal_token`, driving the
+    /// `/mcp` endpoint against a real database.
+    pub fn test_mcp_pg(pool: PgPool, token: &str, org_id: &str) -> Self {
+        let config = Arc::new(Config {
+            internal_token: Some(token.to_string()),
+            mcp_server_enabled: true,
+            mcp_server_org: org_id.to_string(),
+            ..Config::default()
+        });
+        let provisioner = Some(Arc::new(Provisioner::postgres(pool.clone())));
+        let task_store = build_task_store(Some(&pool));
+        let review_store = build_review_store(Some(&pool));
+        let audit_store = build_audit_store(Some(&pool));
+        let mcp_server = build_mcp_server(config.as_ref());
+        Self {
+            config,
+            pool: Some(pool),
+            provisioner,
+            task_store,
+            review_store,
+            audit_store,
+            mcp_server,
+            ready: true,
+            ..Self::default()
+        }
+    }
+
+    /// Like [`AppState::test_mcp_pg`] but also wires a JWT `SessionManager` from
+    /// `signing_key` so tests can mint a session token and exercise the MCP review
+    /// tools' `"human"` actor-type branch (session JWT), not just the internal
+    /// token's `"system"` branch.
+    pub fn test_mcp_pg_with_sessions(pool: PgPool, token: &str, org_id: &str, signing_key: &str) -> Self {
+        let config = Arc::new(Config {
+            internal_token: Some(token.to_string()),
+            jwt_signing_key: Some(signing_key.to_string()),
+            mcp_server_enabled: true,
+            mcp_server_org: org_id.to_string(),
+            ..Config::default()
+        });
+        let (sessions, provisioner) =
+            build_auth_services(config.as_ref(), Some(&pool)).expect("test mcp auth services");
+        let task_store = build_task_store(Some(&pool));
+        let review_store = build_review_store(Some(&pool));
+        let audit_store = build_audit_store(Some(&pool));
+        let mcp_server = build_mcp_server(config.as_ref());
+        Self {
+            config,
+            pool: Some(pool),
+            sessions,
+            provisioner,
+            task_store,
+            review_store,
+            audit_store,
+            mcp_server,
+            ready: true,
+            ..Self::default()
+        }
+    }
+
     pub fn with_outbound_mcp(mut self, outbound_mcp: Arc<dyn OutboundMcp>) -> Self {
         self.outbound_mcp = Some(outbound_mcp);
         self
