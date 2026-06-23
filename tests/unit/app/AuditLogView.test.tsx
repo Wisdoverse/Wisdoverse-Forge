@@ -236,7 +236,9 @@ describe('AuditLogView', () => {
     expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
       'Visible item ID'
     )
-    expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain('11111111')
+    expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
+      '11111111'
+    )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
       'Protected saved item'
     )
@@ -246,7 +248,7 @@ describe('AuditLogView', () => {
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'Hidden item ID'
     )
-    expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
+    expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'f9f0b5b53a'
     )
     expect(screen.getAllByText('Project').length).toBeGreaterThan(0)

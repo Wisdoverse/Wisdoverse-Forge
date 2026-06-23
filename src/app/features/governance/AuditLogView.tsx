@@ -553,14 +553,12 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
             testId="governance-audit-item-reference"
             icon="visible"
             label="Visible saved item"
-            value={entry.rawItemId}
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
             label="Protected saved item"
-            value={entry.auditSubjectHash}
           />
         )}
         {entry.detailsRedacted && (
@@ -605,12 +603,10 @@ function SubjectLine({
   testId,
   icon,
   label,
-  value,
 }: {
   testId: string
   icon: 'visible' | 'hash'
   label: string
-  value: string
 }) {
   const Icon = icon === 'visible' ? ShieldCheck : Fingerprint
   return (
@@ -618,12 +614,6 @@ function SubjectLine({
       <Icon size={14} className="shrink-0 text-apple-blue" aria-hidden="true" />
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
         {label}
-      </span>
-      <span
-        className="truncate font-mono text-ui-caption"
-        aria-label={`${label}: ${shortId(value)}`}
-      >
-        {shortId(value)}
       </span>
     </div>
   )
