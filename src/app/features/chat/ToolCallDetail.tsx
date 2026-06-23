@@ -142,7 +142,8 @@ function outputMessageForKey(key: string): string | null {
 }
 
 function isSensitiveKey(key: string): boolean {
-  return /\b(token|secret|password|api[_-]?key|credential|credentials)\b/i.test(key)
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return /(token|secret|password|apikey|credential)/.test(normalized)
 }
 
 function safeToolString(value: string): string {

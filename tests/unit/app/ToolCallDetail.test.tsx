@@ -193,6 +193,24 @@ describe('ToolCallDetail', () => {
     expect(screen.queryByText(/abc123/i)).toBeNull()
   })
 
+  test('hides prefixed api key fields in tool details', () => {
+    render(
+      <ToolCallDetail
+        call={{
+          ...baseCall,
+          input: { xApiKey: 'secret-prefixed-api-key-value' },
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show step details for command step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show what the agent received/i }))
+
+    expect(screen.getByText(/Hidden for safety/i)).toBeInTheDocument()
+    expect(screen.queryByText(/secret-prefixed-api-key-value/i)).toBeNull()
+    expect(screen.queryByText(/xApiKey/i)).toBeNull()
+  })
+
   test('turns command output fields into beginner next steps instead of raw logs', () => {
     render(
       <ToolCallDetail
@@ -211,7 +229,9 @@ describe('ToolCallDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /show what happened/i }))
 
     expect(
-      screen.getByText(/What the command showed: The command result was saved.*before relying on it/i)
+      screen.getByText(
+        /What the command showed: The command result was saved.*before relying on it/i
+      )
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Problem details: The command problem details were saved.*before retrying/i)
