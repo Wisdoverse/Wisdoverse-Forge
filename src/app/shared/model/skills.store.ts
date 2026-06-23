@@ -222,6 +222,14 @@ function skillResponseErrorMessage(
   data: SkillsResponse | Record<string, unknown>
 ): string {
   const detail = errorDetail(data)
+  const normalized = detail?.toLowerCase() ?? ''
+  if (
+    normalized.includes('role required') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('permission')
+  ) {
+    return skillHttpErrorMessage(action, 403)
+  }
   if (detail)
     return action === 'create'
       ? skillValidationMessage(detail)

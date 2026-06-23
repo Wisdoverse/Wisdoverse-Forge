@@ -63,9 +63,9 @@ The repo already has useful gates:
 
 Known candidate found while stopping ad hoc work:
 
-- Saved-instruction create responses with `ok:false` and role/access details can
-  still be treated like field validation instead of access guidance. Verify and
-  fix under Phase 1, not as an isolated patch.
+- Saved-instruction create responses with `ok:false` and role/access details
+  were confirmed to look like field validation instead of access guidance. Fixed
+  under Phase 1 with coverage in `tests/unit/app/skills.store.test.ts`.
 
 ## Phase 0 inventory
 
@@ -137,6 +137,12 @@ Acceptance:
 - Required checks pass: focused test, `npm run fsd:check`, `npm run lint`,
   `npm run format:check`, `npm run typecheck`, `git diff --check`, and the
   repository banned-reference scan.
+
+Progress:
+
+- Saved instructions: `ok:false` create responses with role/access details now
+  reuse the saved-instruction access guidance instead of validation copy.
+  Covered by `tests/unit/app/skills.store.test.ts`.
 
 ### Phase 2 - First-run and setup flow
 

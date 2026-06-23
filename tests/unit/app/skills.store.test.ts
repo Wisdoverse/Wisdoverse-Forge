@@ -206,6 +206,19 @@ describe('useSkillsStore errors', () => {
     ).rejects.toThrow('Check the matching words, then save the instruction again.')
   })
 
+  test('throws access guidance when saved-instruction create responses carry role details', async () => {
+    fetchMock.mockResolvedValue(response(200, { ok: false, error: 'owner role required' }))
+
+    await expect(
+      useSkillsStore.getState().createSkill({
+        name: 'release-check',
+        content: 'Check release notes',
+      })
+    ).rejects.toThrow(
+      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
+    )
+  })
+
   test('throws a connection recovery step when skill creation cannot reach the server', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 
