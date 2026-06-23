@@ -30,6 +30,15 @@ describe('chatErrorMessage', () => {
     )
   })
 
+  test('maps role-required errors to agent access guidance', () => {
+    const message = chatErrorMessage('load', 'owner role required')
+
+    expect(message).toBe(
+      'Check conversation again to load the chat history. Ask an owner or admin to give you access to this agent.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('maps structured sign-in errors without exposing token details', () => {
     const message = chatErrorMessage('load', {
       code: '401',
