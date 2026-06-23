@@ -294,7 +294,11 @@ impl AppState {
         let agent_directory = build_agent_directory(pool.as_ref());
         let metrics_store =
             build_metrics_store(pool.as_ref(), task_store.clone(), review_store.clone(), agent_directory.clone());
-        let broadcaster = Arc::new(Broadcaster::new());
+        // Single shared Broadcaster — also handed to WorkflowActivities and the
+        // review escalation reaper below, so wiring the NATS relay here makes
+        // BOTH workflow:* and review.escalated relay to the browser. Graceful:
+        // no NATS_URL (or an unreachable server) → in-process-only.
+        let broadcaster = Arc::new(build_broadcaster(config.as_ref()).await);
         let (workflow_components, workflow_runtime) = build_workflow_runtime(
             config.as_ref(),
             workflow_store.clone(),
@@ -353,6 +357,34 @@ fn build_auth_services(config: &Config, pool: Option<&PgPool>) -> anyhow::Result
     };
 
     Ok((sessions, provisioner))
+}
+
+/// Build the shared realtime `Broadcaster`, wiring the NATS relay when
+/// `config.nats_url` is set and reachable. Graceful degradation: no URL, an
+/// unparseable URL, or a connection failure all fall back to an in-process-only
+/// `Broadcaster` (today's behavior) — the orchestrator must boot in
+/// environments without NATS, so this never errors.
+///
+/// `connect_nats` connects with whatever credential is encoded in the URL. The
+/// operator MUST point this at a BACKEND NATS URL (same as the main API/jobs
+/// publishers), not a per-agent sidecar credential: `broadcast.>` publish is
+/// denied to sidecar JWTs by the NATS auth callout.
+async fn build_broadcaster(config: &Config) -> Broadcaster {
+    let Some(url) = config.nats_url.as_deref() else {
+        tracing::info!("orchestrator realtime NATS relay disabled (no NATS_URL); running in-process-only");
+        return Broadcaster::new();
+    };
+
+    match agentforge_infra::nats::connect_nats(url).await {
+        Ok(client) => {
+            tracing::info!("orchestrator realtime NATS relay enabled");
+            Broadcaster::with_nats(client)
+        }
+        Err(err) => {
+            tracing::warn!(error = %err, "orchestrator NATS connection failed; realtime relay disabled (in-process-only)");
+            Broadcaster::new()
+        }
+    }
 }
 
 fn build_mcp_server(config: &Config) -> Option<Arc<McpServer>> {
@@ -468,5 +500,22 @@ impl OutboundMcp for FixedOutboundMcp {
 
     async fn session_status(&self, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
         Ok(SessionStatusResult { agent_id: self.session_id.clone(), status: "idle".to_string() })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn build_broadcaster_without_nats_url_degrades_gracefully_to_in_process() {
+        // Graceful-degradation arm: with no NATS_URL the orchestrator must still
+        // boot and return a working in-process-only Broadcaster — no panic, no
+        // error, no NATS dependency. (The connect-failure arm needs a network
+        // and is intentionally not exercised here.)
+        let config = Config { nats_url: None, ..Config::default() };
+        let broadcaster = build_broadcaster(&config).await;
+        // In-process fan-out still works with zero subscribers / no NATS.
+        assert_eq!(broadcaster.client_count(), 0);
     }
 }

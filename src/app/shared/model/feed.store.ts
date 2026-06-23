@@ -34,6 +34,7 @@ export interface Notification {
     | 'mentioned'
     | 'credential_expired'
     | 'cli_image_updated'
+    | 'review_escalated'
   taskId: string
   taskTitle: string
   message: string
