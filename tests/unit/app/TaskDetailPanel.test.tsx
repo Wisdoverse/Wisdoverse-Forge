@@ -376,7 +376,9 @@ describe('TaskDetailPanel', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
-    expect(await screen.findByText(/this task changed while you were working/i)).toBeDefined()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(/this task changed while you were working/i)
     expect(screen.queryByText(/409 conflict/i)).toBeNull()
   })
 
