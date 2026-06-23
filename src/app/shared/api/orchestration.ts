@@ -29,6 +29,7 @@ export type BlockedReason =
   | 'waiting_input'
   | 'waiting_approval'
   | 'quota_exceeded'
+  | 'waiting_verification'
 
 export interface TaskResultArtifact {
   name: string

@@ -107,6 +107,12 @@ pub struct TaskParamsRequest {
     pub env: Option<serde_json::Value>,
     #[serde(default, rename = "apiKeys")]
     pub api_keys: Option<serde_json::Value>,
+    /// #793/#875 opt-in completion contract. Captured as a raw `Value` and stored
+    /// verbatim in the task's params so the NATS result consumer's verifier can
+    /// parse it (`core::ExpectedResult::from_params`). Over-typing here would drop
+    /// sub-keys a newer producer adds.
+    #[serde(default, rename = "expectedResult", skip_serializing_if = "Option::is_none")]
+    pub expected_result: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -180,6 +186,7 @@ fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<se
             inputs: p.inputs.as_ref(),
             env: p.env.as_ref(),
             api_keys: p.api_keys.as_ref(),
+            expected_result: p.expected_result.as_ref(),
         }),
     )
 }
@@ -535,6 +542,23 @@ mod tests {
         let params = params.expect("params");
         assert_eq!(params["requiredInputs"][0], "ANTHROPIC_API_KEY");
         assert!(params.get("env").is_some());
+    }
+
+    #[test]
+    fn create_task_params_persist_expected_result_for_verifier() {
+        // #793/#875: a client POSTing `params.expectedResult` must have it land in
+        // the stored params verbatim so the NATS completion verifier fires. End to
+        // end: JSON body -> CreateTaskRequest -> extract_params -> stored params.
+        let req: CreateTaskRequest = serde_json::from_str(
+            r#"{"params":{"task":"Run suite","message":"ci","expectedResult":{"contains":"tests passed"}}}"#,
+        )
+        .unwrap();
+        let (_title, _description, params) = extract_params(&req);
+        let params = params.expect("params");
+        assert_eq!(
+            params["expectedResult"]["contains"], "tests passed",
+            "expectedResult must survive the create path into stored params"
+        );
     }
 
     #[test]
