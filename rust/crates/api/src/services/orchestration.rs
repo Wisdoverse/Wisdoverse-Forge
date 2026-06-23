@@ -383,7 +383,9 @@ impl OrchestrationService {
     pub async fn dispatch_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        BlockedTaskPolicy::ensure_can_enter_dispatch(&task.status, task.blocked_reason.as_deref())?;
+        // Explicit operator dispatch: tolerates a #793/#875 waiting_verification
+        // re-run; the auto-sweep keeps the stricter `can_enter_dispatch`.
+        BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
         let participant =
             self.participant_repo.find_available(scope).await?.ok_or_else(|| -> agentforge_core::AppError {
@@ -524,7 +526,7 @@ impl OrchestrationService {
         resolved_context: ResolvedContext,
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
-        BlockedTaskPolicy::ensure_can_enter_dispatch(&task.status, task.blocked_reason.as_deref())?;
+        BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
@@ -543,7 +545,7 @@ impl OrchestrationService {
         agent_id: AgentId,
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
-        BlockedTaskPolicy::ensure_can_enter_dispatch(&task.status, task.blocked_reason.as_deref())?;
+        BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
@@ -591,7 +593,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
-        TaskLifecyclePolicy::ensure_can_complete(&task.status)?;
+        TaskLifecyclePolicy::ensure_can_complete(&task.status, task.blocked_reason.as_deref())?;
 
         // Issue #37: parent completion + waiting_dependency unblock must commit
         // atomically. If unblock fails after set_result has been committed,

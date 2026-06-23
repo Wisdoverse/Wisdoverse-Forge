@@ -129,6 +129,9 @@ fn blocked_hint(reason: &str, metadata: Option<&Value>) -> String {
             let limit = metadata.and_then(|m| m.get("limit")).and_then(|v| v.as_i64()).unwrap_or(0);
             format!("配额超限（{used}/{limit}）")
         }
+        // Mirrors the api-domain `BlockedTaskPolicy::hint` arm so the held task card
+        // renders the same copy whether the hint is computed in the api or the WS projector.
+        "waiting_verification" => "完成结果未通过 expectedResult 校验，已暂留待人工复核".into(),
         other => format!("阻塞: {other}"),
     }
 }
