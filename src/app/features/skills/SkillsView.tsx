@@ -50,6 +50,7 @@ export function SkillsView() {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [skillFilter, setSkillFilter] = useState<SkillFilter>('all')
+  const [savedInstructionName, setSavedInstructionName] = useState<string | null>(null)
   const searchHelpId = useId()
 
   useEffect(() => {
@@ -77,16 +78,27 @@ export function SkillsView() {
     searchQuery,
     filter: skillFilter,
   })
-  const toolbarStatus = skillToolbarStatus({
-    visibleCount: visibleSkills.length,
-    totalCount: catalogSkills.length,
-    searchQuery,
-    filter: skillFilter,
-    loading,
-    error,
-  })
+  const toolbarStatus =
+    savedInstructionName && !loading && !error
+      ? `Saved "${savedInstructionName}". Open it to check or reuse it on a task.`
+      : skillToolbarStatus({
+          visibleCount: visibleSkills.length,
+          totalCount: catalogSkills.length,
+          searchQuery,
+          filter: skillFilter,
+          loading,
+          error,
+        })
+  const updateSearchQuery = (query: string) => {
+    setSavedInstructionName(null)
+    setSearchQuery(query)
+  }
+  const updateSkillFilter = (filter: SkillFilter) => {
+    setSavedInstructionName(null)
+    setSkillFilter(filter)
+  }
   const resetSkillView = () => {
-    setSearchQuery('')
+    updateSearchQuery('')
     setSkillFilter('all')
   }
 
@@ -117,7 +129,7 @@ export function SkillsView() {
               aria-describedby={searchHelpId}
               placeholder="Search saved instructions..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => updateSearchQuery(e.target.value)}
               className={cn(uiStyles.input, 'w-40 shrink pl-9 sm:w-56')}
             />
           </div>
@@ -169,7 +181,7 @@ export function SkillsView() {
                     label={filter.label}
                     ariaLabel={filter.ariaLabel}
                     count={filterCounts[filter.value]}
-                    onClick={() => setSkillFilter(filter.value)}
+                    onClick={() => updateSkillFilter(filter.value)}
                   />
                 ))}
               </div>
@@ -261,7 +273,11 @@ export function SkillsView() {
       {selectedSkill && (
         <SkillDetailModal skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
       )}
-      <CreateSkillModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
+      <CreateSkillModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={(skill) => setSavedInstructionName(skill.name)}
+      />
     </div>
   )
 }

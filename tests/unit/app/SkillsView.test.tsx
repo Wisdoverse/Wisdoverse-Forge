@@ -408,20 +408,20 @@ describe('SkillsView', () => {
       .mockReturnValueOnce(createRequest.promise)
 
     const createdSkillResponse = {
+      ok: true,
+      json: async () => ({
         ok: true,
-        json: async () => ({
-          ok: true,
-          data: {
-            id: 'skill-frontend-review',
-            organization_id: 'org-1',
-            name: 'frontend-review',
-            description: 'Review frontend flows',
-            trigger_pattern: 'frontend',
-            content: 'Check UI states and regressions',
-            enabled: true,
-          },
-        }),
-      } as Response
+        data: {
+          id: 'skill-frontend-review',
+          organization_id: 'org-1',
+          name: 'frontend-review',
+          description: 'Review frontend flows',
+          trigger_pattern: 'frontend',
+          content: 'Check UI states and regressions',
+          enabled: true,
+        },
+      }),
+    } as Response
 
     render(<SkillsView />)
 
@@ -456,6 +456,10 @@ describe('SkillsView', () => {
     await waitFor(() => {
       expect(screen.getByText('frontend-review')).toBeDefined()
     })
+    const confirmation = screen.getByText(
+      'Saved "frontend-review". Open it to check or reuse it on a task.'
+    )
+    expect(confirmation).toHaveAttribute('aria-live', 'polite')
 
     expect(fetchMock).toHaveBeenLastCalledWith(
       '/api/v1/skills',
