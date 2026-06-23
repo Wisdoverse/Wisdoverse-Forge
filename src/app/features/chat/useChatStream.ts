@@ -102,7 +102,13 @@ export function chatStreamEventErrorMessage(detail: unknown): string {
   if (text.includes('rate') || text.includes('limit') || text.includes('too many')) {
     return 'Wait a moment, then resend the message. This agent is receiving too many messages right now.'
   }
-  if (text.includes('permission') || text.includes('forbidden') || text.includes('unauthorized')) {
+  if (
+    text.includes('permission') ||
+    text.includes('forbidden') ||
+    text.includes('unauthorized') ||
+    text.includes('authorization') ||
+    text.includes('bearer')
+  ) {
     return 'Ask an owner or admin to update your team space access before using this agent chat. You do not have access to this agent chat.'
   }
   if (text.includes('context')) {
