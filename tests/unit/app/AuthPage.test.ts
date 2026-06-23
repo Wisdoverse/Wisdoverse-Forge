@@ -293,8 +293,9 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'The two passwords do not match. Re-enter both password fields, then try again.'
+      'The two passwords do not match. Re-enter both password fields, then choose Create account and continue again.'
     )
+    expect(bodyText()).not.toContain('Re-enter both password fields, then try again.')
     expect(document.querySelector<HTMLInputElement>('#register-confirm')).toBe(
       document.activeElement
     )
@@ -378,8 +379,9 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'The two passwords do not match. Re-enter both fields, then try again.'
+      'The two passwords do not match. Re-enter both fields, then choose Save new password again.'
     )
+    expect(bodyText()).not.toContain('Re-enter both fields, then try again.')
   })
 
   test('guides reset-token users when the new password is too short', async () => {

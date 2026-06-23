@@ -612,7 +612,7 @@ export class AuthPage {
     }
     if (password !== confirm) {
       this.setError(
-        'The two passwords do not match. Re-enter both password fields, then try again.'
+        'The two passwords do not match. Re-enter both password fields, then choose Create account and continue again.'
       )
       this.container?.querySelector<HTMLInputElement>('#register-confirm')?.focus()
       return
@@ -1040,7 +1040,7 @@ export class AuthPage {
 
       if (password !== confirm) {
         errorDiv.textContent =
-          'The two passwords do not match. Re-enter both fields, then try again.'
+          'The two passwords do not match. Re-enter both fields, then choose Save new password again.'
         errorDiv.style.display = ''
         this.shakeCard()
         return
