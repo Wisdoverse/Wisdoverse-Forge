@@ -155,7 +155,7 @@ pub async fn refresh_token(State(state): State<AppState>, headers: HeaderMap) ->
         return auth_json_error(missing_refresh_token_response_contract());
     };
 
-    match service.refresh_session(&refresh_token) {
+    match service.refresh_session(&refresh_token).await {
         Ok(session) => Json(auth_refresh_response(&session)).into_response(),
         Err(err) => {
             if is_unauthorized_error(&err) {
