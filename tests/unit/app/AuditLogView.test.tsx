@@ -196,6 +196,8 @@ describe('AuditLogView', () => {
     expect(screen.getByText('Change')).toBeDefined()
     expect(screen.getByText('Feedback saved')).toBeDefined()
     expect(screen.queryByText('Feedback recorded')).toBeNull()
+    expect(screen.queryByTitle('governance.context.feedback.recorded')).toBeNull()
+    expect(screen.queryByTitle('governance.context.skill.approved')).toBeNull()
     expect(screen.getByText('Saved instruction saved for reuse')).toBeDefined()
     expect(screen.queryByText('Saved instruction approved for reuse')).toBeNull()
     expect(screen.queryByText('Saved instruction saved')).toBeNull()

@@ -120,7 +120,7 @@ describe('ProvidersSection', () => {
     const loading = screen.getByRole('status', { name: /checking ai services/i })
     expect(loading).toHaveTextContent('Checking AI services')
     expect(loading).toHaveTextContent(
-      'Forge is checking which AI accounts agents can use to answer tasks.'
+      'Forge is checking which AI accounts simple chat agents can use to answer questions and check results.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Settings again or ask an owner or admin to check AI service access.'
@@ -129,22 +129,33 @@ describe('ProvidersSection', () => {
       'Success looks like saved AI services or an add-your-first-service step.'
     )
     expect(loading).not.toHaveTextContent('Loading AI services')
+    expect(loading).not.toHaveTextContent('answer tasks')
   })
 
   test('summarizes provider readiness and filters providers by action state', async () => {
     render(<ProvidersSection />)
 
     const readiness = await screen.findByTestId('provider-readiness')
-    expect(within(readiness).getByText(/1 AI service is ready to use/i)).toBeDefined()
+    expect(
+      within(readiness).getByText(/1 AI service is ready for simple chat agents/i)
+    ).toBeDefined()
     expect(within(readiness).getByText(/1 AI service needs a connection check/i)).toBeDefined()
     expect(within(readiness).getByText(/1 AI service is disabled/i)).toBeDefined()
     expect(within(readiness).queryByText(/still needs Check/i)).toBeNull()
     expect(within(readiness).queryByText(new RegExp('1/3 AI services\\s+ready', 'i'))).toBeNull()
-    expect(within(readiness).getByText('Chat agents: OpenAI Production')).toBeDefined()
-    expect(within(readiness).getByText('Chat agent choice')).toBeDefined()
+    expect(within(readiness).getByText('Simple chat agents: OpenAI Production')).toBeDefined()
+    expect(within(readiness).getByText('Simple chat agent choice')).toBeDefined()
     expect(within(readiness).queryByText('Default AI service')).toBeNull()
     expect(within(readiness).queryByText('Default Route')).toBeNull()
     expect(screen.getByRole('heading', { name: 'AI services' })).toBeDefined()
+    expect(
+      screen.getByText(
+        /AI services answer questions and check results for simple chat agents\. They cannot take Tasks or change code/i
+      )
+    ).toBeDefined()
+    expect(screen.getByText(/Where agents work and File-change tool sign-in/i)).toBeDefined()
+    expect(screen.queryByText(/Work tool sign-in/i)).toBeNull()
+    expect(screen.queryByText(/simple chat agents use to answer questions\.$/i)).toBeNull()
     expect(screen.queryByText('AI Services')).toBeNull()
     expect(screen.getByRole('button', { name: /^add AI service$/i })).toBeDefined()
     expect(screen.queryByText('Add AI Service')).toBeNull()
@@ -156,13 +167,15 @@ describe('ProvidersSection', () => {
         .getAllByText(/Key saved:/)
         .some((node) => node.textContent === 'Key saved: sk-live••••')
     ).toBe(true)
-    expect(screen.getByText('Ready: agents can use this service.')).toBeDefined()
+    expect(screen.getByText('Ready: simple chat agents can use this service.')).toBeDefined()
+    expect(screen.queryByText('Ready: agents can use this service.')).toBeNull()
     const nextStep = screen.getByTestId('provider-next-step')
     expect(within(nextStep).getByText('Do this next')).toBeDefined()
     expect(within(nextStep).getByText('Check the AI service connection')).toBeDefined()
-    expect(within(nextStep).getByText(/before sending work/i)).toBeDefined()
+    expect(within(nextStep).getByText(/before creating or using simple chat agents/i)).toBeDefined()
     expect(within(nextStep).getByText(/What success looks like:/)).toBeDefined()
     expect(within(nextStep).queryByText('Do This Next')).toBeNull()
+    expect(within(nextStep).queryByText(/before sending work/i)).toBeNull()
     expect(within(nextStep).queryByText(/before assigning work/i)).toBeNull()
     expect(within(nextStep).queryByText(/Success:/)).toBeNull()
     expect(
@@ -321,7 +334,7 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     const readiness = screen.getByTestId('provider-readiness')
-    expect(within(readiness).getByText('Chat agents: add an AI service first')).toBeDefined()
+    expect(within(readiness).getByText('Simple chat agents: add an AI service first')).toBeDefined()
     expect(within(readiness).getByText('Add first service')).toBeDefined()
     expect(within(readiness).queryByText('Default: None')).toBeNull()
     expect(within(readiness).queryByText('Default AI service')).toBeNull()
@@ -354,7 +367,10 @@ describe('ProvidersSection', () => {
     expect(screen.queryByText(/technical service details/i)).toBeNull()
     expect(screen.getByText(/paste the service access key and save/i)).toBeDefined()
     expect(screen.getByText(/keep the suggested service choice unless/i)).toBeDefined()
-    expect(screen.getByText(/some services call this an API key/i)).toBeDefined()
+    expect(
+      screen.getByText(/If the AI account uses a different name, use the key it gives you/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/API key/i)).toBeNull()
     expect(screen.getByText(/do not paste the sign-in password/i)).toBeDefined()
     expect(screen.getByText(/After saving, choose Check connection/i)).toBeDefined()
     expect(screen.getByText(/You are done when it shows Ready/i)).toBeDefined()
@@ -388,8 +404,9 @@ describe('ProvidersSection', () => {
     const confirmation = await screen.findByRole('status')
     expect(confirmation).toHaveAttribute('aria-live', 'polite')
     expect(confirmation).toHaveTextContent(
-      'Anthropic saved. Choose Check connection before agents use this AI service.'
+      'Anthropic saved. Choose Check connection before simple chat agents use this AI service.'
     )
+    expect(confirmation).not.toHaveTextContent('before agents use this AI service')
   })
 
   test('announces AI service setup errors as recovery guidance', async () => {
@@ -428,9 +445,20 @@ describe('ProvidersSection', () => {
     expect(screen.queryByText('Save and check')).toBeNull()
     expect(screen.queryByText(/copy its access key/i)).toBeNull()
     const providerSelect = screen.getByLabelText(/^AI service$/i)
-    expect(within(providerSelect).getByRole('option', { name: 'OpenAI-Compatible' })).toBeDefined()
-    expect(within(providerSelect).getByRole('option', { name: 'LiteLLM Gateway' })).toBeDefined()
+    expect(
+      within(providerSelect).getByRole('option', {
+        name: 'Other AI service with a service address',
+      })
+    ).toBeDefined()
+    expect(
+      within(providerSelect).getByRole('option', { name: 'LiteLLM shared AI service' })
+    ).toBeDefined()
     expect(within(providerSelect).getByRole('option', { name: 'OpenRouter' })).toBeDefined()
+    expect(within(providerSelect).queryByRole('option', { name: 'OpenAI-Compatible' })).toBeNull()
+    expect(
+      within(providerSelect).queryByRole('option', { name: 'Custom OpenAI-style service' })
+    ).toBeNull()
+    expect(within(providerSelect).queryByRole('option', { name: 'LiteLLM Gateway' })).toBeNull()
     expect(within(providerSelect).queryByRole('option', { name: 'Anthropic' })).toBeNull()
     expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
     fireEvent.change(providerSelect, { target: { value: 'litellm' } })
@@ -465,14 +493,18 @@ describe('ProvidersSection', () => {
     const readiness = await screen.findByTestId('provider-readiness')
     expect(within(readiness).getByText('Finish adding AI service')).toBeDefined()
     expect(
-      within(readiness).getByText(/Enable or add an AI service before agents can use one/i)
+      within(readiness).getByText(
+        /Enable or add an AI service before simple chat agents can use one/i
+      )
     ).toBeDefined()
     expect(within(readiness).getByText(/no connection checks are needed/i)).toBeDefined()
     expect(within(readiness).getByText(/1 AI service is disabled/i)).toBeDefined()
     expect(within(readiness).queryByText(/No AI services are ready to use yet/i)).toBeNull()
     expect(within(readiness).queryByText(/none need Check/i)).toBeNull()
     expect(
-      within(readiness).getByText('Chat agents: choose a ready service when creating an agent')
+      within(readiness).getByText(
+        'Simple chat agents: choose a ready service when creating a simple chat agent'
+      )
     ).toBeDefined()
     expect(within(readiness).getByText('Choose in New agent')).toBeDefined()
     expect(within(readiness).queryByText('Default: None')).toBeNull()
@@ -529,7 +561,13 @@ describe('ProvidersSection', () => {
 
     const nextStep = await screen.findByTestId('provider-next-step')
     expect(within(nextStep).getByText('Ready to create simple chat agents')).toBeDefined()
+    expect(within(nextStep).getByText(/is ready for simple chat agents/i)).toBeDefined()
     expect(within(nextStep).getByText(/choose New agent/i)).toBeDefined()
+    expect(within(nextStep).queryByText(/agents that answer in chat/i)).toBeNull()
+    expect(within(nextStep).getByRole('link', { name: /open agents/i })).toHaveAttribute(
+      'href',
+      '/agents'
+    )
     expect(within(nextStep).queryByText(/choose Create Agent/i)).toBeNull()
   })
 
@@ -748,9 +786,14 @@ describe('ProvidersSection', () => {
     fireEvent.click(removeButton)
 
     expect(deleteProviderMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('note')).toHaveTextContent(
-      'Removing this service stops agents from using Anthropic Review.'
+    const removeNote = screen.getByRole('note')
+    expect(removeNote).toHaveTextContent(
+      'Removing this service stops simple chat agents from using Anthropic Review.'
     )
+    expect(removeNote).toHaveTextContent(
+      'Keep it if any current simple chat agent still needs this AI service.'
+    )
+    expect(removeNote).not.toHaveTextContent('stops agents from using')
     expect(
       screen.getByRole('button', { name: /keep anthropic review AI service/i })
     ).toHaveTextContent('Keep service')

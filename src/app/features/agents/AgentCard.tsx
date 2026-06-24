@@ -5,7 +5,6 @@ import {
   agentStatusKey,
   agentStatusLabel,
   isHostCliAgent,
-  LOCAL_AGENT_SETUP_APP_LABEL,
   type AgentInfo,
 } from '@app/entities/agent'
 import { AgentKindBadge } from './AgentKindBadge'
@@ -35,15 +34,30 @@ export function agentCardStatusHelp(
   agent?: AgentInfo
 ): string {
   const statusKey = agentStatusKey(status)
-  if (!statusKey) return 'Check this agent before sending work'
+  if (!statusKey) {
+    return agent && !agent.cliTool
+      ? 'Check this agent before sending a message'
+      : 'Check this agent before sending work'
+  }
   if (statusKey === 'offline' && agent) {
     if (isHostCliAgent(agent)) {
-      return `Open this agent, then reconnect ${LOCAL_AGENT_SETUP_APP_LABEL} on that computer.`
+      return 'Open this agent to see the reconnect steps from Agents.'
     }
-    if (agent.cliTool) return 'Open this agent and start it before sending file work.'
-    return 'Open this agent and check its AI service before sending chat work.'
+    if (agent.cliTool) {
+      return 'Open this agent and start project files before sending Tasks or code changes.'
+    }
+    return 'Open this agent and check its AI service before sending a message.'
   }
-  return STATUS_HELP[statusKey] ?? 'Check this agent before sending work'
+  if (statusKey === 'working' && agent && !agent.cliTool) return 'Answering a message now'
+  if (statusKey === 'idle' && agent && !agent.cliTool) {
+    return 'Ready for direct chat. Use Project files or This computer for Tasks and code changes.'
+  }
+  return (
+    STATUS_HELP[statusKey] ??
+    (agent && !agent.cliTool
+      ? 'Check this agent before sending a message'
+      : 'Check this agent before sending work')
+  )
 }
 
 function defaultGradient(provider: string): string {
@@ -67,9 +81,27 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
     ? 'This computer'
     : agent.cliTool
       ? 'Project files'
-      : 'Chat-only AI service'
-  const projectLabel = agent.projectName ?? agent.workspaceName ?? 'Open project settings first.'
+      : 'Simple chat agent'
+  const projectLabel = agent.cliTool
+    ? (agent.projectName ?? agent.workspaceName ?? 'Open project settings first.')
+    : agent.projectName
+      ? `Shown in ${agent.projectName}`
+      : agent.workspaceName
+        ? `Shown in ${agent.workspaceName}`
+        : 'No project files needed'
   const serviceLabel = agentServiceLabel(agent)
+  const currentWorkLabel = agent.cliTool ? agent.currentTask : 'Answering in Chat'
+  const metrics = agent.cliTool
+    ? [
+        { value: String(agent.tasksCompleted), label: 'Finished' },
+        { value: String(agent.tasksInProgress), label: 'Running' },
+        { value: `${ratePercent}%`, label: 'Success' },
+      ]
+    : [
+        { value: String(agent.tasksCompleted), label: 'Answered' },
+        { value: String(agent.tasksInProgress), label: 'Replying' },
+        { value: `${ratePercent}%`, label: 'Answer success' },
+      ]
 
   return (
     <button
@@ -119,7 +151,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
 
         {agent.currentTask && (
           <p className="mt-2 truncate rounded-md bg-apple-blue/[0.06] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark">
-            {agent.currentTask}
+            {currentWorkLabel}
           </p>
         )}
         <p
@@ -138,9 +170,9 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
       </div>
 
       <div className="hidden shrink-0 grid-cols-3 gap-3 text-right sm:grid">
-        <Metric value={String(agent.tasksCompleted)} label="Finished" />
-        <Metric value={String(agent.tasksInProgress)} label="Running" />
-        <Metric value={`${ratePercent}%`} label="Success" />
+        {metrics.map((metric) => (
+          <Metric key={metric.label} value={metric.value} label={metric.label} />
+        ))}
       </div>
 
       <span

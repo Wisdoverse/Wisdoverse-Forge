@@ -2,6 +2,8 @@ type ReviewSnapshotAction = 'load' | 'approve'
 
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 
 const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
   load: 'Choose Check fix status again. Forge could not load the current fix check status.',
@@ -64,12 +66,20 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
     return 'Wait for automated checks to finish, then choose Check fix status before finishing.'
   }
 
+  if ((code != null && code >= 500) || RAW_SERVICE_DETAIL.test(text)) {
+    return serviceRecoveryMessage(action)
+  }
+
   const safeDetail = userSafeDetail(detail)
   if (safeDetail) {
     return `${ACTION_FALLBACKS[action]} ${safeDetail}`
   }
 
   return ACTION_FALLBACKS[action]
+}
+
+function serviceRecoveryMessage(action: ReviewSnapshotAction): string {
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check finish access for this code project.`
 }
 
 function rawDetail(error: unknown): string | null {

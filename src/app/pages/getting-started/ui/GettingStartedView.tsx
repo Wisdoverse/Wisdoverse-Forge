@@ -336,6 +336,10 @@ export function GettingStartedView() {
   const actionPath = setupComplete ? '/tasks' : nextStep.path
   const actionCta = setupComplete ? t('gettingStarted.readyCta') : nextStep.cta
   const ActionIcon = setupComplete ? ListTodo : NextStepIcon
+  const completedSteps = steps.filter((step) => step.complete)
+  const laterSteps = setupComplete
+    ? []
+    : steps.filter((step) => !step.complete && step.id !== nextStep.id)
 
   // Once every step is done, hide the guide from the sidebar automatically.
   // Persist exactly once: wait for the stored preference (so an already
@@ -463,16 +467,31 @@ export function GettingStartedView() {
         </div>
       </section>
 
-      <section className="mt-4 grid gap-3 lg:grid-cols-2">
-        {steps.map((step, index) => (
+      <section className="mt-4 grid gap-3">
+        {!setupComplete && (
           <SetupStepItem
-            key={step.id}
-            step={step}
-            index={index}
-            isNext={!setupComplete && nextStep.id === step.id}
+            step={nextStep}
+            index={steps.findIndex((step) => step.id === nextStep.id)}
+            isNext
             onNavigate={go}
           />
-        ))}
+        )}
+        {completedSteps.length > 0 && (
+          <CompactSetupStepList
+            title={t('gettingStarted.completedStepsTitle')}
+            steps={completedSteps}
+            allSteps={steps}
+            testId="getting-started-completed-steps"
+          />
+        )}
+        {laterSteps.length > 0 && (
+          <CompactSetupStepList
+            title={t('gettingStarted.laterStepsTitle')}
+            steps={laterSteps}
+            allSteps={steps}
+            testId="getting-started-later-steps"
+          />
+        )}
       </section>
     </div>
   )
@@ -543,6 +562,7 @@ function SetupStepItem({
 
   return (
     <article
+      data-testid="getting-started-expanded-step"
       className={cn(
         'flex min-w-0 flex-col gap-3 rounded-card border bg-white p-4 dark:bg-[#2a2a2c] sm:flex-row sm:items-center sm:gap-4',
         step.complete || isNext
@@ -606,5 +626,86 @@ function SetupStepItem({
         <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
       </button>
     </article>
+  )
+}
+
+function CompactSetupStepList({
+  title,
+  steps,
+  allSteps,
+  testId,
+}: {
+  title: string
+  steps: SetupStep[]
+  allSteps: SetupStep[]
+  testId: string
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <section
+      data-testid={testId}
+      className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+          {title}
+        </h3>
+        <span className="rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          {steps.length}
+        </span>
+      </div>
+      <ol className="mt-3 divide-y divide-black/[0.06] dark:divide-white/[0.08]">
+        {steps.map((step) => {
+          const Icon = step.Icon
+          const StatusIcon = step.complete ? CheckCircle2 : Circle
+          const statusLabel = step.complete
+            ? t('gettingStarted.stepStatus.done')
+            : t('gettingStarted.stepStatus.later')
+          const stepNumber = allSteps.findIndex((candidate) => candidate.id === step.id) + 1
+
+          return (
+            <li key={step.id} className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+                <Icon size={15} strokeWidth={2} aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <StatusIcon
+                    size={14}
+                    strokeWidth={2.25}
+                    className={
+                      step.complete
+                        ? 'text-apple-blue'
+                        : 'text-secondary-light dark:text-secondary-dark'
+                    }
+                    aria-hidden="true"
+                  />
+                  <p className="min-w-0 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                    <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
+                      {stepNumber}.
+                    </span>
+                    {step.title}
+                  </p>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                      step.complete
+                        ? 'bg-apple-blue/10 text-apple-blue'
+                        : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+                    )}
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {step.detail}
+                </p>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }

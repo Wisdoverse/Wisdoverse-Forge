@@ -73,14 +73,15 @@ describe('taskDetailErrorMessage', () => {
 
   test('gives a clear next step when no agent can take the task', () => {
     expect(taskDetailErrorMessage('loadAgents', new Error('No available agent'))).toBe(
-      'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
+      'No ready agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
     )
   })
 
   test('uses saved items wording when the saved item check cannot load', () => {
     const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an available agent, then check saved items again.')
+    expect(message).toContain('Choose a ready agent, then check saved items again.')
+    expect(message).not.toContain('available agent')
     expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
   })
 
@@ -95,6 +96,20 @@ describe('taskDetailErrorMessage', () => {
     expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
     expect(message).not.toContain('backend')
     expect(message).not.toContain('services')
+  })
+
+  test('keeps unformatted service failures on the task detail recovery path', () => {
+    const message = taskDetailErrorMessage(
+      'loadContext',
+      new Error('database unavailable while loading task context')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open this task again from the Tasks page to load saved notes and work history. If it still fails, ask an owner or admin to check task details access.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toMatch(new RegExp(['task', 'context'].join('\\s+'), 'i'))
   })
 
   test('turns cancel failures into a safe task refresh step', () => {
@@ -127,6 +142,18 @@ describe('taskDetailErrorMessage', () => {
     )
   })
 
+  test('maps nested running-task details to a wait step', () => {
+    const message = taskDetailErrorMessage('retryTask', {
+      error: { message: 'Task is already running' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'This task is already in progress. Wait for the current work to finish, then open this task again from the Tasks page.'
+    )
+    expect(message).not.toContain('Task is already running')
+  })
+
   test('describes context send failures without publish wording', () => {
     const message = taskDetailErrorMessage('publishTask', new Error('HTTP 500'))
 
@@ -150,7 +177,7 @@ describe('taskDetailErrorMessage', () => {
   test('turns agent and saved-note validation details into task-detail recovery steps', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('agent required')),
-      'Choose an available agent, then send the task again.'
+      'Choose a ready agent, then send the task again.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('context selection changed')),

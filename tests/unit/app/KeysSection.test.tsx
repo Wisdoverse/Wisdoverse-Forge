@@ -67,16 +67,16 @@ describe('KeysSection', () => {
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     const emptyState = screen.getByTestId('platform-key-empty-state')
 
-    expect(screen.getByRole('heading', { name: 'Outside tool access' })).toBeDefined()
-    expect(within(emptyState).getByText('Add a key only for a trusted outside tool')).toBeDefined()
-    expect(within(emptyState).getAllByText(/trusted outside tool/i).length).toBeGreaterThan(0)
-    expect(within(emptyState).getByText(/skip this until a trusted outside tool/i)).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Tool access keys' })).toBeDefined()
+    expect(within(emptyState).getByText('Add a key only for a trusted tool')).toBeDefined()
+    expect(within(emptyState).getAllByText(/trusted tool/i).length).toBeGreaterThan(0)
+    expect(within(emptyState).getByText(/skip this until a trusted tool/i)).toBeDefined()
     expect(within(emptyState).getByText(/tool you trust/i)).toBeDefined()
     expect(within(emptyState).getByText(/teammates know which trusted tool uses it/i)).toBeDefined()
     expect(within(emptyState).getByText(/access value in a password manager/i)).toBeDefined()
     expect(within(emptyState).queryByText(/exact tool or job/i)).toBeNull()
     expect(within(emptyState).queryByText(/copy the new key/i)).toBeNull()
-    expect(within(emptyState).queryByText('No outside tool access keys yet')).toBeNull()
+    expect(within(emptyState).queryByText('No tool access keys yet')).toBeNull()
     expect(within(emptyState).queryByText(/platform A[P]I keys/i)).toBeNull()
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /create access key/i }))
@@ -93,7 +93,7 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(screen.getByText('Checking outside tool access…')).toBeDefined()
+    expect(screen.getByText('Checking tool access keys…')).toBeDefined()
     expect(screen.queryByText('Loading access keys…')).toBeNull()
   })
 
@@ -205,10 +205,10 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
+    expect(await screen.findByRole('table', { name: /tool access keys/i })).toBeDefined()
     expect(screen.getByText('Saved access starts with')).toBeDefined()
     expect(screen.queryByText('Saved key starts with')).toBeNull()
-    expect(screen.getByText('Use this access key from a trusted outside tool first')).toBeDefined()
+    expect(screen.getByText('Use this access key from a trusted tool first')).toBeDefined()
     expect(screen.queryByText('Use this key from a trusted tool first')).toBeNull()
     expect(screen.queryByText('Not used yet')).toBeNull()
     expect(screen.queryByText('Starts with')).toBeNull()
@@ -217,7 +217,7 @@ describe('KeysSection', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /remove outside tool access key named release automation/i,
+        name: /remove tool access key named release automation/i,
       })
     )
 
@@ -230,7 +230,7 @@ describe('KeysSection', () => {
     expect(screen.getByRole('button', { name: /^keep access key$/i })).toBeDefined()
     expect(
       screen.getByRole('button', {
-        name: /confirm removing outside tool access key named release automation/i,
+        name: /confirm removing tool access key named release automation/i,
       })
     ).toHaveTextContent('Remove now')
 
@@ -240,13 +240,13 @@ describe('KeysSection', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /remove outside tool access key named release automation/i,
+        name: /remove tool access key named release automation/i,
       })
     )
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /confirm removing outside tool access key named release automation/i,
+        name: /confirm removing tool access key named release automation/i,
       })
     )
 
@@ -262,15 +262,15 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
+    expect(await screen.findByRole('table', { name: /tool access keys/i })).toBeDefined()
     fireEvent.click(
       screen.getByRole('button', {
-        name: /remove outside tool access key named release automation/i,
+        name: /remove tool access key named release automation/i,
       })
     )
     fireEvent.click(
       screen.getByRole('button', {
-        name: /confirm removing outside tool access key named release automation/i,
+        name: /confirm removing tool access key named release automation/i,
       })
     )
 
@@ -305,10 +305,10 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(await screen.findByRole('table', { name: /outside tool access keys/i })).toBeDefined()
-    expect(screen.getByText('Open Outside tool access again to load created date')).toBeDefined()
-    expect(screen.getByText('Open Outside tool access again to check created date')).toBeDefined()
-    expect(screen.getByText('Open Outside tool access again to check last use')).toBeDefined()
+    expect(await screen.findByRole('table', { name: /tool access keys/i })).toBeDefined()
+    expect(screen.getByText('Open Tool access keys again to load created date')).toBeDefined()
+    expect(screen.getByText('Open Tool access keys again to check created date')).toBeDefined()
+    expect(screen.getByText('Open Tool access keys again to check last use')).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })
@@ -323,10 +323,10 @@ describe('KeysSection', () => {
 
     await waitFor(() => expect(loadApiKeysMock).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to let you create or remove outside tool access keys.'
+      'Ask an owner or admin to let you create or remove tool access keys.'
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(
-      'Outside tool access key could not be created.'
+      'Tool access key could not be created.'
     )
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })

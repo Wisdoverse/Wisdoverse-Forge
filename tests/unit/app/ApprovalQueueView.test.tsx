@@ -168,6 +168,40 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText('Use stable credentials')).toBeDefined()
   })
 
+  test('defaults broad saved-item suggestions to only me so beginners can save safely', async () => {
+    listContextCandidates.mockResolvedValue([{ ...candidate, proposed_scope_kind: 'team' }])
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approve-candidate-1'))
+    const dialog = screen.getByRole('dialog', { name: /save use stable credentials/i })
+
+    expect(screen.getByTestId('context-approval-scope-kind')).toHaveValue('user')
+    expect(within(dialog).getByText(/only me is selected first/i)).toBeDefined()
+    expect(
+      within(dialog).getByText(/change this only when the team should reuse it/i)
+    ).toBeDefined()
+    expect(within(dialog).queryByText(/team sharing text/i)).toBeNull()
+    expect(within(dialog).queryByTestId('context-approval-scope-id')).toBeNull()
+    expect(within(dialog).queryByLabelText(/I checked your team can reuse this safely/i)).toBeNull()
+    expect(within(dialog).getByText('Ready to save for your own account.')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approval-submit'))
+
+    await waitFor(() => expect(approveContextCandidate).toHaveBeenCalledOnce())
+    expect(approveContextCandidate).toHaveBeenCalledWith(
+      'candidate-1',
+      expect.objectContaining({
+        scope_kind: 'user',
+        scope_id: null,
+        confirm_expansion: false,
+      })
+    )
+  })
+
   test('labels saved-item decisions without approval jargon', async () => {
     listContextCandidates.mockResolvedValue([
       { ...candidate, id: 'candidate-saved', state: 'approved' },

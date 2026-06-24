@@ -247,7 +247,7 @@ function workAttemptReferenceLabel(id: string): string {
 }
 
 function runSourceNeedsCheck(runSource: string): boolean {
-  return runSource.includes('shown in Settings')
+  return runSource.includes('selected in Settings') || runSource.includes('shown in Settings')
 }
 
 function runSourceLabel(run: TaskRunSummary): string {
@@ -316,7 +316,7 @@ function workToolLabel(tool?: string): string | null {
     case '':
       return null
     default:
-      return 'a work tool shown in Settings'
+      return 'the saved tool selected in Settings'
   }
 }
 
@@ -341,7 +341,7 @@ function taskCheckIn(task: TaskSummary): {
           }
         : {
             title: 'Choose an agent to start this task',
-            detail: 'Choose an available agent before this task can start.',
+            detail: 'Choose a ready agent before this task can start.',
             tone: 'warn',
             Icon: Bot,
           }
@@ -355,7 +355,7 @@ function taskCheckIn(task: TaskSummary): {
             Icon: Clock3,
           }
         : {
-            title: 'Waiting for an available agent',
+            title: 'Waiting for a ready agent',
             detail: 'Choose or start an agent so this task has someone to begin the work.',
             tone: 'warn',
             Icon: Clock3,

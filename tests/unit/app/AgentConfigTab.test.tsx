@@ -72,8 +72,8 @@ describe('AgentConfigTab', () => {
         {
           id: 'future-tool',
           name: 'Future Tool Agent',
-          provider: 'Check work tool',
-          model: 'Check work tool',
+          provider: 'Check tool selected in Settings',
+          model: 'Check tool selected in Settings',
           status: 'idle' as const,
           tasksCompleted: 0,
           tasksInProgress: 0,
@@ -118,8 +118,8 @@ describe('AgentConfigTab', () => {
         {
           id: 'missing-tool',
           name: 'Missing Tool Agent',
-          provider: 'Check work tool',
-          model: 'Check work tool',
+          provider: 'Check tool selected in Settings',
+          model: 'Check tool selected in Settings',
           status: 'idle' as const,
           tasksCompleted: 0,
           tasksInProgress: 0,
@@ -189,7 +189,8 @@ describe('AgentConfigTab', () => {
     render(<AgentConfigTab agentId="future-provider" />)
 
     expect(screen.getByText(/Check AI service/i)).toBeInTheDocument()
-    expect(screen.getByText(/AI model selected/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI service choice selected/i)).toBeInTheDocument()
+    expect(screen.queryByText(/AI model selected/i)).toBeNull()
     expect(screen.queryByText(/future_provider/i)).toBeNull()
     expect(screen.queryByText(/future provider/i)).toBeNull()
     expect(screen.queryByText(/future-model-v1/i)).toBeNull()
@@ -198,7 +199,8 @@ describe('AgentConfigTab', () => {
   it('tells users to check setup when a chat-only agent has no model details', () => {
     render(<AgentConfigTab agentId="missing-model" />)
 
-    expect(screen.getByText(/Check AI model/i)).toBeInTheDocument()
+    expect(screen.getByText(/Check AI service choice/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Check AI model/i)).toBeNull()
     expect(screen.queryByText(/Check AI model setup/i)).toBeNull()
     expect(screen.queryByText(/AI model not reported/i)).toBeNull()
     expect(screen.queryByText(/Model not reported/i)).toBeNull()
@@ -299,7 +301,7 @@ describe('AgentConfigTab', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
     )
     expect(screen.getByRole('alert')).toHaveTextContent(/^open agents/i)
-    expect(screen.getByRole('alert')).toHaveTextContent(/choose this chat-only agent again/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/choose this simple chat agent again/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/text-only model/i)
     expect(screen.getByRole('alert')).toHaveTextContent(
       /ask an owner or admin to check your agent access/i
@@ -359,8 +361,14 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText('af-claude-container-123')).toBeNull()
     expect(screen.queryByText('/workspace')).toBeNull()
     expect(
-      screen.getByText(/confirm where it can open files before sending file work/i)
+      screen.getByText(
+        /uses the saved tool selected in Settings\. Confirm where it opens project files before sending Tasks or code changes/i
+      )
     ).toBeInTheDocument()
+    expect(screen.getByText('Saved tool')).toBeInTheDocument()
+    expect(screen.queryByText('Work tool')).toBeNull()
+    expect(screen.queryByText(/setup for its work tool/i)).toBeNull()
+    expect(screen.queryByText(/file work/i)).toBeNull()
     expect(screen.queryByText(/before assigning work/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
     expect(screen.queryByText(/work profile/i)).toBeNull()
@@ -392,20 +400,22 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByText(/run the command/i)).toBeNull()
   })
 
-  it('labels unknown work tools without exposing raw tool values', () => {
+  it('labels unknown saved tools without exposing raw tool values', () => {
     render(<AgentConfigTab agentId="future-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Check work tool settings')).toBeInTheDocument()
+    expect(screen.getByText('Check tool selected in Settings')).toBeInTheDocument()
+    expect(screen.queryByText('Check work tool settings')).toBeNull()
     expect(screen.queryByText('future_tool')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  it('tells users to refresh work tool setup when the CLI tool is missing', () => {
+  it('tells users to refresh the saved tool setup when the CLI tool is missing', () => {
     render(<AgentConfigTab agentId="missing-tool" />)
 
     expect(screen.getByTestId('agent-cli-config-summary')).toBeInTheDocument()
-    expect(screen.getByText('Check work tool settings')).toBeInTheDocument()
+    expect(screen.getByText('Check tool selected in Settings')).toBeInTheDocument()
+    expect(screen.queryByText('Check work tool settings')).toBeNull()
     expect(screen.queryByText('Work tool not reported')).toBeNull()
   })
 

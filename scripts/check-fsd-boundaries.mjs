@@ -2,9 +2,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
-const root = process.cwd()
-const appRoot = path.join(root, 'src/app')
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
 const layerRank = new Map([
   ['shared', 0],
@@ -19,8 +18,11 @@ const appLayerDirs = new Set(['routes', 'layouts', 'providers', 'hooks', 'i18n',
 
 const importPattern =
   /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s*)?['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g
+const staticPageEntrypointPattern =
+  /(?:import\s+(?:type\s+)?([^'";]+?)\s+from|export\s+(?:type\s+)?([^'";]+?)\s+from)\s*['"]([^'"]+)['"]/g
 
 function walk(dir) {
+  if (!fs.existsSync(dir)) return []
   const entries = fs.readdirSync(dir, { withFileTypes: true })
   return entries.flatMap((entry) => {
     const fullPath = path.join(dir, entry.name)
@@ -43,11 +45,11 @@ function resolveFile(base) {
   return null
 }
 
-function toPosix(filePath) {
+function toPosix(root, filePath) {
   return path.relative(root, filePath).split(path.sep).join('/')
 }
 
-function classify(filePath) {
+function classify(appRoot, filePath) {
   const relative = path.relative(appRoot, filePath).split(path.sep)
   const first = relative[0]
   if (first === 'shared') return { layer: 'shared', slice: relative[1] ?? null }
@@ -59,7 +61,7 @@ function classify(filePath) {
   return { layer: 'app', slice: first }
 }
 
-function resolveSpecifier(sourceFile, specifier) {
+function resolveSpecifier(appRoot, sourceFile, specifier) {
   if (specifier.startsWith('@shared/')) return { kind: 'external-shared' }
   if (specifier.startsWith('@/')) return { kind: 'forbidden-alias' }
   if (specifier.startsWith('@app/')) {
@@ -99,47 +101,134 @@ function collectImports(source) {
   return imports
 }
 
-const errors = []
-
-for (const sourceFile of walk(appRoot)) {
-  const sourceLayer = classify(sourceFile)
-  for (const specifier of collectImports(sourceFile)) {
-    const resolved = resolveSpecifier(sourceFile, specifier)
-
-    if (resolved.kind === 'package' || resolved.kind === 'external-shared') continue
-
-    if (resolved.kind === 'forbidden-alias') {
-      errors.push(
-        `${toPosix(sourceFile)} imports ${specifier}; use @app/* or @shared/* inside src/app`
-      )
-      continue
-    }
-
-    if (resolved.kind === 'outside-app') {
-      errors.push(`${toPosix(sourceFile)} imports ${specifier}, which resolves outside src/app`)
-      continue
-    }
-
-    if (resolved.kind === 'unresolved-app-alias' || resolved.kind === 'unresolved-relative') {
-      errors.push(`${toPosix(sourceFile)} imports unresolved module ${specifier}`)
-      continue
-    }
-
-    const targetLayer = classify(resolved.file)
-    if (!isAllowedLayerImport(sourceLayer, targetLayer)) {
-      errors.push(
-        `${toPosix(sourceFile)} (${sourceLayer.layer}/${sourceLayer.slice ?? '-'}) imports ${specifier} (${targetLayer.layer}/${targetLayer.slice ?? '-'})`
-      )
-    }
-  }
+function shouldRouteUsePageEntrypoint(appRoot, sourceFile) {
+  const routesRoot = path.join(appRoot, 'routes')
+  const relative = path.relative(routesRoot, sourceFile).split(path.sep).join('/')
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return false
+  return !['__root.tsx', '__root.ts', 'landing.ts', 'public-auth.ts'].includes(relative)
 }
 
-if (errors.length > 0) {
+function isRouteEntrypointBypass(source, target) {
+  if (source.layer !== 'app' || source.slice !== 'routes') return false
+  return target.layer === 'features' || target.layer === 'widgets'
+}
+
+function collectNamedImports(importClause) {
+  const namedMatch = importClause.match(/\{([^}]+)\}/)
+  if (!namedMatch) {
+    const defaultImport = importClause.split(',')[0]?.trim()
+    return defaultImport ? [defaultImport] : []
+  }
+
+  return namedMatch[1]
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) =>
+      part
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/i)[0]
+        ?.trim()
+    )
+    .filter(Boolean)
+}
+
+function collectRoutePageEntrypointErrors(root, appRoot, sourceFile, sourceLayer) {
+  if (!shouldRouteUsePageEntrypoint(appRoot, sourceFile)) return []
+
+  const errors = []
+  const content = fs.readFileSync(sourceFile, 'utf8')
+  for (const match of content.matchAll(staticPageEntrypointPattern)) {
+    const importClause = match[1] ?? match[2]
+    const specifier = match[3]
+    const resolved = resolveSpecifier(appRoot, sourceFile, specifier)
+    if (resolved.kind !== 'app-file') continue
+
+    const targetLayer = classify(appRoot, resolved.file)
+    if (
+      sourceLayer.layer !== 'app' ||
+      sourceLayer.slice !== 'routes' ||
+      targetLayer.layer !== 'pages'
+    ) {
+      continue
+    }
+
+    for (const importedName of collectNamedImports(importClause)) {
+      if (!importedName.endsWith('Page')) {
+        errors.push(
+          `${toPosix(root, sourceFile)} imports ${importedName} from ${specifier}; route files must import Page entrypoints from @app/pages/*`
+        )
+      }
+    }
+  }
+
+  return errors
+}
+
+export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
+  const root = cwd
+  const appRoot = path.join(root, 'src/app')
+  const errors = []
+
+  for (const sourceFile of walk(appRoot)) {
+    const sourceLayer = classify(appRoot, sourceFile)
+    errors.push(...collectRoutePageEntrypointErrors(root, appRoot, sourceFile, sourceLayer))
+    for (const specifier of collectImports(sourceFile)) {
+      const resolved = resolveSpecifier(appRoot, sourceFile, specifier)
+
+      if (resolved.kind === 'package' || resolved.kind === 'external-shared') continue
+
+      if (resolved.kind === 'forbidden-alias') {
+        errors.push(
+          `${toPosix(root, sourceFile)} imports ${specifier}; use @app/* or @shared/* inside src/app`
+        )
+        continue
+      }
+
+      if (resolved.kind === 'outside-app') {
+        errors.push(
+          `${toPosix(root, sourceFile)} imports ${specifier}, which resolves outside src/app`
+        )
+        continue
+      }
+
+      if (resolved.kind === 'unresolved-app-alias' || resolved.kind === 'unresolved-relative') {
+        errors.push(`${toPosix(root, sourceFile)} imports unresolved module ${specifier}`)
+        continue
+      }
+
+      const targetLayer = classify(appRoot, resolved.file)
+      if (
+        shouldRouteUsePageEntrypoint(appRoot, sourceFile) &&
+        isRouteEntrypointBypass(sourceLayer, targetLayer)
+      ) {
+        errors.push(
+          `${toPosix(root, sourceFile)} imports ${specifier}; route files must render @app/pages/* entrypoints instead of feature/widget view modules`
+        )
+        continue
+      }
+
+      if (!isAllowedLayerImport(sourceLayer, targetLayer)) {
+        errors.push(
+          `${toPosix(root, sourceFile)} (${sourceLayer.layer}/${sourceLayer.slice ?? '-'}) imports ${specifier} (${targetLayer.layer}/${targetLayer.slice ?? '-'})`
+        )
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = checkFsdBoundaries()
+  if (result.errors.length === 0) {
+    console.log('FSD boundary check passed.')
+    process.exit(0)
+  }
+
   console.error('FSD boundary check failed:')
-  for (const error of errors) {
+  for (const error of result.errors) {
     console.error(`- ${error}`)
   }
   process.exit(1)
 }
-
-console.log('FSD boundary check passed.')

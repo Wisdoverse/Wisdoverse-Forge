@@ -22,6 +22,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
 
 import {
   analyticsNetworkErrorMessage,
+  analyticsServiceErrorMessage,
   analyticsUnavailableMessage,
   useAnalyticsStore,
 } from '@app/shared/model/analytics.store'
@@ -64,6 +65,63 @@ describe('useAnalyticsStore', () => {
     expect(useAnalyticsStore.getState().error).not.toContain('refresh')
     expect(useAnalyticsStore.getState().error).not.toContain('new workspace')
     expect(useAnalyticsStore.getState().error).not.toContain('API')
+    expect(useAnalyticsStore.getState().loading).toBe(false)
+  })
+
+  test('shows service guidance when analytics sources fail with backend details', async () => {
+    agentApiMock.getAnalyticsSummary.mockResolvedValue({
+      ok: false,
+      error: 'database unavailable while loading analytics',
+    })
+    agentApiMock.getAnalyticsTools.mockResolvedValue({
+      ok: false,
+      tools: [],
+      error: 'database unavailable while loading tools',
+    })
+    agentApiMock.getAnalyticsActivity.mockResolvedValue({
+      ok: false,
+      activity: [],
+      error: 'database unavailable while loading activity',
+    })
+    agentApiMock.getAgents.mockResolvedValue({
+      ok: false,
+      agents: [],
+      error: 'database unavailable while loading agents',
+    })
+
+    await useAnalyticsStore.getState().load()
+
+    expect(useAnalyticsStore.getState().error).toBe(analyticsServiceErrorMessage())
+    expect(useAnalyticsStore.getState().error).not.toContain('database unavailable')
+    expect(useAnalyticsStore.getState().error).not.toContain('new team space')
+    expect(useAnalyticsStore.getState().loading).toBe(false)
+  })
+
+  test('shows connection guidance when analytics sources cannot connect', async () => {
+    agentApiMock.getAnalyticsSummary.mockResolvedValue({
+      ok: false,
+      error: 'Check your connection, then try again. Forge could not connect.',
+    })
+    agentApiMock.getAnalyticsTools.mockResolvedValue({
+      ok: false,
+      tools: [],
+      error: 'Check your connection, then try again. Forge could not connect.',
+    })
+    agentApiMock.getAnalyticsActivity.mockResolvedValue({
+      ok: false,
+      activity: [],
+      error: 'Check your connection, then try again. Forge could not connect.',
+    })
+    agentApiMock.getAgents.mockResolvedValue({
+      ok: false,
+      agents: [],
+      error: 'Check your connection, then try again. Forge could not connect.',
+    })
+
+    await useAnalyticsStore.getState().load()
+
+    expect(useAnalyticsStore.getState().error).toBe(analyticsNetworkErrorMessage())
+    expect(useAnalyticsStore.getState().error).not.toContain('new team space')
     expect(useAnalyticsStore.getState().loading).toBe(false)
   })
 

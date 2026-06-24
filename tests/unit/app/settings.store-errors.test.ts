@@ -79,6 +79,7 @@ describe('settingsActionErrorMessage', () => {
     expect(normalizeSettingsSection('ai-services')).toBe('providers')
     expect(normalizeSettingsSection('AI services')).toBe('providers')
     expect(normalizeSettingsSection('outside-tool-access')).toBe('keys')
+    expect(normalizeSettingsSection('tool-access-keys')).toBe('keys')
     expect(normalizeSettingsSection('https-code-access')).toBe('git-credentials')
     expect(normalizeSettingsSection('HTTPS code access')).toBe('git-credentials')
     expect(normalizeSettingsSection('ssh-code-access')).toBe('ssh-keys')
@@ -104,7 +105,7 @@ describe('settingsActionErrorMessage', () => {
   test('turns permission failures into an admin role step', () => {
     expectBeginnerError(
       settingsActionErrorMessage('apiKeys', 'create', statusError(403, 'Forbidden')),
-      'Ask an owner or admin to give you access to outside tool access keys, then create the outside tool access key again. You do not have permission to create the outside tool access key.'
+      'Ask an owner or admin to give you access to tool access keys, then create the tool access key again. You do not have permission to create the tool access key.'
     )
   })
 
@@ -116,7 +117,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to give you access to outside tool access keys, then create the outside tool access key again. You do not have permission to create the outside tool access key.'
+      'Ask an owner or admin to give you access to tool access keys, then create the tool access key again. You do not have permission to create the tool access key.'
     )
     expect(message).not.toContain('policy denied')
   })
@@ -140,7 +141,7 @@ describe('settingsActionErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Name this outside tool access key, choose the allowed access, then create it again.'
+      'Name this tool access key, choose the allowed access, then create it again.'
     )
     expect(message).not.toMatch(/A[P]I key/)
   })

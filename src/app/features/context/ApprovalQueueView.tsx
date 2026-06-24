@@ -627,9 +627,7 @@ function DecisionPanel({
             {approving ? (
               <>
                 <div className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue">
-                  Choose who can reuse it. Only me is the safest choice. My team or This project
-                  shares it more broadly. Copy the team or project sharing text from Settings under
-                  Teams or Projects.
+                  {safeReuseGuidance(candidate.proposed_scope_kind)}
                 </div>
 
                 {!candidate.source_available && (
@@ -959,11 +957,8 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
 }
 
 function defaultApprovalForm(candidate: ContextCandidateSummary): ApprovalFormState {
-  const proposed = candidate.proposed_scope_kind
-  const scopeKind: ContextScopeKind =
-    proposed === 'team' || proposed === 'project' || proposed === 'user' ? proposed : 'user'
   return {
-    scopeKind,
+    scopeKind: 'user',
     scopeId: '',
     ttlLocal: '',
     sensitivity: (previewString(candidate, 'sensitivity') as ContextSensitivity) || 'internal',
@@ -972,6 +967,16 @@ function defaultApprovalForm(candidate: ContextCandidateSummary): ApprovalFormSt
     userAttested: false,
     confirmExpansion: false,
   }
+}
+
+function safeReuseGuidance(proposed: ContextCandidateSummary['proposed_scope_kind']): string {
+  if (proposed === 'team') {
+    return 'Choose who can reuse it. Only me is selected first. Change this only when the team should reuse it. Team or project sharing text from Settings under Teams or Projects is only needed after you choose My team or This project.'
+  }
+  if (proposed === 'project') {
+    return 'Choose who can reuse it. Only me is selected first. Change this only when this project should reuse it. Team or project sharing text from Settings under Teams or Projects is only needed after you choose My team or This project.'
+  }
+  return 'Choose who can reuse it. Only me is the safest choice. My team or This project shares it more broadly. Team or project sharing text from Settings under Teams or Projects is only needed after you choose My team or This project.'
 }
 
 function isContextCandidateMessage(data: unknown): data is WsContextCandidateMessage {

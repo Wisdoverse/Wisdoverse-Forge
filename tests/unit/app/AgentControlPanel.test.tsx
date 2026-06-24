@@ -76,6 +76,10 @@ beforeEach(() => {
 })
 
 describe('AgentControlPanel', () => {
+  function openProjectAgentQuickMessage() {
+    fireEvent.click(screen.getByRole('button', { name: /need a quick message instead/i }))
+  }
+
   test('turns action failures into a clear recovery path', () => {
     useAgentsStore.setState({ error: 'HTTP 500: Start request failed' } as never)
 
@@ -181,17 +185,39 @@ describe('AgentControlPanel', () => {
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
+    expect(screen.getByRole('alert')).toHaveTextContent(/started or restarted project files/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/wait for Ready or Working/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/check your agent access/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/file work/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/wait for Idle/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/check what you can do/i)
   })
 
-  test('explains quick messages and sends trimmed text', async () => {
+  test('keeps project-file quick messages collapsed until requested', async () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
 
+    expect(screen.queryByLabelText(/send a quick message/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /^send message$/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /need a quick message instead/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(
+      screen.getByText('Use Tasks for tracked work. Open this only for a one-off question.')
+    ).toBeDefined()
+
+    openProjectAgentQuickMessage()
+
+    expect(screen.getByRole('button', { name: /hide quick message/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
     const messageInput = screen.getByLabelText(/send a quick message/i)
     expect(messageInput).toBeDefined()
+    expect(screen.getByText('Project files controls')).toBeDefined()
+    expect(screen.getByText(/Most agents do not need manual recovery/i)).toBeDefined()
+    expect(screen.queryByText(/file-work controls/i)).toBeNull()
+    expect(screen.queryByText(/file work/i)).toBeNull()
     expect(screen.getByText(/for work that needs a clear result, create a task/i)).toBeDefined()
     expect(messageInput).toHaveAccessibleDescription(
       /send one concrete message, then watch this agent's history for progress/i
@@ -215,6 +241,47 @@ describe('AgentControlPanel', () => {
     )
   })
 
+  test('keeps chat-only message success away from task wording', async () => {
+    render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
+
+    const messageInput = screen.getByLabelText(/send a quick message/i)
+    fireEvent.change(messageInput, {
+      target: { value: '  Summarize this result  ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
+
+    await waitFor(() => {
+      expect(sendPromptMock).toHaveBeenCalledWith('text-agent', 'Summarize this result')
+    })
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      "Message sent. Watch this agent's history for the answer."
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/task/i)
+  })
+
+  test('keeps chat-only message failures away from task recovery', async () => {
+    sendPromptMock.mockRejectedValueOnce(new Error('socket hang up'))
+
+    render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
+
+    const messageInput = screen.getByLabelText(/send a quick message/i)
+    const sendButton = screen.getByRole('button', { name: /^send message$/i })
+    fireEvent.change(messageInput, { target: { value: 'Check this summary' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => expect(sendButton).not.toBeDisabled())
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('Action did not finish')
+    expect(alert).toHaveTextContent(
+      'Open Agents, choose this agent again, confirm it still shows Ready, then resend the message. If it still fails, choose Check connection for this AI service or ask an owner or admin to check agent messaging.'
+    )
+    expect(alert).not.toHaveTextContent(/create a task instead/i)
+    expect(alert).not.toHaveTextContent(/socket hang up/i)
+    expect(messageInput).toHaveValue('Check this summary')
+  })
+
   test('names message send progress while the request is running', async () => {
     let finishSend: (sent: boolean) => void = () => undefined
     sendPromptMock.mockReturnValueOnce(
@@ -224,6 +291,7 @@ describe('AgentControlPanel', () => {
     )
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+    openProjectAgentQuickMessage()
 
     fireEvent.change(screen.getByLabelText(/send a quick message/i), {
       target: { value: 'Check recent work' },
@@ -242,6 +310,7 @@ describe('AgentControlPanel', () => {
     sendPromptMock.mockRejectedValueOnce(new Error('socket hang up'))
 
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+    openProjectAgentQuickMessage()
 
     const messageInput = screen.getByLabelText(/send a quick message/i)
     const sendButton = screen.getByRole('button', { name: /^send message$/i })
@@ -265,6 +334,7 @@ describe('AgentControlPanel', () => {
 
   test('focuses the message box when users try to send blank text', () => {
     render(<AgentControlPanel agent={containerAgent} onDeleted={() => {}} />)
+    openProjectAgentQuickMessage()
 
     const messageInput = screen.getByLabelText(/send a quick message/i)
     fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
@@ -284,11 +354,16 @@ describe('AgentControlPanel', () => {
   test('uses chat-only language for agents that answer through an AI service', () => {
     render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
 
-    expect(screen.getByText('Chat-only AI service controls')).toBeDefined()
+    expect(screen.queryByRole('button', { name: /need a quick message instead/i })).toBeNull()
+    expect(screen.getByLabelText(/send a quick message/i)).toBeDefined()
+    expect(screen.getByText('Simple chat agent controls')).toBeDefined()
     expect(screen.getByText(/replies through its AI service/i)).toBeDefined()
+    expect(screen.getByText(/Use messages for direct questions and result checks/i)).toBeDefined()
     expect(screen.queryByText('Chat-only agent controls')).toBeNull()
-    expect(screen.getByText('Ready for chat and tracked tasks')).toBeDefined()
-    expect(screen.getByText(/question answered, writing help, or a result check/i)).toBeDefined()
+    expect(screen.getByText('Ready for direct chat')).toBeDefined()
+    expect(screen.getByText(/Send a quick message here/i)).toBeDefined()
+    expect(screen.queryByText(/Tasks for tracked work/i)).toBeNull()
+    expect(screen.queryByText(/create a Task/i)).toBeNull()
     expect(screen.queryByText(/planning or review with a clear result/i)).toBeNull()
     expect(screen.queryByText(/No recovery action needed/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
@@ -333,10 +408,10 @@ describe('AgentControlPanel', () => {
     expect(screen.getByText('Keep this computer online')).toBeDefined()
     expect(
       screen.getByText(
-        'Keep Terminal or PowerShell open while it works. Use this page for quick messages, tracked tasks, or cleanup.'
+        'Keep the setup window open while it works. Use this page for quick messages, tracked tasks, or cleanup.'
       )
     ).toBeDefined()
-    expect(screen.queryByText(/command app/i)).toBeNull()
+    expect(screen.queryByText(/Terminal or PowerShell/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
     expect(screen.queryByText(/No recovery action needed/i)).toBeNull()
@@ -350,8 +425,11 @@ describe('AgentControlPanel', () => {
     expect(screen.getAllByText(/choose Connect this computer/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Use Connect this computer')).toBeDefined()
     expect(screen.getByText(/copy the new setup text from Agents/i)).toBeDefined()
-    expect(screen.getByText(/paste it in Terminal or PowerShell on that computer/i)).toBeDefined()
+    expect(
+      screen.getByText(/paste it in the setup app shown there on that computer/i)
+    ).toBeDefined()
     expect(screen.getByText(/come back here to send messages or tasks/i)).toBeDefined()
+    expect(screen.queryByText(/Terminal or PowerShell/i)).toBeNull()
     expect(screen.queryByText('This computer is offline')).toBeNull()
     expect(
       screen.queryByText(/paste the setup text in that computer's command app again/i)
@@ -362,11 +440,14 @@ describe('AgentControlPanel', () => {
     expect(screen.queryByText(/already connected/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /start agent/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /restart agent/i })).toBeNull()
+    expect(screen.queryByLabelText(/send a quick message/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /need a quick message instead/i })).toBeDefined()
+    openProjectAgentQuickMessage()
     expect(screen.getByLabelText(/send a quick message/i)).toBeDisabled()
     expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled()
   })
 
-  test('shows start guidance for pending agent workspaces', async () => {
+  test('shows project-file startup guidance for pending agents', async () => {
     let finishStart: (started: boolean) => void = () => undefined
     startAgentMock.mockReturnValueOnce(
       new Promise<boolean>((resolve) => {
@@ -381,18 +462,19 @@ describe('AgentControlPanel', () => {
       />
     )
 
-    expect(screen.getByText('File work needs to start')).toBeDefined()
-    expect(screen.getByText(/file work has not started yet/i)).toBeDefined()
-    expect(screen.getByText(/Wait for Ready before sending file work/i)).toBeDefined()
+    expect(screen.getByText('Project files need to start')).toBeDefined()
+    expect(screen.getByText(/project files have not opened yet/i)).toBeDefined()
+    expect(screen.getByText(/Wait for Ready before sending Tasks or code changes/i)).toBeDefined()
     expect(
-      screen.getByText(/Start file work before sending file tasks or opening Live work/i)
+      screen.getByText(/Start project files before sending Tasks or opening Live work/i)
     ).toBeDefined()
+    expect(screen.queryByText(/file work/i)).toBeNull()
     expect(screen.queryByText(/opening a terminal/i)).toBeNull()
     expect(screen.queryByText(/opening the command window/i)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /start file work/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start project files/i }))
 
-    expect(screen.getByRole('button', { name: /starting file work/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /starting project files/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Starting\.\.\.$/i })).toBeNull()
 
     await act(async () => {
@@ -402,7 +484,7 @@ describe('AgentControlPanel', () => {
     await waitFor(() => {
       expect(startAgentMock).toHaveBeenCalledWith('pending-agent')
     })
-    expect(await screen.findByRole('status')).toHaveTextContent('File work start requested')
+    expect(await screen.findByRole('status')).toHaveTextContent('Project files start requested')
     expect(screen.getByRole('status')).toHaveTextContent(
       'Go back to Agents, choose this agent again when it shows Ready'
     )
@@ -419,7 +501,7 @@ describe('AgentControlPanel', () => {
       />
     )
 
-    const startButton = screen.getByRole('button', { name: /start file work/i })
+    const startButton = screen.getByRole('button', { name: /start project files/i })
     fireEvent.click(startButton)
 
     await waitFor(() => expect(startButton).not.toBeDisabled())
@@ -427,13 +509,14 @@ describe('AgentControlPanel', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Action did not finish')
     expect(alert).toHaveTextContent(
-      /Go back to Agents, choose this agent again, then choose Start file work again/i
+      /Go back to Agents, choose this agent again, then choose Start project files again/i
     )
     expect(alert).toHaveTextContent(/ask an owner or admin to check Where agents work/i)
+    expect(alert).not.toHaveTextContent(/Start file work/i)
     expect(alert).not.toHaveTextContent(/Refresh Agents/i)
     expect(alert).not.toHaveTextContent(/agent control action failed/i)
     expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.getByRole('button', { name: /start file work/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /start project files/i })).toBeEnabled()
   })
 
   test('warns before restarting a running agent workspace', async () => {
@@ -449,7 +532,8 @@ describe('AgentControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /keep running/i }))
     expect(restartAgentMock).not.toHaveBeenCalled()
 
-    expect(screen.getByText('Fix stuck file work')).toBeDefined()
+    expect(screen.getByText('Fix stuck project files')).toBeDefined()
+    expect(screen.queryByText(/file work/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /restart agent/i }))
     fireEvent.click(screen.getByRole('button', { name: /restart now/i }))
 
@@ -472,7 +556,7 @@ describe('AgentControlPanel', () => {
 
     await waitFor(() => {
       expect(restartAgentMock).toHaveBeenCalledWith('agent-1')
-      expect(screen.getByText('Fix stuck file work')).toBeDefined()
+      expect(screen.getByText('Fix stuck project files')).toBeDefined()
     })
 
     const alert = screen.getByRole('alert')

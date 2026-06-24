@@ -66,6 +66,20 @@ describe('approvalQueueErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('does not blame saved item settings for an unformatted service failure', () => {
+    const message = approvalQueueErrorMessage(
+      'approveCandidate',
+      new Error('database unavailable while saving context candidate')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Wait a few minutes, then choose Save item again. The item was not saved. If it still fails, ask an owner or admin to check Saved items access.'
+    )
+    expect(message).not.toContain('Check who can reuse it')
+    expect(message).not.toContain('database unavailable')
+  })
+
   test('keeps permission guidance in saved note wording', () => {
     const message = approvalQueueErrorMessage('rejectCandidate', new Error('403 Forbidden'))
 
@@ -93,6 +107,18 @@ describe('approvalQueueErrorMessage', () => {
       }),
       'Choose who can reuse it and check the original task details, then choose Save item again.'
     )
+  })
+
+  test('maps nested validation details to a scope next step', () => {
+    const message = approvalQueueErrorMessage('approveCandidate', {
+      error: { message: 'Scope ID is required' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose who can reuse it and check the original task details, then choose Save item again.'
+    )
+    expect(message).not.toContain('Scope ID is required')
   })
 
   test('turns load validation details into a refresh step', () => {

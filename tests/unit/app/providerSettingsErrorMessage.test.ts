@@ -18,6 +18,18 @@ describe('providerSettingsErrorMessage', () => {
     )
   })
 
+  test('maps nested API key validation details', () => {
+    const message = providerSettingsErrorMessage({
+      error: { message: 'API key is required' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Paste the service access key from the selected AI service, then save again.'
+    )
+    expect(message).not.toContain('API key is required')
+  })
+
   test('turns missing model errors into a model step', () => {
     expectBeginnerMessage(
       providerSettingsErrorMessage('HTTP 422: model is required'),
@@ -112,6 +124,19 @@ describe('providerSettingsErrorMessage', () => {
     )
     expect(message).not.toContain('settings page')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('keeps unformatted service failures on the AI service recovery path', () => {
+    const message = providerSettingsErrorMessage(
+      new Error('database unavailable while saving api key')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and AI services again, then save this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Paste the service access key')
   })
 
   test('turns structured rate limits into a wait and retry step', () => {

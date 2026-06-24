@@ -38,8 +38,8 @@ describe('runtime-kind specifications', () => {
   })
 
   it('uses beginner-facing labels for chat-only agents', () => {
-    expect(runtimeKindLabel('api')).toBe('Chat-only AI service')
-    expect(runtimeKindShortLabel('api')).toBe('Chat-only')
+    expect(runtimeKindLabel('api')).toBe('Simple chat agent')
+    expect(runtimeKindShortLabel('api')).toBe('Questions only')
   })
 
   it('uses result-facing labels for agents that can edit project files', () => {

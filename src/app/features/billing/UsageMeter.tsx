@@ -25,7 +25,7 @@ function metricCopy(metric: string): { label: string; description: string; highA
     case 'agents':
       return {
         label: 'Agents',
-        description: 'Agents your team can use to handle tasks.',
+        description: 'Agents your team can use for tasks or simple chat.',
         highAction: 'Archive unused agents or upgrade before creating more.',
       }
     case 'events':
@@ -37,14 +37,14 @@ function metricCopy(metric: string): { label: string; description: string; highA
     case 'tokens':
       return {
         label: 'AI message use',
-        description: 'Messages and replies processed while agents work.',
-        highAction: 'Check busy agents or upgrade before more agent work is blocked.',
+        description: 'Messages and replies used by tasks and chats.',
+        highAction: 'Check busy agents or upgrade before tasks or chat replies pause.',
       }
     default:
       return {
         label: readableMetric(metric),
         description: 'Usage tracked by this plan.',
-        highAction: 'Check this limit before starting more work.',
+        highAction: 'Check this limit before another task or chat reply.',
       }
   }
 }

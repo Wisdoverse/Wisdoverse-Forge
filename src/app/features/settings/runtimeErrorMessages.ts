@@ -1,12 +1,15 @@
 export type RuntimeErrorAction = 'loadAgentSignals' | 'loadCliSignIn' | 'startCliSignIn'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.',
   loadCliSignIn:
-    'Open Settings, then Codex sign-in again before starting agents that use work tools. Work tool sign-in could not be checked.',
+    'Open Settings, then Codex sign-in again before starting agents that use file-change tools. File-change tool sign-in could not be checked.',
   startCliSignIn:
-    'Open Settings, then Codex sign-in again, then reconnect the account. Work tool sign-in did not start.',
+    'Open Settings, then Codex sign-in again, then reconnect the account. File-change tool sign-in did not start.',
 }
 
 const ACTION_RECOVERY: Record<
@@ -77,7 +80,7 @@ export function runtimeErrorMessage(action: RuntimeErrorAction, err: unknown): s
     return `Wait a minute, then ${retryStep}. Forge is receiving too many setup requests right now.`
   }
 
-  if (status && status >= 500) {
+  if ((status && status >= 500) || (!status && RAW_SERVICE_DETAIL.test(normalized))) {
     const recovery = ACTION_RECOVERY[action]
     const retryStep =
       action === 'startCliSignIn'
@@ -146,7 +149,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
       : 'Wait a minute, then open Settings and Where agents work again. Too many setup requests are happening right now.'
   }
 
-  if (status && status >= 500) {
+  if ((status && status >= 500) || (!status && RAW_SERVICE_DETAIL.test(normalized))) {
     return isSaveAction
       ? 'Open Settings and Where agents work again, then save again. Where agents work could not be saved. If it still fails, ask an owner or admin to check Where agents work in Settings.'
       : `${loadBase} If it still fails, ask an owner or admin to check Where agents work in Settings.`
@@ -177,10 +180,24 @@ function errorDetail(err: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const detail = payloadDetail(candidate)
+    if (detail) return detail
   }
 
   return ''
+}
+
+function payloadDetail(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const detail = payloadDetail(record[key])
+    if (detail) return detail
+  }
+
+  return null
 }
 
 function errorStatus(err: unknown, normalizedDetail: string): number | null {
@@ -218,16 +235,16 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
 
   if (action === 'startCliSignIn') {
     if (normalized.includes('provider') || normalized.includes('configured')) {
-      return 'Choose and save an AI service first, then reconnect the work tool sign-in.'
+      return 'Choose and save an AI service first, then reconnect the file-change tool sign-in.'
     }
     if (normalized.includes('tool') || normalized.includes('cli')) {
-      return 'Choose an available work tool, then reconnect the work tool sign-in.'
+      return 'Choose an available file-change tool, then reconnect the file-change tool sign-in.'
     }
-    return 'Check the connected AI service and selected work tool, then reconnect the work tool sign-in.'
+    return 'Check the connected AI service and selected file-change tool, then reconnect the file-change tool sign-in.'
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Open Settings, then Codex sign-in again, then reconnect the work tool sign-in. Work tool sign-in could not be checked.'
+    return 'Open Settings, then Codex sign-in again, then reconnect the file-change tool sign-in. File-change tool sign-in could not be checked.'
   }
 
   return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'

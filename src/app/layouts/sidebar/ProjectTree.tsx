@@ -192,14 +192,24 @@ function detailFromRecord(record: Record<string, unknown>): string | null {
   return null
 }
 
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true
+  const detail =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : error && typeof error === 'object'
+          ? (detailFromRecord(error as Record<string, unknown>) ?? '')
+          : ''
+  return /^(failed to fetch|network error)$/i.test(detail.trim()) || /load failed/i.test(detail)
+}
+
 function renameErrorMessage(target: RenameTarget, error: unknown): string {
   const label = target === 'team' ? 'team' : 'project'
   const settingsSection = target === 'team' ? 'Teams' : 'Projects'
 
-  if (
-    error instanceof TypeError ||
-    (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
-  ) {
+  if (isNetworkFailure(error)) {
     return `Check your connection, then save this ${label} name again. Forge could not connect while saving it.`
   }
 
@@ -253,10 +263,7 @@ function deleteErrorMessage(target: RenameTarget, error: unknown): string {
   const label = target === 'team' ? 'team' : 'project'
   const settingsSection = target === 'team' ? 'Teams' : 'Projects'
 
-  if (
-    error instanceof TypeError ||
-    (error instanceof Error && /^Failed to fetch$/i.test(error.message.trim()))
-  ) {
+  if (isNetworkFailure(error)) {
     return `Check your connection, then delete this ${label} again from the left menu.`
   }
 

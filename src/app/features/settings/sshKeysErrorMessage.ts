@@ -1,5 +1,8 @@
 type SshKeyAction = 'load' | 'save' | 'remove'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
@@ -20,10 +23,24 @@ function errorText(error: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(error: unknown): number | null {
@@ -79,19 +96,19 @@ function actionFromText(text: string): SshKeyAction {
 }
 
 function retryAction(action: SshKeyAction): string {
-  if (action === 'save') return 'save this SSH code access again'
-  if (action === 'remove') return 'remove this SSH code access again'
-  return 'open Settings and SSH code access again'
+  if (action === 'save') return 'save this code access for SSH links again'
+  if (action === 'remove') return 'remove this code access for SSH links again'
+  return 'open Settings and code access for SSH links again'
 }
 
 function connectionMessage(action: SshKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then open Settings and SSH code access again. Forge could not connect while opening SSH code access.'
+    return 'Check your connection, then open Settings and code access for SSH links again. Forge could not connect while opening code access for SSH links.'
   }
   if (action === 'remove') {
-    return 'Check your connection, then remove this SSH code access again. The removal did not finish.'
+    return 'Check your connection, then remove this code access for SSH links again. The removal did not finish.'
   }
-  return 'Check your connection, then save this SSH code access again. The save did not finish.'
+  return 'Check your connection, then save this code access for SSH links again. The save did not finish.'
 }
 
 export function sshKeysErrorMessage(error: unknown): string {
@@ -110,10 +127,16 @@ export function sshKeysErrorMessage(error: unknown): string {
     lower.includes('forbidden') ||
     lower.includes('role required')
   ) {
-    return 'Ask an owner or admin for access to manage SSH code access.'
+    return 'Ask an owner or admin for access to manage code access for SSH links.'
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
+  }
+  if (RAW_SERVICE_DETAIL.test(lower)) {
+    if (action === 'load') {
+      return 'Open Settings and code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
+    }
+    return `Open Settings and code access for SSH links again, then ${retry}. If it still fails, ask an owner or admin to check code access for SSH links.`
   }
   if (
     lower.includes('add a name') ||
@@ -147,18 +170,18 @@ export function sshKeysErrorMessage(error: unknown): string {
     return `Check the access name and safe public key line, then ${retry}.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `Wait a minute, then ${retry}. Forge is receiving too many SSH code access requests right now.`
+    return `Wait a minute, then ${retry}. Forge is receiving too many requests for code access for SSH links right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+      return 'Open Settings and code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
     }
-    return `Open Settings and SSH code access again, then ${retry}. If it still fails, ask an owner or admin to check SSH code access settings.`
+    return `Open Settings and code access for SSH links again, then ${retry}. If it still fails, ask an owner or admin to check code access for SSH links.`
   }
 
   if (action === 'load') {
-    return 'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+    return 'Open Settings and code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
   }
 
-  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check SSH code access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check code access for SSH links.`
 }

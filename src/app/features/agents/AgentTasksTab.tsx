@@ -68,31 +68,31 @@ const STATE_DOT: Record<TaskState, string> = {
 type AgentTaskFilter = 'all' | 'open' | 'needs-action' | 'completed'
 
 const TASK_FILTERS: { value: AgentTaskFilter; label: string; ariaLabel: string }[] = [
-  { value: 'all', label: 'All', ariaLabel: 'Show all work for this agent' },
-  { value: 'open', label: 'Still open', ariaLabel: 'Show work that is still open' },
+  { value: 'all', label: 'All', ariaLabel: 'Show all tasks for this agent' },
+  { value: 'open', label: 'Still open', ariaLabel: 'Show tasks that are still open' },
   {
     value: 'needs-action',
     label: 'Needs help',
-    ariaLabel: 'Show work that needs help or stopped early for this agent',
+    ariaLabel: 'Show tasks that need help or stopped early for this agent',
   },
-  { value: 'completed', label: 'Done', ariaLabel: 'Show finished work for this agent' },
+  { value: 'completed', label: 'Done', ariaLabel: 'Show finished tasks for this agent' },
 ]
 
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Create a task',
-    description: 'Choose this agent, or choose where tasks wait so this agent can receive them.',
+    description: 'Choose this agent directly, or choose a task queue that includes this agent.',
     Icon: ListFilter,
   },
   {
-    title: 'Check where tasks wait',
-    description: 'Open where tasks wait, then make sure this agent is included.',
+    title: 'Check the task queue',
+    description: 'Open the task queue, then make sure this agent is included.',
     Icon: CircleDot,
   },
   {
     title: 'Use Needs help after tasks arrive',
     description:
-      'Work that needs help or stopped early appears there first, so you know what to fix.',
+      'Tasks that need help or stopped early appear there first, so you know what to fix.',
     Icon: AlertTriangle,
   },
 ]
@@ -151,10 +151,10 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
   if (loading) {
     return (
       <BeginnerLoadingState
-        title="Checking this agent's work list"
+        title="Checking this agent's task list"
         detail="Forge is checking which tasks have been sent to this agent and which ones need your help."
         nextStep="If this takes more than a moment, open this agent again or ask an owner or admin to check agent access."
-        success="Success looks like active work, completed work, or a create-a-task step."
+        success="Success looks like tasks in progress, completed tasks, or a create-a-task step."
         testId="agent-tasks-loading"
         framed={false}
         className={cn(
@@ -177,7 +177,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           'text-center text-ui-body text-apple-red'
         )}
       >
-        <p className="font-medium">Open Work again from this agent.</p>
+        <p className="font-medium">Open Agents and choose this agent again.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {error}
         </p>
@@ -213,7 +213,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           </span>
           <div className="min-w-0">
             <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Agent work list
+              Agent task list
             </p>
             <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
               What this agent is handling
@@ -266,7 +266,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           <input
             data-testid="agent-task-search"
             type="search"
-            aria-label="Search this agent's work list"
+            aria-label="Search this agent's task list"
             aria-describedby={searchHelpId}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -282,7 +282,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           id={searchHelpId}
           className="px-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Search only filters this agent&apos;s work list. Use Show all agent work to return to the
+          Search only filters this agent&apos;s task list. Use Show all agent tasks to return to the
           full list.
         </p>
         <div
@@ -357,8 +357,8 @@ function AgentTasksEmptyState() {
         <div className="min-w-0">
           <h3 className="text-ui-section font-semibold">Create a task for this agent</h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Open the task list, choose New task, and pick this agent. Work will appear here after it
-            is waiting or running.
+            Open the task list, choose New task, and pick this agent. Tasks will appear here after
+            they are waiting or running.
           </p>
         </div>
       </div>
@@ -416,7 +416,7 @@ function AgentTasksFilterEmptyState({
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
         )}
       >
-        Show all agent work
+        Show all agent tasks
       </button>
     </div>
   )
@@ -428,21 +428,21 @@ function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): Emp
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Search and filter are hiding this work',
-      detail: 'Use Show all agent work before assuming this agent has no matching task.',
+      title: 'Search and filter are hiding these tasks',
+      detail: 'Use Show all agent tasks before assuming this agent has no matching task.',
     }
   }
 
   if (hasSearch) {
     return {
-      title: "Search is hiding this agent's work",
-      detail: 'Use Show all agent work to return to the full list.',
+      title: "Search is hiding this agent's tasks",
+      detail: 'Use Show all agent tasks to return to the full list.',
     }
   }
 
   return {
-    title: "Filter is hiding this agent's work",
-    detail: 'Use Show all agent work to return to the full list.',
+    title: "Filter is hiding this agent's tasks",
+    detail: 'Use Show all agent tasks to return to the full list.',
   }
 }
 

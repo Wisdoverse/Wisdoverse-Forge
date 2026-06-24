@@ -687,6 +687,20 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: /^delete team$/i })).toBeEnabled()
   })
 
+  it('explains team delete connection failures without raw network text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(new Error('Network error'))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Check your connection, then delete this team again from the left menu.')
+    expect(alert).not.toHaveTextContent(/Network error/i)
+  })
+
   it('configures project name from context menu', async () => {
     seedProjectTree()
     vi.mocked(projectApi.updateProject).mockResolvedValue({

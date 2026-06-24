@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import type { ParticipantSummary } from '@app/shared/api/orchestration'
+import { agentCanTakeTask, agentHasTaskCapability } from './model/agentTaskReadiness'
 
 export interface BoardWorkloadSnapshot {
   backlog: number
@@ -42,17 +43,31 @@ export function AssignmentReadinessPanel({
   // Defensive: never assume a non-null list here, so a malformed/partial
   // readiness payload degrades to an empty panel instead of crashing the board.
   const roster = participants ?? []
-  const available = roster.filter((participant) => participant.status === 'available')
-  const busy = roster.filter((participant) => participant.status === 'busy')
-  const offline = roster.filter((participant) => participant.status === 'offline')
+  const taskCapable = roster.filter(agentHasTaskCapability)
+  const available = roster.filter(agentCanTakeTask)
+  const busy = taskCapable.filter((participant) => participant.status === 'busy')
+  const offline = taskCapable.filter((participant) => participant.status === 'offline')
+  const chatOnly = roster.filter((participant) => !agentHasTaskCapability(participant))
   const needsAgentSetup = roster.length === 0 || (available.length === 0 && workload.unassigned > 0)
   const summary =
     roster.length === 0
       ? 'Connect an agent before sending work.'
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
-        : 'Open Agents to start or connect an agent, or wait for one to finish.'
+        : chatOnly.length === roster.length
+          ? 'Simple chat agents answer in Chat. Add a Project files or This computer agent for Tasks.'
+          : 'Open Agents to start or connect an agent, or wait for one to finish.'
   const handoffSummary = summarizeHandoff(workload, available.length)
+  const isCompactHealthy =
+    !loading &&
+    !error &&
+    roster.length > 0 &&
+    chatOnly.length === 0 &&
+    available.length === taskCapable.length &&
+    workload.backlog === 0 &&
+    workload.unassigned === 0 &&
+    workload.blocked === 0 &&
+    workload.review === 0
 
   return (
     <section
@@ -97,6 +112,9 @@ export function AssignmentReadinessPanel({
           <MetricPill label="Can take work" value={available.length} />
           <MetricPill label="Working now" value={busy.length} />
           <MetricPill label="Not connected" value={offline.length} />
+          {chatOnly.length > 0 ? (
+            <MetricPill label="Questions only" value={chatOnly.length} />
+          ) : null}
           <button
             type="button"
             onClick={onRefresh}
@@ -115,36 +133,38 @@ export function AssignmentReadinessPanel({
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-        <MetricPill
-          label="Not sent yet"
-          value={workload.backlog}
-          testId="assignment-metric-backlog"
-        />
-        <MetricPill
-          label="Needs agent"
-          value={workload.unassigned}
-          testId="assignment-metric-unassigned"
-        />
-        <MetricPill
-          label="Being worked on"
-          value={workload.inFlight}
-          testId="assignment-metric-working"
-        />
-        <MetricPill
-          label="Needs help"
-          value={workload.blocked}
-          tone={workload.blocked > 0 ? 'warn' : 'default'}
-          testId="assignment-metric-blocked"
-        />
-        <MetricPill
-          label="Ready to check"
-          value={workload.review}
-          tone={workload.review > 0 ? 'success' : 'default'}
-        />
-      </div>
+      {!isCompactHealthy ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
+          <MetricPill
+            label="Not sent yet"
+            value={workload.backlog}
+            testId="assignment-metric-backlog"
+          />
+          <MetricPill
+            label="Needs agent"
+            value={workload.unassigned}
+            testId="assignment-metric-unassigned"
+          />
+          <MetricPill
+            label="Being worked on"
+            value={workload.inFlight}
+            testId="assignment-metric-working"
+          />
+          <MetricPill
+            label="Needs help"
+            value={workload.blocked}
+            tone={workload.blocked > 0 ? 'warn' : 'default'}
+            testId="assignment-metric-blocked"
+          />
+          <MetricPill
+            label="Ready to check"
+            value={workload.review}
+            tone={workload.review > 0 ? 'success' : 'default'}
+          />
+        </div>
+      ) : null}
 
-      {roster.length === 0 && !loading ? (
+      {!isCompactHealthy && roster.length === 0 && !loading ? (
         <div
           data-testid="assignment-readiness-empty"
           className="mt-2 rounded-lg border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
@@ -153,11 +173,11 @@ export function AssignmentReadinessPanel({
             Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Set up where tasks wait, choose that place for this project, and add an available agent.
-            Until then, tasks that are not sent yet will wait here.
+            Set up a task queue for this project, then add a ready agent. Until then, new tasks stay
+            in Not sent yet.
           </p>
         </div>
-      ) : roster.length > 0 ? (
+      ) : !isCompactHealthy && roster.length > 0 ? (
         <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
           {roster.map((participant) => (
             <ParticipantChip key={participant.agentId} participant={participant} />
@@ -222,6 +242,11 @@ function summarizeHandoff(workload: BoardWorkloadSnapshot, availableCount: numbe
     return `${workload.review} completed ${pluralize(workload.review, 'task')} ready to check.`
   }
 
+  if (workload.inFlight > 0) {
+    const verb = workload.inFlight === 1 ? 'is' : 'are'
+    return `${workload.inFlight} ${pluralize(workload.inFlight, 'task')} ${verb} being worked on.`
+  }
+
   return 'Create a task when you have work to send.'
 }
 
@@ -230,8 +255,10 @@ function pluralize(count: number, singular: string): string {
 }
 
 function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
-  const reason =
-    participant.status === 'available'
+  const taskCapable = agentHasTaskCapability(participant)
+  const reason = !taskCapable
+    ? 'Simple chat only. Use Project files or This computer for Tasks.'
+    : participant.status === 'available'
       ? 'Can take a task now'
       : participant.status === 'busy'
         ? 'Already working'
@@ -239,9 +266,17 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
           ? `Last seen ${formatRelativeTime(participant.lastHeartbeatAt)}`
           : 'Open Agents to reconnect'
   const capabilities =
-    participant.capabilities.length > 0 ? agentCapabilitySummary(participant.capabilities) : ''
+    taskCapable && participant.capabilities.length > 0
+      ? agentCapabilitySummary(participant.capabilities)
+      : ''
   const detail =
-    participant.status === 'available' ? capabilities || reason : joinDetails(reason, capabilities)
+    !taskCapable || participant.status === 'available'
+      ? capabilities || reason
+      : joinDetails(reason, capabilities)
+  const statusLabel = taskCapable ? STATUS_LABELS[participant.status] : 'Questions only'
+  const statusClassName = taskCapable
+    ? STATUS_STYLES[participant.status]
+    : 'bg-apple-gray-2 text-white'
 
   return (
     <div className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
@@ -256,11 +291,11 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
       <span
         className={cn(
           'shrink-0 rounded-full px-2 py-0.5 text-ui-caption font-medium',
-          STATUS_STYLES[participant.status]
+          statusClassName
         )}
         title={reason}
       >
-        {STATUS_LABELS[participant.status]}
+        {statusLabel}
       </span>
     </div>
   )

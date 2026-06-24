@@ -118,6 +118,17 @@ describe('createSkillErrorMessage', () => {
     expect(message).not.toContain('Forge could not create')
   })
 
+  test('keeps unformatted service failures on the saved-instruction recovery path', () => {
+    const message = createSkillErrorMessage(new Error('database unavailable while saving skill'))
+
+    expectBeginnerMessage(
+      message,
+      'Open Saved instructions again, then save the instruction again. If it still fails, ask an owner or admin to check Saved instructions access.'
+    )
+    expect(message).not.toContain('Check the instruction name')
+    expect(message).not.toContain('database unavailable')
+  })
+
   test('turns busy save failures into a plain wait step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 429'))
 

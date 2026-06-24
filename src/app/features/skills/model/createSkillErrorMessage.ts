@@ -40,6 +40,7 @@ export function createSkillErrorMessage(error?: unknown): string {
   const safeDetail = status === null || status === 422 ? safeDetailFromRaw(detail) : null
 
   if (!status) {
+    if (isServiceDetail(detail)) return CREATE_SERVICE_MESSAGE
     if (safeDetail) {
       return validationMessage(safeDetail)
     }
@@ -158,6 +159,12 @@ function trimDetail(detail: string | null): string | null {
   if (!trimmed || RAW_NETWORK_ERRORS.some((pattern) => pattern.test(trimmed))) return null
   if (GENERIC_BODY_TEXT.test(trimmed)) return null
   return trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed
+}
+
+function isServiceDetail(detail: string | null): boolean {
+  return /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i.test(
+    detail ?? ''
+  )
 }
 
 function validationMessage(detail: string | null): string {

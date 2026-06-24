@@ -22,4 +22,17 @@ describe('reviewSnapshotErrorMessage', () => {
     )
     expect(message).not.toContain('owner role required')
   })
+
+  test('turns raw service failures into finish-access recovery guidance', () => {
+    const message = reviewSnapshotErrorMessage(
+      'approve',
+      new Error('database unavailable while approving review snapshot')
+    )
+
+    expect(message).toBe(
+      'Choose Check fix status, confirm automated checks passed, then finish this fix again. The fix was not finished. If it still fails, ask an owner or admin to check finish access for this code project.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('approving review snapshot')
+  })
 })

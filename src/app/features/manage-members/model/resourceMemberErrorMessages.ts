@@ -4,6 +4,8 @@ export type ResourceMemberResourceLabel = 'Team' | 'Project'
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 
 export function resourceMemberSelectionLostMessage(
   resourceLabel: ResourceMemberResourceLabel
@@ -22,6 +24,9 @@ export function resourceMemberErrorMessage(
   const resource = resourceLabel.toLowerCase()
 
   if (!status) {
+    if (detail && RAW_SERVICE_DETAIL.test(detail)) {
+      return memberUnavailableMessage(action, resource)
+    }
     if (detail) {
       return validationMessage(action, resource, detail)
     }
@@ -171,7 +176,8 @@ function rawDetailFromResourceMemberError(error: unknown): string | null {
       record.message,
       record.reason,
     ]) {
-      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+      const found = firstPayloadString(candidate)
+      if (found) return found
     }
   }
   return null

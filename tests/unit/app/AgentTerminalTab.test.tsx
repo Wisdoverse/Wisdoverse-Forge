@@ -66,8 +66,11 @@ describe('AgentTerminalTab', () => {
 
     const toggle = screen.getByRole('button', { name: /hide virtual keyboard/i })
 
+    expect(screen.getByText('Live work panel')).toBeDefined()
     expect(screen.getByText('Ready for live work')).toBeDefined()
     expect(screen.queryByText(/container-1/i)).toBeNull()
+    expect(screen.queryByText('$')).toBeNull()
+    expect(screen.queryByText(/Agent:/)).toBeNull()
     expect(within(toggle).getByText('Keyboard')).toBeDefined()
     expect(screen.getByText('Shortcut keys send to live work')).toBeDefined()
     expect(screen.queryByText(/command window/i)).toBeNull()
@@ -158,6 +161,7 @@ describe('AgentTerminalTab', () => {
     render(<AgentTerminalTab agentId="agent-1" agentName="Runner" />)
 
     expect(screen.getByText('Live work is still starting')).toBeInTheDocument()
+    expect(screen.getByText('Live work panel')).toBeInTheDocument()
     expect(
       screen.getByText(
         'Wait until this agent shows Ready. If it still shows Not connected, open Overview, use Controls, and start or restart this agent before using Live work.'
@@ -172,6 +176,7 @@ describe('AgentTerminalTab', () => {
     expect(screen.queryByText(/terminal unavailable/i)).toBeNull()
     expect(screen.queryByText(/unknown/i)).toBeNull()
     expect(screen.queryByText('cli')).toBeNull()
+    expect(screen.queryByText('$')).toBeNull()
   })
 
   test('labels unavailable live work with readable tool and status names', () => {

@@ -1,5 +1,8 @@
 type GitCredentialAction = 'load' | 'save' | 'remove'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
@@ -20,10 +23,24 @@ function errorText(error: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(error: unknown): number | null {
@@ -118,6 +135,12 @@ export function gitCredentialsErrorMessage(error: unknown): string {
     lower.includes('role required')
   ) {
     return 'Ask an owner or admin to let you manage code access.'
+  }
+  if (RAW_SERVICE_DETAIL.test(lower)) {
+    if (action === 'load') {
+      return 'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
+    }
+    return `Open Settings and Code access again, then ${retry}. If it still fails, ask an owner or admin to check code access settings.`
   }
   if (
     lower.includes('invalid token') ||

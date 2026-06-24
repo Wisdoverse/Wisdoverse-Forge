@@ -29,6 +29,17 @@ describe('agentPluginErrorMessage', () => {
     expect(message).not.toContain('owner role required')
   })
 
+  test('maps nested role-required save errors into operator recovery guidance', () => {
+    const message = agentPluginErrorMessage('save', {
+      error: { message: 'owner role required' },
+    })
+
+    expect(message).toBe(
+      "Ask an owner or admin to give you access to this agent's tools. The switch was returned to its previous setting."
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
   test('turns structured save conflicts into a wait and retry step', () => {
     const message = agentPluginErrorMessage('save', {
       code: '409',
@@ -49,6 +60,16 @@ describe('agentPluginErrorMessage', () => {
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
+  })
+
+  test('keeps unformatted service failures on the tool recovery path', () => {
+    const message = agentPluginErrorMessage('save', new Error('database unavailable while saving tool'))
+
+    expect(message).toBe(
+      "Wait a few minutes, then try the tool change again. The switch was returned to its previous setting. Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list."
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Go back to Agents')
   })
 
   test('explains structured service failures without raw response details', () => {

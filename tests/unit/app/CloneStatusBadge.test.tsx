@@ -41,7 +41,7 @@ describe('CloneStatusBadge', () => {
     expect(screen.getByText(/You can keep working while it finishes/)).toBeInTheDocument()
   })
 
-  it('renders the ready status with branch and short head sha', () => {
+  it('renders the ready status without exposing source-control details', () => {
     render(
       <CloneStatusBadge
         projectId="p1"
@@ -52,8 +52,9 @@ describe('CloneStatusBadge', () => {
     )
     expect(screen.getByText('Code copied')).toBeInTheDocument()
     expect(screen.getByText(/Agents can use this copied code for tasks/)).toBeInTheDocument()
-    expect(screen.getByText('main')).toBeInTheDocument()
-    expect(screen.getByText('abc1234')).toBeInTheDocument()
+    expect(screen.queryByText('main')).toBeNull()
+    expect(screen.queryByText('abc1234')).toBeNull()
+    expect(screen.queryByText('abc1234deadbeef')).toBeNull()
   })
 
   it('renders failed code access problems with beginner-safe recovery copy', () => {

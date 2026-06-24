@@ -2593,6 +2593,26 @@ export function AgentTasksEmptyState() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags task waiting-place copy that hides the task queue name', () => {
+    const cwd = fixture({
+      'src/app/widgets/agent-detail/AgentDetailView.tsx': `
+export function AgentDetailView() {
+  return <p>Choose this agent, or choose where tasks wait so this agent can receive them.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'task-waiting-place-copy',
+        location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+      }),
+    ])
+  })
+
   it('flags agent tool errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
       'src/app/features/agents/model/pluginErrorMessage.ts': `
@@ -4111,7 +4131,7 @@ function handleProjectChange() {
     const cwd = fixture({
       'src/app/features/board/TaskFormModal.tsx': `
 function handleProjectChange() {
-  return 'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
+  return 'Select the project again to find the task queue. If it still does not load, open the Tasks page again or ask an owner to check the task queue in this project.'
 }
 `,
     })
@@ -4293,7 +4313,7 @@ function emptyInstructionBadge() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Check AI model'
+  return 'Check AI service choice'
 }
 
 function cliToolLabel() {
@@ -4352,7 +4372,7 @@ function agentValidationMessage() {
     const cwd = fixture({
       'src/app/features/agents/AgentConfigTab.tsx': `
 function promptProfileSaveErrorMessage() {
-  return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this simple chat agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -4373,7 +4393,7 @@ function agentValidationMessage() {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Check AI model setup',
+  model: 'Check AI model',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
@@ -4383,7 +4403,7 @@ const info = {
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Check AI model setup'
+  return 'Check AI model'
 }
 `,
     })
@@ -4409,21 +4429,21 @@ function modelLabel() {
     )
   })
 
-  it('accepts agent model fallback copy that tells users to check the AI model', () => {
+  it('accepts agent model fallback copy that tells users to check the AI service choice', () => {
     const cwd = fixture({
       'src/app/entities/agent/model/agents.store.ts': `
 const info = {
-  model: 'Check AI model',
+  model: 'Check AI service choice',
 }
 `,
       'src/app/shared/model/agents.store.ts': `
 const info = {
-  model: agent.model ?? agent.cliTool ?? 'Check AI model',
+  model: agent.model ?? agent.cliTool ?? 'Check AI service choice',
 }
 `,
       'src/app/features/agents/AgentConfigTab.tsx': `
 function modelLabel() {
-  return 'Check AI model'
+  return 'Check AI service choice'
 }
 `,
     })
@@ -5844,7 +5864,7 @@ function AgentSummary() {
     const cwd = fixture({
       'src/app/features/agents/AgentListView.tsx': `
 function AgentEmptyState() {
-  return <p>Start with a chat-only AI service for questions and result checks, or connect this computer when the task needs files and commands on your machine.</p>
+  return <p>Start with a simple chat agent for questions and result checks, or connect this computer when the task needs files and commands on your machine.</p>
 }
 `,
     })
@@ -5867,7 +5887,7 @@ function AgentChoiceGuide() {
   return <p>Best for planning, writing, and review when no project files need to be opened.</p>
 }
 function AgentEmptyState() {
-  return <p>Start with a chat-only AI service for planning and review.</p>
+  return <p>Start with a simple chat agent for planning and review.</p>
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -5928,7 +5948,7 @@ function AgentChoiceGuide() {
   return <p>Best for questions, writing, and checking results when no project files need to be opened.</p>
 }
 function AgentEmptyState() {
-  return <p>Start with a chat-only AI service for questions and result checks.</p>
+  return <p>Start with a simple chat agent for questions and result checks.</p>
 }
 `,
       'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -5949,6 +5969,26 @@ function AgentControlPanel() {
     })
 
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
+  it('flags chat-only task-limit copy that omits Tasks', () => {
+    const cwd = fixture({
+      'src/app/features/agents/AgentListView.tsx': `
+function AgentChoiceGuide() {
+  return <p>Simple chat agent is best for questions. It cannot edit code or run commands.</p>
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'chat-only-agent-task-limit-copy',
+        location: 'src/app/features/agents/AgentListView.tsx:3',
+      }),
+    ])
   })
 
   it('flags high-traffic task setup copy that uses assign as the user action', () => {
@@ -6183,7 +6223,7 @@ export const en = { agents: { noAgents: 'Create one agent to start assigning wor
     const cwd = fixture({
       'src/app/features/chat/ChatView.tsx': `
 const WORKSPACE_AGENT_EMPTY_COPY = {
-  steps: ['Create a task, choose this agent, or choose where tasks wait.'],
+  steps: ['Create a task, choose this agent, or choose a task queue that includes this agent.'],
 }
 function conversationFilterEmptyCopy() {
   return {
@@ -9097,6 +9137,9 @@ export function HostCliEnrollmentPanel() {
       <p>Use this backup if your browser cannot open the setup window or your team asks you to run a command.</p>
       <p>Then the setup command appears here.</p>
       <p>Keep the command window open while it works.</p>
+      <p>Open Terminal on macOS/Linux or PowerShell on Windows.</p>
+      <p>Terminal app</p>
+      <p>PowerShell app</p>
       <p>Keep Terminal or PowerShell open while it works.</p>
       <p>Leave the work tool as Codex unless your team tells you otherwise.</p>
       <p>Keep the suggested setup values unless your team gives you different ones.</p>
@@ -9118,6 +9161,8 @@ export function CreateAgentModal() {
       <p>Copy these backup setup values into the same Terminal or PowerShell window.</p>
       <p>Paste it into the terminal app on the computer that will do the work.</p>
       <p>Leave blank to use the folder where you run the setup command.</p>
+      <p>Paste setup text in Terminal or PowerShell</p>
+      <p>Close Terminal or PowerShell on that computer.</p>
     </section>
   )
 }
@@ -9163,6 +9208,18 @@ export function CreateAgentModal() {
         }),
         expect.objectContaining({
           type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:14',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/AgentListView.tsx:15',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:6',
         }),
         expect.objectContaining({
@@ -9188,6 +9245,14 @@ export function CreateAgentModal() {
         expect.objectContaining({
           type: 'this-computer-setup-copy',
           location: 'src/app/features/agents/CreateAgentModal.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'this-computer-setup-copy',
+          location: 'src/app/features/agents/CreateAgentModal.tsx:14',
         }),
       ])
     )
@@ -9419,6 +9484,11 @@ export function AgentDetailView() {
   return <p>Paste setup text on this computer again.</p>
 }
 `,
+      'src/app/features/agents/AgentCard.tsx': `
+export function AgentCard() {
+  return <p>Open this agent, then reconnect Terminal or PowerShell on that computer.</p>
+}
+`,
     })
 
     const result = checkBeginnerUxCopy({ cwd })
@@ -9433,6 +9503,10 @@ export function AgentDetailView() {
         expect.objectContaining({
           type: 'host-agent-reconnect-copy',
           location: 'src/app/widgets/agent-detail/AgentDetailView.tsx:3',
+        }),
+        expect.objectContaining({
+          type: 'host-agent-reconnect-copy',
+          location: 'src/app/features/agents/AgentCard.tsx:3',
         }),
       ])
     )
@@ -9567,6 +9641,26 @@ function agentFileWorkMessage() {
         }),
       ])
     )
+  })
+
+  it('flags vague agent-detail recovery copy in agent stores', () => {
+    const cwd = fixture({
+      'src/app/entities/agent/model/agents.store.ts': `
+function agentUnknownMessage(actionPhrase) {
+  return \`Check the agent details, open Agents and choose this agent again, then \${actionPhrase} again.\`
+}
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'agent-store-error-copy',
+        location: 'src/app/entities/agent/model/agents.store.ts:3',
+      }),
+    ])
   })
 
   it('accepts agent store errors that start with the next step', () => {
@@ -14584,6 +14678,8 @@ function TaskFormModal() {
       <p>Forge is loading the task queue for this project. Wait a moment before creating the task.</p>
       <option>Let the next available agent pick it up</option>
       <p>Keep this choice when any available agent can do the work.</p>
+      <p>automatic agent selection</p>
+      <p>Leave automatic selection on when any ready agent can do the work.</p>
       <span>2 available</span>
     </div>
   )
@@ -14624,6 +14720,14 @@ function TaskFormModal() {
           type: 'task-form-agent-choice-copy',
           location: 'src/app/features/board/TaskFormModal.tsx:15',
         }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:16',
+        }),
+        expect.objectContaining({
+          type: 'task-form-agent-choice-copy',
+          location: 'src/app/features/board/TaskFormModal.tsx:17',
+        }),
       ])
     )
   })
@@ -14636,11 +14740,11 @@ function TaskFormModal() {
     <div>
       <p>Loading this project</p>
       <p>Task can be created</p>
-      <p>Set up where tasks wait before creating this task</p>
-      <p>Create one place for new work to wait, then return here.</p>
-      <p>Wait a moment while Forge finds where new tasks wait for this project.</p>
-      <option>Let the next ready agent pick it up</option>
-      <p>Leave automatic selection on when any ready agent can do the work.</p>
+      <p>Set up a task queue before creating this task</p>
+      <p>Create one task queue for new tasks, then return here.</p>
+      <p>Wait a moment while Forge finds the task queue for this project.</p>
+      <option>Let the next ready agent start it</option>
+      <p>Use the next ready agent when any ready agent can do the work.</p>
       <span>2 ready</span>
     </div>
   )
@@ -14682,16 +14786,16 @@ function AgentGroupSelector() {
     )
   })
 
-  it('accepts board setup copy that starts with where tasks wait', () => {
+  it('accepts board setup copy that starts with the setup action', () => {
     const cwd = fixture({
       'src/app/features/board/BoardView.tsx': `
 function BoardView() {
-  return <><p>Set up where tasks wait before sending work</p><p>New tasks need a place to wait before an agent starts them.</p></>
+  return <><p>Set up a task queue before sending work</p><p>New tasks need a queue before an agent starts them.</p></>
 }
 `,
       'src/app/features/board/AgentGroupSelector.tsx': `
 function AgentGroupSelector() {
-  return <option>Set up where tasks wait first</option>
+  return <option>Set up a task queue first</option>
 }
 `,
     })
@@ -14733,11 +14837,13 @@ function AssignmentReadinessPanel() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
-  it('flags quick task creation copy that uses draft-task jargon', () => {
+  it('flags quick task creation copy that uses draft or queue-state jargon', () => {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
 function QuickCreate() {
   return <button>Add Draft Task</button>
+  return <p>This only saves a draft in Not sent yet.</p>
+  return <p>Task idea saved in Not sent yet.</p>
 }
 `,
       'src/app/features/board/KanbanColumn.tsx': `
@@ -14758,6 +14864,14 @@ function KanbanColumn() {
         }),
         expect.objectContaining({
           type: 'quick-create-draft-task-copy',
+          location: 'src/app/features/board/QuickCreate.tsx:4',
+        }),
+        expect.objectContaining({
+          type: 'quick-create-draft-task-copy',
+          location: 'src/app/features/board/QuickCreate.tsx:5',
+        }),
+        expect.objectContaining({
+          type: 'quick-create-draft-task-copy',
           location: 'src/app/features/board/KanbanColumn.tsx:3',
         }),
       ])
@@ -14768,7 +14882,7 @@ function KanbanColumn() {
     const cwd = fixture({
       'src/app/features/board/QuickCreate.tsx': `
 function QuickCreate() {
-  return <div><button>Add Task</button><button>Save Task</button><p>This saves the task in Not sent yet.</p></div>
+  return <div><button>Add Task</button><button>Save Task</button><p>This saves the idea first. Next: open the card, add where to work and done when, then choose who should start it.</p></div>
 }
 `,
       'src/app/features/board/KanbanColumn.tsx': `

@@ -44,23 +44,23 @@ export function agentTasksErrorMessage(err: unknown): string {
   const text = structuredErrorMessage(err).toLowerCase()
 
   if (code === 401 || text.includes('unauthorized')) {
-    return 'Sign in again, then reopen this agent to load its work list.'
+    return 'Sign in again, then reopen this agent to load its task list.'
   }
   if (code === 403 || text.includes('forbidden') || text.includes('role required')) {
-    return "Ask an owner or admin to give you access to this agent's work list."
+    return "Ask an owner or admin to give you access to this agent's task list."
   }
   if (code === 404) {
-    return 'Open Agents, choose this agent again, then open Work to load the work list. This agent may have changed or been removed.'
+    return 'Open Agents, choose this agent again, then open Tasks to load the task list. This agent may have changed or been removed.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return 'Too many task requests are happening right now. Wait a minute, then open Work again from this agent.'
+    return 'Too many task requests are happening right now. Wait a minute, then open Agents and choose this agent again.'
   }
   if (code != null && code >= 500) {
-    return "Open Work again from this agent. If it still fails, ask an owner or admin to check this agent's work list."
+    return "Open Agents, choose this agent again, then open Tasks. If it still fails, ask an owner or admin to check this agent's task list."
   }
   if (isNetworkError(err)) {
-    return 'Check your connection, then open Work again from this agent.'
+    return 'Check your connection, then open Agents and choose this agent again.'
   }
 
-  return "Open Work again from this agent. If it still fails, ask an owner or admin to check this agent's work list."
+  return "Open Agents, choose this agent again, then open Tasks. If it still fails, ask an owner or admin to check this agent's task list."
 }

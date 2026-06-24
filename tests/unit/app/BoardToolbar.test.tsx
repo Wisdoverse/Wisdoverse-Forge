@@ -41,6 +41,25 @@ function renderToolbar(overrides: Partial<Parameters<typeof BoardToolbar>[0]> = 
 }
 
 describe('BoardToolbar', () => {
+  test('keeps advanced task filters collapsed until the user asks for them', () => {
+    renderToolbar()
+
+    const filtersButton = screen.getByRole('button', { name: /^filters$/i })
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('group', { name: /filter tasks by priority/i })).toBeNull()
+    expect(
+      screen.queryByRole('group', { name: /filter tasks by whether an agent is chosen/i })
+    ).toBeNull()
+
+    fireEvent.click(filtersButton)
+
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('group', { name: /filter tasks by priority/i })).toBeDefined()
+    expect(
+      screen.getByRole('group', { name: /filter tasks by whether an agent is chosen/i })
+    ).toBeDefined()
+  })
+
   test('uses beginner-friendly filter labels and task counts', () => {
     renderToolbar()
 
@@ -51,6 +70,7 @@ describe('BoardToolbar', () => {
       /use show all tasks to return to the full board/i
     )
     expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^filters$/i }))
     expect(
       screen.getByRole('button', { name: /show tasks at all priority levels, 6 matching tasks/i })
     ).toBeDefined()
@@ -73,6 +93,7 @@ describe('BoardToolbar', () => {
     const props = renderToolbar()
     const toolbar = screen.getByTestId('board-toolbar')
 
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters$/i }))
     fireEvent.click(
       within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
     )

@@ -160,10 +160,11 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
   const setupReady = checklistItems.length > 0 && checklistReadyCount === checklistItems.length
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
-  const sectionTitle = focus === 'sign-ins' ? 'Codex sign-in' : t('settings.runtime.title')
+  const sectionTitle =
+    focus === 'sign-ins' ? 'File-change tool sign-in' : t('settings.runtime.title')
   const sectionDescription =
     focus === 'sign-ins'
-      ? 'Sign in to Codex or another work tool before agents work on project files.'
+      ? 'Sign in to Codex or another tool before agents work on project files.'
       : t('settings.runtime.description')
   const codexSignInStatus = cliStatuses.find((status) => status.cliTool === 'codex') ?? null
   const codexSignInLabel = codexSignInStatus?.displayName ?? 'Codex'
@@ -242,10 +243,10 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Codex sign-in starts here
+            File-change tool sign-in starts here
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this page when Codex or another work tool asks you to sign in.{' '}
+            Use this page when Codex or another file-change tool asks you to sign in.{' '}
             {codexSignInInstruction}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -327,7 +328,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="Work tool sign-ins"
+            label="File-change tool sign-ins"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} signed in`
@@ -376,10 +377,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                       : 'Install this work tool'}
                   </span>
                 </div>
-                <span
-                  className="min-w-0 truncate text-secondary-light dark:text-secondary-dark"
-                  title={detail.image}
-                >
+                <span className="min-w-0 truncate text-secondary-light dark:text-secondary-dark">
                   {detail.imagePresent ? 'Installed and ready' : 'Install this tool'}
                 </span>
                 <span
@@ -424,12 +422,12 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                   aria-hidden="true"
                 />
                 <h4 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                  Before sending file work
+                  Before sending Tasks that change project files
                 </h4>
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Make these ready before giving agents tasks that need project files, commands, or
-                live work access.
+                Make these ready before giving agents Tasks that change project files, run checks,
+                or show live progress.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -465,7 +463,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           </div>
         ) : (
           <>
-            {/* Default place for file work */}
+            {/* Default place for project changes */}
             <SettingRow
               label={t('settings.runtime.defaultRuntimeLabel')}
               description={t('settings.runtime.defaultRuntimeDescription')}
@@ -614,7 +612,7 @@ function RuntimeNextStepPanel({
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
             What success looks like:{' '}
             {allReady
-              ? 'Open Agents, create or select an agent, then send work from Tasks.'
+              ? 'Open Agents, create or select an agent, then send a task from Tasks.'
               : 'This item changes to Ready.'}
           </p>
         </div>
@@ -837,7 +835,7 @@ function runtimeLaunchChecklistItems(
   let imageDetail = `${installedToolCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
     imageDetail =
-      'Enable at least one tool before giving agents tasks that need project files, commands, or live work access.'
+      'Enable at least one work tool before giving agents Tasks that change project files, run checks, or show live progress.'
   } else if (runtimeSettings.cliToolDetails.length === 0) {
     imageDetail =
       'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
@@ -860,14 +858,14 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'Work tool sign-ins',
+    title: 'File-change tool sign-ins',
     detail: cliStatusError
       ? 'Choose Check again to check Codex sign-in. If it still cannot be checked, ask an owner or admin to check Codex sign-in in Settings.'
       : cliStatuses.length === 0
-        ? 'No work tool sign-ins are required.'
+        ? 'No file-change tool sign-ins are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} work tool sign-ins ready. Sign in to ${disconnectedCredential.displayName} before starting agents that use this tool.`
-          : `${connectedCredentialCount}/${cliStatuses.length} work tool sign-ins ready.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} file-change tool sign-ins ready. Sign in to ${disconnectedCredential.displayName} before starting agents that use this tool.`
+          : `${connectedCredentialCount}/${cliStatuses.length} file-change tool sign-ins ready.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError
@@ -896,8 +894,8 @@ function runtimeLaunchChecklistItems(
 
 function versionSourceLabel(source: string, imagePresent: boolean): string {
   if (source === 'docker-label') return 'ready'
-  if (source === 'image-tag') return imagePresent ? 'ready' : 'check tool'
-  return 'check tool'
+  if (source === 'image-tag') return imagePresent ? 'ready' : 'Check again'
+  return 'Check again'
 }
 
 function runtimeReadinessSummary(
@@ -909,14 +907,14 @@ function runtimeReadinessSummary(
   const locations = countPhrase(runtimeSettings.availableRuntimes.length, 'place')
   const tools = countPhrase(
     runtimeSettings.availableCliTools.length,
-    'tool for file work',
-    'tools for file work'
+    'tool that can change project files',
+    'tools that can change project files'
   )
   const signIns =
     credentialStatusCount === 0
       ? 'No extra tool sign-ins are needed'
       : connectedCredentialCount === 0
-        ? 'Sign in to a tool for file work before starting agents that need one'
+        ? 'Sign in to a file-change tool before starting agents that need to change project files'
         : `${countPhrase(connectedCredentialCount, 'tool sign-in')} ${
             connectedCredentialCount === 1 ? 'is' : 'are'
           } connected`
@@ -937,7 +935,7 @@ function fallbackRuntimeLabel(runtime: string): string {
     case 'cli':
       return 'This computer'
     case 'api':
-      return 'Chat-only AI service'
+      return 'Simple chat agent'
     case 'container':
       return 'Project files'
     default:

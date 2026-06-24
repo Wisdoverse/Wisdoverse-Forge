@@ -236,14 +236,14 @@ export function ProjectsSection() {
                   Project "{createdProjectName}" is ready
                 </p>
                 <p className="mt-1 text-ui-caption">
-                  Next: set up where tasks wait in Agents, then create the first task in Tasks.
+                  Next: set up a task queue in Agents, then create the first task in Tasks.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <a href="/agents" className={uiStyles.secondaryButton}>
                 <Bot size={14} strokeWidth={2} aria-hidden="true" />
-                <span>Set up waiting place</span>
+                <span>Set up task queue</span>
               </a>
               <a href="/tasks" className={uiStyles.primaryButton}>
                 <CheckSquare size={14} strokeWidth={2} aria-hidden="true" />

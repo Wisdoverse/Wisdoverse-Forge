@@ -3,6 +3,8 @@ export type WorkspaceResourceAction = 'update' | 'delete'
 
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
 
 export function workspaceResourceErrorMessage(
@@ -11,12 +13,17 @@ export function workspaceResourceErrorMessage(
   error?: unknown
 ): string {
   const status = statusFromError(error)
+  const raw = rawDetail(error)
+  const serviceDetail = raw ? RAW_SERVICE_DETAIL.test(raw) : false
   const detail = status === null || status === 400 || status === 422 ? safeDetail(error) : null
 
   if (detail?.toLowerCase().includes('role required')) {
     return permissionMessage(resource, action)
   }
   if (!status) {
+    if (serviceDetail) {
+      return workspaceResourceUnavailableMessage(resource, action)
+    }
     if (detail) {
       return validationMessage(resource, action, detail)
     }
@@ -147,7 +154,8 @@ function rawDetail(error: unknown): string | null {
     }
 
     for (const candidate of [record.detail, record.error, record.message, record.reason]) {
-      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+      const found = firstPayloadString(candidate)
+      if (found) return found
     }
   }
   return null

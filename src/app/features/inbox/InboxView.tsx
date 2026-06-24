@@ -417,7 +417,7 @@ function inboxFilterEmptyState(filter: InboxFilter): InboxFilterEmptyState {
       return {
         title: 'No account access needs reconnecting',
         detail:
-          'Account access is not blocking agent work right now. Open All to check other updates.',
+          'No tasks are blocked by account access right now. Open All to check other updates.',
       }
     case 'all':
       return {
@@ -460,7 +460,7 @@ function nextStepTitle(notification: Notification): string {
 
   switch (notification.type) {
     case 'credential_expired':
-      return 'Reconnect account access before more agent work starts'
+      return 'Reconnect account access before agents continue tasks'
     case 'blocked':
       return 'Check what is stopping work'
     case 'failed':
@@ -489,7 +489,7 @@ function nextStepDescription(
 
   if (notification.type === 'credential_expired') {
     return credentialCount === 1
-      ? 'One account connection needs reconnecting. Fixing it keeps future agent work from failing.'
+      ? 'One account connection needs reconnecting. Fixing it helps agents finish future tasks.'
       : `${credentialCount} account connections need reconnecting. Start here because access problems can block new tasks.`
   }
 
@@ -509,7 +509,7 @@ function nextStepDescription(
 function nextStepActionLabel(notification: Notification): string {
   switch (notification.type) {
     case 'credential_expired':
-      return 'Reconnect work access'
+      return 'Reconnect account access'
     case 'blocked':
       return 'Open task'
     case 'failed':

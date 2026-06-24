@@ -9,6 +9,7 @@ export interface ChatComposerProps {
   disabled: boolean
   disabledReason?: string
   disabledPlaceholder?: string
+  helperText?: string
 }
 
 export function ChatComposer({
@@ -18,6 +19,7 @@ export function ChatComposer({
   disabled,
   disabledReason,
   disabledPlaceholder,
+  helperText,
 }: ChatComposerProps) {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,11 +34,14 @@ export function ChatComposer({
     ? 'Agent is responding. Stop it if you need to change the message.'
     : disabled
       ? (disabledReason ??
-        'Wait until this agent is online, then send the message again from this chat.')
+        'Wait until this agent shows Ready, then send the message again from this chat.')
       : 'Write one clear message or question, then send it to this agent.'
   const placeholderText = disabled
     ? (disabledPlaceholder ?? 'Wait until this agent is Ready before sending.')
     : 'Ask this agent for the next step'
+  const exampleText =
+    helperText ??
+    'Need a starting point? Ask for a short summary, what needs help, or the next safe step.'
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -125,7 +130,7 @@ export function ChatComposer({
         {statusText}
       </p>
       <p id={examplesId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Need a starting point? Ask for a short summary, what needs help, or the next safe step.
+        {exampleText}
       </p>
       {error && (
         <p

@@ -547,14 +547,14 @@ function taskRecoveryGuidance(
     return {
       title: 'Try the task again when the request is still useful',
       detail:
-        'Use Retry task after checking the brief. The task returns to where tasks wait so an agent can try it again.',
+        'Use Retry task after checking the brief. Forge puts the task back in the task queue so an agent can try it again.',
     }
   }
   if (canApprove) {
     return {
       title: 'Let the task continue when it has what it needs',
       detail:
-        'Check the request first. Then choose Allow and continue to send the task back where tasks wait for an agent to continue.',
+        'Check the request first. Then choose Allow and continue to put the task back in the task queue for an agent to continue.',
     }
   }
   return null
@@ -619,7 +619,7 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
           detail={
             completed
               ? 'Accept the result, save repeatable steps, or create a follow-up task if something is missing.'
-              : 'Use Work or Updates to decide whether the agent needs more input.'
+              : 'Open Work to change the task or choose another agent, or open Updates to check what happened before asking for more input.'
           }
         />
       </div>

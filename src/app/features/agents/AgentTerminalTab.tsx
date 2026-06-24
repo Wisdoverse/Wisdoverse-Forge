@@ -202,8 +202,8 @@ export function AgentTerminalTab({
           'shadow-card dark:shadow-card-dark bg-[#1a1a2e] text-white'
         )}
       >
-        <div className="flex items-center gap-2 text-[11px] font-mono text-white/50">
-          <span className="text-white/30">$</span>
+        <div className="flex items-center gap-2 text-[11px] font-medium text-white/50">
+          <span className="text-white/70">Live work panel</span>
           <span className="truncate">{agentName ?? agentId}</span>
           <span className="rounded bg-white/10 px-1.5 py-0.5 uppercase tracking-wide">
             {toolLabel}
@@ -240,11 +240,11 @@ export function AgentTerminalTab({
       <div
         className={cn(
           'flex items-center gap-2 px-3 h-9 border-b border-white/5',
-          'text-[11px] text-white/60 font-mono select-none bg-[#161629]'
+          'text-[11px] text-white/60 font-medium select-none bg-[#161629]'
         )}
       >
-        <span className="text-white/40">$</span>
-        <span className="truncate text-white/40">Agent: {(agentName ?? agentId).slice(0, 24)}</span>
+        <span className="text-white/70">Live work panel</span>
+        <span className="truncate text-white/40">{(agentName ?? agentId).slice(0, 24)}</span>
         <span className="truncate text-white/25">Ready for live work</span>
         <span className="flex-1" />
         <span

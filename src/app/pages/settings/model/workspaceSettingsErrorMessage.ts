@@ -37,11 +37,8 @@ function errorDetail(err: unknown): string {
   try {
     const parsed = JSON.parse(detail) as unknown
     if (parsed && typeof parsed === 'object') {
-      const data = parsed as Record<string, unknown>
-      for (const key of ['error', 'message', 'detail']) {
-        const value = data[key]
-        if (typeof value === 'string' && value.trim()) return value.trim()
-      }
+      const parsedDetail = structuredErrorDetail(parsed)
+      if (parsedDetail) return parsedDetail
     }
   } catch {
     // Keep a short server-provided detail below when it was not JSON.
@@ -68,6 +65,10 @@ function structuredErrorDetail(err: unknown): string {
     value.reason,
   ]) {
     if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+      const nested = structuredErrorDetail(candidate)
+      if (nested) return nested
+    }
   }
 
   return ''

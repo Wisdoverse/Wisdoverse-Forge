@@ -52,7 +52,7 @@ export function RightPanel({
                 Live task updates
               </h2>
               <p className="mt-0.5 truncate text-[10px] text-secondary-light dark:text-secondary-dark">
-                Agent progress, help needed, and finished work
+                Agent progress, help needed, and finished task results
               </p>
             </div>
             <button

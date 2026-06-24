@@ -19,12 +19,15 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
   loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
   loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
-  previewContext: 'Choose an available agent, then check saved items again.',
+  previewContext: 'Choose a ready agent, then check saved items again.',
   publishTask:
     'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
   retryTask:
     'Open this task again from the Tasks page, then choose Retry task again. The task was not retried.',
 }
+
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/
 
 export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unknown): string {
   const detail = errorDetail(err)
@@ -32,7 +35,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
+    return 'No ready agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
   }
 
   if (isNetworkError(normalized)) {
@@ -74,6 +77,10 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   }
 
   if (status && status >= 500) {
+    return serviceRecoveryMessage(action)
+  }
+
+  if (!status && RAW_SERVICE_DETAIL.test(normalized)) {
     return serviceRecoveryMessage(action)
   }
 
@@ -130,10 +137,24 @@ function errorDetail(err: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function errorStatus(err: unknown, normalizedDetail: string): number | null {
@@ -173,7 +194,7 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
   }
   if (normalized.includes('agent')) {
     if (action === 'publishTask') {
-      return 'Choose an available agent, then send the task again.'
+      return 'Choose a ready agent, then send the task again.'
     }
     return ACTION_FALLBACKS[action]
   }

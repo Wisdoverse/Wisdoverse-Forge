@@ -12,13 +12,15 @@ const MISSING_ACCESS_MESSAGE =
 const TECHNICAL_PROBLEM_MESSAGE =
   'This step hit a problem. Ask the agent to explain what happened, then retry if the task still matters.'
 const COMMAND_OUTPUT_MESSAGE =
-  'The command result was saved. Ask the agent to explain it before relying on it.'
+  'The work step result was saved. Ask the agent to explain it before relying on it.'
 const PROBLEM_OUTPUT_MESSAGE =
-  'The command problem details were saved. Ask the agent to explain what happened before retrying.'
+  'The work step problem details were saved. Ask the agent to explain what happened before retrying.'
 const EMPTY_RESULT_SUMMARY =
   'This step finished, but it did not add details. Read the surrounding agent messages before deciding whether to continue, retry, or ask the agent to explain it.'
 const EMPTY_RESULT_DETAILS =
   'No saved details were shown for this step. Read the surrounding agent messages before deciding whether to wait, retry, or ask the agent to explain it.'
+const STRUCTURED_DETAILS_MESSAGE =
+  'More details were saved. Ask the agent to explain them before relying on this step.'
 
 function formatExtraDetails(data: Record<string, unknown>): string {
   try {
@@ -27,9 +29,12 @@ function formatExtraDetails(data: Record<string, unknown>): string {
       return formatExtraValue(safeData)
     }
 
-    const lines = Object.entries(safeData as Record<string, unknown>).map(
-      ([key, value]) => `${extraDetailLabel(key)}: ${formatExtraValue(value, key)}`
-    )
+    const lines = Object.entries(safeData as Record<string, unknown>).map(([key, value]) => {
+      const formatted = formatExtraValue(value, key)
+      return formatted === STRUCTURED_DETAILS_MESSAGE
+        ? formatted
+        : `${extraDetailLabel(key)}: ${formatted}`
+    })
     return lines.length > 0 ? lines.join('\n') : EMPTY_RESULT_DETAILS
   } catch {
     return 'Extra details were saved but could not be shown safely. Check the summary above, then ask an owner or admin to check this task if needed.'
@@ -41,8 +46,8 @@ function extraDetailLabel(key: string): string {
 
   const normalized = normalizedDetailKey(key)
   const labels: Record<string, string> = {
-    command: 'Command',
-    cwd: 'Where file work ran',
+    command: 'Work step',
+    cwd: 'Project folder used',
     durationms: 'Time spent',
     ok: 'Finished cleanly',
     summary: 'Summary',
@@ -53,10 +58,10 @@ function extraDetailLabel(key: string): string {
     path: 'File or link',
     file: 'File',
     url: 'Address',
-    stdout: 'What the command showed',
+    stdout: 'What the work step showed',
     stderr: 'Problem details',
-    rawoutput: 'What the command showed',
-    commandoutput: 'What the command showed',
+    rawoutput: 'What the work step showed',
+    commandoutput: 'What the work step showed',
     erroroutput: 'Problem details',
     target: 'Target',
     reason: 'Reason',
@@ -92,7 +97,7 @@ function formatExtraValue(value: unknown, key = ''): string {
   if (typeof value === 'string') return value
   if (value === null || value === undefined) return 'Not shown yet'
   if (typeof value === 'number') return String(value)
-  return JSON.stringify(value, null, 2)
+  return STRUCTURED_DETAILS_MESSAGE
 }
 
 function formatProjectFolderValue(value: string): string {
@@ -101,7 +106,7 @@ function formatProjectFolderValue(value: string): string {
   if (folder === '/workspace') {
     return 'Default agent project folder. You do not need to type this.'
   }
-  return `${folder}. Use this only if an owner or admin asks where file work ran.`
+  return `${folder}. Use this only if an owner or admin asks which project folder the agent used.`
 }
 
 function safeToolValue(value: unknown, key = ''): unknown {
@@ -186,17 +191,14 @@ function toolDisplayName(tool: string): string {
   const normalized = tool.trim().toLowerCase()
   if (!normalized) return 'Work step'
 
-  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Command step'
+  if (['shell', 'bash', 'terminal', 'command'].includes(normalized)) return 'Computer step'
   if (['grep', 'ripgrep', 'search', 'web_search'].includes(normalized)) return 'Search'
   if (['read_file', 'file_read', 'open_file'].includes(normalized)) return 'Read file'
   if (['write_file', 'edit_file', 'apply_patch'].includes(normalized)) return 'Change files'
+  if (['check_deployment', 'deployment_check'].includes(normalized)) return 'Check deployment'
   if (['deploy', 'deployment'].includes(normalized)) return 'Publish step'
 
-  return normalized
-    .split(/[_\-\s]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+  return 'Other work step'
 }
 
 function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'result'): string {
@@ -204,7 +206,7 @@ function toolDataSummary(data: Record<string, unknown>, kind: 'request' | 'resul
   if (directSummary) return safeToolString(directSummary)
 
   if (typeof data.command === 'string' && data.command.trim()) {
-    return `Command the agent used: ${safeToolString(data.command)}`
+    return `Work step the agent used: ${safeToolString(data.command)}`
   }
 
   if (typeof data.query === 'string' && data.query.trim()) {

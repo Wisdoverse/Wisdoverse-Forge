@@ -14,7 +14,7 @@ const team: NavTeam = {
 }
 
 function chooseCopyCodeNow() {
-  fireEvent.click(screen.getByLabelText(/copy code now from github or gitlab/i))
+  fireEvent.click(screen.getByRole('button', { name: /add code during creation/i }))
 }
 
 afterEach(() => {
@@ -31,6 +31,9 @@ describe('workspace setup create forms', () => {
     expect(within(status).getByText('Next: name the team')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create team/i })
     expect(createButton).not.toBeDisabled()
+    const nameInput = screen.getByLabelText(/team name/i)
+    expect(nameInput).toHaveAccessibleDescription(/Pick a name teammates will recognize/i)
+    expect(nameInput).toHaveAccessibleDescription(/Next: name the team/i)
 
     fireEvent.click(createButton)
 
@@ -38,8 +41,8 @@ describe('workspace setup create forms', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Enter a team name before creating it.')
-    const nameInput = screen.getByLabelText(/team name/i)
     expect(nameInput).toHaveFocus()
+    expect(nameInput).toHaveAccessibleDescription(/Enter a team name before creating it/i)
 
     fireEvent.change(nameInput, { target: { value: 'Support Ops' } })
 
@@ -124,7 +127,9 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Ask an owner or admin to let you create teams in this team space.')
+      expect(alert).toHaveTextContent(
+        'Ask an owner or admin to let you create teams in this team space.'
+      )
       expect(alert).not.toHaveTextContent('owner role required')
     })
   })
@@ -134,9 +139,8 @@ describe('workspace setup create forms', () => {
 
     render(<CreateProjectForm teams={[]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
-    expect(
-      screen.getByText(/keep one work area's tasks, files, and saved work together/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/name the work area and choose its team/i)).toBeInTheDocument()
+    expect(screen.getByText(/create the project first if you are not sure/i)).toBeInTheDocument()
     expect(screen.queryByText(/saved work records/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/receive tasks and evidence/i)).toBeNull()
     const status = screen.getByTestId('create-project-status')
@@ -150,7 +154,12 @@ describe('workspace setup create forms', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Create or choose a team before creating this project.')
-    expect(screen.getByText('No teams — create a team first')).toHaveFocus()
+    const missingTeamMessage = screen.getByText('No teams — create a team first')
+    expect(missingTeamMessage).toHaveFocus()
+    expect(missingTeamMessage).toHaveAccessibleDescription(/Create a team first/i)
+    expect(missingTeamMessage).toHaveAccessibleDescription(
+      /Create or choose a team before creating this project/i
+    )
   })
 
   test('keeps project creation actionable and focuses the missing name field', async () => {
@@ -162,6 +171,14 @@ describe('workspace setup create forms', () => {
     expect(within(status).getByText('Next: name the project')).toBeInTheDocument()
     const createButton = screen.getByRole('button', { name: /create project/i })
     expect(createButton).not.toBeDisabled()
+    const nameInput = screen.getByLabelText(/project name/i)
+    expect(nameInput).toHaveAccessibleDescription(/Pick the name users will look for/i)
+    expect(nameInput).toHaveAccessibleDescription(/Next: name the project/i)
+    const teamSelect = screen.getByLabelText(/^team/i)
+    expect(teamSelect).toHaveAccessibleDescription(
+      /Choose the team that should own this project and manage access/i
+    )
+    expect(teamSelect).toHaveAccessibleDescription(/Next: name the project/i)
 
     fireEvent.click(createButton)
 
@@ -169,8 +186,8 @@ describe('workspace setup create forms', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent('Enter a project name before creating it.')
-    const nameInput = screen.getByLabelText(/project name/i)
     expect(nameInput).toHaveFocus()
+    expect(nameInput).toHaveAccessibleDescription(/Enter a project name before creating it/i)
 
     fireEvent.change(nameInput, { target: { value: 'Customer Portal' } })
 
@@ -184,14 +201,19 @@ describe('workspace setup create forms', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1', undefined))
   })
 
-  test('starts with the no-code path and reveals the code link only when selected', () => {
+  test('keeps optional code setup collapsed until it is requested', () => {
     render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByText('Choose how to add code')).toBeInTheDocument()
-    expect(screen.getByLabelText(/create this project without code/i)).toBeChecked()
+    expect(screen.getByText('Create a project')).toBeInTheDocument()
+    expect(screen.queryByText('Project creation steps')).not.toBeInTheDocument()
+    expect(screen.queryByText('Choose how to add code')).not.toBeInTheDocument()
+    expect(screen.queryByText(/create this project without code/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/Use this when you want a place for tasks now/i)).toBeInTheDocument()
-    expect(screen.getByText(/You can add code access later in Settings/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add code during creation/i })).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Use this when you want a place for tasks now/i)
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/create the project first if you are not sure/i)).toBeInTheDocument()
 
     chooseCopyCodeNow()
 
@@ -201,6 +223,12 @@ describe('workspace setup create forms', () => {
     expect(
       screen.getByText('Create the project. Watch this project in the list for copy status.')
     ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create without code instead/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /create without code instead/i }))
+
+    expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add code during creation/i })).toBeInTheDocument()
   })
 
   test('explains the generated project folder before showing the support folder', () => {
@@ -218,14 +246,19 @@ describe('workspace setup create forms', () => {
     expect(screen.getByText('Show folder details for support')).toBeInTheDocument()
     expect(screen.queryByText('Show support folder')).toBeNull()
     expect(screen.queryByText('Show exact folder for troubleshooting')).toBeNull()
+    expect(screen.queryByText(/\/workspace\/my-new-repo/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show folder details for support'))
+
     expect(
       screen.getByText(
         /Use this only if an owner, admin, or support message asks for the project folder/i
       )
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Project folder for support: /workspace/my-new-repo')
+      screen.getByText('Copy this support reference if asked: /workspace/my-new-repo')
     ).toBeInTheDocument()
+    expect(screen.queryByText('Project folder for support: /workspace/my-new-repo')).toBeNull()
     expect(screen.queryByText('Exact folder: /workspace/my-new-repo')).toBeNull()
   })
 
@@ -239,7 +272,8 @@ describe('workspace setup create forms', () => {
     expect(screen.queryByText('Git repository URL')).toBeNull()
     expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
-    expect(screen.getByText(/when agents need project files right away/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create without code instead/i })).toBeInTheDocument()
+    expect(screen.queryByText(/when agents need project files right away/i)).not.toBeInTheDocument()
     expect(screen.getAllByText(/choose Code, then HTTPS/i).length).toBeGreaterThan(0)
     expect(
       screen.getAllByText(/Never paste passwords or access keys here/i).length
@@ -378,7 +412,9 @@ describe('workspace setup create forms', () => {
 
     await waitFor(() => {
       const alert = screen.getByRole('alert')
-      expect(alert).toHaveTextContent('Ask an owner or admin to let you create projects in this team.')
+      expect(alert).toHaveTextContent(
+        'Ask an owner or admin to let you create projects in this team.'
+      )
       expect(alert).not.toHaveTextContent('owner role required')
     })
   })
@@ -403,6 +439,30 @@ describe('workspace setup create forms', () => {
       expect(alert).toHaveTextContent('ask an owner or admin to check Projects in Settings')
       expect(alert).not.toHaveTextContent('project setup')
       expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('does not blame the project name when an unformatted server failure happens', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('database unavailable while inserting project'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Server Details' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
+      expect(alert).toHaveTextContent('Forge could not create the project right now')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Projects in Settings')
+      expect(alert).not.toHaveTextContent('Check the project name and team')
       expect(alert).not.toHaveTextContent('database unavailable')
     })
     expect(onSave).toHaveBeenCalled()

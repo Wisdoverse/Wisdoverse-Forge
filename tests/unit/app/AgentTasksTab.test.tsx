@@ -36,13 +36,13 @@ function makeTask(overrides: Partial<TaskSummary>): TaskSummary {
 describe('AgentTasksTab', () => {
   const previousEmptyNeedsHelpCopy = new RegExp(['Blocked', 'or', 'failed', 'work'].join('\\s+'))
 
-  test('explains agent work loading for first-time users', () => {
+  test('explains agent task-list loading for first-time users', () => {
     getTasksByAgentMock.mockImplementationOnce(() => new Promise(() => undefined))
 
     render(<AgentTasksTab agentId="agent-1" />)
 
-    const loading = screen.getByRole('status', { name: /checking this agent's work list/i })
-    expect(loading).toHaveTextContent("Checking this agent's work list")
+    const loading = screen.getByRole('status', { name: /checking this agent's task list/i })
+    expect(loading).toHaveTextContent("Checking this agent's task list")
     expect(loading).toHaveTextContent(
       'Forge is checking which tasks have been sent to this agent and which ones need your help.'
     )
@@ -50,9 +50,9 @@ describe('AgentTasksTab', () => {
       'If this takes more than a moment, open this agent again or ask an owner or admin to check agent access.'
     )
     expect(loading).toHaveTextContent(
-      'Success looks like active work, completed work, or a create-a-task step.'
+      'Success looks like tasks in progress, completed tasks, or a create-a-task step.'
     )
-    expect(loading).not.toHaveTextContent("Checking this agent's work list...")
+    expect(loading).not.toHaveTextContent("Checking this agent's work list")
   })
 
   test('guides users when no tasks have reached the agent', async () => {
@@ -64,20 +64,25 @@ describe('AgentTasksTab', () => {
     expect(within(emptyState).getByText('Create a task for this agent')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Open the task list, choose New task, and pick this agent. Work will appear here after it is waiting or running.'
+        'Open the task list, choose New task, and pick this agent. Tasks will appear here after they are waiting or running.'
       )
     ).toBeDefined()
     const taskLink = within(emptyState).getByRole('link', { name: 'Open task list' })
     expect(taskLink).toHaveAttribute('href', '/tasks')
     expect(within(emptyState).getByText('Create a task')).toBeDefined()
-    expect(within(emptyState).getByText('Check where tasks wait')).toBeDefined()
+    expect(within(emptyState).getByText('Check the task queue')).toBeDefined()
     expect(
-      within(emptyState).getByText('Open where tasks wait, then make sure this agent is included.')
+      within(emptyState).getByText('Open the task queue, then make sure this agent is included.')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        'Choose this agent directly, or choose a task queue that includes this agent.'
+      )
     ).toBeDefined()
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Work that needs help or stopped early appears there first, so you know what to fix.'
+        'Tasks that need help or stopped early appear there first, so you know what to fix.'
       )
     ).toBeDefined()
     expect(
@@ -90,7 +95,7 @@ describe('AgentTasksTab', () => {
     expect(emptyState.textContent).not.toContain(
       'Send a small task to this agent, or choose where tasks wait'
     )
-    expect(emptyState.textContent).not.toContain('task queue')
+    expect(emptyState.textContent).not.toContain('where tasks wait')
     expect(emptyState.textContent).not.toContain('routed')
     expect(emptyState.textContent).not.toContain('routing')
     expect(emptyState.textContent).not.toContain('Needs action')
@@ -141,9 +146,11 @@ describe('AgentTasksTab', () => {
     expect(screen.queryByText(new RegExp(['unblock', 'them'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText('Stopped with an error')).toBeNull()
     expect(screen.queryByText('These tasks stopped before finishing.')).toBeNull()
-    const search = screen.getByRole('searchbox', { name: "Search this agent's work list" })
+    expect(within(summary).getByText('Agent task list')).toBeDefined()
+    expect(within(summary).queryByText('Agent work list')).toBeNull()
+    const search = screen.getByRole('searchbox', { name: "Search this agent's task list" })
     expect(search).toHaveAccessibleDescription(
-      "Search only filters this agent's work list. Use Show all agent work to return to the full list."
+      "Search only filters this agent's task list. Use Show all agent tasks to return to the full list."
     )
     expect(screen.getByPlaceholderText('Search by task name, problem, or result')).toBe(search)
     expect(screen.queryByPlaceholderText(/blocker/i)).toBeNull()
@@ -171,13 +178,15 @@ describe('AgentTasksTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(within(alert).getByText('Open Work again from this agent.')).toBeDefined()
+    expect(within(alert).getByText('Open Agents and choose this agent again.')).toBeDefined()
     expect(alert.textContent).toContain(
-      "Ask an owner or admin to give you access to this agent's work list."
+      "Ask an owner or admin to give you access to this agent's task list."
     )
     expect(alert.textContent).not.toContain('HTTP 403')
     expect(alert.textContent).not.toContain('Details:')
     expect(alert.textContent).not.toContain("Refresh this agent's work list")
+    expect(alert.textContent).not.toContain("agent's work list")
+    expect(alert.textContent).not.toContain('Open Work again')
   })
 
   test('lets users return to Agents when agent tasks fail to load', async () => {
@@ -219,7 +228,7 @@ describe('AgentTasksTab', () => {
     const filters = screen.getByTestId('agent-task-filter-group')
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show work that needs help or stopped early for this agent, 1 matching task/i,
+        name: /show tasks that need help or stopped early for this agent, 1 matching task/i,
       })
     )
 
@@ -229,7 +238,7 @@ describe('AgentTasksTab', () => {
 
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show all work for this agent, 3 matching tasks/i,
+        name: /show all tasks for this agent, 3 matching tasks/i,
       })
     )
     fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'frontend' } })
@@ -257,7 +266,7 @@ describe('AgentTasksTab', () => {
     fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'SSH key' } })
 
     const emptyState = screen.getByTestId('agent-tasks-filter-empty')
-    expect(emptyState).toHaveTextContent("Search is hiding this agent's work")
+    expect(emptyState).toHaveTextContent("Search is hiding this agent's tasks")
     expect(screen.queryByText('Reconnect account access')).toBeNull()
   })
 
@@ -283,7 +292,7 @@ describe('AgentTasksTab', () => {
     })
 
     const emptyState = screen.getByTestId('agent-tasks-filter-empty')
-    expect(emptyState).toHaveTextContent("Search is hiding this agent's work")
+    expect(emptyState).toHaveTextContent("Search is hiding this agent's tasks")
     expect(screen.queryByText('Prepare customer report')).toBeNull()
   })
 
@@ -300,7 +309,7 @@ describe('AgentTasksTab', () => {
 
     await screen.findByText('Build frontend')
     fireEvent.click(
-      screen.getByRole('button', { name: /show finished work for this agent, 0 matching tasks/i })
+      screen.getByRole('button', { name: /show finished tasks for this agent, 0 matching tasks/i })
     )
 
     await waitFor(() => {
@@ -309,11 +318,13 @@ describe('AgentTasksTab', () => {
     const filterEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText("Filter is hiding this agent's work")).toBeDefined()
-    expect(filterEmpty.textContent).toContain('Use Show all agent work to return to the full list.')
+    expect(within(filterEmpty).getByText("Filter is hiding this agent's tasks")).toBeDefined()
+    expect(filterEmpty.textContent).toContain(
+      'Use Show all agent tasks to return to the full list.'
+    )
     expect(filterEmpty.textContent).not.toContain('No tasks match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /show all agent work/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show all agent tasks/i }))
 
     expect(screen.getByText('Build frontend')).toBeDefined()
   })
@@ -340,15 +351,17 @@ describe('AgentTasksTab', () => {
     const searchEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(searchEmpty).toHaveAttribute('role', 'status')
     expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(searchEmpty).getByText("Search is hiding this agent's work")).toBeDefined()
-    expect(searchEmpty.textContent).toContain('Use Show all agent work to return to the full list.')
+    expect(within(searchEmpty).getByText("Search is hiding this agent's tasks")).toBeDefined()
+    expect(searchEmpty.textContent).toContain(
+      'Use Show all agent tasks to return to the full list.'
+    )
     expect(searchEmpty.textContent).not.toContain('No tasks match this view')
 
-    fireEvent.click(screen.getByRole('button', { name: /show all agent work/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show all agent tasks/i }))
     const filters = screen.getByTestId('agent-task-filter-group')
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show work that needs help or stopped early for this agent, 0 matching tasks/i,
+        name: /show tasks that need help or stopped early for this agent, 0 matching tasks/i,
       })
     )
     fireEvent.change(screen.getByTestId('agent-task-search'), { target: { value: 'frontend' } })
@@ -356,9 +369,11 @@ describe('AgentTasksTab', () => {
     const combinedEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(combinedEmpty).getByText('Search and filter are hiding this work')).toBeDefined()
+    expect(
+      within(combinedEmpty).getByText('Search and filter are hiding these tasks')
+    ).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
-      'Use Show all agent work before assuming this agent has no matching task.'
+      'Use Show all agent tasks before assuming this agent has no matching task.'
     )
     expect(combinedEmpty.textContent).not.toContain('No tasks match this view')
   })

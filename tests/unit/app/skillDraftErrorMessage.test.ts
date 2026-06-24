@@ -70,6 +70,20 @@ describe('skillDraftErrorMessage', () => {
     expect(message).not.toContain('duplicate saved instruction name')
   })
 
+  test('explains nested duplicate names without leaking raw API text', () => {
+    const message = skillDraftErrorMessage({
+      error: {
+        message: 'duplicate saved instruction name',
+        statusCode: 409,
+      },
+    })
+
+    expect(message).toBe(
+      'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
+    )
+    expect(message).not.toContain('duplicate saved instruction name')
+  })
+
   test('turns structured validation failures into field guidance', () => {
     const message = skillDraftErrorMessage({
       code: '422',
@@ -112,6 +126,18 @@ describe('skillDraftErrorMessage', () => {
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')
+  })
+
+  test('keeps unformatted service failures on the saved instruction recovery path', () => {
+    const message = skillDraftErrorMessage(
+      new Error('database unavailable during validation while saving instruction')
+    )
+
+    expect(message).toBe(
+      'Wait a few minutes, then save again. Forge could not save this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Check the name')
   })
 
   test('turns unknown publish failures into a draft check step', () => {

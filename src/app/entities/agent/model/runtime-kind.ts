@@ -15,14 +15,14 @@ export const isApiAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean => a.runt
 export const RUNTIME_KIND_LABELS: Record<AgentRuntimeKind, string> = {
   container: 'Project files',
   cli: 'This computer',
-  api: 'Chat-only AI service',
+  api: 'Simple chat agent',
 }
 
 /** Short labels suited to compact table badges. */
 export const RUNTIME_KIND_SHORT_LABELS: Record<AgentRuntimeKind, string> = {
   container: 'Project files',
   cli: 'This computer',
-  api: 'Chat-only',
+  api: 'Questions only',
 }
 
 /** Canonical runtime kinds in display order. */

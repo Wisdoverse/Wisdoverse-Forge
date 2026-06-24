@@ -27,11 +27,11 @@ afterEach(() => {
 })
 
 describe('landing route preference', () => {
-  test('only shows Start after the user restores the setup checklist', () => {
+  test('shows Start unless the user skipped or completed the setup checklist', () => {
     expect(shouldShowGettingStarted({ gettingStartedDismissed: false })).toBe(true)
     expect(shouldShowGettingStarted({ gettingStartedDismissed: true })).toBe(false)
-    expect(shouldShowGettingStarted({})).toBe(false)
-    expect(shouldShowGettingStarted(null)).toBe(false)
+    expect(shouldShowGettingStarted({})).toBe(true)
+    expect(shouldShowGettingStarted(null)).toBe(true)
   })
 
   test('sends users who skipped or completed Start to Tasks from cached preferences', async () => {
@@ -54,13 +54,13 @@ describe('landing route preference', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
-  test('sends users with no Start preference to Tasks', async () => {
+  test('sends users with no Start preference to Start', async () => {
     useSettingsStore.setState({
       preferences: {},
       preferencesLoaded: true,
     })
 
-    await expect(resolveLandingPath()).resolves.toBe('/tasks')
+    await expect(resolveLandingPath()).resolves.toBe('/start')
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 

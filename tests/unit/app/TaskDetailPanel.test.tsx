@@ -158,7 +158,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.getByText('Agent work history')).toBeDefined()
     expect(await screen.findByText('Agent work: In progress')).toBeDefined()
     expect(screen.queryByText(/Agent try/i)).toBeNull()
-    expect(screen.getByText(/used a work tool shown in Settings/i)).toBeDefined()
+    expect(screen.getByText(/used the saved tool selected in Settings/i)).toBeDefined()
+    expect(screen.queryByText(/work tool shown in Settings/i)).toBeNull()
     expect(screen.queryByText(/work tool you should check/i)).toBeNull()
     expect(screen.getByText(/work help text run-1234/i)).toBeDefined()
     expect(screen.queryByText(/help code run-1234/i)).toBeNull()
@@ -325,12 +326,10 @@ describe('TaskDetailPanel', () => {
       'Try the task again when the request is still useful'
     )
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'returns to where tasks wait'
+      'puts the task back in the task queue'
     )
-    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'try it again'
-    )
-    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('queue')
+    expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent('try it again')
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('where tasks wait')
     expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('attempt')
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
 
@@ -402,9 +401,9 @@ describe('TaskDetailPanel', () => {
       'Let the task continue when it has what it needs'
     )
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'send the task back where tasks wait'
+      'put the task back in the task queue'
     )
-    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('queue')
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('where tasks wait')
     await userEvent.setup().click(screen.getByRole('button', { name: /allow and continue/i }))
 
     await waitFor(() => expect(orchestrationApiMock.approveTask).toHaveBeenCalledWith('task-1'))
@@ -497,6 +496,36 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(/use this result as evidence/i)).toBeNull()
     expect(screen.queryByText(/check the evidence/i)).toBeNull()
     expect(screen.queryByText(previousAddContextCopy)).toBeNull()
+  })
+
+  test('explains where to act when the result is not final yet', async () => {
+    render(
+      <TaskDetailPanel
+        task={{
+          ...mockTask,
+          state: 'working',
+          progress: 85,
+          result: [
+            {
+              name: 'summary.md',
+              mimeType: 'text/markdown',
+              data: 'Partial validation notes are ready.',
+            },
+          ],
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /^result$/i }))
+
+    expect(screen.getByTestId('task-result-review-guide')).toHaveTextContent(
+      'Open Work to change the task or choose another agent'
+    )
+    expect(screen.getByTestId('task-result-review-guide')).toHaveTextContent(
+      'open Updates to check what happened before asking for more input'
+    )
+    expect(screen.queryByText(/Use Work or Updates to decide/i)).toBeNull()
   })
 
   test('uses beginner-friendly names for text result files', async () => {

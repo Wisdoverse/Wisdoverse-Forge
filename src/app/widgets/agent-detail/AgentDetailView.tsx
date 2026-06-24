@@ -8,7 +8,6 @@ import {
   agentRuntimeLabel,
   agentToolLabel,
   isHostCliAgent,
-  LOCAL_AGENT_SETUP_APP_LABEL,
   useAgentsStore,
   type AgentInfo,
 } from '@app/entities/agent'
@@ -56,6 +55,13 @@ interface AgentNextStep {
 function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
   const isCli = Boolean(agent.cliTool)
   const hasTerminal = isCli && !isHostCliAgent(agent)
+  if (!isCli) {
+    return [
+      { id: 'overview', label: 'Overview' },
+      { id: 'history', label: 'Chat' },
+      { id: 'config', label: 'Chat instructions' },
+    ]
+  }
   return [
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks' },
@@ -90,8 +96,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
       ) : (
         <p>
           This agent answers in chat through an AI service. It can answer questions, write, and
-          check text or results, but it cannot open project files on its own. For file work, use an
-          agent on this computer or one that can edit project files.
+          check text or results, but it cannot take Tasks, change code, use computer apps, or open
+          project files on its own. For Tasks and code changes, use Project files or This computer.
         </p>
       )}
     </div>
@@ -99,7 +105,9 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 }
 
 function agentFolderLabel(agent: AgentInfo): string {
-  if (!agent.cliTool) return 'Use another agent for file work'
+  if (!agent.cliTool) {
+    return 'No project files. Use Project files or This computer for Tasks and code changes.'
+  }
   if (!agent.cwd || agent.cwd === '/workspace') {
     return isHostCliAgent(agent)
       ? 'Folder where you pasted the setup text'
@@ -111,7 +119,7 @@ function agentFolderLabel(agent: AgentInfo): string {
 function agentSetupSummary(agent: AgentInfo): string {
   if (isHostCliAgent(agent)) return 'This computer'
   if (agent.cliTool) return 'Project files'
-  return 'Chat-only AI service'
+  return 'Simple chat agent'
 }
 
 export function agentDetailHeaderSubtitle(agent: AgentInfo): string {
@@ -130,10 +138,12 @@ function agentConnectionStatus(agent: AgentInfo): string {
 }
 
 function agentAvailabilityLabel(agent: AgentInfo): string {
+  if (!agent.cliTool && !isHostCliAgent(agent) && agent.status === 'idle')
+    return 'Ready for direct chat'
   if (agent.status === 'idle') return 'Ready for work'
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Open Agents and connect this computer again'
-  if (agent.cliTool) return 'Open Live work and start file work'
+  if (agent.cliTool) return 'Open Live work and start project files'
   return 'Open AI service settings and choose Check connection'
 }
 
@@ -147,9 +157,39 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
   const [recentTasks, setRecentTasks] = useState<TaskSummary[]>([])
   const [recentTasksError, setRecentTasksError] = useState<string | null>(null)
   const ratePercent = Math.round(agent.successRate * 100)
+  const stats = agent.cliTool
+    ? [
+        { label: 'Tasks done', value: String(agent.tasksCompleted) },
+        { label: 'In progress', value: String(agent.tasksInProgress) },
+        { label: 'Finished cleanly', value: `${ratePercent}%` },
+        { label: 'Work type', value: agentSetupSummary(agent) },
+      ]
+    : [
+        { label: 'Messages answered', value: String(agent.tasksCompleted) },
+        { label: 'Replies in progress', value: String(agent.tasksInProgress) },
+        { label: 'Answer success', value: `${ratePercent}%` },
+        { label: 'Work type', value: agentSetupSummary(agent) },
+      ]
   const tabs = tabsFor(agent)
   const statusKey = agentStatusKey(agent.status)
   const statusLabel = agentStatusLabel(agent.status)
+  const detailRows = agent.cliTool
+    ? [
+        { label: 'Where it works', value: agentRuntimeLabel(agent) },
+        { label: 'Can take work', value: statusLabel },
+        { label: 'Project files it can use', value: agent.workspaceName ?? 'Shared project files' },
+        { label: 'Project for new tasks', value: agent.projectName ?? 'Choose when sending work' },
+        { label: 'Folder agents open', value: agentFolderLabel(agent) },
+        { label: 'How it connects', value: agentConnectionStatus(agent) },
+      ]
+    : [
+        { label: 'Where it works', value: agentRuntimeLabel(agent) },
+        { label: 'Can answer', value: statusLabel },
+        { label: 'What it can use', value: 'Connected AI service' },
+        { label: 'Where to start', value: 'Chat' },
+        { label: 'File access', value: agentFolderLabel(agent) },
+        { label: 'How it connects', value: agentConnectionStatus(agent) },
+      ]
 
   useEffect(() => {
     if (!tabs.some((tab) => tab.id === activeTab)) setActiveTab('overview')
@@ -157,6 +197,13 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
   useEffect(() => {
     let cancelled = false
+    if (!agent.cliTool) {
+      setRecentTasks([])
+      setRecentTasksError(null)
+      return () => {
+        cancelled = true
+      }
+    }
     setRecentTasksError(null)
     orchestrationApi
       .getTasksByAgent(agent.id, { limit: 5 })
@@ -170,7 +217,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
         if (!cancelled) {
           setRecentTasks([])
           setRecentTasksError(
-            "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest work."
+            "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest task state."
           )
         }
       })
@@ -275,10 +322,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Tasks done" value={String(agent.tasksCompleted)} />
-            <StatCard label="In progress" value={String(agent.tasksInProgress)} />
-            <StatCard label="Finished cleanly" value={`${ratePercent}%`} />
-            <StatCard label="Work type" value={agentSetupSummary(agent)} />
+            {stats.map((stat) => (
+              <StatCard key={stat.label} label={stat.label} value={stat.value} />
+            ))}
           </div>
 
           {/* Agent info */}
@@ -293,18 +339,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
               Agent overview
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
-              <DetailRow label="Where it works" value={agentRuntimeLabel(agent)} />
-              <DetailRow label="Can take work" value={statusLabel} />
-              <DetailRow
-                label="Project files it can use"
-                value={agent.workspaceName ?? 'Shared project files'}
-              />
-              <DetailRow
-                label="Project for new tasks"
-                value={agent.projectName ?? 'Choose when sending work'}
-              />
-              <DetailRow label="Folder agents open" value={agentFolderLabel(agent)} />
-              <DetailRow label="How it connects" value={agentConnectionStatus(agent)} />
+              {detailRows.map((row) => (
+                <DetailRow key={row.label} label={row.label} value={row.value} />
+              ))}
             </div>
             <WorkspaceBoundaryNote agent={agent} />
           </div>
@@ -328,7 +365,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
                 'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
               )}
             >
-              Checking this agent's file work...
+              Checking this agent's project files...
             </div>
           }
         >
@@ -347,7 +384,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
         !isHostCliAgent(agent) &&
         !agent.containerId && <PendingTerminal agent={agent} />}
 
-      {activeTab === 'plugins' && <AgentPluginsTab agentId={agent.id} onBackToAgents={onBack} />}
+      {activeTab === 'plugins' && agent.cliTool && (
+        <AgentPluginsTab agentId={agent.id} onBackToAgents={onBack} />
+      )}
 
       {activeTab === 'config' && <AgentConfigTab agentId={agent.id} />}
     </div>
@@ -368,7 +407,8 @@ function agentNextStep(
     if (hostCli) {
       return {
         title: 'Reconnect this computer from Agents',
-        detail: `Go back to Agents, choose Connect this computer, copy the new setup text, and paste it in ${LOCAL_AGENT_SETUP_APP_LABEL} on the computer where this agent should work.`,
+        detail:
+          'Go back to Agents, choose Connect this computer, copy the new setup text, and paste it in the setup app shown there on the computer where this agent should work.',
         success: 'The status changes from Not connected to Ready or Working now.',
         ready: false,
         targetBack: true,
@@ -378,9 +418,9 @@ function agentNextStep(
 
     if (hasContainerTerminal) {
       return {
-        title: 'Start file work',
+        title: 'Start project files',
         detail:
-          'Open Live work, choose Start file work, and wait until this agent shows Ready before sending file work.',
+          'Open Live work, choose Start project files, and wait until this agent shows Ready before sending Tasks or code changes.',
         success: 'The agent returns to Ready and can receive tasks.',
         ready: false,
         targetTab: 'terminal',
@@ -389,13 +429,25 @@ function agentNextStep(
     }
 
     return {
-      title: 'Check the AI service before sending work',
+      title: 'Check the AI service before sending a message',
       detail:
-        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending chat work.',
+        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.',
       success: 'The agent returns to Ready and can answer in chat.',
       ready: false,
       targetHref: '/settings/providers',
       actionLabel: 'Open AI service settings',
+    }
+  }
+
+  if (!agent.cliTool) {
+    return {
+      title: 'Send a message in Chat',
+      detail:
+        'Use Chat for direct questions, writing, and result checks. It cannot take Tasks or change project files.',
+      success: 'You can see the answer in this chat history.',
+      ready: true,
+      targetTab: 'history',
+      actionLabel: 'Open chat',
     }
   }
 
@@ -414,7 +466,7 @@ function agentNextStep(
     return {
       title: 'Choose this agent again or open Tasks',
       detail:
-        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work.",
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm the latest task state before sending another task.",
       success: 'You can see the latest task state before deciding what to do next.',
       ready: false,
       targetTab: 'tasks',
@@ -427,7 +479,7 @@ function agentNextStep(
       title: 'Send a small first task',
       detail: hostCli
         ? 'Use Tasks to send a small, low-risk task. The work window stays on this computer while Forge tracks results.'
-        : 'Use Tasks to send a small, low-risk task. Choose this agent, or choose where tasks wait so this agent can receive them.',
+        : 'Use Tasks to send a small, low-risk task. Choose this agent directly, or choose a task queue that includes this agent.',
       success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
       targetTab: 'tasks',
@@ -439,7 +491,7 @@ function agentNextStep(
     title: 'Go to Tasks to check recent activity',
     detail: latestTask
       ? `The latest task was "${latestTask.params.task}" updated ${formatRelativeTime(latestTask.updatedAt)}.`
-      : "Go to Tasks to load this agent's work history and decide what to send next.",
+      : "Go to Tasks to load this agent's task history and decide what task to send next.",
     success: 'You can decide whether to reuse the agent, check result files, or send another task.',
     ready: true,
     targetTab: 'tasks',
@@ -561,15 +613,16 @@ function AssignmentFitCard({
   )
   const availability = agentAvailabilityLabel(agent)
   const hostCli = isHostCliAgent(agent)
+  const chatOnly = !agent.cliTool && !hostCli
   const runtime = agentRuntimeLabel(agent)
   let credential =
-    'Open AI service settings to confirm this chat-only agent can answer. Use another agent for file work.'
+    'Open AI service settings to confirm this simple chat agent can answer. It cannot take Tasks, change code, or use computer apps.'
   if (hostCli) {
     credential = 'Uses the tool accounts and project files available on this computer.'
   } else if (agent.cliTool === 'codex') {
     credential = 'Settings shows whether this tool account is connected.'
   } else if (agent.cliTool) {
-    credential = 'Forge adds project file access when file work starts.'
+    credential = 'Forge adds project file access when project files start.'
   }
 
   return (
@@ -606,17 +659,23 @@ function AssignmentFitCard({
 
       <div className="grid gap-2 text-ui-caption sm:grid-cols-2">
         <ProfileSummaryRow
-          label="Current work"
-          value={activeTask?.params.task ?? agent.currentTask ?? 'Ready for a task'}
+          label={chatOnly ? 'Current chat' : 'Current work'}
+          value={
+            chatOnly
+              ? 'Ready for direct chat'
+              : (activeTask?.params.task ?? agent.currentTask ?? 'Ready for a task')
+          }
         />
         <ProfileSummaryRow
           label="Recent update"
           value={
-            recentTasksError
-              ? recentTasksError
-              : latestTask
-                ? `${latestTask.params.task} updated ${formatRelativeTime(latestTask.updatedAt)}`
-                : 'Send a task to create the first update.'
+            chatOnly
+              ? 'Send a message in Chat to create the first reply.'
+              : recentTasksError
+                ? recentTasksError
+                : latestTask
+                  ? `${latestTask.params.task} updated ${formatRelativeTime(latestTask.updatedAt)}`
+                  : 'Send a task to create the first update.'
           }
         />
         <ProfileSummaryRow label="Where it works" value={runtime} />
@@ -624,8 +683,10 @@ function AssignmentFitCard({
           label="Saved instructions"
           value={
             appliedSkillCount > 0
-              ? `${appliedSkillCount} saved instruction${appliedSkillCount === 1 ? '' : 's'} used in recent work`
-              : 'Finish a task, then save useful steps.'
+              ? `${appliedSkillCount} saved instruction${appliedSkillCount === 1 ? '' : 's'} used in recent ${chatOnly ? 'replies' : 'work'}`
+              : chatOnly
+                ? 'Save useful chat notes after a reply.'
+                : 'Finish a task, then save useful steps.'
           }
         />
         <ProfileSummaryRow label="Account and file access" value={credential} />
@@ -709,12 +770,12 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Start file work to open Live work
+          Start project files to open Live work
         </span>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {agent.cliTool
-            ? `${agentToolLabel(agent.cliTool)} is ready. Start file work before this agent works on files.`
-            : 'This agent does not use file work.'}
+            ? `${agentToolLabel(agent.cliTool)} is ready. Start project files before this agent changes project files.`
+            : 'This agent does not change project files.'}
         </span>
         {agent.cliTool && (
           <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -729,7 +790,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           aria-live="polite"
           className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
-          Check the agent status, then choose Start file work again. If it keeps failing, ask an
+          Check the agent status, then choose Start project files again. If it keeps failing, ask an
           owner or admin to check this agent's connection and access in Agents.
         </div>
       )}
@@ -744,7 +805,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
             starting && 'opacity-50'
           )}
         >
-          {starting ? 'Starting file work...' : 'Start file work'}
+          {starting ? 'Opening project files...' : 'Start project files'}
         </button>
       )}
     </div>

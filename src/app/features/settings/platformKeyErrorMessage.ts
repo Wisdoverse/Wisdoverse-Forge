@@ -1,5 +1,8 @@
 type PlatformKeyAction = 'load' | 'create' | 'remove'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
@@ -20,10 +23,24 @@ function errorText(error: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(error: unknown): number | null {
@@ -78,19 +95,19 @@ function actionFromText(text: string): PlatformKeyAction {
 }
 
 function retryAction(action: PlatformKeyAction): string {
-  if (action === 'create') return 'create this outside tool access key again'
-  if (action === 'remove') return 'remove this outside tool access key again'
-  return 'open Settings and Outside tool access keys again'
+  if (action === 'create') return 'create this tool access key again'
+  if (action === 'remove') return 'remove this tool access key again'
+  return 'open Settings and Tool access keys again'
 }
 
 function connectionMessage(action: PlatformKeyAction): string {
   if (action === 'load') {
-    return 'Check your connection, then open Settings and Outside tool access keys again. Forge could not connect while opening outside tool access settings.'
+    return 'Check your connection, then open Settings and Tool access keys again. Forge could not connect while opening tool access key settings.'
   }
   if (action === 'remove') {
-    return 'Check your connection, then remove this outside tool access key again. The removal did not finish.'
+    return 'Check your connection, then remove this tool access key again. The removal did not finish.'
   }
-  return 'Check your connection, then create this outside tool access key again. The creation did not finish.'
+  return 'Check your connection, then create this tool access key again. The creation did not finish.'
 }
 
 export function platformKeyErrorMessage(error: unknown): string {
@@ -109,10 +126,16 @@ export function platformKeyErrorMessage(error: unknown): string {
     lower.includes('forbidden') ||
     lower.includes('role required')
   ) {
-    return 'Ask an owner or admin to let you create or remove outside tool access keys.'
+    return 'Ask an owner or admin to let you create or remove tool access keys.'
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
-    return 'Open Settings and Outside tool access keys again, check the current key, then choose a different name or remove the old key first.'
+    return 'Open Settings and Tool access keys again, check the current key, then choose a different name or remove the old key first.'
+  }
+  if (RAW_SERVICE_DETAIL.test(lower)) {
+    if (action === 'load') {
+      return 'Open Settings and Tool access keys again. If it still fails, ask an owner or admin to check tool access key settings.'
+    }
+    return `Open Settings and Tool access keys again, then ${retry}. If it still fails, ask an owner or admin to check tool access key settings.`
   }
   if (
     code === 422 ||
@@ -123,21 +146,21 @@ export function platformKeyErrorMessage(error: unknown): string {
     return `Enter the tool or job name, then ${retry}.`
   }
   if (code === 429 || lower.includes('busy') || lower.includes('too many')) {
-    return `Wait a minute, then ${retry}. Forge is receiving too many outside tool access requests right now.`
+    return `Wait a minute, then ${retry}. Forge is receiving too many tool access key requests right now.`
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      return 'Open Settings and Tool access keys again. If it still fails, ask an owner or admin to check tool access key settings.'
     }
-    return `Open Settings and Outside tool access keys again, then ${retry}. If it still fails, ask an owner or admin to check outside tool access settings.`
+    return `Open Settings and Tool access keys again, then ${retry}. If it still fails, ask an owner or admin to check tool access key settings.`
   }
   if (isNetworkError(error)) {
     return connectionMessage(action)
   }
 
   if (action === 'load') {
-    return 'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
+    return 'Open Settings and Tool access keys again. If it still fails, ask an owner or admin to check tool access key settings.'
   }
 
-  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check outside tool access settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check tool access key settings.`
 }

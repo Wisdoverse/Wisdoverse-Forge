@@ -85,7 +85,7 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('Choose an agent to start this task')).toBeInTheDocument()
-    expect(screen.getByText('Choose an available agent before this task can start.')).toBeDefined()
+    expect(screen.getByText('Choose a ready agent before this task can start.')).toBeDefined()
     expect(screen.getByText('Choose an agent first, then start the task.')).toBeDefined()
     expect(screen.queryByText('No agent assigned yet')).toBeNull()
   })
@@ -175,7 +175,8 @@ describe('HistoryTab', () => {
     render(<HistoryTab task={makeTask()} />)
 
     expect(await screen.findByText('Agent work history')).toBeInTheDocument()
-    expect(screen.getByText(/Used a work tool shown in Settings/i)).toBeInTheDocument()
+    expect(screen.getByText(/Used the saved tool selected in Settings/i)).toBeInTheDocument()
+    expect(screen.queryByText(/work tool shown in Settings/i)).toBeNull()
     expect(screen.queryByText(/work tool you should check/i)).toBeNull()
     expect(screen.getByText(/Work help text run-tool/i)).toBeInTheDocument()
     expect(screen.queryByText(/Help code run-tool/i)).toBeNull()
@@ -369,7 +370,7 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findByText('Waiting for an available agent')).toBeInTheDocument()
+    expect(await screen.findByText('Waiting for a ready agent')).toBeInTheDocument()
     expect(screen.getByText('Needs agent')).toBeInTheDocument()
     expect(screen.getByText(/Choose or start an agent so this task/i)).toBeInTheDocument()
     expect(

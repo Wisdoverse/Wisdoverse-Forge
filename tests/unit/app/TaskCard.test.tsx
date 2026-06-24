@@ -235,7 +235,7 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Waiting for an available agent to start. If it stays here, choose or start an agent.'
+      'Waiting for a ready agent to start. If it stays here, choose or start an agent.'
     )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('pick this up')
   })
