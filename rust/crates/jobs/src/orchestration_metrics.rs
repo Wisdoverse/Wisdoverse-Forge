@@ -19,6 +19,7 @@ pub struct OrchestrationControlPlaneSnapshot {
     pub job_queue_running: i64,
     pub job_queue_dead: i64,
     pub job_queue_oldest_pending_age_seconds: f64,
+    pub job_queue_oldest_running_age_seconds: f64,
 }
 
 pub struct OrchestrationMetricsWorker {
@@ -155,6 +156,19 @@ pub async fn collect_control_plane_snapshot(
     .fetch_one(pool)
     .await?;
 
+    // Age of the longest-held lock among `running` jobs. A value climbing past
+    // `JOB_QUEUE_STALE_LOCK_TIMEOUT_SECS` means the stale-lock reaper (F044) is
+    // about to release abandoned work — a crashed-worker early warning.
+    let job_queue_oldest_running_age_seconds: f64 = sqlx::query_scalar(
+        r#"SELECT COALESCE(
+               CAST(EXTRACT(EPOCH FROM (NOW() - MIN(COALESCE(locked_at, created_at)))) AS DOUBLE PRECISION),
+               0.0
+           )
+           FROM job_queue WHERE status = 'running'"#,
+    )
+    .fetch_one(pool)
+    .await?;
+
     Ok(OrchestrationControlPlaneSnapshot {
         assignment_outbox_backlog,
         assignment_outbox_oldest_age_seconds,
@@ -166,6 +180,7 @@ pub async fn collect_control_plane_snapshot(
         job_queue_running,
         job_queue_dead,
         job_queue_oldest_pending_age_seconds,
+        job_queue_oldest_running_age_seconds,
     })
 }
 
@@ -184,6 +199,8 @@ pub fn record_control_plane_snapshot(snapshot: &OrchestrationControlPlaneSnapsho
     metrics::gauge!("agentforge_job_queue_depth", "status" => "dead").set(snapshot.job_queue_dead as f64);
     metrics::gauge!("agentforge_job_queue_oldest_pending_age_seconds")
         .set(snapshot.job_queue_oldest_pending_age_seconds);
+    metrics::gauge!("agentforge_job_queue_oldest_running_age_seconds")
+        .set(snapshot.job_queue_oldest_running_age_seconds);
 }
 
 pub fn register_metrics() {
@@ -225,6 +242,10 @@ pub fn register_metrics() {
         "agentforge_job_queue_oldest_pending_age_seconds",
         "Age in seconds of the oldest pending job_queue row."
     );
+    metrics::describe_gauge!(
+        "agentforge_job_queue_oldest_running_age_seconds",
+        "Age in seconds of the longest-held lock among running job_queue rows."
+    );
 
     record_control_plane_snapshot(&OrchestrationControlPlaneSnapshot {
         assignment_outbox_backlog: 0,
@@ -237,6 +258,7 @@ pub fn register_metrics() {
         job_queue_running: 0,
         job_queue_dead: 0,
         job_queue_oldest_pending_age_seconds: 0.0,
+        job_queue_oldest_running_age_seconds: 0.0,
     });
     metrics::counter!("agentforge_orchestration_control_plane_metrics_errors_total").increment(0);
     metrics::counter!("agentforge_orchestration_working_lease_expired_total").increment(0);
@@ -412,10 +434,10 @@ mod tests {
         .await
         .expect("seed recent pending job");
 
-        // 1 running row
+        // 1 running row whose lock was taken ~4 minutes ago (the oldest running)
         sqlx::query(
-            r#"INSERT INTO job_queue (queue, payload, status)
-               VALUES ('test', '{}', 'running')"#,
+            r#"INSERT INTO job_queue (queue, payload, status, locked_at)
+               VALUES ('test', '{}', 'running', NOW() - INTERVAL '4 minutes')"#,
         )
         .execute(&pool)
         .await
@@ -440,6 +462,12 @@ mod tests {
             snapshot.job_queue_oldest_pending_age_seconds >= 290.0,
             "expected oldest-pending age >= 290s, got {}",
             snapshot.job_queue_oldest_pending_age_seconds
+        );
+        // oldest running lock is ~4 minutes = ~240 seconds
+        assert!(
+            snapshot.job_queue_oldest_running_age_seconds >= 230.0,
+            "expected oldest-running age >= 230s, got {}",
+            snapshot.job_queue_oldest_running_age_seconds
         );
     }
 }
