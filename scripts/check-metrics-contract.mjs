@@ -2,18 +2,18 @@
 // Metrics contract lint (#891 F077/F076).
 //
 // Prometheus alert rules (ops/prometheus/*.yml) and Grafana dashboards
-// (ops/grafana/dashboards/*.json) must only reference metric series the Rust
-// code actually emits. A reference to a never-emitted series makes the alert
-// un-fireable and the panel render empty — silent loss of incident-response
-// signal (the dead-dashboard class). This lint fails CI on any such drift.
+// (ops/grafana/dashboards/*.json) must only reference metric series — and label
+// keys — the Rust code actually emits. A reference to a never-emitted series, or
+// a stale label key (the old `http_requests_total{code=~"5.."}` / `{route=...}`
+// selectors), makes the alert un-fireable and the panel render empty: silent
+// loss of incident-response signal (the dead-dashboard class, cf. #464/#465).
+// This lint fails CI on either drift.
 //
-// Contract: the EMITTED set is every `agentforge_*` / `http_*` / `af_*` metric
-// name that appears as a string literal anywhere under rust/ (the metrics
-// macros — counter!/gauge!/histogram!/describe_* — and the register_* sites all
-// pass the name as such a literal). The REFERENCED set is every same-prefixed
-// token in the ops alert/dashboard files. Anything referenced but not emitted
-// is a violation. External/standard series (process_*, container_*, machine_*,
-// probe_*, up, …) are out of scope and not checked.
+// References are read ONLY from PromQL — YAML `expr:` blocks and Grafana `expr`/
+// `query` fields — so prose in `summary:`/`runbook:`/comments is never mistaken
+// for a metric. The EMITTED set is every owned metric name (string literal under
+// rust/, where the metrics macros and register_* sites pass the name). External
+// series (process_*, container_*, machine_*, probe_*) are out of scope.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -21,9 +21,13 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-// Our metric names are conventionally prefixed. A bare-word metric token.
-const OWNED_PREFIXES = ['agentforge_', 'http_', 'af_']
-const METRIC_TOKEN = /\b(agentforge_[a-z0-9_]+|http_[a-z0-9_]+|af_[a-z0-9_]+)\b/g
+const OWNED_PREFIXES = ['agentforge_', 'http_', 'af_', 'agents_']
+const ownedAlt = OWNED_PREFIXES.map((p) => `${p}[a-z0-9_]+`).join('|')
+const METRIC_TOKEN = new RegExp(`\\b(${ownedAlt})\\b`, 'g')
+
+// Label keys the code never emits — using one as a selector/grouping silently
+// matches zero series. The HTTP metrics use {method, path, status, le}.
+const FORBIDDEN_LABEL = /\b(code|route)\b\s*(=~?|[,)}])/
 
 function isOwned(name) {
   return OWNED_PREFIXES.some((prefix) => name.startsWith(prefix))
@@ -43,62 +47,90 @@ function walk(dir, filter, out = []) {
 function collectEmitted() {
   const emitted = new Set()
   const rustDir = path.join(repoRoot, 'rust')
+  const literal = new RegExp(`"(${ownedAlt})"`, 'g')
   for (const file of walk(rustDir, (f) => f.endsWith('.rs'))) {
-    const src = fs.readFileSync(file, 'utf8')
-    // String literals only — avoids picking up label values or comments' prose.
-    for (const match of src.matchAll(/"(agentforge_[a-z0-9_]+|http_[a-z0-9_]+|af_[a-z0-9_]+)"/g)) {
-      emitted.add(match[1])
-    }
+    for (const match of fs.readFileSync(file, 'utf8').matchAll(literal)) emitted.add(match[1])
   }
   return emitted
 }
 
-// REFERENCED: owned metric tokens in the ops alert/dashboard files.
-function collectReferenced() {
-  const refs = new Map() // name -> Set(relPath)
-  const opsDirs = [path.join(repoRoot, 'ops', 'prometheus'), path.join(repoRoot, 'ops', 'grafana', 'dashboards')]
-  for (const dir of opsDirs) {
-    if (!fs.existsSync(dir)) continue
-    for (const file of walk(dir, (f) => f.endsWith('.yml') || f.endsWith('.yaml') || f.endsWith('.json'))) {
-      const raw = fs.readFileSync(file, 'utf8')
-      // Strip YAML comments so prose / file-path mentions (e.g.
-      // `http_metrics.rs` in a doc comment) are not mistaken for metric
-      // references. JSON has no comments. A metric token immediately followed by
-      // `.` is a filename, not a series, so it is excluded too.
-      const isYaml = file.endsWith('.yml') || file.endsWith('.yaml')
-      const text = isYaml
-        ? raw
-            .split('\n')
-            .map((line) => line.replace(/#.*$/, ''))
-            .join('\n')
-        : raw
-      const rel = path.relative(repoRoot, file)
-      for (const match of text.matchAll(METRIC_TOKEN)) {
-        // A trailing `.` (file extension) means this is a path, not a series.
-        if (text[match.index + match[0].length] === '.') continue
-        const name = match[1].replace(/_bucket$|_sum$|_count$/, '') // histogram-derived suffixes
+const leadingSpaces = (line) => line.length - line.trimStart().length
+
+// Collect the PromQL expression strings from a YAML alert file: `expr:` inline
+// values and `expr: |` block scalars (their more-indented continuation lines).
+function yamlExprs(raw) {
+  const lines = raw.split('\n')
+  const out = []
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = lines[i].match(/^(\s*)expr:\s*(.*)$/)
+    if (!m) continue
+    const indent = m[1].length
+    const inline = m[2].trim()
+    if (inline === '' || inline.startsWith('|') || inline.startsWith('>')) {
+      for (let j = i + 1; j < lines.length; j += 1) {
+        if (lines[j].trim() === '' || leadingSpaces(lines[j]) > indent) out.push(lines[j])
+        else break
+      }
+    } else {
+      out.push(inline)
+    }
+  }
+  return out
+}
+
+// Collect PromQL strings from a Grafana dashboard: every `expr` (panel targets)
+// and `query` (template variables, e.g. `label_values(metric, label)`).
+function jsonExprs(raw) {
+  const out = []
+  const visit = (node) => {
+    if (Array.isArray(node)) node.forEach(visit)
+    else if (node && typeof node === 'object') {
+      for (const [key, value] of Object.entries(node)) {
+        if ((key === 'expr' || key === 'query') && typeof value === 'string') out.push(value)
+        else visit(value)
+      }
+    }
+  }
+  visit(JSON.parse(raw))
+  return out
+}
+
+const emitted = collectEmitted()
+const refs = new Map() // metric name -> Set(file)
+const labelViolations = []
+
+const opsDirs = [path.join(repoRoot, 'ops', 'prometheus'), path.join(repoRoot, 'ops', 'grafana', 'dashboards')]
+for (const dir of opsDirs) {
+  if (!fs.existsSync(dir)) continue
+  for (const file of walk(dir, (f) => /\.(ya?ml|json)$/.test(f))) {
+    const raw = fs.readFileSync(file, 'utf8')
+    const rel = path.relative(repoRoot, file)
+    const exprs = file.endsWith('.json') ? jsonExprs(raw) : yamlExprs(raw)
+    for (const expr of exprs) {
+      for (const match of expr.matchAll(METRIC_TOKEN)) {
+        const name = match[1].replace(/_bucket$|_sum$|_count$/, '')
         if (!isOwned(name)) continue
         if (!refs.has(name)) refs.set(name, new Set())
         refs.get(name).add(rel)
       }
+      if (FORBIDDEN_LABEL.test(expr)) {
+        labelViolations.push(`  ${rel}: '${expr.trim()}' uses a never-emitted label key (code/route); the HTTP metrics use status/path`)
+      }
     }
   }
-  return refs
 }
 
-const emitted = collectEmitted()
-const referenced = collectReferenced()
-
 const violations = []
-for (const [name, files] of [...referenced].sort()) {
+for (const [name, files] of [...refs].sort()) {
   if (!emitted.has(name)) {
     violations.push(`  ${name} — referenced in ${[...files].join(', ')} but never emitted by the Rust code`)
   }
 }
+violations.push(...labelViolations)
 
 if (violations.length > 0) {
   process.stderr.write(
-    'ERROR: metrics contract violated — alert/dashboard references to never-emitted series.\n' +
+    'ERROR: metrics contract violated — alert/dashboard references that do not match emitted series/labels.\n' +
       'Fix the metric name/label to match what the code emits, or stop emitting the reference.\n\n' +
       'Violations:\n' +
       violations.join('\n') +
@@ -107,4 +139,6 @@ if (violations.length > 0) {
   process.exit(1)
 }
 
-process.stdout.write(`[metrics-contract] ${referenced.size} owned metric references checked against ${emitted.size} emitted series; all resolve.\n`)
+process.stdout.write(
+  `[metrics-contract] ${refs.size} owned metric references checked against ${emitted.size} emitted series; names + labels resolve.\n`,
+)
