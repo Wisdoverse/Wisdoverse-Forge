@@ -136,14 +136,17 @@ pub fn validate_security(config: &ContainerConfig) -> Result<(), Vec<SecurityVio
         violations.push(SecurityViolation::HostPid);
     }
 
-    // Require a memory limit specifically: a CPU-only limit leaves memory
-    // unbounded, so the host OOM-killer can be triggered against other tenants.
-    if config.resources.memory_bytes.is_none() {
+    // Require a STRICTLY POSITIVE memory limit: a CPU-only limit leaves memory
+    // unbounded, and Docker treats `memory=0` as unlimited — so a `Some(0)` from
+    // an authenticated config payload would silently bypass the cap.
+    if config.resources.memory_bytes.is_none_or(|bytes| bytes <= 0) {
         violations.push(SecurityViolation::NoResourceLimits);
     }
 
-    // Require a pids limit to close the fork-bomb DoS vector.
-    if config.resources.pids_limit.is_none() {
+    // Require a STRICTLY POSITIVE pids limit to close the fork-bomb DoS vector.
+    // Docker treats `pids_limit` of 0 or -1 as unlimited, so presence alone is
+    // not enough.
+    if config.resources.pids_limit.is_none_or(|pids| pids <= 0) {
         violations.push(SecurityViolation::MissingPidsLimit);
     }
 
@@ -232,6 +235,27 @@ mod tests {
             pids_limit: None,
         };
         assert!(validate_security(&cfg).is_err(), "missing pids_limit allows fork-bomb");
+    }
+
+    #[test]
+    fn rejects_nonpositive_resource_limits() {
+        // Docker treats memory=0 / pids<=0 as UNLIMITED, so a Some(0)/Some(-1)
+        // from an authenticated config payload must be rejected, not accepted.
+        for (mem, pids) in [
+            (Some(0), Some(256)),
+            (Some(-1), Some(256)),
+            (Some(512 * 1024 * 1024), Some(0)),
+            (Some(512 * 1024 * 1024), Some(-1)),
+        ] {
+            let mut cfg = valid_config();
+            cfg.resources = ResourceLimits {
+                cpu_quota: Some(100_000),
+                memory_bytes: mem,
+                memory_swap_bytes: None,
+                pids_limit: pids,
+            };
+            assert!(validate_security(&cfg).is_err(), "non-positive limit mem={mem:?} pids={pids:?} must be rejected");
+        }
     }
 
     #[test]
