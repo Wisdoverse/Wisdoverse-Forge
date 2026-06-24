@@ -55,12 +55,26 @@ fn authorize(headers: &HeaderMap, internal_token: &str) -> Result<(), Box<Respon
             (StatusCode::UNAUTHORIZED, Json(auth_error_body("invalid authorization token"))).into_response(),
         ));
     };
-    if value != format!("Bearer {internal_token}") {
+    if !constant_time_eq(value.as_bytes(), format!("Bearer {internal_token}").as_bytes()) {
         return Err(Box::new(
             (StatusCode::UNAUTHORIZED, Json(auth_error_body("invalid authorization token"))).into_response(),
         ));
     }
     Ok(())
+}
+
+/// Constant-time byte comparison so the internal-token check does not leak the token
+/// through response timing (#885). Length differences short-circuit, which only reveals
+/// length, not content.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }
 
 async fn handle_jsonrpc(tools: &dyn McpAgentTools, request: Value) -> Value {
@@ -109,26 +123,32 @@ async fn handle_create(tools: &dyn McpAgentTools, arguments: &Value) -> Result<S
     };
 
     let result = tools.create_session(request).await.map_err(app_error_message)?;
-    create_result_text(result.agent_id, &result.status, &result.name)
+    create_result_text(result.agent_id, &result.status, &result.name, result.org_id, result.workspace_id)
 }
 
 async fn handle_prompt(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
+    let org_id = parse_required_uuid(arguments, "orgId")?;
+    let workspace_id = parse_required_uuid(arguments, "workspaceId")?;
     let agent_id = parse_required_uuid(arguments, "agentId")?;
     let Some(prompt) = arguments.get("prompt").and_then(Value::as_str) else {
         return Err("missing required argument: prompt".to_string());
     };
-    tools.send_prompt(agent_id, prompt).await.map_err(app_error_message)?;
+    tools.send_prompt(org_id, workspace_id, agent_id, prompt).await.map_err(app_error_message)?;
     ok_result_text()
 }
 
 async fn handle_status(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
+    let org_id = parse_required_uuid(arguments, "orgId")?;
+    let workspace_id = parse_required_uuid(arguments, "workspaceId")?;
     let agent_id = parse_required_uuid(arguments, "agentId")?;
-    let status = tools.session_status(agent_id).await.map_err(app_error_message)?;
+    let status = tools.session_status(org_id, workspace_id, agent_id).await.map_err(app_error_message)?;
     status_result_text(status.agent_id, &status.status)
 }
 
 async fn handle_destroy(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
+    let org_id = parse_required_uuid(arguments, "orgId")?;
+    let workspace_id = parse_required_uuid(arguments, "workspaceId")?;
     let agent_id = parse_required_uuid(arguments, "agentId")?;
-    tools.destroy_session(agent_id).await.map_err(app_error_message)?;
+    tools.destroy_session(org_id, workspace_id, agent_id).await.map_err(app_error_message)?;
     ok_result_text()
 }

@@ -61,9 +61,10 @@ async fn session_status_supports_streamable_http_mcp_contract() {
     let (endpoint, handle) = spawn_server(app).await;
 
     let client = OutboundMcpClient::new(endpoint, String::new()).expect("client");
-    let result = tokio::time::timeout(std::time::Duration::from_secs(2), client.session_status("agent-1"))
-        .await
-        .expect("client request timeout");
+    let result =
+        tokio::time::timeout(std::time::Duration::from_secs(2), client.session_status("org-1", "ws-1", "agent-1"))
+            .await
+            .expect("client request timeout");
 
     handle.abort();
     let _ = handle.await;
@@ -116,9 +117,10 @@ async fn session_status_falls_back_to_legacy_agentforge_tool_names() {
     let (endpoint, handle) = spawn_server(app).await;
 
     let client = OutboundMcpClient::new(endpoint, String::new()).expect("client");
-    let result = tokio::time::timeout(std::time::Duration::from_secs(2), client.session_status("agent-1"))
-        .await
-        .expect("client request timeout");
+    let result =
+        tokio::time::timeout(std::time::Duration::from_secs(2), client.session_status("org-1", "ws-1", "agent-1"))
+            .await
+            .expect("client request timeout");
 
     handle.abort();
     let _ = handle.await;
