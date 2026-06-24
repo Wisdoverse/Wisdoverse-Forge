@@ -355,12 +355,11 @@ mod tests {
             panic!("boom from handler");
         }
 
-        // Same nesting order as production: inner middleware (CatchPanic) is
-        // applied first, the metrics layer is applied last so it is OUTERMOST.
-        let app = Router::new()
-            .route("/panic", get(panic_handler))
-            .layer(crate::middleware::catch_panic_layer())
-            .layer(axum::middleware::from_fn(track_http_metrics));
+        // Use the SAME helper `create_router` uses to apply the CatchPanic +
+        // metrics layers, so this test pins the production ordering (#891/F080).
+        // Re-listing `.layer()` calls here would let `create_router` drift while
+        // this stayed green.
+        let app = crate::router::apply_panic_and_metrics_layers(Router::new().route("/panic", get(panic_handler)));
 
         let (status, snapshot) = run_request_capturing_on(app, "/panic");
         // CatchPanic converted the panic into a synthesized 500 Response.
