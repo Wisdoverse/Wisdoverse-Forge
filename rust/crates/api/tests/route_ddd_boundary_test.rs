@@ -782,3 +782,210 @@ fn contains_mcp_live_service_wiring(line: &str) -> bool {
     .iter()
     .any(|pattern| line.contains(pattern))
 }
+
+/// DDD keystone guard (#886-track DDD-1): the domain layer must stay independent
+/// of the persistence layer. Domain types own pure business policies and
+/// `Serialize`-derived projections; `sqlx::FromRow` derives, `agentforge_db`
+/// row/entity imports, and `From<*Row>` adapters belong in services/repositories.
+///
+/// `DOMAIN_PERSISTENCE_BASELINE` records the EXACT current count of persistence
+/// dependencies per dirty domain file so CI stays green while DDD-2 cleanup
+/// lands. The baseline is a shrink-only ratchet:
+/// - a file not in the baseline must have ZERO dependencies (stops the
+///   self-propagating leak the audit found);
+/// - a baselined file whose count GROWS fails the build (no new debt in an
+///   already-dirty file — the gap codex flagged with a whole-file allowlist);
+/// - a baselined file whose count DROPS fails too, forcing the entry to be
+///   lowered (or removed at 0) so the ratchet tightens automatically.
+const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
+    ("admin.rs", 3),
+    ("agent.rs", 1),
+    ("context.rs", 5),
+    ("context_preview.rs", 1),
+    ("credential.rs", 3),
+    ("inbox.rs", 2),
+    ("observability.rs", 1),
+    ("orchestration.rs", 2),
+    ("project_clone.rs", 1),
+    ("turn.rs", 1),
+];
+
+#[test]
+fn domain_layer_stays_persistence_independent() {
+    let domain_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/domain");
+    let mut errors = Vec::new();
+
+    let mut seen_baseline_keys = std::collections::BTreeSet::new();
+
+    for file in rust_files_recursive(&domain_dir) {
+        // Key by the path RELATIVE to the domain root (with forward slashes), not
+        // the basename: the scan is recursive, so a future `domain/**/admin.rs`
+        // must NOT inherit the flat `admin.rs` allowance (codex review P2).
+        let rel =
+            file.strip_prefix(&domain_dir).unwrap_or(&file).to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+        let source = fs::read_to_string(&file).expect("read domain source");
+
+        let count = domain_persistence_reference_count(&source);
+
+        let baseline = DOMAIN_PERSISTENCE_BASELINE.iter().find(|(f, _)| *f == rel).map(|(_, c)| *c);
+        if baseline.is_some() {
+            seen_baseline_keys.insert(rel.clone());
+        }
+        match baseline {
+            None if count > 0 => errors.push(format!(
+                "{}: {count} persistence dependency(ies) in a clean domain file (agentforge_db / FromRow / From<*Row> / crate::repositories); move row adapters to services/repositories",
+                file.display()
+            )),
+            Some(expected) if count > expected => errors.push(format!(
+                "{}: persistence dependencies grew {expected} -> {count}; the DDD-1 baseline must only shrink (move the new coupling out of domain)",
+                file.display()
+            )),
+            Some(expected) if count < expected => errors.push(format!(
+                "{}: persistence dependencies dropped {expected} -> {count}; lower its DOMAIN_PERSISTENCE_BASELINE entry to {count} (or remove it when 0)",
+                file.display()
+            )),
+            _ => {}
+        }
+    }
+
+    // A baseline entry whose file was renamed/deleted leaves a stale allowance a
+    // future same-path file could inherit — fail so the entry is removed (P3).
+    for (key, _) in DOMAIN_PERSISTENCE_BASELINE {
+        if !seen_baseline_keys.contains(*key) {
+            errors.push(format!(
+                "DOMAIN_PERSISTENCE_BASELINE has a stale entry `{key}` with no matching domain file; remove it so no future file inherits its allowance"
+            ));
+        }
+    }
+
+    assert!(errors.is_empty(), "domain purity (DDD-1) violations:\n{}", errors.join("\n"));
+}
+
+/// Count persistence references across a domain SOURCE file. Operates on whole
+/// `use` statements (reconstructed across rustfmt line-splits) so widening a
+/// braced import like `use agentforge_db::entities::{A, B, C}` always raises the
+/// count even when formatted across multiple lines (codex review P2). Each
+/// imported entity, each `FromRow`, each `From<*Row>` impl, and each
+/// `crate::repositories::` reference counts once.
+fn domain_persistence_reference_count(source: &str) -> usize {
+    let lines: Vec<&str> = production_lines(source).into_iter().map(|(_, line)| line).collect();
+
+    // Pass 1: collect the DB entity/row type names this file imports from
+    // `agentforge_db`, so a new `impl From<ThatEntity>` adapter — even one whose
+    // type is not `*Row`-suffixed (e.g. `User`, `ContextCandidate`) — is counted
+    // as new persistence coupling in an already-dirty file (codex review P2).
+    let mut imported_entities: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut index = 0;
+    while index < lines.len() {
+        let trimmed = lines[index].trim_start();
+        if trimmed.starts_with("use ") {
+            let mut statement = String::from(lines[index]);
+            while !statement.contains(';') && index + 1 < lines.len() {
+                index += 1;
+                statement.push(' ');
+                statement.push_str(lines[index]);
+            }
+            if statement.contains("agentforge_db") {
+                collect_imported_entities(&statement, &mut imported_entities);
+            }
+        }
+        index += 1;
+    }
+
+    // Pass 2: count references.
+    let mut count = 0;
+    let mut index = 0;
+    while index < lines.len() {
+        let line = lines[index];
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") {
+            index += 1;
+            continue;
+        }
+
+        if trimmed.starts_with("use ") {
+            // Reconstruct the full `use ...;` statement across continuation lines.
+            let mut statement = String::from(line);
+            while !statement.contains(';') && index + 1 < lines.len() {
+                index += 1;
+                statement.push(' ');
+                statement.push_str(lines[index]);
+            }
+            count += count_use_statement_references(&statement);
+        } else {
+            count += count_non_use_line_references(line, &imported_entities);
+        }
+        index += 1;
+    }
+
+    count
+}
+
+/// The last `::`-segment of a path (the bare type name), with surrounding
+/// whitespace and a leading `&` stripped.
+fn last_type_segment(path: &str) -> &str {
+    path.trim().trim_start_matches('&').trim().rsplit("::").next().unwrap_or(path).trim()
+}
+
+/// The entity/type identifiers (CamelCase, uppercase-initial) named anywhere in
+/// an `agentforge_db` `use` statement. Counting identifiers rather than a single
+/// `{...}` pair handles nested imports like
+/// `use agentforge_db::{entities::{User, Workspace}, x::Row};` — module segments
+/// (`entities`, `x`) are lowercase and ignored (codex review P2).
+fn agentforge_db_entity_idents(statement: &str) -> impl Iterator<Item = &str> {
+    statement
+        .split(|character: char| !(character.is_alphanumeric() || character == '_'))
+        .filter(|word| word.chars().next().is_some_and(char::is_uppercase))
+}
+
+/// Record the entity/row type names imported by an `agentforge_db` `use`
+/// statement into `out`.
+fn collect_imported_entities(statement: &str, out: &mut std::collections::BTreeSet<String>) {
+    for name in agentforge_db_entity_idents(statement) {
+        out.insert(name.to_string());
+    }
+}
+
+/// References inside a reconstructed `use` statement: each `agentforge_db`
+/// entity/type identifier counts once (a bare single import like
+/// `agentforge_db::inbox_notifications::InboxNotificationRow` yields its one
+/// terminal type); each `crate::repositories::` reference counts once.
+fn count_use_statement_references(statement: &str) -> usize {
+    let mut count = 0;
+    if statement.contains("agentforge_db") {
+        count += agentforge_db_entity_idents(statement).count();
+    }
+    count += statement.matches("crate::repositories::").count();
+    count
+}
+
+/// References on a non-`use` production line. A `From`/`TryFrom` adapter whose
+/// input is a DB row/entity (a `*Row` type, an `agentforge_db` path, or an
+/// imported entity) counts once — and short-circuits so the `agentforge_db`
+/// substring on the same line is not double-counted. Otherwise a bare
+/// `agentforge_db` path (fn arg / inline type) counts once, plus each `FromRow`
+/// and each `crate::repositories::` reference.
+fn count_non_use_line_references(line: &str, imported_entities: &std::collections::BTreeSet<String>) -> usize {
+    if let Some(inner) = from_impl_input_type(line) {
+        let base = last_type_segment(inner);
+        if inner.contains("agentforge_db") || base.ends_with("Row") || imported_entities.contains(base) {
+            return 1;
+        }
+    }
+
+    let mut count = 0;
+    if line.contains("agentforge_db") {
+        count += 1;
+    }
+    count += line.matches("FromRow").count();
+    count += line.matches("crate::repositories::").count();
+    count
+}
+
+/// Extract `X` from `impl From<X> for ...` / `impl TryFrom<X> for ...`.
+fn from_impl_input_type(line: &str) -> Option<&str> {
+    let rest = line.trim_start().strip_prefix("impl ")?;
+    let after = rest.strip_prefix("From<").or_else(|| rest.strip_prefix("TryFrom<"))?;
+    let end = after.find('>')?;
+    Some(&after[..end])
+}
