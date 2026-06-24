@@ -146,6 +146,13 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
+    // Bind the relay socket owner-only NOW, while the process is still effectively
+    // single-threaded (before any task is spawned), so the brief process-global
+    // umask change during bind cannot affect concurrent file creation (F065). The
+    // listener is served by `unix_socket_listener::run` further below.
+    let relay_socket = unix_socket_listener::RELAY_SOCKET_PATH;
+    let relay_listener = unix_socket_listener::bind_relay_listener(relay_socket)?;
+
     // Shutdown coordination.
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
@@ -277,18 +284,19 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Spawn the relay-socket listener. This binds the Unix socket the CLI relay
-    // hook writes to (previously unbound, so hook events were silently dropped)
-    // and durably publishes each framed event. The path is a single hardcoded
-    // const shared with the hook default, the entrypoint, and the healthcheck —
-    // no env override, so all four sides can never disagree.
-    let relay_socket = unix_socket_listener::RELAY_SOCKET_PATH;
+    // Serve the relay-socket listener on the pre-bound socket. The Unix socket the
+    // CLI relay hook writes to was bound owner-only above (`relay_listener`),
+    // BEFORE any task spawned, so the brief umask change during bind cannot affect
+    // concurrent file creation (F065). The path is a single hardcoded const shared
+    // with the hook default, the entrypoint, and the healthcheck — no env override,
+    // so all four sides can never disagree.
     let listener_publisher = publisher.clone();
     let listener_wal = wal_instance.clone();
     let listener_shutdown = shutdown_rx.clone();
     let listener_task = tokio::spawn(async move {
         if let Err(err) =
-            unix_socket_listener::run(relay_socket, listener_publisher, listener_wal, listener_shutdown).await
+            unix_socket_listener::run(relay_listener, relay_socket, listener_publisher, listener_wal, listener_shutdown)
+                .await
         {
             tracing::error!(error = %err, "Relay socket listener exited with error");
         }

@@ -405,6 +405,7 @@ dependencies = [
  "futures",
  "hex",
  "hmac 0.13.0",
+ "libc",
  "metrics",
  "notify",
  "serde",

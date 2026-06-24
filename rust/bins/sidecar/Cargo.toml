@@ -26,6 +26,7 @@ sha2.workspace = true
 hex.workspace = true
 uuid.workspace = true
 metrics.workspace = true
+libc.workspace = true
 notify = "8"
 
 [dev-dependencies]
