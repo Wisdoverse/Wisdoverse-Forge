@@ -245,6 +245,7 @@ mod tests {
             self_fix_max_merge_attempts: 5,
             self_fix_review_deadline_secs: 604800,
             blocked_task_ttl_secs: 3600,
+            job_queue_stale_lock_timeout_secs: 1800,
         }
     }
 

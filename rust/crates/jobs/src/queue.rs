@@ -107,7 +107,7 @@ pub async fn enqueue_in_tx(
 pub async fn dequeue(pool: &PgPool, queue: &str, worker_id: &str) -> Result<Option<JobEntry>, sqlx::Error> {
     let job = sqlx::query_as::<_, JobEntry>(
         r#"UPDATE job_queue
-           SET status = 'running', locked_by = $2, locked_at = now(), attempts = attempts + 1
+           SET status = 'running', locked_by = $2, locked_at = now()
            WHERE id = (
                SELECT id FROM job_queue
                WHERE queue = $1 AND status = 'pending' AND run_at <= now()
@@ -130,21 +130,27 @@ pub async fn complete(pool: &PgPool, job_id: Uuid) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-/// Mark a job as failed. If max attempts are exceeded, the job moves to `dead` status.
-/// Otherwise, it is rescheduled with exponential backoff (2^attempts seconds).
+/// Mark a job as failed after a real handler error. This is the single place
+/// that consumes a retry attempt (claiming via [`dequeue`] does not), so a
+/// worker crash before `fail` does not burn one of the job's retries.
+///
+/// `attempts` is incremented; if the new count reaches `max_attempts` the job
+/// moves to `dead`, otherwise it is rescheduled with exponential backoff
+/// (2^attempts seconds, measured against the post-increment count).
 pub async fn fail(pool: &PgPool, job_id: Uuid, error_message: &str) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"UPDATE job_queue SET
+            attempts = attempts + 1,
             status = CASE
-                WHEN attempts >= max_attempts THEN 'dead'
+                WHEN attempts + 1 >= max_attempts THEN 'dead'
                 ELSE 'pending'
             END,
             error_message = $2,
             locked_by = NULL,
             locked_at = NULL,
             run_at = CASE
-                WHEN attempts >= max_attempts THEN run_at
-                ELSE now() + make_interval(secs => power(2, attempts))
+                WHEN attempts + 1 >= max_attempts THEN run_at
+                ELSE now() + make_interval(secs => power(2, attempts + 1))
             END
            WHERE id = $1"#,
     )
@@ -158,15 +164,21 @@ pub async fn fail(pool: &PgPool, job_id: Uuid, error_message: &str) -> Result<()
 /// Release stale locks where a worker has held a job longer than the timeout.
 ///
 /// Returns the number of jobs that were released back to `pending` status.
-/// This is a safety mechanism for workers that crash without completing or failing.
-pub async fn release_stale_locks(pool: &PgPool, timeout_minutes: i32) -> Result<u64, sqlx::Error> {
+/// This is a safety mechanism for workers that crash without completing or
+/// failing. Crucially it does NOT touch `attempts`: a worker that died before
+/// reaching [`fail`] was not a real handler failure, so the job keeps its full
+/// retry budget when it is re-claimed.
+///
+/// `timeout_secs` is the minimum lock age (seconds) before a `running` row is
+/// considered abandoned. It must exceed the longest legitimate job runtime.
+pub async fn release_stale_locks(pool: &PgPool, timeout_secs: u64) -> Result<u64, sqlx::Error> {
     let result = sqlx::query(
         r#"UPDATE job_queue SET
             status = 'pending', locked_by = NULL, locked_at = NULL
            WHERE status = 'running'
-             AND locked_at < now() - make_interval(mins => $1)"#,
+             AND locked_at < now() - make_interval(secs => $1)"#,
     )
-    .bind(timeout_minutes)
+    .bind(timeout_secs as f64)
     .execute(pool)
     .await?;
     Ok(result.rows_affected())
@@ -274,5 +286,77 @@ mod tests {
 
         let job = dequeue(&pool, "self_fix_pr", "worker-test").await.unwrap();
         assert!(job.is_none(), "rolled-back job must not exist");
+    }
+
+    /// Helper: read the live `attempts`/`status` of a job row.
+    async fn attempts_and_status(pool: &PgPool, id: Uuid) -> (i32, String) {
+        sqlx::query_as("SELECT attempts, status FROM job_queue WHERE id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .expect("fetch job row")
+    }
+
+    /// F046: claiming a job must NOT consume a retry attempt. Only a real
+    /// handler failure (`fail`) counts against `max_attempts`. Before this fix
+    /// `dequeue` bumped `attempts`, so a worker crash between claim and `fail`
+    /// silently burned one of the job's retries.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn dequeue_does_not_consume_attempt(pool: PgPool) {
+        enqueue(&pool, "q", serde_json::json!({}), 0, None, None, 3).await.unwrap().unwrap();
+
+        let job = dequeue(&pool, "q", "worker-1").await.unwrap().expect("job should be claimable");
+        assert_eq!(job.attempts, 0, "claiming a job must not increment attempts");
+        assert_eq!(job.status, "running");
+    }
+
+    /// F046: `fail` is the single place that increments `attempts`. The first
+    /// failure of a `max_attempts=2` job reschedules it (attempts=1, pending);
+    /// the second dead-letters it (attempts=2, dead).
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn fail_increments_attempt_then_dead_letters_at_max(pool: PgPool) {
+        let id = enqueue(&pool, "q", serde_json::json!({}), 0, None, None, 2).await.unwrap().unwrap();
+
+        dequeue(&pool, "q", "worker-1").await.unwrap().expect("first claim");
+        fail(&pool, id, "boom 1").await.unwrap();
+        let (attempts, status) = attempts_and_status(&pool, id).await;
+        assert_eq!(attempts, 1, "first fail consumes one attempt");
+        assert_eq!(status, "pending", "below max -> rescheduled for retry");
+
+        // Make the retry due immediately, then claim + fail again.
+        sqlx::query("UPDATE job_queue SET run_at = now() WHERE id = $1").bind(id).execute(&pool).await.unwrap();
+        dequeue(&pool, "q", "worker-1").await.unwrap().expect("second claim");
+        fail(&pool, id, "boom 2").await.unwrap();
+        let (attempts, status) = attempts_and_status(&pool, id).await;
+        assert_eq!(attempts, 2, "second fail reaches max");
+        assert_eq!(status, "dead", "at max -> dead-lettered");
+    }
+
+    /// F044 + F046: a stale lock released by the reaper must NOT burn an
+    /// attempt. A job whose worker crashed (released back to `pending` by
+    /// `release_stale_locks`) is re-claimed and still has all its retries.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn stale_lock_release_does_not_burn_attempt(pool: PgPool) {
+        let id = enqueue(&pool, "q", serde_json::json!({}), 0, None, None, 2).await.unwrap().unwrap();
+
+        // Worker claims the job, then "crashes" (never calls fail/complete).
+        dequeue(&pool, "q", "worker-1").await.unwrap().expect("claim");
+        // Age the lock so the reaper considers it stale.
+        sqlx::query("UPDATE job_queue SET locked_at = now() - interval '1 hour' WHERE id = $1")
+            .bind(id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let released = release_stale_locks(&pool, 60).await.unwrap();
+        assert_eq!(released, 1, "the stale lock should be released back to pending");
+
+        let (attempts, status) = attempts_and_status(&pool, id).await;
+        assert_eq!(attempts, 0, "a crash-released job must keep all its attempts");
+        assert_eq!(status, "pending");
+
+        // Re-claimed job still gets its full retry budget.
+        let job = dequeue(&pool, "q", "worker-2").await.unwrap().expect("re-claim after release");
+        assert_eq!(job.attempts, 0, "re-claim must not have consumed an attempt");
     }
 }

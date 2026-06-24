@@ -24,7 +24,7 @@ use agentforge_jobs::{
     OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
     ParticipantLivenessWorker, PresenceBackend, SelfFixReviewReaperWorker, SqlxAgentOwnerLookup,
     SqlxCredentialHmacSecretLookup, SqlxDeadEventRecorder, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup,
-    SqlxParticipantLookup, SqlxTaskWriter, blocked_task_reaper::BlockedTaskReaperWorker,
+    SqlxParticipantLookup, SqlxTaskWriter, StaleJobLockReaperWorker, blocked_task_reaper::BlockedTaskReaperWorker,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -384,6 +384,16 @@ async fn main() -> Result<()> {
     // strictly to `waiting_agent`; other blocked_reasons are left alone.
     let blocked_task_reaper_handle = {
         let worker = BlockedTaskReaperWorker::new(pool.clone(), config.blocked_task_ttl_secs);
+        let worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move { worker.run(worker_shutdown).await })
+    };
+
+    // Stale job-queue lock reaper (issue #892, F044). Returns `running` job rows
+    // whose worker crashed mid-job — locked longer than
+    // `JOB_QUEUE_STALE_LOCK_TIMEOUT_SECS` — back to `pending` for re-dispatch.
+    // Releasing does not consume a retry attempt (see `queue::release_stale_locks`).
+    let stale_job_lock_reaper_handle = {
+        let worker = StaleJobLockReaperWorker::new(pool.clone(), config.job_queue_stale_lock_timeout_secs);
         let worker_shutdown = shutdown_rx.clone();
         tokio::spawn(async move { worker.run(worker_shutdown).await })
     };
@@ -782,6 +792,10 @@ async fn main() -> Result<()> {
     match blocked_task_reaper_handle.await {
         Ok(()) => {}
         Err(err) => tracing::warn!(error = %err, "blocked task reaper worker join failed"),
+    }
+    match stale_job_lock_reaper_handle.await {
+        Ok(()) => {}
+        Err(err) => tracing::warn!(error = %err, "stale job-lock reaper worker join failed"),
     }
     if let Some(handle) = agent_reconcile_handle {
         match handle.await {

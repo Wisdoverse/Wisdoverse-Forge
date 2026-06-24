@@ -544,6 +544,14 @@ pub struct AppConfig {
     /// Env: `BLOCKED_TASK_TTL_SECS`.
     #[serde(default = "default_blocked_task_ttl_secs")]
     pub blocked_task_ttl_secs: u64,
+
+    /// How long (seconds) a claimed `running` job_queue row may hold its lock
+    /// before the stale-lock reaper returns it to `pending` for re-dispatch.
+    /// Guards against workers that crash mid-job. Must exceed the longest
+    /// legitimate job runtime. Releasing does not consume a retry attempt.
+    /// Default 1800 (30 minutes). Env: `JOB_QUEUE_STALE_LOCK_TIMEOUT_SECS`.
+    #[serde(default = "default_job_queue_stale_lock_timeout_secs")]
+    pub job_queue_stale_lock_timeout_secs: u64,
 }
 
 fn default_self_fix_max_merge_attempts() -> i32 {
@@ -556,6 +564,10 @@ fn default_self_fix_review_deadline_secs() -> u64 {
 
 fn default_blocked_task_ttl_secs() -> u64 {
     3600
+}
+
+fn default_job_queue_stale_lock_timeout_secs() -> u64 {
+    1800
 }
 
 fn default_clone_timeout_secs() -> u64 {
@@ -879,6 +891,7 @@ mod tests {
             self_fix_max_merge_attempts: 5,
             self_fix_review_deadline_secs: 604800,
             blocked_task_ttl_secs: 3600,
+            job_queue_stale_lock_timeout_secs: 1800,
         };
         assert!(cfg.is_production());
     }
@@ -1284,6 +1297,7 @@ mod tests {
             self_fix_max_merge_attempts: 5,
             self_fix_review_deadline_secs: 604800,
             blocked_task_ttl_secs: 3600,
+            job_queue_stale_lock_timeout_secs: 1800,
         };
         let dbg = format!("{cfg:?}");
         for needle in [
