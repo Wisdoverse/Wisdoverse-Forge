@@ -62,3 +62,22 @@ fn guard_allows_documented_constructor_helper() {
 
     assert!(output.status.success(), "guard failed: {}", String::from_utf8_lossy(&output.stderr));
 }
+
+/// F003: a forged scope via `TenantScope::with_axes` outside the allowlist must
+/// be flagged — locking the new detection so the blind spot cannot return.
+#[test]
+fn guard_rejects_with_axes_outside_allowlist() {
+    let root = make_fake_repo();
+    write_allowlist(&root, "");
+    let bad_path = root.join("rust/crates/api/src/forge.rs");
+    fs::create_dir_all(bad_path.parent().unwrap()).expect("create fake api src");
+    let constructor = ["TenantScope", "::with_axes(org, user, None, None, None);"].concat();
+    fs::write(&bad_path, constructor).expect("write with_axes fixture");
+
+    let output = run_guard(&root);
+
+    assert!(!output.status.success(), "guard unexpectedly passed on with_axes");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("rust/crates/api/src/forge.rs"), "stderr missing path: {stderr}");
+    assert!(stderr.contains(&["TenantScope", "::with_axes"].concat()), "stderr missing constructor: {stderr}");
+}

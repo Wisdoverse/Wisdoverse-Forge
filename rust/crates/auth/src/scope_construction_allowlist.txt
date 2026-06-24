@@ -1,4 +1,10 @@
-rust/crates/core/src/tenant.rs # Defines TenantScope::new and tests constructor semantics.
-rust/crates/api/src/test_support.rs # Central test-only TenantScope construction helper.
+# Allowlist of PRODUCTION TenantScope construction sites. Test constructors are
+# NOT listed here: the guard skips #[cfg(test)] blocks and /tests/ directories,
+# so a file only needs an entry when it constructs a scope in production code.
+rust/crates/api/src/test_support.rs # Central test-only construction helper; compiled under the test-support feature, not inside a #[cfg(test)] block, so it is listed explicitly.
 rust/crates/api/src/services/project_clone_worker.rs # Background clone worker has no auth-middleware request; builds an org-scoped (nil-user) scope from the server-enqueued attempt's organization_id to resolve a host-matched credential (org-constrained in SQL).
 rust/crates/api/src/services/self_fix_pr_worker.rs # Background self-fix PR worker has no auth-middleware request; builds an org-scoped (nil-user) scope from the durable job payload's organization_id before opening the task-scoped PR.
+rust/crates/auth/src/middleware.rs # THE auth-middleware constructor: builds the request scope from the validated JWT claims (org/user/axes). The single legitimate per-request construction site.
+rust/crates/api/src/gateway/ws.rs # WebSocket gateway auth: builds the connection scope from the validated JWT (?token=) before any handler runs, mirroring the HTTP middleware.
+rust/crates/api/src/services/agent_reconcile_worker.rs # Background reconcile worker has no auth-middleware request; builds an org-scoped scope from the server-owned agent row to reconcile container state.
+rust/crates/api/src/services/cli_image_roll.rs # Background CLI-image roll worker has no auth-middleware request; builds an org-scoped scope from the server-enqueued roll target.
