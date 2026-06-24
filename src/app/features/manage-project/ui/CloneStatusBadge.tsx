@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, CircleDashed, GitBranch, Loader2, RefreshCw, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { projectApi, type CloneStatus, type CloneSummary } from '@app/entities/project'
 
@@ -169,9 +169,6 @@ export function CloneStatusBadge({
 
   const { label, tint, Icon, spin } = visual
   const isFailed = status === 'failed'
-  const isReady = status === 'ready'
-  const shortSha = clone?.headSha ? clone.headSha.slice(0, 7) : null
-  const branch = clone?.resolvedBranch ?? null
   const failureMessage = isFailed ? cloneFailureMessage(clone) : null
   const progressMessage =
     status === 'queued'
@@ -244,17 +241,6 @@ export function CloneStatusBadge({
     <div className={cn('flex flex-col gap-1.5', className)}>
       <div className="flex flex-wrap items-center gap-2">
         {pill}
-        {isReady && (branch || shortSha) && (
-          <span className="inline-flex items-center gap-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <GitBranch size={12} strokeWidth={2} aria-hidden="true" />
-            {branch ? <span className="truncate">{branch}</span> : null}
-            {shortSha ? (
-              <span className="font-mono text-[11px] text-secondary-light dark:text-secondary-dark">
-                {shortSha}
-              </span>
-            ) : null}
-          </span>
-        )}
         {isFailed && (
           <button
             type="button"

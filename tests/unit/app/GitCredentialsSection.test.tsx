@@ -48,7 +48,7 @@ afterEach(() => {
 })
 
 describe('GitCredentialsSection', () => {
-  test('explains HTTPS code access loading for first-time setup', () => {
+  test('explains HTTPS-link code access loading for first-time setup', () => {
     useSettingsStore.setState({
       gitCredentials: [],
       gitCredentialsLoading: true,
@@ -56,15 +56,17 @@ describe('GitCredentialsSection', () => {
 
     render(<GitCredentialsSection />)
 
-    const loading = screen.getByRole('status', { name: /checking HTTPS code access/i })
-    expect(loading).toHaveTextContent('Checking HTTPS code access')
+    const loading = screen.getByRole('status', { name: /checking code access for HTTPS links/i })
+    expect(loading).toHaveTextContent('Checking code access for HTTPS links')
     expect(loading).toHaveTextContent(
       'Forge is checking which saved keys can open private https:// code links.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
     )
-    expect(loading).toHaveTextContent('Success looks like saved HTTPS access or a step to add one.')
+    expect(loading).toHaveTextContent(
+      'Success looks like saved access for HTTPS links or a step to add one.'
+    )
     expect(loading).not.toHaveTextContent('Loading code access')
   })
 
@@ -72,9 +74,7 @@ describe('GitCredentialsSection', () => {
     const user = userEvent.setup()
     render(<GitCredentialsSection />)
 
-    expect(
-      await screen.findByText('Prepare HTTPS code access for private code links')
-    ).toBeDefined()
+    expect(await screen.findByText('Prepare code access for private HTTPS links')).toBeDefined()
     const emptyState = screen.getByTestId('code-access-empty-state')
     expect(
       within(emptyState).getByText(
@@ -103,7 +103,9 @@ describe('GitCredentialsSection', () => {
     expect(within(emptyState).queryByText('No repository access saved yet')).toBeNull()
     expect(within(emptyState).queryByText(/default cloud address/i)).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /add HTTPS code access/i }))
+    fireEvent.click(
+      within(emptyState).getByRole('button', { name: /add code access for HTTPS links/i })
+    )
 
     expect(screen.getByText('Add code access')).toBeDefined()
     expect(screen.getByText('Pick the code website')).toBeDefined()
@@ -135,9 +137,10 @@ describe('GitCredentialsSection', () => {
     expect(screen.queryByText(/owns the repository/i)).toBeNull()
     expect(
       screen.getByText(
-        /This is not the project code link\. Paste the code access key from GitHub or GitLab\. If that page says personal access token, use that value here\./i
+        /This is not the project code link\. Paste the code access key from GitHub or GitLab\. If that page uses a different name, use the value it gives you\./i
       )
     ).toBeDefined()
+    expect(screen.queryByText(/personal access token/i)).toBeNull()
     expect(screen.queryByText(/Paste the key you copied from GitHub or GitLab/i)).toBeNull()
     expect(screen.queryByText(/^Paste the code link/i)).toBeNull()
     expect(screen.getByText(/Never paste your website password/i)).toBeDefined()
@@ -182,7 +185,9 @@ describe('GitCredentialsSection', () => {
     saveGitCredentialMock.mockReturnValueOnce(request.promise)
     await user.click(saveButton)
 
-    expect(screen.getByRole('button', { name: /saving HTTPS code access/i })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: /saving code access for HTTPS links/i })
+    ).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
     request.resolve(true)
 
@@ -256,7 +261,9 @@ describe('GitCredentialsSection', () => {
     render(<GitCredentialsSection />)
 
     const emptyState = await screen.findByTestId('code-access-empty-state')
-    await user.click(within(emptyState).getByRole('button', { name: /add HTTPS code access/i }))
+    await user.click(
+      within(emptyState).getByRole('button', { name: /add code access for HTTPS links/i })
+    )
 
     const tokenInput = screen.getByLabelText(/^code access key/i)
     await user.type(tokenInput, 'https://github.com/team/project.git')
@@ -295,8 +302,12 @@ describe('GitCredentialsSection', () => {
     expect(screen.getByText('Website address')).toBeDefined()
     expect(screen.queryByText('Git service')).toBeNull()
     expect(screen.getByText('github.com')).toBeDefined()
-    expect(screen.getByText('Open HTTPS code access again to load added date')).toBeDefined()
-    expect(screen.getByText('Open HTTPS code access again to check added date')).toBeDefined()
+    expect(
+      screen.getByText('Open code access for HTTPS links again to load added date')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Open code access for HTTPS links again to check added date')
+    ).toBeDefined()
     expect(screen.queryByText('Default cloud address')).toBeNull()
     expect(screen.queryByText('Git address')).toBeNull()
     expect(screen.queryByText('Invalid Date')).toBeNull()

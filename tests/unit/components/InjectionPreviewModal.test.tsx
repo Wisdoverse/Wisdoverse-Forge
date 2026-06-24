@@ -137,7 +137,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getAllByText('Small saved item').length).toBeGreaterThan(0)
   })
 
-  test('uses chat-only AI service wording for provider context reviews', () => {
+  test('uses simple chat agent wording for provider context reviews', () => {
     render(
       <InjectionPreviewModal
         isOpen
@@ -153,7 +153,7 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Work location')).toBeDefined()
-    expect(screen.getByText('Chat-only AI service')).toBeDefined()
+    expect(screen.getByText('Simple chat agent')).toBeDefined()
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
   })
 

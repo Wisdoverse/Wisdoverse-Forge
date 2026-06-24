@@ -18,7 +18,8 @@ describe('RightPanel', () => {
     )
 
     expect(screen.getByRole('heading', { name: /live task updates/i })).toBeDefined()
-    expect(screen.getByText(/agent progress, help needed, and finished work/i)).toBeDefined()
+    expect(screen.getByText(/agent progress, help needed, and finished task results/i)).toBeDefined()
+    expect(screen.queryByText(/agent progress, help needed, and finished work/i)).toBeNull()
     expect(screen.queryByText(/blockers/i)).toBeNull()
     expect(screen.getByLabelText(/hide live task updates/i)).toBeDefined()
     expect(screen.queryByLabelText(/panel/i)).toBeNull()

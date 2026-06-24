@@ -1,5 +1,8 @@
 export type AgentPluginErrorAction = 'load' | 'save'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(err: unknown): string {
   if (err instanceof Error) return err.message
   return typeof err === 'string' ? err : ''
@@ -9,9 +12,23 @@ function structuredErrorText(err: unknown): string {
   if (!err || typeof err !== 'object') return errorText(err)
   for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
     const value = (err as Record<string, unknown>)[key]
-    if (typeof value === 'string' && value.trim()) return value
+    const text = payloadText(value)
+    if (text) return text
   }
   return errorText(err)
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(err: unknown): number | null {
@@ -106,7 +123,7 @@ export function agentPluginErrorMessage(action: AgentPluginErrorAction, err: unk
           'Too many requests are happening right now.'
         )
   }
-  if (code != null && code >= 500) {
+  if ((code != null && code >= 500) || RAW_SERVICE_DETAIL.test(text)) {
     return action === 'load'
       ? `Wait a few minutes, then ${LOAD_TOOLS_AGAIN_AFTER_ACTION} Forge could not finish this tool request right now. If it still fails, ask an owner or admin to check this agent's tool list.`
       : saveMessage(

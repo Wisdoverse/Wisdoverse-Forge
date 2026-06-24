@@ -70,6 +70,16 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('project name is required')
   })
 
+  test('uses nested validation details to name the field to fix', () => {
+    const message = workspaceResourceErrorMessage('project', 'update', {
+      status: '422',
+      error: { message: 'project name is required' },
+    })
+
+    expectBeginnerMessage(message, 'Enter a project name, then save this project name again.')
+    expect(message).not.toContain('project name is required')
+  })
+
   test('turns team delete blockers into a move-projects step', () => {
     const message = workspaceResourceErrorMessage(
       'team',
@@ -173,5 +183,20 @@ describe('workspaceResourceErrorMessage', () => {
     expect(message).not.toContain('503')
     expect(message).not.toContain('workspace setup')
     expect(message).not.toContain('team space setup')
+  })
+
+  test('keeps unformatted service failures on the settings recovery path', () => {
+    const message = workspaceResourceErrorMessage(
+      'project',
+      'update',
+      new Error('database unavailable while saving project')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings, then Projects, and save the project again. If it still fails, ask an owner or admin to check Projects in Settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Check the project name')
   })
 })

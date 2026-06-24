@@ -360,9 +360,9 @@ describe('workspace settings empty states', () => {
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent('Project "Project One" is ready')
     expect(status).toHaveTextContent(
-      'Next: set up where tasks wait in Agents, then create the first task in Tasks.'
+      'Next: set up a task queue in Agents, then create the first task in Tasks.'
     )
-    expect(within(status).getByRole('link', { name: /set up waiting place/i })).toHaveAttribute(
+    expect(within(status).getByRole('link', { name: /set up task queue/i })).toHaveAttribute(
       'href',
       '/agents'
     )

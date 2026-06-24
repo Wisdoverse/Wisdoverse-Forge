@@ -59,7 +59,7 @@ afterEach(() => {
 })
 
 describe('SshKeysSection', () => {
-  test('explains SSH code access loading for first-time setup', () => {
+  test('explains SSH-link code access loading for first-time setup', () => {
     useSettingsStore.setState({
       sshKeys: [],
       sshKeysLoading: true,
@@ -67,27 +67,29 @@ describe('SshKeysSection', () => {
 
     render(<SshKeysSection />)
 
-    const loading = screen.getByRole('status', { name: /checking SSH code access/i })
-    expect(loading).toHaveTextContent('Checking SSH code access')
+    const loading = screen.getByRole('status', {
+      name: /checking code access for SSH links/i,
+    })
+    expect(loading).toHaveTextContent('Checking code access for SSH links')
     expect(loading).toHaveTextContent(
       'Forge is checking which saved public key lines can open git@ private code links.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
     )
-    expect(loading).toHaveTextContent('Success looks like saved SSH access or a step to add one.')
+    expect(loading).toHaveTextContent(
+      'Success looks like saved access for SSH links or a step to add one.'
+    )
     expect(loading).not.toHaveTextContent('Loading SSH code access')
   })
 
-  test('guides first-time SSH code access setup and saves only after required fields are filled', async () => {
+  test('guides first-time SSH-link code access setup and saves only after required fields are filled', async () => {
     render(<SshKeysSection />)
 
-    expect(
-      await screen.findByText('Prepare SSH code access for git@ private code links')
-    ).toBeDefined()
+    expect(await screen.findByText('Prepare code access for private SSH links')).toBeDefined()
     const emptyState = screen.getByTestId('ssh-access-empty-state')
     expect(within(emptyState).getByText(/starts with https:\/\//i)).toBeDefined()
-    expect(within(emptyState).getByText(/use HTTPS code access instead/i)).toBeDefined()
+    expect(within(emptyState).getByText(/use code access for HTTPS links instead/i)).toBeDefined()
     expect(within(emptyState).getByText(/skip this for public projects/i)).toBeDefined()
     expect(within(emptyState).getByText('Name the computer or team')).toBeDefined()
     expect(
@@ -97,13 +99,17 @@ describe('SshKeysSection', () => {
     expect(within(emptyState).getByText(/public key from the \.pub file/i)).toBeDefined()
     expect(within(emptyState).getByText('Never paste the private key')).toBeDefined()
     expect(within(emptyState).getByText(/copy the \.pub line instead/i)).toBeDefined()
-    expect(within(emptyState).getByRole('button', { name: /add SSH code access/i })).toBeDefined()
+    expect(
+      within(emptyState).getByRole('button', { name: /add code access for SSH links/i })
+    ).toBeDefined()
     expect(within(emptyState).queryByText('No repository access yet')).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /add SSH code access/i }))
+    fireEvent.click(
+      within(emptyState).getByRole('button', { name: /add code access for SSH links/i })
+    )
 
     expect(screen.queryByTestId('ssh-access-empty-state')).toBeNull()
-    expect(screen.getByText('Add access for git@ code links')).toBeDefined()
+    expect(screen.getByText('Add code access for SSH links')).toBeDefined()
     expect(screen.getByText('Name the computer or team')).toBeDefined()
     expect(screen.getAllByText(/Use a name people will recognize/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Paste the safe public key line')).toBeDefined()
@@ -122,7 +128,7 @@ describe('SshKeysSection', () => {
     const form = nameInput.closest('form')
     expect(form).toBeTruthy()
 
-    const saveButton = screen.getByRole('button', { name: /save SSH code access/i })
+    const saveButton = screen.getByRole('button', { name: /save code access/i })
     expect(saveButton).toBeDisabled()
 
     fireEvent.submit(form!)
@@ -164,7 +170,7 @@ describe('SshKeysSection', () => {
     createSshKeyMock.mockReturnValueOnce(request.promise)
     fireEvent.click(saveButton)
 
-    expect(screen.getByRole('button', { name: /saving SSH code access/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /saving code access for SSH links/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
     request.resolve(true)
 
@@ -175,14 +181,14 @@ describe('SshKeysSection', () => {
       )
     )
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it.'
+      'Code access for SSH links saved. Create a small task with a git@ private code link to confirm agents can open it.'
     )
     expect(screen.getByRole('status')).toHaveTextContent('If agents cannot open the code')
     expect(screen.getByRole('status')).toHaveTextContent('come back here and replace this key')
     expect(screen.getByRole('status')).not.toHaveTextContent('repository')
   })
 
-  test('explains the impact before removing SSH code access', async () => {
+  test('explains the impact before removing code access for SSH links', async () => {
     const user = userEvent.setup()
     useSettingsStore.setState({ sshKeys: [sshKey()] })
 
@@ -199,7 +205,9 @@ describe('SshKeysSection', () => {
     expect(screen.queryByText('Saved key ID')).toBeNull()
     expect(screen.queryByText('Key kind')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /remove work laptop SSH code access/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /remove work laptop code access for SSH links/i })
+    )
 
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
     expect(
@@ -213,9 +221,11 @@ describe('SshKeysSection', () => {
     expect(screen.queryByText(/removing this access can block agents/i)).toBeNull()
     expect(deleteSshKeyMock).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: /remove work laptop SSH code access/i }))
+    await user.click(
+      screen.getByRole('button', { name: /remove work laptop code access for SSH links/i })
+    )
     const removeNowButton = screen.getByRole('button', {
-      name: /confirm removing work laptop SSH code access/i,
+      name: /confirm removing work laptop code access for SSH links/i,
     })
     let resolveDelete: (removed: boolean) => void = () => {}
     deleteSshKeyMock.mockImplementationOnce(
@@ -234,12 +244,14 @@ describe('SshKeysSection', () => {
     await waitFor(() => expect(deleteSshKeyMock).toHaveBeenCalledWith('ssh-key-1'))
   })
 
-  test('stops multiple public key lines before saving SSH code access', async () => {
+  test('stops multiple public key lines before saving code access for SSH links', async () => {
     const user = userEvent.setup()
     render(<SshKeysSection />)
 
     const emptyState = await screen.findByTestId('ssh-access-empty-state')
-    await user.click(within(emptyState).getByRole('button', { name: /add SSH code access/i }))
+    await user.click(
+      within(emptyState).getByRole('button', { name: /add code access for SSH links/i })
+    )
 
     const nameInput = screen.getByLabelText(/^name for this access/i)
     const safePublicLineInput = screen.getByLabelText(/^safe public key line/i)
@@ -251,7 +263,7 @@ describe('SshKeysSection', () => {
       },
     })
 
-    await user.click(screen.getByRole('button', { name: /save SSH code access/i }))
+    await user.click(screen.getByRole('button', { name: /save code access/i }))
 
     expect(createSshKeyMock).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -260,7 +272,7 @@ describe('SshKeysSection', () => {
     expect(safePublicLineInput).toHaveFocus()
   })
 
-  test('explains missing SSH code access dates instead of showing raw date failures', async () => {
+  test('explains missing SSH-link code access dates instead of showing raw date failures', async () => {
     useSettingsStore.setState({
       sshKeys: [
         sshKey({ createdAt: '' }),
@@ -275,9 +287,13 @@ describe('SshKeysSection', () => {
 
     render(<SshKeysSection />)
 
-    expect(await screen.findByRole('table', { name: /SSH code access/i })).toBeDefined()
-    expect(screen.getByText('Open SSH code access again to load added date')).toBeDefined()
-    expect(screen.getByText('Open SSH code access again to check added date')).toBeDefined()
+    expect(await screen.findByRole('table', { name: /code access for SSH links/i })).toBeDefined()
+    expect(
+      screen.getByText('Open code access for SSH links again to load added date')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Open code access for SSH links again to check added date')
+    ).toBeDefined()
     expect(screen.queryByText('Invalid Date')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
   })

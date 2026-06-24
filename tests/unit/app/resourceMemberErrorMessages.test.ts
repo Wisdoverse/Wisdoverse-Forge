@@ -64,6 +64,19 @@ describe('resourceMemberErrorMessage', () => {
     expect(message).not.toContain('update what you can do')
   })
 
+  test('maps nested permission failures without treating them as connection failures', () => {
+    const message = resourceMemberErrorMessage('add', 'Project', {
+      error: { message: 'owner role required' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to give you access to manage people here, then open Members for this project. You do not have permission right now.'
+    )
+    expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('Check your connection')
+  })
+
   test('maps role-required failures to an owner or admin action', () => {
     const message = resourceMemberErrorMessage('add', 'Project', 'owner role required')
 
@@ -195,6 +208,21 @@ describe('resourceMemberErrorMessage', () => {
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
+  })
+
+  test('keeps unformatted service failures on the people access recovery path', () => {
+    const message = resourceMemberErrorMessage(
+      'remove',
+      'Team',
+      new Error('database unavailable while removing team member')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Members for this team again, then remove the person again. Forge could not update people access right now. If it still fails, ask an owner or admin to check people access settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('last owner')
   })
 
   test('turns busy member updates into a wait step first', () => {

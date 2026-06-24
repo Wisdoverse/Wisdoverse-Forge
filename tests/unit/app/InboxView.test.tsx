@@ -374,6 +374,8 @@ describe('InboxView', () => {
     expect(nextStep).toHaveTextContent(
       'Everything that needed help is marked read. Open this older item only if you still need to check it.'
     )
+    expect(nextStep).not.toHaveTextContent('Reconnect account access before agents continue tasks')
+    expect(nextStep).not.toHaveTextContent('helps agents finish future tasks')
     expect(nextStep).not.toHaveTextContent('Reconnect account access before more agent work starts')
     expect(nextStep).not.toHaveTextContent('keeps future agent work from failing')
   })
@@ -403,14 +405,19 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const nextStep = screen.getByTestId('inbox-next-step')
-    expect(nextStep).toHaveTextContent('Reconnect account access before more agent work starts')
-    expect(nextStep).toHaveTextContent('keeps future agent work from failing')
+    expect(nextStep).toHaveTextContent('Reconnect account access before agents continue tasks')
+    expect(nextStep).toHaveTextContent('helps agents finish future tasks')
+    expect(nextStep).not.toHaveTextContent('Reconnect account access before more agent work starts')
+    expect(nextStep).not.toHaveTextContent('keeps future agent work from failing')
     expect(nextStep).not.toHaveTextContent(/agent runs/i)
-    expect(screen.getByText('Reconnect agent work access')).toBeDefined()
+    expect(screen.getAllByText('Reconnect account access').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Reconnect agent work access')).toBeNull()
     expect(screen.getByText('Account access needs reconnecting')).toBeDefined()
     expect(screen.queryByText(/runtime access/i)).toBeNull()
     expect(screen.queryByText(/credential expired/i)).toBeNull()
-    expect(within(nextStep).getByRole('button', { name: /reconnect work access/i })).toBeDefined()
+    expect(
+      within(nextStep).getByRole('button', { name: /reconnect account access/i })
+    ).toBeDefined()
     expect(screen.queryByRole('button', { name: /open where agents work/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^open settings$/i })).toBeNull()
   })
@@ -556,7 +563,8 @@ describe('InboxView', () => {
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No account access needs reconnecting')
-    expect(emptyState).toHaveTextContent('Account access is not blocking agent work right now.')
+    expect(emptyState).toHaveTextContent('No tasks are blocked by account access right now.')
+    expect(emptyState).not.toHaveTextContent('Account access is not blocking agent work right now.')
     expect(emptyState).not.toHaveTextContent('No account access needs reconnecting right now.')
     expect(emptyState).not.toHaveTextContent(/refresh the inbox|reload the inbox/i)
 
@@ -764,9 +772,10 @@ describe('InboxView', () => {
     expect(item.getAttribute('data-template')).toBe('credential-action')
     expect(item.className).toContain('bg-apple-blue/[0.04]')
     expect(item).toHaveTextContent('Account access')
-    expect(item).toHaveTextContent('Reconnect work access')
+    expect(item).toHaveTextContent('Reconnect account access')
+    expect(item).not.toHaveTextContent('Reconnect work access')
     expect(item).toHaveTextContent(
-      'Open Codex sign-in, then reconnect the account agents use for file work.'
+      'Open Codex sign-in, then reconnect the account agents use to change project files.'
     )
     expect(item).not.toHaveTextContent('Open Where agents work')
     expect(screen.getByText('Codex account access needs reconnecting')).toBeDefined()

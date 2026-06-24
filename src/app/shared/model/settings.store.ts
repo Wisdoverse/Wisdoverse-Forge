@@ -46,6 +46,9 @@ const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
   providers: 'providers',
   'api-keys': 'keys',
   api: 'keys',
+  'tool-access': 'keys',
+  'tool-access-key': 'keys',
+  'tool-access-keys': 'keys',
   'outside-tool-access': 'keys',
   'outside-tools': 'keys',
   git: 'git-credentials',
@@ -119,7 +122,7 @@ type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'u
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service settings',
-  apiKeys: 'outside tool access keys',
+  apiKeys: 'tool access keys',
   gitCredentials: 'code access',
   sshKeys: 'SSH code access',
   resourceProfiles: 'work capacity',
@@ -128,7 +131,7 @@ const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
 
 const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI service',
-  apiKeys: 'outside tool access key',
+  apiKeys: 'tool access key',
   gitCredentials: 'code access',
   sshKeys: 'SSH code access',
   resourceProfiles: 'agent size',
@@ -137,7 +140,7 @@ const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
 
 const SETTINGS_SECTION_LABELS: Record<SettingsErrorArea, string> = {
   providers: 'AI services',
-  apiKeys: 'Outside tool access keys',
+  apiKeys: 'Tool access keys',
   gitCredentials: 'Code access',
   sshKeys: 'SSH code access',
   resourceProfiles: 'Work capacity',
@@ -351,8 +354,8 @@ function settingsValidationMessage(
 
   if (area === 'apiKeys') {
     return action === 'load'
-      ? 'Open Settings and Outside tool access keys again. If they still do not load, ask an owner or admin for access.'
-      : 'Name this outside tool access key, choose the allowed access, then create it again.'
+      ? 'Open Settings and Tool access keys again. If they still do not load, ask an owner or admin for access.'
+      : 'Name this tool access key, choose the allowed access, then create it again.'
   }
 
   if (area === 'gitCredentials') {

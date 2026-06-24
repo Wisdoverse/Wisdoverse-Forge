@@ -110,9 +110,10 @@ describe('ChatComposer', () => {
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
     expect(
       screen.getByText(
-        'Wait until this agent is online, then send the message again from this chat.'
+        'Wait until this agent shows Ready, then send the message again from this chat.'
       )
     ).toBeVisible()
+    expect(screen.queryByText(/this agent is online/i)).toBeNull()
     expect(screen.queryByText(/chat is not ready yet/i)).toBeNull()
     expect(screen.queryByText(/try again when this agent is online/i)).toBeNull()
   })

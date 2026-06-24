@@ -73,6 +73,17 @@ describe('feedbackErrorMessage', () => {
     expect(message).not.toContain('Refresh the task')
   })
 
+  test('keeps unformatted service failures on the feedback recovery path', () => {
+    const message = feedbackErrorMessage(new Error('database unavailable while saving feedback'))
+
+    expectBeginnerMessage(
+      message,
+      'Open task details again, then choose the feedback option again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Choose Useful')
+  })
+
   test('turns changed saved items into a task details retry step', () => {
     expectBeginnerMessage(
       feedbackErrorMessage({ status: 409 }),

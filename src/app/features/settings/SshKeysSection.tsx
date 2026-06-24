@@ -87,8 +87,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(sshKey.createdAt, {
-            missing: 'Open SSH code access again to load added date',
-            invalid: 'Open SSH code access again to check added date',
+            missing: 'Open code access for SSH links again to load added date',
+            invalid: 'Open code access for SSH links again to check added date',
           })}
         </span>
       </td>
@@ -110,8 +110,8 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
             disabled={removing}
             aria-label={
               confirming
-                ? `Confirm removing ${sshKey.label} SSH code access`
-                : `Remove ${sshKey.label} SSH code access`
+                ? `Confirm removing ${sshKey.label} code access for SSH links`
+                : `Remove ${sshKey.label} code access for SSH links`
             }
             aria-describedby={confirming ? removeWarningId : undefined}
             aria-busy={removing || undefined}
@@ -190,7 +190,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
     >
       <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Add access for git@ code links
+          Add code access for SSH links
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
           {SSH_KEY_SETUP_STEPS.map((step) => (
@@ -292,7 +292,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           disabled={saving || !label.trim() || !publicKey.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving SSH code access...' : 'Save SSH code access'}
+          {saving ? 'Saving code access for SSH links...' : 'Save code access'}
         </button>
       </div>
     </form>
@@ -322,7 +322,7 @@ export function SshKeysSection() {
     if (ok) {
       setShowForm(false)
       setSavedMessage(
-        'SSH code access saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
+        'Code access for SSH links saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
       )
     }
   }
@@ -344,10 +344,10 @@ export function SshKeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>SSH code access</h2>
+          <h2 className={uiStyles.sectionTitle}>Code access for SSH links</h2>
           <p className={uiStyles.sectionDescription}>
-            Use this only when a private code link starts with git@. If it starts with https://, use
-            HTTPS code access instead.
+            Use this when your private code link starts with git@. If it starts with https://, use
+            code access for HTTPS links instead.
           </p>
         </div>
         {!showForm && (
@@ -360,7 +360,7 @@ export function SshKeysSection() {
             className={uiStyles.primaryButton}
           >
             <span>+</span>
-            <span>Add SSH code access</span>
+            <span>Add code access for SSH links</span>
           </button>
         )}
       </div>
@@ -386,10 +386,10 @@ export function SshKeysSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {sshKeysLoading && sshKeys.length === 0 ? (
           <BeginnerLoadingState
-            title="Checking SSH code access"
+            title="Checking code access for SSH links"
             detail="Forge is checking which saved public key lines can open git@ private code links."
             nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check code access."
-            success="Success looks like saved SSH access or a step to add one."
+            success="Success looks like saved access for SSH links or a step to add one."
             testId="ssh-access-loading-state"
             framed={false}
             compact
@@ -406,10 +406,10 @@ export function SshKeysSection() {
                   id="ssh-access-empty-title"
                   className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
                 >
-                  Prepare SSH code access for git@ private code links
+                  Prepare code access for private SSH links
                 </p>
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  If your code link starts with https://, use HTTPS code access instead.
+                  If your code link starts with https://, use code access for HTTPS links instead.
                 </p>
                 <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
                   You can skip this for public projects and normal https:// code links.
@@ -439,13 +439,13 @@ export function SshKeysSection() {
               }}
               className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
             >
-              Add SSH code access
+              Add code access for SSH links
             </button>
           </div>
         ) : (
           <>
             {sshKeys.length > 0 && (
-              <table className={uiStyles.table} aria-label="SSH code access">
+              <table className={uiStyles.table} aria-label="Code access for SSH links">
                 <thead className={uiStyles.tableHead}>
                   <tr>
                     {tableHeaders.map((h) => (

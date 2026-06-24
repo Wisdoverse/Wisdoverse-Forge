@@ -88,6 +88,19 @@ describe('governanceAuditErrorMessage', () => {
     expect(message).not.toContain('Forge could not load')
   })
 
+  test('keeps unformatted service failures on the change-history recovery path', () => {
+    const message = governanceAuditErrorMessage(
+      'loadAudit',
+      new Error('database unavailable while reading audit rows')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Choose Check change history again, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+    )
+    expect(message).not.toContain('database unavailable')
+  })
+
   test('turns missing routes into a view and access recovery step', () => {
     const message = governanceAuditErrorMessage('loadAudit', { status: 404 })
 
@@ -114,6 +127,18 @@ describe('governanceAuditErrorMessage', () => {
       }),
       'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
     )
+  })
+
+  test('maps nested validation details to the time range next step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', {
+      error: { message: 'Invalid time range' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
+    )
+    expect(message).not.toContain('Invalid time range')
   })
 
   test('turns limit validation details into the allowed range', () => {

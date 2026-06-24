@@ -131,7 +131,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('role required') ||
     detail.includes('auth')
   ) {
-    return 'Ask an owner or admin to check tool package access in Admin, then choose Check now. This can block agent tool updates.'
+    return 'Ask an owner or admin to check tool update access in Admin, then choose Check now. This can block agent tool updates.'
   }
   if (
     detail.includes('connection') ||
@@ -141,7 +141,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('timed out') ||
     detail.includes('registry')
   ) {
-    return 'The updater could not reach the tool package source. Check network access, then choose Check now.'
+    return 'The updater could not reach the tool update source. Check network access, then choose Check now.'
   }
   if (
     detail.includes('space') ||
@@ -150,7 +150,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     detail.includes('cleanup') ||
     detail.includes('prune')
   ) {
-    return 'Old package cleanup could not finish. Ask an owner or admin to check disk space, then choose Check now.'
+    return 'Old tool cleanup could not finish. Ask an owner or admin to check disk space, then choose Check now.'
   }
   if (
     context === 'restart' ||
@@ -163,7 +163,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
     return 'Some agents could not restart cleanly. Open Agents, check affected agents, then restart them one at a time.'
   }
   if (context === 'cleanup') {
-    return 'Old package cleanup could not finish. Ask an owner or admin to check tool package cleanup, then choose Check now.'
+    return 'Old tool cleanup could not finish. Ask an owner or admin to check old tool cleanup, then choose Check now.'
   }
 
   return 'Choose Check now again. If it still fails, ask an owner or admin to check Tool updates in Admin.'
@@ -380,13 +380,13 @@ function ToolRow({
           )}
           {localBuild && tool.building && (
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Forge is preparing this tool package — usually a few minutes. You can leave this page.
+              Forge is preparing this agent tool — usually a few minutes. You can leave this page.
             </p>
           )}
           {tool.state === 'failed' && tool.lastError && (
             <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
               <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
-                New agents keep the current tool package until the next check succeeds.
+                New agents keep the current agent tool until the next check succeeds.
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 What to do: {cliImageIssueNote(tool.lastError, 'check')}
@@ -440,8 +440,8 @@ function ConfigBanner({ enabled, intervalSecs }: { enabled: boolean; intervalSec
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {enabled
-            ? `Forge checks for newer agent tool packages about every ${intervalLabel} and downloads them so new agents start on the latest tool version. Running agents are never interrupted.`
-            : 'New agents keep using the tool package that was last downloaded. Ask an owner or admin to turn on automatic tool updates in Admin settings so updates are checked and downloaded automatically.'}
+            ? `Forge checks for newer agent tools about every ${intervalLabel} and downloads them so new agents start on the latest ready tool. Running agents are never interrupted.`
+            : 'New agents keep using the last ready tool. Ask an owner or admin to turn on automatic tool updates in Admin settings so updates are checked and downloaded automatically.'}
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           Where updates come from is managed in Admin settings.
@@ -694,12 +694,12 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
   return (
     <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        Old tool package cleanup
+        Old tool cleanup
       </p>
       {!prune.enabled && (
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Off. Old tool packages are kept until removed manually. Ask an owner or admin to turn on
-          automatic cleanup for old tool packages in Admin settings to reclaim disk automatically.
+          Off. Old tool copies are kept until removed manually. Ask an owner or admin to turn on
+          automatic cleanup in Admin settings to reclaim disk automatically.
         </p>
       )}
       {neverRan && (
@@ -711,12 +711,12 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
       {prune.enabled && prune.lastRunUnix !== null && (
         <>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Old agent tool packages are removed automatically after each check, freeing disk. Only
-            unused packages for these tools are removed — never a package an agent is using.
+            Old agent tool copies are removed automatically after each check, freeing disk. Only
+            unused copies for these tools are removed — never a copy an agent is using.
           </p>
           <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
-            Last cleanup: {prune.removed} old packages removed · {prune.skippedInUse} kept because
-            agents use them · {prune.scanned} checked
+            Last cleanup: {prune.removed} old tool copies removed · {prune.skippedInUse} kept
+            because agents use them · {prune.scanned} checked
             {prune.errors > 0 ? ` · ${prune.errors} need a check` : ''} · ran{' '}
             {relativeTime(prune.lastRunUnix)}
           </p>
@@ -726,7 +726,7 @@ function PruneSummaryBlock({ prune }: { prune: CliImagePruneStatus }) {
         <div className="mt-2 rounded-card border border-apple-red/20 bg-apple-red/[0.04] px-3 py-2">
           <p className="text-ui-caption text-foreground-light dark:text-foreground-dark">
             The last cleanup needs a check for {prune.errors}{' '}
-            {prune.errors === 1 ? 'package' : 'packages'}.
+            {prune.errors === 1 ? 'copy' : 'copies'}.
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             What to do: {cliImageIssueNote(prune.lastError, 'cleanup')}

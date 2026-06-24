@@ -66,7 +66,7 @@ describe('boardActionErrorMessage', () => {
 
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
-      'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+      'No ready agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
     )
   })
 
@@ -108,10 +108,25 @@ describe('boardActionErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('keeps raw service details on the board action recovery path', () => {
+    const message = boardActionErrorMessage(
+      'createTask',
+      new Error('database unavailable while creating task')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Check the project, task queue, and the result, then create the task again. The task was not created. If it still fails, ask an owner or admin to check task board actions.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Add a task result')
+  })
+
   test('uses saved items recovery wording when preview fails', () => {
     const message = boardActionErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an available agent, then check saved items again.')
+    expect(message).toContain('Choose a ready agent, then check saved items again.')
+    expect(message).not.toContain('available agent')
     expect(message).not.toMatch(new RegExp(['context', 'preview'].join('\\s+'), 'i'))
     expect(message).not.toContain('HTTP 500')
   })
@@ -128,20 +143,32 @@ describe('boardActionErrorMessage', () => {
       boardActionErrorMessage('createTask', {
         error: 'Task title is required',
       }),
-      'Add a task result, choose the project and where tasks wait, then create the task again.'
+      'Add a task result, choose the project and task queue, then create the task again.'
     )
   })
 
-  test('explains missing task waiting place without queue wording', () => {
+  test('explains missing task queue with canonical wording', () => {
     const message = boardActionErrorMessage('createTask', {
       error: 'Task group is required',
     })
 
     expectBeginnerMessage(
       message,
-      'Choose where tasks wait for this project, then create the task again.'
+      'Choose a task queue for this project, then create the task again.'
     )
-    expect(message).not.toContain('task queue')
+    expect(message).not.toContain('task group')
+  })
+
+  test('maps nested task queue validation details', () => {
+    const message = boardActionErrorMessage('createTask', {
+      error: { message: 'Task group is required' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose a task queue for this project, then create the task again.'
+    )
+    expect(message).not.toContain('Task group is required')
   })
 
   test('turns missing agent validation into a saved items recovery step', () => {
@@ -149,7 +176,7 @@ describe('boardActionErrorMessage', () => {
       boardActionErrorMessage('previewContext', {
         error: 'Agent is required',
       }),
-      'Choose an available agent, then open saved items from this task again.'
+      'Choose a ready agent, then open saved items from this task again.'
     )
   })
 })

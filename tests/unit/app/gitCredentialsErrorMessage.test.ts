@@ -16,6 +16,18 @@ describe('gitCredentialsErrorMessage', () => {
     )
   })
 
+  test('maps nested invalid token details to key guidance', () => {
+    const message = gitCredentialsErrorMessage({
+      error: { message: 'invalid token' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Paste a new code access key from GitHub or GitLab, then save again.'
+    )
+    expect(message).not.toContain('invalid token')
+  })
+
   test('turns validation failures into clear fields to check', () => {
     expectBeginnerMessage(
       gitCredentialsErrorMessage('Code: 422 Details: invalid provider'),
@@ -69,6 +81,19 @@ describe('gitCredentialsErrorMessage', () => {
       message,
       'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
     )
+  })
+
+  test('keeps unformatted service failures on the Code access recovery path', () => {
+    const message = gitCredentialsErrorMessage(
+      new Error('database unavailable while saving token')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Code access again, then save code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Paste a new code access key')
   })
 
   test('turns network failures into a connection step', () => {

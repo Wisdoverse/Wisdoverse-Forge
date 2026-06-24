@@ -131,6 +131,7 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
   const [bannerError, setBannerError] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const nameInputId = 'team-name'
+  const nameHelpId = 'team-name-help'
   const statusId = 'create-team-status'
   const errorId = 'create-team-name-error'
   const bannerId = 'create-team-banner'
@@ -199,11 +200,11 @@ export function CreateTeamForm({ onSave, onCancel, saving }: CreateTeamFormProps
           placeholder="e.g. Frontend"
           autoFocus
           aria-invalid={visibleError !== null}
-          aria-describedby={`${statusId}${visibleError ? ` ${errorId}` : ''}`}
+          aria-describedby={`${nameHelpId} ${statusId}${visibleError ? ` ${errorId}` : ''}`}
           className={uiStyles.input}
         />
         <p
-          id="team-name-help"
+          id={nameHelpId}
           className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           Pick a name teammates will recognize in project lists and access dialogs.

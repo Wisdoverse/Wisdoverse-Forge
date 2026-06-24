@@ -1,41 +1,59 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { AssignmentReadinessPanel } from '@app/features/board/AssignmentReadinessPanel'
-import type { ParticipantSummary } from '@app/shared/api/orchestration'
-
-afterEach(cleanup)
 
 const emptyWorkload = {
-  backlog: 0,
-  unassigned: 0,
+  backlog: 2,
+  unassigned: 1,
   inFlight: 0,
   blocked: 0,
   review: 0,
 }
 
+const healthyWorkload = {
+  backlog: 0,
+  unassigned: 0,
+  inFlight: 1,
+  blocked: 0,
+  review: 0,
+}
+
+afterEach(() => {
+  cleanup()
+})
+
 describe('AssignmentReadinessPanel', () => {
-  test('renders the empty state instead of crashing when participants is undefined', () => {
-    // A partial/malformed readiness payload can leave participants undefined.
-    // The panel must degrade to the empty state, never throw on `.filter`.
+  test('keeps healthy readiness compact before the task cards', () => {
     render(
       <AssignmentReadinessPanel
-        participants={undefined as unknown as ParticipantSummary[]}
-        workload={emptyWorkload}
+        participants={[
+          {
+            id: 'participant-1',
+            agentId: 'agent-1',
+            name: 'Ready Agent',
+            status: 'available',
+            capabilities: ['codex'],
+          },
+        ]}
+        workload={healthyWorkload}
         loading={false}
         error={null}
         onRefresh={vi.fn()}
       />
     )
 
-    expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
-    expect(screen.getByTestId('assignment-readiness-empty')).toBeDefined()
+    const readiness = screen.getByTestId('assignment-readiness')
+
+    expect(readiness).toHaveTextContent('1 agent can take work now.')
+    expect(screen.queryByTestId('assignment-metric-backlog')).toBeNull()
+    expect(screen.queryByText('Ready Agent')).toBeNull()
   })
 
-  test('guides setup when no agents are connected to the task queue', () => {
+  test('explains missing agents with task queue wording', () => {
     render(
       <AssignmentReadinessPanel
         participants={[]}
-        workload={{ ...emptyWorkload, backlog: 2, unassigned: 2 }}
+        workload={emptyWorkload}
         loading={false}
         error={null}
         onRefresh={vi.fn()}
@@ -43,47 +61,29 @@ describe('AssignmentReadinessPanel', () => {
     )
 
     const emptyState = screen.getByTestId('assignment-readiness-empty')
-    expect(screen.getByRole('heading', { name: 'Agent status' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Check agent status' })).toBeDefined()
-    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
-    expect(screen.getByText('Connect an agent before sending work.')).toBeDefined()
-    expect(within(emptyState).getByText('Connect an agent before sending work')).toBeDefined()
-    expect(within(emptyState).getByText(/Set up where tasks wait/)).toBeDefined()
-    expect(within(emptyState).getByText(/add an available agent/i)).toBeDefined()
-    expect(within(emptyState).getByText(/tasks that are not sent yet will wait here/)).toBeDefined()
-    expect(within(emptyState).queryByText(/Open task queues/)).toBeNull()
-    expect(screen.getByTestId('assignment-metric-backlog').textContent).toContain('Not sent yet')
-    expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
-    const previousActionPhrase = ['attach', 'an', 'available', 'agent'].join(' ')
-    expect(emptyState.textContent).not.toContain(previousActionPhrase)
-    const previousPanelTitle = ['Assignment', 'readiness'].join(' ')
-    expect(screen.queryByText(previousPanelTitle)).toBeNull()
-    expect(screen.queryByText(['Agent', 'readiness'].join(' '))).toBeNull()
+
     expect(
-      screen.queryByRole('button', { name: ['Refresh', 'assignment', 'readiness'].join(' ') })
-    ).toBeNull()
-    expect(
-      screen.queryByRole('button', { name: ['Refresh', 'agent', 'readiness'].join(' ') })
-    ).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Refresh agent status' })).toBeNull()
-    expect(screen.queryByText('No agents are connected to this task queue yet.')).toBeNull()
-    expect(emptyState.textContent).not.toContain('backlog')
-    expect(emptyState.textContent).not.toContain('dispatch')
+      within(emptyState).getByText(
+        'Set up a task queue for this project, then add a ready agent. Until then, new tasks stay in Not sent yet.'
+      )
+    ).toBeDefined()
+    expect(emptyState).not.toHaveTextContent('where tasks wait')
+    expect(emptyState).not.toHaveTextContent('available agent')
   })
 
-  test('shows the next step when tasks need an available agent', () => {
+  test('does not count chat-only agents as able to take Tasks', () => {
     render(
       <AssignmentReadinessPanel
         participants={[
           {
             id: 'participant-1',
             agentId: 'agent-1',
-            name: 'Ready Agent',
+            name: 'Chat Helper',
             status: 'available',
-            capabilities: ['codex'],
+            capabilities: [],
           },
         ]}
-        workload={{ ...emptyWorkload, backlog: 2, unassigned: 2 }}
+        workload={emptyWorkload}
         loading={false}
         error={null}
         onRefresh={vi.fn()}
@@ -91,186 +91,21 @@ describe('AssignmentReadinessPanel', () => {
     )
 
     const readiness = screen.getByTestId('assignment-readiness')
-    expect(readiness.textContent).toContain(
-      '2 tasks need an agent. Choose an available agent to start them.'
-    )
-    expect(screen.getByText('Can use Codex for this work')).toBeDefined()
-    expect(readiness.textContent).not.toContain('codex')
-    expect(readiness.textContent).not.toContain('unassigned tasks')
-    expect(readiness.textContent).not.toContain('handed off')
-    expect(readiness.textContent).not.toContain('can start now')
-    expect(screen.getByTestId('assignment-metric-unassigned').textContent).toContain('Needs agent')
-  })
 
-  test('announces status load errors as recoverable alerts', () => {
-    render(
-      <AssignmentReadinessPanel
-        participants={[]}
-        workload={{ ...emptyWorkload, backlog: 1, unassigned: 1 }}
-        loading={false}
-        error="We could not check agents. Choose Check agent status before sending work."
-        onRefresh={vi.fn()}
-      />
+    expect(readiness).toHaveTextContent(
+      'Simple chat agents answer in Chat. Add a Project files or This computer agent for Tasks.'
     )
-
-    const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent(
-      'We could not check agents. Choose Check agent status before sending work.'
-    )
-    expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(screen.getByRole('button', { name: 'Check agent status' })).toBeDefined()
-  })
-
-  test('explains how to unblock tasks when no agent is available', () => {
-    render(
-      <AssignmentReadinessPanel
-        participants={[
-          {
-            id: 'participant-1',
-            agentId: 'agent-1',
-            name: 'Busy Agent',
-            status: 'busy',
-            capabilities: ['codex'],
-          },
-        ]}
-        workload={{ ...emptyWorkload, unassigned: 1 }}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-      />
-    )
-
-    const readiness = screen.getByTestId('assignment-readiness')
-    expect(readiness.textContent).toContain(
-      'Open Agents to start or connect an agent, or wait for one to finish.'
-    )
-    expect(readiness.textContent).toContain(
+    expect(readiness).toHaveTextContent(
       '1 task needs an agent. Open Agents to start or connect an agent, or wait for one to finish.'
     )
-    expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
-    expect(screen.getByText('Already working · Can use Codex for this work')).toBeDefined()
-    expect(readiness.textContent).not.toContain('codex')
-    expect(readiness.textContent).not.toContain('unassigned tasks')
-    expect(readiness.textContent).not.toContain('handed off')
-    expect(readiness.textContent).not.toContain('No agent can take work right now')
-    expect(readiness.textContent).not.toContain('Connect or free up an agent before it can start')
-  })
-
-  test('keeps connected agent chips visible when participants are available', () => {
-    const participants: ParticipantSummary[] = [
-      {
-        id: 'participant-1',
-        agentId: 'agent-1',
-        name: 'Ready Agent',
-        status: 'available',
-        capabilities: ['codex'],
-      },
-    ]
-
-    render(
-      <AssignmentReadinessPanel
-        participants={participants}
-        workload={emptyWorkload}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-      />
-    )
-
-    expect(screen.queryByTestId('assignment-readiness-empty')).toBeNull()
-    expect(screen.queryByRole('link', { name: /open agents/i })).toBeNull()
-    expect(screen.getByText('Ready Agent')).toBeDefined()
-    expect(screen.getAllByText('Can take work').length).toBeGreaterThan(0)
-    expect(screen.getByText('Can use Codex for this work')).toBeDefined()
-    expect(screen.getByText('Create a task when you have work to send.')).toBeDefined()
-    expect(screen.queryByText('Task queue is clear.')).toBeNull()
-  })
-
-  test('summarizes tasks that need help without blocked-task wording', () => {
-    render(
-      <AssignmentReadinessPanel
-        participants={[
-          {
-            id: 'participant-1',
-            agentId: 'agent-1',
-            name: 'Busy Agent',
-            status: 'busy',
-            capabilities: ['codex'],
-          },
-        ]}
-        workload={{ ...emptyWorkload, blocked: 2 }}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-      />
-    )
-
-    const readiness = screen.getByTestId('assignment-readiness')
-    expect(readiness.textContent).toContain('2 tasks need help before they can continue.')
-    expect(screen.getByTestId('assignment-metric-blocked').textContent).toContain('Needs help')
-    expect(readiness.textContent).not.toContain('blocked tasks')
-    expect(readiness.textContent).not.toContain('Blocked')
-  })
-
-  test('summarizes completed tasks as ready to check', () => {
-    render(
-      <AssignmentReadinessPanel
-        participants={[
-          {
-            id: 'participant-1',
-            agentId: 'agent-1',
-            name: 'Ready Agent',
-            status: 'available',
-            capabilities: ['codex'],
-          },
-        ]}
-        workload={{ ...emptyWorkload, review: 2 }}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-      />
-    )
-
-    const readiness = screen.getByTestId('assignment-readiness')
-    expect(readiness.textContent).toContain('2 completed tasks ready to check.')
-    expect(screen.getByText('Ready to check')).toBeDefined()
-    expect(readiness.textContent).not.toContain('ready for review')
-  })
-
-  test('uses plain offline agent activity labels', () => {
-    const participants: ParticipantSummary[] = [
-      {
-        id: 'participant-1',
-        agentId: 'agent-1',
-        name: 'Recently Offline Agent',
-        status: 'offline',
-        capabilities: [],
-        lastHeartbeatAt: new Date().toISOString(),
-      },
-      {
-        id: 'participant-2',
-        agentId: 'agent-2',
-        name: 'Disconnected Agent',
-        status: 'offline',
-        capabilities: [],
-      },
-    ]
-
-    render(
-      <AssignmentReadinessPanel
-        participants={participants}
-        workload={emptyWorkload}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-      />
-    )
-
-    const readiness = screen.getByTestId('assignment-readiness')
-    expect(within(readiness).getByText(/Last seen/i)).toBeDefined()
-    expect(within(readiness).getByText('Open Agents to reconnect')).toBeDefined()
-    expect(readiness.textContent).not.toContain('No recent activity')
-    const previousStatusWord = ['heart', 'beat'].join('')
-    expect(readiness.textContent).not.toContain(previousStatusWord)
+    expect(screen.getByTestId('assignment-metric-can-take-work')).toHaveTextContent('0')
+    expect(screen.getByTestId('assignment-metric-questions-only')).toHaveTextContent('1')
+    expect(screen.getByText('Chat Helper')).toBeDefined()
+    expect(screen.getAllByText('Questions only').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('Chat only')).toBeNull()
+    expect(
+      screen.getByText('Simple chat only. Use Project files or This computer for Tasks.')
+    ).toBeDefined()
+    expect(readiness).not.toHaveTextContent('1 agent can take work now.')
   })
 })

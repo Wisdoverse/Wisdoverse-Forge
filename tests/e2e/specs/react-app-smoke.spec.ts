@@ -92,8 +92,8 @@ async function gotoAndWaitForAppReady(page: Page, baseURL: string, path = ''): P
  * nav-loader race was resolved by the fixture, but the upstream vite
  * dev-server flake can still bite under heavy parallelism. The warning
  * is logged so the flake rate stays visible in CI output. */
-// Default to `/tasks`, not `/`: the `/` index route still reads preferences and
-// may land on restored Start, so board-centric smoke tests navigate directly.
+// Default to `/tasks`, not `/`: the `/` index route reads preferences and may
+// land on the beginner setup checklist, so board-centric smoke tests navigate directly.
 async function setupAndNavigate(page: Page, baseURL: string, path = '/tasks'): Promise<void> {
   await injectAuth(page, baseURL)
   await gotoAndWaitForAppReady(page, baseURL, path)
@@ -109,6 +109,38 @@ async function setupAndNavigate(page: Page, baseURL: string, path = '/tasks'): P
 
 async function screenshot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: `${SCREENSHOT_DIR}/${name}.png`, fullPage: false })
+}
+
+async function expectTaskListHeader(page: Page): Promise<void> {
+  const tasksPage = page.getByTestId('page-tasks')
+  await expect(tasksPage.getByText('Task result', { exact: true })).toBeVisible({ timeout: 5000 })
+  await expect(tasksPage.getByText('Agent', { exact: true })).toBeVisible()
+}
+
+async function openBoardFilters(page: Page) {
+  const toolbar = page.getByTestId('board-toolbar')
+  await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+  const filters = toolbar.getByRole('button', { name: /^Filters/ })
+  if ((await filters.getAttribute('aria-expanded')) !== 'true') {
+    await filters.click({ timeout: 30000 })
+  }
+  await expect(toolbar.getByRole('group', { name: 'Filter tasks by priority' })).toBeVisible({
+    timeout: 5000,
+  })
+  return toolbar
+}
+
+async function openSettingsGroup(
+  page: Page,
+  group: 'team and project setup' | 'advanced setup'
+): Promise<void> {
+  const nav = page.getByTestId('settings-desktop-nav')
+  await nav.waitFor({ state: 'visible', timeout: 15000 })
+  const button = nav.getByRole('button', { name: new RegExp(`^(Show|Hide) ${group}$`) })
+  await expect(button).toBeVisible({ timeout: 15000 })
+  if ((await button.getAttribute('aria-expanded')) !== 'true') {
+    await button.click({ timeout: 30000 })
+  }
 }
 
 // ── Test Suite ───────────────────────────────────────────────────────────────
@@ -378,8 +410,7 @@ test.describe('React App Smoke Tests', () => {
       const topBar = page.locator('[data-testid="top-bar"]')
       await topBar.getByRole('button', { name: 'List' }).click()
 
-      await expect(page.getByText('Task result')).toBeVisible({ timeout: 5000 })
-      await expect(page.getByText('Agent', { exact: true })).toBeVisible()
+      await expectTaskListHeader(page)
       await screenshot(page, '14-view-list')
     })
 
@@ -429,7 +460,7 @@ test.describe('React App Smoke Tests', () => {
       const topBar = page.locator('[data-testid="top-bar"]')
 
       await topBar.getByRole('button', { name: 'List' }).click()
-      await expect(page.getByText('Task result')).toBeVisible({ timeout: 5000 })
+      await expectTaskListHeader(page)
 
       await topBar.getByRole('button', { name: 'Board' }).click()
       await expect(page.locator('[data-testid="column-count-backlog"]')).toBeAttached({
@@ -486,7 +517,7 @@ test.describe('React App Smoke Tests', () => {
       await closeBtn.click()
 
       await expect(
-        page.locator('[data-testid="right-panel"]').getByText('Current work', { exact: true })
+        page.locator('[data-testid="right-panel"]').getByText('Live task updates', { exact: true })
       ).toBeVisible({ timeout: 5000 })
     })
 
@@ -516,10 +547,10 @@ test.describe('React App Smoke Tests', () => {
 
       const input = page.getByPlaceholder(/Search what you want to do/)
       await expect(input).toBeVisible({ timeout: 5000 })
-      await expect(page.getByText(/Write one small task when you want work done/i)).toBeVisible()
       await expect(
-        page.getByText(/Fix setup blockers for agents, sign-ins, projects, and access/i)
+        page.getByText(/Tell an agent the result you want and how to check it/i)
       ).toBeVisible()
+      await expect(page.getByText('Go to a page')).toBeVisible()
       await screenshot(page, '19-cmdk-open')
     })
 
@@ -570,15 +601,23 @@ test.describe('React App Smoke Tests', () => {
       // trailing description).
       const settingsNav = page.getByTestId('settings-desktop-nav')
       await expect(settingsNav).toBeVisible({ timeout: 30000 })
+      await openSettingsGroup(page, 'team and project setup')
+      await openSettingsGroup(page, 'advanced setup')
       await expect(settingsNav.getByText('Start here', { exact: true })).toBeVisible()
       await expect(settingsNav.getByText('People and projects', { exact: true })).toBeVisible()
       await expect(settingsNav.getByText('Access and limits', { exact: true })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^AI services:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('link', { name: /^Outside tool access:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('link', { name: /^HTTPS code access:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('link', { name: /^SSH code access:/ })).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Tool access keys:/ })).toBeVisible()
+      await expect(
+        settingsNav.getByRole('link', { name: /^Code access for HTTPS links:/ })
+      ).toBeVisible()
+      await expect(
+        settingsNav.getByRole('link', { name: /^Code access for SSH links:/ })
+      ).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Where agents work:/ })).toBeVisible()
-      await expect(settingsNav.getByRole('link', { name: /^Codex sign-in:/ })).toBeVisible()
+      await expect(
+        settingsNav.getByRole('link', { name: /^File-change tool sign-in:/ })
+      ).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Account:/ })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })
@@ -694,9 +733,10 @@ test.describe('React App Smoke Tests', () => {
       const topBar = page.locator('[data-testid="top-bar"]')
       await topBar.getByRole('button', { name: 'List' }).click()
 
-      await expect(page.getByText('Task result')).toBeVisible({ timeout: 5000 })
-      await expect(page.getByText('Implement login flow')).toBeVisible({ timeout: 5000 })
-      await expect(page.getByText('Fix database migration')).toBeVisible()
+      await expectTaskListHeader(page)
+      const tasksPage = page.getByTestId('page-tasks')
+      await expect(tasksPage.getByText('Implement login flow')).toBeVisible({ timeout: 5000 })
+      await expect(tasksPage.getByText('Fix database migration')).toBeVisible()
       await screenshot(page, '27-list-view-content')
     })
 
@@ -884,6 +924,7 @@ test.describe('React App Smoke Tests', () => {
       // fully mounted, then bump the click timeout to absorb the chunk load.
       const nav = page.locator('[data-testid="settings-desktop-nav"]')
       await nav.waitFor({ state: 'visible', timeout: 15000 })
+      await openSettingsGroup(page, 'team and project setup')
       await nav.getByRole('link', { name: /^Account:/ }).click({ timeout: 30000 })
     }
 
@@ -931,8 +972,7 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('priority filter activates via aria-pressed and narrows the board', async ({ page }) => {
-      const toolbar = page.getByTestId('board-toolbar')
-      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const toolbar = await openBoardFilters(page)
       const priority = toolbar.getByRole('group', { name: 'Filter tasks by priority' })
       const high = priority.getByRole('button', { name: /Show high priority tasks/ })
 
@@ -947,8 +987,7 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('assignee filter toggles independently and Clear resets to all', async ({ page }) => {
-      const toolbar = page.getByTestId('board-toolbar')
-      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const toolbar = await openBoardFilters(page)
       const assignee = toolbar.getByRole('group', {
         name: 'Filter tasks by whether an agent is chosen',
       })
@@ -971,8 +1010,7 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('over-filtering shows the guided empty state, not a blank board', async ({ page }) => {
-      const toolbar = page.getByTestId('board-toolbar')
-      await toolbar.waitFor({ state: 'visible', timeout: 15000 })
+      const toolbar = await openBoardFilters(page)
 
       // Low priority (only t-006) is unassigned, so Low + Has agent matches 0 tasks.
       await toolbar
@@ -1157,8 +1195,7 @@ test.describe('React App Smoke Tests', () => {
       await listCmd.click()
 
       // Should show list view
-      await expect(page.getByText('Task result')).toBeVisible({ timeout: 5000 })
-      await expect(page.getByText('Agent', { exact: true })).toBeVisible()
+      await expectTaskListHeader(page)
     })
   })
 
@@ -1214,17 +1251,17 @@ test.describe('React App Smoke Tests', () => {
   // 28. Deep Linking / Direct URL ────────────────────────────────────────────
 
   test.describe('28. Client-Side Routing', () => {
-    test('root URL / redirects to Tasks unless Start is restored from Settings', async ({
+    test('root URL / opens Start until the setup checklist is dismissed', async ({
       page,
       baseURL,
     }) => {
-      // The `/` index route sends users to `/tasks` by default. The setup checklist
-      // is opt-in from Settings and no longer blocks the first board visit.
+      // The `/` index route sends first-time users to Start. Tests that need
+      // Tasks navigate directly so the setup checklist does not hide the board.
       await injectAuth(page, baseURL!)
       await gotoAndWaitForAppReady(page, baseURL!, '/')
 
-      await page.waitForURL('**/tasks')
-      expect(page.url()).toContain('/tasks')
+      await page.waitForURL('**/start')
+      expect(page.url()).toContain('/start')
     })
 
     test('navigating to each page and back preserves state', async ({ page, baseURL }) => {
@@ -1412,6 +1449,7 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForURL('**/settings')
 
       // About is its own section in SettingsLayout; click into it first.
+      await openSettingsGroup(page, 'advanced setup')
       await page
         .locator('[data-testid="settings-desktop-nav"]')
         .getByRole('link', { name: /^About:/ })

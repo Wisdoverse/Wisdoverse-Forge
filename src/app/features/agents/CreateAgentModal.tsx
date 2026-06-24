@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bug,
   Check,
+  ChevronDown,
   ClipboardCheck,
   Code2,
   Copy,
@@ -113,26 +114,26 @@ const AGENT_STARTER_TEMPLATES: AgentStarterTemplate[] = [
 const AGENT_KIND_OPTIONS: Array<{
   value: AgentKind
   label: string
-  helper: string
   badge: string
+  summary: string
 }> = [
   {
     value: 'cli',
     label: 'Project files',
-    helper: 'Use this for the usual setup when the agent should edit shared project files.',
-    badge: 'Most file work',
+    badge: 'Best for project changes',
+    summary: 'Tasks and code changes in the selected project.',
   },
   {
     value: 'local-cli',
     label: 'This computer',
-    helper: 'Use this when files or tools must stay on this computer.',
     badge: 'Local files',
+    summary: 'Tasks and code changes in a folder on this computer.',
   },
   {
     value: 'provider',
     label: 'Simple chat agent',
-    helper: 'Use this for questions, writing, and result checks that do not need file edits.',
-    badge: 'No files',
+    badge: 'Questions only',
+    summary: 'Questions only. No Tasks, code changes, or computer apps.',
   },
 ]
 
@@ -148,11 +149,14 @@ interface ProviderOption {
   provider: string
   label: string
   model: string
+  ready: boolean
 }
 
 const DEFAULT_AGENT_CWD = '/workspace'
 const NO_READY_AI_SERVICE_ERROR =
   'Open AI service settings, add a service, paste the key from that service, save it, then choose Check connection. Come back when it shows Ready.'
+const SELECTED_AI_SERVICE_NOT_READY_ERROR =
+  'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
 const NO_SELECTED_PROJECT_ERROR =
   'Open project settings, create or choose a project, then create this agent. Agents that work with files need a project first.'
 
@@ -170,6 +174,7 @@ function buildProviderOptions(providers: LlmProviderConfig[]): ProviderOption[] 
     provider: provider.provider,
     label: provider.displayName,
     model: provider.model,
+    ready: provider.lastTestStatus === 'passed',
   }))
 }
 
@@ -180,6 +185,14 @@ function providerOptionModel(options: ProviderOption[], id: string): string {
 function providerOptionLabel(options: ProviderOption[], id: string): string {
   const option = options.find((candidate) => candidate.id === id)
   return option ? `${option.label}` : 'AI service'
+}
+
+function providerOptionReady(options: ProviderOption[], id: string): boolean {
+  return options.find((option) => option.id === id)?.ready === true
+}
+
+function providerOptionStatusLabel(option: ProviderOption): string {
+  return option.ready ? 'Ready in Settings' : 'Check connection first'
 }
 
 function cliToolLabel(cliTool: CliTool): string {
@@ -194,7 +207,7 @@ function runtimeFitFor(
   if (kind === 'cli') {
     return {
       title: `${cliToolLabel(cliTool)} with project files`,
-      detail: 'Best when the task needs project files or work tools prepared by Forge.',
+      detail: 'Best when the task needs the agent to open project files and run checks in Forge.',
       items: [
         { label: 'Where it works', value: 'Shared project folder' },
         { label: 'Files', value: 'Project files are included' },
@@ -211,7 +224,7 @@ function runtimeFitFor(
       items: [
         { label: 'Where it works', value: 'This computer' },
         { label: 'Files', value: 'Your chosen folder' },
-        { label: 'Before use', value: `Paste setup text in ${LOCAL_AGENT_SETUP_APP_LABEL}` },
+        { label: 'Before use', value: 'Follow the setup steps shown after creation' },
       ],
     }
   }
@@ -219,7 +232,7 @@ function runtimeFitFor(
   return {
     title: `${providerLabel} for questions and result checks`,
     detail:
-      'Best for questions, writing, and checking results when no project files need to be opened.',
+      'Best for direct questions, writing, and checking results. It cannot take Tasks, change files, or use computer apps.',
     items: [
       { label: 'Where it works', value: 'AI service only' },
       { label: 'Files', value: 'Does not open project files' },
@@ -259,35 +272,48 @@ function createReviewItems({
   selectedGroupName: string | null
   hasGroups: boolean
 }): AgentCreateReviewItem[] {
+  if (kind === 'provider') {
+    return [
+      { label: 'Where it works', value: runtimeTitle },
+      { label: 'How to use it', value: 'Open this agent from Chat. It does not take Tasks.' },
+      {
+        label: 'Tasks and files',
+        value: 'Need Tasks or code changes? Create a Project files or This computer agent.',
+      },
+      {
+        label: 'After creation',
+        value: 'Ready for direct questions and result checks after the AI service is connected.',
+      },
+    ]
+  }
+
   const startState =
     kind === 'local-cli'
       ? 'Forge creates the agent, then shows setup steps for this computer.'
-      : kind === 'provider'
-        ? 'Ready for questions and result checks after the AI service is connected.'
-        : 'Forge starts it after the project file area is ready.'
+      : 'Forge starts it after the project file area is ready.'
+
+  const projectForTasks = projectName ?? 'Choose a project before sending tasks.'
 
   const taskQueue = selectedGroupName
     ? waitingPlaceDisplayName(selectedGroupName)
     : hasSelectedProject
       ? hasGroups
-        ? 'Choose where tasks wait now, or set it later from Tasks.'
-        : 'Set up where tasks wait here when you want new tasks to wait in one place.'
+        ? 'Choose a task queue now, or set it later from Tasks.'
+        : 'Set up a task queue here when you want new tasks to wait in one place.'
       : 'Choose a project later before sending tasks.'
 
   const nextStep =
     kind === 'local-cli'
-      ? `Paste the setup text in ${LOCAL_AGENT_SETUP_APP_LABEL} and keep that window open.`
-      : kind === 'provider'
-        ? 'Ask a first question, or send a task to check a result that does not need files.'
-        : 'Wait until it shows Ready, then send one small task from Tasks.'
+      ? 'Follow the setup steps shown after creation and keep that window open.'
+      : 'Wait until it shows Ready, then send one small task from Tasks.'
 
   return [
     { label: 'Where it works', value: runtimeTitle },
     {
       label: 'Project for new tasks',
-      value: projectName ?? 'Choose a project before sending tasks.',
+      value: projectForTasks,
     },
-    { label: 'Where tasks wait', value: taskQueue },
+    { label: 'Task queue', value: taskQueue },
     { label: 'Next step', value: nextStep },
     { label: 'After creation', value: startState },
   ]
@@ -316,6 +342,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   const [copiedCommand, setCopiedCommand] = useState(false)
   const [joinOs, setJoinOs] = useState<'posix' | 'windows'>('posix')
   const [copiedJoin, setCopiedJoin] = useState(false)
+  const [backupSetupOpen, setBackupSetupOpen] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   // Simple chat agents pick from configured AI services, preferring tested
@@ -345,12 +372,15 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     defaultValues,
   })
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [runtimeDetailsOpen, setRuntimeDetailsOpen] = useState(false)
+  const [starterTemplatesOpen, setStarterTemplatesOpen] = useState(false)
   const kind = watch('kind')
   const providerId = watch('providerId')
   const cliTool = watch('cliTool')
   const cwd = watch('cwd')
   const groupId = watch('groupId')
   const runtimeFit = runtimeFitFor(kind, cliTool, providerOptionLabel(providerOptions, providerId))
+  const selectedProviderReady = providerOptionReady(providerOptions, providerId)
   const selectedProject = selectedProjectId
     ? (Object.values(projectsByTeam)
         .flat()
@@ -380,6 +410,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
   const selectedJoinCommand = joinOs === 'posix' ? joinCommand : joinCommandPowershell
   const selectedJoinCommandReady = selectedJoinCommand.trim().length > 0
+  const showBackupSetup = backupSetupOpen || !selectedJoinCommandReady
   const projectRequiredBeforeCreate =
     kind !== 'provider' && !selectedProject && Boolean(onOpenProjectsSetup)
 
@@ -440,19 +471,30 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setLocalEnrollment(null)
     setCopiedCommand(false)
     setCopiedJoin(false)
+    setBackupSetupOpen(false)
     setJoinOs('posix')
     setError(null)
     setFormError(null)
     setCopyError(null)
+    setRuntimeDetailsOpen(false)
+    setStarterTemplatesOpen(false)
   }, [createModalOpen, defaultValues, reset, setError])
+
+  useEffect(() => {
+    setRuntimeDetailsOpen(false)
+  }, [kind])
 
   // Keep the hidden submission value in sync with the selected AI service so
   // the create flow does not need to show a raw model name to first-time users.
   useEffect(() => {
+    if (kind === 'provider' && !providerId && providerOptions[0]) {
+      setValue('providerId', providerOptions[0].id)
+      return
+    }
     if (!providerId) return
     const model = providerOptionModel(providerOptions, providerId)
     if (model) setValue('model', model)
-  }, [providerId, providerOptions, setValue])
+  }, [kind, providerId, providerOptions, setValue])
 
   useEffect(() => {
     if (kind === 'local-cli' && cwd === DEFAULT_AGENT_CWD) {
@@ -476,11 +518,18 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
       setFormError(NO_SELECTED_PROJECT_ERROR)
       return
     }
-    const base = {
+    const base: {
+      name: string
+      workspaceId?: string
+      projectId?: string
+      groupId?: string
+    } = {
       name: data.name.trim(),
       workspaceId: selectedProject?.workspaceId,
       projectId: selectedProjectId ?? undefined,
-      groupId: data.groupId || undefined,
+    }
+    if (data.kind !== 'provider' && data.groupId) {
+      base.groupId = data.groupId
     }
     if (data.kind === 'provider') {
       const selected = providerOptions.find((option) => option.id === data.providerId)
@@ -489,10 +538,12 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         setFormError(NO_READY_AI_SERVICE_ERROR)
         return
       }
+      if (!selected.ready) {
+        setFormError(SELECTED_AI_SERVICE_NOT_READY_ERROR)
+        return
+      }
       if (!selectedModel) {
-        setFormError(
-          'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
-        )
+        setFormError(SELECTED_AI_SERVICE_NOT_READY_ERROR)
         return
       }
       await createAgent({
@@ -513,6 +564,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
       if (enrollment) {
         setLocalEnrollment(enrollment)
         setCopiedCommand(false)
+        setBackupSetupOpen(false)
       }
     } else {
       await createAgent({ ...base, kind: 'cli', cliTool: data.cliTool, cwd: data.cwd || undefined })
@@ -522,7 +574,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
       setError(
-        'Select a project before setting up where tasks wait. Each waiting place belongs to one project.'
+        'Select a project before setting up a task queue. Each task queue belongs to one project.'
       )
       return
     }
@@ -531,7 +583,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setError(null)
     try {
       const group = await createAgentGroup(selectedProjectId, {
-        name: 'Default Waiting Place',
+        name: 'Default Task Queue',
         description:
           'Starter place for this project. New tasks wait here until an agent can take them.',
       })
@@ -557,6 +609,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setLocalEnrollment(null)
     setCopiedCommand(false)
     setCopiedJoin(false)
+    setBackupSetupOpen(false)
   }
 
   const CLIPBOARD_UNAVAILABLE =
@@ -598,6 +651,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
     setLocalEnrollment(null)
     setCopiedCommand(false)
     setCopiedJoin(false)
+    setBackupSetupOpen(false)
     setSelectedTemplateId(null)
     reset(defaultValues)
   }
@@ -653,7 +707,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">{displayedError}</span>
-              {displayedError === NO_READY_AI_SERVICE_ERROR && (
+              {(displayedError === NO_READY_AI_SERVICE_ERROR ||
+                displayedError === SELECTED_AI_SERVICE_NOT_READY_ERROR) && (
                 <a
                   href="/settings/providers"
                   className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
@@ -671,6 +726,15 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   <span>Open project settings</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
                 </button>
+              )}
+              {displayedError.includes('Where agents work in Settings') && (
+                <a
+                  href="/settings/runtime"
+                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                >
+                  <span>Open Where agents work</span>
+                  <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
+                </a>
               )}
             </div>
           </div>
@@ -746,8 +810,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     role="note"
                     className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
                   >
-                    Windows setup needs backup setup text. Open PowerShell, copy the backup setup
-                    text below, paste it there, and keep PowerShell open.
+                    Windows setup needs backup setup text. Copy the backup setup text below, paste
+                    it into the setup app for Windows, and keep that window open.
                   </div>
                 )}
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -777,36 +841,49 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     5. Come back to Forge, open Agents, and send one small task when it is Ready.
                   </p>
                 </div>
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                <details className="mt-3" open={showBackupSetup}>
+                  <summary
+                    className="cursor-pointer text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      if (selectedJoinCommandReady) {
+                        setBackupSetupOpen((open) => !open)
+                      }
+                    }}
+                  >
                     If the setup text does not work
                   </summary>
-                  <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Use this backup only if the setup text above does not work on this computer.
-                    Copy this backup setup text into the same window, then keep that window open.
-                  </p>
-                  <textarea
-                    id="local-agent-command"
-                    aria-label="Backup setup text"
-                    readOnly
-                    value={localEnrollment.enrollment?.shellExports ?? ''}
-                    rows={6}
-                    className="mt-2 w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                  />
-                  <div className="mt-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => void handleCopyCommand()}
-                      className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption font-medium text-foreground-light dark:border-white/[0.1] dark:text-foreground-dark"
-                    >
-                      {copiedCommand ? (
-                        <Check size={13} strokeWidth={2.25} aria-hidden="true" />
-                      ) : (
-                        <Copy size={13} strokeWidth={2.25} aria-hidden="true" />
-                      )}
-                      {copiedCommand ? 'Copied' : 'Copy backup setup'}
-                    </button>
-                  </div>
+                  {showBackupSetup && (
+                    <>
+                      <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        Use this backup only if the setup text above does not work on this computer.
+                        Copy this backup setup text into the same window, then keep that window
+                        open.
+                      </p>
+                      <textarea
+                        id="local-agent-command"
+                        aria-label="Backup setup text"
+                        readOnly
+                        value={localEnrollment.enrollment?.shellExports ?? ''}
+                        rows={6}
+                        className="mt-2 w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                      />
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyCommand()}
+                          className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption font-medium text-foreground-light dark:border-white/[0.1] dark:text-foreground-dark"
+                        >
+                          {copiedCommand ? (
+                            <Check size={13} strokeWidth={2.25} aria-hidden="true" />
+                          ) : (
+                            <Copy size={13} strokeWidth={2.25} aria-hidden="true" />
+                          )}
+                          {copiedCommand ? 'Copied' : 'Copy backup setup'}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </details>
               </div>
             ) : (
@@ -908,65 +985,6 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         ) : (
           <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
             <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                  Pick a starter template
-                </span>
-                <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {kind === 'provider'
-                    ? 'Fills in the name and what this agent should do'
-                    : 'Fills in the name and first task'}
-                </span>
-              </div>
-              <div
-                role="group"
-                aria-label="Agent starter templates"
-                className="grid gap-2 sm:grid-cols-2"
-              >
-                {AGENT_STARTER_TEMPLATES.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => applyStarterTemplate(template)}
-                    aria-pressed={selectedTemplateId === template.id}
-                    className={cn(
-                      'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
-                      selectedTemplateId === template.id
-                        ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
-                        : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
-                    )}
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
-                      <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-ui-button font-semibold">{template.label}</span>
-                      <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        {template.summary}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="agent-name"
-                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-              >
-                Name
-              </label>
-              <input
-                id="agent-name"
-                {...register('name')}
-                className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="e.g. Result checker"
-                autoFocus
-              />
-            </div>
-
-            <div>
               <label className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 Where should this agent work?
               </label>
@@ -981,7 +999,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     <label
                       key={option.value}
                       className={cn(
-                        'min-h-[118px] cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors',
+                        'min-h-[96px] cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors',
                         selected
                           ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
                           : 'border-black/[0.08] bg-white text-foreground-light hover:bg-black/[0.03] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
@@ -1006,83 +1024,200 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                           {option.badge}
                         </span>
                       </span>
-                      <span className="mt-2 block text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        {option.helper}
+                      <span className="mt-2 block text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
+                        {option.summary}
                       </span>
                     </label>
                   )
                 })}
               </div>
-              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              <p
+                data-testid="agent-kind-recommendation"
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
                 {kind === 'cli'
-                  ? 'Forge opens the shared project folder for file and command work.'
+                  ? 'Recommended: Project files for most tasks that need shared files or code changes.'
                   : kind === 'local-cli'
-                    ? 'Uses files and commands on your computer. Forge still manages the agent here with tasks, status, and history.'
-                    : 'Uses a connected AI service for planning, writing, and checking results. It does not open files or run commands.'}
-              </p>
-              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Not sure? Use Project files when the agent should edit shared project files, This
-                computer when files must stay local, or Simple chat agent after an AI service is
-                ready.
+                    ? 'Use this only when files must stay on this computer. Forge still tracks tasks, status, and history.'
+                    : 'Use this for questions and result checks in chat. It cannot take Tasks, change files, or use computer apps.'}
               </p>
             </div>
 
-            <section
-              data-testid="agent-runtime-fit"
-              className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    Best for
-                  </p>
-                  <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                    {runtimeFit.title}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
-                  {kind === 'cli'
-                    ? 'Can edit files'
-                    : kind === 'local-cli'
-                      ? 'Uses this computer'
-                      : 'Chat only'}
-                </span>
-              </div>
-              <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {runtimeFit.detail}
-              </p>
-              <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
-                {runtimeFit.items.map((item) => (
-                  <div
-                    key={item.label}
-                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
-                  >
-                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
-                      {item.label}
-                    </span>
-                    <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                      {item.value}
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                data-testid="agent-runtime-details-toggle"
+                aria-expanded={runtimeDetailsOpen}
+                aria-controls="agent-runtime-fit"
+                onClick={() => setRuntimeDetailsOpen((open) => !open)}
+                className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.07]"
+              >
+                <ChevronDown
+                  size={14}
+                  strokeWidth={2.25}
+                  aria-hidden="true"
+                  className={cn('transition-transform', runtimeDetailsOpen ? 'rotate-180' : '')}
+                />
+                <span>{runtimeDetailsOpen ? 'Hide option details' : 'Why this option?'}</span>
+              </button>
+
+              {runtimeDetailsOpen ? (
+                <section
+                  id="agent-runtime-fit"
+                  data-testid="agent-runtime-fit"
+                  className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                        Best for
+                      </p>
+                      <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                        {runtimeFit.title}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
+                      {kind === 'cli'
+                        ? 'Can edit files'
+                        : kind === 'local-cli'
+                          ? 'Uses this computer'
+                          : 'Questions only'}
                     </span>
                   </div>
-                ))}
-              </div>
-            </section>
+                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    {runtimeFit.detail}
+                  </p>
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                    {runtimeFit.items.map((item) => (
+                      <div
+                        key={item.label}
+                        className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                      >
+                        <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                          {item.label}
+                        </span>
+                        <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                          {item.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                data-testid="agent-starter-template-toggle"
+                aria-expanded={starterTemplatesOpen}
+                aria-controls="agent-starter-templates"
+                onClick={() => setStarterTemplatesOpen((open) => !open)}
+                className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.07]"
+              >
+                <ChevronDown
+                  size={14}
+                  strokeWidth={2.25}
+                  aria-hidden="true"
+                  className={cn('transition-transform', starterTemplatesOpen ? 'rotate-180' : '')}
+                />
+                <span>
+                  {starterTemplatesOpen ? 'Hide starter templates' : 'Choose a starter template'}
+                </span>
+              </button>
+
+              {starterTemplatesOpen ? (
+                <section
+                  id="agent-starter-templates"
+                  className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                      Pick a starter template
+                    </span>
+                    <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      Fills in the name and how this agent should work
+                    </span>
+                  </div>
+                  <div
+                    role="group"
+                    aria-label="Agent starter templates"
+                    className="grid gap-2 sm:grid-cols-2"
+                  >
+                    {AGENT_STARTER_TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => applyStarterTemplate(template)}
+                        aria-pressed={selectedTemplateId === template.id}
+                        className={cn(
+                          'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                          selectedTemplateId === template.id
+                            ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                            : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
+                        )}
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                          <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-ui-button font-semibold">
+                            {template.label}
+                          </span>
+                          <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                            {template.summary}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : selectedTemplateId ? (
+                <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Starter template selected. Open templates again to choose a different one.
+                </p>
+              ) : (
+                <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Optional. Skip this if you already know the name and instructions.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="agent-name"
+                className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
+              >
+                Name
+              </label>
+              <input
+                id="agent-name"
+                {...register('name')}
+                className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                placeholder="e.g. Result checker"
+                autoFocus
+              />
+            </div>
 
             <div data-testid="agent-work-readiness">
               <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                Project for new tasks
+                {kind === 'provider' ? 'Where to use it' : 'Project for new tasks'}
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-                {selectedProject?.name ?? 'Choose a project later'}
+                {kind === 'provider'
+                  ? 'Open this agent from Chat. No project or task queue is needed.'
+                  : (selectedProject?.name ?? 'Choose a project later')}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {selectedProject
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
-                    : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
+                    : kind === 'provider'
+                      ? 'Use it for direct questions and result checks. It cannot take Tasks or change project files.'
+                      : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
                   : kind === 'provider'
-                    ? 'You can create this chat-only agent now. Choose a project later before sending tasks.'
-                    : 'Open project settings to create or choose a project before creating this file-working agent.'}
+                    ? 'Use it for direct questions and result checks. It cannot take Tasks or change project files.'
+                    : 'Open project settings to create or choose a project before creating this project files agent.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (
                 <button
@@ -1102,7 +1237,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   htmlFor="agent-cli-tool"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  {kind === 'local-cli' ? 'Work tool on this computer' : 'Work tool'}
+                  {kind === 'local-cli'
+                    ? 'Tool for files on this computer'
+                    : 'Tool for file changes'}
                 </label>
                 <select
                   id="agent-cli-tool"
@@ -1116,14 +1253,30 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ))}
                 </select>
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Keep the suggested tool unless an owner or admin tells you which work tool this
-                  team uses.
+                  Keep the suggested tool unless an owner or admin tells you which tool this team
+                  uses to change project files.
                 </p>
               </div>
             )}
 
             {kind === 'provider' && (
               <>
+                <div
+                  data-testid="simple-chat-limits"
+                  className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                >
+                  <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                    Simple chat is not a task runner
+                  </p>
+                  <p className="mt-1">
+                    It can answer questions and check text in chat. It cannot take Tasks, edit
+                    files, run commands, or use apps.
+                  </p>
+                  <p className="mt-1 font-medium text-foreground-light dark:text-foreground-dark">
+                    Need Tasks or code changes? Choose Project files for shared project files, or
+                    This computer for local files and apps.
+                  </p>
+                </div>
                 {hasProviderOptions ? (
                   <>
                     <div>
@@ -1140,12 +1293,14 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       >
                         {providerOptions.map((option) => (
                           <option key={option.id} value={option.id}>
-                            {option.label} · Ready in Settings
+                            {option.label} · {providerOptionStatusLabel(option)}
                           </option>
                         ))}
                       </select>
                       <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Choose the AI service you set up in Settings.
+                        {selectedProviderReady
+                          ? 'Choose the AI service you set up in Settings.'
+                          : 'Choose Check connection in Settings before creating this simple chat agent.'}
                       </p>
                     </div>
                     <div>
@@ -1153,14 +1308,15 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         Answer setting from Settings
                       </div>
                       <div className="w-full rounded-[18px] border border-black/[0.08] bg-black/[0.025] px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
-                        Ready
+                        {selectedProviderReady ? 'Ready' : 'Check connection first'}
                       </div>
                       <p
                         id="agent-model-help"
                         className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                       >
-                        Forge uses the answer setting that is already checked in Settings. You do
-                        not need to choose anything else here.
+                        {selectedProviderReady
+                          ? 'Forge uses the answer setting that is already checked in Settings. You do not need to choose anything else here.'
+                          : 'Open AI service settings and choose Check connection before creating this simple chat agent.'}
                       </p>
                     </div>
                   </>
@@ -1236,8 +1392,8 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         it blank.
                       </li>
                       <li>
-                        After you choose Add agent, copy the setup text and paste it into{' '}
-                        {LOCAL_AGENT_SETUP_APP_LABEL} on this computer.
+                        After you choose Add agent, Forge shows the setup text and the app to paste
+                        it into.
                       </li>
                       <li>Success looks like this agent changing to Ready on the Agents page.</li>
                     </ol>
@@ -1246,13 +1402,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
             )}
 
-            {selectedProjectId && (
+            {selectedProjectId && kind !== 'provider' && (
               <div>
                 <label
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Where tasks wait
+                  Task queue
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -1286,11 +1442,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Set up where tasks wait'}
+                      {creatingGroup ? 'Creating…' : 'Set up task queue'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      This creates a starter place for this project so new tasks have somewhere
-                      clear to wait.
+                      This creates a starter task queue for this project so new tasks have a clear
+                      place to wait.
                     </p>
                   </div>
                 )}

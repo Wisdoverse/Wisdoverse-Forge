@@ -1,5 +1,8 @@
 export type ChatErrorAction = 'load' | 'clear'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function rawErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message
   return typeof err === 'string' ? err : ''
@@ -89,7 +92,7 @@ export function chatErrorMessage(action: ChatErrorAction, err: unknown): string 
       ? `${base} Wait a minute, then choose Check conversation again. Too many chat requests are happening right now.`
       : `${base} Wait a minute, then clear chat again if you still want to remove the messages. Too many chat requests are happening right now.`
   }
-  if (code != null && code >= 500) {
+  if ((code != null && code >= 500) || RAW_SERVICE_DETAIL.test(text)) {
     return `${base} ${serviceRecoveryMessage(action)}`
   }
   if (isNetworkError(err)) {

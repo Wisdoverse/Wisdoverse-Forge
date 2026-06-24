@@ -32,6 +32,18 @@ describe('billingErrorMessage', () => {
     expect(message).not.toContain('policy denied')
   })
 
+  test('turns nested permission details into a billing access step', () => {
+    const message = billingErrorMessage(
+      { error: { message: 'Forbidden: billing policy denied', statusCode: 403 } },
+      'invoices'
+    )
+
+    expect(message).toBe(
+      'Ask an owner or admin to give you billing access, then choose Check billing again to load invoices.'
+    )
+    expect(message).not.toContain('policy denied')
+  })
+
   test('turns role-required details into a billing access step', () => {
     const message = billingErrorMessage('owner role required', 'usage')
 

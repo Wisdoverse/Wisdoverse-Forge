@@ -22,20 +22,23 @@ describe('QuickCreate', () => {
 
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveFocus()
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveAccessibleDescription(
-      /only saves a draft in not sent yet/i
+      /saves the idea first/i
     )
     expect(
       screen.getByPlaceholderText(/example: fix the login error and show how to test it/i)
     ).toBeDefined()
     expect(screen.getByText(/open the card, add where to work and done when/i)).toBeDefined()
-    expect(screen.getByText(/then choose an agent/i)).toBeDefined()
+    expect(screen.getByText(/then choose who should start it/i)).toBeDefined()
+    expect(screen.queryByText(/draft/i)).toBeNull()
+    expect(screen.queryByText(/not sent yet/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /\+ add task/i })).toBeNull()
     expect(screen.queryByText(/quick add/i)).toBeNull()
     expect(
       screen.getByRole('button', { name: /check what is ready and list the next safe step/i })
     ).toBeDefined()
-    expect(screen.queryByRole('button', { name: /check setup and list the next safe step/i }))
-      .toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /check setup and list the next safe step/i })
+    ).toBeNull()
     expect(
       screen.queryByRole('button', { name: /review setup and list the next safe step/i })
     ).toBeNull()
@@ -92,8 +95,10 @@ describe('QuickCreate', () => {
     await waitFor(() => expect(screen.queryByRole('textbox', { name: /task goal/i })).toBeNull())
     const status = screen.getByRole('status')
     expect(status).toHaveTextContent(
-      'Task idea saved in Not sent yet. Open the new card to add details and choose an agent.'
+      'Task idea saved. Open the new card to add where to work, done when, and who should start it.'
     )
+    expect(status).not.toHaveTextContent('Not sent yet')
+    expect(status).not.toHaveTextContent('draft')
   })
 
   test('names the save progress while a task idea is being saved', async () => {
@@ -153,9 +158,8 @@ describe('QuickCreate', () => {
     )
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(
-      'Check the project, where tasks wait, and your connection'
-    )
+    expect(alert).toHaveTextContent('Check the project, task queue, and your connection')
+    expect(alert).not.toHaveTextContent('where tasks wait')
     expect(input).toHaveValue('Keep this task')
     expect(input).toHaveFocus()
     expect(screen.getByRole('button', { name: /^save for later$/i })).toBeEnabled()
@@ -165,7 +169,7 @@ describe('QuickCreate', () => {
     const onSubmit = vi
       .fn()
       .mockResolvedValue(
-        'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
+        'Check the project, task queue, and the result, then create the task again. The task was not created.'
       )
     render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
 
@@ -179,8 +183,9 @@ describe('QuickCreate', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check the project, where tasks wait, and the result, then create the task again.'
+      'Check the project, task queue, and the result, then create the task again.'
     )
+    expect(alert).not.toHaveTextContent('where tasks wait')
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveValue('Recover this task')
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveFocus()
   })
@@ -198,11 +203,12 @@ describe('QuickCreate', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Retry this task', 'backlog'))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'The task was not saved. Check the project, where tasks wait, and your connection, then choose Save for later again.'
+        'The task was not saved. Check the project, task queue, and your connection, then choose Save for later again.'
       )
     )
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).not.toHaveTextContent('where tasks wait')
     expect(alert).not.toHaveTextContent('socket hang up')
     expect(screen.getByRole('textbox', { name: /task goal/i })).toHaveValue('Retry this task')
   })

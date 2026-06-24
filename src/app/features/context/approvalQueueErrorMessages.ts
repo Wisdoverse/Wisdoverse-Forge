@@ -24,6 +24,10 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
     return networkRecoveryMessage(action)
   }
 
+  if (status == null && isServiceError(detail)) {
+    return serviceRecoveryMessage(action)
+  }
+
   if (status === 401) {
     return `Sign in again, then ${ACTION_RETRY_STEPS[action]}.`
   }
@@ -66,6 +70,9 @@ function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
     return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
   }
+  if (action === 'approveCandidate') {
+    return 'Wait a few minutes, then choose Save item again. The item was not saved. If it still fails, ask an owner or admin to check Saved items access.'
+  }
   return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
 }
 
@@ -89,10 +96,24 @@ function errorDetail(err: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function errorStatus(err: unknown, normalizedDetail: string): number | null {
@@ -123,6 +144,12 @@ function isNetworkError(normalizedDetail: string): boolean {
     normalizedDetail.includes('networkerror') ||
     normalizedDetail.includes('connection refused') ||
     normalizedDetail.includes('could not reach')
+  )
+}
+
+function isServiceError(detail: string): boolean {
+  return /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i.test(
+    detail
   )
 }
 

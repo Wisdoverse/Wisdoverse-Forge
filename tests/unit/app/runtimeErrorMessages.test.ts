@@ -26,10 +26,8 @@ describe('runtimeErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Work tool sign-in could not be checked')
-    expect(message).toContain(
-      'Forge could not connect while checking the Codex sign-in page'
-    )
+    expect(message).toContain('File-change tool sign-in could not be checked')
+    expect(message).toContain('Forge could not connect while checking the Codex sign-in page')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
   })
@@ -60,9 +58,21 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose and save an AI service first, then reconnect the work tool sign-in.'
+      'Choose and save an AI service first, then reconnect the file-change tool sign-in.'
     )
     expect(message).not.toContain('provider')
+  })
+
+  test('maps nested AI service setup details', () => {
+    const message = runtimeErrorMessage('startCliSignIn', {
+      error: { message: 'Provider is not configured' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose and save an AI service first, then reconnect the file-change tool sign-in.'
+    )
+    expect(message).not.toContain('Provider is not configured')
   })
 
   test('uses connected AI service language for unclear local sign-in validation', () => {
@@ -72,7 +82,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the connected AI service and selected work tool, then reconnect the work tool sign-in.'
+      'Check the connected AI service and selected file-change tool, then reconnect the file-change tool sign-in.'
     )
     expect(message).not.toContain('provider')
   })
@@ -82,7 +92,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings, then Codex sign-in again, then reconnect the account. Work tool sign-in did not start. Check your connection, then open Settings, then Codex sign-in again. Forge could not connect while checking the Codex sign-in page.'
+      'Open Settings, then Codex sign-in again, then reconnect the account. File-change tool sign-in did not start. Check your connection, then open Settings, then Codex sign-in again. Forge could not connect while checking the Codex sign-in page.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -107,6 +117,20 @@ describe('runtimeErrorMessage', () => {
       runtimeErrorMessage('startCliSignIn', new Error('HTTP 500')),
       'Open Settings, then Codex sign-in again, then reconnect the account. Forge could not check the Codex sign-in page right now. If it still fails, ask an owner or admin to check Codex sign-in in Settings.'
     )
+  })
+
+  test('keeps unformatted local sign-in service failures on the reconnect path', () => {
+    const message = runtimeErrorMessage(
+      'startCliSignIn',
+      new Error('database unavailable while provider validation failed')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings, then Codex sign-in again, then reconnect the account. Forge could not check the Codex sign-in page right now. If it still fails, ask an owner or admin to check Codex sign-in in Settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Choose and save an AI service')
   })
 
   test('turns setup rate limits into a wait and retry step', () => {
@@ -152,10 +176,7 @@ describe('runtimeSettingsErrorMessage', () => {
   test('turns role-required runtime setting failures into an owner or admin step', () => {
     const message = runtimeSettingsErrorMessage('owner role required')
 
-    expectBeginnerMessage(
-      message,
-      'Ask an owner or admin for access to change Where agents work.'
-    )
+    expectBeginnerMessage(message, 'Ask an owner or admin for access to change Where agents work.')
     expect(message).not.toContain('owner role required')
   })
 
@@ -179,6 +200,19 @@ describe('runtimeSettingsErrorMessage', () => {
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('keeps unformatted run-setting service failures on the settings recovery path', () => {
+    const message = runtimeSettingsErrorMessage(
+      new Error('database unavailable while saving default CLI tool')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Where agents work again, then save again. Where agents work could not be saved. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Check where project files open')
   })
 
   test('turns work settings rate limits into a wait and retry step', () => {

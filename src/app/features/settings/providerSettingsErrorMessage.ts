@@ -1,5 +1,8 @@
 type ProviderSettingsAction = 'load' | 'save' | 'remove'
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
@@ -20,10 +23,24 @@ function errorText(error: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(error: unknown): number | null {
@@ -119,6 +136,12 @@ export function providerSettingsErrorMessage(error: unknown): string {
   }
   if (code === 409 || lower.includes('already exists') || lower.includes('duplicate')) {
     return 'Open Settings and AI services again, check the current AI service, then choose a different name or remove the old service first.'
+  }
+  if (RAW_SERVICE_DETAIL.test(lower)) {
+    if (action === 'load') {
+      return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
+    }
+    return `Open Settings and AI services again, then ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
   }
   if (
     code === 422 ||

@@ -11,9 +11,9 @@ interface ContextUsageDashboardProps {
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 
 const RUNTIME_LABELS: Record<string, string> = {
-  api: 'Chat-only AI service',
+  api: 'Simple chat agent',
   container: 'Project files',
-  provider: 'Chat-only AI service',
+  provider: 'Simple chat agent',
   local: 'This computer',
   cli: 'This computer',
 }

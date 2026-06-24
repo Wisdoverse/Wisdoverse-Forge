@@ -9,9 +9,9 @@ type PreferencesResponse = {
   }
 }
 
-// Post-login landing: users land on the task board by default. The setup
-// checklist only appears after the user restores Start from Settings.
-// Preferences failures also fall through to /tasks so setup never blocks work.
+// Post-login landing: first-time users see the setup checklist unless they
+// already skipped or completed it. Preference failures still fall through to
+// /tasks so setup never blocks work.
 export async function resolveLandingPath(): Promise<LandingPath> {
   try {
     const cached = useSettingsStore.getState()

@@ -34,6 +34,10 @@ beforeEach(() => {
   useAgentsStore.setState({ loadAgents: vi.fn(async () => undefined) })
 })
 
+function openMoreAgentSetup() {
+  fireEvent.click(screen.getByRole('button', { name: /more agent setup/i }))
+}
+
 describe('AgentListView', () => {
   test('explains the first agent loading state for beginners', () => {
     useAgentsStore.setState({ loading: true, agents: [] })
@@ -61,21 +65,49 @@ describe('AgentListView', () => {
     expect(screen.getByText('Add first agent')).toBeDefined()
     expect(screen.queryByText('No agents')).toBeNull()
     expect(screen.getByText(/add your first agent/i)).toBeDefined()
-    expect(screen.getByText(/Chat-only AI service first/i)).toBeDefined()
+    expect(screen.getByText(/If this agent should take Tasks or change code/i)).toBeDefined()
+    expect(screen.getByText(/choose Project files/i)).toBeDefined()
     expect(screen.getByText(/questions and result checks/i)).toBeDefined()
-    expect(screen.getByText(/files and commands on your machine/i)).toBeDefined()
+    expect(
+      screen.getByText(/does not take Tasks, change code, or use computer apps/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/run commands/i)).toBeNull()
+    expect(screen.getByText(/files or apps on your computer/i)).toBeDefined()
+    expect(screen.queryByText(/files and commands on your machine/i)).toBeNull()
     expect(screen.getByText(/Next: choose New agent/i)).toBeDefined()
-    expect(screen.getByText(/If unsure, pick Chat-only AI service first/i)).toBeDefined()
+    expect(screen.queryByText(/If unsure, pick Simple chat agent first/i)).toBeNull()
+    expect(screen.queryByText(/Start with Simple chat/i)).toBeNull()
     expect(screen.queryByText(/Start with a chat-only AI service/i)).toBeNull()
     const guide = screen.getByTestId('agent-choice-guide')
-    expect(within(guide).getByText('Pick by where the work should happen')).toBeDefined()
-    expect(within(guide).getByText('Chat-only AI service')).toBeDefined()
+    expect(within(guide).getByText('Choose by what the agent needs to use')).toBeDefined()
+    expect(screen.queryByText('Pick by where the work should happen')).toBeNull()
+    expect(within(guide).getByText('Simple chat agent')).toBeDefined()
     expect(within(guide).getByText('This computer')).toBeDefined()
     expect(within(guide).getByText('Project files')).toBeDefined()
     expect(screen.queryByTestId('agent-fleet-controls')).toBeNull()
     expect(screen.queryByText(/connected model for text-only work/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /^new agent$/i }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /^create agent$/i })).toBeNull()
+  })
+
+  test('keeps task queue and local computer setup collapsed by default', () => {
+    render(<AgentListView />)
+
+    expect(screen.getByRole('button', { name: /more agent setup/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.queryByText('Task Queues')).toBeNull()
+    expect(screen.queryByTestId('host-cli-enrollment-panel')).toBeNull()
+
+    openMoreAgentSetup()
+
+    expect(screen.getByRole('button', { name: /hide more agent setup/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByText('Task Queues')).toBeDefined()
+    expect(screen.getByTestId('host-cli-enrollment-panel')).toBeDefined()
   })
 
   test('shows a recovery action when agents cannot load', () => {
@@ -103,15 +135,28 @@ describe('AgentListView', () => {
   test('waits for a selected project before showing a command for this computer', () => {
     const onOpenProjectsSetup = vi.fn()
     render(<AgentListView onOpenProjectsSetup={onOpenProjectsSetup} />)
+    openMoreAgentSetup()
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
     expect(within(enrollment).getByText(/connect this computer/i)).toBeDefined()
-    expect(enrollment.textContent).toContain('files or commands on your computer')
+    expect(enrollment.textContent).toContain('files or apps on your computer')
+    expect(enrollment.textContent).not.toContain('files or commands on your computer')
     expect(enrollment.textContent).toContain('manages it with your other agents')
     expect(enrollment.textContent).toContain('This computer')
     expect(enrollment.textContent).toContain('If the button does not work')
-    expect(enrollment.textContent).toContain('Use this backup if the guided setup does not open')
+    expect(enrollment.textContent).not.toContain(
+      'Use this backup if the guided setup does not open'
+    )
     expect(enrollment.textContent).not.toContain('your team asks you to run a command')
+    expect(enrollment.textContent).not.toContain('choose Add this computer as an agent above')
+    expect(enrollment.textContent).not.toContain('Computer type')
+    expect(within(enrollment).queryByTestId('host-cli-project-label')).toBeNull()
+    expect(within(enrollment).queryByTestId('host-cli-command-waiting')).toBeNull()
+    expect(within(enrollment).queryByRole('button', { name: /choose project first/i })).toBeNull()
+
+    fireEvent.click(within(enrollment).getByText('If the button does not work'))
+
+    expect(enrollment.textContent).toContain('Use this backup if the guided setup does not open')
     expect(enrollment.textContent).toContain('choose Add this computer as an agent above')
     expect(enrollment.textContent).toContain('Computer type')
     expect(
@@ -149,7 +194,7 @@ describe('AgentListView', () => {
     )
     expect(screen.getByRole('dialog', { name: /new agent/i })).toBeDefined()
     expect(screen.getByRole('radio', { name: /this computer/i })).toBeChecked()
-    expect(screen.getByLabelText(/folder on this computer/i)).toBeDefined()
+    expect(screen.getByRole('textbox', { name: /folder on this computer/i })).toBeDefined()
   })
 
   test('shows beginner command steps for adding this computer to the selected project', () => {
@@ -170,13 +215,32 @@ describe('AgentListView', () => {
     } as never)
 
     render(<AgentListView />)
+    openMoreAgentSetup()
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
-    expect(within(enrollment).getByText(/agent needs files or commands/i)).toBeDefined()
+    expect(within(enrollment).getByText(/agent needs files or apps/i)).toBeDefined()
+    expect(enrollment.textContent).not.toContain('agent needs files or commands')
     expect(enrollment.textContent).toContain('Forge shows it here')
+    expect(enrollment.textContent).toContain('If the button does not work')
+    expect(enrollment.textContent).not.toContain(
+      'Use this backup if the guided setup does not open'
+    )
+    expect(enrollment.textContent).not.toContain('Computer type')
+    expect(within(enrollment).queryByTestId('host-cli-project-label')).toBeNull()
+    expect(enrollment.textContent).not.toContain('p1')
+    expect(enrollment.textContent).not.toContain('agentforge agents enroll-local')
+    expect(within(enrollment).queryByText('Backup setup text')).toBeNull()
+    expect(within(enrollment).queryByRole('button', { name: /copy setup text/i })).toBeNull()
+
+    fireEvent.click(within(enrollment).getByText('If the button does not work'))
+
     expect(within(enrollment).getByTestId('host-cli-project-label')).toHaveTextContent(
       'Project: Platform'
     )
+    expect(enrollment.textContent).toContain('Setup app for macOS or Linux')
+    expect(enrollment.textContent).toContain('Setup app for Windows')
+    expect(enrollment.textContent).not.toContain('Terminal app')
+    expect(enrollment.textContent).not.toContain('PowerShell app')
     expect(within(enrollment).getByTestId('host-cli-project-label')).not.toHaveTextContent('p1')
     expect(enrollment.textContent).toContain('p1')
     expect(enrollment.textContent).toContain('agentforge agents enroll-local')
@@ -188,6 +252,9 @@ describe('AgentListView', () => {
     expect(enrollment.textContent).toContain('--tool codex')
     expect(enrollment.textContent).toContain('--project p1')
     expect(enrollment.textContent).toContain(
+      'Open the setup app shown above for this computer type.'
+    )
+    expect(enrollment.textContent).not.toContain(
       'Open Terminal on macOS/Linux or PowerShell on Windows'
     )
     expect(enrollment.textContent).toContain('Copy the setup text and paste it into that window')
@@ -258,8 +325,10 @@ describe('AgentListView', () => {
     })
 
     render(<AgentListView />)
+    openMoreAgentSetup()
 
     const enrollment = screen.getByTestId('host-cli-enrollment-panel')
+    fireEvent.click(within(enrollment).getByText('If the button does not work'))
     fireEvent.click(within(enrollment).getByRole('button', { name: /copy setup text/i }))
 
     const alert = await within(enrollment).findByRole('alert')
@@ -309,7 +378,7 @@ describe('AgentListView', () => {
     expect(screen.getByText('Draft Agent')).toBeDefined()
   })
 
-  test('shows a beginner choice guide before filtering existing agents', () => {
+  test('keeps the agent choice guide collapsed when agents already exist', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
         id: 'a1',
@@ -321,17 +390,61 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
+    expect(screen.queryByTestId('agent-choice-guide')).toBeNull()
+    expect(screen.getByRole('button', { name: /which agent should i use/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.getByText('Review Agent')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /which agent should i use/i }))
+
     const guide = screen.getByTestId('agent-choice-guide')
-    expect(within(guide).getByText('Pick by where the work should happen')).toBeDefined()
+    expect(screen.getByRole('button', { name: /hide agent choice help/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(within(guide).getByText('Choose by what the agent needs to use')).toBeDefined()
+    expect(screen.queryByText('Pick by where the work should happen')).toBeNull()
     expect(within(guide).getByText(/simplest agent/i)).toBeDefined()
-    expect(within(guide).getByText('Chat-only AI service')).toBeDefined()
+    expect(within(guide).getByText('Simple chat agent')).toBeDefined()
     expect(within(guide).getByText(/questions, writing, and checking results/i)).toBeDefined()
+    expect(
+      within(guide).getByText(/cannot take Tasks, change code, or use computer apps/i)
+    ).toBeDefined()
+    expect(within(guide).queryByText(/run commands/i)).toBeNull()
     expect(within(guide).queryByText(/planning, writing, and review/i)).toBeNull()
     expect(within(guide).getByText('This computer')).toBeDefined()
-    expect(within(guide).getByText(/folder, accounts, or tools on your own machine/i)).toBeDefined()
+    expect(within(guide).getByText(/folder, accounts, or apps on your own computer/i)).toBeDefined()
+    expect(within(guide).queryByText(/folder, accounts, or tools on your own machine/i)).toBeNull()
     expect(within(guide).getByText('Project files')).toBeDefined()
     expect(within(guide).getByText(/shared project files/i)).toBeDefined()
+  })
+
+  test('hides fleet filters until the list is large enough to need them', () => {
+    useAgentsStore.getState().setAgents([
+      makeAgent({
+        id: 'a1',
+        name: 'Review Agent',
+        provider: 'Review Model',
+        model: 'review-model',
+      }),
+      makeAgent({
+        id: 'a2',
+        name: 'Draft Agent',
+        provider: 'Draft Model',
+        model: 'draft-model',
+      }),
+    ])
+
+    render(<AgentListView />)
+
     expect(screen.getByText('Review Agent')).toBeDefined()
+    expect(screen.getByText('Draft Agent')).toBeDefined()
+    expect(screen.queryByTestId('agent-fleet-controls')).toBeNull()
+    expect(screen.queryByTestId('agent-search')).toBeNull()
+    expect(screen.queryByRole('group', { name: /status filter/i })).toBeNull()
+    expect(screen.queryByRole('group', { name: /work location filter/i })).toBeNull()
   })
 
   test('shows agent status indicators', () => {
@@ -420,7 +533,7 @@ describe('AgentListView', () => {
     const workLocationFilters = screen.getByRole('group', { name: /work location filter/i })
     expect(within(workLocationFilters).queryByRole('button', { name: /text only\s*1/i })).toBeNull()
     fireEvent.click(
-      within(workLocationFilters).getByRole('button', { name: /chat-only AI service\s*1/i })
+      within(workLocationFilters).getByRole('button', { name: /simple chat agent\s*1/i })
     )
     expect(screen.getByText('Review Analyst')).toBeDefined()
     expect(screen.queryByText('Build Runner')).toBeNull()
@@ -445,6 +558,20 @@ describe('AgentListView', () => {
         model: 'workspace-runner',
         cliTool: 'workspace-tool' as never,
         status: 'working',
+      }),
+      makeAgent({
+        id: 'review-agent',
+        name: 'Review Runner',
+        provider: 'Review Model',
+        model: 'review-runner',
+        status: 'idle',
+      }),
+      makeAgent({
+        id: 'draft-agent',
+        name: 'Draft Runner',
+        provider: 'Draft Model',
+        model: 'draft-runner',
+        status: 'idle',
       }),
     ])
 
@@ -472,6 +599,22 @@ describe('AgentListView', () => {
         name: 'Build Runner',
         provider: 'Workspace Model',
         model: 'workspace-runner',
+        cliTool: 'workspace-tool' as never,
+        status: 'working',
+      }),
+      makeAgent({
+        id: 'review-agent',
+        name: 'Review Runner',
+        provider: 'Review Model',
+        model: 'review-runner',
+        cliTool: 'workspace-tool' as never,
+        status: 'working',
+      }),
+      makeAgent({
+        id: 'draft-agent',
+        name: 'Draft Runner',
+        provider: 'Draft Model',
+        model: 'draft-runner',
         cliTool: 'workspace-tool' as never,
         status: 'working',
       }),
@@ -504,7 +647,7 @@ describe('AgentListView', () => {
     expect(screen.queryByText(/^Create Agent$/i)).toBeNull()
   })
 
-  test('creates a waiting place from the selected project context', async () => {
+  test('creates a task queue from the selected project context', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-new', name: input.name, projectId }
@@ -532,15 +675,18 @@ describe('AgentListView', () => {
     } as never)
 
     render(<AgentListView />)
+    openMoreAgentSetup()
 
-    expect(screen.getByText('Where Tasks Wait')).toBeDefined()
-    expect(screen.getByText(/shared waiting places tell agents where to start new work/i)).toBeDefined()
+    expect(screen.getByText('Task Queues')).toBeDefined()
+    expect(
+      screen.getByText(/shared task queues tell agents where to start new work/i)
+    ).toBeDefined()
     expect(screen.queryByText(/agents check for tasks/i)).toBeNull()
-    expect(screen.queryByText(/task queues/i)).toBeNull()
-    fireEvent.change(screen.getByLabelText(/waiting place name/i), {
+    expect(screen.queryByText(/waiting places/i)).toBeNull()
+    fireEvent.change(screen.getByLabelText(/task queue name/i), {
       target: { value: 'Frontend Delivery' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create waiting place$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
@@ -558,7 +704,7 @@ describe('AgentListView', () => {
     )
   })
 
-  test('applies a waiting place template before creating where tasks wait', async () => {
+  test('applies a task queue template before creating where tasks wait', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-review', name: input.name, projectId }
@@ -586,22 +732,23 @@ describe('AgentListView', () => {
     } as never)
 
     render(<AgentListView />)
+    openMoreAgentSetup()
 
-    const templates = screen.getByRole('group', { name: /waiting place templates/i })
+    const templates = screen.getByRole('group', { name: /task queue templates/i })
     fireEvent.click(within(templates).getByRole('button', { name: /check results/i }))
 
-    expect(screen.getByLabelText(/waiting place name/i)).toHaveValue('Result Check Tasks')
+    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Result Check Tasks')
+    expect((screen.getByLabelText(/task queue description/i) as HTMLInputElement).value).toContain(
+      'unsafe to use'
+    )
     expect(
-      (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
-    ).toContain('unsafe to use')
-    expect(
-      (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
+      (screen.getByLabelText(/task queue description/i) as HTMLInputElement).value
     ).not.toContain('Review completed work')
     expect(
-      (screen.getByLabelText(/waiting place description/i) as HTMLInputElement).value
+      (screen.getByLabelText(/task queue description/i) as HTMLInputElement).value
     ).not.toContain('block release')
 
-    fireEvent.click(screen.getByRole('button', { name: /^create waiting place$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(

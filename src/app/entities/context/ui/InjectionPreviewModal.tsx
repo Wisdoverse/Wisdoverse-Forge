@@ -447,7 +447,7 @@ function runtimeLabel(runtime: string | null): string {
       return 'This computer'
     case 'provider':
     case 'api':
-      return 'Chat-only AI service'
+      return 'Simple chat agent'
     case '':
       return 'Check where this ran'
     default:

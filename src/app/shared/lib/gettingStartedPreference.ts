@@ -5,5 +5,5 @@ export type GettingStartedPreference = {
 export function shouldShowGettingStarted(
   preferences: GettingStartedPreference | null | undefined
 ): boolean {
-  return preferences?.gettingStartedDismissed === false
+  return preferences?.gettingStartedDismissed !== true
 }

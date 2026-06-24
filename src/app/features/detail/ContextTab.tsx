@@ -26,7 +26,7 @@ interface ContextTabProps {
 }
 
 const EMPTY_CONTEXT_STEPS = [
-  'Start the task first. If it is still waiting, open Work or Updates to choose or start an agent.',
+  'Start the task first. If it is still waiting, open Work to choose an agent, or open Updates to check the latest activity.',
   'Review ideas from this task to keep useful notes for next time.',
   'Mark which saved items helped so future tasks get better.',
 ]

@@ -13,12 +13,12 @@ interface AgentKindBadgeProps {
 export function AgentKindBadge({ cliTool, runtimeKind, className }: AgentKindBadgeProps) {
   const isHost = runtimeKind === 'cli'
   const isContainer = Boolean(cliTool) && !isHost
-  const label = isHost ? 'This computer' : isContainer ? 'Project files' : 'Chat-only'
+  const label = isHost ? 'This computer' : isContainer ? 'Project files' : 'Questions only'
   const title = isHost
     ? 'Uses files and tools on this connected computer. Use it when work should stay there.'
     : isContainer
       ? 'Works with shared project files. It can change files, run checks, and save what it checked.'
-      : 'Answers in chat through a connected AI service. It cannot open project files on its own.'
+      : 'Answers in chat through a connected AI service. It cannot take Tasks, change code, use computer apps, or open project files on its own.'
 
   return (
     <span

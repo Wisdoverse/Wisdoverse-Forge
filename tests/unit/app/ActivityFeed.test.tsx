@@ -153,7 +153,8 @@ describe('ActivityFeed', () => {
     render(<ActivityFeed />)
 
     const summary = screen.getByTestId('feed-ops-summary')
-    expect(within(summary).getByText('Current work')).toBeDefined()
+    expect(within(summary).getByText('Current tasks')).toBeDefined()
+    expect(within(summary).queryByText('Current work')).toBeNull()
     expect(within(summary).getByText(/start with anything that needs action/i)).toBeDefined()
     expect(screen.getByTestId('feed-review-guide')).toBeDefined()
     expect(screen.getByText('Check order')).toBeDefined()
@@ -250,7 +251,8 @@ describe('ActivityFeed', () => {
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Completed updates will appear here')).toBeDefined()
-    expect(within(emptyState).getByText(/finished work shows here/i)).toBeDefined()
+    expect(within(emptyState).getByText(/finished task results show here/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/finished work shows here/i)).toBeNull()
     expect(within(emptyState).getByText(/see what happened most recently/i)).toBeDefined()
     expect(emptyState.textContent).not.toContain('No completed updates in this view')
     expect(screen.queryByText('Fix auth')).toBeNull()
@@ -280,12 +282,12 @@ describe('ActivityFeed', () => {
     const emptyState = screen.getByTestId('feed-filter-empty')
     expect(within(emptyState).getByText('You are caught up on urgent updates')).toBeDefined()
     expect(within(emptyState).getByText(/urgent updates are clear/i)).toBeDefined()
-    expect(
-      within(emptyState).getByText(/use all to check work that is still moving/i)
-    ).toBeDefined()
+    expect(within(emptyState).getByText(/use all to check tasks that are still moving/i)).toBeDefined()
+    expect(within(emptyState).getByText(/before starting another task/i)).toBeDefined()
     expect(within(emptyState).getByRole('button', { name: /show all updates/i })).toBeDefined()
     expect(emptyState.textContent).not.toContain('Nothing is asking for your help')
     expect(emptyState.textContent).not.toContain('Use All to review work that is still moving')
+    expect(emptyState.textContent).not.toContain('starting more work')
   })
 
   test('shows empty state when no feed items', () => {

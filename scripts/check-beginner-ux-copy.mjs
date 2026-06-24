@@ -597,6 +597,7 @@ const AGENT_DETAIL_START_FAILURE_FIRST_PATTERNS = [/\bStart did not finish\b/i]
 
 const HOST_AGENT_RECONNECT_DEAD_END_PATTERNS = [
   /\bThis computer is offline\b/i,
+  /\breconnect Terminal or PowerShell\b/i,
   /\bPaste setup text on this computer again\b/i,
   /\bPaste setup text again on this computer\b/i,
   /\bPaste setup text to reconnect\b/i,
@@ -612,6 +613,7 @@ const AGENT_STORE_ERROR_FAILURE_FIRST_PATTERNS = [
   /^\s*return\s+['"`]This agent could not be found\. Refresh/,
   /^\s*return\s+['"`]This agent is already working\. Wait/,
   /^\s*return\s+['"`]This agent changed while/,
+  /\bCheck the agent details\b/i,
   /\brefresh the Agents list\b/i,
   /\brefresh the Agents page\b/i,
   /^\s*return\s+`The Agents page is busy\. Wait/,
@@ -1034,6 +1036,8 @@ const TASK_FORM_READY_STATE_JARGON_PATTERNS = [
 const TASK_FORM_AGENT_CHOICE_JARGON_PATTERNS = [
   /\bLet the next available agent pick it up\b/,
   /\bKeep this choice when any available agent can do the work\b/,
+  /\bautomatic agent selection\b/i,
+  /\bLeave automatic selection on\b/i,
   /\b\d+\s+available\b/,
 ]
 
@@ -1042,8 +1046,12 @@ const TASK_FORM_REVIEW_TEMPLATE_JARGON_PATTERNS = [/\bName the PR, branch, files
 const QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS = [
   /\bAdd Draft Task\b/i,
   /\bdraft task\b/i,
+  /\bdraft in Not sent yet\b/i,
   /\bcreating the draft task\b/i,
+  /\bTask idea saved in Not sent yet\b/i,
 ]
+const TASK_WAITING_PLACE_JARGON_PATTERNS = [/\bwhere tasks wait\b/i]
+const QUICK_CREATE_WAITING_PLACE_JARGON_PATTERNS = [/\bwhere tasks wait\b/i]
 
 const KANBAN_DONE_REVIEW_EMPTY_JARGON_PATTERNS = [
   /\bFinished work appears here for review\b/i,
@@ -1091,15 +1099,19 @@ const AGENT_TASK_EMPTY_DEAD_END_PATTERNS = [
 ]
 const AGENT_LIST_SUMMARY_DEAD_END_PATTERNS = [/\bNo agents\b/i]
 const AGENT_FIRST_EMPTY_NEXT_STEP_PATTERNS = [
-  /\bStart with a chat-only AI service for questions and result checks,\s*or connect this computer when\b/i,
+  /\bStart with (?:a )?(?:chat-only AI service|simple chat agent) for questions and result checks,\s*or connect this computer when\b/i,
 ]
 const CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS = [
-  /\bchat-only AI service for planning and review\b/i,
+  /\b(?:chat-only AI service|simple chat agent) for planning and review\b/i,
   /\bBest for planning, writing, and review\b/i,
   /\bplanning or review with a clear result\b/i,
   /\bplanning,\s*review,\s*or a direct answer\b/i,
   /\bcan plan, write, and review text\b/i,
   /\breview text\b/i,
+]
+const CHAT_ONLY_TASK_LIMIT_CONTEXT_PATTERN = /\b(?:chat-only|simple chat)\b/i
+const CHAT_ONLY_TASK_LIMIT_WITHOUT_TASKS_PATTERNS = [
+  /\b(?:cannot|does not)[^.!?\n]*run commands\b/i,
 ]
 const USER_ACTION_ASSIGNMENT_JARGON_PATTERNS = [
   /\bCreate a task and assign it to this agent\b/i,
@@ -1814,6 +1826,11 @@ const CHAT_TOOL_STEP_DEAD_END_PATTERNS = [
   /\bTook\s+\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\bDuration:\s*\{?[^\n]{0,80}(?:ms|s)\b/i,
   /\$\{[^}\n]*duration[^}\n]*\}\s*ms\b/i,
+  /\bCommand step\b/i,
+  /\bCommand the agent used\b/i,
+  /\bThe command result was saved\b/i,
+  /\bThe command problem details were saved\b/i,
+  /\bWhat the command showed\b/i,
   /\blabel:\s*['"`]Needs review['"`]/i,
   /\bpath:\s*['"`]Path['"`]/,
 ]
@@ -2522,6 +2539,7 @@ const AGENT_MODEL_DEAD_END_PATTERNS = [
   /\bAI model not reported\b/i,
   /\bModel not reported\b/i,
   /\bRefresh AI model\b/i,
+  /\bCheck AI model\b/i,
   /\bCheck AI model setup\b/i,
   /\bmodel:\s*[^,\n]*['"`]unknown['"`]/i,
 ]
@@ -2672,8 +2690,13 @@ const THIS_COMPUTER_SETUP_JARGON_PATTERNS = [
   /\bsetup command appears here\b/i,
   /\bsetup command in the box\b/i,
   /\bcommand window\b/i,
+  /\bOpen Terminal on macOS\/Linux or PowerShell on Windows\b/i,
+  /\bTerminal app\b/i,
+  /\bPowerShell app\b/i,
   /\bPaste the setup text into Terminal or PowerShell\b/i,
+  /\bPaste setup text in Terminal or PowerShell\b/i,
   /\bPaste it into Terminal or PowerShell\b/i,
+  /\bClose Terminal or PowerShell\b/i,
   /\bKeep Terminal or PowerShell open\b/i,
   /\bLeave Terminal or PowerShell open\b/i,
   /\bsame Terminal or PowerShell window\b/i,
@@ -3883,6 +3906,14 @@ function hasChatOnlyAgentReviewJargonCopy(relFile, line) {
   return CHAT_ONLY_AGENT_REVIEW_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasChatOnlyTaskLimitWithoutTasksCopy(relFile, line) {
+  if (!relFile.startsWith('src/app/')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  if (/\bTasks\b/.test(line)) return false
+  if (!CHAT_ONLY_TASK_LIMIT_CONTEXT_PATTERN.test(line)) return false
+  return CHAT_ONLY_TASK_LIMIT_WITHOUT_TASKS_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasUserActionAssignmentJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/chat/ChatView.tsx') &&
@@ -4175,6 +4206,7 @@ function hasAgentDetailStartFailureFirstCopy(relFile, line) {
 
 function hasHostAgentReconnectDeadEndCopy(relFile, line) {
   if (
+    !relFile.endsWith('src/app/features/agents/AgentCard.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
   ) {
@@ -4602,6 +4634,18 @@ function hasQuickCreateDraftTaskJargonCopy(relFile, line) {
   }
   if (isLikelyGuardOrParserLine(line)) return false
   return QUICK_CREATE_DRAFT_TASK_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasQuickCreateWaitingPlaceJargonCopy(relFile, line) {
+  if (!relFile.endsWith('src/app/features/board/QuickCreate.tsx')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return QUICK_CREATE_WAITING_PLACE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+function hasTaskWaitingPlaceJargonCopy(relFile, line) {
+  if (!relFile.startsWith('src/app/')) return false
+  if (isLikelyGuardOrParserLine(line)) return false
+  return TASK_WAITING_PLACE_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasKanbanDoneReviewEmptyJargonCopy(relFile, line) {
@@ -6809,6 +6853,16 @@ function scanFile(file, relFile) {
       })
     }
 
+    if (hasChatOnlyTaskLimitWithoutTasksCopy(relFile, line)) {
+      findings.push({
+        type: 'chat-only-agent-task-limit-copy',
+        location,
+        message:
+          'Chat-only agent limits must say it cannot take Tasks, not only that it cannot edit files or run commands.',
+        sample: line.trim(),
+      })
+    }
+
     if (hasUserActionAssignmentJargonCopy(relFile, line)) {
       findings.push({
         type: 'user-action-assignment-copy',
@@ -6931,7 +6985,7 @@ function scanFile(file, relFile) {
       findings.push({
         type: 'agent-model-copy',
         location,
-        message: 'Agent AI model fallback copy must tell beginners to check the AI model.',
+        message: 'Agent AI model fallback copy must tell beginners to check the AI service choice.',
         sample: line.trim(),
       })
     }
@@ -7606,7 +7660,27 @@ function scanFile(file, relFile) {
         type: 'quick-create-draft-task-copy',
         location,
         message:
-          'Quick task creation must say Add Task or Save Task and explain Not sent yet instead of draft-task jargon.',
+          'Quick task creation must explain the next step instead of draft or Not sent yet queue-state jargon.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasTaskWaitingPlaceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'task-waiting-place-copy',
+        location,
+        message:
+          'Task routing copy must say task queue instead of hiding the concept behind where tasks wait.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasQuickCreateWaitingPlaceJargonCopy(relFile, line)) {
+      findings.push({
+        type: 'quick-create-task-queue-copy',
+        location,
+        message:
+          'Quick task creation errors must use task queue wording consistently with the rest of Tasks.',
         sample: line.trim(),
       })
     }

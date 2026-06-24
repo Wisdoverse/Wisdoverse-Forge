@@ -1,5 +1,5 @@
 import { LayoutGrid, ListFilter, Search } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { cn } from '@app/shared/lib/utils'
 
 export type BoardPriorityFilter = 'all' | 'urgent' | 'high' | 'normal' | 'low'
@@ -58,89 +58,114 @@ export function BoardToolbar({
   onClear,
 }: BoardToolbarProps) {
   const searchHelpId = useId()
+  const filtersPanelId = useId()
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const hasActiveFilter =
     searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
+  const advancedFilterCount = Number(priorityFilter !== 'all') + Number(assigneeFilter !== 'all')
+  const filtersButtonLabel =
+    advancedFilterCount > 0 ? `Filters (${advancedFilterCount} active)` : 'Filters'
 
   return (
     <section
       data-testid="board-toolbar"
       className="rounded-lg border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
     >
-      <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
-            <span className="sr-only">Search tasks</span>
-            <Search
-              size={15}
-              strokeWidth={2}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
-              aria-hidden="true"
-            />
-            <input
-              data-testid="board-search"
-              type="search"
-              value={searchQuery}
-              onChange={(event) => onSearchQueryChange(event.target.value)}
-              aria-describedby={searchHelpId}
-              placeholder="Search task names, agents, or help needed..."
-              className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
-            />
-            <span
-              id={searchHelpId}
-              className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              Search only filters the tasks shown below. Use Show all tasks to return to the full
-              board.
-            </span>
-          </label>
-
-          <FilterGroup
-            ariaLabel="Filter tasks by priority"
-            icon={<ListFilter size={14} strokeWidth={2} aria-hidden="true" />}
-            options={PRIORITY_FILTERS.map((filter) => ({
-              ...filter,
-              count: counts.priority[filter.value],
-            }))}
-            value={priorityFilter}
-            onChange={onPriorityFilterChange}
-          />
-
-          <FilterGroup
-            ariaLabel="Filter tasks by whether an agent is chosen"
-            options={ASSIGNEE_FILTERS.map((filter) => ({
-              ...filter,
-              count: counts.assignee[filter.value],
-            }))}
-            value={assigneeFilter}
-            onChange={onAssigneeFilterChange}
-          />
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <span
-            role="status"
-            aria-live="polite"
-            className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
-          >
-            Showing {counts.visible} of {counts.total} tasks
-          </span>
-          {hasActiveFilter && (
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
+            <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
+              <span className="sr-only">Search tasks</span>
+              <Search
+                size={15}
+                strokeWidth={2}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
+                aria-hidden="true"
+              />
+              <input
+                data-testid="board-search"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => onSearchQueryChange(event.target.value)}
+                aria-describedby={searchHelpId}
+                placeholder="Search task names, agents, or help needed..."
+                className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
+              />
+              <span
+                id={searchHelpId}
+                className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                Search only filters the tasks shown below. Use Show all tasks to return to the full
+                board.
+              </span>
+            </label>
             <button
               type="button"
-              onClick={onClear}
-              className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+              aria-expanded={filtersOpen}
+              aria-controls={filtersPanelId}
+              onClick={() => setFiltersOpen((open) => !open)}
+              className={cn(
+                'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                filtersOpen || advancedFilterCount > 0
+                  ? 'border-apple-blue/35 bg-apple-blue/10 text-apple-blue'
+                  : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:border-apple-blue/30 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+              )}
             >
-              Show all tasks
+              <ListFilter size={15} strokeWidth={2} aria-hidden="true" />
+              <span>{filtersButtonLabel}</span>
             </button>
-          )}
-          <FilterGroup
-            ariaLabel="Choose card detail level"
-            icon={<LayoutGrid size={14} strokeWidth={2} aria-hidden="true" />}
-            options={DISPLAY_OPTIONS.map((option) => ({ ...option, count: null }))}
-            value={displayMode}
-            onChange={onDisplayModeChange}
-          />
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <span
+              role="status"
+              aria-live="polite"
+              className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+            >
+              Showing {counts.visible} of {counts.total} tasks
+            </span>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+              >
+                Show all tasks
+              </button>
+            )}
+            <FilterGroup
+              ariaLabel="Choose card detail level"
+              icon={<LayoutGrid size={14} strokeWidth={2} aria-hidden="true" />}
+              options={DISPLAY_OPTIONS.map((option) => ({ ...option, count: null }))}
+              value={displayMode}
+              onChange={onDisplayModeChange}
+            />
+          </div>
         </div>
+        {filtersOpen ? (
+          <div id={filtersPanelId} className="flex flex-wrap items-center gap-2">
+            <FilterGroup
+              ariaLabel="Filter tasks by priority"
+              icon={<ListFilter size={14} strokeWidth={2} aria-hidden="true" />}
+              options={PRIORITY_FILTERS.map((filter) => ({
+                ...filter,
+                count: counts.priority[filter.value],
+              }))}
+              value={priorityFilter}
+              onChange={onPriorityFilterChange}
+            />
+
+            <FilterGroup
+              ariaLabel="Filter tasks by whether an agent is chosen"
+              options={ASSIGNEE_FILTERS.map((filter) => ({
+                ...filter,
+                count: counts.assignee[filter.value],
+              }))}
+              value={assigneeFilter}
+              onChange={onAssigneeFilterChange}
+            />
+          </div>
+        ) : null}
       </div>
     </section>
   )

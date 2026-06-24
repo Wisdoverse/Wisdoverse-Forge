@@ -199,7 +199,7 @@ export function AppLayout({
               buttonLabel: t('commandPalette.taskSetup.noWaitingPlace.buttonLabel'),
               description: t('commandPalette.taskSetup.noWaitingPlace.description'),
               searchText:
-                'new task create task first task agent waiting place setup 创建任务 新任务 智能体 等待位置 设置',
+                'new task create task first task agent task queue setup 创建任务 新任务 智能体 任务队列 设置',
             }
           : {
               label: t('commandPalette.taskSetup.ready.label'),
@@ -411,7 +411,12 @@ export function AppLayout({
       <TaskFormModal
         isOpen={taskFormOpen}
         onClose={() => setTaskFormOpen(false)}
-        agents={participants.map((p) => ({ id: p.agentId, name: p.name, status: p.status }))}
+        agents={participants.map((p) => ({
+          id: p.agentId,
+          name: p.name,
+          status: p.status,
+          capabilities: p.capabilities,
+        }))}
         projects={taskProjectOptions}
         selectedProjectId={selectedProjectId}
         selectedTaskGroupId={selectedGroupId}
@@ -442,12 +447,12 @@ export function AppLayout({
           }
           if (!groupId && !lanesLoaded) {
             throw new Error(
-              'Forge could not load where tasks wait for this project. Select the project again, then create the task.'
+              'Forge could not load the task queue for this project. Select the project again, then create the task.'
             )
           }
           if (!groupId) {
             throw new Error(
-              'Set up where tasks wait before creating a task. This gives new work a place to wait for an agent. Open Agents to set it up, then come back here.'
+              'Set up a task queue before creating a task. This gives new work a queue before an agent starts it. Open Agents to set it up, then come back here.'
             )
           }
           const response = await orchestrationApi.createTask({

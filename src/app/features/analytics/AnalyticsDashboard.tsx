@@ -13,11 +13,11 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
   apply_patch: 'File editing',
-  bash: 'Command line',
+  bash: 'Computer step',
   browser: 'Browser',
   codebase_search: 'File search',
   edit_file: 'File editing',
-  execute_command: 'Command line',
+  execute_command: 'Computer step',
   find: 'File search',
   grep: 'File search',
   list_files: 'File browsing',
@@ -25,10 +25,10 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   rg: 'File search',
   search_file: 'File search',
   search_files: 'File search',
-  shell: 'Command line',
-  shell_command: 'Command line',
+  shell: 'Computer step',
+  shell_command: 'Computer step',
   str_replace_editor: 'File editing',
-  terminal: 'Command line',
+  terminal: 'Computer step',
   todo_write: 'Task checklist',
   web_search: 'Web search',
   write_file: 'File editing',
@@ -126,8 +126,8 @@ function buildAnalyticsGuidance({
 
   if (topToolName && typeof topToolSuccessRate === 'number' && topToolSuccessRate < 70) {
     return {
-      title: `Check ${topToolName} retry steps first`,
-      detail: `The busiest tool completed cleanly only ${topToolSuccessRate}% of the time in this range.`,
+      title: 'Check the busiest work step first',
+      detail: `${topToolName} completed cleanly only ${topToolSuccessRate}% of the time in this range.`,
       action:
         'Open recent task results, check the recovery notes, then pause new work until the next step is clear.',
       tone: 'attention',
@@ -280,7 +280,7 @@ export function AnalyticsDashboard() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard title="All updates" value={totalEvents} loading={loading} accent="blue" />
             <StatCard
-              title="Tool steps"
+              title="Work steps"
               value={summary?.toolCalls ?? 0}
               loading={loading}
               accent="blue"
@@ -325,7 +325,7 @@ export function AnalyticsDashboard() {
           {/* Top tools */}
           <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
             <p className="mb-3 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              Tools used most
+              Work steps used most
             </p>
             {loading ? (
               <div className="h-20 animate-pulse rounded-card bg-black/[0.04] dark:bg-white/[0.05]" />
@@ -367,7 +367,7 @@ export function AnalyticsDashboard() {
             ) : (
               <div className="flex h-20 items-center justify-center">
                 <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Tool use appears after an agent finishes a task
+                  Work steps appear after an agent finishes a task
                 </p>
               </div>
             )}
@@ -378,7 +378,7 @@ export function AnalyticsDashboard() {
         {!loading && topTool && (
           <div className="mt-4">
             <StatCard
-              title="Busiest tool"
+              title="Busiest work step"
               value={topToolDisplayName ?? 'Work step'}
               subtitle={`${topTool.count} uses, ${topToolRate}% completed cleanly`}
               accent="blue"

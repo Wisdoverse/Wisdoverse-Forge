@@ -529,16 +529,17 @@ describe('AccountSection', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/start' })
   })
 
-  test('lets users restore Start when no preference exists yet', () => {
+  test('shows Start when no preference exists yet', () => {
     useSettingsStore.setState({ preferences: {}, preferencesLoaded: true })
 
     renderAccountSection()
 
-    expect(screen.getByText(/Next step: choose Reset setup checklist to add it back/i)).toBeDefined()
+    expect(screen.getByText(/It is available now/i)).toBeDefined()
+    expect(screen.getByText(/Choose Open setup checklist to check setup steps/i)).toBeDefined()
     expect(screen.queryByText(/hidden from the left menu right now/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /reset setup checklist/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /setup checklist already shown/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /show setup checklist/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /open setup checklist/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /open setup checklist/i })).not.toBeDisabled()
   })
 
   test('keeps the restore action clear while checklist preference is loading', () => {

@@ -1,3 +1,6 @@
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(err: unknown): string {
   if (err instanceof Error) return err.message
   if (typeof err === 'string') return err
@@ -18,10 +21,24 @@ function errorText(err: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(err: unknown): number | null {
@@ -60,26 +77,29 @@ export function agentGroupErrorMessage(err: unknown): string {
   const text = errorText(err).toLowerCase()
 
   if (code === 401 || text.includes('unauthorized')) {
-    return 'Sign in again, choose the project, and set up where tasks wait again. The waiting place was not created.'
+    return 'Sign in again, choose the project, and set up the task queue again. The task queue was not created.'
   }
   if (code === 403 || text.includes('forbidden') || text.includes('role required')) {
-    return 'Ask an owner or admin to let you set up where tasks wait in this project. The waiting place was not created.'
+    return 'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
   }
   if (code === 404) {
-    return 'Open Agents, choose the project again, then set up where tasks wait. The waiting place was not created because the selected project may have changed or been removed.'
+    return 'Open Agents, choose the project again, then set up the task queue. The task queue was not created because the selected project may have changed or been removed.'
   }
   if (code === 409) {
-    return 'Use a different name, then create the waiting place again. A waiting place with this name may already exist.'
+    return 'Use a different name, then create the task queue again. A task queue with this name may already exist.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return 'Wait a minute, then create the waiting place again. Too many waiting-place changes are happening right now.'
+    return 'Wait a minute, then create the task queue again. Too many task queue changes are happening right now.'
+  }
+  if (RAW_SERVICE_DETAIL.test(text)) {
+    return 'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then set up where tasks wait again. Forge could not create the waiting place right now. If it still fails, ask an owner or admin to check where tasks wait in this project.'
+    return 'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
   }
   if (isNetworkError(err)) {
-    return 'Check your connection, then create the waiting place again. Forge could not connect while setting up where tasks wait.'
+    return 'Check your connection, then create the task queue again. Forge could not connect while setting up the task queue.'
   }
 
-  return 'Create the waiting place again. If it still fails, ask an owner or admin to check where tasks wait in this project. The waiting place was not created.'
+  return 'Create the task queue again. If it still fails, ask an owner or admin to check the task queue in this project. The task queue was not created.'
 }

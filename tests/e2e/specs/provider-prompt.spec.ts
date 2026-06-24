@@ -228,9 +228,8 @@ async function navigateToAgents(page: Page, baseURL: string): Promise<void> {
   await setupNavMocks(page)
   await setupAgentMocks(page)
   await setupProviderMocks(page)
-  await page.goto(baseURL)
+  await page.goto(`${baseURL}/agents`)
   await waitForAppReady(page)
-  await page.locator('[data-testid="sidebar-nav-agents"]').click()
   await page.waitForURL('**/agents')
   await expect(
     page.getByTestId('page-agents').getByRole('heading', { name: 'Agents' })
@@ -333,20 +332,18 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     expect(capturedBody.systemPrompt).toBe('Be concise.')
   })
 
-  // 3. Agent list renders chat-only badge when cliTool is null ───────────────
+  // 3. Agent list renders simple-chat badge when cliTool is null ─────────────
 
-  test('3. Agent list shows chat-only badge for chat-only agent', async ({ page, baseURL }) => {
+  test('3. Agent list shows simple-chat badge for chat-only agent', async ({ page, baseURL }) => {
     await navigateToAgents(page, baseURL!)
 
     // Agent card should be present
     const card = page.locator('[data-testid="agent-card-agent-prov-1"]')
     await expect(card).toBeVisible({ timeout: 5000 })
 
-    // AgentKindBadge renders "Chat-only" when cliTool is absent (#629 copy).
-    await expect(card.getByText('Chat-only', { exact: true })).toBeVisible()
-
-    // Should NOT have the container/"Project files" badge
-    await expect(card.getByText('Project files', { exact: true })).not.toBeVisible()
+    // AgentKindBadge renders the task-first chat-only copy when cliTool is absent.
+    await expect(card.getByText('Questions only', { exact: true })).toBeVisible()
+    await expect(card.getByText('Simple chat agent', { exact: true })).toBeVisible()
 
     // Should NOT show old managed workspace copy.
     await expect(card.getByText('Managed', { exact: true })).not.toBeVisible()
@@ -372,7 +369,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await page.locator('[data-testid="agent-card-agent-prov-1"]').click()
 
     // Switch to the Chat/History tab (no containerId → label is "Chat")
-    await page.getByRole('button', { name: 'Chat' }).click()
+    await page.getByRole('button', { name: 'Chat', exact: true }).click()
 
     // ChatComposer textarea should be visible
     const composer = page.getByPlaceholder(/Ask this agent/i)
@@ -407,7 +404,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     })
 
     await page.locator('[data-testid="agent-card-agent-prov-1"]').click()
-    await page.getByRole('button', { name: 'Chat' }).click()
+    await page.getByRole('button', { name: 'Chat', exact: true }).click()
 
     const composer = page.getByPlaceholder(/Ask this agent/i)
     await expect(composer).toBeVisible({ timeout: 5000 })

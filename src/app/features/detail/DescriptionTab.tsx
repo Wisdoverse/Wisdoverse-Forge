@@ -399,7 +399,7 @@ function nextActionForTask(
         : {
             title: 'Assign an agent',
             detail:
-              'Choose an available agent, check the suggested saved notes and instructions, then send the task.',
+              'Choose a ready agent, check the suggested saved notes and instructions, then send the task.',
             tone: 'warn',
           }
     case 'queued':
@@ -411,7 +411,7 @@ function nextActionForTask(
             tone: 'default',
           }
         : {
-            title: 'Waiting for an available agent',
+            title: 'Waiting for a ready agent',
             detail:
               'If this stays here, choose or start an agent so the task has someone to begin the work.',
             tone: 'warn',
