@@ -1,44 +1,36 @@
-//! `GET /metrics` — Prometheus scrape endpoint (admin-gated).
+//! `GET /metrics` — Prometheus scrape endpoint (platform-admin-gated).
 //!
 //! Registered at the top-level router (NOT under `/api/v1`) per the CLAUDE.md
-//! Routing section. Only admins can scrape — the handler delegates role
-//! enforcement to [`AdminService::require_admin`] so the rule stays defined
-//! exactly once.
+//! Routing section. The exposition aggregates cross-tenant counts, queue
+//! depths, and per-route latencies, so only platform admins may scrape it.
 //!
-//! Task 6a of the legacy-nav metrics plan: infrastructure only. Individual
-//! counters / gauges for compat routes are wired in Task 6b.
-
-use std::sync::Arc;
+//! #889/F005: the gate keys off the LIVE `users.is_admin` column via
+//! [`AdminService::require_platform_admin`] rather than the JWT `role` claim —
+//! a forged or stale elevated claim must not disclose platform-wide metrics,
+//! and a demoted admin loses access immediately rather than for the token's
+//! remaining lifetime.
 
 use axum::Router;
-use axum::extract::{FromRef, State};
+use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::routing::get;
-use metrics_exporter_prometheus::PrometheusHandle;
 
 use agentforge_auth::AuthUser;
 use agentforge_core::AppResult;
 
-use crate::services::admin::AdminService;
+use crate::health::AppState;
 
 /// Render the Prometheus text-format exposition for the shared recorder.
-/// Returns `403 Forbidden` for non-admin callers via [`AdminService::require_admin`].
-async fn scrape(State(handle): State<Arc<PrometheusHandle>>, auth: AuthUser) -> AppResult<impl IntoResponse> {
-    AdminService::require_admin(&auth.role)?;
-    let body = handle.render();
+/// Returns `403 Forbidden` for non-platform-admin callers via the live
+/// DB-backed [`AdminService::require_platform_admin`] gate.
+async fn scrape(State(state): State<AppState>, auth: AuthUser) -> AppResult<impl IntoResponse> {
+    state.admin_service().require_platform_admin(auth.scope.user_id().as_uuid()).await?;
+    let body = state.prometheus_handle.render();
     Ok(([("content-type", "text/plain; version=0.0.4")], body))
 }
 
-/// Top-level `/metrics` router.
-///
-/// Generic over the outer state `S` so integration tests can plug in a bare
-/// `Arc<PrometheusHandle>` without constructing a full `AppState`. Production
-/// call sites use `metrics_routes::<AppState>()`, which extracts the handle
-/// via the `FromRef<AppState> for Arc<PrometheusHandle>` impl in `health.rs`.
-pub fn metrics_routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    Arc<PrometheusHandle>: FromRef<S>,
-{
+/// Top-level `/metrics` router, bound to `AppState` so the scrape handler can
+/// reach the DB-backed platform-admin gate and the shared Prometheus recorder.
+pub fn metrics_routes() -> Router<AppState> {
     Router::new().route("/metrics", get(scrape))
 }

@@ -113,7 +113,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/health", get(health::health))
         .route("/api/health", get(health::health_ready))
         // Prometheus scrape endpoint (admin-gated, top-level per CLAUDE.md Routing)
-        .merge(routes::metrics::metrics_routes::<AppState>())
+        .merge(routes::metrics::metrics_routes())
         // WebSocket gateway (JWT auth via query param, NATS broadcast)
         .route("/ws", get(gateway::ws::ws_handler))
         // Versioned API
