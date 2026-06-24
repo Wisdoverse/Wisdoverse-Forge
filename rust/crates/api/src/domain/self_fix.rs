@@ -171,6 +171,29 @@ impl SelfFixMergeMetricPolicy {
 pub(crate) struct SelfFixPolicy;
 
 impl SelfFixPolicy {
+    /// Whether an `open_pr` failure is permanent — retrying can never succeed —
+    /// versus transient (a network/GitHub incident worth retrying with backoff).
+    ///
+    /// Permanent: config/policy/validation/not-found/auth errors, plus `Conflict`
+    /// (the PR head moved — it needs re-review, not a retry). Transient:
+    /// `Unavailable` (GitHub/network down) and `Internal` (unexpected — retry and
+    /// let it dead-letter if it persists). Owning this `ErrorKind` policy in the
+    /// domain (not the worker service) keeps the DDD boundary intact (F047).
+    #[allow(dead_code)]
+    pub(crate) fn is_open_pr_error_permanent(err: &AppError) -> bool {
+        matches!(
+            err.kind,
+            ErrorKind::NotFound(_)
+                | ErrorKind::Validation(_)
+                | ErrorKind::ValidationWithCode { .. }
+                | ErrorKind::Unprocessable(_)
+                | ErrorKind::Unauthorized
+                | ErrorKind::Forbidden(_)
+                | ErrorKind::ForbiddenWithCode { .. }
+                | ErrorKind::Conflict(_)
+        )
+    }
+
     #[allow(dead_code)]
     pub(crate) fn sensitive_path_blocked() -> AppError {
         ErrorKind::ForbiddenWithCode {
@@ -438,5 +461,27 @@ mod tests {
             message: "no PR to merge".into(),
         });
         assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "failed");
+    }
+
+    #[test]
+    fn open_pr_permanence_classification() {
+        // Permanent — retrying can never succeed.
+        for kind in [
+            ErrorKind::NotFound("x".into()),
+            ErrorKind::Validation("x".into()),
+            ErrorKind::ValidationWithCode { code: "errors.self_fix.github_not_configured", message: "x".into() },
+            ErrorKind::Unprocessable("x".into()),
+            ErrorKind::Unauthorized,
+            ErrorKind::Forbidden("x".into()),
+            ErrorKind::ForbiddenWithCode { code: "errors.self_fix.sensitive_path_blocked", message: "x".into() },
+            ErrorKind::Conflict("head moved".into()),
+        ] {
+            let err = AppError::from(kind);
+            assert!(SelfFixPolicy::is_open_pr_error_permanent(&err), "{:?} should be permanent", err.kind);
+        }
+
+        // Transient — worth a retry (network/GitHub incident, or unexpected).
+        assert!(!SelfFixPolicy::is_open_pr_error_permanent(&AppError::from(ErrorKind::Unavailable("down".into()))));
+        assert!(!SelfFixPolicy::is_open_pr_error_permanent(&AppError::from(anyhow::anyhow!("boom"))));
     }
 }
