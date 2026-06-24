@@ -50,7 +50,9 @@ async fn seed_org_workspace_user(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
     (org_id, org_id, user_id)
 }
 
-async fn seed_extra_user(pool: &PgPool) -> Uuid {
+/// Seed an intra-org user (a member of `org_id`). Collaborators must be org
+/// members (#887/F013), so every extra user joins the org.
+async fn seed_extra_user(pool: &PgPool, org_id: Uuid) -> Uuid {
     let user_id = Uuid::new_v4();
     sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
         .bind(user_id)
@@ -58,6 +60,12 @@ async fn seed_extra_user(pool: &PgPool) -> Uuid {
         .execute(pool)
         .await
         .expect("seed extra user");
+    sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'member')")
+        .bind(org_id)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .expect("seed extra membership");
     user_id
 }
 
@@ -96,8 +104,8 @@ fn assert_forbidden(err: &agentforge_core::AppError, ctx: &str) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn add_collaborator_by_bare_member_returns_forbidden(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let attacker_id = seed_extra_user(&pool).await;
-    let victim_id = seed_extra_user(&pool).await;
+    let attacker_id = seed_extra_user(&pool, org_id).await;
+    let victim_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -116,8 +124,8 @@ async fn add_collaborator_by_bare_member_returns_forbidden(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn add_collaborator_by_edit_collaborator_returns_forbidden(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let editor_id = seed_extra_user(&pool).await;
-    let target_id = seed_extra_user(&pool).await;
+    let editor_id = seed_extra_user(&pool, org_id).await;
+    let target_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -139,7 +147,7 @@ async fn add_collaborator_by_edit_collaborator_returns_forbidden(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn add_collaborator_by_owner_succeeds(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let collab_id = seed_extra_user(&pool).await;
+    let collab_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -153,8 +161,8 @@ async fn add_collaborator_by_owner_succeeds(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn add_collaborator_by_admin_collaborator_succeeds(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let admin_id = seed_extra_user(&pool).await;
-    let target_id = seed_extra_user(&pool).await;
+    let admin_id = seed_extra_user(&pool, org_id).await;
+    let target_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -175,7 +183,7 @@ async fn add_collaborator_by_admin_collaborator_succeeds(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn update_by_bare_member_returns_forbidden(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let attacker_id = seed_extra_user(&pool).await;
+    let attacker_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -194,7 +202,7 @@ async fn update_by_bare_member_returns_forbidden(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn update_by_view_collaborator_returns_forbidden(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let viewer_id = seed_extra_user(&pool).await;
+    let viewer_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -215,7 +223,7 @@ async fn update_by_view_collaborator_returns_forbidden(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn update_by_edit_collaborator_succeeds(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let editor_id = seed_extra_user(&pool).await;
+    let editor_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
@@ -236,7 +244,7 @@ async fn update_by_edit_collaborator_succeeds(pool: PgPool) {
 #[sqlx::test(migrations = "../db/migrations")]
 async fn update_status_by_bare_member_returns_forbidden(pool: PgPool) {
     let (org_id, workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
-    let attacker_id = seed_extra_user(&pool).await;
+    let attacker_id = seed_extra_user(&pool, org_id).await;
 
     let repo = AgentRepository::new(pool.clone());
     let owner_scope = make_scope(org_id, owner_id);
