@@ -13,15 +13,15 @@
 # severities and thresholds for your error budget; the values here mirror a
 # generic web-API SLO of 99.9% availability + 1s p95 latency.
 #
-# Metric names assume the Rust API exposes:
-#   * `http_requests_total{code, route, method}` — request counter
-#   * `http_request_duration_seconds_bucket{le, route, method}` — histogram
-#   * `agentforge_orchestration_lag_seconds` — orchestrator backlog age
-#   * `agentforge_nats_consumer_pending_messages` — NATS pending msgs
-#   * `process_resident_memory_bytes` — exporter standard
-#
-# Tweak the metric names / labels to match what `metrics::counter!` / `metrics
-# ::histogram!` calls actually emit in `rust/crates/api/src/services/`.
+# Metric names / labels match what the Rust API actually emits (see
+# rust/crates/api/src/observability/http_metrics.rs and the orchestration
+# metrics). `scripts/check-metrics-contract.mjs` fails CI if any rule below
+# references a series the code never emits:
+#   * `http_requests_total{method, path, status}` — request counter
+#   * `http_request_duration_seconds_bucket{le, method, path}` — latency histogram
+#   * `agentforge_orchestration_outbox_oldest_age_seconds` — orchestrator backlog age
+#   * `agentforge_orchestration_outbox_backlog` — orchestrator publish backlog depth
+#   * `process_resident_memory_bytes` — exporter standard (external)
 # =============================================================================
 
 groups:
@@ -30,16 +30,16 @@ groups:
       - alert: APIHigh5xxRate
         expr: |
           (
-            sum by (route) (rate(http_requests_total{code=~"5.."}[5m]))
+            sum by (path) (rate(http_requests_total{status=~"5.."}[5m]))
             /
-            sum by (route) (rate(http_requests_total[5m]))
+            sum by (path) (rate(http_requests_total[5m]))
           ) > 0.01
         for: 5m
         labels:
           severity: page
           slo: availability
         annotations:
-          summary: '5xx rate >1% on {{ $labels.route }} for 5m'
+          summary: '5xx rate >1% on {{ $labels.path }} for 5m'
           runbook: 'docs/runbooks/api-5xx.md'
 
       - alert: APIErrorBudgetBurn
@@ -47,13 +47,13 @@ groups:
         # budget in 5d. See SRE Workbook chapter 5.
         expr: |
           (
-            sum(rate(http_requests_total{code=~"5.."}[1h]))
+            sum(rate(http_requests_total{status=~"5.."}[1h]))
             /
             sum(rate(http_requests_total[1h]))
           ) > 0.014
           and
           (
-            sum(rate(http_requests_total{code=~"5.."}[5m]))
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
             /
             sum(rate(http_requests_total[5m]))
           ) > 0.014
@@ -71,49 +71,49 @@ groups:
         expr: |
           histogram_quantile(
             0.95,
-            sum by (le, route) (rate(http_request_duration_seconds_bucket[5m]))
+            sum by (le, path) (rate(http_request_duration_seconds_bucket[5m]))
           ) > 1
         for: 10m
         labels:
           severity: page
           slo: latency
         annotations:
-          summary: 'p95 latency >1s on {{ $labels.route }} for 10m'
+          summary: 'p95 latency >1s on {{ $labels.path }} for 10m'
 
       - alert: APILatencyHighP99
         expr: |
           histogram_quantile(
             0.99,
-            sum by (le, route) (rate(http_request_duration_seconds_bucket[5m]))
+            sum by (le, path) (rate(http_request_duration_seconds_bucket[5m]))
           ) > 3
         for: 10m
         labels:
           severity: ticket
           slo: latency
         annotations:
-          summary: 'p99 latency >3s on {{ $labels.route }} for 10m'
+          summary: 'p99 latency >3s on {{ $labels.path }} for 10m'
 
   - name: agentforge.orchestration
     rules:
       - alert: OrchestrationLagHigh
-        expr: agentforge_orchestration_lag_seconds > 60
+        expr: agentforge_orchestration_outbox_oldest_age_seconds > 60
         for: 5m
         labels:
           severity: page
           slo: orchestration
         annotations:
-          summary: 'Orchestrator backlog age >60s for 5m'
+          summary: 'Orchestrator outbox oldest-unpublished age >60s for 5m'
           runbook: 'docs/runbooks/orchestration.md'
 
-      - alert: NATSPendingMessagesHigh
-        expr: agentforge_nats_consumer_pending_messages > 1000
+      - alert: OrchestrationOutboxBacklogHigh
+        expr: agentforge_orchestration_outbox_backlog > 1000
         for: 10m
         labels:
           severity: ticket
           slo: orchestration
         annotations:
-          summary: 'NATS consumer >1000 pending msgs for 10m'
-          runbook: 'docs/runbooks/nats-auth.md'
+          summary: 'Orchestrator outbox backlog >1000 unpublished for 10m'
+          runbook: 'docs/runbooks/orchestration.md'
 
   - name: agentforge.deploy
     rules:
