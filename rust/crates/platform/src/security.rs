@@ -30,8 +30,94 @@ pub enum SecurityViolation {
 /// Capabilities that are never allowed on agent containers.
 const FORBIDDEN_CAPS: &[&str] = &["ALL", "SYS_ADMIN", "SYS_PTRACE", "NET_RAW"];
 
-/// Host paths that must never be bind-mounted into containers.
-const FORBIDDEN_MOUNT_PREFIXES: &[&str] = &["/var/run/docker.sock", "/etc/shadow", "/etc/passwd"];
+/// Host directories that must never be bind-mounted into agent containers.
+/// Checked against a lexically-normalized source (see [`normalize_mount_source`]),
+/// so `.`/`..`/parent-dir tricks cannot bypass it. Both `/run` and `/var/run` are
+/// listed because they are the same directory on systemd hosts via a symlink the
+/// validator cannot resolve for a not-yet-created path.
+const FORBIDDEN_MOUNT_ROOTS: &[&str] =
+    &["/etc", "/proc", "/sys", "/dev", "/run", "/var/run", "/var/lib/docker", "/boot", "/root"];
+
+/// Lexically normalize an absolute path: collapse `.`, `..`, and redundant
+/// separators WITHOUT touching the filesystem (mount sources may not exist yet at
+/// validation time). Returns `None` for a non-absolute source — those are Docker
+/// named volumes, not host-path binds, and cannot traverse the host filesystem.
+fn normalize_mount_source(source: &str) -> Option<String> {
+    if !source.starts_with('/') {
+        return None;
+    }
+    let mut parts: Vec<&str> = Vec::new();
+    for segment in source.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    Some(format!("/{}", parts.join("/")))
+}
+
+/// Whether a fully-normalized absolute path is the docker socket or a sensitive host root.
+fn is_forbidden_normalized(path: &str) -> bool {
+    // The docker socket by basename, wherever it is mounted from.
+    if path.rsplit('/').next() == Some("docker.sock") {
+        return true;
+    }
+    // The whole host root.
+    if path == "/" {
+        return true;
+    }
+    // A sensitive host root, exactly or as a parent of the source.
+    FORBIDDEN_MOUNT_ROOTS.iter().any(|root| path == *root || path.starts_with(&format!("{root}/")))
+}
+
+/// Resolve symlinks on the longest EXISTING ancestor of `source`, then re-append the
+/// not-yet-created suffix. Docker's bind syntax creates a missing leaf, so a symlinked
+/// *parent* (e.g. `/ws/link -> /etc`, request `/ws/link/new`) must resolve to
+/// `/etc/new`. Returns the symlink-resolved absolute path, or `None` if it cannot be
+/// resolved (callers must fail closed via the lexical check, which already ran).
+fn resolve_symlinks_best_effort(source: &str) -> Option<String> {
+    let mut suffix: Vec<std::ffi::OsString> = Vec::new();
+    let mut cur = std::path::PathBuf::from(source);
+    loop {
+        if let Ok(mut real) = std::fs::canonicalize(&cur) {
+            for name in suffix.iter().rev() {
+                real.push(name);
+            }
+            return real.to_str().map(str::to_string);
+        }
+        suffix.push(cur.file_name()?.to_os_string());
+        if !cur.pop() {
+            return None;
+        }
+    }
+}
+
+/// Whether a bind-mount source targets the docker socket or a sensitive host root.
+///
+/// Checks the lexically-normalized path first (handles `.`/`..` and not-yet-created
+/// sources), then — because Docker resolves host symlinks at mount time and creates a
+/// missing leaf — resolves symlinks on the longest existing ancestor and re-checks the
+/// real target, so neither a symlinked source nor a symlinked parent can slip through.
+fn is_forbidden_mount(source: &str) -> bool {
+    let Some(norm) = normalize_mount_source(source) else {
+        return false;
+    };
+    if is_forbidden_normalized(&norm) {
+        return true;
+    }
+    // Resolve symlinks on the LEXICALLY-NORMALIZED path (not the raw source): `..` and
+    // `.` are already collapsed, so a crafted suffix like `/tmp/link/new/..` cannot
+    // dodge resolution (its `file_name()` would otherwise be `None`).
+    if let Some(resolved) = resolve_symlinks_best_effort(&norm)
+        && is_forbidden_normalized(&resolved)
+    {
+        return true;
+    }
+    false
+}
 
 /// Validate a container config against the security policy.
 ///
@@ -62,12 +148,12 @@ pub fn validate_security(config: &ContainerConfig) -> Result<(), Vec<SecurityVio
         violations.push(SecurityViolation::HostNetwork);
     }
 
-    // Check forbidden mounts.
+    // Check forbidden mounts (lexically canonicalized so `.`/`..`/parent-dir and
+    // symlinked socket paths cannot bypass the denial of the docker socket and
+    // sensitive host roots).
     for mount in &config.mounts {
-        for prefix in FORBIDDEN_MOUNT_PREFIXES {
-            if mount.source.starts_with(prefix) {
-                violations.push(SecurityViolation::ForbiddenMount(mount.source.clone()));
-            }
+        if is_forbidden_mount(&mount.source) {
+            violations.push(SecurityViolation::ForbiddenMount(mount.source.clone()));
         }
     }
 
@@ -204,5 +290,86 @@ mod tests {
         assert!(is_forbidden_capability("NET_RAW"));
         assert!(!is_forbidden_capability("NET_BIND_SERVICE"));
         assert!(!is_forbidden_capability("CHOWN"));
+    }
+
+    fn mount_cfg(source: &str) -> ContainerConfig {
+        let mut cfg = valid_config();
+        cfg.mounts = vec![Mount { source: source.to_string(), target: "/mnt".to_string(), read_only: true }];
+        cfg
+    }
+
+    #[test]
+    fn rejects_docker_socket_via_noncanonical_path() {
+        // The naive prefix check missed these; a canonicalizing check must not.
+        for src in ["/var/run/./docker.sock", "/var/run/../run/docker.sock", "/run/docker.sock", "/var/run"] {
+            let err = validate_security(&mount_cfg(src)).unwrap_err();
+            assert!(
+                err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))),
+                "socket-bearing mount `{src}` must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_sensitive_host_roots() {
+        for src in ["/", "/etc/cron.d", "/root/.ssh", "/proc/1/root", "/sys", "/dev/mem", "/var/lib/docker/x"] {
+            let err = validate_security(&mount_cfg(src)).unwrap_err();
+            assert!(
+                err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))),
+                "sensitive host mount `{src}` must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn allows_benign_scratch_and_workspace_mounts() {
+        for src in ["/tmp/work", "/data/agentforge/workspaces/x", "/home/agent/project", "/srv/scratch"] {
+            assert!(validate_security(&mount_cfg(src)).is_ok(), "benign mount `{src}` should be allowed");
+        }
+    }
+
+    #[test]
+    fn rejects_symlink_to_forbidden_root() {
+        // Docker resolves host symlinks at mount time, so a benign-looking source that
+        // is actually a symlink to a forbidden root must be rejected (codex review P1).
+        use std::os::unix::fs::symlink;
+        let link = std::env::temp_dir().join(format!("af-sec-symlink-{}", std::process::id()));
+        let _ = std::fs::remove_file(&link);
+        symlink("/etc", &link).expect("create symlink to /etc");
+        let result = validate_security(&mount_cfg(link.to_str().unwrap()));
+        let _ = std::fs::remove_file(&link);
+        let err = result.expect_err("symlink resolving to /etc must be rejected");
+        assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
+    }
+
+    #[test]
+    fn rejects_symlinked_parent_with_missing_leaf() {
+        // Docker creates a missing bind-source leaf, so a symlinked *parent* pointing at
+        // a forbidden root must be rejected even when the final component does not exist
+        // yet (codex review P1, follow-up).
+        use std::os::unix::fs::symlink;
+        let link = std::env::temp_dir().join(format!("af-sec-parent-{}", std::process::id()));
+        let _ = std::fs::remove_file(&link);
+        symlink("/etc", &link).expect("create symlink to /etc");
+        let target = format!("{}/newdir", link.to_str().unwrap());
+        let result = validate_security(&mount_cfg(&target));
+        let _ = std::fs::remove_file(&link);
+        let err = result.expect_err("symlinked parent with missing leaf must be rejected");
+        assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
+    }
+
+    #[test]
+    fn rejects_symlink_with_dotdot_suffix() {
+        // `/tmp/link/new/..` lexically reduces to `/tmp/link`, which symlinks to /etc.
+        // Resolution must run on the normalized path, not the raw `..`-suffixed string.
+        use std::os::unix::fs::symlink;
+        let link = std::env::temp_dir().join(format!("af-sec-dotdot-{}", std::process::id()));
+        let _ = std::fs::remove_file(&link);
+        symlink("/etc", &link).expect("create symlink to /etc");
+        let target = format!("{}/new/..", link.to_str().unwrap());
+        let result = validate_security(&mount_cfg(&target));
+        let _ = std::fs::remove_file(&link);
+        let err = result.expect_err("dotdot-suffixed symlink path must be rejected");
+        assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
     }
 }
