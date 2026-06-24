@@ -1,5 +1,9 @@
 # Wisdoverse Forge
 
+[![CI](https://github.com/Wisdoverse/Wisdoverse-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wisdoverse/Wisdoverse-Forge/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Wisdoverse/Wisdoverse-Forge/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Wisdoverse/Wisdoverse-Forge)
+[![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
+
 Wisdoverse Forge helps a team turn requests into managed AI work. You create
 tasks, assign agents, watch progress, review results, and keep evidence in one
 governed workspace.
@@ -154,6 +158,7 @@ docs/                  Architecture, runbooks, guides, specs
 - [Clone Egress Firewall](docs/runbooks/clone-egress-firewall.md) — required deploy-layer egress policy for project git clone
 - [Versioning Policy](docs/versioning.md) — API versioning and release policy
 - [Contributing](CONTRIBUTING.md) — workflow, validation, and PR expectations
+- [Support](SUPPORT.md) — where to get help and how to ask
 - [Code of Conduct](CODE_OF_CONDUCT.md) — community standards
 - [Security Policy](SECURITY.md) — vulnerability disclosure
 
