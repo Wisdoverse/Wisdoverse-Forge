@@ -263,7 +263,31 @@ async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str
         }
     };
 
-    // 2. Publish (enqueues into the async-nats client buffer).
+    // 2-4. Publish, confirm the flush, and acknowledge only on a confirmed
+    //       handoff; otherwise keep the record for the periodic drain to retry.
+    match attempt_durable_publish(publisher, event_type, data).await {
+        WalAction::Ack => {
+            tracing::debug!(event_type, "Relay event published and flushed");
+            if let Err(err) = wal.acknowledge(&wal_path).await {
+                tracing::warn!(error = %err, event_type, "Relay event delivered but WAL ack failed — drain will re-send (harmless without dedup)");
+            }
+        }
+        WalAction::Keep => {
+            // Record stays on disk; periodic drain retries on reconnect.
+        }
+    }
+}
+
+/// Publish one event and confirm the handoff, returning whether its WAL record
+/// should be [`WalAction::Ack`]'d (deleted) or [`WalAction::Keep`]'d (retried).
+///
+/// Shared by the live relay path ([`durably_publish`]) and the WAL drain
+/// ([`drain_wal`]) so both honour the identical confirmed-handoff rule: a record
+/// is acknowledged only when `publish()` enqueued **and** the bounded `flush()`
+/// confirmed the server received it. `data` is consumed by the publish.
+async fn attempt_durable_publish(publisher: &EventPublisher, event_type: &str, data: serde_json::Value) -> WalAction {
+    // Publish enqueues into the async-nats client buffer (returns Ok even while
+    // disconnected, which is exactly why the flush confirmation below matters).
     let published_ok = match publisher.publish(event_type, data).await {
         Ok(()) => true,
         Err(err) => {
@@ -272,10 +296,9 @@ async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str
         }
     };
 
-    // 3. Flush to confirm the server received the buffered message. Only
-    //    meaningful if the publish itself enqueued successfully. Bounded by a
-    //    timeout because flush() blocks indefinitely while NATS is unreachable —
-    //    a timeout means "unconfirmed", so the WAL record is kept for the drain.
+    // Flush to confirm the server received the buffered message. Bounded by a
+    // timeout because flush() blocks indefinitely while NATS is unreachable — a
+    // timeout means "unconfirmed", so the WAL record is kept.
     let flushed_ok = if published_ok {
         match tokio::time::timeout(FLUSH_CONFIRM_TIMEOUT, publisher.flush()).await {
             Ok(Ok(())) => true,
@@ -296,16 +319,46 @@ async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str
         false
     };
 
-    // 4. Acknowledge only on confirmed handoff; otherwise keep for retry.
-    match durable_publish_outcome(published_ok, flushed_ok) {
-        WalAction::Ack => {
-            tracing::debug!(event_type, "Relay event published and flushed");
-            if let Err(err) = wal.acknowledge(&wal_path).await {
-                tracing::warn!(error = %err, event_type, "Relay event delivered but WAL ack failed — drain will re-send (harmless without dedup)");
-            }
+    durable_publish_outcome(published_ok, flushed_ok)
+}
+
+/// Drain the WAL through `publisher` with the **same** WAL-first confirmed-handoff
+/// contract as [`durably_publish`]: each buffered event is published, the flush
+/// is confirmed, and the record is acknowledged (deleted) only on a confirmed
+/// handoff — otherwise it is left for the next drain.
+///
+/// Shared by the startup replay and the periodic drain in `main.rs`. Previously
+/// the drain acknowledged on `publish()` Ok alone, which re-opened the
+/// reconnect-window loss the WAL exists to prevent: a publish buffered during a
+/// NATS outage was deleted from the WAL and then lost if NATS dropped before the
+/// server confirmed (F062).
+pub(crate) async fn drain_wal(wal: &Wal, publisher: &EventPublisher) {
+    let entries = match wal.replay().await {
+        Ok(entries) => entries,
+        Err(err) => {
+            tracing::warn!(error = %err, "Failed to read WAL for drain");
+            return;
         }
-        WalAction::Keep => {
-            // Record stays on disk; periodic drain retries on reconnect.
+    };
+    for (path, entry) in entries {
+        let msg = match serde_json::from_slice::<serde_json::Value>(&entry) {
+            Ok(msg) => msg,
+            Err(err) => {
+                tracing::warn!(error = %err, path = %path.display(), "Failed to deserialize WAL entry, skipping");
+                continue;
+            }
+        };
+        let event_type = msg["payload"]["event_type"].as_str().unwrap_or("unknown").to_string();
+        let data = msg["payload"]["data"].clone();
+        match attempt_durable_publish(publisher, &event_type, data).await {
+            WalAction::Ack => {
+                if let Err(err) = wal.acknowledge(&path).await {
+                    tracing::warn!(error = %err, path = %path.display(), "Failed to acknowledge WAL entry");
+                }
+            }
+            WalAction::Keep => {
+                tracing::debug!(path = %path.display(), "WAL entry not confirmed — keeping for next drain");
+            }
         }
     }
 }
@@ -477,6 +530,44 @@ mod tests {
         assert!(server.await.unwrap().is_ok());
         // Flush could not confirm against the unroutable server → record stays.
         assert_eq!(wal.pending_count().await.unwrap(), 1);
+    }
+
+    /// F062: the WAL **drain** must honour the same confirmed-handoff contract as
+    /// the live relay path. Against an unroutable NATS client `publish()` buffers
+    /// and returns Ok but `flush()` never confirms, so a drained record must be
+    /// KEPT (pending stays 1) — not deleted on publish-Ok alone, which would lose
+    /// the event if NATS dropped before the server confirmed.
+    #[tokio::test]
+    async fn drain_wal_keeps_record_when_flush_cannot_confirm() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wal = Wal::new(Some(tmp.path().to_str().unwrap()));
+
+        // Seed one buffered event in the drain-compatible record shape.
+        let record = wal_record("session_start", &serde_json::json!({"sessionId": "s1", "id": "e1"}));
+        wal.append(&record).await.unwrap();
+        assert_eq!(wal.pending_count().await.unwrap(), 1, "seeded one WAL record");
+
+        let client = async_nats::ConnectOptions::new()
+            .connection_timeout(std::time::Duration::from_millis(50))
+            .retry_on_initial_connect()
+            .connect("nats://127.0.0.1:1") // unroutable: publish buffers, flush never confirms
+            .await
+            .expect("lazy connect builds a client without contacting the server");
+        let publisher = EventPublisher::new(
+            client,
+            "00000000-0000-0000-0000-000000000001".to_string(),
+            "test-secret",
+            Some("claude".to_string()),
+            agentforge_core::RuntimeKind::Cli,
+        );
+
+        drain_wal(&wal, &publisher).await;
+
+        assert_eq!(
+            wal.pending_count().await.unwrap(),
+            1,
+            "drain must keep the record when the flush cannot confirm delivery"
+        );
     }
 
     /// End-to-end frame I/O over a real Unix socket: a client writes a framed
