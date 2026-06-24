@@ -284,14 +284,22 @@ impl UserService {
         self.repo.search_org_members(scope, query, limit).await
     }
 
-    pub(crate) fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
+    pub(crate) async fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
         let claims = self.jwt.verify_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
+        // #889/F002: re-read the LIVE org-membership role instead of echoing the
+        // token's `role` claim. A demoted admin is re-minted at their current
+        // role; a user whose membership was revoked can no longer refresh.
+        let live_role = self
+            .repo
+            .find_membership_role(UserId::from(claims.sub), claims.org)
+            .await?
+            .ok_or_else(UserAccountPolicy::invalid_refresh_token)?;
         let access_token = self
             .jwt
             .create_token_with_axes(
                 claims.sub,
                 claims.org,
-                &claims.role,
+                &live_role,
                 claims.workspace_id,
                 claims.team_id,
                 claims.project_id,
@@ -328,5 +336,73 @@ impl UserService {
             refresh_token,
             refresh_expires_in,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::repositories::user::UserRepository;
+    use sqlx::PgPool;
+    use uuid::Uuid;
+
+    const TEST_SECRET: &str = "refresh-session-live-role-test-secret-32bytes!!";
+
+    /// Seed an org (+ user), optionally with an `organization_members` row.
+    async fn seed_member(pool: &PgPool, role: Option<&str>) -> (Uuid, Uuid) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind(format!("Org {org_id}"))
+            .bind(format!("org-{org_id}"))
+            .execute(pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        if let Some(role) = role {
+            sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, $3)")
+                .bind(org_id)
+                .bind(user_id)
+                .bind(role)
+                .execute(pool)
+                .await
+                .expect("seed membership");
+        }
+        (org_id, user_id)
+    }
+
+    fn user_service(pool: &PgPool, jwt: &Arc<JwtManager>) -> UserService {
+        UserService::new(UserRepository::new(pool.clone()), jwt.clone())
+    }
+
+    /// #889/F002: a refresh token carrying a stale `role=admin` claim is
+    /// re-minted at the user's LIVE membership role (here, demoted to `member`).
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn refresh_session_reissues_live_membership_role(pool: PgPool) {
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let (org_id, user_id) = seed_member(&pool, Some("member")).await;
+        // Stale elevated refresh token: role=admin baked in at an earlier issuance.
+        let refresh = jwt.create_token(user_id, org_id, "admin").expect("mint refresh");
+
+        let session = user_service(&pool, &jwt).refresh_session(&refresh).await.expect("refresh ok");
+        let claims = jwt.verify_token(session.access_token()).expect("decode new access");
+        assert_eq!(claims.role, "member", "new access token must carry the LIVE role, not the stale admin claim");
+    }
+
+    /// A user whose org membership was revoked can no longer refresh.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn refresh_session_rejects_revoked_membership(pool: PgPool) {
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let (org_id, user_id) = seed_member(&pool, None).await; // no membership row
+        let refresh = jwt.create_token(user_id, org_id, "admin").expect("mint refresh");
+
+        let err = user_service(&pool, &jwt).refresh_session(&refresh).await.expect_err("revoked must fail");
+        assert!(matches!(err.kind, agentforge_core::ErrorKind::Unauthorized), "got: {:?}", err.kind);
     }
 }
