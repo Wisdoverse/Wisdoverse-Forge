@@ -5,6 +5,7 @@
 //! heartbeat emission, and a file-based WAL for offline resilience.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use agentforge_infra::nats::connect_nats;
 use tokio::sync::watch;
@@ -66,12 +67,13 @@ const DEGRADED_WAL_PENDING_THRESHOLD: usize = 1_000;
 
 /// Build a relay health snapshot from current WAL counters for inclusion in the
 /// heartbeat payload. Does not change any state — purely a read + struct build.
-fn build_health_snapshot(wal: &wal::Wal) -> publisher::HealthSnapshot {
+fn build_health_snapshot(wal: &wal::Wal, creds_sync_errors: u64) -> publisher::HealthSnapshot {
     let pending = wal.pending_cached();
     let dropped = wal.dropped_total();
-    let degraded = pending >= DEGRADED_WAL_PENDING_THRESHOLD || dropped > 0;
-    let reason = degraded.then(|| format!("wal_pending={pending} wal_dropped={dropped}"));
-    publisher::HealthSnapshot { degraded, reason, wal_pending: pending, wal_dropped: dropped }
+    let degraded = pending >= DEGRADED_WAL_PENDING_THRESHOLD || dropped > 0 || creds_sync_errors > 0;
+    let reason =
+        degraded.then(|| format!("wal_pending={pending} wal_dropped={dropped} creds_sync_errors={creds_sync_errors}"));
+    publisher::HealthSnapshot { degraded, reason, wal_pending: pending, wal_dropped: dropped, creds_sync_errors }
 }
 
 /// Drain the WAL through `publisher`: replay each buffered event, and on
@@ -202,6 +204,10 @@ async fn main() -> anyhow::Result<()> {
     // env (CREDS_DIR, ORG_ID, cli_tool) must all be set for the watcher to
     // have work to do. Any missing piece logs + skips without failing
     // startup — older container images must still boot on the new sidecar.
+    // Shared counter of credential-sync losses (NATS unreachable, no WAL retry),
+    // folded into the heartbeat health snapshot so the platform has visibility
+    // instead of only a container-local log (#891/F063).
+    let creds_sync_errors = Arc::new(AtomicU64::new(0));
     let credentials_task = if cfg.credential_sync_enabled {
         match (cfg.creds_dir.as_deref(), cfg.org_id.as_deref(), cfg.resolved_cli_tool()) {
             (Some(dir), Some(org_id_str), Some(cli_tool)) => {
@@ -211,11 +217,27 @@ async fn main() -> anyhow::Result<()> {
                         let client = nats_client.clone();
                         let secret = cfg.hmac_secret.clone();
                         let creds_shutdown = shutdown_rx.clone();
+                        let creds_errors = creds_sync_errors.clone();
                         Some(tokio::spawn(async move {
-                            if let Err(err) =
-                                credentials::run(dir, client, agent_id, org_id, cli_tool, secret, creds_shutdown).await
+                            let watcher_errors = creds_errors.clone();
+                            if let Err(err) = credentials::run(
+                                dir,
+                                client,
+                                agent_id,
+                                org_id,
+                                cli_tool,
+                                secret,
+                                creds_shutdown,
+                                watcher_errors,
+                            )
+                            .await
                             {
                                 tracing::error!(error = %err, "credential watcher exited with error");
+                                // The watcher never entered its loop (e.g. CREDS_DIR
+                                // unwatchable) so credential sync is permanently stopped
+                                // for this container — mark the heartbeat degraded so it
+                                // is not silently reported as healthy (#891/F063).
+                                creds_errors.fetch_add(1, Ordering::Relaxed);
                             }
                         }))
                     }
@@ -223,23 +245,32 @@ async fn main() -> anyhow::Result<()> {
                         tracing::warn!(
                             "credential sync enabled but agent_id/org_id are not valid UUIDs — skipping watcher"
                         );
+                        // Sync is ENABLED but can never start (misconfig) — degrade
+                        // the heartbeat instead of reporting healthy (#891/F063).
+                        creds_sync_errors.fetch_add(1, Ordering::Relaxed);
                         None
                     }
                 }
             }
             _ => {
                 tracing::info!("credential sync enabled but CREDS_DIR/ORG_ID/cli_tool not all set — skipping watcher");
+                // Sync is ENABLED but required env is missing so it can never
+                // start — degrade the heartbeat instead of reporting healthy.
+                creds_sync_errors.fetch_add(1, Ordering::Relaxed);
                 None
             }
         }
     } else {
+        // Sync intentionally disabled (flag off) — NOT a failure, stays healthy.
         tracing::info!("credential sync disabled (flag off)");
         None
     };
 
     // Publish once before the interval loop so a freshly started container is
     // immediately visible as an orchestration participant in the UI.
-    if let Err(err) = publisher.heartbeat(build_health_snapshot(&wal_instance)).await {
+    if let Err(err) =
+        publisher.heartbeat(build_health_snapshot(&wal_instance, creds_sync_errors.load(Ordering::Relaxed))).await
+    {
         tracing::warn!(error = %err, "Initial heartbeat failed");
     }
 
@@ -248,6 +279,7 @@ async fn main() -> anyhow::Result<()> {
     let mut hb_shutdown = shutdown_rx.clone();
     let hb_publisher = publisher.clone();
     let hb_wal = wal_instance.clone();
+    let hb_creds_errors = creds_sync_errors.clone();
     let hb_task = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -255,7 +287,7 @@ async fn main() -> anyhow::Result<()> {
                     if *hb_shutdown.borrow() { break; }
                 }
                 _ = tokio::time::sleep(hb_interval) => {
-                    let health = build_health_snapshot(&hb_wal);
+                    let health = build_health_snapshot(&hb_wal, hb_creds_errors.load(Ordering::Relaxed));
                     if let Err(err) = hb_publisher.heartbeat(health).await {
                         tracing::warn!(error = %err, "Heartbeat failed");
                     }
@@ -373,7 +405,7 @@ mod tests {
         for _ in 0..5 {
             wal.append(b"{}").await.unwrap();
         }
-        let snap = build_health_snapshot(&wal);
+        let snap = build_health_snapshot(&wal, 0);
         assert!(!snap.degraded, "well below threshold must not be degraded");
         assert!(snap.reason.is_none());
         assert_eq!(snap.wal_pending, 5);
@@ -388,7 +420,7 @@ mod tests {
         for _ in 0..DEGRADED_WAL_PENDING_THRESHOLD {
             wal.append(b"{}").await.unwrap();
         }
-        let snap = build_health_snapshot(&wal);
+        let snap = build_health_snapshot(&wal, 0);
         assert!(snap.degraded, "at threshold must be degraded");
         assert!(snap.reason.is_some());
         let reason = snap.reason.unwrap();
@@ -402,8 +434,20 @@ mod tests {
         let wal = wal::Wal::with_max_pending(Some(tmp.path().to_str().unwrap()), 1);
         wal.append(b"{}").await.unwrap();
         wal.append(b"{}").await.unwrap(); // dropped
-        let snap = build_health_snapshot(&wal);
+        let snap = build_health_snapshot(&wal, 0);
         assert!(snap.degraded, "any dropped event must mark degraded");
         assert_eq!(snap.wal_dropped, 1);
+    }
+
+    #[tokio::test]
+    async fn health_snapshot_degraded_on_any_creds_sync_error() {
+        // #891/F063: a credential-sync loss (NATS unreachable) must surface as a
+        // degraded heartbeat with a reason the platform can warn on.
+        let tmp = tempfile::tempdir().unwrap();
+        let wal = wal::Wal::with_max_pending(Some(tmp.path().to_str().unwrap()), 10_000);
+        let snap = build_health_snapshot(&wal, 2);
+        assert!(snap.degraded, "any credential-sync error must mark degraded");
+        assert_eq!(snap.creds_sync_errors, 2);
+        assert!(snap.reason.unwrap().contains("creds_sync_errors=2"));
     }
 }
