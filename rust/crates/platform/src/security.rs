@@ -1,7 +1,7 @@
 //! Security policy validation for container configurations.
 //!
-//! Enforces hard denials for privileged containers, dangerous capabilities,
-//! forbidden mounts, and missing resource limits.
+//! Enforces hard denials for privileged containers, namespace-sharing network
+//! modes, forbidden mounts, and missing memory/pids resource limits.
 
 use crate::types::ContainerConfig;
 
@@ -17,18 +17,18 @@ pub enum SecurityViolation {
     #[error("host network is not allowed")]
     HostNetwork,
 
-    #[error("dangerous capability: {0}")]
-    DangerousCapability(String),
+    #[error("network mode shares another namespace and is not allowed: {0}")]
+    ForbiddenNetworkMode(String),
 
     #[error("mount path not allowed: {0}")]
     ForbiddenMount(String),
 
-    #[error("no resource limits configured")]
+    #[error("a memory limit is required")]
     NoResourceLimits,
-}
 
-/// Capabilities that are never allowed on agent containers.
-const FORBIDDEN_CAPS: &[&str] = &["ALL", "SYS_ADMIN", "SYS_PTRACE", "NET_RAW"];
+    #[error("a pids limit is required")]
+    MissingPidsLimit,
+}
 
 /// Host directories that must never be bind-mounted into agent containers.
 /// Checked against a lexically-normalized source (see [`normalize_mount_source`]),
@@ -136,16 +136,31 @@ pub fn validate_security(config: &ContainerConfig) -> Result<(), Vec<SecurityVio
         violations.push(SecurityViolation::HostPid);
     }
 
-    // Require at least one resource limit to prevent unbounded containers.
-    if config.resources.memory_bytes.is_none() && config.resources.cpu_quota.is_none() {
+    // Require a STRICTLY POSITIVE memory limit: a CPU-only limit leaves memory
+    // unbounded, and Docker treats `memory=0` as unlimited — so a `Some(0)` from
+    // an authenticated config payload would silently bypass the cap.
+    if config.resources.memory_bytes.is_none_or(|bytes| bytes <= 0) {
         violations.push(SecurityViolation::NoResourceLimits);
     }
 
-    // Check for host network mode.
-    if let Some(ref net) = config.network
-        && net == "host"
-    {
-        violations.push(SecurityViolation::HostNetwork);
+    // Require a STRICTLY POSITIVE pids limit to close the fork-bomb DoS vector.
+    // Docker treats `pids_limit` of 0 or -1 as unlimited, so presence alone is
+    // not enough.
+    if config.resources.pids_limit.is_none_or(|pids| pids <= 0) {
+        violations.push(SecurityViolation::MissingPidsLimit);
+    }
+
+    // Network: reject the host namespace and any namespace-sharing mode
+    // (`container:<id>`, `ns:<path>`, `service:<name>`). These let one tenant's
+    // container join another container's / a host network namespace — a
+    // cross-tenant isolation breach. Named managed networks and the default
+    // bridge (`None`) are allowed.
+    if let Some(ref net) = config.network {
+        if net == "host" {
+            violations.push(SecurityViolation::HostNetwork);
+        } else if net.starts_with("container:") || net.starts_with("ns:") || net.starts_with("service:") {
+            violations.push(SecurityViolation::ForbiddenNetworkMode(net.clone()));
+        }
     }
 
     // Check forbidden mounts (lexically canonicalized so `.`/`..`/parent-dir and
@@ -158,11 +173,6 @@ pub fn validate_security(config: &ContainerConfig) -> Result<(), Vec<SecurityVio
     }
 
     if violations.is_empty() { Ok(()) } else { Err(violations) }
-}
-
-/// Check whether a Linux capability string is forbidden.
-pub fn is_forbidden_capability(cap: &str) -> bool {
-    FORBIDDEN_CAPS.contains(&cap)
 }
 
 #[cfg(test)]
@@ -206,23 +216,78 @@ mod tests {
     }
 
     #[test]
-    fn allows_cpu_only_limits() {
+    fn rejects_cpu_only_limits() {
+        // F036: a CPU quota alone leaves memory unbounded — must be rejected.
         let mut cfg = valid_config();
         cfg.resources =
             ResourceLimits { cpu_quota: Some(100_000), memory_bytes: None, memory_swap_bytes: None, pids_limit: None };
-        assert!(validate_security(&cfg).is_ok());
+        assert!(validate_security(&cfg).is_err(), "cpu-only limits leave memory unbounded");
     }
 
     #[test]
-    fn allows_memory_only_limits() {
+    fn rejects_missing_pids_limit() {
+        // F036: no pids_limit allows a fork-bomb DoS even with memory/cpu set.
+        let mut cfg = valid_config();
+        cfg.resources = ResourceLimits {
+            cpu_quota: Some(100_000),
+            memory_bytes: Some(512 * 1024 * 1024),
+            memory_swap_bytes: None,
+            pids_limit: None,
+        };
+        assert!(validate_security(&cfg).is_err(), "missing pids_limit allows fork-bomb");
+    }
+
+    #[test]
+    fn rejects_nonpositive_resource_limits() {
+        // Docker treats memory=0 / pids<=0 as UNLIMITED, so a Some(0)/Some(-1)
+        // from an authenticated config payload must be rejected, not accepted.
+        for (mem, pids) in [
+            (Some(0), Some(256)),
+            (Some(-1), Some(256)),
+            (Some(512 * 1024 * 1024), Some(0)),
+            (Some(512 * 1024 * 1024), Some(-1)),
+        ] {
+            let mut cfg = valid_config();
+            cfg.resources = ResourceLimits {
+                cpu_quota: Some(100_000),
+                memory_bytes: mem,
+                memory_swap_bytes: None,
+                pids_limit: pids,
+            };
+            assert!(validate_security(&cfg).is_err(), "non-positive limit mem={mem:?} pids={pids:?} must be rejected");
+        }
+    }
+
+    #[test]
+    fn allows_memory_and_pids_without_cpu() {
+        // CPU quota is not required as long as memory + pids are bounded.
         let mut cfg = valid_config();
         cfg.resources = ResourceLimits {
             cpu_quota: None,
             memory_bytes: Some(512 * 1024 * 1024),
             memory_swap_bytes: None,
-            pids_limit: None,
+            pids_limit: Some(256),
         };
         assert!(validate_security(&cfg).is_ok());
+    }
+
+    #[test]
+    fn rejects_namespace_sharing_network_modes() {
+        // F035: container:/ns:/service: share another namespace — tenant-isolation breach.
+        for mode in ["container:victim", "ns:/var/run/netns/x", "service:internal-api"] {
+            let mut cfg = valid_config();
+            cfg.network = Some(mode.to_string());
+            assert!(validate_security(&cfg).is_err(), "network mode `{mode}` must be rejected");
+        }
+    }
+
+    #[test]
+    fn allows_managed_and_default_networks() {
+        for net in [None, Some("agentforge-agents".to_string()), Some("agentforge-clone-egress".to_string())] {
+            let mut cfg = valid_config();
+            cfg.network = net.clone();
+            assert!(validate_security(&cfg).is_ok(), "network `{net:?}` should be allowed");
+        }
     }
 
     #[test]
@@ -280,16 +345,6 @@ mod tests {
             vec![Mount { source: "/etc/passwd".to_string(), target: "/tmp/passwd".to_string(), read_only: true }];
         let err = validate_security(&cfg).unwrap_err();
         assert!(err.len() >= 3, "expected at least 3 violations, got {}", err.len());
-    }
-
-    #[test]
-    fn forbidden_capabilities_detected() {
-        assert!(is_forbidden_capability("ALL"));
-        assert!(is_forbidden_capability("SYS_ADMIN"));
-        assert!(is_forbidden_capability("SYS_PTRACE"));
-        assert!(is_forbidden_capability("NET_RAW"));
-        assert!(!is_forbidden_capability("NET_BIND_SERVICE"));
-        assert!(!is_forbidden_capability("CHOWN"));
     }
 
     fn mount_cfg(source: &str) -> ContainerConfig {

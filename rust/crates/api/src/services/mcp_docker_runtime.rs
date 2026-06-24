@@ -6,10 +6,8 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use bollard::errors::Error as BollardError;
-use bollard::models::{ContainerCreateBody as ContainerConfig, HostConfig};
 use bollard::query_parameters::{
-    AttachContainerOptions, CreateContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions,
-    StartContainerOptions,
+    AttachContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
 };
 use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
@@ -17,7 +15,9 @@ use tokio::time::sleep;
 use uuid::Uuid;
 
 use agentforge_core::{AgentStatus, AppError, AppResult};
-use agentforge_platform::DockerClient;
+use agentforge_platform::{
+    ContainerConfig as PlatformContainerConfig, DockerClient, Mount as PlatformMount, ResourceLimits,
+};
 
 use crate::domain::mcp::{
     CompletionObservation, DockerCreateRequest, DockerMcpRuntimeOptions, DockerRuntimeSession, DockerSessionState,
@@ -84,47 +84,48 @@ impl LiveDockerMcpRuntimeBackend {
     }
 }
 
+/// Translate an MCP `DockerCreateRequest` into the platform `ContainerConfig`
+/// so MCP-managed agent containers go through the single validated, hardened
+/// creation path (`DockerClient::create_container`) instead of a raw bollard
+/// spec that skipped the security policy and resource limits (F031/F037).
+///
+/// Resource limits default to the bounded platform defaults; `privileged` and
+/// `host_pid` are forced off and re-asserted by the platform layer.
+fn mcp_container_config(request: DockerCreateRequest) -> PlatformContainerConfig {
+    PlatformContainerConfig {
+        image: request.image,
+        name: Some(request.name),
+        working_dir: Some(request.working_dir),
+        env: request.env.into_iter().map(|(key, value)| format!("{key}={value}")).collect(),
+        labels: request.labels,
+        resources: ResourceLimits::default(),
+        network: None,
+        mounts: request
+            .mounts
+            .into_iter()
+            .map(|mount| PlatformMount { source: mount.source, target: mount.target, read_only: mount.read_only })
+            .collect(),
+        privileged: false,
+        host_pid: false,
+        tty: request.tty,
+        open_stdin: request.open_stdin,
+        attach_stdin: request.attach_stdin,
+        attach_stdout: request.attach_stdout,
+        attach_stderr: request.attach_stderr,
+    }
+}
+
 #[async_trait]
 impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
     async fn create_container(&self, request: DockerCreateRequest) -> AppResult<String> {
-        let binds = request
-            .mounts
-            .iter()
-            .map(|mount| {
-                if mount.read_only {
-                    format!("{}:{}:ro", mount.source, mount.target)
-                } else {
-                    format!("{}:{}", mount.source, mount.target)
-                }
-            })
-            .collect::<Vec<_>>();
-        let env = request.env.into_iter().map(|(key, value)| format!("{key}={value}")).collect::<Vec<_>>();
-        let config = ContainerConfig {
-            image: Some(request.image),
-            working_dir: Some(request.working_dir),
-            tty: Some(request.tty),
-            open_stdin: Some(request.open_stdin),
-            attach_stdin: Some(request.attach_stdin),
-            attach_stdout: Some(request.attach_stdout),
-            attach_stderr: Some(request.attach_stderr),
-            env: Some(env),
-            labels: Some(request.labels),
-            host_config: Some(HostConfig { binds: Some(binds), ..Default::default() }),
-            ..Default::default()
-        };
-        let response = self
-            .docker
-            .inner()
-            // bollard 0.21 makes `platform` a plain `String`. The Docker
-            // Engine API treats an empty `?platform=` query parameter as
-            // unspecified, matching the pre-bump `platform: None` semantics.
-            .create_container(
-                Some(CreateContainerOptions { name: Some(request.name), platform: String::new() }),
-                config,
-            )
+        // Route through the single hardened chokepoint: DockerClient::create_container
+        // runs validate_security and applies resource limits + cap_drop ALL +
+        // no-new-privileges + privileged=false / pid_mode=None. Previously this
+        // path built a raw bollard spec that skipped the policy entirely (F031/F037).
+        self.docker
+            .create_container(mcp_container_config(request))
             .await
-            .map_err(docker_into_app_error)?;
-        Ok(response.id)
+            .map_err(|err| docker_runtime_error(err.to_string()))
     }
 
     async fn start_container(&self, container_id: &str) -> AppResult<()> {
@@ -436,6 +437,36 @@ mod tests {
     use crate::services::mcp_agent::ProjectRuntimeContext;
 
     type StdinWriteRecord = (String, Vec<Vec<u8>>);
+
+    #[test]
+    fn mcp_container_config_routes_through_hardened_policy() {
+        // F031/F037: the MCP create path produces a bounded, non-privileged config
+        // that passes the platform security policy (the single chokepoint).
+        let request = DockerCreateRequest {
+            image: "agentforge-agent-codex:latest".to_string(),
+            name: "agentforge-agent-x".to_string(),
+            working_dir: "/workspace".to_string(),
+            env: HashMap::from([("AGENTFORGE_AGENT_ID".to_string(), "abc".to_string())]),
+            labels: HashMap::new(),
+            mounts: vec![DockerMount {
+                source: "/data/agentforge/workspaces/x".to_string(),
+                target: "/workspace".to_string(),
+                read_only: false,
+            }],
+            tty: true,
+            open_stdin: true,
+            attach_stdin: true,
+            attach_stdout: true,
+            attach_stderr: true,
+        };
+        let config = mcp_container_config(request);
+        assert!(!config.privileged, "MCP containers must never be privileged");
+        assert!(!config.host_pid, "MCP containers must never share host PID");
+        assert!(config.resources.memory_bytes.is_some(), "memory must be bounded");
+        assert!(config.resources.pids_limit.is_some(), "pids must be bounded");
+        assert_eq!(config.env, vec!["AGENTFORGE_AGENT_ID=abc".to_string()]);
+        assert!(agentforge_platform::validate_security(&config).is_ok(), "must pass the platform security policy");
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct RecordedCreateRequest {
