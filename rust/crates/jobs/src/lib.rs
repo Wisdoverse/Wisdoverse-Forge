@@ -6,7 +6,7 @@
 //! # Architecture
 //!
 //! - **Queue operations** (`queue` module): enqueue, dequeue, complete, fail, stale lock release
-//! - **Worker** (`worker` module): background loop with 1s polling fallback and `pg_notify` wake-up
+//! - **Worker** (`worker` module): background loop with a 1s polling interval (no notify-driven wake-up)
 //!
 //! # Concurrency Model
 //!

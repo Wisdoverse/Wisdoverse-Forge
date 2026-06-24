@@ -288,6 +288,26 @@ mod tests {
         assert!(job.is_none(), "rolled-back job must not exist");
     }
 
+    /// F045: the unused `job_queue_notify` NOTIFY trigger (and its
+    /// `notify_new_job` function) must be dropped by migration 073 — nothing
+    /// ever listened on the channel, so it was pure per-insert overhead.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn job_queue_notify_trigger_is_dropped(pool: PgPool) {
+        let trigger_exists: bool =
+            sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'job_queue_notify')")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(!trigger_exists, "job_queue_notify trigger must be dropped by migration 073");
+
+        let fn_exists: bool =
+            sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'notify_new_job')")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(!fn_exists, "notify_new_job function must be dropped by migration 073");
+    }
+
     /// Helper: read the live `attempts`/`status` of a job row.
     async fn attempts_and_status(pool: &PgPool, id: Uuid) -> (i32, String) {
         sqlx::query_as("SELECT attempts, status FROM job_queue WHERE id = $1")
