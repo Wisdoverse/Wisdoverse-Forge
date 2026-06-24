@@ -32,7 +32,7 @@ find "$scan_root" -type f -name '*.rs' | while IFS= read -r file; do
     continue
   fi
 
-  grep -nE 'TenantScope::new[[:space:]]*\(|Scoped(Read|Write)::unchecked_[[:alnum:]_]*[[:space:]]*\(' "$file" \
+  grep -nE 'TenantScope::(new|with_axes)[[:space:]]*\(|Scoped(Read|Write)::unchecked_[[:alnum:]_]*[[:space:]]*\(' "$file" \
     | sed "s|^|$rel_path:|" >> "$violations" || true
 done
 
