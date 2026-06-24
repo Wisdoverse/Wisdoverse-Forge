@@ -74,6 +74,46 @@ impl PlatformError {
     }
 }
 
+/// Build the hardened `HostConfig` for an agent container.
+///
+/// Defense-in-depth that must stay at container creation (F031/F032/F037):
+/// resource limits, never privileged, never host PID, drop ALL Linux
+/// capabilities, and forbid setuid privilege gain (`no-new-privileges`). The
+/// callers run untrusted/LLM-driven Container CLI processes, so the in-container
+/// attack surface and any container-escape blast radius are minimized. Mirrors
+/// `clone_runtime`'s posture.
+pub(crate) fn agent_host_config(config: &ContainerConfig) -> HostConfig {
+    // Translate bind mounts into Docker's legacy `HostConfig.Binds` format
+    // (`/host:/container[:ro]`). `security::validate_security` already rejects
+    // `/var/run/docker.sock` and other dangerous paths.
+    let binds: Vec<String> = config
+        .mounts
+        .iter()
+        .map(|m| {
+            let suffix = if m.read_only { ":ro" } else { "" };
+            format!("{}:{}{}", m.source, m.target, suffix)
+        })
+        .collect();
+
+    HostConfig {
+        memory: config.resources.memory_bytes,
+        memory_swap: config.resources.memory_swap_bytes,
+        cpu_quota: config.resources.cpu_quota,
+        pids_limit: config.resources.pids_limit,
+        binds: if binds.is_empty() { None } else { Some(binds) },
+        // Defense-in-depth: always override to false regardless of config.
+        privileged: Some(false),
+        // Defense-in-depth: never allow host PID namespace regardless of config.
+        pid_mode: None,
+        // Drop every Linux capability — the Container CLIs (node/python/git
+        // userland) need none — and forbid setuid privilege gain.
+        cap_drop: Some(vec!["ALL".to_string()]),
+        security_opt: Some(vec!["no-new-privileges".to_string()]),
+        network_mode: config.network.clone(),
+        ..Default::default()
+    }
+}
+
 impl DockerClient {
     /// Create a container after validating the security policy.
     ///
@@ -86,31 +126,7 @@ impl DockerClient {
             )
         })?;
 
-        // Translate bind mounts into Docker's legacy `HostConfig.Binds` format
-        // (`/host:/container[:ro]`). `security::validate_security` already
-        // rejects `/var/run/docker.sock` and other dangerous paths.
-        let binds: Vec<String> = config
-            .mounts
-            .iter()
-            .map(|m| {
-                let suffix = if m.read_only { ":ro" } else { "" };
-                format!("{}:{}{}", m.source, m.target, suffix)
-            })
-            .collect();
-
-        let host_config = HostConfig {
-            memory: config.resources.memory_bytes,
-            memory_swap: config.resources.memory_swap_bytes,
-            cpu_quota: config.resources.cpu_quota,
-            pids_limit: config.resources.pids_limit,
-            binds: if binds.is_empty() { None } else { Some(binds) },
-            // Defense-in-depth: always override to false regardless of config
-            privileged: Some(false),
-            // Defense-in-depth: never allow host PID namespace regardless of config
-            pid_mode: None,
-            network_mode: config.network.clone(),
-            ..Default::default()
-        };
+        let host_config = agent_host_config(&config);
 
         let create_config = ContainerCreateBody {
             image: Some(config.image.clone()),
@@ -211,6 +227,37 @@ mod tests {
     #[test]
     fn platform_not_found_error_is_classified() {
         assert!(PlatformError::NotFound("missing-container".into()).is_not_found());
+    }
+
+    #[test]
+    fn agent_host_config_is_hardened() {
+        // F032/F037: agent containers drop ALL caps, forbid setuid privilege
+        // gain, are never privileged or host-PID, and carry resource limits.
+        use crate::types::ResourceLimits;
+        let config = ContainerConfig {
+            image: "agentforge/agent:latest".to_string(),
+            name: Some("agent".to_string()),
+            working_dir: None,
+            env: vec![],
+            labels: std::collections::HashMap::new(),
+            resources: ResourceLimits::default(),
+            network: None,
+            mounts: vec![],
+            privileged: true, // attacker-supplied; must be overridden
+            host_pid: true,   // attacker-supplied; must be overridden
+            tty: false,
+            open_stdin: false,
+            attach_stdin: false,
+            attach_stdout: false,
+            attach_stderr: false,
+        };
+        let hc = agent_host_config(&config);
+        assert_eq!(hc.cap_drop, Some(vec!["ALL".to_string()]), "must drop ALL capabilities");
+        assert_eq!(hc.security_opt, Some(vec!["no-new-privileges".to_string()]), "must forbid setuid privilege gain");
+        assert_eq!(hc.privileged, Some(false), "must never be privileged");
+        assert_eq!(hc.pid_mode, None, "must never share the host PID namespace");
+        assert!(hc.memory.is_some(), "memory limit must be set");
+        assert!(hc.pids_limit.is_some(), "pids limit must be set");
     }
 
     #[test]
