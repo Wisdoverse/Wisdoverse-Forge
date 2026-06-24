@@ -61,3 +61,6 @@ cli/af
 .playwright-mcp/
 coverage/
 .remember/
+docs/superpowers/
+docs/product-design-audits/
+docs/plans/

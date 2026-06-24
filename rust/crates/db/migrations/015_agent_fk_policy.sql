@@ -23,7 +23,7 @@
 -- agent_plugins.agent_id already has ON DELETE CASCADE from migration 014;
 -- no change.
 --
--- Rollback: see docs/superpowers/plans/2026-04-18-agent-delete-fk-minimal.md
+-- Rollback: see the agent-delete FK minimal plan (kept internal design doc)
 -- ("Rollback Procedure" section).
 --
 -- Forward-only: sqlx records a checksum on first apply. Any correction to

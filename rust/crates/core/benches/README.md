@@ -38,5 +38,5 @@ time. Applying a zero-alloc byte-matching fast path would reduce parse cost by
 ≤20 ns/call while adding code complexity and a parity-test burden; the
 cost/benefit is negative.
 
-See `docs/superpowers/specs/host-cli-enrollment-deferred-tracking.md` §460 for
+See the Host CLI Enrollment deferred-tracking spec (kept internal) §460 for
 the full decision record.

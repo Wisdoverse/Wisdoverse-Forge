@@ -151,5 +151,5 @@ consumers (reusing the same secret, the same canonical-form verify, and the same
 ## See also
 
 - `docs/runbooks/nats-auth.md` for the per-agent NATS auth-callout model.
-- `docs/superpowers/specs/2026-05-27-host-cli-enrollment-design.md` §16 for the
+- the Host CLI Enrollment design spec (kept internal) §16 for the
   Host CLI threat model.

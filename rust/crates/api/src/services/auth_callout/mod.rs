@@ -13,7 +13,7 @@
 //! provides the byte-exact seal/open primitives.
 //!
 //! Phase 2 plan:
-//! `docs/plans/2026-04-21-001-feat-nats-per-agent-auth-callout-plan.md`
+//! the internal design plan
 
 pub mod handler;
 pub mod jwt;

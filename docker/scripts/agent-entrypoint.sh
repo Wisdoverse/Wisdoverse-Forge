@@ -920,7 +920,7 @@ fi
 # =============================================================================
 # CLI tool is baked into the image at build time with a pinned version.
 # Updates happen via CI pipeline (new image build), not at runtime.
-# See: docs/plans/2026-02-22-cloud-native-cli-update-design.md
+# See: the internal design plan
 
 echo "agent-entrypoint: $CLI_TOOL v${AGENTFORGE_CLI_VERSION:-unknown}"
 

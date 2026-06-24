@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability (private)
+    url: https://github.com/Wisdoverse/Wisdoverse-Forge/security/advisories/new
+    about: Report security issues privately via GitHub Security Advisories. Please do NOT open a public issue. See SECURITY.md.
+  - name: Questions & support
+    url: https://github.com/Wisdoverse/Wisdoverse-Forge/blob/main/SUPPORT.md
+    about: How to get help, troubleshoot setup, and where to ask questions before filing an issue.
+  - name: Documentation
+    url: https://github.com/Wisdoverse/Wisdoverse-Forge/blob/main/docs/README.md
+    about: Architecture, guides, runbooks, and the documentation map.
