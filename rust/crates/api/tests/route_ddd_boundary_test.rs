@@ -869,9 +869,32 @@ fn domain_layer_stays_persistence_independent() {
 /// `crate::repositories::` reference counts once.
 fn domain_persistence_reference_count(source: &str) -> usize {
     let lines: Vec<&str> = production_lines(source).into_iter().map(|(_, line)| line).collect();
+
+    // Pass 1: collect the DB entity/row type names this file imports from
+    // `agentforge_db`, so a new `impl From<ThatEntity>` adapter — even one whose
+    // type is not `*Row`-suffixed (e.g. `User`, `ContextCandidate`) — is counted
+    // as new persistence coupling in an already-dirty file (codex review P2).
+    let mut imported_entities: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut index = 0;
+    while index < lines.len() {
+        let trimmed = lines[index].trim_start();
+        if trimmed.starts_with("use ") {
+            let mut statement = String::from(lines[index]);
+            while !statement.contains(';') && index + 1 < lines.len() {
+                index += 1;
+                statement.push(' ');
+                statement.push_str(lines[index]);
+            }
+            if statement.contains("agentforge_db") {
+                collect_imported_entities(&statement, &mut imported_entities);
+            }
+        }
+        index += 1;
+    }
+
+    // Pass 2: count references.
     let mut count = 0;
     let mut index = 0;
-
     while index < lines.len() {
         let line = lines[index];
         let trimmed = line.trim_start();
@@ -890,12 +913,41 @@ fn domain_persistence_reference_count(source: &str) -> usize {
             }
             count += count_use_statement_references(&statement);
         } else {
-            count += count_non_use_line_references(line);
+            count += count_non_use_line_references(line, &imported_entities);
         }
         index += 1;
     }
 
     count
+}
+
+/// The last `::`-segment of a path (the bare type name), with surrounding
+/// whitespace and a leading `&` stripped.
+fn last_type_segment(path: &str) -> &str {
+    path.trim().trim_start_matches('&').trim().rsplit("::").next().unwrap_or(path).trim()
+}
+
+/// Record the entity/row type names imported by an `agentforge_db` `use`
+/// statement (braced list or single import) into `out`.
+fn collect_imported_entities(statement: &str, out: &mut std::collections::BTreeSet<String>) {
+    match (statement.find('{'), statement.find('}')) {
+        (Some(open), Some(close)) if close > open => {
+            for name in statement[open + 1..close].split(',') {
+                let name = last_type_segment(name);
+                if !name.is_empty() {
+                    out.insert(name.to_string());
+                }
+            }
+        }
+        _ => {
+            if let Some(semi) = statement.find(';') {
+                let name = last_type_segment(&statement[..semi]);
+                if !name.is_empty() && name != "agentforge_db" {
+                    out.insert(name.to_string());
+                }
+            }
+        }
+    }
 }
 
 /// References inside a reconstructed `use` statement: braced `agentforge_db`
@@ -915,18 +967,33 @@ fn count_use_statement_references(statement: &str) -> usize {
     count
 }
 
-/// References on a non-`use` production line: a bare `agentforge_db` path (fn
-/// arg / impl target) counts once, each `FromRow`, each `From<*Row>` impl, and
-/// each `crate::repositories::` reference count once.
-fn count_non_use_line_references(line: &str) -> usize {
+/// References on a non-`use` production line. A `From`/`TryFrom` adapter whose
+/// input is a DB row/entity (a `*Row` type, an `agentforge_db` path, or an
+/// imported entity) counts once — and short-circuits so the `agentforge_db`
+/// substring on the same line is not double-counted. Otherwise a bare
+/// `agentforge_db` path (fn arg / inline type) counts once, plus each `FromRow`
+/// and each `crate::repositories::` reference.
+fn count_non_use_line_references(line: &str, imported_entities: &std::collections::BTreeSet<String>) -> usize {
+    if let Some(inner) = from_impl_input_type(line) {
+        let base = last_type_segment(inner);
+        if inner.contains("agentforge_db") || base.ends_with("Row") || imported_entities.contains(base) {
+            return 1;
+        }
+    }
+
     let mut count = 0;
     if line.contains("agentforge_db") {
         count += 1;
     }
     count += line.matches("FromRow").count();
-    if line.contains("impl From<") && line.contains("Row>") {
-        count += 1;
-    }
     count += line.matches("crate::repositories::").count();
     count
+}
+
+/// Extract `X` from `impl From<X> for ...` / `impl TryFrom<X> for ...`.
+fn from_impl_input_type(line: &str) -> Option<&str> {
+    let rest = line.trim_start().strip_prefix("impl ")?;
+    let after = rest.strip_prefix("From<").or_else(|| rest.strip_prefix("TryFrom<"))?;
+    let end = after.find('>')?;
+    Some(&after[..end])
 }
