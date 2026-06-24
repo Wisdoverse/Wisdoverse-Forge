@@ -178,10 +178,11 @@ fn tool_list() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
+                    "orgId": {"type": "string"},
                     "agentId": {"type": "string"},
                     "prompt": {"type": "string"}
                 },
-                "required": ["agentId", "prompt"]
+                "required": ["orgId", "agentId", "prompt"]
             }),
         ),
         tool(
@@ -189,8 +190,8 @@ fn tool_list() -> Vec<Value> {
             "Read the current status of a managed workflow agent.",
             json!({
                 "type": "object",
-                "properties": {"agentId": {"type": "string"}},
-                "required": ["agentId"]
+                "properties": {"orgId": {"type": "string"}, "agentId": {"type": "string"}},
+                "required": ["orgId", "agentId"]
             }),
         ),
         tool(
@@ -198,8 +199,8 @@ fn tool_list() -> Vec<Value> {
             "Destroy a managed workflow agent.",
             json!({
                 "type": "object",
-                "properties": {"agentId": {"type": "string"}},
-                "required": ["agentId"]
+                "properties": {"orgId": {"type": "string"}, "agentId": {"type": "string"}},
+                "required": ["orgId", "agentId"]
             }),
         ),
     ]
