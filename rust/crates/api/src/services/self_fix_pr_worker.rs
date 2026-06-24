@@ -9,7 +9,7 @@ use sqlx::PgPool;
 use tokio::sync::watch;
 use uuid::Uuid;
 
-use crate::domain::self_fix::decode_self_fix_pr_job_payload;
+use crate::domain::self_fix::{SelfFixPolicy, decode_self_fix_pr_job_payload};
 use crate::services::self_fix::SelfFixService;
 
 const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
@@ -81,9 +81,25 @@ impl SelfFixPrWorker {
                     .await
                     .map_err(|e| agentforge_core::AppError::from(anyhow::Error::from(e)))?;
             }
+            Err(err) if SelfFixPolicy::is_open_pr_error_permanent(&err) => {
+                // Config/policy/validation error — retrying can never open the PR.
+                // Drop the job (complete) instead of burning the retry budget and
+                // dead-lettering with no signal; the distinct metric label lets an
+                // operator alert on permanent self-fix failures.
+                metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "permanent_failed").increment(1);
+                tracing::warn!(
+                    task_id = %payload.task_id,
+                    error = %err,
+                    "self-fix PR open failed permanently; dropping job (no retry)"
+                );
+                agentforge_jobs::queue::complete(&self.pool, job.id)
+                    .await
+                    .map_err(|e| agentforge_core::AppError::from(anyhow::Error::from(e)))?;
+            }
             Err(err) => {
+                // Transient (GitHub/network down, or unexpected) — retry with backoff.
                 metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "failed").increment(1);
-                tracing::warn!(task_id = %payload.task_id, error = %err, "self-fix PR open failed");
+                tracing::warn!(task_id = %payload.task_id, error = %err, "self-fix PR open failed transiently; will retry");
                 agentforge_jobs::queue::fail(&self.pool, job.id, &err.to_string())
                     .await
                     .map_err(|e| agentforge_core::AppError::from(anyhow::Error::from(e)))?;
@@ -95,9 +111,13 @@ impl SelfFixPrWorker {
 
 /// Describe metric series so they are present from the first scrape.
 pub fn register_metrics() {
-    metrics::describe_counter!("agentforge_self_fix_pr_total", "Self-fix PR-bridge outcomes, labeled opened|failed");
+    metrics::describe_counter!(
+        "agentforge_self_fix_pr_total",
+        "Self-fix PR-bridge outcomes, labeled opened|failed|permanent_failed"
+    );
     metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "opened").increment(0);
     metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "failed").increment(0);
+    metrics::counter!("agentforge_self_fix_pr_total", "outcome" => "permanent_failed").increment(0);
 }
 
 #[cfg(test)]
@@ -132,7 +152,7 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "../db/migrations")]
-    async fn worker_fails_job_when_github_unconfigured(pool: PgPool) {
+    async fn worker_drops_job_on_permanent_open_pr_error(pool: PgPool) {
         let org_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
         let task_id = Uuid::new_v4();
@@ -190,16 +210,17 @@ mod tests {
         let processed = worker.dequeue_and_process().await.unwrap();
         assert!(processed, "a queued job should be processed");
 
-        // github=None => open_pr errors => queue::fail bumps attempts; the job is
-        // not silently completed/deleted.
-        let (status, attempts): (String, i32) =
+        // github_not_configured is a PERMANENT (ValidationWithCode) error:
+        // retrying can never open a PR on a deployment with no GitHub App. The
+        // worker must drop the job (complete) rather than fail()/retry it, so it
+        // does not burn attempts and eventually dead-letter (F047).
+        let row: Option<(String, i32)> =
             sqlx::query_as("SELECT status, attempts FROM job_queue WHERE queue = $1 AND unique_key = $2")
                 .bind(agentforge_core::SELF_FIX_PR_QUEUE)
                 .bind(task_id.to_string())
-                .fetch_one(&pool)
+                .fetch_optional(&pool)
                 .await
                 .unwrap();
-        assert_eq!(status, "pending", "fail() reschedules the job, not delete/dead");
-        assert!(attempts >= 1, "attempt count must increment on failure");
+        assert!(row.is_none(), "a permanent open_pr error must drop the job, not requeue it: {row:?}");
     }
 }
