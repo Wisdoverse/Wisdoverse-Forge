@@ -43,13 +43,18 @@ function walk(dir, filter, out = []) {
   return out
 }
 
-// EMITTED: every owned metric-name string literal under rust/.
+// EMITTED: the metric NAME (first string argument) of every metrics-macro call
+// under rust/ — `counter!/gauge!/histogram!` emission sites and the matching
+// `describe_*!`. Reading only the macro sites (not every string literal) means
+// unrelated `af_*`/`agents_*` fixtures or constraint names can't masquerade as
+// emitted series. The macro name may sit on a following line, so `\s*` spans
+// newlines.
 function collectEmitted() {
   const emitted = new Set()
   const rustDir = path.join(repoRoot, 'rust')
-  const literal = new RegExp(`"(${ownedAlt})"`, 'g')
+  const macro = /(?:counter|gauge|histogram|describe_counter|describe_gauge|describe_histogram)!\s*\(\s*"([a-z0-9_]+)"/g
   for (const file of walk(rustDir, (f) => f.endsWith('.rs'))) {
-    for (const match of fs.readFileSync(file, 'utf8').matchAll(literal)) emitted.add(match[1])
+    for (const match of fs.readFileSync(file, 'utf8').matchAll(macro)) emitted.add(match[1])
   }
   return emitted
 }
@@ -99,7 +104,9 @@ const emitted = collectEmitted()
 const refs = new Map() // metric name -> Set(file)
 const labelViolations = []
 
-const opsDirs = [path.join(repoRoot, 'ops', 'prometheus'), path.join(repoRoot, 'ops', 'grafana', 'dashboards')]
+// Walk all of ops/grafana (not just dashboards/) so root-level dashboards like
+// orchestration-release-gate-dashboard.json are guarded too.
+const opsDirs = [path.join(repoRoot, 'ops', 'prometheus'), path.join(repoRoot, 'ops', 'grafana')]
 for (const dir of opsDirs) {
   if (!fs.existsSync(dir)) continue
   for (const file of walk(dir, (f) => /\.(ya?ml|json)$/.test(f))) {
