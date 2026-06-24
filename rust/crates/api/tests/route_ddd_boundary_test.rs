@@ -816,13 +816,17 @@ fn domain_layer_stays_persistence_independent() {
     let mut errors = Vec::new();
 
     for file in rust_files_recursive(&domain_dir) {
-        let name = file.file_name().and_then(|file_name| file_name.to_str()).unwrap_or_default().to_string();
+        // Key by the path RELATIVE to the domain root (with forward slashes), not
+        // the basename: the scan is recursive, so a future `domain/**/admin.rs`
+        // must NOT inherit the flat `admin.rs` allowance (codex review P2).
+        let rel =
+            file.strip_prefix(&domain_dir).unwrap_or(&file).to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
         let source = fs::read_to_string(&file).expect("read domain source");
 
         let count: usize =
             production_lines(&source).into_iter().map(|(_, line)| domain_persistence_reference_count(line)).sum();
 
-        let baseline = DOMAIN_PERSISTENCE_BASELINE.iter().find(|(f, _)| *f == name).map(|(_, c)| *c);
+        let baseline = DOMAIN_PERSISTENCE_BASELINE.iter().find(|(f, _)| *f == rel).map(|(_, c)| *c);
         match baseline {
             None if count > 0 => errors.push(format!(
                 "{}: {count} persistence dependency(ies) in a clean domain file (agentforge_db / FromRow / From<*Row> / crate::repositories); move row adapters to services/repositories",
