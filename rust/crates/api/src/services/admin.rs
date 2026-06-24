@@ -370,6 +370,16 @@ impl AdminService {
         AdminRolePolicy::require_platform_admin(user.is_admin)
     }
 
+    /// Org-admin gate keyed on the LIVE per-org membership role
+    /// (`organization_members.role`), NOT the self-issued JWT `role` claim. Used
+    /// for org-scoped privileged actions (feature flags, governance audit reads,
+    /// task approval) so a demoted member loses access immediately instead of at
+    /// token expiry. A non-member (`None`) is rejected like a non-admin.
+    pub async fn require_org_admin(&self, org_id: Uuid, user_id: Uuid) -> AppResult<()> {
+        let role = self.repo.member_role(org_id, user_id).await?;
+        AdminRolePolicy::require_admin(role.as_deref().unwrap_or(""))
+    }
+
     /// List captured dead-letter rows as a paginated, cross-org projection
     /// (platform admin only — enforced at the route). `page` is 1-based with a
     /// floor of 1; `limit` is clamped to 1..=100 by [`AdminListPage`]. An optional
@@ -577,6 +587,39 @@ mod tests {
         assert_eq!(orgs[0].name, "Acme");
         assert_eq!(orgs[0].members_count, 0);
         assert_eq!(orgs[0].teams_count, 0);
+    }
+
+    /// #889: `require_org_admin` keys off the LIVE `organization_members.role`,
+    /// not the JWT claim. owner/admin pass; member/viewer/non-member are refused.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn require_org_admin_uses_live_membership_role(pool: PgPool) {
+        let service = admin_service(&pool);
+        let org = seed_org(&pool).await;
+        for (role, allowed) in [("owner", true), ("admin", true), ("member", false), ("viewer", false)] {
+            let user = seed_user(&pool, &format!("{role}-{}@example.com", Uuid::new_v4()), false).await;
+            sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, $3)")
+                .bind(org)
+                .bind(user)
+                .bind(role)
+                .execute(&pool)
+                .await
+                .expect("seed membership");
+            let result = service.require_org_admin(org, user).await;
+            if allowed {
+                assert!(result.is_ok(), "{role} must pass the org-admin gate");
+            } else {
+                assert!(
+                    matches!(result.expect_err("refused").kind, ErrorKind::Forbidden(_)),
+                    "{role} must be Forbidden by the org-admin gate"
+                );
+            }
+        }
+        // A user with no membership row in this org is refused like a non-admin.
+        let outsider = seed_user(&pool, &format!("outsider-{}@example.com", Uuid::new_v4()), false).await;
+        assert!(matches!(
+            service.require_org_admin(org, outsider).await.expect_err("non-member refused").kind,
+            ErrorKind::Forbidden(_)
+        ));
     }
 
     // ========================================================================

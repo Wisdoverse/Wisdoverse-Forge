@@ -35,7 +35,6 @@ use agentforge_core::{AgentId, AppResult};
 
 use crate::domain::orchestration::TaskAssignmentPatchPolicy;
 use crate::health::AppState;
-use crate::services::admin::AdminService;
 use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::{ContextPreviewService, PublishWithContextInput};
 use crate::services::orchestration::{
@@ -370,7 +369,9 @@ async fn approve_task(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    AdminService::require_admin(&auth.role)?;
+    // Live per-org admin gate (#889/F014): approving a task is org-scoped and must
+    // verify the caller's current organization_members.role, not the JWT claim.
+    state.admin_service().require_org_admin(auth.scope.org_id().as_uuid(), auth.scope.user_id().as_uuid()).await?;
     let service = make_service(&state);
     let task = service.approve_task(&auth.scope, id).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
