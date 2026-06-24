@@ -7,6 +7,8 @@ use agentforge_db::entities::Event;
 use serde_json::Value;
 use sqlx::PgPool;
 
+use crate::domain::agent::AgentRepositoryPolicy;
+
 /// Database access layer for events. All queries enforce tenant isolation
 /// via `WHERE organization_id = $N`.
 pub struct EventRepository {
@@ -27,9 +29,14 @@ impl EventRepository {
         payload: Value,
         session_id: Option<&str>,
     ) -> AppResult<Event> {
+        // F017: the agent_id must belong to the caller's org. The raw FK only
+        // proves the agent exists *somewhere*, so an `INSERT ... SELECT ... WHERE
+        // EXISTS(agent in this org)` rejects a forged cross-tenant attribution
+        // atomically (no TOCTOU) and avoids a global-existence FK oracle.
         let event = sqlx::query_as::<_, Event>(
             r#"INSERT INTO events (organization_id, agent_id, event_type, payload, session_id)
-               VALUES ($1, $2, $3, $4, $5)
+               SELECT $1, $2, $3, $4, $5
+               WHERE EXISTS (SELECT 1 FROM agents WHERE id = $2 AND organization_id = $1)
                RETURNING *"#,
         )
         .bind(scope.org_id().as_uuid())
@@ -37,8 +44,9 @@ impl EventRepository {
         .bind(event_type)
         .bind(payload)
         .bind(session_id)
-        .fetch_one(&self.pool)
-        .await?;
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(agent_id))?;
         Ok(event)
     }
 

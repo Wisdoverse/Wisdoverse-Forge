@@ -627,22 +627,29 @@ impl AgentRepository {
         // Verify agent belongs to tenant
         self.find_by_id(scope, agent_id).await?;
 
-        sqlx::query_as::<_, AgentCollaborator>(
+        // F013: the target user must be a member of the agent's org. The raw FK
+        // only proves the user exists globally, so `INSERT ... SELECT ... WHERE
+        // EXISTS(membership)` rejects adding a foreign-org user as a collaborator
+        // atomically (no insert when the membership is absent).
+        let result = sqlx::query_as::<_, AgentCollaborator>(
             r#"INSERT INTO agent_collaborators (agent_id, user_id, permission)
-               VALUES ($1, $2, $3)
+               SELECT $1, $2, $3
+               WHERE EXISTS (SELECT 1 FROM organization_members WHERE organization_id = $4 AND user_id = $2)
                RETURNING *"#,
         )
         .bind(agent_id.as_uuid())
         .bind(user_id)
         .bind(permission)
-        .fetch_one(&self.pool)
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&self.pool)
         .await
         .map_err(|e| match &e {
             sqlx::Error::Database(db_err) if db_err.constraint().is_some() => {
                 AgentRepositoryPolicy::collaborator_already_exists()
             }
             _ => e.into(),
-        })
+        })?;
+        result.ok_or_else(|| AgentRepositoryPolicy::organization_member_not_found(scope.org_id().as_uuid()))
     }
 
     /// Update a collaborator's permission.

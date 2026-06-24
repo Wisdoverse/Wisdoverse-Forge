@@ -20,6 +20,7 @@ use agentforge_db::entities::{OrchestrationTask, Participant};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::domain::agent::AgentRepositoryPolicy;
 use crate::domain::orchestration::OrchestrationRepositoryPolicy;
 
 // ---------------------------------------------------------------------------
@@ -764,9 +765,15 @@ impl ParticipantRepository {
         name: &str,
         capabilities: &[String],
     ) -> AppResult<Participant> {
+        // F013: the agent_id must belong to the caller's org. The raw FK only
+        // proves the agent exists globally, so `INSERT ... SELECT ... WHERE
+        // EXISTS(agent in this org)` rejects registering a foreign-org agent as a
+        // participant atomically, keeping orchestration dispatch state free of
+        // cross-tenant agent references.
         sqlx::query_as::<_, Participant>(
             r#"INSERT INTO participants (organization_id, agent_id, name, capabilities)
-               VALUES ($1, $2, $3, $4)
+               SELECT $1, $2, $3, $4
+               WHERE EXISTS (SELECT 1 FROM agents WHERE id = $2 AND organization_id = $1)
                ON CONFLICT (organization_id, agent_id) DO UPDATE
                SET name = EXCLUDED.name, capabilities = EXCLUDED.capabilities, status = 'available'
                RETURNING *"#,
@@ -775,9 +782,9 @@ impl ParticipantRepository {
         .bind(agent_id.as_uuid())
         .bind(name)
         .bind(capabilities)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(Into::into)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(agent_id))
     }
 
     /// List participants with optional status filter (tenant-scoped).
