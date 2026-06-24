@@ -17,17 +17,48 @@ use std::time::Duration;
 
 use sqlx::PgPool;
 
-/// SQL that ages out `task_dispatches` rows in non-terminal states whose
-/// `updated_at` has exceeded the TTL. Kept as a `pub(crate) const` so the
-/// SQL-pin unit test can assert the scope predicates without a live database.
+/// SQL that, in one atomic statement, (1) ages out `task_dispatches` rows in
+/// non-terminal states past the TTL, and (2) resets the owning `assigned` task
+/// back to `pending` so it is re-dispatchable instead of silently dropped.
+///
+/// Both data-modifying CTEs run under a single snapshot, so a dispatch and its
+/// task move together. `task_dispatches.task_id` holds the task UUID as text,
+/// hence the `t.id::text = r.task_id` join. The `t.state = 'assigned'` guard
+/// leaves `working` tasks (agent actively on them) alone. Returns the dispatch
+/// and reconciled-task counts. Kept as a `pub(crate) const` so the SQL-pin unit
+/// test can assert the scope predicates without a live database.
 pub(crate) const REAP_STUCK_DISPATCHES_SQL: &str = "
-    UPDATE task_dispatches
-    SET status = 'failed',
-        last_error = 'dispatch_timeout',
-        updated_at = NOW()
-    WHERE status IN ('queued', 'starting')
-      AND updated_at < NOW() - make_interval(secs => $1)
+    WITH reaped AS (
+        UPDATE task_dispatches
+        SET status = 'failed',
+            last_error = 'dispatch_timeout',
+            updated_at = NOW()
+        WHERE status IN ('queued', 'starting')
+          AND updated_at < NOW() - make_interval(secs => $1)
+        RETURNING task_id, org_id
+    ),
+    reconciled AS (
+        UPDATE tasks t
+        SET state = 'pending',
+            updated_at = NOW()
+        FROM reaped r
+        WHERE t.id::text = r.task_id
+          AND t.org_id = r.org_id
+          AND t.state = 'assigned'
+        RETURNING t.id
+    )
+    SELECT
+        (SELECT COUNT(*) FROM reaped)::bigint AS dispatches_reaped,
+        (SELECT COUNT(*) FROM reconciled)::bigint AS tasks_reconciled
 ";
+
+/// Outcome of one reap pass: how many stuck dispatches were failed and how many
+/// owning tasks were reset to `pending` for re-dispatch (F039).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReapOutcome {
+    pub dispatches_reaped: u64,
+    pub tasks_reconciled: u64,
+}
 
 pub struct DispatchReaperWorker {
     pool: PgPool,
@@ -52,15 +83,16 @@ impl DispatchReaperWorker {
         loop {
             ticker.tick().await;
             match Self::tick(&self.pool, self.ttl_secs).await {
-                Ok(0) => {
+                Ok(outcome) if outcome.dispatches_reaped == 0 => {
                     consecutive_failures = 0;
                 }
-                Ok(n) => {
+                Ok(outcome) => {
                     consecutive_failures = 0;
                     tracing::warn!(
-                        reaped = n,
+                        reaped = outcome.dispatches_reaped,
+                        tasks_reconciled = outcome.tasks_reconciled,
                         ttl_secs = self.ttl_secs,
-                        "dispatch reaper aged out stuck task_dispatches — dispatch did not complete within the TTL"
+                        "dispatch reaper aged out stuck task_dispatches and reset their tasks to pending — dispatch did not complete within the TTL"
                     );
                 }
                 Err(err) => {
@@ -80,10 +112,14 @@ impl DispatchReaperWorker {
     }
 
     /// Single-shot reap pass. Exposed for tests. Returns the number of
-    /// dispatches timed out.
-    pub async fn tick(pool: &PgPool, ttl_secs: u64) -> sqlx::Result<u64> {
-        let result = sqlx::query(REAP_STUCK_DISPATCHES_SQL).bind(ttl_secs as f64).execute(pool).await?;
-        Ok(result.rows_affected())
+    /// dispatches timed out and owning tasks reset to pending.
+    pub async fn tick(pool: &PgPool, ttl_secs: u64) -> sqlx::Result<ReapOutcome> {
+        let (dispatches_reaped, tasks_reconciled): (i64, i64) =
+            sqlx::query_as(REAP_STUCK_DISPATCHES_SQL).bind(ttl_secs as f64).fetch_one(pool).await?;
+        Ok(ReapOutcome {
+            dispatches_reaped: dispatches_reaped.max(0) as u64,
+            tasks_reconciled: tasks_reconciled.max(0) as u64,
+        })
     }
 }
 
@@ -92,14 +128,22 @@ mod tests {
     use super::REAP_STUCK_DISPATCHES_SQL;
 
     /// Pin the SQL scope predicates so a future "simplification" that widens
-    /// the WHERE clause (e.g. touching `started`/`failed`) fails before review.
+    /// the WHERE clause (e.g. touching `started`/`failed`, or resetting a
+    /// `working` task) fails before review.
     #[test]
     fn reap_dispatches_sql_pins_correct_predicates() {
         let sql = REAP_STUCK_DISPATCHES_SQL;
+        // Dispatch reap scope.
         assert!(sql.contains("status IN ('queued', 'starting')"));
         assert!(sql.contains("updated_at <"));
         assert!(sql.contains("status = 'failed'"));
         assert!(sql.contains("last_error = 'dispatch_timeout'"));
         assert!(!sql.contains("'started'"));
+        // Task reconciliation scope (F039): only assigned tasks -> pending.
+        assert!(sql.contains("UPDATE tasks"));
+        assert!(sql.contains("state = 'pending'"));
+        assert!(sql.contains("t.state = 'assigned'"));
+        assert!(sql.contains("t.id::text = r.task_id"));
+        assert!(!sql.contains("t.state = 'working'"));
     }
 }

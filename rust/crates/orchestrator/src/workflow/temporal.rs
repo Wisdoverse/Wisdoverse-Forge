@@ -253,7 +253,13 @@ impl WorkflowImplementation for OrchestratorWorkflow {
         input: Option<<Self::Run as WorkflowDefinition>::Input>,
     ) -> LocalBoxFuture<'static, std::result::Result<Payload, WorkflowTermination>> {
         async move {
-            let input = input.expect("workflow input should be provided to run");
+            // A missing input means a framework/contract mismatch. Surface it as
+            // an explicit terminal failure instead of panicking — a panic here
+            // makes Temporal retry the same workflow task forever with no
+            // progress and no terminal state (F043).
+            let Some(input) = input else {
+                return Err(anyhow!("orchestrator workflow received no input").into());
+            };
             let payload_converter = ctx.payload_converter().clone();
             let result = run_orchestrator_workflow(ctx, input).await;
             match result {
