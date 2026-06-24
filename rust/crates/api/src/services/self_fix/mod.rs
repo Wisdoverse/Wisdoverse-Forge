@@ -35,7 +35,7 @@ use uuid::Uuid;
 
 use crate::domain::admin::AdminRolePolicy;
 use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_container_cwd};
-use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, MERGED, SENSITIVE_BLOCKED};
+use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
@@ -233,8 +233,9 @@ impl SelfFixService {
         // 2. Gate on review status + recompute sensitivity SERVER-SIDE.
         //    - `merged`           → idempotent success (already done).
         //    - `sensitive_blocked`→ HARD refuse, no GitHub call.
-        //    - `approved`         → the only state that merges (explicit approval).
-        //    - `in_review`        → REFUSED: an explicit APPROVED transition is required.
+        //    - `approved`         → merges (already approved, e.g. a retry).
+        //    - `in_review`        → the platform-admin approve action records the
+        //                           explicit `in_review` → `approved` transition, then merges.
         match task.review_status.as_deref() {
             Some(MERGED) => {
                 metrics::record_merge_outcome("already_merged");
@@ -249,6 +250,12 @@ impl SelfFixService {
                 return Err(SelfFixPolicy::sensitive_path_blocked());
             }
             Some(APPROVED) => {}
+            Some(IN_REVIEW) => {
+                // The platform-admin's approve action IS the explicit approval:
+                // record the `in_review` → `approved` transition before merging, so
+                // an un-reviewed task can never merge without a deliberate approval.
+                self.tasks.set_review_status(scope, task_id, APPROVED).await?;
+            }
             _ => return Err(SelfFixPolicy::not_approved_for_merge()),
         }
 
