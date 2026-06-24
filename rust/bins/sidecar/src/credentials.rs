@@ -25,6 +25,8 @@
 //! The backend `CredentialStreamWorker` is the counterpart.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use agentforge_core::credential_protocol::{
@@ -58,6 +60,9 @@ pub async fn run(
     cli_tool: String,
     hmac_secret: String,
     mut shutdown: watch::Receiver<bool>,
+    // Shared counter of credential-sync losses, folded into the heartbeat
+    // HealthSnapshot so the platform sees sync failures (#891/F063).
+    errors: Arc<AtomicU64>,
 ) -> Result<()> {
     tokio::fs::create_dir_all(&dir).await.with_context(|| format!("create creds dir {}", dir.display()))?;
 
@@ -89,7 +94,7 @@ pub async fn run(
     // Initial sweep so a container restarted with existing credentials
     // re-syncs on startup (cheap and idempotent — same file contents
     // produce the same HMAC envelope; consumer upsert is idempotent).
-    publish_once(&js, &subject, &dir, agent_id, organization_id, &cli_tool, &hmac_secret).await;
+    publish_once(&js, &subject, &dir, agent_id, organization_id, &cli_tool, &hmac_secret, &errors).await;
 
     loop {
         tokio::select! {
@@ -107,7 +112,7 @@ pub async fn run(
                 // code because `js` isn't Clone-able across the FnMut bound.
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 while event_rx.try_recv().is_ok() {}
-                publish_once(&js, &subject, &dir, agent_id, organization_id, &cli_tool, &hmac_secret).await;
+                publish_once(&js, &subject, &dir, agent_id, organization_id, &cli_tool, &hmac_secret, &errors).await;
             }
         }
     }
@@ -121,6 +126,7 @@ async fn publish_once(
     organization_id: Uuid,
     cli_tool: &str,
     hmac_secret: &str,
+    errors: &AtomicU64,
 ) {
     let outcome = match build_message(dir, agent_id, organization_id, cli_tool).await {
         Ok(outcome) => outcome,
@@ -173,6 +179,9 @@ async fn publish_once(
                     "reason" => "ack_failed"
                 )
                 .increment(1);
+                // Credentials did not reach the platform — fold into the heartbeat
+                // health snapshot so operators see the loss (#891/F063).
+                errors.fetch_add(1, Ordering::Relaxed);
                 tracing::error!(
                     error = %err,
                     subject,
@@ -194,6 +203,9 @@ async fn publish_once(
                 "reason" => "publish_failed"
             )
             .increment(1);
+            // Credentials did not reach the platform — fold into the heartbeat
+            // health snapshot so operators see the loss (#891/F063).
+            errors.fetch_add(1, Ordering::Relaxed);
             tracing::error!(
                 error = %err,
                 subject,

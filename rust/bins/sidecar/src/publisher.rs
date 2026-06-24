@@ -133,6 +133,11 @@ pub struct HealthSnapshot {
     pub reason: Option<String>,
     pub wal_pending: usize,
     pub wal_dropped: u64,
+    /// Count of credential-sync publishes lost to an unreachable NATS (no WAL
+    /// retry on the sidecar). Non-zero means a user's `claude /login` credentials
+    /// failed to reach the platform and they must re-authenticate — surfaced so
+    /// the platform has visibility instead of only a container-local log (#891/F063).
+    pub creds_sync_errors: u64,
 }
 
 #[cfg(test)]
@@ -220,7 +225,8 @@ mod tests {
 
     #[test]
     fn health_snapshot_not_degraded_below_threshold() {
-        let snap = HealthSnapshot { degraded: false, reason: None, wal_pending: 999, wal_dropped: 0 };
+        let snap =
+            HealthSnapshot { degraded: false, reason: None, wal_pending: 999, wal_dropped: 0, creds_sync_errors: 0 };
         let json = serde_json::to_value(&snap).unwrap();
         assert_eq!(json["degraded"], false);
         assert!(json["reason"].is_null());
@@ -235,6 +241,7 @@ mod tests {
             reason: Some("wal_pending=1000 wal_dropped=0".to_string()),
             wal_pending: 1000,
             wal_dropped: 0,
+            creds_sync_errors: 0,
         };
         let json = serde_json::to_value(&snap).unwrap();
         assert_eq!(json["degraded"], true);
@@ -248,6 +255,7 @@ mod tests {
             reason: Some("wal_pending=0 wal_dropped=1".to_string()),
             wal_pending: 0,
             wal_dropped: 1,
+            creds_sync_errors: 0,
         };
         let json = serde_json::to_value(&snap).unwrap();
         assert_eq!(json["degraded"], true);
@@ -258,7 +266,8 @@ mod tests {
     fn heartbeat_payload_includes_health_field() {
         // Verify HealthSnapshot round-trips through JSON with the expected
         // field names so the liveness consumer can parse `payload["health"]`.
-        let snap = HealthSnapshot { degraded: false, reason: None, wal_pending: 5, wal_dropped: 0 };
+        let snap =
+            HealthSnapshot { degraded: false, reason: None, wal_pending: 5, wal_dropped: 0, creds_sync_errors: 0 };
         let json = serde_json::to_value(&snap).unwrap();
         // All four fields must be present.
         assert!(json.get("degraded").is_some());
