@@ -34,7 +34,7 @@ async fn seed_org(pool: &PgPool) -> (Uuid, Uuid) {
         .execute(pool)
         .await
         .expect("seed workspace");
-    sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, true)")
         .bind(user_id)
         .bind(format!("u-{user_id}@example.com"))
         .execute(pool)
