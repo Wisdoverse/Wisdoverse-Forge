@@ -800,12 +800,12 @@ fn contains_mcp_live_service_wiring(line: &str) -> bool {
 const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
     ("admin.rs", 3),
     ("agent.rs", 1),
-    ("context.rs", 1),
+    ("context.rs", 5),
     ("context_preview.rs", 1),
-    ("credential.rs", 1),
+    ("credential.rs", 3),
     ("inbox.rs", 2),
     ("observability.rs", 1),
-    ("orchestration.rs", 1),
+    ("orchestration.rs", 2),
     ("project_clone.rs", 1),
     ("turn.rs", 1),
 ];
@@ -819,10 +819,8 @@ fn domain_layer_stays_persistence_independent() {
         let name = file.file_name().and_then(|file_name| file_name.to_str()).unwrap_or_default().to_string();
         let source = fs::read_to_string(&file).expect("read domain source");
 
-        let count = production_lines(&source)
-            .into_iter()
-            .filter(|(_, line)| contains_domain_persistence_dependency(line))
-            .count();
+        let count: usize =
+            production_lines(&source).into_iter().map(|(_, line)| domain_persistence_reference_count(line)).sum();
 
         let baseline = DOMAIN_PERSISTENCE_BASELINE.iter().find(|(f, _)| *f == name).map(|(_, c)| *c);
         match baseline {
@@ -845,17 +843,39 @@ fn domain_layer_stays_persistence_independent() {
     assert!(errors.is_empty(), "domain purity (DDD-1) violations:\n{}", errors.join("\n"));
 }
 
-fn contains_domain_persistence_dependency(line: &str) -> bool {
+/// Count the number of distinct persistence references on a domain line, so the
+/// shrink-only baseline cannot be defeated by widening an existing import — e.g.
+/// adding an entity to `use agentforge_db::entities::{A, B, C}` raises the count
+/// (codex review P2). Each imported entity, each `FromRow`, each `From<*Row>`
+/// impl, and each `crate::repositories::` reference counts once.
+fn domain_persistence_reference_count(line: &str) -> usize {
     let trimmed = line.trim_start();
     // Comments (including doc comments referencing an adapter) are not coupling.
     if trimmed.starts_with("//") {
-        return false;
+        return 0;
     }
-    line.contains("agentforge_db")
-        || line.contains("FromRow")
-        || (line.contains("impl From<") && line.contains("Row>"))
-        // A domain module must not reach into the repository layer for row types
-        // (e.g. `use crate::repositories::agent::SomeRow;`) — that couples domain
-        // to persistence just like an `agentforge_db` import (codex review P2).
-        || line.contains("crate::repositories::")
+
+    let mut count = 0;
+
+    if line.contains("agentforge_db") {
+        // A braced import (`...::{A, B, C}`) couples to one entity per name; a
+        // bare path reference (`agentforge_db::entities::Event`, or a fn arg
+        // type) couples once.
+        match (line.find('{'), line.find('}')) {
+            (Some(open), Some(close)) if close > open => {
+                count += line[open + 1..close].split(',').filter(|name| !name.trim().is_empty()).count();
+            }
+            _ => count += 1,
+        }
+    }
+
+    count += line.matches("FromRow").count();
+
+    if line.contains("impl From<") && line.contains("Row>") {
+        count += 1;
+    }
+
+    count += line.matches("crate::repositories::").count();
+
+    count
 }
