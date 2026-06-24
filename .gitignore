@@ -55,6 +55,7 @@ playwright-report/
 .superpowers/
 # superpowers SDD workflow artifacts (existing referenced design specs under docs/superpowers stay tracked)
 docs/superpowers/
+docs/product-design-audits/
 cli/af
 
 # Local agent artifacts

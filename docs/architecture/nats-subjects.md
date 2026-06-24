@@ -183,4 +183,4 @@ Tracked for a bounded-retry + bind-error metric follow-up.
 ## See also
 
 - `docs/runbooks/nats-auth.md` — the auth-callout model.
-- `docs/superpowers/specs/2026-05-27-host-cli-enrollment-design.md` §16.5 + Platform C7.
+- the Host CLI Enrollment design spec (kept internal) §16.5 + Platform C7.
