@@ -1333,6 +1333,22 @@ impl AgentAccessPolicy {
             .and_then(|permission| AgentCollaboratorPermission::parse(permission).ok())
             .is_some_and(|permission| permission.allows(action))
     }
+
+    /// Enforce an agent action: `Ok(())` when [`Self::has_permission`] holds,
+    /// else a `Forbidden` with a stable error code. Used as a precondition before
+    /// mutating agent operations so the documented owner/edit/admin model is
+    /// actually enforced (not just projected to the client).
+    pub(crate) fn require_action(is_owner: bool, collaborator_permission: Option<&str>, action: &str) -> AppResult<()> {
+        if Self::has_permission(is_owner, collaborator_permission, action) {
+            Ok(())
+        } else {
+            Err(ErrorKind::ForbiddenWithCode {
+                code: "errors.agent.permission.denied",
+                message: "operation not permitted on this agent".into(),
+            }
+            .into())
+        }
+    }
 }
 
 pub(crate) fn agent_permission_projection(

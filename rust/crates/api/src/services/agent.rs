@@ -6,9 +6,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::agent::{
-    AgentAggregate, AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject, AgentCreateRuntimePolicy,
-    AgentLifecycle, AgentListPage, AgentName, AgentOwnerPolicy, AgentPermissionProjection, AgentStatusTransition,
-    agent_permission_projection,
+    AgentAccessPolicy, AgentAggregate, AgentCliToolSelection, AgentCollaboratorPermission, AgentCommandSubject,
+    AgentCreateRuntimePolicy, AgentLifecycle, AgentListPage, AgentName, AgentOwnerPolicy, AgentPermissionProjection,
+    AgentStatusTransition, agent_permission_projection,
 };
 pub(crate) use crate::domain::agent::{
     agent_container_status_response, agent_data_response, agent_delete_response, agent_enrollment_response,
@@ -129,12 +129,16 @@ impl AgentService {
         provider: Option<&str>,
         system_prompt: Option<&str>,
     ) -> AppResult<Agent> {
+        // In-org authorization (#887/F011): mutating an agent requires edit access
+        // (owner or edit/admin collaborator), not mere org membership.
+        self.authorize_action(scope, id, "edit").await?;
         AgentName::validate(name)?;
         self.repo.update(scope, id, name, model, provider, system_prompt).await
     }
 
     /// Update agent status with state machine validation.
     pub async fn update_status(&self, scope: &TenantScope, id: AgentId, new_status: AgentStatus) -> AppResult<Agent> {
+        self.authorize_action(scope, id, "edit").await?;
         let agent = self.repo.find_by_id(scope, id).await?;
 
         match AgentLifecycle::transition(agent.status, new_status)? {
@@ -188,6 +192,9 @@ impl AgentService {
         user_id: Uuid,
         permission: &str,
     ) -> AppResult<AgentCollaborator> {
+        // In-org authorization (#887/F012): only an owner or admin-collaborator may
+        // grant access, so a member cannot self-escalate on another user's agent.
+        self.authorize_action(scope, agent_id, "admin").await?;
         let permission = AgentCollaboratorPermission::parse(permission)?;
         self.repo.add_collaborator(scope, agent_id, user_id, permission.as_str()).await
     }
@@ -200,13 +207,30 @@ impl AgentService {
         user_id: Uuid,
         permission: &str,
     ) -> AppResult<AgentCollaborator> {
+        self.authorize_action(scope, agent_id, "admin").await?;
         let permission = AgentCollaboratorPermission::parse(permission)?;
         self.repo.update_collaborator(scope, agent_id, user_id, permission.as_str()).await
     }
 
     /// Remove a collaborator from an agent.
     pub async fn remove_collaborator(&self, scope: &TenantScope, agent_id: AgentId, user_id: Uuid) -> AppResult<()> {
+        self.authorize_action(scope, agent_id, "admin").await?;
         self.repo.remove_collaborator(scope, agent_id, user_id).await
+    }
+
+    /// Enforce the documented agent access model for a mutating action against the
+    /// AUTHENTICATED caller (`scope.user_id()`), never a body-supplied id. Loads the
+    /// owner + the caller's collaborator permission and defers to the domain policy.
+    async fn authorize_action(&self, scope: &TenantScope, agent_id: AgentId, action: &str) -> AppResult<()> {
+        let agent = self.repo.find_by_id(scope, agent_id).await?;
+        let caller = scope.user_id().as_uuid();
+        let is_owner = agent.user_id.as_uuid() == caller;
+        let collaborators = self.repo.list_collaborators(scope, agent_id).await?;
+        let permission = collaborators
+            .iter()
+            .find(|collaborator| collaborator.user_id.as_uuid() == caller)
+            .map(|collaborator| collaborator.permission.as_str());
+        AgentAccessPolicy::require_action(is_owner, permission, action)
     }
 
     /// Check whether a user can perform an agent action.
