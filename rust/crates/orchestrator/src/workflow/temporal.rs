@@ -18,6 +18,7 @@ use temporalio_common::data_converters::{
 };
 use temporalio_common::protos::temporal::api::common::v1::RetryPolicy;
 use temporalio_common::protos::temporal::api::common::v1::{Payload, Payloads};
+use temporalio_common::protos::temporal::api::enums::v1::{WorkflowIdConflictPolicy, WorkflowIdReusePolicy};
 use temporalio_common::{HasWorkflowDefinition, WorkflowDefinition};
 use temporalio_sdk::workflows::{WorkflowError as TemporalWorkflowError, WorkflowImplementation, WorkflowImplementer};
 use temporalio_sdk::workflows::{join_all, select};
@@ -116,7 +117,15 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
         layers: &[Vec<String>],
     ) -> WorkflowApiResult<()> {
         let temporal_workflow_id = format!("orchestrator-{}", workflow.id);
-        let options = WorkflowStartOptions::new(TASK_QUEUE.to_string(), temporal_workflow_id.clone()).build();
+        // Re-running a failed workflow reuses this id, so set explicit policies
+        // instead of relying on Temporal's default duplicate behavior (F041):
+        // AllowDuplicate permits a fresh run after the prior one closed, and
+        // TerminateExisting terminates a still-running prior execution rather than
+        // failing or silently attaching to it.
+        let options = WorkflowStartOptions::new(TASK_QUEUE.to_string(), temporal_workflow_id.clone())
+            .id_reuse_policy(WorkflowIdReusePolicy::AllowDuplicate)
+            .id_conflict_policy(WorkflowIdConflictPolicy::TerminateExisting)
+            .build();
         let handle = self
             .client
             .start_workflow(

@@ -30,6 +30,14 @@ impl WorkflowService {
             )));
         }
 
+        // Re-running from a failed state reuses the same Temporal workflow id, so
+        // clear the persisted node execution state first: otherwise the UI shows a
+        // mix of the prior run's completed/failed nodes alongside the fresh run
+        // until each node is re-touched (F041).
+        if matches!(workflow.status, WorkflowStatus::Failed) {
+            self.store.reset_nodes(workflow_id, org_id).await?;
+        }
+
         let nodes = self.store.get_nodes(workflow_id).await?;
         let layers = workflow_layers(&nodes)?;
         self.runtime.start_workflow(&workflow, &nodes, &layers).await?;
@@ -174,6 +182,16 @@ mod tests {
             }
             Ok(())
         }
+        async fn reset_nodes(&self, _workflow_id: &str, _org_id: &str) -> WfResult<()> {
+            for node in self.nodes.lock().unwrap().iter_mut() {
+                node.status = NodeStatus::Pending;
+                node.started_at = None;
+                node.completed_at = None;
+                node.error = None;
+                node.output = None;
+            }
+            Ok(())
+        }
         async fn history(&self, _workflow_id: &str) -> WfResult<Vec<NodeHistory>> {
             Ok(vec![])
         }
@@ -238,5 +256,49 @@ mod tests {
             SignalRequest { node_id: Some("node-a".to_string()), decision: Some(Decision::Approve), comment: None };
         service.signal_workflow("wf-1", "org-a", signal).await.expect("own node must be accepted");
         assert_eq!(store.nodes.lock().unwrap()[0].status, NodeStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn rerun_from_failed_resets_nodes_to_pending() {
+        // A failed workflow carries completed/failed node state from the prior
+        // run; re-running must reset every node to pending so the DB/UI agree
+        // with the fresh Temporal run (F041).
+        let mut workflow = test_workflow("wf-1", "org-a");
+        workflow.status = WorkflowStatus::Failed;
+        let mut node = test_node("node-a", "wf-1");
+        node.status = NodeStatus::Completed;
+        node.started_at = Some(Utc::now());
+        node.completed_at = Some(Utc::now());
+        node.output = Some(serde_json::json!({"done": true}));
+
+        let store = Arc::new(InMemoryStore { workflow, nodes: Mutex::new(vec![node]) });
+        let runtime = Arc::new(PermissiveRuntime { store: store.clone() });
+        let service = WorkflowService::new(store.clone(), runtime);
+
+        service.start_workflow("wf-1", "org-a").await.expect("re-run from failed should start");
+
+        let nodes = store.nodes.lock().unwrap();
+        assert_eq!(nodes[0].status, NodeStatus::Pending, "re-run must reset the node to pending");
+        assert!(nodes[0].started_at.is_none(), "started_at must be cleared");
+        assert!(nodes[0].completed_at.is_none(), "completed_at must be cleared");
+        assert!(nodes[0].output.is_none(), "output must be cleared");
+    }
+
+    #[tokio::test]
+    async fn fresh_draft_run_does_not_reset_nodes() {
+        // A first run from draft has no prior state to clear, so nodes are left
+        // as-is (reset only fires on the failed re-run path).
+        let mut workflow = test_workflow("wf-1", "org-a");
+        workflow.status = WorkflowStatus::Draft;
+        let mut node = test_node("node-a", "wf-1");
+        node.status = NodeStatus::Running;
+
+        let store = Arc::new(InMemoryStore { workflow, nodes: Mutex::new(vec![node]) });
+        let runtime = Arc::new(PermissiveRuntime { store: store.clone() });
+        let service = WorkflowService::new(store.clone(), runtime);
+
+        service.start_workflow("wf-1", "org-a").await.expect("draft run should start");
+
+        assert_eq!(store.nodes.lock().unwrap()[0].status, NodeStatus::Running, "draft run must not reset nodes");
     }
 }
