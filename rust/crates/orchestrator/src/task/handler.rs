@@ -203,6 +203,7 @@ async fn assign(
 
                         let session = match outbound_mcp
                             .session_create(CreateSessionArgs {
+                                org_id: org_id.clone(),
                                 project_id,
                                 cli_tool: agent_provider.clone(),
                                 name: Some(title.clone()),

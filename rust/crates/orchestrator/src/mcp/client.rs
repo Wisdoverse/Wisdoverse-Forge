@@ -45,6 +45,7 @@ impl OutboundMcpClient {
         self.call_tool_with_aliases(
             &["wisdoverse.agent.create", "agentforge.agent.create"],
             json!({
+                "orgId": args.org_id,
                 "projectId": args.project_id,
                 "cliTool": args.cli_tool,
                 "name": args.name,
@@ -192,6 +193,7 @@ struct RpcError {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionArgs {
+    pub org_id: String,
     pub project_id: String,
     pub cli_tool: String,
     pub name: Option<String>,

@@ -47,7 +47,12 @@ impl WorkflowActivities {
 
         let session = match self
             .mcp
-            .session_create(CreateSessionArgs { project_id, cli_tool, name: Some(input.node_name.clone()) })
+            .session_create(CreateSessionArgs {
+                org_id: input.org_id.clone(),
+                project_id,
+                cli_tool,
+                name: Some(input.node_name.clone()),
+            })
             .await
         {
             Ok(session) => session,
