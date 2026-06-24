@@ -76,12 +76,14 @@ pub(crate) fn create_result_text(
     agent_id: Uuid,
     status: &str,
     name: &str,
+    org_id: Uuid,
     workspace_id: Uuid,
 ) -> Result<String, String> {
     serialize_json(&json!({
         "agentId": agent_id,
         "status": status,
         "name": name,
+        "orgId": org_id,
         "workspaceId": workspace_id,
     }))
 }

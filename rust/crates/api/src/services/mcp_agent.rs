@@ -23,6 +23,7 @@ pub struct CreateSessionResult {
     pub agent_id: Uuid,
     pub status: String,
     pub name: String,
+    pub org_id: Uuid,
     pub workspace_id: Uuid,
 }
 
@@ -183,7 +184,13 @@ where
             return Err(err);
         }
 
-        Ok(CreateSessionResult { agent_id, status: "idle".to_string(), name, workspace_id: context.workspace_id })
+        Ok(CreateSessionResult {
+            agent_id,
+            status: "idle".to_string(),
+            name,
+            org_id: context.org_id,
+            workspace_id: context.workspace_id,
+        })
     }
 
     /// Tenant-isolation gate (#885): the bridge operates on a global `agent_id`, so

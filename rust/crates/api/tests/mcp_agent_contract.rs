@@ -25,6 +25,7 @@ impl McpAgentTools for TestTools {
             agent_id: Uuid::parse_str("11111111-1111-7111-8111-111111111111").expect("uuid"),
             status: "idle".to_string(),
             name: "Workflow worker".to_string(),
+            org_id: Uuid::parse_str("33333333-3333-7333-8333-333333333333").expect("uuid"),
             workspace_id: Uuid::parse_str("55555555-5555-7555-8555-555555555555").expect("uuid"),
         })
     }
@@ -153,6 +154,7 @@ async fn mcp_tool_calls_round_trip_create_prompt_status_and_destroy() {
             "agentId": agent_id,
             "status": "idle",
             "name": "Workflow worker",
+            "orgId": "33333333-3333-7333-8333-333333333333",
             "workspaceId": "55555555-5555-7555-8555-555555555555"
         })
     );

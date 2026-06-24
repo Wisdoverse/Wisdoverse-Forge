@@ -123,7 +123,7 @@ async fn handle_create(tools: &dyn McpAgentTools, arguments: &Value) -> Result<S
     };
 
     let result = tools.create_session(request).await.map_err(app_error_message)?;
-    create_result_text(result.agent_id, &result.status, &result.name, result.workspace_id)
+    create_result_text(result.agent_id, &result.status, &result.name, result.org_id, result.workspace_id)
 }
 
 async fn handle_prompt(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
