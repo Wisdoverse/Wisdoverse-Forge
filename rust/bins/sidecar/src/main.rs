@@ -76,40 +76,10 @@ fn build_health_snapshot(wal: &wal::Wal, creds_sync_errors: u64) -> publisher::H
     publisher::HealthSnapshot { degraded, reason, wal_pending: pending, wal_dropped: dropped, creds_sync_errors }
 }
 
-/// Drain the WAL through `publisher`: replay each buffered event, and on
-/// successful publish acknowledge (delete) its file. Failed publishes are left
-/// in place to retry on the next drain. Shared by the startup replay and the
-/// periodic drain task so both honour the same replay-compatible record shape.
-async fn drain_wal(wal: &wal::Wal, publisher: &publisher::EventPublisher) {
-    let entries = match wal.replay().await {
-        Ok(entries) => entries,
-        Err(err) => {
-            tracing::warn!(error = %err, "Failed to read WAL for drain");
-            return;
-        }
-    };
-    for (path, entry) in entries {
-        match serde_json::from_slice::<serde_json::Value>(&entry) {
-            Ok(msg) => {
-                let event_type = msg["payload"]["event_type"].as_str().unwrap_or("unknown");
-                let data = msg["payload"]["data"].clone();
-                match publisher.publish(event_type, data).await {
-                    Ok(()) => {
-                        if let Err(err) = wal.acknowledge(&path).await {
-                            tracing::warn!(error = %err, path = %path.display(), "Failed to acknowledge WAL entry");
-                        }
-                    }
-                    Err(err) => {
-                        tracing::warn!(error = %err, path = %path.display(), "Failed to publish WAL entry, will retry next drain");
-                    }
-                }
-            }
-            Err(err) => {
-                tracing::warn!(error = %err, path = %path.display(), "Failed to deserialize WAL entry, skipping");
-            }
-        }
-    }
-}
+// The WAL drain lives in `unix_socket_listener::drain_wal` so it shares the
+// WAL-first confirmed-handoff contract (publish → bounded flush → ack only on a
+// confirmed handoff) with the live relay path, instead of acknowledging on
+// `publish()` Ok alone (F062).
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -158,11 +128,22 @@ async fn main() -> anyhow::Result<()> {
     // the relay-socket listener starts accepting new events.
     wal_instance.init_pending().await;
 
-    // Replay any events buffered during a previous NATS outage.
+    // Replay any events buffered during a previous NATS outage — but only once
+    // NATS is actually connected. Draining while disconnected would re-buffer
+    // every record and (without the confirmed-handoff contract) risk deleting
+    // them before the server confirms; the periodic drain picks them up after
+    // the connection establishes (F062).
     let pending = wal_instance.pending_count().await.unwrap_or(0);
-    if pending > 0 {
+    let startup_connected = nats_client.connection_state() == async_nats::connection::State::Connected;
+    if unix_socket_listener::should_drain(startup_connected, pending) {
         tracing::info!(count = pending, "Replaying WAL entries");
-        drain_wal(&wal_instance, &publisher).await;
+        unix_socket_listener::drain_wal(&wal_instance, &publisher).await;
+    } else if pending > 0 {
+        tracing::info!(
+            count = pending,
+            connected = startup_connected,
+            "WAL has entries; deferring drain to periodic task"
+        );
     }
 
     // Shutdown coordination.
@@ -336,7 +317,7 @@ async fn main() -> anyhow::Result<()> {
                     let pending = drain_wal_handle.pending_cached();
                     if unix_socket_listener::should_drain(connected, pending) {
                         tracing::info!(count = pending, "Draining WAL after NATS reconnect");
-                        drain_wal(&drain_wal_handle, &drain_publisher).await;
+                        unix_socket_listener::drain_wal(&drain_wal_handle, &drain_publisher).await;
                     }
                 }
             }
