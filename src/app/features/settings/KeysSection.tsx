@@ -53,16 +53,16 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.createdAt, {
-            missing: 'Open Outside tool access again to load created date',
-            invalid: 'Open Outside tool access again to check created date',
+            missing: 'Open Tool access keys again to load created date',
+            invalid: 'Open Tool access keys again to check created date',
           })}
         </span>
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(apiKey.lastUsedAt, {
-            missing: 'Use this access key from a trusted outside tool first',
-            invalid: 'Open Outside tool access again to check last use',
+            missing: 'Use this access key from a trusted tool first',
+            invalid: 'Open Tool access keys again to check last use',
           })}
         </span>
       </td>
@@ -84,8 +84,8 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
             disabled={removing}
             aria-label={
               confirming
-                ? `Confirm removing outside tool access key named ${apiKey.name}`
-                : `Remove outside tool access key named ${apiKey.name}`
+                ? `Confirm removing tool access key named ${apiKey.name}`
+                : `Remove tool access key named ${apiKey.name}`
             }
             aria-describedby={confirming ? removeWarningId : undefined}
             aria-busy={removing || undefined}
@@ -334,9 +334,9 @@ export function KeysSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Outside tool access</h2>
+          <h2 className={uiStyles.sectionTitle}>Tool access keys</h2>
           <p className={uiStyles.sectionDescription}>
-            Let a trusted outside tool connect to Forge without asking a person to sign in.
+            Create keys for trusted tools that need to connect to Forge.
           </p>
         </div>
         {!showForm && (
@@ -373,12 +373,12 @@ export function KeysSection() {
         <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
           {keysLoading && apiKeys.length === 0 ? (
             <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
-              Checking outside tool access…
+              Checking tool access keys…
             </div>
           ) : apiKeys.length === 0 ? (
             <PlatformKeyEmptyState onCreate={() => setShowForm(true)} />
           ) : (
-            <table className={uiStyles.table} aria-label="Outside tool access keys">
+            <table className={uiStyles.table} aria-label="Tool access keys">
               <thead className={uiStyles.tableHead}>
                 <tr>
                   {tableHeaders.map((h) => (
@@ -418,15 +418,13 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
               id="platform-key-empty-title"
               className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Add a key only for a trusted outside tool
+              Add a key only for a trusted tool
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              Use this only when a trusted outside tool needs to connect without a person signing
-              in.
+              Use this only when a trusted tool needs to connect without a person signing in.
             </p>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              You can skip this until a trusted outside tool or scheduled job needs unattended
-              access.
+              You can skip this until a trusted tool or scheduled job needs unattended access.
             </p>
           </div>
         </div>

@@ -101,10 +101,12 @@ export const zh: TranslationKeys = {
     currentProject: '当前项目',
     noProject: '打开项目设置，创建或选择一个项目。',
     projects: '项目',
+    completedStepsTitle: '已完成',
+    laterStepsTitle: '接下来',
     workLocations: {
       managed: '项目文件选项',
       local: '这台电脑',
-      textOnly: '只处理文字的模式',
+      textOnly: '简单聊天',
       ready: '一个工作位置',
     },
     stepStatus: {
@@ -124,7 +126,7 @@ export const zh: TranslationKeys = {
       runtime: {
         title: '工作位置',
         empty: '先选择智能体在哪里工作：项目文件，或这台电脑。',
-        ready: '{{location}} 已经可以接收智能体工作。',
+        ready: '{{location}}已经准备好。',
         why: '智能体需要一个安全的工作位置，才能接收任务。',
         success: '项目文件或这台电脑已经可以接收智能体工作。',
         open: '选择工作位置',
@@ -133,13 +135,13 @@ export const zh: TranslationKeys = {
       provider: {
         title: '给智能体一个工作方式',
         empty:
-          '先选一种方式：添加模型服务用于文字回答，或打开工作工具登录，让 Codex 能处理文件工作。',
+          '先选一种方式：添加模型服务用于文字回答，或打开 Codex 等改文件工具登录，让智能体能处理需要项目文件的任务。',
         needsTest: '先检查模型服务，再给智能体分配工作。',
         cliReady: '{{name}} 已经可以从{{location}}执行工作。',
-        why: '智能体需要一种可用方式：已检查的模型服务用于文字回答，或已登录的工作工具加上智能体来处理文件工作。',
-        success: '已经有一种可用方式：模型服务已检查通过，或有智能体可以打开文件工作。',
+        why: '智能体需要一种可用方式：已检查的模型服务用于文字回答，或已登录的改文件工具加上能修改项目文件的智能体。',
+        success: '已经有一种可用方式：模型服务已检查通过，或有智能体可以修改项目文件。',
         create: '添加模型服务',
-        signInTool: '打开工作工具登录',
+        signInTool: '打开改文件工具登录',
         test: '检查模型服务',
         reviewProviders: '查看模型服务',
         reviewAgents: '查看智能体',
@@ -210,6 +212,11 @@ export const zh: TranslationKeys = {
       actions: '创建或修改',
       views: '切换任务视图',
     },
+    setupActions: {
+      show: '更多设置操作',
+      hide: '收起设置操作',
+      description: '显示登录、项目、团队和其他设置页面。',
+    },
     empty: {
       title: '没有匹配的页面或选项',
       listSeparator: '、',
@@ -240,7 +247,7 @@ export const zh: TranslationKeys = {
         },
         agents: {
           label: '智能体',
-          description: '创建或查看负责处理任务的智能体。',
+          description: '创建或查看用于任务或聊天的智能体。',
         },
         skills: {
           label: '保存的指令',
@@ -257,8 +264,8 @@ export const zh: TranslationKeys = {
           description: '告诉智能体你想要的结果，以及如何检查是否完成。',
         },
         workToolSignIns: {
-          label: 'Codex 登录',
-          description: '智能体用 Codex 或其他工作工具改文件前，先在这里登录。',
+          label: '改文件工具登录',
+          description: '智能体用 Codex 或其他工具改项目文件前，先在这里登录。',
         },
         keys: {
           label: '外部工具访问',
@@ -274,7 +281,7 @@ export const zh: TranslationKeys = {
         },
         resources: {
           label: '智能体大小限制',
-          description: '智能体开始文件工作前，选择小、标准或大的资源限制。',
+          description: '智能体修改项目文件前，选择小、标准或大的资源限制。',
         },
         projects: {
           label: '项目',
@@ -375,7 +382,7 @@ export const zh: TranslationKeys = {
       },
       agents: {
         title: '智能体',
-        subtitle: '创建并管理处理任务的智能体',
+        subtitle: '创建用于任务或简单聊天的智能体',
       },
       skills: {
         title: '保存的指令',
@@ -559,7 +566,7 @@ export const zh: TranslationKeys = {
       Read: '打开文件',
       Write: '创建文件',
       Edit: '修改文件',
-      Bash: '运行命令',
+      Bash: '执行工作步骤',
       Glob: '查找文件',
       Grep: '搜索文件内容',
       WebFetch: '打开网页',
@@ -668,14 +675,14 @@ export const zh: TranslationKeys = {
         '请打开设置，然后打开“智能体在哪里工作”。如果仍然无法加载，请找负责人或管理员检查设置里的“智能体在哪里工作”。',
       defaultRuntimeLabel: '项目文件打开位置',
       defaultRuntimeDescription:
-        '处理共享项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为可在 Forge 里管理的智能体时，才选择这台电脑。',
+        '需要共享修改项目文件时，选择“项目文件”最简单。只有要把这台电脑接入为可在 Forge 里管理的智能体时，才选择这台电脑。',
       defaultContainerCliLabel: '项目工作默认工具',
       defaultContainerCliDescription:
-        '智能体编辑文件或运行命令时使用的 Claude Code、Codex、Gemini 或 OpenCode',
+        '智能体修改项目文件或运行检查时使用的 Claude Code、Codex、Gemini 或 OpenCode',
       availableRuntimesLabel: '可打开项目文件的位置',
       availableRuntimesDescription: '智能体可以打开项目文件的位置',
       availableContainerClisLabel: '智能体可使用的工作工具',
-      availableContainerClisDescription: '用于编辑文件、运行命令和实时工作的已安装工具',
+      availableContainerClisDescription: '用于修改项目文件、运行检查和显示实时进度的已安装工具',
       runtimeLabels: {
         cli: '这台电脑',
         api: '只处理文字的模型服务',
@@ -757,7 +764,7 @@ export const zh: TranslationKeys = {
           detail: 'Forge 不能替你重启它。请在那台电脑上重新运行设置命令。',
         },
         restart_api: {
-          title: '请重新发送消息，而不是重启工作区',
+          title: '请重新发送消息，不用重启',
           detail: '该智能体通过 AI 服务回复消息。请重新发送消息来重新尝试。',
         },
         start_host_cli: {
@@ -766,15 +773,15 @@ export const zh: TranslationKeys = {
         },
         start_api: {
           title: '请发送消息来启动这个聊天智能体',
-          detail: '聊天智能体会在你发送消息时开始工作，没有需要打开的本地窗口。',
+          detail: '聊天智能体会在你发送消息时开始回复，不需要打开项目文件或工作工具。',
         },
         stop_host_cli: {
           title: '请在这台电脑上停止连接助手',
-          detail: 'Forge 不能替你停止它。请关闭那台电脑上的 Terminal 或 PowerShell 窗口。',
+          detail: 'Forge 不能替你停止它。请关闭那台电脑上的设置窗口。',
         },
         stop_api: {
           title: '请关闭聊天或等待回复结束',
-          detail: '聊天智能体没有需要停止的本地窗口。需要继续时再发送新消息。',
+          detail: '请关闭聊天或等待回复结束。需要继续时再发送新消息。',
         },
         not_permitted: {
           title: '你不能管理这个智能体',

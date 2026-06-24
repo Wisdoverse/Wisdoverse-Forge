@@ -49,7 +49,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Open Agents, choose this chat-only agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this simple chat agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
 }
 
 function isMissingModelLabel(label: string): boolean {
@@ -62,7 +62,9 @@ function isMissingModelLabel(label: string): boolean {
 
 function modelLabel(model?: string | null): string {
   const label = model?.trim()
-  return label && !isMissingModelLabel(label) ? 'AI model selected' : 'Check AI model'
+  return label && !isMissingModelLabel(label)
+    ? 'AI service choice selected'
+    : 'Check AI service choice'
 }
 
 export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
@@ -332,9 +334,9 @@ function cliToolLabel(tool?: AgentInfo['cliTool'] | string): string {
       return 'OpenCode'
     case undefined:
     case '':
-      return 'Check work tool settings'
+      return 'Check tool selected in Settings'
     default:
-      return 'Check work tool settings'
+      return 'Check tool selected in Settings'
   }
 }
 
@@ -361,8 +363,8 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            This agent follows the setup for its work tool. Confirm where it can open files before
-            sending file work.
+            This agent uses the saved tool selected in Settings. Confirm where it opens project
+            files before sending Tasks or code changes.
           </p>
         </div>
         <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
@@ -371,7 +373,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <RuntimeRow label="Work tool" value={cliToolLabel(agent.cliTool)} />
+        <RuntimeRow label="Saved tool" value={cliToolLabel(agent.cliTool)} />
         <RuntimeRow
           label="Connection"
           value={

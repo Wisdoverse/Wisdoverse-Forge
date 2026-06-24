@@ -72,8 +72,33 @@ export function analyticsUnavailableMessage(): string {
   return 'Open Analytics again. If this is a new team space, run an agent task first so live activity has data to report.'
 }
 
+export function analyticsServiceErrorMessage(): string {
+  return 'Wait a few minutes, then open Analytics again. If it still fails, ask an owner or admin to check Analytics access and data collection.'
+}
+
 export function analyticsNetworkErrorMessage(): string {
   return 'Check your connection, then open Analytics again. Analytics could not connect.'
+}
+
+function analyticsErrorDetail(value: unknown): string {
+  if (!value || typeof value !== 'object') return ''
+  for (const key of ['error', 'message', 'detail', 'serverError', 'reason'] as const) {
+    const detail = (value as Record<string, unknown>)[key]
+    if (typeof detail === 'string' && detail.trim()) return detail
+  }
+  return ''
+}
+
+function isAnalyticsServiceFailure(value: unknown): boolean {
+  return /\b(database|sql|stack trace|traceback|exception|panic|internal server error|service unavailable)\b/i.test(
+    analyticsErrorDetail(value)
+  )
+}
+
+function isAnalyticsNetworkFailure(value: unknown): boolean {
+  return /\b(check your connection|could not connect|failed to fetch|network error)\b/i.test(
+    analyticsErrorDetail(value)
+  )
 }
 
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
@@ -154,6 +179,14 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
       const hasPrimaryDataSource = [summaryRes, toolsRes, activityRes, agentsRes].some(
         (result) => result.status === 'fulfilled' && result.value.ok
       )
+      const hasPrimaryServiceFailure = [summaryRes, toolsRes, activityRes, agentsRes].some(
+        (result) => result.status === 'fulfilled' && isAnalyticsServiceFailure(result.value)
+      )
+      const hasPrimaryNetworkFailure = [summaryRes, toolsRes, activityRes, agentsRes].some(
+        (result) =>
+          result.status === 'rejected' ||
+          (result.status === 'fulfilled' && isAnalyticsNetworkFailure(result.value))
+      )
 
       set({
         summary,
@@ -162,7 +195,13 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
         agentStats,
         contextUsage,
         loading: false,
-        error: hasPrimaryDataSource ? null : analyticsUnavailableMessage(),
+        error: hasPrimaryDataSource
+          ? null
+          : hasPrimaryNetworkFailure
+            ? analyticsNetworkErrorMessage()
+            : hasPrimaryServiceFailure
+              ? analyticsServiceErrorMessage()
+              : analyticsUnavailableMessage(),
       })
     } catch {
       set({

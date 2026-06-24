@@ -283,6 +283,55 @@ describe('Legacy API adapter — beginner-safe fallback errors', () => {
     expect(result.error).toBe('Check your connection, then try again. Forge could not connect.')
     expect(result.error).not.toContain('Network error')
   })
+
+  it('preserves analytics network failures for beginner-safe store copy', async () => {
+    initLegacyApis(makeAuthManager(), () => {})
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    const result = await getAgentApi().getAnalyticsSummary()
+
+    expect(result.error).toBe('Check your connection, then try again. Forge could not connect.')
+    expect(result.error).not.toContain('Failed to fetch')
+  })
+
+  it('preserves analytics server error details for beginner-safe store copy', async () => {
+    initLegacyApis(makeAuthManager(), () => {})
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: () => Promise.resolve({ message: 'database unavailable while loading analytics' }),
+      })
+    )
+
+    const result = await getAgentApi().getAnalyticsSummary()
+
+    expect(result.error).toBe('database unavailable while loading analytics')
+    expect(result.error).not.toContain('HTTP 503')
+  })
+
+  it('preserves secondary analytics server error details for beginner-safe callers', async () => {
+    initLegacyApis(makeAuthManager(), () => {})
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: () => Promise.resolve({ message: 'database unavailable while loading analytics' }),
+      })
+    )
+
+    const sessions = await getAgentApi().getAnalyticsSessions()
+    const heatmap = await getAgentApi().getAnalyticsHeatmap()
+    const scopes = await getAgentApi().getAnalyticsScopes()
+
+    expect(sessions.error).toBe('database unavailable while loading analytics')
+    expect(heatmap.error).toBe('database unavailable while loading analytics')
+    expect(scopes.error).toBe('database unavailable while loading analytics')
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -1010,12 +1010,13 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           console.error(`[AgentAPI] getAnalyticsSummary failed: HTTP ${response.status}`)
-          return { ok: false }
+          const body = await response.json().catch(() => ({}))
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('[AgentAPI] getAnalyticsSummary error:', e)
-        return { ok: false }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1027,12 +1028,13 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           console.error(`[AgentAPI] getAnalyticsTools failed: HTTP ${response.status}`)
-          return { ok: false, tools: [] }
+          const body = await response.json().catch(() => ({}))
+          return { ok: false, tools: [], error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('[AgentAPI] getAnalyticsTools error:', e)
-        return { ok: false, tools: [] }
+        return { ok: false, tools: [], error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1044,12 +1046,13 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           console.error(`[AgentAPI] getAnalyticsActivity failed: HTTP ${response.status}`)
-          return { ok: false, activity: [] }
+          const body = await response.json().catch(() => ({}))
+          return { ok: false, activity: [], error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('[AgentAPI] getAnalyticsActivity error:', e)
-        return { ok: false, activity: [] }
+        return { ok: false, activity: [], error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1061,12 +1064,13 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           console.error(`[AgentAPI] getAnalyticsSessions failed: HTTP ${response.status}`)
-          return { ok: false, agents: [] }
+          const body = await response.json().catch(() => ({}))
+          return { ok: false, agents: [], error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('[AgentAPI] getAnalyticsSessions error:', e)
-        return { ok: false, agents: [] }
+        return { ok: false, agents: [], error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1078,12 +1082,13 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           console.error(`[AgentAPI] getAnalyticsHeatmap failed: HTTP ${response.status}`)
-          return { ok: false, days: [] }
+          const body = await response.json().catch(() => ({}))
+          return { ok: false, days: [], error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('[AgentAPI] getAnalyticsHeatmap error:', e)
-        return { ok: false, days: [] }
+        return { ok: false, days: [], error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1094,12 +1099,13 @@ export function createAgentAPI(
         })
         if (!response.ok) {
           console.error(`[AgentAPI] getAnalyticsScopes failed: HTTP ${response.status}`)
-          return { ok: false }
+          const body = await response.json().catch(() => ({}))
+          return { ok: false, error: legacyApiError(body as ApiErrorFields) }
         }
         return await response.json()
       } catch (e) {
         console.error('[AgentAPI] getAnalyticsScopes error:', e)
-        return { ok: false }
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
 
@@ -1390,7 +1396,7 @@ export interface AnalyticsParams {
   userId?: string
 }
 
-export interface AnalyticsSummaryResponse {
+export interface AnalyticsSummaryResponse extends ApiErrorFields {
   ok: boolean
   totalEvents?: number
   toolCalls?: number
@@ -1407,7 +1413,7 @@ export interface AnalyticsToolStat {
   avgDurationMs: number | null
 }
 
-export interface AnalyticsToolsResponse {
+export interface AnalyticsToolsResponse extends ApiErrorFields {
   ok: boolean
   tools: AnalyticsToolStat[]
 }
@@ -1417,7 +1423,7 @@ export interface AnalyticsHourlyActivity {
   count: number
 }
 
-export interface AnalyticsActivityResponse {
+export interface AnalyticsActivityResponse extends ApiErrorFields {
   ok: boolean
   activity: AnalyticsHourlyActivity[]
 }
@@ -1430,7 +1436,7 @@ export interface AnalyticsSessionStat {
   prompts: number
 }
 
-export interface AnalyticsSessionsResponse {
+export interface AnalyticsSessionsResponse extends ApiErrorFields {
   ok: boolean
   agents: AnalyticsSessionStat[]
 }
@@ -1440,12 +1446,12 @@ export interface AnalyticsDailyActivity {
   count: number
 }
 
-export interface AnalyticsHeatmapResponse {
+export interface AnalyticsHeatmapResponse extends ApiErrorFields {
   ok: boolean
   days: AnalyticsDailyActivity[]
 }
 
-export interface AnalyticsScopeInfo {
+export interface AnalyticsScopeInfo extends ApiErrorFields {
   ok: boolean
   canViewOrg?: boolean
   teams?: Array<{ id: string; name: string }>

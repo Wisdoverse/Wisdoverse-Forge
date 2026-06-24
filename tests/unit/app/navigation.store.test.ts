@@ -67,7 +67,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to update your team space access, then choose the project and create the waiting place again. You do not have permission to create the waiting place.'
+      'Ask an owner or admin to update your team space access, then choose the project and create the task queue again. You do not have permission to create the task queue.'
     )
     expect(message).not.toContain('owner policy denied')
     expect(message).not.toContain('workspace access')
@@ -78,7 +78,7 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to update your team space access, then choose the project and create the waiting place again. You do not have permission to create the waiting place.'
+      'Ask an owner or admin to update your team space access, then choose the project and create the task queue again. You do not have permission to create the task queue.'
     )
     expect(message).not.toContain('owner role required')
   })
@@ -114,32 +114,41 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       message,
-      'Check your connection, then open the left menu and load waiting places again.'
+      'Check your connection, then open the left menu and load task queues again.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('service')
     expect(message).not.toContain('sidebar')
   })
 
+  it('turns raw service details without status into owner check guidance', () => {
+    const message = navigationActionErrorMessage('teamProjects', 'load', {
+      serverError: 'database unavailable while loading teams',
+    })
+
+    expectBeginnerError(
+      message,
+      'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams or Projects in Settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Choose a team space')
+  })
+
   it('turns busy left menu responses into an action-first retry step', () => {
     expectBeginnerError(
       navigationActionErrorMessage('workLane', 'create', { statusCode: 429 }),
-      'Wait a moment, then create the waiting place again. The left menu is busy.'
+      'Wait a moment, then create the task queue again. The left menu is busy.'
     )
   })
 
-  it('uses structured validation details for waiting place names', () => {
+  it('uses structured validation details for task queue names', () => {
     const message = navigationActionErrorMessage('workLane', 'create', {
       code: '422',
       details: { reason: 'name is required' },
     })
 
-    expectBeginnerError(
-      message,
-      'Name this waiting place, choose its project, then create it again.'
-    )
+    expectBeginnerError(message, 'Name this task queue, choose its project, then create it again.')
     expect(message).not.toContain('name is required')
-    expect(message).not.toContain('task queue')
   })
 
   it('loadOrgs fetches and stores orgs, auto-selects first', async () => {
@@ -197,10 +206,9 @@ describe('navigation.store', () => {
     vi.mocked(agentGroupApi.getGroups).mockRejectedValueOnce(new Error('network down'))
     await expect(useNavigationStore.getState().selectProject('p1')).resolves.toBe(false)
     expect(useNavigationStore.getState().error).toBe(
-      'Open the left menu, choose the selected project, then load where tasks wait again.'
+      'Open the left menu, choose the selected project, then load task queues again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('network down')
-    expect(useNavigationStore.getState().error).not.toContain('task queue')
   })
 
   it('selectProject clears group when no groups exist', async () => {
@@ -374,19 +382,19 @@ describe('navigation.store', () => {
     )
   })
 
-  it('stores connection guidance when waiting places cannot load', async () => {
+  it('stores connection guidance when task queues cannot load', async () => {
     vi.mocked(agentGroupApi.getGroups).mockRejectedValue(new TypeError('Failed to fetch'))
 
     await useNavigationStore.getState().selectProject('p-offline')
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Check your connection, then open the left menu and load waiting places again.'
+      'Check your connection, then open the left menu and load task queues again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('Failed to fetch')
   })
 
-  it('stores field guidance when waiting place creation is invalid', async () => {
+  it('stores field guidance when task queue creation is invalid', async () => {
     vi.mocked(agentGroupApi.createGroup).mockRejectedValue(
       apiError(422, { error: 'name is required' })
     )
@@ -400,12 +408,11 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Name this waiting place, choose its project, then create it again.'
+      'Name this task queue, choose its project, then create it again.'
     )
-    expect(useNavigationStore.getState().error).not.toContain('task queue')
   })
 
-  it('stores field guidance when waiting place creation returns structured details', async () => {
+  it('stores field guidance when task queue creation returns structured details', async () => {
     vi.mocked(agentGroupApi.createGroup).mockRejectedValue({
       statusCode: '422',
       details: { reason: 'project is required' },
@@ -420,9 +427,8 @@ describe('navigation.store', () => {
 
     expectBeginnerError(
       useNavigationStore.getState().error,
-      'Choose the project where tasks should wait, then create the waiting place again.'
+      'Choose the project for this task queue, then create it again.'
     )
     expect(useNavigationStore.getState().error).not.toContain('project is required')
-    expect(useNavigationStore.getState().error).not.toContain('task queue')
   })
 })

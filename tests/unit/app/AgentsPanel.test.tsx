@@ -114,9 +114,7 @@ describe('AgentsPanel', () => {
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Admin again or ask an owner to check agent access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like agent rows or a no-agents setup step.'
-    )
+    expect(loading).toHaveTextContent('Success looks like agent rows or a no-agents setup step.')
     expect(loading).not.toHaveTextContent('Loading agents')
   })
 
@@ -132,12 +130,22 @@ describe('AgentsPanel', () => {
       'All work locations',
       'Project files',
       'This computer',
-      'Chat-only AI service',
+      'Simple chat agent',
     ])
     expect(
       screen.getByText('Check agents across every team space and filter them by work location.')
     ).toBeDefined()
     expect(screen.getByText(/shared project files/i)).toBeDefined()
+    expect(
+      screen.getByText('Changes shared project files and runs checks. Best for most team work.')
+    ).toBeDefined()
+    expect(
+      screen.getByText(
+        'Answers questions and checks results in chat. It cannot take Tasks, change code, or use computer apps.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/command work/i)).toBeNull()
+    expect(screen.queryByText(/run commands/i)).toBeNull()
     expect(screen.queryByText(/Forge project area/i)).toBeNull()
     expect(screen.queryByText(/every organization/i)).toBeNull()
     expect(loadAgentsMock).toHaveBeenCalled()
@@ -152,7 +160,8 @@ describe('AgentsPanel', () => {
 
     expect(screen.getAllByText('Project files').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Chat-only')).toHaveLength(2)
+    expect(screen.getAllByText('Questions only')).toHaveLength(2)
+    expect(screen.queryByText('Chat only')).toBeNull()
     expect(screen.queryByText(/Text-only model/i)).toBeNull()
     expect(screen.getByText('Ready')).toBeDefined()
     expect(screen.queryByText('idle')).toBeNull()
@@ -162,8 +171,9 @@ describe('AgentsPanel', () => {
     expect(screen.queryByText('paused')).toBeNull()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.queryByText('Work tool: codex')).toBeNull()
-    expect(screen.getAllByText('Work tool: Codex')).toHaveLength(2)
-    expect(screen.getByText('Work tool: Claude')).toBeDefined()
+    expect(screen.queryByText(/Work tool:/)).toBeNull()
+    expect(screen.getAllByText('Uses Codex')).toHaveLength(2)
+    expect(screen.getByText('Uses Claude')).toBeDefined()
 
     expect(screen.getAllByTestId('admin-agent-row')).toHaveLength(5)
   })
@@ -175,7 +185,8 @@ describe('AgentsPanel', () => {
     expect(screen.getAllByText('Check agents again to load project')).toHaveLength(2)
     expect(screen.queryByText('Owner not reported yet')).toBeNull()
     expect(screen.queryByText('Project not reported yet')).toBeNull()
-    expect(screen.getByText('Activity appears after work starts')).toBeDefined()
+    expect(screen.getByText('Activity appears after a task starts')).toBeDefined()
+    expect(screen.queryByText('Activity appears after work starts')).toBeNull()
     expect(screen.getByText('Check activity time')).toBeDefined()
     expect(screen.queryByText('No activity yet')).toBeNull()
     expect(screen.queryByText('Activity time needs review')).toBeNull()

@@ -125,8 +125,8 @@ export function SidebarNav({
   const isAdmin = user?.isAdmin === true
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const pendingContextCount = useContextStore((s) => s.pendingCandidateCount)
-  // Start is opt-in from Settings. Unknown or missing preferences keep the
-  // sidebar task-first instead of showing a tutorial link by default.
+  // Start is beginner-default. Only an explicit skip/completion preference
+  // hides it from the sidebar.
   const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
 
   const handleLogout = useCallback(() => {

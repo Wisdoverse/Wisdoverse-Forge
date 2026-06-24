@@ -75,7 +75,7 @@ describe('TaskMetadata', () => {
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Needs agent')).toBeDefined()
     expect(screen.getByTestId('task-metadata-guidance').textContent).toContain(
-      'waiting for an available agent to start. If it stays here, choose or start an agent.'
+      'waiting for a ready agent to start. If it stays here, choose or start an agent.'
     )
     expect(screen.getByTestId('task-metadata-guidance').textContent).not.toMatch(
       /queue|pick it up/i

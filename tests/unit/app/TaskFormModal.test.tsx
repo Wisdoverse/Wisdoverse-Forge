@@ -19,7 +19,7 @@ const otherProject: TaskProjectOption = {
 function renderModal(
   onSubmit = vi.fn(),
   overrides: Partial<{
-    agents: { id: string; name: string; status: string }[]
+    agents: { id: string; name: string; status: string; capabilities?: string[] }[]
     projects: TaskProjectOption[]
     selectedProjectId: string | null
     selectedTaskGroupId: string | null
@@ -58,6 +58,10 @@ function renderModal(
   return { onSubmit, onClose }
 }
 
+function openTaskOptions() {
+  fireEvent.click(screen.getByText('Task options'))
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((res) => {
@@ -72,18 +76,54 @@ afterEach(() => {
 })
 
 describe('TaskFormModal', () => {
-  test('uses beginner-friendly brief template prompts', () => {
+  test('shows starter templates by default so new users can start from examples', () => {
     renderModal()
 
+    expect(screen.getByRole('button', { name: /hide task writing help/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(
+      screen.getByText('Use a starter template when you are not sure what to write.')
+    ).toBeDefined()
     expect(screen.getByText('Start with a task template')).toBeDefined()
     expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
-    expect(screen.getByText(/project, a waiting place, and enough detail/i)).toBeDefined()
+    expect(screen.getByText(/project, a task queue, and enough detail/i)).toBeDefined()
     expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
     expect(screen.getByText('A clear task has three plain-language parts')).toBeDefined()
     expect(screen.getByText('Goal')).toBeDefined()
     expect(screen.getByText('Place')).toBeDefined()
     expect(screen.getByText('Proof')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /hide task writing help/i }))
+
+    expect(screen.getByRole('button', { name: /need help writing the task/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.queryByText('Start with a task template')).toBeNull()
+    expect(screen.queryByText('Fills in a safe first draft')).toBeNull()
+    expect(screen.queryByRole('group', { name: /task templates/i })).toBeNull()
+    expect(screen.queryByText('A clear task has three plain-language parts')).toBeNull()
+    expect(screen.queryByText('Goal')).toBeNull()
+    expect(screen.queryByText('Place')).toBeNull()
+    expect(screen.queryByText('Proof')).toBeNull()
     expect(screen.queryByText(/scope and proof/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /need help writing the task/i }))
+
+    expect(screen.getByRole('button', { name: /hide task writing help/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByText('Start with a task template')).toBeDefined()
+    expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
+    expect(screen.getByText(/project, a task queue, and enough detail/i)).toBeDefined()
+    expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
+    expect(screen.getByText('A clear task has three plain-language parts')).toBeDefined()
+    expect(screen.getByText('Goal')).toBeDefined()
+    expect(screen.getByText('Place')).toBeDefined()
+    expect(screen.getByText('Proof')).toBeDefined()
 
     expect(screen.getByText('Add something')).toBeDefined()
     expect(screen.getByText('Fix a problem')).toBeDefined()
@@ -162,6 +202,40 @@ describe('TaskFormModal', () => {
     expect(reviewDescription.value).not.toMatch(/^-\s*$/m)
   })
 
+  test('resets task writing help when the modal reopens', () => {
+    const onClose = vi.fn()
+    const onSubmit = vi.fn()
+    const props = {
+      onClose,
+      onSubmit,
+      agents: [{ id: 'agent-1', name: 'Agent One', status: 'available' }],
+      projects: [project],
+      selectedProjectId: project.id,
+      selectedTaskGroupId: 'lane-1',
+      selectedTaskGroupName: 'Starter Queue',
+    }
+    const { rerender } = render(<TaskFormModal isOpen {...props} />)
+
+    expect(screen.getByRole('button', { name: /hide task writing help/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    fireEvent.click(screen.getByRole('button', { name: /hide task writing help/i }))
+    expect(screen.getByRole('button', { name: /need help writing the task/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+
+    rerender(<TaskFormModal isOpen={false} {...props} />)
+    rerender(<TaskFormModal isOpen {...props} />)
+
+    expect(screen.getByRole('button', { name: /hide task writing help/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByText('Start with a task template')).toBeDefined()
+  })
+
   test('does not treat template helper prompts as finished task details', () => {
     renderModal()
 
@@ -234,6 +308,22 @@ describe('TaskFormModal', () => {
     )
   })
 
+  test('keeps priority and manual assignment in task options until requested', () => {
+    renderModal()
+
+    expect(screen.queryByLabelText(/^priority$/i)).toBeNull()
+    expect(screen.queryByLabelText(/who should start it/i)).toBeNull()
+    expect(screen.getByText(/normal priority/i)).toBeDefined()
+    expect(screen.getByText(/next ready agent starts it/i)).toBeDefined()
+    expect(screen.queryByText(/automatic agent selection/i)).toBeNull()
+
+    openTaskOptions()
+
+    expect(screen.getByLabelText(/^priority$/i)).toBeDefined()
+    expect(screen.getByLabelText(/who should start it/i)).toBeDefined()
+    expect(screen.getByRole('option', { name: /let the next ready agent start it/i })).toBeDefined()
+  })
+
   test('routes no-agent setup without dispatch language', () => {
     const onOpenAgentSetup = vi.fn()
     renderModal(vi.fn(), { agents: [], onOpenAgentSetup })
@@ -247,6 +337,7 @@ describe('TaskFormModal', () => {
     ).toBeDefined()
     expect(screen.getByText(/to start it sooner, open Agents/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    openTaskOptions()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.getByTestId('task-submit-preview')).toHaveTextContent(
       'After you save, the task waits here until an agent is ready.'
@@ -275,7 +366,7 @@ describe('TaskFormModal', () => {
     expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
     expect(
       screen.getByText(
-        'Create a project and set up where tasks wait first. Then this task can wait here until an agent is ready. To fix agent setup now, open Agents.'
+        'Create a project and set up a task queue first. Then this task can wait here until an agent is ready. To fix agent setup now, open Agents.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Save the task now/i)).toBeNull()
@@ -348,6 +439,7 @@ describe('TaskFormModal', () => {
     expect(screen.getByText(/to start it sooner, open Agents/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /save task to wait/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    openTaskOptions()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
     expect(screen.getByRole('option', { name: /let the next ready agent start it/i })).toBeDefined()
@@ -364,16 +456,46 @@ describe('TaskFormModal', () => {
     expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('explains a ready waiting place without internal checking language', () => {
+  test('does not count chat-only agents as ready for Tasks', () => {
+    const onOpenAgentSetup = vi.fn()
+    renderModal(vi.fn(), {
+      agents: [{ id: 'agent-1', name: 'Chat Helper', status: 'available', capabilities: [] }],
+      onOpenAgentSetup,
+    })
+
+    expect(screen.getByText('Create a task-ready agent before this task can start')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Simple chat agents answer questions in Chat. For Tasks, open Agents and create or start a Project files or This computer agent.'
+      )
+    ).toBeDefined()
+    openTaskOptions()
+    expect(screen.getByText(/0 ready/i)).toBeDefined()
+    expect(
+      screen.getByRole('option', {
+        name: 'Chat Helper (chat only - cannot take Tasks)',
+      })
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
+    expect(screen.queryByText('1 ready')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
+
+    expect(onOpenAgentSetup).toHaveBeenCalledTimes(1)
+  })
+
+  test('explains a ready task queue without internal checking language', () => {
     renderModal()
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      'New tasks will wait in Starter waiting place until a ready agent starts them.'
+      'New tasks will wait in Starter task queue until a ready agent starts them.'
     )
+    openTaskOptions()
     expect(screen.getByText(/1 ready/i)).toBeDefined()
     expect(
-      screen.getByText(/Leave automatic selection on when any ready agent can do the work/i)
+      screen.getByText(/Use the next ready agent when any ready agent can do the work/i)
     ).toBeDefined()
+    expect(screen.queryByText(/automatic selection/i)).toBeNull()
     expect(screen.queryByText(/Keep this choice when any available agent/i)).toBeNull()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain('is ready')
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain(
@@ -383,7 +505,7 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
-  test('explains where tasks wait before creating work', async () => {
+  test('explains the task queue needed before creating work', async () => {
     const openTaskRouting = vi.fn()
     const { onSubmit } = renderModal(vi.fn(), {
       selectedTaskGroupId: null,
@@ -392,13 +514,14 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByTestId('task-work-lane-readiness')).toHaveTextContent(
-      /Set up where tasks wait before creating this task/i
+      /Set up a task queue before creating this task/i
     )
-    expect(screen.getByText(/Create one place for new work to wait/i)).toBeDefined()
+    expect(screen.getByText(/Create one place for new tasks to wait/i)).toBeDefined()
+    expect(screen.queryByText(/Create one place for new work to wait/i)).toBeNull()
     const readiness = screen.getByTestId('task-work-lane-readiness')
     expect(readiness).toHaveTextContent('Open Agents.')
     expect(readiness).toHaveTextContent('Choose this project: Starter Project.')
-    expect(readiness).toHaveTextContent('Create one waiting place for new tasks.')
+    expect(readiness).toHaveTextContent('Create one task queue for new tasks.')
     expect(readiness).toHaveTextContent(
       'Come back here. Success looks like this card saying Task can be created.'
     )
@@ -409,7 +532,7 @@ describe('TaskFormModal', () => {
       /Open task queues before creating this task/i
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /set up where tasks wait/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up task queue/i }))
 
     expect(openTaskRouting).toHaveBeenCalled()
 
@@ -420,8 +543,8 @@ describe('TaskFormModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Set up where tasks wait before saving this task.')
-    fireEvent.click(screen.getAllByRole('button', { name: /set up where tasks wait/i }).at(-1)!)
+    expect(alert).toHaveTextContent('Set up a task queue before saving this task.')
+    fireEvent.click(screen.getAllByRole('button', { name: /set up task queue/i }).at(-1)!)
 
     expect(openTaskRouting).toHaveBeenCalledTimes(2)
     expect(onSubmit).not.toHaveBeenCalled()
@@ -436,6 +559,7 @@ describe('TaskFormModal', () => {
       ],
     })
 
+    openTaskOptions()
     const readyOption = screen.getByRole('option', {
       name: 'Ready Agent (ready)',
     }) as HTMLOptionElement
@@ -470,6 +594,7 @@ describe('TaskFormModal', () => {
         value: 'Where to work:\n- src/app/features/board\n\nDone when:\n- Task form test passes',
       },
     })
+    openTaskOptions()
     fireEvent.change(screen.getByLabelText(/who should start it/i), {
       target: { value: 'agent-2' },
     })
@@ -480,7 +605,7 @@ describe('TaskFormModal', () => {
     expect(alert).toHaveTextContent(
       'Choose a ready agent, or leave this set to Let the next ready agent start it.'
     )
-    expect(screen.getByLabelText(/who should start it/i)).toHaveFocus()
+    await waitFor(() => expect(screen.getByLabelText(/who should start it/i)).toHaveFocus())
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
@@ -590,9 +715,11 @@ describe('TaskFormModal', () => {
     const confirmation = await screen.findByTestId('task-brief-confirmation')
     expect(confirmation).toHaveTextContent('Add missing details before this task starts.')
     expect(confirmation).toHaveTextContent('Missing: where to work and done when')
+    expect(confirmation).toHaveTextContent('Best next step: add where to work and done when.')
     expect(confirmation).toHaveTextContent(
-      'You can still choose Create task anyway, but the agent may need to ask what to check or where to work.'
+      'If you choose Create task anyway, the agent may pause to ask follow-up questions.'
     )
+    expect(confirmation).not.toHaveTextContent('may need to ask what to check or where to work')
     expect(confirmation).not.toHaveTextContent('This task may be hard for an agent to finish.')
     expect(screen.getByRole('button', { name: /^create task anyway$/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^create anyway$/i })).toBeNull()
@@ -619,9 +746,11 @@ describe('TaskFormModal', () => {
     expect(onClose).not.toHaveBeenCalled()
     const confirmation = await screen.findByTestId('task-brief-confirmation')
     expect(confirmation).toHaveTextContent('Add missing details before this task starts.')
+    expect(confirmation).toHaveTextContent('Best next step: add where to work and done when.')
     expect(confirmation).toHaveTextContent(
-      'You can still choose Save task anyway, but the agent may need to ask what to check or where to work.'
+      'If you choose Save task anyway, the agent may pause to ask follow-up questions.'
     )
+    expect(confirmation).not.toHaveTextContent('may need to ask what to check or where to work')
     expect(confirmation).not.toHaveTextContent('This task may be hard for an agent to finish.')
     expect(screen.getByRole('button', { name: /^save task anyway$/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^create task anyway$/i })).toBeNull()
@@ -728,7 +857,7 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Select the project again to find where tasks wait. If it still does not load, open the Tasks page again or ask an owner to check where tasks wait in this project.'
+        'Select the project again to find the task queue. If it still does not load, open the Tasks page again or ask an owner to check the task queue in this project.'
       )
     )
     const alert = screen.getByRole('alert')
@@ -752,7 +881,7 @@ describe('TaskFormModal', () => {
     const readiness = screen.getByTestId('task-work-lane-readiness')
     expect(readiness).toHaveTextContent('Checking where new tasks will wait')
     expect(readiness).toHaveTextContent(
-      'Wait a moment while Forge finds where new tasks wait for this project.'
+      'Wait a moment while Forge finds the task queue for this project.'
     )
     expect(readiness).not.toHaveTextContent('Create a Task Queue First')
     expect(readiness).not.toHaveTextContent('Loading this project')

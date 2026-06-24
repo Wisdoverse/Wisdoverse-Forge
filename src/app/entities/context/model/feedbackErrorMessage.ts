@@ -1,19 +1,27 @@
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
 const FEEDBACK_RETRY_STEP = 'choose the feedback option again'
 const FEEDBACK_OPTION_STEP =
   'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item'
 const FEEDBACK_PERMISSION_MESSAGE = `Ask an owner or admin to give you access to this saved item, then ${FEEDBACK_RETRY_STEP}. You do not have permission to save feedback for this saved item.`
+const FEEDBACK_SERVICE_MESSAGE = `Open task details again, then ${FEEDBACK_RETRY_STEP}. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.`
 
 export function feedbackErrorMessage(error?: unknown): string {
   const status = statusFromError(error)
+  const raw = rawDetail(error)
+  const serviceDetail = raw ? RAW_SERVICE_DETAIL.test(raw) : false
   const detail = status === null || status === 400 || status === 422 ? safeDetail(error) : null
 
   if (detail?.toLowerCase().includes('role required')) {
     return FEEDBACK_PERMISSION_MESSAGE
   }
   if (!status) {
+    if (serviceDetail) {
+      return FEEDBACK_SERVICE_MESSAGE
+    }
     if (detail) {
       return validationMessage(detail)
     }
@@ -39,7 +47,7 @@ export function feedbackErrorMessage(error?: unknown): string {
     return `Wait a moment, then ${FEEDBACK_RETRY_STEP}. Feedback is busy.`
   }
   if (status >= 500) {
-    return `Open task details again, then ${FEEDBACK_RETRY_STEP}. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.`
+    return FEEDBACK_SERVICE_MESSAGE
   }
 
   return `Open task details again, then ${FEEDBACK_RETRY_STEP}. Feedback could not be saved.`

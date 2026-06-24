@@ -171,10 +171,29 @@ function agentErrorDetail(error: unknown): string | null {
 
 function agentErrorStatus(error: unknown): number | null {
   if (error && typeof error === 'object') {
-    const value = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    const value = error as {
+      status?: unknown
+      statusCode?: unknown
+      code?: unknown
+      error?: { code?: unknown }
+    }
     for (const candidate of [value.status, value.statusCode, value.code]) {
       const status = numericStatus(candidate)
       if (status) return status
+    }
+    const nestedCode = typeof value.error?.code === 'string' ? value.error.code : ''
+    if (nestedCode) {
+      const codeStatus: Record<string, number> = {
+        VALIDATION_ERROR: 400,
+        UNAUTHORIZED: 401,
+        FORBIDDEN: 403,
+        NOT_FOUND: 404,
+        CONFLICT: 409,
+        UNPROCESSABLE_ENTITY: 422,
+        SERVICE_UNAVAILABLE: 503,
+        INTERNAL_ERROR: 500,
+      }
+      return codeStatus[nestedCode] ?? null
     }
   }
 
@@ -219,6 +238,9 @@ function agentConnectionMessage(actionPhrase: string, action: AgentErrorAction):
   if (action === 'enrollLocal') {
     return 'Check your connection, then choose New agent again. Forge could not prepare the setup text for this computer.'
   }
+  if (action === 'create') {
+    return 'Check your connection, then open Agents and choose New agent again. Forge could not create the agent.'
+  }
   if (action === 'load') {
     return 'Check your connection, then open Agents again to load agents.'
   }
@@ -252,8 +274,11 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
     if (action === 'load') {
       return 'Open Agents again to load agents. This agent could not be found.'
     }
-    if (action === 'create' || action === 'enrollLocal') {
-      return 'Open Agents and choose New agent again. This agent could not be found.'
+    if (action === 'create') {
+      return 'Open Agents, choose the current project, then choose New agent again. The project or team space changed while creating this agent.'
+    }
+    if (action === 'enrollLocal') {
+      return 'Open Agents, choose the current project, then choose New agent again. The project or team space changed before this computer setup was ready.'
     }
     return `Open Agents, choose this agent, then ${agentRetryAction(action)}. This agent could not be found.`
   }
@@ -290,10 +315,22 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
     if (normalized.includes('workspace') || normalized.includes('project')) {
       return 'Choose a team space and project you can access, then choose Add agent again.'
     }
+    if (
+      normalized.includes('runtime') ||
+      normalized.includes('docker') ||
+      normalized.includes('container') ||
+      normalized.includes('image')
+    ) {
+      return agentRuntimeRecoveryMessage(detail)
+    }
+    return 'Check the name, where this agent should work, and any required service or project, then choose Add agent again.'
   }
 
   if (action === 'enrollLocal') {
-    return 'Check the agent name, work tool, and project access, then choose New agent again.'
+    if (normalized.includes('workspace') || normalized.includes('project')) {
+      return 'Choose a project you can access, then choose Add agent again. This computer agents still need a project so Tasks and history have a place to save.'
+    }
+    return 'Check the agent name, agent type, and project, then choose New agent again.'
   }
   if (action === 'sendPrompt') {
     return 'Write one clear instruction and make sure the agent is not already working, then send again.'
@@ -305,7 +342,7 @@ function agentValidationMessage(action: AgentErrorAction, detail: string | null)
     return agentRuntimeRecoveryMessage(detail)
   }
 
-  return `Check the agent details, open Agents and choose this agent again, then ${agentRetryAction(action)}.`
+  return `Open Agents, choose this agent, check its status and access, then ${agentRetryAction(action)}.`
 }
 
 function agentConflictMessage(action: AgentErrorAction, detail: string | null): string {
@@ -327,13 +364,13 @@ function agentServerMessage(action: AgentErrorAction): string {
     return 'Open Agents again to load agents. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'create') {
-    return 'Wait a moment, then open Agents and choose New agent again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    return 'Wait a moment, then open Agents and choose New agent again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'start') {
-    return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    return 'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   if (action === 'restart') {
-    return 'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    return 'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
   }
   return `${agentRetryFromAgents(action)}. If it still fails, ask an owner or admin to check Where agents work in Settings.`
 }
@@ -341,16 +378,16 @@ function agentServerMessage(action: AgentErrorAction): string {
 function agentRuntimeRecoveryMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the agent card. File work is not ready.'
+    return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the agent card. Project files are not ready.'
   }
-  return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the agent card. File work is not ready.'
+  return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the agent card. Project files are not ready.'
 }
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
-    return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet. It will stay in the list.'
+    return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but project files are not ready yet. It will stay in the list.'
   }
   if (
     normalized.includes('runtime') ||
@@ -359,7 +396,7 @@ function agentCreatedStartFailureMessage(error?: unknown): string {
   ) {
     return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but it could not start yet. It will stay in the list.'
   }
-  return 'Open Agents, then start this agent from the card after file work is ready. Agent was created, but it could not start yet. It will stay in the list.'
+  return 'Open Agents, then start this agent from the card after project files are ready. Agent was created, but it could not start yet. It will stay in the list.'
 }
 
 function mapManagedAgentStatus(status: string): AgentStatus {
@@ -458,7 +495,7 @@ export function managedToAgentInfo(agent: ManagedAgent): AgentInfo {
       aiServiceLabel(nonBlankLabel(agent.provider)) ??
       cliToolToProvider(agent.cliTool) ??
       'Check AI service',
-    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Check AI model',
+    model: nonBlankLabel(agent.model) ?? cliToolLabel(agent.cliTool) ?? 'Check AI service choice',
     status: mapManagedAgentStatus(agent.status),
     tasksCompleted: 0,
     tasksInProgress: 0,

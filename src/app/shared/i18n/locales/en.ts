@@ -86,7 +86,7 @@ export const en = {
     eyebrow: 'Setup checklist',
     title: 'Set up your first agent safely',
     description:
-      'Follow one step at a time. Finish this checklist to create an agent, send work, and check the result.',
+      'Follow one step at a time. Finish this checklist to create an agent, send a task, and check the result.',
     skip: 'Skip and open Tasks',
     skipSaving: 'Skipping...',
     skipHint:
@@ -103,10 +103,12 @@ export const en = {
     currentProject: 'Current project',
     noProject: 'Open project settings to create or choose a project.',
     projects: 'Projects',
+    completedStepsTitle: 'Already done',
+    laterStepsTitle: 'Coming next',
     workLocations: {
       managed: 'the Project files option',
       local: 'this computer',
-      textOnly: 'chat-only work',
+      textOnly: 'simple chat',
       ready: 'a work location',
     },
     stepStatus: {
@@ -126,7 +128,7 @@ export const en = {
       runtime: {
         title: 'Work location',
         empty: 'Choose where agents should work: Project files or this computer.',
-        ready: '{{location}} is ready for agent work.',
+        ready: '{{location}} is ready.',
         why: 'Agents need a safe place to run before they can receive tasks.',
         success: 'At least one work location is ready for agent work.',
         open: 'Choose work location',
@@ -135,42 +137,42 @@ export const en = {
       provider: {
         title: 'Give agents a way to work',
         empty:
-          'Choose one way to let agents work: add an AI service for chat answers, or open work tool sign-in for Codex before file work.',
+          'Choose one way to let agents work: add an AI service for chat answers, or open file-change tool sign-in for Codex or another tool before Tasks need project files.',
         needsTest: 'Check the AI service before giving agents work.',
         cliReady: '{{name}} is ready to run work from {{location}}.',
-        why: 'Agents need one ready option: a checked AI service for chat answers, or a signed-in work tool plus an agent for hands-on file work.',
+        why: 'Agents need one ready option: a checked AI service for chat answers, or a signed-in file-change tool plus an agent that can change project files.',
         success:
-          'One ready option exists: a checked AI service or an agent that can open file work.',
+          'One ready option exists: a checked AI service or an agent that can change project files.',
         create: 'Add AI service',
-        signInTool: 'Open work tool sign-in',
+        signInTool: 'Open file-change tool sign-in',
         test: 'Check AI service',
         reviewProviders: 'Check AI services',
         reviewAgents: 'Open agents',
       },
       agent: {
         title: 'Agent',
-        empty: 'Create one simple agent: chat-only, Project files, or this computer.',
+        empty: 'Create one simple agent: Simple chat agent, Project files, or this computer.',
         why: 'Agents receive tasks and return results. Start with one simple agent.',
         success: 'At least one agent appears in the Agents page.',
         create: 'Add agent',
         review: 'Open agents',
       },
       routing: {
-        title: 'Where tasks wait',
-        emptyWithProject: 'Set up where tasks wait for this project.',
-        emptyWithoutProject: 'Select a project, then set up where tasks wait.',
+        title: 'Task queue',
+        emptyWithProject: 'Set up a task queue for this project.',
+        emptyWithoutProject: 'Select a project, then set up a task queue.',
         why: 'This gives new work a place to wait until the next available agent starts it.',
-        success: 'A waiting place exists for the selected project.',
-        create: 'Set up waiting place',
-        review: 'Check waiting places',
+        success: 'A task queue exists for the selected project.',
+        create: 'Set up task queue',
+        review: 'Check task queues',
       },
       task: {
         title: 'First task',
         emptyWithRouting:
-          'Write one small task. Forge puts it where tasks wait until the next available agent starts it.',
-        emptyWithoutRouting: 'Set up where tasks wait before the first task.',
+          'Write one small task. Forge puts it in the task queue until the next available agent starts it.',
+        emptyWithoutRouting: 'Set up a task queue before the first task.',
         emptyWithoutProject:
-          'Create or choose a project, then set up where tasks wait before the first task.',
+          'Create or choose a project, then set up a task queue before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
         success: 'The task appears on the board, either waiting for an agent or already has one.',
@@ -204,9 +206,9 @@ export const en = {
   commandPalette: {
     title: 'Find what you need',
     inputLabel: 'Search pages and things to do',
-    placeholder: 'Search what you want to do, e.g. send work, add agent, sign in',
+    placeholder: 'Search what you want to do, e.g. send a task, add agent, sign in',
     discovery: {
-      tasks: 'Write one small task when you want work done.',
+      tasks: 'Write one small task when you want an agent to do something.',
       inbox: 'Check updates that need a person before you keep working.',
       settings: 'Fix setup blockers for agents, sign-ins, projects, and access.',
     },
@@ -214,6 +216,11 @@ export const en = {
       navigation: 'Go to a page',
       actions: 'Create or change something',
       views: 'Change task view',
+    },
+    setupActions: {
+      show: 'More setup actions',
+      hide: 'Fewer setup actions',
+      description: 'Show sign-ins, projects, teams, and other setup pages.',
     },
     empty: {
       title: 'No page or option matches that search',
@@ -245,7 +252,7 @@ export const en = {
         },
         agents: {
           label: 'Agents',
-          description: 'Create or check agents that handle work.',
+          description: 'Create or check agents for tasks or chat.',
         },
         skills: {
           label: 'Saved instructions',
@@ -262,12 +269,12 @@ export const en = {
           description: 'Tell an agent the result you want and how to check it.',
         },
         workToolSignIns: {
-          label: 'Codex sign-in',
-          description: 'Sign in before agents edit files with Codex or another work tool.',
+          label: 'File-change tool sign-in',
+          description: 'Sign in before agents edit project files with Codex or another tool.',
         },
         keys: {
-          label: 'Outside tool access',
-          description: 'Let trusted outside tools connect to Forge without a person signing in.',
+          label: 'Tool access keys',
+          description: 'Create keys for trusted tools that need to connect to Forge.',
         },
         gitCredentials: {
           label: 'HTTPS code access',
@@ -279,7 +286,8 @@ export const en = {
         },
         resources: {
           label: 'Agent size limits',
-          description: 'Choose small, standard, or large limits before agents start file work.',
+          description:
+            'Choose small, standard, or large limits before agents change project files.',
         },
         projects: {
           label: 'Projects',
@@ -343,9 +351,9 @@ export const en = {
         description: 'Pick a project first, then write the task for an agent.',
       },
       noWaitingPlace: {
-        label: 'Set up where tasks wait',
-        buttonLabel: 'Set up waiting place',
-        description: 'Open Agents to add a waiting place before creating a task.',
+        label: 'Set up task queue',
+        buttonLabel: 'Set up task queue',
+        description: 'Open Agents to add a task queue before creating a task.',
       },
       ready: {
         label: 'New task',
@@ -382,7 +390,7 @@ export const en = {
       },
       agents: {
         title: 'Agents',
-        subtitle: 'Create and manage agents that handle tasks',
+        subtitle: 'Create agents for tasks or simple chat',
       },
       skills: {
         title: 'Saved instructions',
@@ -525,26 +533,26 @@ export const en = {
   },
 
   // =========================================================================
-  // Where tasks wait
+  // Task queues
   // =========================================================================
   groups: {
-    title: 'Where tasks wait',
-    newGroup: 'New waiting place',
-    createGroup: 'Create waiting place',
-    editGroup: 'Edit waiting place',
-    deleteGroup: 'Delete waiting place',
-    noGroups: 'Create a waiting place so new tasks have a place to wait for agents.',
-    groupName: 'Waiting place name',
-    groupColor: 'Waiting place color',
-    addToGroup: 'Add to waiting place',
-    removeFromGroup: 'Remove from waiting place',
-    moveToGroup: 'Move to waiting place',
-    ungrouped: 'Set a waiting place before sending',
+    title: 'Task queue',
+    newGroup: 'New task queue',
+    createGroup: 'Create task queue',
+    editGroup: 'Edit task queue',
+    deleteGroup: 'Delete task queue',
+    noGroups: 'Create a task queue so new tasks have a place to wait for agents.',
+    groupName: 'Task queue name',
+    groupColor: 'Task queue color',
+    addToGroup: 'Add to task queue',
+    removeFromGroup: 'Remove from task queue',
+    moveToGroup: 'Move to task queue',
+    ungrouped: 'Choose a task queue before sending',
     confirmDelete:
-      'Delete this waiting place? Agents stay available, but tasks need another waiting place before they can be sent.',
-    groupCreated: 'Waiting place created',
-    groupDeleted: 'Waiting place deleted',
-    groupUpdated: 'Waiting place updated',
+      'Delete this task queue? Agents stay available, but tasks need another task queue before they can be sent.',
+    groupCreated: 'Task queue created',
+    groupDeleted: 'Task queue deleted',
+    groupUpdated: 'Task queue updated',
   },
 
   // =========================================================================
@@ -569,7 +577,7 @@ export const en = {
       Read: 'Opened a file',
       Write: 'Created a file',
       Edit: 'Changed a file',
-      Bash: 'Ran a command',
+      Bash: 'Ran a work step',
       Glob: 'Found files',
       Grep: 'Searched file text',
       WebFetch: 'Opened a web page',
@@ -679,17 +687,18 @@ export const en = {
         'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
-        'Choose Project files for the simplest shared file work. Choose This computer only when this machine should join as an agent that Forge can manage here.',
+        'Choose Project files for the simplest shared project changes. Choose This computer only when this machine should join as an agent that Forge can manage here.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
-        'Claude Code, Codex, Gemini, or OpenCode when an agent edits files or runs commands',
+        'Claude Code, Codex, Gemini, or OpenCode when an agent changes project files or runs checks',
       availableRuntimesLabel: 'Places that can open project files',
       availableRuntimesDescription: 'Places where agents can open project files',
       availableContainerClisLabel: 'Work tools agents can use',
-      availableContainerClisDescription: 'Installed tools for file edits, commands, and live work',
+      availableContainerClisDescription:
+        'Installed tools for changing project files, running checks, and showing live progress',
       runtimeLabels: {
         cli: 'This computer',
-        api: 'Chat-only AI service',
+        api: 'Simple chat agent',
         container: 'Project files',
       },
       cliToolLabels: {
@@ -778,25 +787,25 @@ export const en = {
         restart_api: {
           title: 'Send the message again instead of restarting',
           detail:
-            'This chat-only agent replies through an AI service. Send the message again to try a fresh reply.',
+            'This simple chat agent replies through an AI service. Send the message again to try a fresh reply.',
         },
         start_host_cli: {
           title: 'Start the connection helper on your computer',
           detail: 'Paste the setup text on that computer again to bring the agent online.',
         },
         start_api: {
-          title: 'Send a message to start this chat-only agent',
+          title: 'Send a message to start this simple chat agent',
           detail:
-            'Chat-only agents start work when you send a message. There is no file work area to start.',
+            'Simple chat agents start when you send a message. You do not need to start project files or work tools.',
         },
         stop_host_cli: {
           title: 'Stop the connection helper on your computer',
-          detail: 'Forge cannot stop it for you. Close Terminal or PowerShell on that computer.',
+          detail: 'Forge cannot stop it for you. Close the setup window on that computer.',
         },
         stop_api: {
           title: 'Close the chat or wait for the reply to finish',
           detail:
-            'Chat-only agents have no file work area to stop. Send a new message when you need more help.',
+            'Close the chat or wait for the reply to finish. Send a new message when you need more help.',
         },
         not_permitted: {
           title: 'You cannot manage this agent',
@@ -810,7 +819,7 @@ export const en = {
             'Agents that edit project files need a work tool: Claude Code, Codex, Gemini, or OpenCode.',
         },
         api_cannot_have_cli_tool: {
-          title: 'Chat-only agent cannot have a work tool',
+          title: 'Simple chat agent cannot have a work tool',
           detail: 'Remove the work tool, or change the work location to "Project files".',
         },
         missing_cli_tool_for_host_cli: {

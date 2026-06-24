@@ -12,7 +12,7 @@ import { useContextFeaturesStore } from '@app/shared/model/context-features.stor
 import { useSettingsStore } from '@app/shared/model/settings.store'
 import { useWsDispatch } from '@app/hooks/useWsDispatch'
 import { useAuth } from '@app/shared/model/auth.context'
-import { buildResetPasswordLoginHref, getResetTokenFromLocation } from './public-auth'
+import { buildResetPasswordLoginHref, getResetTokenFromLocation } from '@app/shared/lib/publicAuth'
 
 export function AuthShellLoadingState() {
   return (
@@ -62,6 +62,24 @@ export function AuthShellLoadingState() {
           We are making sure you are signed in before opening your team space. If this takes more
           than a moment, open the sign-in page and sign in again.
         </p>
+        <a
+          href="/login"
+          style={{
+            display: 'inline-flex',
+            marginTop: '16px',
+            minHeight: '36px',
+            alignItems: 'center',
+            borderRadius: '8px',
+            background: '#0a84ff',
+            color: '#ffffff',
+            fontSize: '14px',
+            fontWeight: 700,
+            padding: '0 14px',
+            textDecoration: 'none',
+          }}
+        >
+          Open sign-in page
+        </a>
       </div>
     </div>
   )

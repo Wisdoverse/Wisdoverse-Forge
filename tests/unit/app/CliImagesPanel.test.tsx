@@ -112,6 +112,7 @@ describe('CliImagesPanel', () => {
     expect(screen.getByText(/Latest check: No update needed/i)).toBeDefined()
     expect(screen.queryByText(/aaaaaaaaaaaa/i)).toBeNull()
     expect(screen.queryByText(/package ID/i)).toBeNull()
+    expect(screen.queryByText(/\bpackage/i)).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
     // failed tool shows a safe next step instead of raw updater text
     expect(screen.getByText('Choose Check now')).toBeDefined()
@@ -121,14 +122,16 @@ describe('CliImagesPanel', () => {
     ).toBeDefined()
     expect(screen.getByText(/Latest check: Choose Check now to check for updates/i)).toBeDefined()
     expect(screen.getByText(/What to do:/i)).toBeDefined()
-    expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
+    expect(screen.getByText(/could not reach the tool update source/i)).toBeDefined()
     expect(screen.queryByText(/registry timeout/i)).toBeNull()
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
     expect(screen.getByText('2 agents are currently using this tool')).toBeDefined()
     expect(
       screen.getByText(/only estimates how many running agents a restart may touch/i)
     ).toBeDefined()
-    expect(screen.getByText(/open Agents to confirm each affected agent shows Ready/i)).toBeDefined()
+    expect(
+      screen.getByText(/open Agents to confirm each affected agent shows Ready/i)
+    ).toBeDefined()
     expect(screen.queryByText(/rough hint/i)).toBeNull()
     expect(screen.queryByText(/exact package/i)).toBeNull()
   })
@@ -148,7 +151,7 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     await waitFor(() => expect(loadCliImages).toHaveBeenCalledOnce())
-    expect(screen.getByText(/check tool package access in Admin/i)).toBeDefined()
+    expect(screen.getByText(/check tool update access in Admin/i)).toBeDefined()
     expect(screen.queryByText(/owner role required/i)).toBeNull()
   })
 
@@ -226,8 +229,8 @@ describe('CliImagesPanel', () => {
     })
 
     render(<CliImagesPanel />)
-    expect(screen.getByText('Old tool package cleanup')).toBeDefined()
-    expect(screen.getByText(/3 old packages removed/)).toBeDefined()
+    expect(screen.getByText('Old tool cleanup')).toBeDefined()
+    expect(screen.getByText(/3 old tool copies removed/)).toBeDefined()
     expect(screen.getByText(/1 kept because agents use them/)).toBeDefined()
     expect(screen.queryByText(/1 still in use/)).toBeNull()
   })
@@ -254,12 +257,12 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
 
-    expect(screen.getByText(/The last cleanup needs a check for 1 package/i)).toBeDefined()
+    expect(screen.getByText(/The last cleanup needs a check for 1 copy/i)).toBeDefined()
     expect(screen.getByText(/1 need a check/i)).toBeDefined()
     expect(screen.queryByText(/hit 1 error/i)).toBeNull()
-    expect(screen.getByText(/check tool package access in Admin/i)).toBeDefined()
+    expect(screen.getByText(/check tool update access in Admin/i)).toBeDefined()
     expect(screen.getByText(/can block agent tool updates/i)).toBeDefined()
-    expect(screen.queryByText(/tool package access needs setup/i)).toBeNull()
+    expect(screen.queryByText(/tool update access needs setup/i)).toBeNull()
     expect(screen.queryByText(/tool updater reported/i)).toBeNull()
     expect(screen.queryByText(/\/var\/lib\/docker/i)).toBeNull()
     expect(screen.queryByText(/overlay2/i)).toBeNull()
@@ -304,7 +307,7 @@ describe('CliImagesPanel', () => {
 
     render(<CliImagesPanel />)
     expect(screen.getByText(/ask an owner or admin to turn on automatic cleanup/i)).toBeDefined()
-    expect(screen.getByText(/old tool packages in Admin settings/i)).toBeDefined()
+    expect(screen.getByText(/automatic cleanup in Admin settings/i)).toBeDefined()
     expect(screen.queryByText(/CLI_IMAGE_PRUNE_ENABLED/)).toBeNull()
     expect(screen.queryByText(/deployment settings/i)).toBeNull()
   })
@@ -589,7 +592,7 @@ describe('CliImagesPanel', () => {
     expect(screen.getByRole('button', { name: 'Preparing…' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /Prepare v/ })).toBeNull()
     expect(screen.queryByText(/building on this server/i)).toBeNull()
-    expect(screen.getByText(/Forge is preparing this tool package/i)).toBeDefined()
+    expect(screen.getByText(/Forge is preparing this agent tool/i)).toBeDefined()
     expect(screen.getByText(/usually a few minutes/i)).toBeDefined()
   })
 
@@ -674,7 +677,7 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
 
     expect(screen.getByText(/What to do:/)).toBeDefined()
-    expect(screen.getByText(/could not reach the tool package source/i)).toBeDefined()
+    expect(screen.getByText(/could not reach the tool update source/i)).toBeDefined()
     expect(screen.queryByText(/npm registry timeout/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Prepare latest' })).toBeDefined()
   })

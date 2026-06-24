@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   MessageSquareText,
   Play,
   RotateCcw,
@@ -9,12 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import {
-  isHostCliAgent,
-  LOCAL_AGENT_SETUP_APP_LABEL,
-  useAgentsStore,
-  type AgentInfo,
-} from '@app/entities/agent'
+import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
 const LOCAL_AGENT_CONTROL_FAILURE = {
   sendInstruction: 'local-send-instruction-failed',
@@ -42,10 +39,12 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [messageComposerOpen, setMessageComposerOpen] = useState(false)
   const promptHelpId = 'agent-control-prompt-help'
   const promptErrorId = 'agent-control-prompt-error'
 
   const hostCli = isHostCliAgent(agent)
+  const chatOnlyAgent = !agent.cliTool && !hostCli
   const canStartContainer = Boolean(agent.cliTool && !agent.containerId && !hostCli)
   const canRestartContainer = Boolean(agent.cliTool && agent.containerId && !hostCli)
   const messageInputId = `agent-message-${agent.id}`
@@ -60,6 +59,14 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const controlError = error ?? localActionError
   const messageAvailability = getMessageAvailability(agent, { canStartContainer, hostCli })
   const messageDisabled = sending || !messageAvailability.canSend
+  const showMessageComposer = chatOnlyAgent || messageComposerOpen
+  const MessageComposerDisclosureIcon = messageComposerOpen ? ChevronDown : ChevronRight
+
+  useEffect(() => {
+    setMessageComposerOpen(chatOnlyAgent)
+    setPromptError(null)
+    setPrompt('')
+  }, [agent.id, chatOnlyAgent])
 
   async function handleSendPrompt() {
     if (sending) return
@@ -82,7 +89,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       if (ok) {
         setPrompt('')
         setLocalActionStatus(
-          "Message sent. Watch this agent's history for progress, or create a task next time when you need a tracked result others can find later."
+          chatOnlyAgent
+            ? "Message sent. Watch this agent's history for the answer."
+            : "Message sent. Watch this agent's history for progress, or create a task next time when you need a tracked result others can find later."
         )
       } else {
         setLocalActionStatus(null)
@@ -105,7 +114,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       const ok = await startAgent(agent.id)
       if (ok) {
         setLocalActionStatus(
-          'File work start requested. Go back to Agents, choose this agent again when it shows Ready, then send a message or create a task.'
+          'Project files start requested. Go back to Agents, choose this agent again when it shows Ready, then send a message or create a task.'
         )
       } else {
         setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.startWorkspace)
@@ -178,7 +187,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           <div className="flex flex-col gap-1">
             <span className="font-medium">Action did not finish</span>
             <span>Read the next line, then run the agent action again.</span>
-            <span>{agentControlErrorMessage(controlError)}</span>
+            <span>{agentControlErrorMessage(controlError, { chatOnlyAgent })}</span>
           </div>
         </div>
       )}
@@ -189,80 +198,117 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
           'flex flex-col gap-3'
         )}
       >
-        <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
-            <MessageSquareText size={18} strokeWidth={2} aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <label
-              htmlFor={messageInputId}
-              className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark"
-            >
-              Send a quick message
-            </label>
-            <p
-              id={messageHelpId}
-              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              {messageAvailability.canSend
-                ? 'Use this for a quick question or one small request. For work that needs a clear result, create a task instead.'
-                : messageAvailability.detail}
-            </p>
-          </div>
-        </div>
-        <textarea
-          id={messageInputId}
-          value={prompt}
-          onChange={(e) => {
-            setPrompt(e.target.value)
-            if (promptError) setPromptError(null)
-          }}
-          rows={3}
-          disabled={!messageAvailability.canSend}
-          aria-describedby={`${messageHelpId} ${promptHelpId}${
-            promptError ? ` ${promptErrorId}` : ''
-          }`}
-          className={cn(
-            'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-            !messageAvailability.canSend && 'cursor-not-allowed opacity-60'
-          )}
-          placeholder={messageAvailability.placeholder}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault()
-              if (messageAvailability.canSend) void handleSendPrompt()
-            }
-          }}
-        />
-        {promptError && (
-          <div
-            id={promptErrorId}
-            className="text-ui-caption text-apple-red"
-            role="alert"
-            aria-live="polite"
-          >
-            {promptError}
-          </div>
-        )}
-        <p
-          id={promptHelpId}
-          className="text-ui-caption text-secondary-light dark:text-secondary-dark"
-        >
-          {messageAvailability.help}
-        </p>
-        <div className="flex justify-end">
+        {!chatOnlyAgent && (
           <button
             type="button"
-            onClick={handleSendPrompt}
-            disabled={messageDisabled}
-            className={cn(
-              'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 sm:w-auto',
-              messageDisabled && 'opacity-50 cursor-not-allowed'
-            )}
+            aria-expanded={messageComposerOpen}
+            onClick={() => setMessageComposerOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 text-left"
           >
-            {sending ? 'Sending message...' : 'Send message'}
+            <span className="flex min-w-0 items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
+                <MessageSquareText size={18} strokeWidth={2} aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+                  {messageComposerOpen ? 'Hide quick message' : 'Need a quick message instead?'}
+                </span>
+                <span className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Use Tasks for tracked work. Open this only for a one-off question.
+                </span>
+              </span>
+            </span>
+            <MessageComposerDisclosureIcon
+              size={16}
+              strokeWidth={2.2}
+              className="shrink-0 text-apple-blue"
+              aria-hidden="true"
+            />
           </button>
-        </div>
+        )}
+
+        {showMessageComposer && (
+          <>
+            <div className="flex items-start gap-3">
+              {chatOnlyAgent && (
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
+                  <MessageSquareText size={18} strokeWidth={2} aria-hidden="true" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <label
+                  htmlFor={messageInputId}
+                  className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark"
+                >
+                  Send a quick message
+                </label>
+                <p
+                  id={messageHelpId}
+                  className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                >
+                  {messageAvailability.canSend
+                    ? chatOnlyAgent
+                      ? 'Use this for direct questions and result checks.'
+                      : 'Use this for a quick question or one small request. For work that needs a clear result, create a task instead.'
+                    : messageAvailability.detail}
+                </p>
+              </div>
+            </div>
+            <textarea
+              id={messageInputId}
+              value={prompt}
+              onChange={(e) => {
+                setPrompt(e.target.value)
+                if (promptError) setPromptError(null)
+              }}
+              rows={3}
+              disabled={!messageAvailability.canSend}
+              aria-describedby={`${messageHelpId} ${promptHelpId}${
+                promptError ? ` ${promptErrorId}` : ''
+              }`}
+              className={cn(
+                'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
+                !messageAvailability.canSend && 'cursor-not-allowed opacity-60'
+              )}
+              placeholder={messageAvailability.placeholder}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  if (messageAvailability.canSend) void handleSendPrompt()
+                }
+              }}
+            />
+            {promptError && (
+              <div
+                id={promptErrorId}
+                className="text-ui-caption text-apple-red"
+                role="alert"
+                aria-live="polite"
+              >
+                {promptError}
+              </div>
+            )}
+            <p
+              id={promptHelpId}
+              className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+            >
+              {messageAvailability.help}
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleSendPrompt}
+                disabled={messageDisabled}
+                className={cn(
+                  'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 sm:w-auto',
+                  messageDisabled && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {sending ? 'Sending message...' : 'Send message'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex flex-col gap-4">
@@ -294,8 +340,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               {canStartContainer ? (
                 <ActionCard
                   icon={Play}
-                  title="Start file work"
-                  detail="Use this when file work has not started yet. Wait for Ready before sending file work."
+                  title="Start project files"
+                  detail="Use this when project files have not opened yet. Wait for Ready before sending Tasks or code changes."
                 >
                   <button
                     type="button"
@@ -307,7 +353,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                       starting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
-                    {starting ? 'Starting file work...' : 'Start file work'}
+                    {starting ? 'Starting project files...' : 'Start project files'}
                   </button>
                 </ActionCard>
               ) : confirmRestart ? (
@@ -324,7 +370,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               ) : (
                 <ActionCard
                   icon={RotateCcw}
-                  title="Fix stuck file work"
+                  title="Fix stuck project files"
                   detail="Restart only after checking Tasks or Live work and seeing no new progress."
                 >
                   <button
@@ -390,15 +436,15 @@ function getControlSummary(
 ): { title: string; detail: string; Icon: LucideIcon } {
   if (canStartContainer) {
     return {
-      title: 'File work needs to start',
-      detail: 'Start file work before sending file tasks or opening Live work.',
+      title: 'Project files need to start',
+      detail: 'Start project files before sending Tasks or opening Live work.',
       Icon: Play,
     }
   }
 
   if (canRestartContainer) {
     return {
-      title: 'Agent file-work controls',
+      title: 'Project files controls',
       detail: 'Most agents do not need manual recovery. Restart only when progress has stopped.',
       Icon: RotateCcw,
     }
@@ -411,7 +457,8 @@ function getControlSummary(
   if (agent.cliTool) {
     return {
       title: 'Agent controls',
-      detail: 'File work looks ready. Use messages for quick help and Tasks for tracked work.',
+      detail:
+        'Project files are ready. Use messages for quick help and Tasks when work needs a result others can find later.',
       Icon: CheckCircle2,
     }
   }
@@ -425,9 +472,9 @@ function getControlSummary(
   }
 
   return {
-    title: 'Chat-only AI service controls',
+    title: 'Simple chat agent controls',
     detail:
-      'This agent replies through its AI service. Use messages for quick help and Tasks for tracked work.',
+      'This agent replies through its AI service. Use messages for direct questions and result checks.',
     Icon: CheckCircle2,
   }
 }
@@ -444,7 +491,7 @@ function getReadyActionInfo(
     return {
       title: 'Ready for messages and tasks',
       detail:
-        'Send a quick message here, or create a Task when you need file work with a clear result.',
+        'Send a quick message here, or create a Task when you need changes, checks, or a clear result.',
     }
   }
 
@@ -456,9 +503,9 @@ function getReadyActionInfo(
   }
 
   return {
-    title: 'Ready for chat and tracked tasks',
+    title: 'Ready for direct chat',
     detail:
-      'Send a quick message here, or create a Task when you need a question answered, writing help, or a result check with a clear outcome.',
+      'Send a quick message here when you need a question answered, writing help, or a result check.',
   }
 }
 
@@ -476,13 +523,22 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'Start file work first. When this agent shows Ready, you can send a message or create a task.',
-      placeholder: 'Start file work before sending a message.',
-      help: 'Use Start file work, wait for Ready, then send a message here.',
+        'Start project files first. When this agent shows Ready, you can send a message or create a task.',
+      placeholder: 'Start project files before sending a message.',
+      help: 'Use Start project files, wait for Ready, then send a message here.',
     }
   }
 
   if (agent.status !== 'offline') {
+    if (!agent.cliTool) {
+      return {
+        canSend: true,
+        detail: '',
+        placeholder: 'Example: Summarize this result and tell me the next safe step.',
+        help: "Send one concrete message, then watch this agent's history for the answer.",
+      }
+    }
+
     return {
       canSend: true,
       detail: '',
@@ -505,10 +561,10 @@ function getMessageAvailability(
     return {
       canSend: false,
       detail:
-        'File work is not connected. Go back to Agents and choose this agent again, or start file work before sending a message.',
+        'Project files are not connected. Go back to Agents and choose this agent again, or start project files before sending a message.',
       placeholder:
-        'Start file work or open Agents and choose this agent again before sending a message.',
-      help: 'Go back to Agents and choose this agent again, or start file work, then wait for Ready before sending a message here.',
+        'Start project files or open Agents and choose this agent again before sending a message.',
+      help: 'Go back to Agents and choose this agent again, or start project files, then wait for Ready before sending a message here.',
     }
   }
 
@@ -528,14 +584,16 @@ function hostCliControlSummary(status: AgentInfo['status']): {
   if (status === 'offline') {
     return {
       title: 'Reconnect this computer from Agents',
-      detail: `Use Back to return to Agents, choose Connect this computer, then paste the new setup text in ${LOCAL_AGENT_SETUP_APP_LABEL} on that computer.`,
+      detail:
+        'Use Back to return to Agents, choose Connect this computer, then paste the new setup text in the setup app shown there on that computer.',
       Icon: AlertTriangle,
     }
   }
 
   return {
     title: 'This computer is connected',
-    detail: `This computer is already connected. Keep ${LOCAL_AGENT_SETUP_APP_LABEL} open while it works; close that window only when you want it offline.`,
+    detail:
+      'This computer is already connected. Keep the setup window open while it works; close that window only when you want it offline.',
     Icon: CheckCircle2,
   }
 }
@@ -544,13 +602,15 @@ function hostCliReadyActionInfo(status: AgentInfo['status']): { title: string; d
   if (status === 'offline') {
     return {
       title: 'Use Connect this computer',
-      detail: `Copy the new setup text from Agents, paste it in ${LOCAL_AGENT_SETUP_APP_LABEL} on that computer, then come back here to send messages or tasks.`,
+      detail:
+        'Copy the new setup text from Agents, paste it in the setup app shown there on that computer, then come back here to send messages or tasks.',
     }
   }
 
   return {
     title: 'Keep this computer online',
-    detail: `Keep ${LOCAL_AGENT_SETUP_APP_LABEL} open while it works. Use this page for quick messages, tracked tasks, or cleanup.`,
+    detail:
+      'Keep the setup window open while it works. Use this page for quick messages, tracked tasks, or cleanup.',
   }
 }
 
@@ -606,12 +666,18 @@ function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
   )
 }
 
-function agentControlErrorMessage(error: string): string {
+function agentControlErrorMessage(
+  error: string,
+  { chatOnlyAgent = false }: { chatOnlyAgent?: boolean } = {}
+): string {
   if (error === LOCAL_AGENT_CONTROL_FAILURE.sendInstruction) {
+    if (chatOnlyAgent) {
+      return 'Open Agents, choose this agent again, confirm it still shows Ready, then resend the message. If it still fails, choose Check connection for this AI service or ask an owner or admin to check agent messaging.'
+    }
     return 'Open Agents, choose this agent again, confirm it still shows Ready, then resend the message. If it still fails, create a task instead or ask an owner or admin to check agent messaging.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.startWorkspace) {
-    return 'Go back to Agents, choose this agent again, then choose Start file work again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
+    return 'Go back to Agents, choose this agent again, then choose Start project files again. If it still does not show Ready, ask an owner or admin to check Where agents work in Settings.'
   }
   if (error === LOCAL_AGENT_CONTROL_FAILURE.restartWorkspace) {
     return "Open Agents, choose this agent again, then choose Restart agent again only if Tasks or Live work still shows no progress. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents."
@@ -655,7 +721,7 @@ function agentControlErrorMessage(error: string): string {
     return "Open Agents, choose this agent again, then run the agent action again. If it keeps failing, ask an owner or admin to check this agent's connection and access in Agents. Forge could not finish the change right now."
   }
 
-  return "Open Agents, choose this agent again, and confirm the latest status before trying once more. If you started or restarted file work, wait for Ready or Working. If it keeps failing, ask an owner or admin to check your agent access and this agent's connection in Agents."
+  return "Open Agents, choose this agent again, and confirm the latest status before trying once more. If you started or restarted project files, wait for Ready or Working. If it keeps failing, ask an owner or admin to check your agent access and this agent's connection in Agents."
 }
 
 interface ConfirmActionProps {

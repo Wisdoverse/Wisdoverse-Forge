@@ -11,13 +11,6 @@ interface CreateProjectFormProps {
   saving: boolean
 }
 
-const PROJECT_SETUP_STEPS = [
-  'Choose the team that owns the work.',
-  'Name the project after the product, app, or work area.',
-  'Choose whether to start without code or copy code now.',
-  'Create the project. If code is being copied, watch this project in the list for status.',
-]
-
 type CodeSetupMode = 'later' | 'copy'
 
 /**
@@ -102,6 +95,12 @@ function createProjectErrorMessage(error: unknown): string {
   const lower = raw.toLowerCase()
   const code = projectCreateStatusCode(error)
 
+  if (
+    code == null &&
+    /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i.test(raw)
+  ) {
+    return 'Wait a few minutes, then create this project again. Forge could not create the project right now. If it still fails, ask an owner or admin to check Projects in Settings.'
+  }
   if (code === 401 || lower.includes('unauthorized') || lower.includes('sign in again')) {
     return 'Sign in again, then create this project.'
   }
@@ -163,15 +162,16 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
   const [repositoryUrl, setRepositoryUrl] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [bannerError, setBannerError] = useState<string | null>(null)
+  const [folderDetailsOpen, setFolderDetailsOpen] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const nameInputId = 'create-project-name'
+  const nameHelpId = 'project-name-help'
   const teamSelectId = 'create-project-team'
+  const teamHelpId = 'project-team-help'
   const repoInputId = 'create-project-repo'
   const statusId = 'create-project-status'
   const errorId = 'create-project-error'
   const bannerId = 'create-project-banner'
-  const codeSetupLaterId = 'create-project-code-setup-later'
-  const codeSetupCopyId = 'create-project-code-setup-copy'
   const trimmedName = name.trim()
   const hasTeams = teams.length > 0
   const missingTeam = !hasTeams || !teamId
@@ -204,6 +204,10 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       setTeamId(teams[0].id)
     }
   }, [teamId, teams])
+
+  useEffect(() => {
+    if (!workspacePath) setFolderDetailsOpen(false)
+  }, [workspacePath])
 
   function focusTop() {
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -269,16 +273,12 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
 
       <div className="mb-4 border-l-2 border-apple-blue/40 pl-3">
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-          Project creation steps
+          Create a project
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Use projects to keep one work area&apos;s tasks, files, and saved work together.
+          Name the work area and choose its team. Code is optional; create the project first if you
+          are not sure.
         </p>
-        <ol className="mt-2 list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {PROJECT_SETUP_STEPS.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
       </div>
 
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -294,11 +294,11 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             placeholder="e.g. Web App"
             autoFocus
             aria-invalid={errorField === 'name'}
-            aria-describedby={`${statusId}${errorField === 'name' ? ` ${errorId}` : ''}`}
+            aria-describedby={`${nameHelpId} ${statusId}${errorField === 'name' ? ` ${errorId}` : ''}`}
             className={inputClass}
           />
           <p
-            id="project-name-help"
+            id={nameHelpId}
             className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
             Pick the name users will look for when sending tasks.
@@ -319,6 +319,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
             <p
               id={teamSelectId}
               tabIndex={-1}
+              aria-describedby={`${teamHelpId} ${statusId}${errorField === 'team' ? ` ${errorId}` : ''}`}
               className="py-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
               No teams — create a team first
@@ -329,7 +330,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
               aria-invalid={errorField === 'team'}
-              aria-describedby={`${statusId}${errorField === 'team' ? ` ${errorId}` : ''}`}
+              aria-describedby={`${teamHelpId} ${statusId}${errorField === 'team' ? ` ${errorId}` : ''}`}
               className={inputClass}
             >
               {teams.map((t) => (
@@ -339,117 +340,90 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
               ))}
             </select>
           )}
+          <p
+            id={teamHelpId}
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            {teams.length === 0
+              ? 'Create a team first, then return here to choose who owns this project.'
+              : 'Choose the team that should own this project and manage access.'}
+          </p>
         </div>
       </div>
 
       <div className="mb-3">
-        <fieldset>
-          <legend className={uiStyles.label}>Choose how to add code</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label
-              htmlFor={codeSetupLaterId}
-              className={cn(
-                'flex min-h-24 cursor-pointer gap-2 rounded-lg border px-3 py-2 transition-colors',
-                !copyCodeNow
-                  ? 'border-apple-blue/45 bg-apple-blue/5'
-                  : 'border-black/[0.08] bg-white hover:bg-black/[0.02] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]'
-              )}
-            >
-              <input
-                id={codeSetupLaterId}
-                type="radio"
-                name="create-project-code-setup"
-                checked={!copyCodeNow}
-                onChange={() => chooseCodeSetupMode('later')}
-                className="mt-1 h-4 w-4 shrink-0 accent-apple-blue"
-              />
-              <span>
-                <span className="block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                  Create this project without code
-                </span>
-                <span className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Use this when you want a place for tasks now. You can add code access later in
-                  Settings.
-                </span>
-              </span>
-            </label>
-            <label
-              htmlFor={codeSetupCopyId}
-              className={cn(
-                'flex min-h-24 cursor-pointer gap-2 rounded-lg border px-3 py-2 transition-colors',
-                copyCodeNow
-                  ? 'border-apple-blue/45 bg-apple-blue/5'
-                  : 'border-black/[0.08] bg-white hover:bg-black/[0.02] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]'
-              )}
-            >
-              <input
-                id={codeSetupCopyId}
-                type="radio"
-                name="create-project-code-setup"
-                checked={copyCodeNow}
-                onChange={() => chooseCodeSetupMode('copy')}
-                className="mt-1 h-4 w-4 shrink-0 accent-apple-blue"
-              />
-              <span>
-                <span className="block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-                  Copy code now from GitHub or GitLab
-                </span>
-                <span className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Use this when agents need project files right away and you have an https:// code
-                  link.
-                </span>
-              </span>
-            </label>
-          </div>
-        </fieldset>
-
-        {copyCodeNow && (
-          <div className="mt-3">
-            <label htmlFor={repoInputId} className={uiStyles.label}>
-              Code link
-              <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
-                (optional)
-              </span>
-            </label>
-            <input
-              id={repoInputId}
-              type="url"
-              inputMode="url"
-              value={repositoryUrl}
-              onChange={(e) => {
-                setRepositoryUrl(e.target.value)
-                if (bannerError) setBannerError(null)
-              }}
-              placeholder="https://github.com/team/project.git"
-              aria-describedby="project-repo-help project-repo-status"
-              className={inputClass}
-            />
-            <div
-              id="project-repo-help"
-              className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
-            >
-              <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                Copy code now
-              </p>
-              <ol className="mt-1 list-decimal space-y-1 pl-4">
-                <li>Open the project on GitHub or GitLab and choose Code, then HTTPS.</li>
-                <li>Paste the https:// code link below.</li>
-                <li>Create the project. Watch this project in the list for copy status.</li>
-              </ol>
-              <p className="mt-1">
-                If you only see an SSH link, choose Create without code, then set up SSH code access
-                in Settings first. Never paste passwords or access keys here.
+        <div className="rounded-md border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-white/[0.04]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className={uiStyles.label}>Code access</p>
+              <p
+                id="project-repo-status"
+                data-testid="create-project-code-link-status"
+                className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                {codeLinkStatus}
               </p>
             </div>
+            {copyCodeNow ? (
+              <button
+                type="button"
+                onClick={() => chooseCodeSetupMode('later')}
+                className={uiStyles.secondaryButton}
+              >
+                Create without code instead
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => chooseCodeSetupMode('copy')}
+                className={uiStyles.secondaryButton}
+              >
+                Add code during creation
+              </button>
+            )}
           </div>
-        )}
-        <p
-          id="project-repo-status"
-          data-testid="create-project-code-link-status"
-          className="mt-1 rounded-md bg-black/[0.025] px-2 py-1 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark"
-        >
-          {codeLinkStatus}
-        </p>
+
+          {copyCodeNow && (
+            <div className="mt-3">
+              <label htmlFor={repoInputId} className={uiStyles.label}>
+                Code link
+                <span className="ml-1 font-normal text-secondary-light dark:text-secondary-dark">
+                  (optional)
+                </span>
+              </label>
+              <input
+                id={repoInputId}
+                type="url"
+                inputMode="url"
+                value={repositoryUrl}
+                onChange={(e) => {
+                  setRepositoryUrl(e.target.value)
+                  if (bannerError) setBannerError(null)
+                }}
+                placeholder="https://github.com/team/project.git"
+                aria-describedby="project-repo-help project-repo-status"
+                className={inputClass}
+              />
+              <div
+                id="project-repo-help"
+                className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+              >
+                <p className="font-medium text-foreground-light dark:text-foreground-dark">
+                  Copy code now
+                </p>
+                <ol className="mt-1 list-decimal space-y-1 pl-4">
+                  <li>Open the project on GitHub or GitLab and choose Code, then HTTPS.</li>
+                  <li>Paste the https:// code link below.</li>
+                  <li>Create the project. Watch this project in the list for copy status.</li>
+                </ol>
+                <p className="mt-1">
+                  If you only see an SSH link, choose Create without code, then set up SSH code
+                  access in Settings first. Never paste passwords or access keys here.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
         {workspaceFolderName && workspacePath && (
           <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             <p>
@@ -459,16 +433,27 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
               </span>
               . You do not need to type this.
             </p>
-            <details className="mt-1">
-              <summary className="cursor-pointer text-apple-blue hover:underline">
+            <details className="mt-1" open={folderDetailsOpen}>
+              <summary
+                className="cursor-pointer text-apple-blue hover:underline"
+                onClick={(event) => {
+                  event.preventDefault()
+                  setFolderDetailsOpen((open) => !open)
+                }}
+              >
                 Show folder details for support
               </summary>
-              <p className="mt-1">
-                Use this only if an owner, admin, or support message asks for the project folder.
-              </p>
-              <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
-                Project folder for support: {workspacePath}
-              </span>
+              {folderDetailsOpen && (
+                <>
+                  <p className="mt-1">
+                    Use this only if an owner, admin, or support message asks for the project
+                    folder.
+                  </p>
+                  <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
+                    Copy this support reference if asked: {workspacePath}
+                  </span>
+                </>
+              )}
             </details>
           </div>
         )}
@@ -480,7 +465,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
         </p>
       )}
       {visibleError && errorField === 'team' && (
-        <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
+        <p id={errorId} role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {visibleError}
         </p>
       )}

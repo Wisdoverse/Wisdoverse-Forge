@@ -206,6 +206,7 @@ export async function installStandardMocks(context: BrowserContext): Promise<voi
   )
 
   await mockContextFeatures(context, MOCK_CONTEXT_FEATURES_ENABLED)
+  await mockUserPreferences(context)
 
   // Orchestration API — read-only reads + no-op mutations so tests never
   // touch real data even when a click path hits them.

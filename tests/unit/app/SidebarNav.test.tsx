@@ -58,8 +58,8 @@ describe('SidebarNav', () => {
     render(<SidebarNav expanded={false} activePath="/tasks" onNavigate={() => {}} />)
 
     expect(
-      screen.queryByRole('button', { name: /setup checklist: follow the setup checklist/i })
-    ).not.toBeInTheDocument()
+      screen.getByRole('button', { name: /setup checklist: follow the setup checklist/i })
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toHaveAttribute('aria-current', 'page')
@@ -189,11 +189,11 @@ describe('SidebarNav', () => {
     expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
   })
 
-  test('keeps the Getting Started entry hidden while preferences are unknown', () => {
-    // preferences: null (request not finished) — keep the app task-first.
+  test('shows the Getting Started entry while preferences are unknown', () => {
+    // preferences: null (request not finished) keeps beginner guidance visible.
     render(<SidebarNav expanded={true} activePath="/tasks" onNavigate={() => {}} />)
 
-    expect(screen.queryByRole('button', startItem)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', startItem)).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toBeInTheDocument()

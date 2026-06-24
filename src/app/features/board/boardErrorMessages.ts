@@ -9,12 +9,12 @@ export type BoardErrorAction =
 
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
-    'Check the project, where tasks wait, and the result, then create the task again. The task was not created.',
+    'Check the project, task queue, and the result, then create the task again. The task was not created.',
   loadReadiness: 'Choose Check agent status before sending work.',
   loadTasks: 'Choose Check tasks again to load tasks.',
   moveTask:
     'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved.',
-  previewContext: 'Choose an available agent, then check saved items again.',
+  previewContext: 'Choose a ready agent, then check saved items again.',
   publishTask:
     'Check the saved notes, then send the task with selected saved notes again. The task was not sent.',
   selectProject: 'Choose the project again, then create the task. The project was not selected.',
@@ -30,13 +30,16 @@ const ACTION_RETRY_STEPS: Record<BoardErrorAction, string> = {
   selectProject: 'choose the project again',
 }
 
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/
+
 export function boardActionErrorMessage(action: BoardErrorAction, err: unknown): string {
   const detail = errorDetail(err)
   const normalized = detail.toLowerCase()
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+    return 'No ready agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
   }
 
   if (isNetworkError(normalized)) {
@@ -73,6 +76,10 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   }
 
   if (status && status >= 500) {
+    return serviceRecoveryMessage(action)
+  }
+
+  if (!status && RAW_SERVICE_DETAIL.test(normalized)) {
     return serviceRecoveryMessage(action)
   }
 
@@ -116,10 +123,24 @@ function errorDetail(err: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const detail = payloadDetail(candidate)
+    if (detail) return detail
   }
 
   return ''
+}
+
+function payloadDetail(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const detail = payloadDetail(record[key])
+    if (detail) return detail
+  }
+
+  return null
 }
 
 function errorStatus(err: unknown, normalizedDetail: string): number | null {
@@ -156,16 +177,16 @@ function validationRecovery(action: BoardErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
 
   if (normalized.includes('title') || normalized.includes('name')) {
-    return 'Add a task result, choose the project and where tasks wait, then create the task again.'
+    return 'Add a task result, choose the project and task queue, then create the task again.'
   }
   if (normalized.includes('project')) {
     return `Choose a project you can access, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('lane') || normalized.includes('group')) {
-    return `Choose where tasks wait for this project, then ${ACTION_RETRY_STEPS[action]}.`
+    return `Choose a task queue for this project, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('agent')) {
-    return `Choose an available agent, then ${ACTION_RETRY_STEPS[action]}.`
+    return `Choose a ready agent, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
   return ACTION_FALLBACKS[action]

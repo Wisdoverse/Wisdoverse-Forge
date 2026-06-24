@@ -275,12 +275,24 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByTestId('page-start')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Follow one step at a time. Finish this checklist to create an agent, send a task, and check the result.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.queryByText(
+        'Follow one step at a time. Finish this checklist to create an agent, send work, and check the result.'
+      )
+    ).toBeNull()
     expect(screen.getAllByText('Team and project').length).toBeGreaterThan(0)
     expect(screen.queryByText('Workspace')).toBeNull()
-    expect(screen.getAllByText('Check team and project').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent(
+      'Team and project'
+    )
     expect(screen.queryByText('Review workspace')).toBeNull()
     expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Project files option is ready for agent work/i)).toBeDefined()
+    expect(screen.getByText(/Project files option is ready\./i)).toBeDefined()
     expect(screen.queryByText(/managed workspace is ready for agent work/i)).toBeNull()
     expect(screen.getByText('Model Service')).toBeDefined()
     expect(screen.getByText('Starter Agent')).toBeDefined()
@@ -290,15 +302,11 @@ describe('GettingStartedView', () => {
     expect(screen.queryByText(/The basic path is complete/i)).toBeNull()
     expect(screen.getAllByText('Save useful steps').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved steps are available for future tasks.')).toBeDefined()
-    expect(screen.getByText('Useful steps are saved or were used on a task.')).toBeDefined()
-    const [savedInstructionsButton] = screen.getAllByRole('button', {
-      name: /show saved steps/i,
-    })
-    expect(savedInstructionsButton).toHaveClass('w-full')
-    expect(savedInstructionsButton).toHaveClass('sm:w-auto')
+    expect(
+      within(screen.getByTestId('getting-started-completed-steps')).queryByRole('button')
+    ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
-    expect(screen.getAllByRole('button', { name: /show saved steps/i }).length).toBeGreaterThan(0)
     expect(screen.queryByText('Reusable learning')).toBeNull()
     expect(screen.queryByText(/applied skill context/i)).toBeNull()
     expect(screen.queryByText(/skill candidates/i)).toBeNull()
@@ -310,21 +318,105 @@ describe('GettingStartedView', () => {
     expect(getTasksMock).toHaveBeenCalledWith('group-1')
   })
 
-  test('routes an incomplete provider step to provider settings', async () => {
+  test('routes incomplete file-change access setup to file-change tool sign-in after runtime exists', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
-    expect(screen.getByText('Open project settings to create or choose a project.')).toBeDefined()
+    expect(screen.getByText(/Choose one way to let agents work/i)).toBeDefined()
     expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
     expect(screen.queryByText('No project selected')).toBeNull()
-    expect(
-      screen.getByText('Create one team and project so tasks have a clear home.')
-    ).toBeDefined()
-    expect(screen.getAllByText(/A project gives tasks a clear home/i).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent(
+      'Team and project'
+    )
     expect(screen.queryByText(/routing needs/i)).toBeNull()
-    fireEvent.click(await screen.findByRole('button', { name: /add AI service/i }))
+    fireEvent.click(
+      within(screen.getByTestId('getting-started-expanded-step')).getByRole('button', {
+        name: /open file-change tool sign-in/i,
+      })
+    )
 
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
+  })
+
+  test('keeps focus on one expanded setup step instead of showing every step as a card', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+
+    const expandedSteps = screen.getAllByTestId('getting-started-expanded-step')
+    expect(expandedSteps).toHaveLength(1)
+    expect(
+      within(expandedSteps[0] as HTMLElement).getByRole('heading', {
+        name: /team and project/i,
+      })
+    ).toBeDefined()
+
+    const laterSteps = screen.getByTestId('getting-started-later-steps')
+    expect(laterSteps).toHaveTextContent('Work location')
+    expect(laterSteps).toHaveTextContent('First task')
+    expect(within(laterSteps).queryByRole('button')).toBeNull()
+    expect(screen.queryAllByTestId('getting-started-step-card')).toHaveLength(0)
+  })
+
+  test('names the chat-only setup as simple chat instead of work', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'api',
+        availableRuntimes: ['api'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: [],
+        cliToolDetails: [],
+      },
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText(/simple chat is ready\./i)).toBeDefined()
+    expect(screen.queryByText(/chat-only work/i)).toBeNull()
+    expect(screen.queryByText(/simple chat is ready for agent work/i)).toBeNull()
   })
 
   test('explains where tasks wait without queue wording', async () => {
@@ -400,42 +492,39 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
-    expect(screen.getAllByText('Where tasks wait').length).toBeGreaterThan(0)
-    expect(screen.getByText('Set up where tasks wait for this project.')).toBeDefined()
+    expect(screen.getAllByText('Task queue').length).toBeGreaterThan(0)
+    expect(screen.getByText('Set up a task queue for this project.')).toBeDefined()
     expect(
       screen.getAllByText(
         'This gives new work a place to wait until the next available agent starts it.'
       ).length
     ).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Set up where tasks wait before the first task.')).toBeDefined()
-    expect(screen.queryByText('Task queue')).toBeNull()
-    expect(screen.queryByText(/task queue/i)).toBeNull()
+    expect(screen.getByText('Set up a task queue before the first task.')).toBeDefined()
+    expect(screen.queryByText('Where tasks wait')).toBeNull()
 
-    const firstTaskCard = screen.getByRole('heading', { name: /first task/i }).closest('article')
-    expect(firstTaskCard).not.toBeNull()
-    fireEvent.click(
-      within(firstTaskCard as HTMLElement).getByRole('button', { name: /set up waiting place/i })
-    )
+    const routingStep = screen.getByTestId('getting-started-expanded-step')
+    fireEvent.click(within(routingStep).getByRole('button', { name: /set up task queue/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
 
-  test('routes the first task step to project settings before a project exists', async () => {
+  test('keeps the first task for later and routes the current action before a project exists', async () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
     expect(
       screen.getByText(
-        'Create or choose a project, then set up where tasks wait before the first task.'
+        'Create or choose a project, then set up a task queue before the first task.'
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /write first task/i })).toBeNull()
 
-    const firstTaskCard = screen.getByRole('heading', { name: /first task/i }).closest('article')
-    expect(firstTaskCard).not.toBeNull()
+    const laterSteps = screen.getByTestId('getting-started-later-steps')
+    expect(laterSteps).toHaveTextContent('First task')
+    expect(within(laterSteps).queryByRole('button')).toBeNull()
     fireEvent.click(
-      within(firstTaskCard as HTMLElement).getByRole('button', {
+      screen.getAllByRole('button', {
         name: /create team and project/i,
-      })
+      })[0]!
     )
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/projects' })
   })
@@ -516,7 +605,7 @@ describe('GettingStartedView', () => {
     expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Write one small task. Forge puts it where tasks wait until the next available agent starts it.'
+        'Write one small task. Forge puts it in the task queue until the next available agent starts it.'
       )
     ).toBeDefined()
     expect(
@@ -524,7 +613,7 @@ describe('GettingStartedView', () => {
         'The task appears on the board, either waiting for an agent or already has one.'
       ).length
     ).toBeGreaterThan(0)
-    expect(screen.queryByText(/queue/i)).toBeNull()
+    expect(screen.queryByText(/where tasks wait/i)).toBeNull()
     expect(screen.queryByText(/picks it up/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /write first task/i }).length).toBeGreaterThan(0)
     const previousTaskInstruction = ['Create a task', 'assign it', 'and watch the run start.'].join(
@@ -694,11 +783,11 @@ describe('GettingStartedView', () => {
     expect(
       await screen.findByText('Local Agent is ready to run work from this computer.')
     ).toBeDefined()
-    fireEvent.click(screen.getAllByRole('button', { name: /open agents/i })[0])
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
+    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent('Local Agent')
+    expect(screen.queryByRole('button', { name: /open agents/i })).toBeNull()
   })
 
-  test('routes file-work sign-in setup to work tool sign-in settings', async () => {
+  test('routes project-file sign-in setup to file-change tool sign-in settings', async () => {
     useNavigationStore.setState({
       teams: [
         {
@@ -746,12 +835,15 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     const signInButtons = await screen.findAllByRole('button', {
-      name: /open work tool sign-in/i,
+      name: /open file-change tool sign-in/i,
     })
     expect(signInButtons.length).toBeGreaterThan(0)
     expect(
-      screen.getAllByText(/open work tool sign-in for Codex before file work/i).length
+      screen.getAllByText(
+        /open file-change tool sign-in for Codex or another tool before Tasks need project files/i
+      ).length
     ).toBeGreaterThan(0)
+    expect(screen.queryByText(/open work tool sign-in/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /join this computer/i })).toBeNull()
 
     fireEvent.click(signInButtons[0]!)
@@ -841,10 +933,40 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
   })
 
-  test('routes agent setup directly to work settings', async () => {
+  test('routes work location setup directly to runtime settings', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+
     render(<GettingStartedView />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /choose work location/i }))
+    fireEvent.click(
+      within(screen.getByTestId('getting-started-expanded-step')).getByRole('button', {
+        name: /choose work location/i,
+      })
+    )
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/runtime' })
   })

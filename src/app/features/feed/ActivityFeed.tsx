@@ -41,8 +41,8 @@ function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
   if (filter === 'needs-action') {
     return {
       title: 'You are caught up on urgent updates',
-      detail: 'Urgent updates are clear. Use All to check work that is still moving.',
-      nextStep: 'Next: show all updates before starting more work.',
+      detail: 'Urgent updates are clear. Use All to check tasks that are still moving.',
+      nextStep: 'Next: show all updates before starting another task.',
     }
   }
 
@@ -57,7 +57,7 @@ function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
   if (filter === 'completed') {
     return {
       title: 'Completed updates will appear here',
-      detail: 'Finished work shows here after an agent closes a task.',
+      detail: 'Finished task results show here after an agent closes a task.',
       nextStep: 'Next: show all updates to see what happened most recently.',
     }
   }
@@ -123,7 +123,7 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
           </span>
           <div className="min-w-0">
             <div className="truncate text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Current work
+              Current tasks
             </div>
             <div className="text-[10px] text-secondary-light dark:text-secondary-dark">
               Start with anything that needs action.

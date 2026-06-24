@@ -113,6 +113,20 @@ describe('beginner error translations', () => {
     expect(zh.settings.runtime.defaultRuntimeDescription).toContain('可在 Forge 里管理的智能体')
     expect(en.settings.runtime.defaultRuntimeDescription).not.toContain('managed workspace')
     expect(zh.settings.runtime.defaultRuntimeDescription).not.toContain('工作区')
+    expect(en.settings.runtime.defaultContainerCliDescription).toContain(
+      'changes project files or runs checks'
+    )
+    expect(en.settings.runtime.defaultContainerCliDescription).not.toContain('runs commands')
+    expect(en.settings.runtime.availableContainerClisDescription).toContain(
+      'changing project files, running checks, and showing live progress'
+    )
+    expect(en.settings.runtime.availableContainerClisDescription).not.toContain('commands')
+    expect(zh.settings.runtime.defaultContainerCliDescription).toContain('修改项目文件或运行检查')
+    expect(zh.settings.runtime.defaultContainerCliDescription).not.toContain('运行命令')
+    expect(zh.settings.runtime.availableContainerClisDescription).toContain(
+      '修改项目文件、运行检查和显示实时进度'
+    )
+    expect(zh.settings.runtime.availableContainerClisDescription).not.toContain('运行命令')
   })
 
   test('admin translations use operator-facing words instead of system jargon', () => {
@@ -179,16 +193,17 @@ describe('beginner error translations', () => {
     expect(en.agents.noAgents).toBe('Create one agent before sending work.')
     expect(en.agents.noAgents).not.toContain('assigning work')
     expect(en.gettingStarted.noProject).toBe('Open project settings to create or choose a project.')
-    expect(en.groups.title).toBe('Where tasks wait')
+    expect(en.groups.title).toBe('Task queue')
     expect(en.groups.noGroups).toBe(
-      'Create a waiting place so new tasks have a place to wait for agents.'
+      'Create a task queue so new tasks have a place to wait for agents.'
     )
-    expect(en.groups.ungrouped).toBe('Set a waiting place before sending')
+    expect(en.groups.ungrouped).toBe('Choose a task queue before sending')
     expect(en.groups.noGroups).toContain('new tasks have a place to wait')
     expect(en.feed.noActivity).toBe('Start a task, then updates will appear here.')
-    expect(en.groups.confirmDelete).toContain('tasks need another waiting place')
-    expect(JSON.stringify(en.groups)).not.toContain('task queue')
-    expect(JSON.stringify(en.gettingStarted.steps.routing)).not.toContain('task queue')
+    expect(en.groups.confirmDelete).toContain('tasks need another task queue')
+    expect(JSON.stringify(en.groups)).toContain('Task queue')
+    expect(JSON.stringify(en.groups)).not.toContain('waiting place')
+    expect(JSON.stringify(en.gettingStarted.steps.routing)).toContain('task queue')
     expect(JSON.stringify(en.gettingStarted.steps)).not.toContain('picks it up')
     expect(JSON.stringify(en.gettingStarted.steps)).not.toContain('picks up')
     expect(en.prompt.noAgentSelected).toBe('Choose an agent before sending work.')
@@ -471,18 +486,32 @@ describe('beginner error translations', () => {
     expect(JSON.stringify(zh.gettingStarted.steps.workspace)).not.toContain('工作区')
   })
 
-  test('getting started work option points Codex users to work tool sign-in', () => {
-    expect(en.gettingStarted.steps.provider.empty).toContain('work tool sign-in')
+  test('getting started work option points Codex users to file-change tool sign-in', () => {
+    expect(en.gettingStarted.steps.provider.empty).toContain('file-change tool sign-in')
     expect(en.gettingStarted.steps.provider.empty).toContain('Codex')
-    expect(en.gettingStarted.steps.provider.signInTool).toBe('Open work tool sign-in')
-    expect(en.gettingStarted.steps.provider.why).toContain('signed-in work tool')
+    expect(en.gettingStarted.steps.provider.signInTool).toBe('Open file-change tool sign-in')
+    expect(en.gettingStarted.steps.provider.why).toContain('signed-in file-change tool')
+    expect(en.gettingStarted.steps.provider.empty).not.toContain('work tool sign-in')
     expect((en.gettingStarted.steps.provider as Record<string, unknown>).connectCli).toBeUndefined()
 
-    expect(zh.gettingStarted.steps.provider.empty).toContain('工作工具登录')
+    expect(zh.gettingStarted.steps.provider.empty).toContain('改文件工具登录')
     expect(zh.gettingStarted.steps.provider.empty).toContain('Codex')
-    expect(zh.gettingStarted.steps.provider.signInTool).toBe('打开工作工具登录')
-    expect(zh.gettingStarted.steps.provider.why).toContain('已登录的工作工具')
+    expect(zh.gettingStarted.steps.provider.signInTool).toBe('打开改文件工具登录')
+    expect(zh.gettingStarted.steps.provider.why).toContain('已登录的改文件工具')
+    expect(zh.gettingStarted.steps.provider.empty).not.toContain('工作工具登录')
     expect((zh.gettingStarted.steps.provider as Record<string, unknown>).connectCli).toBeUndefined()
+  })
+
+  test('getting started names simple chat without task-work wording in Chinese', () => {
+    expect(zh.gettingStarted.workLocations.textOnly).toBe('简单聊天')
+    expect(
+      zh.gettingStarted.steps.runtime.ready.replace(
+        '{{location}}',
+        zh.gettingStarted.workLocations.textOnly
+      )
+    ).toBe('简单聊天已经准备好。')
+    expect(zh.gettingStarted.workLocations.textOnly).not.toContain('处理文字')
+    expect(zh.gettingStarted.steps.runtime.ready).not.toContain('接收智能体工作')
   })
 
   test('getting started review copy avoids evidence jargon', () => {
@@ -533,11 +562,13 @@ describe('beginner error translations', () => {
     expect(en.feed.tools.Read).toBe('Opened a file')
     expect(en.feed.tools.Write).toBe('Created a file')
     expect(en.feed.tools.Edit).toBe('Changed a file')
+    expect(en.feed.tools.Bash).toBe('Ran a work step')
     expect(en.feed.tools.Grep).toBe('Searched file text')
     expect(en.feed.tools.Task).toBe('Asked another agent')
     expect(JSON.stringify(en.feed)).not.toContain('Tool Use')
     expect(JSON.stringify(en.feed)).not.toContain('Tool Result')
     expect(JSON.stringify(en.feed)).not.toContain('Subagent Task')
+    expect(JSON.stringify(en.feed)).not.toContain('Ran a command')
 
     expect(zh.feed.eventTypes.tool_use).toBe('智能体使用了工具')
     expect(zh.feed.eventTypes.tool_result).toBe('工具已完成')
@@ -548,11 +579,13 @@ describe('beginner error translations', () => {
     expect(zh.feed.tools.Read).toBe('打开文件')
     expect(zh.feed.tools.Write).toBe('创建文件')
     expect(zh.feed.tools.Edit).toBe('修改文件')
+    expect(zh.feed.tools.Bash).toBe('执行工作步骤')
     expect(zh.feed.tools.Grep).toBe('搜索文件内容')
     expect(zh.feed.tools.Task).toBe('请另一个智能体协助')
     expect(JSON.stringify(zh.feed)).not.toContain('工具调用')
     expect(JSON.stringify(zh.feed)).not.toContain('工具结果')
     expect(JSON.stringify(zh.feed)).not.toContain('子任务')
+    expect(JSON.stringify(zh.feed)).not.toContain('运行命令')
   })
 
   test('this-computer agent join errors avoid request-header and connection-policy jargon', () => {
@@ -615,19 +648,22 @@ describe('beginner error translations', () => {
     const chinese = zh.errors.agent.lifecycle
 
     expect(english.restart_api.title).toBe('Send the message again instead of restarting')
-    expect(english.start_api.title).toBe('Send a message to start this chat-only agent')
+    expect(english.start_api.title).toBe('Send a message to start this simple chat agent')
     expect(english.stop_api.title).toBe('Close the chat or wait for the reply to finish')
-    expect(english.start_api.detail).toContain('file work area')
-    expect(english.stop_api.detail).toContain('file work area')
+    expect(english.start_api.detail).toContain('send a message')
+    expect(english.stop_api.detail).toContain('Close the chat')
     expect(english.restart_api.title).not.toContain('No workspace')
     expect(english.start_api.title).not.toContain('No workspace')
     expect(english.stop_api.title).not.toContain('No workspace')
+    expect(english.start_api.detail).not.toContain('file work area')
+    expect(english.stop_api.detail).not.toContain('file work area')
     expect(english.start_api.detail).not.toContain('live workspace')
     expect(english.stop_api.detail).not.toContain('live workspace')
 
     expect(chinese.restart_api.title).toContain('重新发送消息')
     expect(chinese.start_api.title).toContain('发送消息')
     expect(chinese.stop_api.title).toContain('关闭聊天')
+    expect(chinese.restart_api.title).not.toContain('工作区')
     expect(chinese.start_api.detail).not.toContain('工作区')
     expect(chinese.stop_api.detail).not.toContain('工作区')
     expect(chinese.restart_api.title).not.toContain('没有可重启')
@@ -753,16 +789,22 @@ describe('beginner error translations', () => {
     expect(zh.errors.reconnected).not.toBe('连接已恢复')
   })
 
-  test('this-computer lifecycle errors name the exact local window to close', () => {
+  test('this-computer lifecycle errors use setup-window wording instead of command app names', () => {
     const englishStop = en.errors.agent.lifecycle.stop_host_cli
     const chineseStop = zh.errors.agent.lifecycle.stop_host_cli
     const chineseChatStart = zh.errors.agent.lifecycle.start_api
     const chineseChatStop = zh.errors.agent.lifecycle.stop_api
 
-    expect(englishStop.detail).toContain('Close Terminal or PowerShell on that computer')
+    expect(englishStop.detail).toContain('Close the setup window on that computer')
+    expect(englishStop.detail).not.toContain('Terminal')
+    expect(englishStop.detail).not.toContain('PowerShell')
     expect(englishStop.detail).not.toContain('command app')
-    expect(chineseStop.detail).toContain('Terminal 或 PowerShell 窗口')
+    expect(chineseStop.detail).toContain('关闭那台电脑上的设置窗口')
+    expect(chineseStop.detail).not.toContain('Terminal')
+    expect(chineseStop.detail).not.toContain('PowerShell')
     expect(chineseStop.detail).not.toContain('命令应用')
+    expect(chineseChatStart.detail).toContain('不需要打开项目文件或工作工具')
+    expect(chineseChatStart.detail).not.toContain('命令')
     expect(chineseChatStart.detail).not.toContain('命令窗口')
     expect(chineseChatStop.detail).not.toContain('命令窗口')
   })

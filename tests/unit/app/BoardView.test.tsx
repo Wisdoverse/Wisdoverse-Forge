@@ -59,7 +59,7 @@ describe('BoardView', () => {
       'Forge is checking which tasks are waiting, working, need help, or finished in this project.'
     )
     expect(loading).toHaveTextContent(
-      'If this takes more than a moment, open Tasks again or ask an owner or admin to check where tasks wait.'
+      'If this takes more than a moment, open Tasks again or ask an owner or admin to check the task queue.'
     )
     expect(loading).toHaveTextContent(
       'Success looks like task columns or an add-the-first-task step.'
@@ -80,17 +80,17 @@ describe('BoardView', () => {
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('explains missing task waiting place when a project is selected', () => {
+  test('explains missing task queue when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
     const onOpenTaskQueues = vi.fn()
 
     render(<BoardView onOpenTaskQueues={onOpenTaskQueues} />)
 
-    expect(screen.getByText(/set up where tasks wait before sending work/i)).toBeDefined()
-    expect(screen.getByText(/new tasks need a place to wait/i)).toBeDefined()
-    expect(screen.queryByText(/create a task queue before sending work/i)).toBeNull()
+    expect(screen.getByText(/set up a task queue before sending work/i)).toBeDefined()
+    expect(screen.getByText(/new tasks need a queue/i)).toBeDefined()
+    expect(screen.queryByText(/set up where tasks wait before sending work/i)).toBeNull()
     expect(screen.queryByText(/open task queues to create one/i)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /set up where tasks wait/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up a task queue/i }))
     expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })
 
@@ -453,6 +453,7 @@ describe('BoardView', () => {
     expect(await screen.findByText('Production incident')).toBeDefined()
     const toolbar = screen.getByTestId('board-toolbar')
 
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters$/i }))
     fireEvent.click(
       within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
     )
@@ -486,10 +487,10 @@ describe('BoardView', () => {
     const alert = await screen.findByTestId('board-action-error')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
+      'Check the project, task queue, and the result, then create the task again. The task was not created.'
     )
     expect(screen.getByLabelText(/task goal/i)).toHaveAccessibleDescription(
-      /check the project, where tasks wait, and the result, then create the task again/i
+      /check the project, task queue, and the result, then create the task again/i
     )
     expect(alert.textContent).not.toContain('API')
   })

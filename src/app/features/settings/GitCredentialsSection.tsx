@@ -127,8 +127,8 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatAccessDate(credential.createdAt, {
-            missing: 'Open HTTPS code access again to load added date',
-            invalid: 'Open HTTPS code access again to check added date',
+            missing: 'Open code access for HTTPS links again to load added date',
+            invalid: 'Open code access for HTTPS links again to check added date',
           })}
         </span>
       </td>
@@ -297,7 +297,7 @@ function AddCredentialForm({
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
             This is not the project code link. Paste the code access key from GitHub or GitLab. If
-            that page says personal access token, use that value here.
+            that page uses a different name, use the value it gives you.
           </p>
           <input
             id="git-credential-token"
@@ -377,7 +377,7 @@ function AddCredentialForm({
           disabled={saving || !form.token.trim()}
           className={uiStyles.primaryButton}
         >
-          {saving ? 'Saving HTTPS code access...' : 'Save code access'}
+          {saving ? 'Saving code access for HTTPS links...' : 'Save code access'}
         </button>
       </div>
     </form>
@@ -441,7 +441,7 @@ export function GitCredentialsSection() {
       {/* Section header */}
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>HTTPS code access</h2>
+          <h2 className={uiStyles.sectionTitle}>Code access for HTTPS links</h2>
           <p className={uiStyles.sectionDescription}>
             Use this when a private code link starts with https://. If it starts with git@, use SSH
             code access instead.
@@ -450,7 +450,7 @@ export function GitCredentialsSection() {
         {!showForm && canAddMore && (
           <button type="button" onClick={openCreateForm} className={uiStyles.primaryButton}>
             <span>+</span>
-            <span>Add HTTPS code access</span>
+            <span>Add code access for HTTPS links</span>
           </button>
         )}
       </div>
@@ -476,10 +476,10 @@ export function GitCredentialsSection() {
       <div className={cn(uiStyles.card, 'overflow-x-auto')}>
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <BeginnerLoadingState
-            title="Checking HTTPS code access"
+            title="Checking code access for HTTPS links"
             detail="Forge is checking which saved keys can open private https:// code links."
             nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check code access."
-            success="Success looks like saved HTTPS access or a step to add one."
+            success="Success looks like saved access for HTTPS links or a step to add one."
             testId="code-access-loading-state"
             framed={false}
             compact
@@ -496,7 +496,7 @@ export function GitCredentialsSection() {
                   id="code-access-empty-title"
                   className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
                 >
-                  Prepare HTTPS code access for private code links
+                  Prepare code access for private HTTPS links
                 </p>
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   Use this for private GitHub or GitLab code links that start with https://. If the
@@ -526,7 +526,7 @@ export function GitCredentialsSection() {
                 className={cn(uiStyles.primaryButton, 'mt-3')}
               >
                 <span>+</span>
-                <span>Add HTTPS code access</span>
+                <span>Add code access for HTTPS links</span>
               </button>
             )}
           </div>

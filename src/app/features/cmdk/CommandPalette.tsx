@@ -100,7 +100,7 @@ const SECONDARY_ACTION_COMMANDS = [
     labelKey: 'commandPalette.commands.actions.keys.label',
     descriptionKey: 'commandPalette.commands.actions.keys.description',
     searchText:
-      'api key access token outside tool automation integration personal access key 外部工具 密钥 访问令牌 自动化 集成',
+      'api key access token tool access keys outside tool automation integration personal access key 外部工具 密钥 访问令牌 自动化 集成',
   },
   {
     id: 'settings:git-credentials',
@@ -231,20 +231,23 @@ export function CommandPalette({
   const contextGovernanceEnabled = useContextFeaturesStore((s) => s.governance)
   const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
   const [search, setSearch] = useState('')
+  const [showSecondaryActions, setShowSecondaryActions] = useState(false)
   if (!isOpen) return null
+  const hasSearch = search.trim().length > 0
   const navCommands = NAV_COMMANDS.filter(
     (cmd) =>
       (cmd.id !== 'nav:context' || contextGovernanceEnabled) &&
       (cmd.id !== 'nav:start' || showGettingStarted)
   ).map((cmd) => translateCommand(cmd, t))
   const taskCommand = { ...translateCommand(DEFAULT_CREATE_TASK_COMMAND, t), ...createTaskCommand }
-  const baseActionCommands = [
-    taskCommand,
-    ...SECONDARY_ACTION_COMMANDS.map((cmd) => translateCommand(cmd, t)),
-  ]
-  const actionCommands = showGettingStarted
-    ? baseActionCommands
-    : [translateCommand(SETUP_CHECKLIST_RECOVERY_COMMAND, t), ...baseActionCommands]
+  const primaryActionCommands = showGettingStarted
+    ? [taskCommand]
+    : [translateCommand(SETUP_CHECKLIST_RECOVERY_COMMAND, t), taskCommand]
+  const secondaryActionCommands = SECONDARY_ACTION_COMMANDS.map((cmd) => translateCommand(cmd, t))
+  const visibleSecondaryActionCommands =
+    hasSearch || showSecondaryActions ? secondaryActionCommands : []
+  const actionCommands = [...primaryActionCommands, ...visibleSecondaryActionCommands]
+  const showSecondaryActionToggle = !hasSearch && secondaryActionCommands.length > 0
   const viewCommands = VIEW_COMMANDS.map((cmd) => translateCommand(cmd, t))
   const emptySearchSuggestion = commonWorkflowSuggestion(navCommands, t)
   const emptySearchQuickCommands = EMPTY_SEARCH_QUICK_COMMAND_IDS.map((id) =>
@@ -332,7 +335,10 @@ export function CommandPalette({
               )}
               <button
                 type="button"
-                onClick={() => setSearch('')}
+                onClick={() => {
+                  setSearch('')
+                  setShowSecondaryActions(true)
+                }}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
               >
                 {t('commandPalette.empty.showAll')}
@@ -361,6 +367,30 @@ export function CommandPalette({
                   </span>
                 </Command.Item>
               ))}
+              {showSecondaryActionToggle && (
+                <button
+                  type="button"
+                  aria-expanded={showSecondaryActions}
+                  onClick={() => setShowSecondaryActions((value) => !value)}
+                  className={cn(
+                    'mx-3 my-1 flex w-[calc(100%-1.5rem)] flex-col gap-0.5 rounded-md px-3 py-2 text-left text-sm',
+                    'border border-black/[0.08] bg-black/[0.02] text-foreground-light',
+                    'transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                    'dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
+                  )}
+                >
+                  <span className="font-medium">
+                    {t(
+                      showSecondaryActions
+                        ? 'commandPalette.setupActions.hide'
+                        : 'commandPalette.setupActions.show'
+                    )}
+                  </span>
+                  <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    {t('commandPalette.setupActions.description')}
+                  </span>
+                </button>
+              )}
             </Command.Group>
 
             <Command.Group

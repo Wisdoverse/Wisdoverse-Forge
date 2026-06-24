@@ -1,6 +1,6 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
-import { SettingsLayout } from '@app/pages/settings'
+import { SettingsPage } from '@app/pages/settings'
 import {
   SETTINGS_DEFAULT_SECTION,
   normalizeSettingsSection,
@@ -44,9 +44,5 @@ function SettingsRoutePage({ section }: { section: SettingsSection }) {
     void navigate({ to: '/settings/$section', params: { section: nextSection } })
   }
 
-  return (
-    <div data-testid="page-settings" className="h-full">
-      <SettingsLayout routeSection={section} onSectionChange={handleSectionChange} />
-    </div>
-  )
+  return <SettingsPage section={section} onSectionChange={handleSectionChange} />
 }

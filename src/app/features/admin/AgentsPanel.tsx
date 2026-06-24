@@ -35,7 +35,7 @@ const RUNTIME_KIND_FILTER_OPTIONS: FilterOption[] = [
 // ============================================================================
 
 function formatLastActivity(epochMs: number): string {
-  if (!epochMs) return 'Activity appears after work starts'
+  if (!epochMs) return 'Activity appears after a task starts'
   if (!Number.isFinite(epochMs)) return 'Check activity time'
 
   try {
@@ -119,7 +119,7 @@ function AgentKindBadge({ kind }: { kind: AgentRuntimeKind }) {
 const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Project files',
-    description: 'Runs file and command work with shared project files. Best for most teams.',
+    description: 'Changes shared project files and runs checks. Best for most team work.',
     Icon: Server,
   },
   {
@@ -129,9 +129,9 @@ const AGENT_GUIDANCE: { title: string; description: string; Icon: LucideIcon }[]
     Icon: Cpu,
   },
   {
-    title: 'Chat-only AI service',
+    title: 'Simple chat agent',
     description:
-      'Uses a connected AI service for planning and review. It does not open files or run commands.',
+      'Answers questions and checks results in chat. It cannot take Tasks, change code, or use computer apps.',
     Icon: Sparkles,
   },
 ]
@@ -324,7 +324,7 @@ export function AgentsPanel() {
                     </p>
                     {agent.cliTool && (
                       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                        Work tool: {workToolLabel(agent.cliTool)}
+                        Uses {workToolLabel(agent.cliTool)}
                       </p>
                     )}
                   </td>

@@ -1,3 +1,6 @@
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
@@ -18,10 +21,24 @@ function errorText(error: unknown): string {
     value.message,
     value.reason,
   ]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    const text = payloadText(candidate)
+    if (text) return text
   }
 
   return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
 }
 
 function statusCode(error: unknown): number | null {
@@ -66,6 +83,9 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
   }
   if (code === 401 || code === 403 || text.includes('unauthorized') || text.includes('forbidden')) {
     return `Check that the saved service access key can use the saved service choice for ${providerLabel}, then save and choose Check connection again.`
+  }
+  if (RAW_SERVICE_DETAIL.test(text)) {
+    return `Try checking ${providerLabel} again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.`
   }
   if (
     code === 400 ||

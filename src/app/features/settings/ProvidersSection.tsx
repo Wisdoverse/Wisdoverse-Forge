@@ -49,6 +49,7 @@ interface ProviderNextStep {
   ready: boolean
   action?: ProviderNextAction
   actionLabel?: string
+  href?: string
 }
 
 interface ProviderFormReadiness {
@@ -323,7 +324,7 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   },
   {
     provider: 'litellm',
-    displayName: 'LiteLLM Gateway',
+    displayName: 'LiteLLM shared AI service',
     defaultModel: 'gpt-4o-mini',
     defaultBaseUrl: 'http://litellm:4000',
     requiresApiKey: true,
@@ -332,7 +333,7 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   },
   {
     provider: 'openai_compatible',
-    displayName: 'OpenAI-Compatible',
+    displayName: 'Other AI service with a service address',
     requiresApiKey: true,
     allowCustomModels: true,
     models: [],
@@ -431,7 +432,7 @@ function providerFormReadiness({
       ready: false,
       title: 'Next: paste the service access key',
       detail:
-        'Open your AI service account, copy the service access key, and paste it here. Some services call this an API key. Do not paste the sign-in password. Forge hides the key after saving.',
+        'Open your AI service account, copy the service access key, and paste it here. If the AI account uses a different name, use the key it gives you. Do not paste the sign-in password. Forge hides the key after saving.',
       error: 'Paste the service access key before saving this AI service.',
       fieldId: apiKeyInputId,
     }
@@ -567,7 +568,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     return {
       title: 'Add your first AI service',
       detail:
-        'An AI service is the account agents use to answer. Pick a service, paste the service access key, save it, then choose Check connection.',
+        'An AI service is the account simple chat agents use to answer questions and check results. Pick a service, paste the service access key, save it, then choose Check connection.',
       success: 'At least 1 AI service is saved and ready for a connection check.',
       ready: false,
       action: 'add-provider',
@@ -579,7 +580,7 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
     const firstProvider = needsTestProviders[0]
     return {
       title: 'Check the AI service connection',
-      detail: `Choose Check connection for ${firstProvider.displayName} before sending work so agents do not fail on the first answer.`,
+      detail: `Choose Check connection for ${firstProvider.displayName} before creating or using simple chat agents, so the first answer does not fail.`,
       success: 'The AI service shows Ready and can be used by simple chat agents.',
       ready: false,
       action: 'show-needs-test',
@@ -605,14 +606,18 @@ function providerNextStep(providers: LlmProviderConfig[]): ProviderNextStep {
       detail: `${readyProviders[0].displayName} is ready. Choose it when creating a simple chat agent.`,
       success: 'New simple chat agents can select a tested AI service.',
       ready: true,
+      href: '/agents',
+      actionLabel: 'Open Agents',
     }
   }
 
   return {
     title: 'Ready to create simple chat agents',
-    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for agents that answer in chat.`,
+    detail: `${defaultProvider?.displayName ?? readyProviders[0]?.displayName ?? 'An AI service'} is ready for simple chat agents.`,
     success: 'Open Agents, choose New agent, then select Simple chat agent.',
     ready: true,
+    href: '/agents',
+    actionLabel: 'Open Agents',
   }
 }
 
@@ -644,7 +649,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const persistedTestResult =
     lastTestStatus === 'passed'
-      ? { ok: true, message: 'Ready: agents can use this service.' }
+      ? { ok: true, message: 'Ready: simple chat agents can use this service.' }
       : lastTestStatus === 'failed'
         ? { ok: false, message: providerTestErrorMessage(lastTestErrorMessage, displayName) }
         : null
@@ -674,7 +679,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
       setTestResult({
         ok: result.ok,
         message: result.ok
-          ? 'Ready: agents can use this service.'
+          ? 'Ready: simple chat agents can use this service.'
           : providerTestErrorMessage(result.error, displayName),
       })
     } catch (err) {
@@ -811,8 +816,8 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            Removing this service stops agents from using {displayName}. Keep it if any current
-            agent still depends on this AI service.
+            Removing this service stops simple chat agents from using {displayName}. Keep it if any
+            current simple chat agent still needs this AI service.
           </span>
         </div>
       )}
@@ -832,7 +837,9 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
   const defaultProvider = providers.find((provider) => provider.isDefault)
   const chatChoiceLabel =
     defaultProvider?.displayName ??
-    (total === 0 ? 'add an AI service first' : 'choose a ready service when creating an agent')
+    (total === 0
+      ? 'add an AI service first'
+      : 'choose a ready service when creating a simple chat agent')
   const chatChoiceMetric =
     defaultProvider?.displayName ?? (total === 0 ? 'Add first service' : 'Choose in New agent')
   const allReady = ready > 0 && ready === total - disabled && needsTest === 0
@@ -861,7 +868,9 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               />
             )}
             <h3 className={uiStyles.sectionTitle}>
-              {allReady ? 'AI services ready for agent creation' : 'Finish adding AI service'}
+              {allReady
+                ? 'AI services ready for simple chat agent creation'
+                : 'Finish adding AI service'}
             </h3>
           </div>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -871,7 +880,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          Chat agents: {chatChoiceLabel}
+          Simple chat agents: {chatChoiceLabel}
         </span>
       </div>
 
@@ -884,7 +893,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
         />
         <ProviderReadinessMetric label="Disabled" value={String(disabled)} ready={disabled === 0} />
         <ProviderReadinessMetric
-          label="Chat agent choice"
+          label="Simple chat agent choice"
           value={chatChoiceMetric}
           ready={ready > 0}
         />
@@ -897,9 +906,9 @@ function providerReadinessSummary(ready: number, needsTest: number, disabled: nu
   const readyText =
     ready === 0
       ? needsTest > 0
-        ? 'Run a connection check before agents use these AI services'
-        : 'Enable or add an AI service before agents can use one'
-      : `${providerCount(ready)} ${ready === 1 ? 'is' : 'are'} ready to use`
+        ? 'Run a connection check before simple chat agents use these AI services'
+        : 'Enable or add an AI service before simple chat agents can use one'
+      : `${providerCount(ready)} ${ready === 1 ? 'is' : 'are'} ready for simple chat agents`
   const needsTestText =
     needsTest === 0
       ? 'no connection checks are needed'
@@ -924,6 +933,7 @@ function ProviderNextStepPanel({
   onAction: (action: ProviderNextAction) => void
 }) {
   const action = step.action
+  const href = step.href
 
   return (
     <section
@@ -975,6 +985,11 @@ function ProviderNextStepPanel({
           >
             {step.actionLabel}
           </button>
+        )}
+        {href && step.actionLabel && (
+          <a href={href} className={cn(uiStyles.secondaryButton, 'shrink-0')}>
+            {step.actionLabel}
+          </a>
         )}
       </div>
     </section>
@@ -1423,8 +1438,8 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
               id={apiKeyHelpId}
               className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Paste the service access key from the AI account. Some services call this an API key.
-              Do not paste the sign-in password.
+              Paste the service access key from the AI account. If the AI account uses a different
+              name, use the key it gives you. Do not paste the sign-in password.
             </p>
             <input
               id={apiKeyInputId}
@@ -1853,8 +1868,9 @@ function AddProviderFormPanel({
             id={apiKeyHelpId}
             className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
           >
-            Paste the access key from your AI service account. Some services call this an API key.
-            Do not paste the sign-in password. Forge hides the key after saving.
+            Paste the access key from your AI service account. If the AI account uses a different
+            name, use the key it gives you. Do not paste the sign-in password. Forge hides the key
+            after saving.
           </p>
           <input
             id={apiKeyInputId}
@@ -2158,7 +2174,8 @@ export function ProvidersSection() {
         <div>
           <h2 className={uiStyles.sectionTitle}>AI services</h2>
           <p className={uiStyles.sectionDescription}>
-            Connect the AI accounts that simple chat agents use to answer questions.
+            AI services answer questions and check results for simple chat agents. They cannot take
+            Tasks or change code; use Where agents work and File-change tool sign-in for that.
           </p>
         </div>
         {!showForm && (
@@ -2185,7 +2202,8 @@ export function ProvidersSection() {
           aria-live="polite"
           className="mb-4 rounded-lg border border-apple-green/30 bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
         >
-          {savedProviderName} saved. Choose Check connection before agents use this AI service.
+          {savedProviderName} saved. Choose Check connection before simple chat agents use this AI
+          service.
         </div>
       )}
 
@@ -2266,7 +2284,7 @@ export function ProvidersSection() {
         {providersLoading && providers.length === 0 ? (
           <BeginnerLoadingState
             title="Checking AI services"
-            detail="Forge is checking which AI accounts agents can use to answer tasks."
+            detail="Forge is checking which AI accounts simple chat agents can use to answer questions and check results."
             nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check AI service access."
             success="Success looks like saved AI services or an add-your-first-service step."
             testId="providers-loading-state"

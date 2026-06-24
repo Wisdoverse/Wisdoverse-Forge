@@ -25,7 +25,7 @@ import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
 const DEFAULT_GROUP_DESCRIPTION = 'Project tasks wait here until an available agent starts them.'
 const ROUTING_SEARCH_HELP =
-  'Search only filters tasks in this waiting place. Use Show all tasks here to return to the full waiting place.'
+  'Search only filters tasks in this task queue. Use Show all tasks here to return to the full task queue.'
 
 const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   backlog: 'Not sent yet',
@@ -179,7 +179,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
     event.preventDefault()
     if (!selectedProjectId) {
       setError(
-        'Open project settings to create a project, or choose an existing project before setting up where tasks wait.'
+        'Open project settings to create a project, or choose an existing project before setting up a task queue.'
       )
       return
     }
@@ -187,7 +187,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
     const trimmedName = name.trim()
     if (!trimmedName) {
       setError(
-        'Name this waiting place before creating it. Examples: Intake, Result Check, or Delivery.'
+        'Name this task queue before creating it. Examples: Intake, Result Check, or Delivery.'
       )
       nameInputRef.current?.focus()
       return
@@ -233,11 +233,11 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
               aria-hidden="true"
             />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Where Tasks Wait
+              Task Queues
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            These shared waiting places tell agents where to start new work. Set up one place, add
+            These shared task queues tell agents where to start new work. Set up one queue, add
             agents, then send tasks there.
           </p>
           {selectedProject && (
@@ -261,7 +261,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
             )}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-            Set up waiting place
+            Set up task queue
           </button>
         )}
       </div>
@@ -270,7 +270,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
         <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
           <p>
             Open project settings to create a project, or choose an existing project from the
-            project list. Each project keeps its own waiting places and agents.
+            project list. Each project keeps its own task queues and agents.
           </p>
           {onOpenProjectsSetup ? (
             <button
@@ -309,7 +309,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
               })
             ) : (
               <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
-                Set up the first waiting place so agents know where to start tasks.
+                Set up the first task queue so agents know where to start tasks.
               </div>
             )}
           </div>
@@ -327,7 +327,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
                     {selectedGroup
                       ? waitingPlaceDisplayName(selectedGroup.name)
-                      : 'Select where tasks wait'}
+                      : 'Select a task queue'}
                   </h3>
                 </div>
                 <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
@@ -367,7 +367,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
               </div>
 
               <label className="relative mt-3 block">
-                <span className="sr-only">Search tasks in this waiting place</span>
+                <span className="sr-only">Search tasks in this task queue</span>
                 <Search
                   size={14}
                   strokeWidth={2}
@@ -397,8 +397,8 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     data-testid="task-routing-empty"
                     className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
-                    Create the first task for this waiting place, then choose it so agents know
-                    where to start the task.
+                    Create the first task for this task queue, then choose it so agents know where
+                    to start the task.
                     <span className="mt-1 block">
                       Success looks like a task showing Waiting to start or Working here.
                     </span>
@@ -418,10 +418,10 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   >
                     <div className="space-y-1">
                       <p className="font-medium text-foreground-light dark:text-foreground-dark">
-                        Search is hiding tasks in this waiting place
+                        Search is hiding tasks in this task queue
                       </p>
-                      <p>This waiting place still has tasks, but none match the words you typed.</p>
-                      <p>Next: show all tasks here before assuming this place is empty.</p>
+                      <p>This task queue still has tasks, but none match the words you typed.</p>
+                      <p>Next: show all tasks here before assuming this queue is empty.</p>
                     </div>
                     {hasRoutingSearch && (
                       <button
@@ -441,12 +441,12 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
           {formOpen && (
             <form onSubmit={handleCreateGroup} className="grid gap-2">
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Choose what kind of work should wait here, or name a place yourself. New tasks can
-                use it as soon as the place is ready.
+                Choose what kind of work should wait here, or name a task queue yourself. New tasks
+                can use it as soon as the queue is ready.
               </p>
               <div
                 role="group"
-                aria-label="Waiting place templates"
+                aria-label="Task queue templates"
                 className="grid gap-2 sm:grid-cols-3"
               >
                 {TASK_GROUP_TEMPLATES.map((template) => (
@@ -479,7 +479,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
 
               <input
                 ref={nameInputRef}
-                aria-label="Waiting place name"
+                aria-label="Task queue name"
                 name="taskGroupName"
                 autoComplete="off"
                 value={name}
@@ -489,17 +489,17 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   if (error) setError(null)
                 }}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="Waiting place name…"
+                placeholder="Task queue name..."
                 disabled={saving}
               />
               <input
-                aria-label="Waiting place description"
+                aria-label="Task queue description"
                 name="taskGroupDescription"
                 autoComplete="off"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
-                placeholder="What should agents use this place for?"
+                placeholder="What should agents use this queue for?"
                 disabled={saving}
               />
               <div className="flex items-center justify-end gap-2">
@@ -513,7 +513,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   )}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
-                  {saving ? 'Creating…' : 'Create waiting place'}
+                  {saving ? 'Creating...' : 'Create task queue'}
                 </button>
                 {agentGroups.length > 0 && (
                   <button
@@ -523,7 +523,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                       setError(null)
                     }}
                     disabled={saving}
-                    aria-label="Cancel waiting place creation"
+                    aria-label="Cancel task queue creation"
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ui-button text-secondary-light transition-transform hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
                   >
                     <X size={14} strokeWidth={2.25} aria-hidden="true" />

@@ -14,7 +14,7 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'You do not have permission to create the platform API key. Code: 403. Details: Forbidden'
       ),
-      'Ask an owner or admin to let you create or remove outside tool access keys.'
+      'Ask an owner or admin to let you create or remove tool access keys.'
     )
   })
 
@@ -23,7 +23,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to let you create or remove outside tool access keys.'
+      'Ask an owner or admin to let you create or remove tool access keys.'
     )
     expect(message).not.toContain('owner role required')
   })
@@ -33,8 +33,20 @@ describe('platformKeyErrorMessage', () => {
       platformKeyErrorMessage(
         'Check the required fields for platform API key, then try again. Code: 422. Details: name is required'
       ),
-      'Enter the tool or job name, then create this outside tool access key again.'
+      'Enter the tool or job name, then create this tool access key again.'
     )
+  })
+
+  test('maps nested name validation details', () => {
+    const message = platformKeyErrorMessage({
+      error: { message: 'name is required' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Enter the tool or job name, then create this tool access key again.'
+    )
+    expect(message).not.toContain('name is required')
   })
 
   test('explains duplicate keys with a safe next action', () => {
@@ -42,10 +54,10 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Outside tool access keys again, check the current key, then choose a different name or remove the old key first.'
+      'Open Settings and Tool access keys again, check the current key, then choose a different name or remove the old key first.'
     )
     expect(message).not.toContain('Refresh the list')
-    expect(message).not.toContain('Outside tool access key could not be created')
+    expect(message).not.toContain('Tool access key could not be created')
   })
 
   test('explains network failures in user-facing terms', () => {
@@ -53,7 +65,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then open Settings and Outside tool access keys again. Forge could not connect while opening outside tool access settings.'
+      'Check your connection, then open Settings and Tool access keys again. Forge could not connect while opening tool access key settings.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
@@ -64,10 +76,10 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then create this outside tool access key again. The creation did not finish.'
+      'Check your connection, then create this tool access key again. The creation did not finish.'
     )
     expect(message).not.toContain('Network error')
-    expect(message).not.toContain('opening outside tool access settings')
+    expect(message).not.toContain('opening tool access key settings')
   })
 
   test('starts remove network failures with the recovery step', () => {
@@ -75,27 +87,40 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then remove this outside tool access key again. The removal did not finish.'
+      'Check your connection, then remove this tool access key again. The removal did not finish.'
     )
     expect(message).not.toContain('Network error')
-    expect(message).not.toContain('opening outside tool access settings')
+    expect(message).not.toContain('opening tool access key settings')
   })
 
-  test('turns temporary failures into an outside tool access settings recovery step', () => {
+  test('turns temporary failures into a tool access key settings recovery step', () => {
     const message = platformKeyErrorMessage('HTTP 500')
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Open Settings and Tool access keys again. If it still fails, ask an owner or admin to check tool access key settings.'
     )
     expect(message).not.toContain('access key service')
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('keeps unformatted service failures on the tool access key recovery path', () => {
+    const message = platformKeyErrorMessage(
+      new Error('database unavailable while creating invalid name index')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Tool access keys again, then create this tool access key again. If it still fails, ask an owner or admin to check tool access key settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Enter the tool or job name')
+  })
+
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       platformKeyErrorMessage({ statusCode: '429' }),
-      'Wait a minute, then open Settings and Outside tool access keys again. Forge is receiving too many outside tool access requests right now.'
+      'Wait a minute, then open Settings and Tool access keys again. Forge is receiving too many tool access key requests right now.'
     )
   })
 
@@ -104,7 +129,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and Outside tool access keys again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Open Settings and Tool access keys again. If it still fails, ask an owner or admin to check tool access key settings.'
     )
     expect(message).not.toContain('parser')
   })
@@ -114,7 +139,7 @@ describe('platformKeyErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Create this outside tool access key again. If it still fails, ask an owner or admin to check outside tool access settings.'
+      'Create this tool access key again. If it still fails, ask an owner or admin to check tool access key settings.'
     )
     expect(message).not.toContain('Try to')
     expect(message).not.toContain('parser')

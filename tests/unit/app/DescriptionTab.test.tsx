@@ -25,8 +25,9 @@ describe('DescriptionTab', () => {
       'Choose an agent before this task can start.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Choose an available agent, check the suggested saved notes and instructions, then send the task.'
+      'Choose a ready agent, check the suggested saved notes and instructions, then send the task.'
     )
+    expect(screen.getByTestId('task-next-action').textContent).not.toContain('available agent')
     expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
     expect(screen.getByTestId('task-next-action').textContent).not.toContain('when ready')
     expect(screen.getByTestId('task-next-action').textContent).not.toMatch(/suggested\s+context/)
@@ -113,7 +114,7 @@ describe('DescriptionTab', () => {
   test('explains how to start a waiting task that has no agent', () => {
     render(<DescriptionTab task={{ ...mockTask, state: 'queued' }} />)
 
-    expect(screen.getByText('Waiting for an available agent')).toBeDefined()
+    expect(screen.getByText('Waiting for a ready agent')).toBeDefined()
     expect(screen.getByTestId('task-next-action').textContent).toContain(
       'If this stays here, choose or start an agent so the task has someone to begin the work.'
     )

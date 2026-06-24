@@ -99,6 +99,20 @@ describe('accountErrorMessage', () => {
     expect(message).not.toContain('temporarily unavailable')
   })
 
+  test('keeps unformatted service failures on the account settings recovery path', () => {
+    const message = accountErrorMessage(
+      'renameOrganization',
+      new Error('database unavailable while renaming organization')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Account settings again, then choose Save team space name again. If it still fails, ask an owner or admin to check account settings.'
+    )
+    expect(message).not.toContain('team space name between 1 and 100 characters')
+    expect(message).not.toContain('database unavailable')
+  })
+
   test('turns team space validation details into a recovery step', () => {
     const message = accountErrorMessage(
       'renameOrganization',

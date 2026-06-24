@@ -3,6 +3,8 @@ export type AccountErrorAction = 'changePassword' | 'renameOrganization'
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
 
 export function accountErrorMessage(action: AccountErrorAction, error?: unknown): string {
   const status = statusFromAccountError(error)
@@ -12,6 +14,9 @@ export function accountErrorMessage(action: AccountErrorAction, error?: unknown)
     return permissionMessage(action)
   }
   if (!status) {
+    if (detail && RAW_SERVICE_DETAIL.test(detail)) {
+      return `Open Account settings again, then ${retryPhrase(action)}. If it still fails, ask an owner or admin to check account settings.`
+    }
     if (detail) {
       return validationMessage(action, detail)
     }

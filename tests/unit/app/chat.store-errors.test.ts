@@ -124,6 +124,16 @@ describe('chatErrorMessage', () => {
     expect(message).not.toContain('platform')
   })
 
+  test('keeps unformatted service failures on the chat recovery path', () => {
+    const message = chatErrorMessage('load', new Error('database unavailable while loading chat'))
+
+    expect(message).toBe(
+      'Check conversation again to load the chat history. Wait a few minutes, then choose Check conversation again. Forge could not load this conversation right now. If it still fails, ask an owner or admin to check this agent chat.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Choose Check conversation again. If it still fails')
+  })
+
   test('maps unusable conversation data without exposing raw response wording', () => {
     const message = chatErrorMessage('load', new Error('Server returned ok: false'))
 

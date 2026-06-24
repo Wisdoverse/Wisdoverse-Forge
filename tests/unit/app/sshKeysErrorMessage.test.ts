@@ -16,17 +16,32 @@ describe('sshKeysErrorMessage', () => {
     )
   })
 
+  test('maps nested invalid public key details', () => {
+    const message = sshKeysErrorMessage({
+      error: { message: 'invalid public key' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Paste only the safe one-line public key from the .pub file, then save again. Do not paste a private key block.'
+    )
+    expect(message).not.toContain('invalid public key')
+  })
+
   test('explains permission errors without exposing raw backend details', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage('HTTP 403'),
-      'Ask an owner or admin for access to manage SSH code access.'
+      'Ask an owner or admin for access to manage code access for SSH links.'
     )
   })
 
   test('explains role-required errors without treating them as missing fields', () => {
     const message = sshKeysErrorMessage('owner role required')
 
-    expectBeginnerMessage(message, 'Ask an owner or admin for access to manage SSH code access.')
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin for access to manage code access for SSH links.'
+    )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('access name')
   })
@@ -48,10 +63,10 @@ describe('sshKeysErrorMessage', () => {
     )
   })
 
-  test('turns generic missing SSH code access fields into a save step', () => {
+  test('turns generic missing SSH-link code access fields into a save step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ status: 422, reason: 'name and key are required' }),
-      'Check the access name and safe public key line, then save this SSH code access again.'
+      'Check the access name and safe public key line, then save this code access for SSH links again.'
     )
   })
 
@@ -69,7 +84,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then open Settings and SSH code access again. Forge could not connect while opening SSH code access.'
+      'Check your connection, then open Settings and code access for SSH links again. Forge could not connect while opening code access for SSH links.'
     )
     expect(message).not.toContain('service')
     expect(message).not.toContain('Failed to fetch')
@@ -80,7 +95,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then save this SSH code access again. The save did not finish.'
+      'Check your connection, then save this code access for SSH links again. The save did not finish.'
     )
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('opening SSH code access')
@@ -91,7 +106,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then remove this SSH code access again. The removal did not finish.'
+      'Check your connection, then remove this code access for SSH links again. The removal did not finish.'
     )
     expect(message).not.toContain('Network error')
     expect(message).not.toContain('opening SSH code access')
@@ -102,15 +117,26 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+      'Open Settings and code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
     )
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('keeps unformatted service failures on the SSH access recovery path', () => {
+    const message = sshKeysErrorMessage(new Error('database unavailable while saving public key'))
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and code access for SSH links again, then save this code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Paste the safe public key')
   })
 
   test('turns structured rate limits into a wait and retry step', () => {
     expectBeginnerMessage(
       sshKeysErrorMessage({ code: '429' }),
-      'Wait a minute, then open Settings and SSH code access again. Forge is receiving too many SSH code access requests right now.'
+      'Wait a minute, then open Settings and code access for SSH links again. Forge is receiving too many requests for code access for SSH links right now.'
     )
   })
 
@@ -119,7 +145,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+      'Open Settings and code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
     )
     expect(message).not.toContain('parser')
   })
@@ -129,7 +155,7 @@ describe('sshKeysErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Save this SSH code access again. If it still fails, ask an owner or admin to check SSH code access settings.'
+      'Save this code access for SSH links again. If it still fails, ask an owner or admin to check code access for SSH links.'
     )
     expect(message).not.toContain('Try to')
     expect(message).not.toContain('parser')

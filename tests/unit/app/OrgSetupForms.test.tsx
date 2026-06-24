@@ -63,8 +63,9 @@ describe('organization setup forms', () => {
 
     render(<CreateProjectForm teams={teams} onSave={onSave} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByText('Project creation steps')).toBeDefined()
-    expect(screen.getByText(/choose the team that owns the work/i)).toBeDefined()
+    expect(screen.getByText('Create a project')).toBeDefined()
+    expect(screen.getByText(/name the work area and choose its team/i)).toBeDefined()
+    expect(screen.queryByText('Project creation steps')).toBeNull()
     expect(screen.getByRole('button', { name: /create project/i })).not.toBeDisabled()
 
     fireEvent.change(screen.getByLabelText(/^project name/i), {

@@ -96,6 +96,19 @@ describe('workspaceSettingsErrorMessage', () => {
     expect(message).not.toContain('required fields')
   })
 
+  test('uses nested validation details to explain code link fixes', () => {
+    const message = workspaceSettingsErrorMessage('project', 'create', {
+      status: 422,
+      error: { message: 'repository_url must be an HTTPS URL' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Paste an https:// code link without account details, or leave the code link blank and add code access in Settings.'
+    )
+    expect(message).not.toContain('repository_url')
+  })
+
   test('uses structured validation details to explain account detail fixes', () => {
     const message = workspaceSettingsErrorMessage('project', 'create', {
       status: 422,

@@ -62,7 +62,7 @@ interface NavigationState {
    * because the project list fetch already carries `cloneStatus`/`clone`.
    */
   applyCloneStatusUpdate: (update: CloneStatusUpdate) => void
-  /** Resolves `false` when the project was selected but its waiting places
+  /** Resolves `false` when the project was selected but its task queues
    * failed to load; callers that need them show a retry
    * message instead of wrongly telling the user to create a new one. */
   selectProject: (projectId: string) => Promise<boolean>
@@ -86,20 +86,20 @@ type NavigationErrorAction = 'load' | 'create'
 const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
   organizations: 'team spaces',
   teamProjects: 'teams and projects',
-  workLanes: 'waiting places',
-  workLane: 'waiting place',
+  workLanes: 'task queues',
+  workLane: 'task queue',
 }
 
 function navigationAreaNotReadyMessage(area: NavigationErrorArea): string {
   switch (area) {
     case 'workLane':
-      return 'The waiting place is not ready yet.'
+      return 'The task queue is not ready yet.'
     case 'organizations':
       return 'Team spaces are not ready yet.'
     case 'teamProjects':
       return 'Teams and projects are not ready yet.'
     case 'workLanes':
-      return 'Waiting places are not ready yet.'
+      return 'Task queues are not ready yet.'
   }
 }
 
@@ -212,6 +212,17 @@ function isRawNavigationFailure(detail: string | null): boolean {
   )
 }
 
+function isRawNavigationServiceFailure(detail: string | null): boolean {
+  if (!detail) return false
+  return /\b(database|sql|timeout|internal server error|service unavailable|upstream)\b/i.test(
+    detail
+  )
+}
+
+function navigationServiceRecoveryMessage(): string {
+  return 'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams or Projects in Settings.'
+}
+
 export function navigationActionErrorMessage(
   area: NavigationErrorArea,
   action: NavigationErrorAction,
@@ -222,6 +233,9 @@ export function navigationActionErrorMessage(
   const detail = navigationErrorDetail(error)
 
   if (!status) {
+    if (isRawNavigationServiceFailure(detail)) {
+      return navigationServiceRecoveryMessage()
+    }
     if (!isRawNavigationFailure(detail)) {
       return navigationValidationMessage(area, action, detail)
     }
@@ -247,7 +261,7 @@ export function navigationActionErrorMessage(
     return `Wait a moment, then ${actionPhrase} again. The left menu is busy.`
   }
   if (status >= 500) {
-    return 'Open the left menu to load teams and projects. If it still fails, ask an owner or admin to check Teams or Projects in Settings.'
+    return navigationServiceRecoveryMessage()
   }
 
   return `Open the left menu and ${actionPhrase} again.`
@@ -262,14 +276,14 @@ function navigationValidationMessage(
 
   if (area === 'workLane' || area === 'workLanes') {
     if (normalized.includes('name') || normalized.includes('title')) {
-      return 'Name this waiting place, choose its project, then create it again.'
+      return 'Name this task queue, choose its project, then create it again.'
     }
     if (normalized.includes('project')) {
-      return 'Choose the project where tasks should wait, then create the waiting place again.'
+      return 'Choose the project for this task queue, then create it again.'
     }
     return action === 'create'
-      ? 'Check the waiting place name and project, then create it again.'
-      : 'Open the left menu, choose the selected project, then load where tasks wait again.'
+      ? 'Check the task queue name and project, then create it again.'
+      : 'Open the left menu, choose the selected project, then load task queues again.'
   }
 
   if (area === 'teamProjects') {

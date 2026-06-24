@@ -126,9 +126,10 @@ describe('ContextTab', () => {
     expect(within(emptyState).queryByText('No saved notes or work history yet')).toBeNull()
     expect(
       within(emptyState).getByText(
-        /Start the task first\. If it is still waiting, open Work or Updates to choose or start an agent/i
+        /Start the task first\. If it is still waiting, open Work to choose an agent, or open Updates to check the latest activity/i
       )
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/open Work or Updates/i)).toBeNull()
     expect(
       within(emptyState).getByText(/make sure the task has an agent and has started/i)
     ).toBeDefined()
@@ -421,7 +422,9 @@ describe('ContextTab', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: /show complete saved note/i }))
 
     expect(readMemoryContent).toHaveBeenCalledWith('memory-1')
-    expect(await screen.findByRole('button', { name: /opening complete saved note/i })).toBeDisabled()
+    expect(
+      await screen.findByRole('button', { name: /opening complete saved note/i })
+    ).toBeDisabled()
     expect(screen.queryByText('Loading complete saved note…')).toBeNull()
     request.resolve({
       id: 'memory-1',
@@ -525,7 +528,9 @@ describe('ContextTab', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(/Open task details again, then choose the feedback option again/i)
+    expect(alert).toHaveTextContent(
+      /Open task details again, then choose the feedback option again/i
+    )
     expect(alert).toHaveTextContent(/Forge could not save feedback right now/i)
     expect(alert).not.toHaveTextContent(/HTTP 500/i)
     expect(alert).not.toHaveTextContent(/database unavailable/i)

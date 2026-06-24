@@ -534,9 +534,7 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
         <span className="tabular-nums">{formatDate(entry.createdAt)}</span>
       </td>
       <td className="max-w-[260px] px-4 py-3">
-        <div className="truncate font-medium" title={entry.eventType}>
-          {auditEventLabel(entry.eventType)}
-        </div>
+        <div className="truncate font-medium">{auditEventLabel(entry.eventType)}</div>
         <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
             Show saved change name

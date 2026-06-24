@@ -17,6 +17,21 @@ describe('providerTestErrorMessage', () => {
     )
   })
 
+  test('maps nested invalid key details to setup guidance', () => {
+    const message = providerTestErrorMessage(
+      {
+        error: { message: 'Invalid key' },
+      },
+      'Anthropic Review'
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Check the service access key, saved service choice, and service address for Anthropic Review, then save and choose Check connection again.'
+    )
+    expect(message).not.toContain('Invalid key')
+  })
+
   test('turns permission failures into access key and saved service choice guidance', () => {
     expectBeginnerMessage(
       providerTestErrorMessage(new Error('HTTP 403: Forbidden'), 'OpenAI Production'),
@@ -55,6 +70,20 @@ describe('providerTestErrorMessage', () => {
     expect(message).not.toContain('needs attention')
     expect(message).not.toContain('gateway')
     expect(message).not.toContain('temporarily unavailable')
+  })
+
+  test('keeps unformatted service failures on the connection-check recovery path', () => {
+    const message = providerTestErrorMessage(
+      new Error('database unavailable while checking api key'),
+      'OpenAI Production'
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('service access key')
   })
 
   test('turns structured rate limits into a wait and check step', () => {

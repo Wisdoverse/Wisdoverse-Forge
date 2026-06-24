@@ -1,29 +1,9 @@
-import { Navigate, createRoute } from '@tanstack/react-router'
+import { createRoute } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
-import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
-import { FeatureRouteLoadingState } from '@app/shared/ui/FeatureRouteLoadingState'
+import { ContextApprovalPage } from '@app/pages/context-approval'
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: '/context',
-  component: function ContextApprovalPage() {
-    const loaded = useContextFeaturesStore((s) => s.loaded)
-    const enabled = useContextFeaturesStore((s) => s.governance)
-    if (!loaded) {
-      return (
-        <FeatureRouteLoadingState
-          testId="context-route-loading"
-          title="Checking saved items"
-          detail="We are checking whether saved items are available here. If this takes more than a moment, open Saved items again or ask an owner or admin to check Saved items access."
-        />
-      )
-    }
-    if (!enabled) return <Navigate to="/tasks" />
-    return (
-      <div data-testid="page-context" className="h-full">
-        <ApprovalQueueView />
-      </div>
-    )
-  },
+  component: ContextApprovalPage,
 })

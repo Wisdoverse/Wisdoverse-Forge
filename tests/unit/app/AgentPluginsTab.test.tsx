@@ -64,9 +64,7 @@ describe('AgentPluginsTab', () => {
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Tools again or ask an owner or admin to check tool access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like available tools or an ask-an-owner step.'
-    )
+    expect(loading).toHaveTextContent('Success looks like available tools or an ask-an-owner step.')
     expect(loading).not.toHaveTextContent("Loading this agent's tools")
   })
 
@@ -94,15 +92,20 @@ describe('AgentPluginsTab', () => {
     expect(within(screen.getByTestId('agent-plugin-metric-disabled')).getByText('1')).toBeDefined()
     expect(within(screen.getByTestId('agent-plugin-metric-overrides')).getByText('2')).toBeDefined()
     expect(within(screen.getByTestId('agent-plugin-metric-total')).getByText('3')).toBeDefined()
-    expect(screen.getByText('Shell Tools')).toBeDefined()
+    expect(screen.getByText('Computer tools')).toBeDefined()
+    expect(screen.queryByText('Shell Tools')).toBeNull()
+    expect(screen.queryByText(/Run command workflows/i)).toBeNull()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
     expect(screen.getAllByText('Can use now').length).toBeGreaterThan(0)
     expect(screen.getByText('Turned off for this agent')).toBeDefined()
     expect(screen.queryByText('Agent can use')).toBeNull()
     expect(screen.queryByText('Not available')).toBeNull()
-    expect(screen.getByText('Using team setting - normally available for agents')).toBeDefined()
-    expect(screen.getByText('Changed for this agent - normally off for agents')).toBeDefined()
+    expect(screen.getByText('Following team setting: this agent can use it.')).toBeDefined()
+    expect(screen.getByText('Changed for this agent: it can use this tool now.')).toBeDefined()
+    expect(screen.getByText('Changed for this agent: it cannot use this tool now.')).toBeDefined()
+    expect(screen.queryByText(/normally available for agents/i)).toBeNull()
+    expect(screen.queryByText(/normally off for agents/i)).toBeNull()
     expect(screen.getByLabelText("Search this agent's tools")).toHaveAccessibleDescription(
       "Search only filters this agent's tools. Use Show all tools to return to the full list."
     )
@@ -135,11 +138,17 @@ describe('AgentPluginsTab', () => {
   })
 
   test('explains per-agent tool settings without raw on and off jargon', () => {
-    expect(pluginSettingNote({ defaultEnabled: true, hasOverride: false })).toBe(
-      'Using team setting - normally available for agents'
+    expect(pluginSettingNote({ defaultEnabled: true, enabled: true, hasOverride: false })).toBe(
+      'Following team setting: this agent can use it.'
     )
-    expect(pluginSettingNote({ defaultEnabled: false, hasOverride: true })).toBe(
-      'Changed for this agent - normally off for agents'
+    expect(pluginSettingNote({ defaultEnabled: false, enabled: false, hasOverride: false })).toBe(
+      'Following team setting: this agent cannot use it yet.'
+    )
+    expect(pluginSettingNote({ defaultEnabled: false, enabled: true, hasOverride: true })).toBe(
+      'Changed for this agent: it can use this tool now.'
+    )
+    expect(pluginSettingNote({ defaultEnabled: true, enabled: false, hasOverride: true })).toBe(
+      'Changed for this agent: it cannot use this tool now.'
     )
   })
 
@@ -148,7 +157,7 @@ describe('AgentPluginsTab', () => {
 
     render(<AgentPluginsTab agentId="agent-1" />)
 
-    await screen.findByText('Shell Tools')
+    await screen.findByText('Computer tools')
     const filters = screen.getByTestId('agent-plugin-filter')
     const turnedOffFilter = within(filters).getByRole('button', {
       name: /show tools turned off for this agent, 1 matching tool/i,
@@ -162,6 +171,7 @@ describe('AgentPluginsTab', () => {
     expect(turnedOffFilter).toHaveAttribute('aria-pressed', 'true')
 
     expect(screen.getByText('Deploy Tools')).toBeDefined()
+    expect(screen.queryByText('Computer tools')).toBeNull()
     expect(screen.queryByText('Shell Tools')).toBeNull()
     expect(screen.queryByText('Browser Tools')).toBeNull()
 
@@ -176,7 +186,8 @@ describe('AgentPluginsTab', () => {
     expect(combinedEmpty.textContent).not.toContain('No tools match this view')
 
     fireEvent.click(within(combinedEmpty).getByRole('button', { name: /show all tools/i }))
-    expect(screen.getByText('Shell Tools')).toBeDefined()
+    expect(screen.getByText('Computer tools')).toBeDefined()
+    expect(screen.queryByText('Shell Tools')).toBeNull()
     expect(screen.getByText('Browser Tools')).toBeDefined()
     expect(screen.getByText('Deploy Tools')).toBeDefined()
     expect(screen.getByLabelText("Search this agent's tools")).toHaveValue('')
@@ -207,21 +218,24 @@ describe('AgentPluginsTab', () => {
 
     render(<AgentPluginsTab agentId="agent-1" />)
 
-    await screen.findByText('Command Runner')
+    await screen.findByText('Computer tools')
+    expect(screen.queryByText('Command Runner')).toBeNull()
+    expect(screen.queryByText(/Run approved command workflows/i)).toBeNull()
     fireEvent.change(screen.getByTestId('agent-plugin-search'), {
       target: { value: '2026.06-internal' },
     })
 
     const empty = screen.getByTestId('agent-plugin-filter-empty')
     expect(within(empty).getByText('Search is hiding tools')).toBeDefined()
-    expect(screen.queryByText('Command Runner')).toBeNull()
+    expect(screen.queryByText('Computer tools')).toBeNull()
 
     fireEvent.click(within(empty).getByRole('button', { name: /show all tools/i }))
     fireEvent.change(screen.getByTestId('agent-plugin-search'), {
-      target: { value: 'command workflows' },
+      target: { value: 'computer work' },
     })
 
-    expect(screen.getByText('Command Runner')).toBeDefined()
+    expect(screen.getByText('Computer tools')).toBeDefined()
+    expect(screen.queryByText('Command Runner')).toBeNull()
   })
 
   test('explains search-only empty tool lists', async () => {
@@ -229,7 +243,7 @@ describe('AgentPluginsTab', () => {
 
     render(<AgentPluginsTab agentId="agent-1" />)
 
-    await screen.findByText('Shell Tools')
+    await screen.findByText('Computer tools')
 
     fireEvent.change(screen.getByTestId('agent-plugin-search'), { target: { value: 'missing' } })
     const searchEmpty = screen.getByTestId('agent-plugin-filter-empty')
@@ -240,7 +254,8 @@ describe('AgentPluginsTab', () => {
     expect(searchEmpty.textContent).not.toContain('No tools match this view')
 
     fireEvent.click(within(searchEmpty).getByRole('button', { name: /show all tools/i }))
-    expect(screen.getByText('Shell Tools')).toBeDefined()
+    expect(screen.getByText('Computer tools')).toBeDefined()
+    expect(screen.queryByText('Shell Tools')).toBeNull()
     expect(screen.getByLabelText("Search this agent's tools")).toHaveValue('')
   })
 
@@ -264,7 +279,7 @@ describe('AgentPluginsTab', () => {
 
     render(<AgentPluginsTab agentId="agent-1" />)
 
-    await screen.findByText('Shell Tools')
+    await screen.findByText('Computer tools')
     const filters = screen.getByTestId('agent-plugin-filter')
     fireEvent.click(
       within(filters).getByRole('button', {
@@ -281,7 +296,8 @@ describe('AgentPluginsTab', () => {
 
     fireEvent.click(within(filterEmpty).getByRole('button', { name: /show all tools/i }))
 
-    expect(screen.getByText('Shell Tools')).toBeDefined()
+    expect(screen.getByText('Computer tools')).toBeDefined()
+    expect(screen.queryByText('Shell Tools')).toBeNull()
     expect(
       within(filters).getByRole('button', {
         name: /show all tools for this agent, 1 matching tool/i,
@@ -329,7 +345,7 @@ describe('AgentPluginsTab', () => {
     render(<AgentPluginsTab agentId="agent-1" />)
 
     const shellSwitch = await screen.findByRole('switch', {
-      name: /turn off shell tools for this agent/i,
+      name: /turn off computer tools for this agent/i,
     })
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
 
@@ -379,7 +395,7 @@ describe('AgentPluginsTab', () => {
     render(<AgentPluginsTab agentId="agent-1" />)
 
     const shellSwitch = await screen.findByRole('switch', {
-      name: /turn off shell tools for this agent/i,
+      name: /turn off computer tools for this agent/i,
     })
     expect(shellSwitch).toHaveAttribute('aria-checked', 'true')
 
@@ -407,7 +423,7 @@ describe('AgentPluginsTab', () => {
     render(<AgentPluginsTab agentId="agent-1" />)
 
     const shellSwitch = await screen.findByRole('switch', {
-      name: /turn off shell tools for this agent/i,
+      name: /turn off computer tools for this agent/i,
     })
 
     fireEvent.click(shellSwitch)

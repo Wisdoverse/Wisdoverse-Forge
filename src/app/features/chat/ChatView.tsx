@@ -34,6 +34,10 @@ const CONVERSATION_FILTERS: { value: ConversationFilter; label: string }[] = [
   { value: 'attention', label: 'Attention' },
 ]
 
+const SIMPLE_CHAT_CONVERSATION_FILTERS = CONVERSATION_FILTERS.filter(
+  (item) => item.value !== 'tool'
+)
+
 const PROVIDER_EMPTY_COPY = {
   title: 'Start by asking this agent',
   detail:
@@ -49,7 +53,7 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   title: 'Send this agent a task to start updates',
   detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
-    'Create a task, choose this agent, or choose where tasks wait so this agent can receive it.',
+    'Create a task from Tasks. Choose this agent directly, or choose a task queue that includes this agent.',
     'Check Attention once work starts to see what needs help.',
     'Open Agents, confirm this agent shows Ready, then return here.',
   ],
@@ -68,7 +72,8 @@ interface ConversationEmptyAction {
 
 function conversationFilterEmptyCopy(
   filter: ConversationFilter,
-  search: string
+  search: string,
+  isProviderAgent = false
 ): ConversationFilterEmptyCopy {
   const hasSearch = search.trim().length > 0
   const filterLabel =
@@ -117,11 +122,22 @@ function conversationFilterEmptyCopy(
   }
 
   if (filter === 'tool') {
+    if (isProviderAgent) {
+      return {
+        title: 'Simple chat agents cannot change project files',
+        detail:
+          'This simple chat agent only answers in chat. It does not take Tasks, change files, or use computer apps.',
+        nextStep:
+          'Next: use All to see chat updates, or choose a Project files agent for Tasks and code changes.',
+      }
+    }
+
     return {
-      title: 'Send a file-work task to see work steps',
-      detail: 'Work steps appear when an agent shares commands or tool results.',
+      title: 'Send a Task that changes project files to see work steps',
+      detail:
+        'Work steps appear when a Project files or This computer agent shows what changed, what it checked, or what needs help.',
       nextStep:
-        'Next: use All to see chat updates, or send a file-work task so work steps can appear.',
+        'Next: use All to see chat updates, or create a Task that needs project files or code changes.',
     }
   }
 
@@ -149,7 +165,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
   const offlineRecoveryDetail = isProviderAgent
-    ? 'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again. Ready means this agent can answer in chat.'
+    ? 'This simple chat agent is not ready because its AI service needs a check. Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const emptyAction: ConversationEmptyAction | undefined = isProviderAgent
     ? offline
@@ -159,7 +175,9 @@ export function ChatView({ agentId }: ChatViewProps) {
       ? { label: 'Open Agents', href: '/agents' }
       : { label: 'Create a task', href: '/tasks' }
   const composerDisabledReason = offline
-    ? 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
+    ? isProviderAgent
+      ? 'Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
+      : 'Open Agents, start or reconnect this agent, then return here when it shows Ready.'
     : messagesLoading
       ? 'Wait for earlier messages to finish loading, then send your message from this chat.'
       : undefined
@@ -207,7 +225,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   )
   const filterCounts = useMemo(
     () =>
-      CONVERSATION_FILTERS.map((item) => ({
+      (isProviderAgent ? SIMPLE_CHAT_CONVERSATION_FILTERS : CONVERSATION_FILTERS).map((item) => ({
         ...item,
         count: isProviderAgent
           ? messages.filter((message) => messageMatchesFilter(message, item.value)).length
@@ -294,10 +312,10 @@ export function ChatView({ agentId }: ChatViewProps) {
         'bg-apple-blue/10 text-apple-blue border border-apple-blue/20'
       )}
     >
-      <span className="font-medium">Chat-only AI service</span>
+      <span className="font-medium">Simple chat agent</span>
       <span className="text-apple-blue/80">
-        Messages use {modelServiceName}. This agent can answer in chat, but it does not open project
-        files.
+        Messages use {modelServiceName}. This agent can answer in chat, but it does not take Tasks,
+        change files, or use computer apps. Use Project files or This computer for code changes.
       </span>
     </div>
   ) : null
@@ -339,13 +357,15 @@ export function ChatView({ agentId }: ChatViewProps) {
             Icon={Bot}
             tone="agent"
           />
-          <ConversationMetric
-            testId="conversation-metric-tools"
-            label="Work steps"
-            value={transcriptStats.tools}
-            Icon={Terminal}
-            tone="tool"
-          />
+          {!isProviderAgent && (
+            <ConversationMetric
+              testId="conversation-metric-tools"
+              label="Work steps"
+              value={transcriptStats.tools}
+              Icon={Terminal}
+              tone="tool"
+            />
+          )}
           <ConversationMetric
             testId="conversation-metric-attention"
             label="Attention"
@@ -377,7 +397,11 @@ export function ChatView({ agentId }: ChatViewProps) {
             value={conversationSearch}
             onChange={(event) => setConversationSearch(event.target.value)}
             aria-describedby={conversationSearchHelpId}
-            placeholder="Search updates, help requests, work steps..."
+            placeholder={
+              isProviderAgent
+                ? 'Search chat updates or help requests...'
+                : 'Search updates, help requests, work steps...'
+            }
             className={cn(
               'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
               'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
@@ -440,6 +464,7 @@ export function ChatView({ agentId }: ChatViewProps) {
               <ConversationFilterEmptyState
                 filter={conversationFilter}
                 search={conversationSearch}
+                isProviderAgent={isProviderAgent}
                 onClear={resetConversationFilters}
               />
             ) : (
@@ -483,6 +508,7 @@ export function ChatView({ agentId }: ChatViewProps) {
             <ConversationFilterEmptyState
               filter={conversationFilter}
               search={conversationSearch}
+              isProviderAgent={isProviderAgent}
               onClear={resetConversationFilters}
             />
           ) : (
@@ -499,6 +525,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           disabled={offline || messagesLoading || streaming}
           disabledReason={composerDisabledReason}
           disabledPlaceholder={composerDisabledPlaceholder}
+          helperText="Use this chat for direct questions, short summaries, and result checks. For Tasks or code changes, use Project files or This computer."
         />
       )}
     </div>
@@ -508,13 +535,15 @@ export function ChatView({ agentId }: ChatViewProps) {
 function ConversationFilterEmptyState({
   filter,
   search,
+  isProviderAgent,
   onClear,
 }: {
   filter: ConversationFilter
   search: string
+  isProviderAgent: boolean
   onClear: () => void
 }) {
-  const copy = conversationFilterEmptyCopy(filter, search)
+  const copy = conversationFilterEmptyCopy(filter, search, isProviderAgent)
   return (
     <div
       data-testid="conversation-filter-empty"
@@ -847,8 +876,31 @@ function turnSearchText(turn: Turn): string {
 
 function containsAttentionTerm(value: unknown): boolean {
   if (value == null) return false
-  const text = typeof value === 'string' ? value : JSON.stringify(value)
+  const text = attentionSearchText(value)
   return /\b(blocked|blocker|failed|failure|error|denied|unauthorized|waiting|needs?)\b/i.test(text)
+}
+
+function attentionSearchText(value: unknown, seen = new WeakSet<object>()): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => attentionSearchText(item, seen))
+      .filter(Boolean)
+      .join(' ')
+  }
+  if (typeof value === 'object') {
+    if (seen.has(value)) return ''
+    seen.add(value)
+    return Object.values(value)
+      .map((item) => attentionSearchText(item, seen))
+      .filter(Boolean)
+      .join(' ')
+  }
+  return ''
 }
 
 function formatMessageTime(value: string): string {

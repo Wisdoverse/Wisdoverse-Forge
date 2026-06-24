@@ -63,14 +63,20 @@ const BILLING_ACTION_OWNER_CHECK: Record<BillingActionArea, string> = {
   checkout: 'billing',
   portal: 'billing access',
 }
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+const ERROR_TEXT_KEYS = ['serverError', 'detail', 'error', 'message', 'reason'] as const
+const STATUS_CODE_KEYS = ['statusCode', 'status', 'code'] as const
 
 function isBillingNotConfigured(err: unknown): boolean {
+  const msg = structuredErrorText(err).toLowerCase()
+  if (RAW_SERVICE_DETAIL.test(msg)) return false
+
   const code = statusCode(err)
   if (code === 404 || code === 501 || code === 503) {
     return true
   }
 
-  const msg = structuredErrorText(err).toLowerCase()
   if (msg.includes('404') || msg.includes('not configured') || msg.includes('not found')) {
     return true
   }
@@ -82,25 +88,46 @@ function errorText(err: unknown): string {
   return typeof err === 'string' ? err : ''
 }
 
-function structuredErrorText(err: unknown): string {
-  if (!err || typeof err !== 'object') return errorText(err)
-  for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
-    const value = (err as Record<string, unknown>)[key]
-    if (typeof value === 'string' && value.trim()) return value
+function payloadText(err: unknown, depth = 0): string {
+  if (depth > 2) return ''
+  const text = errorText(err)
+  if (text.trim()) return text
+  if (!err || typeof err !== 'object') return ''
+
+  for (const key of ERROR_TEXT_KEYS) {
+    const nested = payloadText((err as Record<string, unknown>)[key], depth + 1)
+    if (nested.trim()) return nested
   }
-  return errorText(err)
+
+  return ''
+}
+
+function structuredErrorText(err: unknown): string {
+  return payloadText(err)
+}
+
+function payloadStatusCode(err: unknown, depth = 0): number | null {
+  if (depth > 2 || !err || typeof err !== 'object') return null
+
+  for (const key of STATUS_CODE_KEYS) {
+    const value = (err as Record<string, unknown>)[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+      return Number.parseInt(value, 10)
+    }
+  }
+
+  for (const key of ERROR_TEXT_KEYS) {
+    const nested = payloadStatusCode((err as Record<string, unknown>)[key], depth + 1)
+    if (nested != null) return nested
+  }
+
+  return null
 }
 
 function statusCode(err: unknown): number | null {
-  if (err && typeof err === 'object') {
-    for (const key of ['statusCode', 'status', 'code'] as const) {
-      const value = (err as Record<string, unknown>)[key]
-      if (typeof value === 'number' && Number.isFinite(value)) return value
-      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
-        return Number.parseInt(value, 10)
-      }
-    }
-  }
+  const structuredCode = payloadStatusCode(err)
+  if (structuredCode != null) return structuredCode
 
   const match = structuredErrorText(err).match(/\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i)
   if (!match) return null

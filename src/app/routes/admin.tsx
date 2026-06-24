@@ -1,6 +1,6 @@
 import { createRoute, redirect } from '@tanstack/react-router'
 import { Route as rootRoute } from './__root'
-import { AdminLayout } from '@app/features/admin/AdminLayout'
+import { AdminPage } from '@app/pages/admin'
 
 /**
  * Whether the cached user may enter `/admin`. Must mirror the backend
@@ -53,11 +53,5 @@ export const Route = createRoute({
       throw redirect({ to: '/tasks' })
     }
   },
-  component: function AdminPage() {
-    return (
-      <div data-testid="page-admin" className="h-full">
-        <AdminLayout />
-      </div>
-    )
-  },
+  component: AdminPage,
 })

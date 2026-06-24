@@ -88,11 +88,22 @@ describe('AgentCard', () => {
     )
 
     expect(screen.getByText('OpenAI AI service')).toBeDefined()
-    expect(screen.getByText('Chat-only AI service')).toBeDefined()
-    expect(screen.getByText('Open project settings first.')).toBeDefined()
+    expect(screen.getByText('Simple chat agent')).toBeDefined()
+    expect(screen.getByText('No project files needed')).toBeDefined()
+    expect(screen.getByText('Answered')).toBeDefined()
+    expect(screen.getByText('Replying')).toBeDefined()
+    expect(screen.getByText('Answer success')).toBeDefined()
+    expect(screen.getByTestId('agent-status-help-provider-agent').textContent).toBe(
+      'Ready for direct chat. Use Project files or This computer for Tasks and code changes.'
+    )
+    expect(screen.queryByText('Ready for a message')).toBeNull()
+    expect(screen.queryByText('Open project settings first.')).toBeNull()
     expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
     expect(screen.queryByText('Choose a starting project')).toBeNull()
-    expect(screen.queryByText('Chat-only agent')).toBeNull()
+    expect(screen.queryByText('Ready for a new task')).toBeNull()
+    expect(screen.queryByText('Finished')).toBeNull()
+    expect(screen.queryByText('Running')).toBeNull()
+    expect(screen.queryByText('Chat-only AI service')).toBeNull()
     expect(screen.queryByText('OpenAI · gpt-4o-mini')).toBeNull()
     expect(screen.queryByText(/model service/i)).toBeNull()
     expect(screen.queryByText(/text-only model/i)).toBeNull()
@@ -122,8 +133,10 @@ describe('AgentCard', () => {
     render(<AgentCard agent={{ ...mockAgent, status: 'offline' }} />)
 
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
-      'Open this agent and start it before sending file work.'
+      'Open this agent and start project files before sending Tasks or code changes.'
     )
+    expect(screen.queryByText(/file work/i)).toBeNull()
+    expect(screen.queryByText(/start it/i)).toBeNull()
   })
 
   test('explains how to reconnect a not-connected agent on this computer', () => {
@@ -137,14 +150,15 @@ describe('AgentCard', () => {
     }
 
     expect(agentCardStatusHelp('offline', localAgent)).toBe(
-      'Open this agent, then reconnect Terminal or PowerShell on that computer.'
+      'Open this agent to see the reconnect steps from Agents.'
     )
 
     render(<AgentCard agent={localAgent} />)
 
     expect(screen.getByTestId('agent-status-help-local-agent').textContent).toBe(
-      'Open this agent, then reconnect Terminal or PowerShell on that computer.'
+      'Open this agent to see the reconnect steps from Agents.'
     )
+    expect(screen.queryByText(/Terminal or PowerShell/i)).toBeNull()
     expect(screen.queryByText(/command app/i)).toBeNull()
     expect(screen.queryByText('Open this agent to reconnect before work')).toBeNull()
   })
@@ -159,15 +173,38 @@ describe('AgentCard', () => {
     }
 
     expect(agentCardStatusHelp('offline', providerAgent)).toBe(
-      'Open this agent and check its AI service before sending chat work.'
+      'Open this agent and check its AI service before sending a message.'
     )
 
     render(<AgentCard agent={providerAgent} />)
 
     expect(screen.getByTestId('agent-status-help-provider-agent').textContent).toBe(
-      'Open this agent and check its AI service before sending chat work.'
+      'Open this agent and check its AI service before sending a message.'
     )
+    expect(screen.queryByText(/chat work/i)).toBeNull()
     expect(screen.queryByText(/file work/i)).toBeNull()
+  })
+
+  test('describes working chat-only agents as answering messages', () => {
+    const providerAgent: AgentInfo = {
+      ...mockAgent,
+      id: 'provider-agent-working',
+      cliTool: undefined,
+      runtimeKind: 'api',
+      status: 'working',
+    }
+
+    expect(agentCardStatusHelp('idle', providerAgent)).toBe(
+      'Ready for direct chat. Use Project files or This computer for Tasks and code changes.'
+    )
+    expect(agentCardStatusHelp('working', providerAgent)).toBe('Answering a message now')
+
+    render(<AgentCard agent={providerAgent} />)
+
+    expect(screen.getByTestId('agent-status-help-provider-agent-working').textContent).toBe(
+      'Answering a message now'
+    )
+    expect(screen.queryByText('Running a task now')).toBeNull()
   })
 
   test('labels unknown agent statuses without exposing backend values', () => {
@@ -183,6 +220,27 @@ describe('AgentCard', () => {
     expect(screen.queryByText(/warming up/i)).toBeNull()
   })
 
+  test('uses message wording for unknown chat-only status', () => {
+    const providerAgent: AgentInfo = {
+      ...mockAgent,
+      id: 'provider-agent-unknown',
+      cliTool: undefined,
+      runtimeKind: 'api',
+      status: 'warming_up' as never,
+    }
+
+    expect(agentCardStatusHelp('warming_up', providerAgent)).toBe(
+      'Check this agent before sending a message'
+    )
+
+    render(<AgentCard agent={providerAgent} />)
+
+    expect(screen.getByTestId('agent-status-help-provider-agent-unknown').textContent).toBe(
+      'Check this agent before sending a message'
+    )
+    expect(screen.queryByText('Check this agent before sending work')).toBeNull()
+  })
+
   test('keeps current task visible while explaining working state', () => {
     render(
       <AgentCard
@@ -192,6 +250,30 @@ describe('AgentCard', () => {
 
     expect(screen.getByText('Run tests')).toBeDefined()
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe('Running a task now')
+  })
+
+  test('hides stale task text on working chat-only cards', () => {
+    render(
+      <AgentCard
+        agent={{
+          ...mockAgent,
+          id: 'provider-agent-working',
+          cliTool: undefined,
+          runtimeKind: 'api',
+          status: 'working',
+          tasksInProgress: 1,
+          currentTask: 'Run tests',
+        }}
+      />
+    )
+
+    expect(screen.getByText('Answering in Chat')).toBeDefined()
+    expect(screen.getByText('Shown in Console')).toBeDefined()
+    expect(screen.queryByText('Run tests')).toBeNull()
+    expect(screen.queryByText('Console')).toBeNull()
+    expect(screen.getByTestId('agent-status-help-provider-agent-working').textContent).toBe(
+      'Answering a message now'
+    )
   })
 
   test('opens the agent detail when clicked', () => {

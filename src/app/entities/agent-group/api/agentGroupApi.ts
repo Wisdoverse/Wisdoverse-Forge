@@ -35,7 +35,7 @@ export const agentGroupApi = {
     const group = res.group ?? res.data
     if (!group) {
       throw new Error(
-        'Check the waiting place name and project, then create it again. The waiting place was not created.'
+        'Check the task queue name and project, then create it again. The task queue was not created.'
       )
     }
     return normalizeGroup(group, input.projectId)

@@ -94,7 +94,7 @@ describe('ChatView', () => {
   const previousHandoffLabel = 'Conversation handoff'
   const previousHandoffTitle = 'Agent updates and help needed'
 
-  test('shows chat-only AI service banner when agent has no cliTool', async () => {
+  test('shows simple chat agent banner when agent has no cliTool', async () => {
     const loadMessages = vi.fn().mockResolvedValue(undefined)
     useAgentsStore.setState({ agents: [providerAgent] })
     seedChatState({ messages: [message('Hello from provider')], loadMessages })
@@ -103,19 +103,36 @@ describe('ChatView', () => {
 
     const banner = screen.getByTestId('provider-agent-chat-banner')
     expect(banner).toBeInTheDocument()
-    expect(within(banner).getByText('Chat-only AI service')).toBeInTheDocument()
+    expect(within(banner).getByText('Simple chat agent')).toBeInTheDocument()
     expect(within(banner).getByText(/messages use anthropic/i)).toBeInTheDocument()
     expect(
-      within(banner).getByText(/can answer in chat.*does not open project files/i)
+      within(banner).getByText(
+        /can answer in chat.*does not take Tasks, change files, or use computer apps/i
+      )
     ).toBeInTheDocument()
+    expect(
+      within(banner).getByText(/Use Project files or This computer for code changes/i)
+    ).toBeInTheDocument()
+    expect(banner).not.toHaveTextContent(/run commands/i)
     expect(banner).not.toHaveTextContent(/workspace files/i)
     expect(banner).not.toHaveTextContent(/terminal/i)
     expect(banner).not.toHaveTextContent(/provider/i)
     expect(banner).not.toHaveTextContent(/model service/i)
     expect(banner).not.toHaveTextContent(/command window/i)
-    expect(banner).not.toHaveTextContent('Chat-only agent')
+    expect(banner).not.toHaveTextContent('Chat-only AI service')
     expect(screen.getByText('Hello from provider')).toBeInTheDocument()
     await waitFor(() => expect(loadMessages).toHaveBeenCalledWith(providerAgent.id))
+  })
+
+  test('keeps simple chat input scoped away from Tasks and code changes', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({ messages: [] })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    expect(
+      screen.getByRole('textbox', { name: /message this agent/i })
+    ).toHaveAccessibleDescription(/for Tasks or code changes, use Project files or This computer/i)
   })
 
   test('does not expose raw AI service slugs in the chat-only banner', () => {
@@ -173,10 +190,12 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-empty-state')
     expect(emptyState).toHaveTextContent(
-      'This chat-only AI service is not ready. Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again. Ready means this agent can answer in chat.'
+      'This simple chat agent is not ready because its AI service needs a check. Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
     )
     expect(emptyState).not.toHaveTextContent('Settings > AI services')
     expect(emptyState).not.toHaveTextContent('refresh the list')
+    expect(emptyState).not.toHaveTextContent('return to Agents')
+    expect(emptyState).not.toHaveTextContent('choose this agent again')
     expect(emptyState).not.toHaveTextContent('Start it before sending a message')
     const textbox = screen.getByRole('textbox', { name: /message this agent/i })
     expect(textbox).toBeDisabled()
@@ -186,7 +205,7 @@ describe('ChatView', () => {
     )
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.'
+        'Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
       )
     ).toBeVisible()
     const action = screen.getByRole('link', { name: /open ai services/i })
@@ -238,9 +257,10 @@ describe('ChatView', () => {
     expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Create a task, choose this agent, or choose where tasks wait so this agent can receive it.'
+        'Create a task from Tasks. Choose this agent directly, or choose a task queue that includes this agent.'
       )
     ).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('where tasks wait')
     expect(screen.queryByText(/assign it to this agent/i)).toBeNull()
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
@@ -251,7 +271,6 @@ describe('ChatView', () => {
     const action = screen.getByRole('link', { name: /create a task/i })
     expect(action).toHaveAttribute('href', '/tasks')
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('lane')
-    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('task queue')
     expect(screen.queryByText('No updates from this agent yet')).toBeNull()
     expect(screen.queryByText('No updates captured yet')).toBeNull()
     expect(screen.queryByText(previousFindHelpCopy)).toBeNull()
@@ -353,8 +372,9 @@ describe('ChatView', () => {
     expect(screen.queryByText(previousHandoffLabel)).toBeNull()
     expect(screen.queryByText(previousHandoffTitle)).toBeNull()
     expect(
-      screen.getByPlaceholderText('Search updates, help requests, work steps...')
+      screen.getByPlaceholderText('Search chat updates or help requests...')
     ).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Search updates, help requests, work steps...')).toBeNull()
     expect(
       screen.getByRole('searchbox', { name: /search conversation/i })
     ).toHaveAccessibleDescription(/use show all updates to return to the full conversation/i)
@@ -375,6 +395,7 @@ describe('ChatView', () => {
     expect(
       within(screen.getByTestId('conversation-metric-attention')).getByText('1')
     ).toBeInTheDocument()
+    expect(screen.queryByTestId('conversation-metric-tools')).toBeNull()
     expect(screen.getAllByText('You').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Agent').length).toBeGreaterThan(0)
     expect(screen.getByText('Check message sender')).toBeInTheDocument()
@@ -389,9 +410,7 @@ describe('ChatView', () => {
     expect(
       within(filters).getByRole('button', { name: /show your messages, 1 matching update/i })
     ).toBeInTheDocument()
-    expect(
-      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
-    ).toBeInTheDocument()
+    expect(within(filters).queryByRole('button', { name: /show work steps/i })).toBeNull()
     fireEvent.click(
       within(filters).getByRole('button', {
         name: /show updates that need your next step, 1 matching update/i,
@@ -423,19 +442,47 @@ describe('ChatView', () => {
     fireEvent.click(within(emptyState).getByRole('button', { name: /show all updates/i }))
     expect(screen.getByTestId('conversation-search')).toHaveValue('')
     expect(screen.getByText('Settings page shipped')).toBeInTheDocument()
-
-    fireEvent.click(
-      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
-    )
-    expect(screen.getByText('Send a file-work task to see work steps')).toBeInTheDocument()
-    expect(
-      screen.getByText('Work steps appear when an agent shares commands or tool results.')
-    ).toBeInTheDocument()
-    expect(screen.getByText(/send a file-work task so work steps can appear/i)).toBeInTheDocument()
+    expect(screen.queryByText('Simple chat agents cannot change project files')).toBeNull()
+    expect(screen.queryByText(/file work/i)).toBeNull()
+    expect(screen.queryByText(/send a file-work task/i)).toBeNull()
     expect(screen.queryByText(/Assign a task to see work steps/i)).toBeNull()
     expect(screen.queryByText(/assign a task so work steps can appear/i)).toBeNull()
     expect(screen.queryByText('No work steps have been reported yet')).toBeNull()
     expect(screen.queryByText('No work steps are showing yet')).toBeNull()
+  })
+
+  test('explains empty project-file work steps with a concrete Task path', () => {
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({
+      turns: [
+        turn({
+          id: 'turn-without-tool',
+          prompt: 'Summarize status',
+          toolCalls: [],
+          response: 'Status is ready',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    const filters = screen.getByTestId('conversation-filter-group')
+    fireEvent.click(
+      within(filters).getByRole('button', { name: /show work steps, 0 matching updates/i })
+    )
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toHaveTextContent('Send a Task that changes project files to see work steps')
+    expect(emptyState).toHaveTextContent(
+      'Work steps appear when a Project files or This computer agent shows what changed, what it checked, or what needs help.'
+    )
+    expect(emptyState).toHaveTextContent(
+      'Next: use All to see chat updates, or create a Task that needs project files or code changes.'
+    )
+    expect(emptyState).not.toHaveTextContent('commands')
+    expect(emptyState).not.toHaveTextContent('live work access')
+    expect(emptyState).not.toHaveTextContent('file-work task')
+    expect(emptyState).not.toHaveTextContent('file work')
   })
 
   test('searches provider chat by visible message text only', () => {
@@ -505,6 +552,40 @@ describe('ChatView', () => {
       within(emptyState).getByText('Search did not find a conversation update')
     ).toBeInTheDocument()
     expect(screen.queryByText('Deploy check finished')).toBeNull()
+  })
+
+  test('keeps chat usable when saved work-step details cannot be serialized', () => {
+    const circularOutput: Record<string, unknown> = {
+      summary: 'Saved setup details',
+    }
+    circularOutput.self = circularOutput
+    useAgentsStore.setState({ agents: [cliAgent] })
+    seedChatState({
+      turns: [
+        turn({
+          id: 'turn-circular-tool-output',
+          prompt: 'Check setup details',
+          response: 'Setup details are saved',
+          toolCalls: [
+            {
+              toolUseId: 'tool-circular',
+              tool: 'future_tool_runner',
+              input: { summary: 'Check setup' },
+              output: circularOutput,
+              success: true,
+            },
+          ],
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={cliAgent.id} />)
+
+    expect(screen.getByText('Setup details are saved')).toBeInTheDocument()
+    expect(screen.getByText(/Agent saved a work step/i)).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-result-count')).toHaveTextContent(
+      'Showing 1 of 1 update'
+    )
   })
 
   test('explains an empty You filter without operator jargon', () => {

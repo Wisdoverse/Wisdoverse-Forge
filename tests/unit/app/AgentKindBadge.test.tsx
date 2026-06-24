@@ -27,13 +27,14 @@ describe('AgentKindBadge', () => {
     )
   })
 
-  test('explains chat-only agents by their file access boundary', () => {
+  test('explains question-only agents by their file access boundary', () => {
     render(<AgentKindBadge />)
 
-    const badge = screen.getByText('Chat-only')
+    const badge = screen.getByText('Questions only')
     expect(badge).toHaveAttribute(
       'title',
-      'Answers in chat through a connected AI service. It cannot open project files on its own.'
+      'Answers in chat through a connected AI service. It cannot take Tasks, change code, use computer apps, or open project files on its own.'
     )
+    expect(screen.queryByText('Chat only')).toBeNull()
   })
 })

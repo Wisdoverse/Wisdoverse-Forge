@@ -167,14 +167,55 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/warming up/i)).toBeNull()
   })
 
-  test('prompt agent hides live work and labels chat as Chat', () => {
+  test('prompt agent hides task and live-work tabs and points users to Chat', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Tasks' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Chat' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Chat instructions' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tools' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Instructions' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Live work' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Command window' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'History' })).toBeNull()
+    expect(screen.getByText('Send a message in Chat')).toBeDefined()
+    expect(
+      screen.getByText(/Use Chat for direct questions, writing, and result checks/i)
+    ).toBeDefined()
+    expect(screen.getByTestId('agent-next-step')).toHaveTextContent(
+      'It cannot take Tasks or change project files.'
+    )
+    expect(screen.getByRole('button', { name: /open chat/i })).toBeDefined()
+    expect(screen.getAllByText('Ready for direct chat').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Ready for work')).toBeNull()
+    expect(screen.getByText('Send a message in Chat to create the first reply.')).toBeDefined()
+    expect(screen.getByText('Messages answered')).toBeDefined()
+    expect(screen.getByText('Replies in progress')).toBeDefined()
+    expect(screen.getByText('Answer success')).toBeDefined()
+    expect(screen.getByText('Can answer')).toBeDefined()
+    expect(screen.getByText('What it can use')).toBeDefined()
+    expect(screen.getByText('Connected AI service')).toBeDefined()
+    expect(screen.getByText('Where to start')).toBeDefined()
+    expect(screen.getByText('File access')).toBeDefined()
+    expect(screen.getByText('Current chat')).toBeDefined()
+    expect(
+      screen.getAllByText(
+        'No project files. Use Project files or This computer for Tasks and code changes.'
+      ).length
+    ).toBeGreaterThan(0)
+    expect(screen.getByText('Save useful chat notes after a reply.')).toBeDefined()
+    expect(screen.queryByText('Ready for a task')).toBeNull()
+    expect(screen.queryByText('Send a task to create the first update.')).toBeNull()
+    expect(screen.queryByText('Current work')).toBeNull()
+    expect(screen.queryByText('Finish a task, then save useful steps.')).toBeNull()
+    expect(screen.queryByText('Tasks done')).toBeNull()
+    expect(screen.queryByText('In progress')).toBeNull()
+    expect(screen.queryByText('Finished cleanly')).toBeNull()
+    expect(screen.queryByText('Can take work')).toBeNull()
+    expect(screen.queryByText('Project files it can use')).toBeNull()
+    expect(screen.queryByText('Project for new tasks')).toBeNull()
+    expect(screen.queryByText('Folder agents open')).toBeNull()
+    expect(getTasksByAgentMock).not.toHaveBeenCalled()
   })
 
   test('agent joined from this computer is managed without live work actions', () => {
@@ -243,12 +284,18 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Ready for a task')).toBeDefined()
     expect(screen.getByText('Send a task to create the first update.')).toBeDefined()
     expect(screen.getByText('Send a small first task')).toBeDefined()
-    expect(screen.getByText(/Choose this agent, or choose where tasks wait/i)).toBeDefined()
-    expect(screen.queryByText(/task queue/i)).toBeNull()
+    expect(
+      screen.getByText(
+        'Use Tasks to send a small, low-risk task. Choose this agent directly, or choose a task queue that includes this agent.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByText(/where tasks wait/i)).toBeNull()
     expect(screen.queryByText('No active task')).toBeNull()
     expect(screen.queryByText('No recent task updates')).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
+    expect(screen.queryByLabelText(/send a quick message/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /need a quick message instead/i })).toBeDefined()
   })
 
   test('explains managed file folders without showing the internal folder path', () => {
@@ -298,9 +345,14 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('Go to Tasks to review recent activity')).toBeNull()
     expect(
       screen.getByText(
-        "Go to Tasks to load this agent's work history and decide what to send next."
+        "Go to Tasks to load this agent's task history and decide what task to send next."
       )
     ).toBeDefined()
+    expect(
+      screen.queryByText(
+        "Go to Tasks to load this agent's work history and decide what to send next."
+      )
+    ).toBeNull()
     expect(screen.getByText(/check result files/)).toBeDefined()
     expect(screen.queryByText(/review evidence/i)).toBeNull()
     expect(screen.queryByText('No task activity has been loaded yet.')).toBeNull()
@@ -314,14 +366,16 @@ describe('AgentDetailView', () => {
     expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
       screen.getByText(
-        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work."
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm the latest task state before sending another task."
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest work."
+        "Go back to Agents and choose this agent again, or open Tasks to check this agent's latest task state."
       )
     ).toBeDefined()
+    expect(screen.queryByText(/latest work/i)).toBeNull()
+    expect(screen.queryByText(/sending more work/i)).toBeNull()
     expect(screen.getByText(/latest task state before deciding/)).toBeDefined()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
@@ -336,9 +390,10 @@ describe('AgentDetailView', () => {
     expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
       screen.getByText(
-        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm what is running before sending more work."
+        "This page could not load the agent's recent task history. Go back to Agents and choose this agent again, or open Tasks to confirm the latest task state before sending another task."
       )
     ).toBeDefined()
+    expect(screen.queryByText(/sending more work/i)).toBeNull()
     expect(screen.queryByText('Send a small first task')).toBeNull()
   })
 
@@ -355,17 +410,19 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getAllByText('Start file work').length).toBeGreaterThan(1)
-    expect(screen.getByText('Open Live work and start file work')).toBeDefined()
+    expect(screen.getAllByText('Start project files').length).toBeGreaterThan(1)
+    expect(screen.getByText('Open Live work and start project files')).toBeDefined()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(
       screen.getByText(
-        'Open Live work, choose Start file work, and wait until this agent shows Ready before sending file work.'
+        'Open Live work, choose Start project files, and wait until this agent shows Ready before sending Tasks or code changes.'
       )
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    expect(screen.getByText('Start file work to open Live work')).toBeDefined()
-    expect(screen.getByText(/start file work before this agent works on files/i)).toBeDefined()
+    expect(screen.getByText('Start project files to open Live work')).toBeDefined()
+    expect(
+      screen.getByText(/start project files before this agent changes project files/i)
+    ).toBeDefined()
     expect(
       screen.getByText(/success looks like the agent status changing to ready or working/i)
     ).toBeDefined()
@@ -378,7 +435,8 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.queryByText('Loading live work...')).toBeNull()
-    expect(screen.getByRole('button', { name: /start file work/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /start project files/i })).toBeDefined()
+    expect(screen.queryByText(/file work/i)).toBeNull()
   })
 
   test('shows start failure guidance without raw setup details', () => {
@@ -403,7 +461,7 @@ describe('AgentDetailView', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check the agent status')
-    expect(alert).toHaveTextContent('choose Start file work again')
+    expect(alert).toHaveTextContent('choose Start project files again')
     expect(alert).toHaveTextContent(
       "ask an owner or admin to check this agent's connection and access in Agents"
     )
@@ -434,14 +492,14 @@ describe('AgentDetailView', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    const startButton = screen.getByRole('button', { name: /start file work/i })
+    const startButton = screen.getByRole('button', { name: /start project files/i })
     fireEvent.click(startButton)
 
     await waitFor(() => expect(startButton).not.toBeDisabled())
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Check the agent status')
-    expect(alert).toHaveTextContent('choose Start file work again')
+    expect(alert).toHaveTextContent('choose Start project files again')
     expect(alert).toHaveTextContent(
       "ask an owner or admin to check this agent's connection and access in Agents"
     )
@@ -450,7 +508,7 @@ describe('AgentDetailView', () => {
     expect(alert.textContent).not.toContain('socket hang up')
   })
 
-  test('names the file-work action while a pending workspace is starting', async () => {
+  test('names the project-files action while a pending workspace is starting', async () => {
     let finishStart: (started: boolean) => void = () => undefined
     useAgentsStore.setState({
       error: null,
@@ -475,9 +533,9 @@ describe('AgentDetailView', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    fireEvent.click(screen.getByRole('button', { name: /start file work/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start project files/i }))
 
-    expect(screen.getByRole('button', { name: /starting file work/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /opening project files/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Starting\.\.\.$/i })).toBeNull()
 
     await act(async () => {
@@ -497,7 +555,8 @@ describe('AgentDetailView', () => {
       within(nextStep).getByText(/go back to Agents, choose Connect this computer/i)
     ).toBeDefined()
     expect(within(nextStep).getByText(/copy the new setup text/i)).toBeDefined()
-    expect(within(nextStep).getByText(/paste it in Terminal or PowerShell/i)).toBeDefined()
+    expect(within(nextStep).getByText(/paste it in the setup app shown there/i)).toBeDefined()
+    expect(within(nextStep).queryByText(/Terminal or PowerShell/i)).toBeNull()
     fireEvent.click(within(nextStep).getByRole('button', { name: /back to agents/i }))
     expect(onBack).toHaveBeenCalledTimes(1)
     expect(within(nextStep).queryByText(/command app/i)).toBeNull()
@@ -516,17 +575,21 @@ describe('AgentDetailView', () => {
     render(<AgentDetailView agent={{ ...providerAgent, status: 'offline' }} onBack={() => {}} />)
 
     const nextStep = screen.getByTestId('agent-next-step')
-    expect(screen.getByText('Check the AI service before sending work')).toBeDefined()
+    expect(screen.getByText('Check the AI service before sending a message')).toBeDefined()
     expect(screen.getByText('Open AI service settings and choose Check connection')).toBeDefined()
     expect(within(nextStep).getByText(/choose Check connection for this service/i)).toBeDefined()
     expect(
-      within(nextStep).getByText(/return to Agents and choose this agent again/i)
+      within(nextStep).getByText(
+        /return to Agents and choose this agent again before sending a message/i
+      )
     ).toBeDefined()
     expect(screen.getByText(/returns to Ready and can answer in chat/i)).toBeDefined()
     expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
       'href',
       '/settings/providers'
     )
+    expect(screen.queryByText('Check the AI service before sending work')).toBeNull()
+    expect(within(nextStep).queryByText(/chat work/i)).toBeNull()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
     expect(screen.queryByText(/click Check/i)).toBeNull()
   })
@@ -563,23 +626,32 @@ describe('AgentDetailView', () => {
 
   test('explains chat-only agents do not open workspace files', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
-    expect(screen.getByText('Folder agents open')).toBeDefined()
-    expect(screen.getAllByText('Use another agent for file work').length).toBeGreaterThan(0)
+    expect(screen.getByText('File access')).toBeDefined()
+    expect(
+      screen.getAllByText(
+        'No project files. Use Project files or This computer for Tasks and code changes.'
+      ).length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText('No file access needed')).toBeNull()
     expect(screen.getByText('How it connects')).toBeDefined()
     expect(screen.getByText('AI service is ready for chat')).toBeDefined()
-    expect(screen.getAllByText('Chat-only AI service').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Simple chat agent').length).toBeGreaterThan(0)
     expect(screen.getByText(/answers in chat through an AI service/i)).toBeDefined()
     expect(
       screen.getByText(/can answer questions, write, and check text or results/i)
     ).toBeDefined()
     expect(screen.queryByText(/can plan, write, and review text/i)).toBeNull()
-    expect(screen.getByText(/cannot open project files on its own/i)).toBeDefined()
-    expect(screen.getByText(/for file work, use an agent on this computer/i)).toBeDefined()
-    const accessNote = screen.getByText(/confirm this chat-only agent can answer/i)
+    expect(
+      screen.getByText(/cannot take Tasks, change code, use computer apps, or open project files/i)
+    ).toBeDefined()
+    expect(
+      screen.getByText(/for Tasks and code changes, use Project files or This computer/i)
+    ).toBeDefined()
+    const accessNote = screen.getByText(/cannot take Tasks, change code, or use computer apps/i)
     expect(accessNote).toBeDefined()
     expect(accessNote).toHaveClass('break-words')
     expect(accessNote).not.toHaveClass('truncate')
+    expect(screen.queryByText(/run commands/i)).toBeNull()
     expect(screen.queryByText('Not needed for this agent')).toBeNull()
     expect(screen.queryByText('Not needed')).toBeNull()
     expect(screen.queryByText(/model provider/i)).toBeNull()

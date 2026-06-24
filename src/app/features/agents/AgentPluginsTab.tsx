@@ -130,8 +130,41 @@ function agentPluginFilterEmptyState(filter: PluginFilter, query: string): Empty
   }
 }
 
+type PluginDisplaySource = Pick<PluginItem, 'id' | 'name' | 'description'>
+
+function normalizeDisplayText(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function isComputerWorkTool(plugin: PluginDisplaySource): boolean {
+  const searchableText = [plugin.id, plugin.name, plugin.description]
+    .map(normalizeDisplayText)
+    .join(' ')
+
+  return /\b(?:shell|terminal|command)\b/.test(searchableText)
+}
+
+function toolDisplayName(plugin: PluginDisplaySource): string {
+  if (isComputerWorkTool(plugin)) return 'Computer tools'
+
+  const name = plugin.name.trim()
+  return name || 'Unnamed tool'
+}
+
+function toolDescription(plugin: PluginDisplaySource): string {
+  if (isComputerWorkTool(plugin)) {
+    return 'Use computer work steps when this agent needs to check or change project files.'
+  }
+
+  const description = plugin.description.trim()
+  return (
+    description ||
+    'Tool summary is missing. Keep the team setting until an owner explains what this tool lets the agent do.'
+  )
+}
+
 function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: string): PluginItem[] {
-  const normalized = query.trim().toLowerCase()
+  const normalized = normalizeDisplayText(query)
   return plugins.filter((plugin) => {
     const matchesFilter =
       filter === 'all' ||
@@ -140,27 +173,25 @@ function filterPlugins(plugins: PluginItem[], filter: PluginFilter, query: strin
       (filter === 'overridden' && plugin.hasOverride)
     if (!matchesFilter) return false
     if (!normalized) return true
-    return [plugin.name, plugin.description].join(' ').toLowerCase().includes(normalized)
+    return [toolDisplayName(plugin), toolDescription(plugin)]
+      .join(' ')
+      .toLowerCase()
+      .includes(normalized)
   })
 }
 
 export function pluginSettingNote(
-  plugin: Pick<PluginItem, 'defaultEnabled' | 'hasOverride'>
+  plugin: Pick<PluginItem, 'defaultEnabled' | 'enabled' | 'hasOverride'>
 ): string {
-  const teamSetting = plugin.defaultEnabled
-    ? 'normally available for agents'
-    : 'normally off for agents'
-  return plugin.hasOverride
-    ? `Changed for this agent - ${teamSetting}`
-    : `Using team setting - ${teamSetting}`
-}
+  if (plugin.hasOverride) {
+    return plugin.enabled
+      ? 'Changed for this agent: it can use this tool now.'
+      : 'Changed for this agent: it cannot use this tool now.'
+  }
 
-function toolDescription(plugin: Pick<PluginItem, 'description'>): string {
-  const description = plugin.description.trim()
-  return (
-    description ||
-    'Tool summary is missing. Keep the team setting until an owner explains what this tool lets the agent do.'
-  )
+  return plugin.defaultEnabled
+    ? 'Following team setting: this agent can use it.'
+    : 'Following team setting: this agent cannot use it yet.'
 }
 
 interface AgentPluginsTabProps {
@@ -481,54 +512,58 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
           </button>
         </div>
       ) : (
-        visiblePlugins.map((plugin) => (
-          <div
-            key={plugin.id}
-            data-testid={`plugin-row-${plugin.id}`}
-            className={cn(
-              'flex items-center justify-between gap-4',
-              'rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-            )}
-          >
-            <div className="min-w-0 flex flex-1 flex-col gap-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  {plugin.name}
-                </span>
-                <PluginStatusPill plugin={plugin} />
-              </div>
-              <span className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {toolDescription(plugin)}
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
-                {pluginSettingNote(plugin)}
-              </span>
-            </div>
+        visiblePlugins.map((plugin) => {
+          const displayName = toolDisplayName(plugin)
 
-            <button
-              type="button"
-              role="switch"
-              aria-checked={plugin.enabled}
-              aria-label={`${plugin.enabled ? 'Turn off' : 'Turn on'} ${plugin.name} for this agent`}
-              onClick={() => void toggle(plugin)}
-              disabled={plugin.saving}
+          return (
+            <div
+              key={plugin.id}
+              data-testid={`plugin-row-${plugin.id}`}
               className={cn(
-                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
-                'transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
-                plugin.saving && 'opacity-50 cursor-wait',
-                plugin.enabled ? 'bg-apple-blue' : 'bg-apple-gray-2'
+                'flex items-center justify-between gap-4',
+                'rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
               )}
             >
-              <span
+              <div className="min-w-0 flex flex-1 flex-col gap-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                    {displayName}
+                  </span>
+                  <PluginStatusPill plugin={plugin} />
+                </div>
+                <span className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {toolDescription(plugin)}
+                </span>
+                <span className="text-[10px] font-medium tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
+                  {pluginSettingNote(plugin)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plugin.enabled}
+                aria-label={`${plugin.enabled ? 'Turn off' : 'Turn on'} ${displayName} for this agent`}
+                onClick={() => void toggle(plugin)}
+                disabled={plugin.saving}
                 className={cn(
-                  'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md',
-                  'transform transition-transform duration-200',
-                  plugin.enabled ? 'translate-x-5' : 'translate-x-0'
+                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
+                  'transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                  plugin.saving && 'opacity-50 cursor-wait',
+                  plugin.enabled ? 'bg-apple-blue' : 'bg-apple-gray-2'
                 )}
-              />
-            </button>
-          </div>
-        ))
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md',
+                    'transform transition-transform duration-200',
+                    plugin.enabled ? 'translate-x-5' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+          )
+        })
       )}
     </div>
   )

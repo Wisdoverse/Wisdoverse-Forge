@@ -81,8 +81,8 @@ const TYPE_CONFIG: Record<
     unreadBg: 'bg-apple-blue/[0.04]',
     dot: 'bg-apple-blue',
     label: 'Account access',
-    actionLabel: 'Reconnect work access',
-    guidance: 'Open Codex sign-in, then reconnect the account agents use for file work.',
+    actionLabel: 'Reconnect account access',
+    guidance: 'Open Codex sign-in, then reconnect the account agents use to change project files.',
     template: 'credential-action',
   },
   cli_image_updated: {
@@ -187,7 +187,7 @@ function displayNotificationMessage(notification: Notification): string {
   if (notification.type === 'credential_expired') {
     return notification.message
       .replace(/\baccount connection\b/gi, 'work account')
-      .replace(/\bruntime access\b/gi, 'agent work access')
+      .replace(/\bruntime access\b/gi, 'account access')
       .replace(/\bcredentials?\b/gi, 'account access')
       .replace(/\bexpired\b/gi, 'needs reconnecting')
   }

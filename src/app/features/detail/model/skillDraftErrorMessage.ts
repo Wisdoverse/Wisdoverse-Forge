@@ -1,27 +1,53 @@
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+const ERROR_TEXT_KEYS = ['serverError', 'detail', 'error', 'message', 'reason'] as const
+const STATUS_CODE_KEYS = ['statusCode', 'status', 'code'] as const
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message
   return typeof error === 'string' ? error : ''
 }
 
-function structuredErrorText(error: unknown): string {
-  if (!error || typeof error !== 'object') return errorText(error)
-  for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
-    const value = (error as Record<string, unknown>)[key]
-    if (typeof value === 'string' && value.trim()) return value
+function payloadText(error: unknown, depth = 0): string {
+  if (depth > 2) return ''
+  const text = errorText(error)
+  if (text.trim()) return text
+  if (!error || typeof error !== 'object') return ''
+
+  for (const key of ERROR_TEXT_KEYS) {
+    const nested = payloadText((error as Record<string, unknown>)[key], depth + 1)
+    if (nested.trim()) return nested
   }
-  return errorText(error)
+
+  return ''
+}
+
+function structuredErrorText(error: unknown): string {
+  return payloadText(error)
+}
+
+function payloadStatusCode(error: unknown, depth = 0): number | null {
+  if (depth > 2 || !error || typeof error !== 'object') return null
+
+  for (const key of STATUS_CODE_KEYS) {
+    const value = (error as Record<string, unknown>)[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+      return Number.parseInt(value, 10)
+    }
+  }
+
+  for (const key of ERROR_TEXT_KEYS) {
+    const nested = payloadStatusCode((error as Record<string, unknown>)[key], depth + 1)
+    if (nested != null) return nested
+  }
+
+  return null
 }
 
 function statusCode(error: unknown): number | null {
-  if (error && typeof error === 'object') {
-    for (const key of ['statusCode', 'status', 'code'] as const) {
-      const value = (error as Record<string, unknown>)[key]
-      if (typeof value === 'number' && Number.isFinite(value)) return value
-      if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
-        return Number.parseInt(value, 10)
-      }
-    }
-  }
+  const structuredCode = payloadStatusCode(error)
+  if (structuredCode != null) return structuredCode
 
   const match = structuredErrorText(error).match(
     /\b(?:HTTP|API|Server error|Code:)\s*\(?(\d{3})\b/i
@@ -69,6 +95,9 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('duplicate')
   ) {
     return `Rename it, then save again. A saved instruction with this name may already exist. ${failure}`
+  }
+  if (RAW_SERVICE_DETAIL.test(text)) {
+    return 'Wait a few minutes, then save again. Forge could not save this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
   }
   if (code === 422 || text.includes('validation')) {
     return `Check the name, matching words, and reusable instructions, then save again. ${failure}`

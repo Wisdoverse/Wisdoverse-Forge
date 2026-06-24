@@ -104,6 +104,18 @@ describe('Agents Store', () => {
     expect(message).not.toContain('service')
   })
 
+  test('keeps create network failures on the New agent path', () => {
+    const message = agentActionErrorMessage('create', 'Network error')
+
+    expectBeginnerError(
+      message,
+      'Check your connection, then open Agents and choose New agent again. Forge could not create the agent.'
+    )
+    expect(message).not.toContain('choose this agent')
+    expect(message).not.toContain('Check the agent details')
+    expect(message).not.toContain('refresh')
+  })
+
   test('turns status fields into a wait and retry step', () => {
     expectBeginnerError(
       agentActionErrorMessage('sendPrompt', {
@@ -122,6 +134,35 @@ describe('Agents Store', () => {
     )
   })
 
+  test('keeps unclear create validation on the New agent form path', () => {
+    const message = agentActionErrorMessage(
+      'create',
+      apiError(422, { message: 'payload was not accepted' })
+    )
+
+    expectBeginnerError(
+      message,
+      'Check the name, where this agent should work, and any required service or project, then choose Add agent again.'
+    )
+    expect(message).not.toContain('Check the agent details')
+    expect(message).not.toContain('choose this agent')
+    expect(message).not.toContain('refresh')
+  })
+
+  test('keeps internal create failures on the service recovery path', () => {
+    const message = agentActionErrorMessage('create', {
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    })
+
+    expectBeginnerError(
+      message,
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+    )
+    expect(message).not.toContain('Check the agent details')
+    expect(message).not.toContain('file work')
+  })
+
   test('explains managed workspace startup failures without worker jargon', () => {
     const message = agentActionErrorMessage(
       'start',
@@ -130,12 +171,13 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Ask an owner or admin to check Where agents work in Settings, then start this agent from the agent card. File work is not ready.'
+      'Ask an owner or admin to check Where agents work in Settings, then start this agent from the agent card. Project files are not ready.'
     )
     expect(message).not.toContain('worker')
     expect(message).not.toContain('Docker')
     expect(message).not.toContain('workspace is not ready')
     expect(message).not.toContain('place where this agent runs')
+    expect(message).not.toContain('File work')
   })
 
   test('starts unknown action failures with an Agents page step', () => {
@@ -154,6 +196,30 @@ describe('Agents Store', () => {
 
     expectBeginnerError(message, 'Open Agents again to load agents. This agent could not be found.')
     expect(message).not.toContain('choose this agent')
+  })
+
+  test('keeps missing create targets on the New agent path', () => {
+    const message = agentActionErrorMessage('create', apiError(404, { message: 'not found' }))
+
+    expectBeginnerError(
+      message,
+      'Open Agents, choose the current project, then choose New agent again. The project or team space changed while creating this agent.'
+    )
+    expect(message).not.toContain('This agent could not be found')
+    expect(message).not.toContain('Check the agent details')
+    expect(message).not.toContain('refresh')
+  })
+
+  test('keeps missing this-computer setup targets on the New agent path', () => {
+    const message = agentActionErrorMessage('enrollLocal', apiError(404, { message: 'not found' }))
+
+    expectBeginnerError(
+      message,
+      'Open Agents, choose the current project, then choose New agent again. The project or team space changed before this computer setup was ready.'
+    )
+    expect(message).not.toContain('This agent could not be found')
+    expect(message).not.toContain('Check the agent details')
+    expect(message).not.toContain('refresh')
   })
 
   test('starts delete conflicts with a current-status check step', () => {
@@ -185,9 +251,26 @@ describe('Agents Store', () => {
 
     expectBeginnerError(
       message,
-      'Check the agent name, work tool, and project access, then choose New agent again.'
+      'Check the agent name, agent type, and project, then choose New agent again.'
     )
     expect(message).not.toContain('CLI')
+    expect(message).not.toContain('work tool')
+    expect(message).not.toContain('project access')
+    expect(message).not.toContain('local agent')
+  })
+
+  test('explains why this-computer setup still needs a project', () => {
+    const message = agentActionErrorMessage(
+      'enrollLocal',
+      apiError(422, { message: 'project_id is required' })
+    )
+
+    expectBeginnerError(
+      message,
+      'Choose a project you can access, then choose Add agent again. This computer agents still need a project so Tasks and history have a place to save.'
+    )
+    expect(message).not.toContain('project_id')
+    expect(message).not.toContain('workspace')
     expect(message).not.toContain('local agent')
   })
 
@@ -206,18 +289,18 @@ describe('Agents Store', () => {
     expect(message).not.toContain('setup command')
   })
 
-  test('turns file-work server failures into concrete agent action steps', () => {
+  test('turns project-file server failures into concrete agent action steps', () => {
     expectBeginnerError(
       agentActionErrorMessage('create', apiError(503, { message: 'runtime unavailable' })),
-      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents and choose New agent again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expectBeginnerError(
       agentActionErrorMessage('start', apiError(503, { message: 'runtime unavailable' })),
-      'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents, choose this agent, and start it again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
     expectBeginnerError(
       agentActionErrorMessage('restart', apiError(503, { message: 'runtime unavailable' })),
-      'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare file work for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
+      'Wait a moment, then open Agents, choose this agent, and restart it again. Forge could not prepare project files for agents right now. If it still fails, ask an owner or admin to check Where agents work in Settings.'
     )
   })
 
@@ -377,12 +460,13 @@ describe('Agents Store', () => {
     expect(state.agents).toHaveLength(1)
     expectBeginnerError(
       state.error,
-      'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet. It will stay in the list.'
+      'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but project files are not ready yet. It will stay in the list.'
     )
     expect(state.error).not.toContain('worker')
     expect(state.error).not.toContain('Docker')
     expect(state.error).not.toContain('workspace is not ready')
     expect(state.error).not.toContain('the place where it runs')
+    expect(state.error).not.toContain('file work')
   })
 
   test('closes the create modal when the managed workspace starts', async () => {

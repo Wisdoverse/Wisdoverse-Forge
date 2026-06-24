@@ -286,7 +286,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
 
   if (!selectedGroupId) {
     const actionLabel = selectedProjectId
-      ? 'Open Agents to set up where tasks wait'
+      ? 'Open Agents to set up a task queue'
       : 'Open project settings'
     const action = selectedProjectId ? onOpenTaskQueues : onOpenProjectsSetup
 
@@ -301,13 +301,13 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             {selectedProjectId
-              ? 'Set up where tasks wait before sending work'
+              ? 'Set up a task queue before sending work'
               : 'Create or choose a project before creating tasks'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'New tasks need a place to wait before an agent starts them. Open Agents, create a waiting place, then come back here.'
-              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and waiting places together.'}
+              ? 'New tasks need a queue before an agent starts them. Open Agents, create a task queue, then come back here.'
+              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and task queues together.'}
           </p>
         </div>
         {action ? (
@@ -329,7 +329,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
       <BeginnerLoadingState
         title="Checking tasks"
         detail="Forge is checking which tasks are waiting, working, need help, or finished in this project."
-        nextStep="If this takes more than a moment, open Tasks again or ask an owner or admin to check where tasks wait."
+        nextStep="If this takes more than a moment, open Tasks again or ask an owner or admin to check the task queue."
         success="Success looks like task columns or an add-the-first-task step."
         testId="board-loading"
         framed={false}

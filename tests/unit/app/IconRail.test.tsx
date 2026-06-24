@@ -11,7 +11,8 @@ describe('IconRail', () => {
 
     expect(screen.getByRole('button', { name: 'Task board' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Updates inbox' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Agents that handle tasks' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Agents and chat services' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Agents that handle tasks' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Saved instructions' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Settings and setup' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Task board' })).toHaveAttribute(
@@ -26,7 +27,7 @@ describe('IconRail', () => {
 
     render(<IconRail activePath="/tasks" onNavigate={onNavigate} />)
 
-    await user.click(screen.getByRole('button', { name: 'Agents that handle tasks' }))
+    await user.click(screen.getByRole('button', { name: 'Agents and chat services' }))
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
   })

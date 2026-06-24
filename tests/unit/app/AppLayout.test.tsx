@@ -144,7 +144,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
     const navItems = screen.getAllByTestId(/^sidebar-nav-/)
     expect(navItems.length).toBeGreaterThanOrEqual(1)
-    expect(screen.queryByTestId('sidebar-nav-start')).toBeNull()
+    expect(screen.getByTestId('sidebar-nav-start')).toBeDefined()
     expect(screen.getByTestId('sidebar-nav-tasks')).toBeDefined()
   })
 
@@ -203,10 +203,10 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    const setupButton = screen.getByRole('button', { name: 'Set up waiting place' })
+    const setupButton = screen.getByRole('button', { name: 'Set up task queue' })
     expect(setupButton).toHaveAttribute(
       'title',
-      'Open Agents to add a waiting place before creating a task.'
+      'Open Agents to add a task queue before creating a task.'
     )
     expect(screen.queryByRole('button', { name: /^new task$/i })).toBeNull()
   })
@@ -239,6 +239,34 @@ describe('AppLayout', () => {
     expect(screen.getByRole('dialog')).toBeDefined()
     expect(screen.getByLabelText(/what should the agent finish/i)).toBeDefined()
     expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
+  })
+
+  test('new task form keeps chat-only participants out of the ready agent list', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockGetParticipants.mockResolvedValueOnce([
+      {
+        id: 'participant-1',
+        agentId: 'agent-1',
+        name: 'Chat Helper',
+        status: 'available',
+        capabilities: [],
+      },
+    ])
+
+    render(<MemoryRouter />)
+
+    fireEvent.click(screen.getByRole('button', { name: /^new task$/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    fireEvent.click(screen.getByRole('button', { name: /task options/i }))
+    expect(
+      screen.getByRole('option', {
+        name: 'Chat Helper (chat only - cannot take Tasks)',
+      })
+    ).toBeDisabled()
+    expect(screen.getByText(/0 ready/i)).toBeDefined()
+    expect(screen.queryByText('1 ready')).toBeNull()
   })
 
   test('command palette routes first task setup to project settings when no project exists', async () => {
@@ -280,10 +308,13 @@ describe('AppLayout', () => {
     render(<MemoryRouter onNavigate={onNavigate} />)
 
     fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    const commandPalette = screen.getByRole('dialog', { name: /find what you need/i })
     await waitFor(() => {
-      expect(screen.getByText('Set up where tasks wait')).toBeDefined()
+      expect(within(commandPalette).getByText('Set up task queue')).toBeDefined()
     })
-    fireEvent.click(screen.getByText('Open Agents to add a waiting place before creating a task.'))
+    fireEvent.click(
+      within(commandPalette).getByText('Open Agents to add a task queue before creating a task.')
+    )
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
@@ -346,11 +377,11 @@ describe('AppLayout', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Sign in before agents edit files with Codex or another work tool.')
+        screen.getByText('Sign in before agents edit project files with Codex or another tool.')
       ).toBeDefined()
     })
     fireEvent.click(
-      screen.getByText('Sign in before agents edit files with Codex or another work tool.')
+      screen.getByText('Sign in before agents edit project files with Codex or another tool.')
     )
 
     expect(onNavigate).toHaveBeenCalledWith('/settings/work-tool-sign-ins')
@@ -504,7 +535,8 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeDefined()
-    expect(screen.getByText('Create and manage agents that handle tasks')).toBeDefined()
+    expect(screen.getByText('Create agents for tasks or simple chat')).toBeDefined()
+    expect(screen.queryByText('Create and manage agents that handle tasks')).toBeNull()
     expect(screen.queryByText(/deploy and manage/i)).toBeNull()
     expect(screen.queryByText(/AI coding agents/i)).toBeNull()
   })
@@ -557,7 +589,7 @@ describe('AppLayout', () => {
     render(<MemoryRouter />)
 
     expect(screen.queryByRole('button', { name: /new task queue/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /where new tasks wait/i })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: /task queue for new tasks/i })).toBeDisabled()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
 
@@ -599,6 +631,7 @@ describe('AppLayout', () => {
     fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
       target: { value: taskDetails },
     })
+    fireEvent.click(screen.getByRole('button', { name: /task options/i }))
     const modal = screen.getByRole('dialog')
     const [, prioritySelect, assigneeSelect] = within(modal).getAllByRole('combobox')
     fireEvent.change(prioritySelect, { target: { value: 'high' } })
@@ -648,7 +681,7 @@ describe('AppLayout', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Check the project, where tasks wait, and the result, then create the task again. The task was not created.'
+      'Check the project, task queue, and the result, then create the task again. The task was not created.'
     )
     expect(alert.textContent).not.toContain('API')
   })
@@ -785,18 +818,24 @@ describe('AppLayout', () => {
     })
     await waitFor(() =>
       expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-        'Set up where tasks wait before creating this task'
+        'Set up a task queue before creating this task'
       )
     )
-    expect(screen.getByText(/Create one place for new work to wait/i)).toBeDefined()
-    expect(screen.getByRole('button', { name: /set up where tasks wait/i })).toBeDefined()
+    expect(screen.getByText(/Create one place for new tasks to wait/i)).toBeDefined()
+    expect(screen.queryByText(/Create one place for new work to wait/i)).toBeNull()
+    expect(
+      within(screen.getByRole('dialog', { name: /tell an agent what to do/i })).getByRole(
+        'button',
+        { name: /set up task queue/i }
+      )
+    ).toBeDefined()
     const previousQueueInstruction = ['agents', 'check', 'task', 'queues'].join(' ')
     expect(screen.queryByText(new RegExp(previousQueueInstruction, 'i'))).toBeNull()
-    expect(screen.queryByText(/task queue/i)).toBeNull()
+    expect(screen.queryByText(/task queues/i)).toBeNull()
     expect(createButton).toBeEnabled()
     fireEvent.click(createButton)
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Set up where tasks wait before saving this task.')
+    expect(alert).toHaveTextContent('Set up a task queue before saving this task.')
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()
     expect(useBoardStore.getState().selectedGroupId).toBeNull()
@@ -817,7 +856,7 @@ describe('AppLayout', () => {
     const onNavigate = vi.fn()
 
     render(<MemoryRouter onNavigate={onNavigate} />)
-    fireEvent.click(screen.getByRole('button', { name: /set up waiting place/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up task queue/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('/agents')
     expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
