@@ -50,11 +50,17 @@ production_lines() {
       t = $0
       sub(/^[ \t]+/, "", t)
       if (pending) {
-        pending = 0
+        # Consume the cfg-gated item header, which may span multiple lines
+        # (e.g. a multiline `fn helper(\n ...\n) -> TenantScope {`). Stay in
+        # `pending` until the item either opens a `{` block (then skip until its
+        # braces balance) or terminates as a one-line `;` declaration.
         d = braces($0)
-        # A cfg-test item that opens a block (and is not a one-line `; ` item)
-        # starts a skipped region until its braces balance.
-        if (d > 0 && t !~ /;[ \t]*$/) { skip = d }
+        if (index($0, "{") > 0 || d > 0) {
+          pending = 0
+          if (d > 0) { skip = d }
+          next
+        }
+        if (t ~ /;[ \t]*$/) { pending = 0 }
         next
       }
       if (t ~ /^#\[cfg\(test\)\]/ \
