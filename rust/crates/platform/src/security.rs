@@ -59,21 +59,40 @@ fn normalize_mount_source(source: &str) -> Option<String> {
     Some(format!("/{}", parts.join("/")))
 }
 
+/// Whether a fully-normalized absolute path is the docker socket or a sensitive host root.
+fn is_forbidden_normalized(path: &str) -> bool {
+    // The docker socket by basename, wherever it is mounted from.
+    if path.rsplit('/').next() == Some("docker.sock") {
+        return true;
+    }
+    // The whole host root.
+    if path == "/" {
+        return true;
+    }
+    // A sensitive host root, exactly or as a parent of the source.
+    FORBIDDEN_MOUNT_ROOTS.iter().any(|root| path == *root || path.starts_with(&format!("{root}/")))
+}
+
 /// Whether a bind-mount source targets the docker socket or a sensitive host root.
+///
+/// Checks the lexically-normalized path first (handles `.`/`..` and not-yet-created
+/// sources), then — because Docker resolves host symlinks at mount time — resolves
+/// symlinks via `canonicalize` when the source exists and re-checks the real target,
+/// so a benign-looking path that symlinks to a forbidden root cannot slip through.
 fn is_forbidden_mount(source: &str) -> bool {
     let Some(norm) = normalize_mount_source(source) else {
         return false;
     };
-    // The docker socket by basename, wherever it is mounted from.
-    if norm.rsplit('/').next() == Some("docker.sock") {
+    if is_forbidden_normalized(&norm) {
         return true;
     }
-    // The whole host root.
-    if norm == "/" {
+    if let Ok(canonical) = std::fs::canonicalize(source)
+        && let Some(canon) = canonical.to_str()
+        && is_forbidden_normalized(canon)
+    {
         return true;
     }
-    // A sensitive host root, exactly or as a parent of the source.
-    FORBIDDEN_MOUNT_ROOTS.iter().any(|root| norm == *root || norm.starts_with(&format!("{root}/")))
+    false
 }
 
 /// Validate a container config against the security policy.
@@ -283,5 +302,19 @@ mod tests {
         for src in ["/tmp/work", "/data/agentforge/workspaces/x", "/home/agent/project", "/srv/scratch"] {
             assert!(validate_security(&mount_cfg(src)).is_ok(), "benign mount `{src}` should be allowed");
         }
+    }
+
+    #[test]
+    fn rejects_symlink_to_forbidden_root() {
+        // Docker resolves host symlinks at mount time, so a benign-looking source that
+        // is actually a symlink to a forbidden root must be rejected (codex review P1).
+        use std::os::unix::fs::symlink;
+        let link = std::env::temp_dir().join(format!("af-sec-symlink-{}", std::process::id()));
+        let _ = std::fs::remove_file(&link);
+        symlink("/etc", &link).expect("create symlink to /etc");
+        let result = validate_security(&mount_cfg(link.to_str().unwrap()));
+        let _ = std::fs::remove_file(&link);
+        let err = result.expect_err("symlink resolving to /etc must be rejected");
+        assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
     }
 }
