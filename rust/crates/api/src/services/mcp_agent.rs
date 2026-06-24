@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::domain::agent::{McpAgentPrompt, McpAgentRuntimePolicy};
+use crate::domain::agent::{AgentRepositoryPolicy, McpAgentPrompt, McpAgentRuntimePolicy};
 use crate::domain::credential::ContainerCliCredentialPolicy;
 use crate::services::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
 
@@ -23,6 +23,8 @@ pub struct CreateSessionResult {
     pub agent_id: Uuid,
     pub status: String,
     pub name: String,
+    pub org_id: Uuid,
+    pub workspace_id: Uuid,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,9 +111,9 @@ pub trait McpAgentRuntime: Send + Sync {
 #[async_trait]
 pub trait McpAgentTools: Send + Sync {
     async fn create_session(&self, request: CreateSessionRequest) -> AppResult<CreateSessionResult>;
-    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()>;
-    async fn destroy_session(&self, agent_id: Uuid) -> AppResult<()>;
-    async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus>;
+    async fn send_prompt(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()>;
+    async fn destroy_session(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<()>;
+    async fn session_status(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<SessionStatus>;
 }
 
 pub struct McpAgentService<S, R> {
@@ -182,20 +184,42 @@ where
             return Err(err);
         }
 
-        Ok(CreateSessionResult { agent_id, status: "idle".to_string(), name })
+        Ok(CreateSessionResult {
+            agent_id,
+            status: "idle".to_string(),
+            name,
+            org_id: context.org_id,
+            workspace_id: context.workspace_id,
+        })
     }
 
-    pub async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+    /// Tenant-isolation gate (#885): the bridge operates on a global `agent_id`, so
+    /// every prompt/status/destroy must confirm the agent belongs to the caller's
+    /// authoritative org AND workspace. Per the runtime contract `agents.workspace_id`
+    /// is the execution/access boundary, so both must match. A mismatch returns the
+    /// same not-found error as a missing agent so cross-scope existence is not leaked.
+    async fn require_agent_in_scope(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<()> {
+        let record = self.store.get_agent(agent_id).await?;
+        if record.organization_id != org_id || record.workspace_id != workspace_id {
+            return Err(AgentRepositoryPolicy::agent_uuid_not_found(agent_id));
+        }
+        Ok(())
+    }
+
+    pub async fn send_prompt(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+        self.require_agent_in_scope(org_id, workspace_id, agent_id).await?;
         let prompt = McpAgentPrompt::parse(prompt)?;
         self.runtime.send_prompt(agent_id, prompt.content()).await
     }
 
-    pub async fn destroy_session(&self, agent_id: Uuid) -> AppResult<()> {
+    pub async fn destroy_session(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<()> {
+        self.require_agent_in_scope(org_id, workspace_id, agent_id).await?;
         self.runtime.destroy_agent(agent_id).await?;
         self.store.delete_agent(agent_id).await
     }
 
-    pub async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus> {
+    pub async fn session_status(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<SessionStatus> {
+        self.require_agent_in_scope(org_id, workspace_id, agent_id).await?;
         self.runtime.session_status(agent_id).await
     }
 }
@@ -210,15 +234,15 @@ where
         McpAgentService::create_session(self, request).await
     }
 
-    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
-        McpAgentService::send_prompt(self, agent_id, prompt).await
+    async fn send_prompt(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+        McpAgentService::send_prompt(self, org_id, workspace_id, agent_id, prompt).await
     }
 
-    async fn destroy_session(&self, agent_id: Uuid) -> AppResult<()> {
-        McpAgentService::destroy_session(self, agent_id).await
+    async fn destroy_session(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<()> {
+        McpAgentService::destroy_session(self, org_id, workspace_id, agent_id).await
     }
 
-    async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus> {
-        McpAgentService::session_status(self, agent_id).await
+    async fn session_status(&self, org_id: Uuid, workspace_id: Uuid, agent_id: Uuid) -> AppResult<SessionStatus> {
+        McpAgentService::session_status(self, org_id, workspace_id, agent_id).await
     }
 }

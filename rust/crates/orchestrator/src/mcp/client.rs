@@ -9,9 +9,20 @@ use serde_json::{Value, json};
 #[async_trait]
 pub trait OutboundMcp: Send + Sync {
     async fn session_create(&self, args: CreateSessionArgs) -> anyhow::Result<CreateSessionResult>;
-    async fn session_prompt(&self, agent_id: &str, prompt: &str) -> anyhow::Result<()>;
-    async fn session_destroy(&self, agent_id: &str) -> anyhow::Result<()>;
-    async fn session_status(&self, agent_id: &str) -> anyhow::Result<SessionStatusResult>;
+    async fn session_prompt(
+        &self,
+        org_id: &str,
+        workspace_id: &str,
+        agent_id: &str,
+        prompt: &str,
+    ) -> anyhow::Result<()>;
+    async fn session_destroy(&self, org_id: &str, workspace_id: &str, agent_id: &str) -> anyhow::Result<()>;
+    async fn session_status(
+        &self,
+        org_id: &str,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> anyhow::Result<SessionStatusResult>;
 }
 
 #[derive(Debug)]
@@ -45,6 +56,7 @@ impl OutboundMcpClient {
         self.call_tool_with_aliases(
             &["wisdoverse.agent.create", "agentforge.agent.create"],
             json!({
+                "orgId": args.org_id,
                 "projectId": args.project_id,
                 "cliTool": args.cli_tool,
                 "name": args.name,
@@ -53,11 +65,19 @@ impl OutboundMcpClient {
         .await
     }
 
-    pub async fn session_prompt(&self, agent_id: &str, prompt: &str) -> anyhow::Result<()> {
+    pub async fn session_prompt(
+        &self,
+        org_id: &str,
+        workspace_id: &str,
+        agent_id: &str,
+        prompt: &str,
+    ) -> anyhow::Result<()> {
         let _: Value = self
             .call_tool_with_aliases(
                 &["wisdoverse.agent.prompt", "agentforge.agent.prompt"],
                 json!({
+                    "orgId": org_id,
+                    "workspaceId": workspace_id,
                     "agentId": agent_id,
                     "prompt": prompt,
                 }),
@@ -66,20 +86,25 @@ impl OutboundMcpClient {
         Ok(())
     }
 
-    pub async fn session_destroy(&self, agent_id: &str) -> anyhow::Result<()> {
+    pub async fn session_destroy(&self, org_id: &str, workspace_id: &str, agent_id: &str) -> anyhow::Result<()> {
         let _: Value = self
             .call_tool_with_aliases(
                 &["wisdoverse.agent.destroy", "agentforge.agent.destroy"],
-                json!({ "agentId": agent_id }),
+                json!({ "orgId": org_id, "workspaceId": workspace_id, "agentId": agent_id }),
             )
             .await?;
         Ok(())
     }
 
-    pub async fn session_status(&self, agent_id: &str) -> anyhow::Result<SessionStatusResult> {
+    pub async fn session_status(
+        &self,
+        org_id: &str,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> anyhow::Result<SessionStatusResult> {
         self.call_tool_with_aliases(
             &["wisdoverse.agent.status", "agentforge.agent.status"],
-            json!({ "agentId": agent_id }),
+            json!({ "orgId": org_id, "workspaceId": workspace_id, "agentId": agent_id }),
         )
         .await
     }
@@ -130,16 +155,27 @@ impl OutboundMcp for OutboundMcpClient {
         Self::session_create(self, args).await
     }
 
-    async fn session_prompt(&self, agent_id: &str, prompt: &str) -> anyhow::Result<()> {
-        Self::session_prompt(self, agent_id, prompt).await
+    async fn session_prompt(
+        &self,
+        org_id: &str,
+        workspace_id: &str,
+        agent_id: &str,
+        prompt: &str,
+    ) -> anyhow::Result<()> {
+        Self::session_prompt(self, org_id, workspace_id, agent_id, prompt).await
     }
 
-    async fn session_destroy(&self, agent_id: &str) -> anyhow::Result<()> {
-        Self::session_destroy(self, agent_id).await
+    async fn session_destroy(&self, org_id: &str, workspace_id: &str, agent_id: &str) -> anyhow::Result<()> {
+        Self::session_destroy(self, org_id, workspace_id, agent_id).await
     }
 
-    async fn session_status(&self, agent_id: &str) -> anyhow::Result<SessionStatusResult> {
-        Self::session_status(self, agent_id).await
+    async fn session_status(
+        &self,
+        org_id: &str,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> anyhow::Result<SessionStatusResult> {
+        Self::session_status(self, org_id, workspace_id, agent_id).await
     }
 }
 
@@ -191,6 +227,7 @@ struct RpcError {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionArgs {
+    pub org_id: String,
     pub project_id: String,
     pub cli_tool: String,
     pub name: Option<String>,
@@ -202,6 +239,7 @@ pub struct CreateSessionResult {
     pub agent_id: String,
     pub status: String,
     pub name: String,
+    pub workspace_id: String,
 }
 
 impl CreateSessionResult {

@@ -248,11 +248,12 @@ async fn prompt_status_and_destroy_delegate_to_runtime_and_store() {
         .await
         .expect("create session");
 
-    service.send_prompt(created.agent_id, "ship it").await.expect("send prompt");
-    let status = service.session_status(created.agent_id).await.expect("status");
+    let ws = created.workspace_id;
+    service.send_prompt(org_id, ws, created.agent_id, "ship it").await.expect("send prompt");
+    let status = service.session_status(org_id, ws, created.agent_id).await.expect("status");
     assert_eq!(status.status, "working");
 
-    service.destroy_session(created.agent_id).await.expect("destroy");
+    service.destroy_session(org_id, ws, created.agent_id).await.expect("destroy");
 
     assert_eq!(
         runtime.prompt_calls.lock().expect("prompt calls").as_slice(),
@@ -260,4 +261,56 @@ async fn prompt_status_and_destroy_delegate_to_runtime_and_store() {
     );
     assert_eq!(runtime.destroy_calls.lock().expect("destroy calls").as_slice(), &[created.agent_id]);
     assert_eq!(store.deleted(), vec![created.agent_id]);
+}
+
+#[tokio::test]
+async fn prompt_status_destroy_reject_foreign_org_or_workspace() {
+    // Tenant-isolation gate (#885): operations scoped to a different org OR workspace
+    // than the agent's must be rejected, and must not touch the runtime or store.
+    let org_id = Uuid::now_v7();
+    let user_id = Uuid::now_v7();
+    let store = TestStore::with_context(ProjectRuntimeContext {
+        project_id: None,
+        org_id,
+        user_id,
+        workspace_id: Uuid::now_v7(),
+    });
+    let runtime = TestRuntime::default();
+    let service = McpAgentService::new(
+        store.clone(),
+        runtime.clone(),
+        McpAgentRuntimeConfig {
+            workspace_root: "/data/agentforge/workspaces".to_string(),
+            default_image: "agentforge-agent:latest".to_string(),
+            tool_images: HashMap::new(),
+            system_api_keys: HashMap::new(),
+        },
+    );
+
+    let created = service
+        .create_session(CreateSessionRequest {
+            project_id: None,
+            cli_tool: "claude".to_string(),
+            name: None,
+            org_id: Some(org_id),
+            user_id: Some(user_id),
+        })
+        .await
+        .expect("create session");
+
+    let ws = created.workspace_id;
+    let foreign_org = Uuid::now_v7();
+    let foreign_ws = Uuid::now_v7();
+    // Different org (even with the correct workspace id) is rejected.
+    assert!(service.send_prompt(foreign_org, ws, created.agent_id, "x").await.is_err(), "cross-org prompt must fail");
+    assert!(service.session_status(foreign_org, ws, created.agent_id).await.is_err(), "cross-org status must fail");
+    assert!(service.destroy_session(foreign_org, ws, created.agent_id).await.is_err(), "cross-org destroy must fail");
+    // Different workspace within the same org is also rejected (workspace is the access boundary).
+    assert!(service.send_prompt(org_id, foreign_ws, created.agent_id, "x").await.is_err(), "cross-ws prompt must fail");
+    assert!(service.session_status(org_id, foreign_ws, created.agent_id).await.is_err(), "cross-ws status must fail");
+    assert!(service.destroy_session(org_id, foreign_ws, created.agent_id).await.is_err(), "cross-ws destroy must fail");
+
+    assert!(runtime.prompt_calls.lock().expect("prompt calls").is_empty(), "runtime prompt must not run");
+    assert!(runtime.destroy_calls.lock().expect("destroy calls").is_empty(), "runtime destroy must not run");
+    assert!(store.deleted().is_empty(), "store delete must not run");
 }

@@ -72,11 +72,19 @@ pub(crate) fn tool_arguments(request: &Value) -> Value {
     request.pointer("/params/arguments").cloned().unwrap_or_else(|| json!({}))
 }
 
-pub(crate) fn create_result_text(agent_id: Uuid, status: &str, name: &str) -> Result<String, String> {
+pub(crate) fn create_result_text(
+    agent_id: Uuid,
+    status: &str,
+    name: &str,
+    org_id: Uuid,
+    workspace_id: Uuid,
+) -> Result<String, String> {
     serialize_json(&json!({
         "agentId": agent_id,
         "status": status,
         "name": name,
+        "orgId": org_id,
+        "workspaceId": workspace_id,
     }))
 }
 
@@ -178,10 +186,12 @@ fn tool_list() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
+                    "orgId": {"type": "string"},
+                    "workspaceId": {"type": "string"},
                     "agentId": {"type": "string"},
                     "prompt": {"type": "string"}
                 },
-                "required": ["agentId", "prompt"]
+                "required": ["orgId", "workspaceId", "agentId", "prompt"]
             }),
         ),
         tool(
@@ -189,8 +199,8 @@ fn tool_list() -> Vec<Value> {
             "Read the current status of a managed workflow agent.",
             json!({
                 "type": "object",
-                "properties": {"agentId": {"type": "string"}},
-                "required": ["agentId"]
+                "properties": {"orgId": {"type": "string"}, "workspaceId": {"type": "string"}, "agentId": {"type": "string"}},
+                "required": ["orgId", "workspaceId", "agentId"]
             }),
         ),
         tool(
@@ -198,8 +208,8 @@ fn tool_list() -> Vec<Value> {
             "Destroy a managed workflow agent.",
             json!({
                 "type": "object",
-                "properties": {"agentId": {"type": "string"}},
-                "required": ["agentId"]
+                "properties": {"orgId": {"type": "string"}, "workspaceId": {"type": "string"}, "agentId": {"type": "string"}},
+                "required": ["orgId", "workspaceId", "agentId"]
             }),
         ),
     ]
