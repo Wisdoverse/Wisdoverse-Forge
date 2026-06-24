@@ -25,20 +25,21 @@ impl McpAgentTools for TestTools {
             agent_id: Uuid::parse_str("11111111-1111-7111-8111-111111111111").expect("uuid"),
             status: "idle".to_string(),
             name: "Workflow worker".to_string(),
+            workspace_id: Uuid::parse_str("55555555-5555-7555-8555-555555555555").expect("uuid"),
         })
     }
 
-    async fn send_prompt(&self, _org_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+    async fn send_prompt(&self, _org_id: Uuid, _workspace_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()> {
         self.prompted.lock().expect("prompted").push((agent_id, prompt.to_string()));
         Ok(())
     }
 
-    async fn destroy_session(&self, _org_id: Uuid, agent_id: Uuid) -> AppResult<()> {
+    async fn destroy_session(&self, _org_id: Uuid, _workspace_id: Uuid, agent_id: Uuid) -> AppResult<()> {
         self.destroyed.lock().expect("destroyed").push(agent_id);
         Ok(())
     }
 
-    async fn session_status(&self, _org_id: Uuid, agent_id: Uuid) -> AppResult<SessionStatus> {
+    async fn session_status(&self, _org_id: Uuid, _workspace_id: Uuid, agent_id: Uuid) -> AppResult<SessionStatus> {
         Ok(SessionStatus { agent_id, status: "working".to_string() })
     }
 }
@@ -146,7 +147,15 @@ async fn mcp_tool_calls_round_trip_create_prompt_status_and_destroy() {
 
     let create_text = created["result"]["content"][0]["text"].as_str().expect("create text");
     let create_payload: Value = serde_json::from_str(create_text).expect("create payload");
-    assert_eq!(create_payload, json!({"agentId": agent_id, "status": "idle", "name": "Workflow worker"}));
+    assert_eq!(
+        create_payload,
+        json!({
+            "agentId": agent_id,
+            "status": "idle",
+            "name": "Workflow worker",
+            "workspaceId": "55555555-5555-7555-8555-555555555555"
+        })
+    );
 
     let (status, prompted) = json_response(
         app.clone(),
@@ -157,7 +166,7 @@ async fn mcp_tool_calls_round_trip_create_prompt_status_and_destroy() {
                 "method": "tools/call",
                 "params": {
                     "name": "wisdoverse.agent.prompt",
-                    "arguments": {"orgId": "33333333-3333-7333-8333-333333333333", "agentId": agent_id, "prompt": "ship it"}
+                    "arguments": {"orgId": "33333333-3333-7333-8333-333333333333", "workspaceId": "55555555-5555-7555-8555-555555555555", "agentId": agent_id, "prompt": "ship it"}
                 }
             }),
             Some("secret-token"),
@@ -176,7 +185,7 @@ async fn mcp_tool_calls_round_trip_create_prompt_status_and_destroy() {
                 "method": "tools/call",
                 "params": {
                     "name": "agentforge.agent.status",
-                    "arguments": {"orgId": "33333333-3333-7333-8333-333333333333", "agentId": agent_id}
+                    "arguments": {"orgId": "33333333-3333-7333-8333-333333333333", "workspaceId": "55555555-5555-7555-8555-555555555555", "agentId": agent_id}
                 }
             }),
             Some("secret-token"),
@@ -197,7 +206,7 @@ async fn mcp_tool_calls_round_trip_create_prompt_status_and_destroy() {
                 "method": "tools/call",
                 "params": {
                     "name": "agentforge.agent.destroy",
-                    "arguments": {"orgId": "33333333-3333-7333-8333-333333333333", "agentId": agent_id}
+                    "arguments": {"orgId": "33333333-3333-7333-8333-333333333333", "workspaceId": "55555555-5555-7555-8555-555555555555", "agentId": agent_id}
                 }
             }),
             Some("secret-token"),
@@ -229,15 +238,15 @@ impl McpAgentTools for FailingTools {
         Err(ErrorKind::Validation("bad create".into()).into())
     }
 
-    async fn send_prompt(&self, _org_id: Uuid, _agent_id: Uuid, _prompt: &str) -> AppResult<()> {
+    async fn send_prompt(&self, _org_id: Uuid, _workspace_id: Uuid, _agent_id: Uuid, _prompt: &str) -> AppResult<()> {
         Err(ErrorKind::Validation("bad prompt".into()).into())
     }
 
-    async fn destroy_session(&self, _org_id: Uuid, _agent_id: Uuid) -> AppResult<()> {
+    async fn destroy_session(&self, _org_id: Uuid, _workspace_id: Uuid, _agent_id: Uuid) -> AppResult<()> {
         Err(ErrorKind::Validation("bad destroy".into()).into())
     }
 
-    async fn session_status(&self, _org_id: Uuid, _agent_id: Uuid) -> AppResult<SessionStatus> {
+    async fn session_status(&self, _org_id: Uuid, _workspace_id: Uuid, _agent_id: Uuid) -> AppResult<SessionStatus> {
         Err(ErrorKind::Validation("bad status".into()).into())
     }
 }
@@ -256,6 +265,7 @@ async fn mcp_tool_validation_errors_are_returned_as_tool_errors() {
                     "name": "wisdoverse.agent.prompt",
                     "arguments": {
                         "orgId": "33333333-3333-7333-8333-333333333333",
+                        "workspaceId": "55555555-5555-7555-8555-555555555555",
                         "agentId": "11111111-1111-7111-8111-111111111111",
                         "prompt": "bad"
                     }

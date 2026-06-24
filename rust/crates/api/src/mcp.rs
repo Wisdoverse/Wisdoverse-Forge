@@ -123,29 +123,32 @@ async fn handle_create(tools: &dyn McpAgentTools, arguments: &Value) -> Result<S
     };
 
     let result = tools.create_session(request).await.map_err(app_error_message)?;
-    create_result_text(result.agent_id, &result.status, &result.name)
+    create_result_text(result.agent_id, &result.status, &result.name, result.workspace_id)
 }
 
 async fn handle_prompt(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
     let org_id = parse_required_uuid(arguments, "orgId")?;
+    let workspace_id = parse_required_uuid(arguments, "workspaceId")?;
     let agent_id = parse_required_uuid(arguments, "agentId")?;
     let Some(prompt) = arguments.get("prompt").and_then(Value::as_str) else {
         return Err("missing required argument: prompt".to_string());
     };
-    tools.send_prompt(org_id, agent_id, prompt).await.map_err(app_error_message)?;
+    tools.send_prompt(org_id, workspace_id, agent_id, prompt).await.map_err(app_error_message)?;
     ok_result_text()
 }
 
 async fn handle_status(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
     let org_id = parse_required_uuid(arguments, "orgId")?;
+    let workspace_id = parse_required_uuid(arguments, "workspaceId")?;
     let agent_id = parse_required_uuid(arguments, "agentId")?;
-    let status = tools.session_status(org_id, agent_id).await.map_err(app_error_message)?;
+    let status = tools.session_status(org_id, workspace_id, agent_id).await.map_err(app_error_message)?;
     status_result_text(status.agent_id, &status.status)
 }
 
 async fn handle_destroy(tools: &dyn McpAgentTools, arguments: &Value) -> Result<String, String> {
     let org_id = parse_required_uuid(arguments, "orgId")?;
+    let workspace_id = parse_required_uuid(arguments, "workspaceId")?;
     let agent_id = parse_required_uuid(arguments, "agentId")?;
-    tools.destroy_session(org_id, agent_id).await.map_err(app_error_message)?;
+    tools.destroy_session(org_id, workspace_id, agent_id).await.map_err(app_error_message)?;
     ok_result_text()
 }

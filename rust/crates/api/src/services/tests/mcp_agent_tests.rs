@@ -248,11 +248,12 @@ async fn prompt_status_and_destroy_delegate_to_runtime_and_store() {
         .await
         .expect("create session");
 
-    service.send_prompt(org_id, created.agent_id, "ship it").await.expect("send prompt");
-    let status = service.session_status(org_id, created.agent_id).await.expect("status");
+    let ws = created.workspace_id;
+    service.send_prompt(org_id, ws, created.agent_id, "ship it").await.expect("send prompt");
+    let status = service.session_status(org_id, ws, created.agent_id).await.expect("status");
     assert_eq!(status.status, "working");
 
-    service.destroy_session(org_id, created.agent_id).await.expect("destroy");
+    service.destroy_session(org_id, ws, created.agent_id).await.expect("destroy");
 
     assert_eq!(
         runtime.prompt_calls.lock().expect("prompt calls").as_slice(),
@@ -263,9 +264,9 @@ async fn prompt_status_and_destroy_delegate_to_runtime_and_store() {
 }
 
 #[tokio::test]
-async fn prompt_status_destroy_reject_foreign_org() {
-    // Tenant-isolation gate (#885): operations scoped to a different org than the
-    // agent's must be rejected, and must not touch the runtime or store.
+async fn prompt_status_destroy_reject_foreign_org_or_workspace() {
+    // Tenant-isolation gate (#885): operations scoped to a different org OR workspace
+    // than the agent's must be rejected, and must not touch the runtime or store.
     let org_id = Uuid::now_v7();
     let user_id = Uuid::now_v7();
     let store = TestStore::with_context(ProjectRuntimeContext {
@@ -297,10 +298,17 @@ async fn prompt_status_destroy_reject_foreign_org() {
         .await
         .expect("create session");
 
+    let ws = created.workspace_id;
     let foreign_org = Uuid::now_v7();
-    assert!(service.send_prompt(foreign_org, created.agent_id, "x").await.is_err(), "cross-org prompt must fail");
-    assert!(service.session_status(foreign_org, created.agent_id).await.is_err(), "cross-org status must fail");
-    assert!(service.destroy_session(foreign_org, created.agent_id).await.is_err(), "cross-org destroy must fail");
+    let foreign_ws = Uuid::now_v7();
+    // Different org (even with the correct workspace id) is rejected.
+    assert!(service.send_prompt(foreign_org, ws, created.agent_id, "x").await.is_err(), "cross-org prompt must fail");
+    assert!(service.session_status(foreign_org, ws, created.agent_id).await.is_err(), "cross-org status must fail");
+    assert!(service.destroy_session(foreign_org, ws, created.agent_id).await.is_err(), "cross-org destroy must fail");
+    // Different workspace within the same org is also rejected (workspace is the access boundary).
+    assert!(service.send_prompt(org_id, foreign_ws, created.agent_id, "x").await.is_err(), "cross-ws prompt must fail");
+    assert!(service.session_status(org_id, foreign_ws, created.agent_id).await.is_err(), "cross-ws status must fail");
+    assert!(service.destroy_session(org_id, foreign_ws, created.agent_id).await.is_err(), "cross-ws destroy must fail");
 
     assert!(runtime.prompt_calls.lock().expect("prompt calls").is_empty(), "runtime prompt must not run");
     assert!(runtime.destroy_calls.lock().expect("destroy calls").is_empty(), "runtime destroy must not run");

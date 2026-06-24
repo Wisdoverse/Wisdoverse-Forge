@@ -461,15 +461,26 @@ impl OutboundMcp for FailingOutboundMcp {
         Err(anyhow::anyhow!("{}", self.error))
     }
 
-    async fn session_prompt(&self, _org_id: &str, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
+    async fn session_prompt(
+        &self,
+        _org_id: &str,
+        _workspace_id: &str,
+        _agent_id: &str,
+        _prompt: &str,
+    ) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("{}", self.error))
     }
 
-    async fn session_destroy(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<()> {
+    async fn session_destroy(&self, _org_id: &str, _workspace_id: &str, _agent_id: &str) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("{}", self.error))
     }
 
-    async fn session_status(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
+    async fn session_status(
+        &self,
+        _org_id: &str,
+        _workspace_id: &str,
+        _agent_id: &str,
+    ) -> anyhow::Result<SessionStatusResult> {
         Err(anyhow::anyhow!("{}", self.error))
     }
 }
@@ -487,18 +498,30 @@ impl OutboundMcp for FixedOutboundMcp {
             agent_id: self.session_id.clone(),
             status: "created".to_string(),
             name: args.name.unwrap_or_else(|| self.session_id.clone()),
+            workspace_id: "fixed-workspace".to_string(),
         })
     }
 
-    async fn session_prompt(&self, _org_id: &str, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
+    async fn session_prompt(
+        &self,
+        _org_id: &str,
+        _workspace_id: &str,
+        _agent_id: &str,
+        _prompt: &str,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn session_destroy(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<()> {
+    async fn session_destroy(&self, _org_id: &str, _workspace_id: &str, _agent_id: &str) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn session_status(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
+    async fn session_status(
+        &self,
+        _org_id: &str,
+        _workspace_id: &str,
+        _agent_id: &str,
+    ) -> anyhow::Result<SessionStatusResult> {
         Ok(SessionStatusResult { agent_id: self.session_id.clone(), status: "idle".to_string() })
     }
 }
