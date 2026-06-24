@@ -143,6 +143,22 @@ impl Store for MemoryStore {
         Err(WorkflowError::NotFound)
     }
 
+    async fn reset_nodes(&self, workflow_id: &str, org_id: &str) -> Result<()> {
+        let mut records = self.records.lock().await;
+        let Some(record) = records.get_mut(workflow_id).filter(|r| r.workflow.org_id == org_id) else {
+            return Ok(());
+        };
+        for node in record.nodes.iter_mut() {
+            node.status = NodeStatus::Pending;
+            node.started_at = None;
+            node.completed_at = None;
+            node.error = None;
+            node.output = None;
+        }
+        record.workflow.updated_at = Utc::now();
+        Ok(())
+    }
+
     async fn history(&self, workflow_id: &str) -> Result<Vec<NodeHistory>> {
         let nodes = self.get_nodes(workflow_id).await?;
         Ok(nodes
@@ -369,6 +385,23 @@ impl Store for PgWorkflowStore {
         if result.rows_affected() == 0 {
             return Err(WorkflowError::NotFound);
         }
+        Ok(())
+    }
+
+    async fn reset_nodes(&self, workflow_id: &str, org_id: &str) -> Result<()> {
+        // Org-scoped via the workflow membership subquery so a node reset cannot
+        // cross tenants even though workflow_nodes has no direct org_id column.
+        sqlx::query(
+            "UPDATE workflow_nodes \
+             SET status = 'pending', started_at = NULL, completed_at = NULL, error = NULL, output = NULL \
+             WHERE workflow_id = CAST($1 AS uuid) \
+               AND workflow_id IN (SELECT id FROM workflows WHERE org_id = $2)",
+        )
+        .bind(workflow_id)
+        .bind(org_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|err| WorkflowError::Internal(format!("reset workflow nodes: {err}")))?;
         Ok(())
     }
 

@@ -19,5 +19,9 @@ pub trait Store: Send + Sync {
         err_msg: Option<String>,
         output: Option<Value>,
     ) -> Result<()>;
+    /// Reset every node of a workflow back to `pending`, clearing
+    /// started_at/completed_at/error/output. Used on the re-run-from-failed path
+    /// so persisted node state agrees with the fresh Temporal run (F041).
+    async fn reset_nodes(&self, workflow_id: &str, org_id: &str) -> Result<()>;
     async fn history(&self, workflow_id: &str) -> Result<Vec<NodeHistory>>;
 }
