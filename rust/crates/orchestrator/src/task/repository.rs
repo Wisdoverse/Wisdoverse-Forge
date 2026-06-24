@@ -131,6 +131,10 @@ impl Store for MemoryStore {
         let Some(task) = tasks.get_mut(id).filter(|task| task.org_id == org_id) else {
             return Err(TaskError::NotFound);
         };
+        // Mirror the SQL store: only re-dispatchable tasks may be (re-)assigned.
+        if !matches!(task.state, TaskState::Pending | TaskState::Failed) {
+            return Err(TaskError::Conflict("task is not in a re-dispatchable state (pending or failed)".into()));
+        }
         task.assigned_to = Some(participant_id);
         task.state = state;
         task.updated_at = Utc::now();
@@ -139,6 +143,12 @@ impl Store for MemoryStore {
 
     async fn create_dispatch(&self, task_id: &str, org_id: &str) -> Result<String> {
         let mut dispatches = self.dispatches.lock().await;
+        // Mirror the partial-unique index: at most one active dispatch per task.
+        if dispatches.iter().any(|d| {
+            d.task_id == task_id && d.org_id == org_id && matches!(d.status.as_str(), "queued" | "starting" | "started")
+        }) {
+            return Err(TaskError::Conflict("task already has an active dispatch".into()));
+        }
         let n = dispatches.len() + 1;
         let id = format!("dispatch-{n}");
         let now = Utc::now();
@@ -395,8 +405,12 @@ impl Store for PgTaskStore {
     }
 
     async fn assign(&self, id: &str, org_id: &str, participant_id: String, state: TaskState) -> Result<()> {
+        // Only a task in a re-dispatchable state may be (re-)assigned. This
+        // rejects a retry against an already-assigned/working task so it is not
+        // silently re-spawned with a second agent session (F040).
         let result = sqlx::query(
-            "UPDATE tasks SET assigned_to = CAST($1 AS uuid), state = $2, updated_at = NOW()              WHERE id = CAST($3 AS uuid) AND org_id = $4"
+            "UPDATE tasks SET assigned_to = CAST($1 AS uuid), state = $2, updated_at = NOW() \
+             WHERE id = CAST($3 AS uuid) AND org_id = $4 AND state IN ('pending', 'failed')",
         )
         .bind(participant_id)
         .bind(state.as_str())
@@ -406,12 +420,30 @@ impl Store for PgTaskStore {
         .await
         .map_err(|err| TaskError::Internal(format!("assign task: {err}")))?;
         if result.rows_affected() == 0 {
-            return Err(TaskError::NotFound);
+            // Distinguish a missing task from one that exists but is not
+            // re-dispatchable, so a retry gets a 409 conflict rather than a
+            // misleading 404.
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM tasks WHERE id = CAST($1 AS uuid) AND org_id = $2)")
+                    .bind(id)
+                    .bind(org_id)
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(|err| TaskError::Internal(format!("assign existence check: {err}")))?;
+            return if exists {
+                Err(TaskError::Conflict("task is not in a re-dispatchable state (pending or failed)".into()))
+            } else {
+                Err(TaskError::NotFound)
+            };
         }
         Ok(())
     }
 
     async fn create_dispatch(&self, task_id: &str, org_id: &str) -> Result<String> {
+        // A partial UNIQUE index (migration 013) allows at most one active
+        // (queued/starting/started) dispatch per task. A duplicate insert races a
+        // concurrent assign — surface it as a conflict instead of a 500 so a retry
+        // does not spawn a second agent session for the same task (F040).
         let row = sqlx::query(
             "INSERT INTO task_dispatches (task_id, org_id, status, attempt) \
              VALUES ($1, $2, 'queued', 1) \
@@ -421,7 +453,12 @@ impl Store for PgTaskStore {
         .bind(org_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|err| TaskError::Internal(format!("create dispatch: {err}")))?;
+        .map_err(|err| match err {
+            sqlx::Error::Database(ref db) if db.is_unique_violation() => {
+                TaskError::Conflict("task already has an active dispatch".into())
+            }
+            other => TaskError::Internal(format!("create dispatch: {other}")),
+        })?;
 
         row.try_get("id").map_err(|err| TaskError::Internal(format!("read dispatch id: {err}")))
     }

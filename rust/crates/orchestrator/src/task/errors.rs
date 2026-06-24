@@ -8,6 +8,8 @@ pub enum TaskError {
     NotFound,
     #[error("invalid task request: {0}")]
     InvalidInput(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("internal task error: {0}")]
     Internal(String),
 }
