@@ -33,11 +33,13 @@ use std::sync::Arc;
 use agentforge_core::{AgentId, AppResult, TenantScope};
 use uuid::Uuid;
 
+use crate::domain::admin::AdminRolePolicy;
 use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_container_cwd};
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
+use crate::repositories::user::UserRepository;
 use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::agent_workspace::resolve_agent_workspace_paths;
 use crate::services::github_app::GithubAppClient;
@@ -54,6 +56,7 @@ use crate::services::self_fix::merge_executor::{MergeRequest, run_merge_executor
 pub(crate) struct SelfFixService {
     tasks: OrchestrationTaskRepository,
     agents: AgentRepository,
+    users: UserRepository,
     container_control: AgentContainerControlService,
     github: Option<Arc<GithubAppClient>>,
     workspace_root: String,
@@ -65,6 +68,7 @@ impl SelfFixService {
     pub(crate) fn new(
         tasks: OrchestrationTaskRepository,
         agents: AgentRepository,
+        users: UserRepository,
         container_control: AgentContainerControlService,
         github: Option<GithubAppClient>,
         workspace_root: String,
@@ -74,6 +78,7 @@ impl SelfFixService {
         Self {
             tasks,
             agents,
+            users,
             container_control,
             github: github.map(Arc::new),
             workspace_root,
@@ -181,6 +186,15 @@ impl SelfFixService {
     /// run the git-only [`run_merge_executor`] gate-and-merge → on a confirmed
     /// merge ONLY, persist `review_status == merged`. On ANY gate failure the
     /// task keeps its prior status and the error surfaces; nothing merges.
+    /// Platform-admin gate for the self-fix merge path. Reads the caller's live
+    /// `users.is_admin` flag and refuses non-admins with `Forbidden`. Keeps
+    /// `is_admin` a server-side DB read (never trusting the JWT role claim),
+    /// mirroring `AdminService::require_platform_admin`.
+    async fn require_platform_admin(&self, scope: &TenantScope) -> AppResult<()> {
+        let is_admin = self.users.find_is_admin_by_id(scope.user_id()).await?;
+        AdminRolePolicy::require_platform_admin(is_admin)
+    }
+
     #[allow(dead_code)]
     pub(crate) async fn approve_and_merge(
         &self,
@@ -188,6 +202,11 @@ impl SelfFixService {
         task_id: Uuid,
         approver_id: &str,
     ) -> AppResult<SelfFixMergeResult> {
+        // 0. Elevated-privilege gate: merging agent-authored changes to the
+        //    shared default branch is platform-admin only, verified against the
+        //    server-side `users.is_admin` (never a self-assignable JWT role claim).
+        self.require_platform_admin(scope).await?;
+
         // 1. Load the task; require self-fix.
         let task = self.tasks.find_by_id(scope, task_id).await?;
         if !task.self_fix {
@@ -214,8 +233,11 @@ impl SelfFixService {
         // 2. Gate on review status + recompute sensitivity SERVER-SIDE.
         //    - `merged`           → idempotent success (already done).
         //    - `sensitive_blocked`→ HARD refuse, no GitHub call.
-        //    - `approved`         → the milestone-8 route gates here.
-        //    - `in_review`        → transitionally accepted until that route lands.
+        //    - `approved`         → merges (already approved, e.g. a retry).
+        //    - `in_review`        → accepted: the route is the platform-admin's
+        //                           approve action, so an admin-gated approve of an
+        //                           in-review PR merges directly (success → `merged`;
+        //                           failure leaves it `in_review`, no stale write).
         match task.review_status.as_deref() {
             Some(MERGED) => {
                 metrics::record_merge_outcome("already_merged");

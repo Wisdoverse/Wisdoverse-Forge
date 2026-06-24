@@ -22,7 +22,7 @@
 use agentforge_api::repositories::orchestration::{CreateTaskRow, OrchestrationTaskRepository};
 use agentforge_api::test_support::{app_state_with_mock_provider, tenant_scope_for_ids};
 use agentforge_api::testing::self_fix_review::{approve, review_fields};
-use agentforge_core::TenantScope;
+use agentforge_core::{ErrorKind, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -43,7 +43,7 @@ async fn seed_org(pool: &PgPool) -> (Uuid, Uuid) {
         .execute(pool)
         .await
         .expect("seed workspace");
-    sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, true)")
         .bind(user_id)
         .bind(format!("u-{user_id}@example.com"))
         .execute(pool)
@@ -162,6 +162,44 @@ async fn non_self_fix_task_is_rejected(pool: PgPool) {
         approve(&state, &scope, task.id, &user_id.to_string()).await.is_err(),
         "approve rejects a non-self-fix task"
     );
+}
+
+// ---------------------------------------------------------------------------
+// 6. Self-fix merge to the shared default branch is platform-admin gated (#888):
+//    a non-admin org member is refused with Forbidden BEFORE any merge work,
+//    even on an `approved` task, and nothing merges.
+// ---------------------------------------------------------------------------
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn approve_merge_refused_for_non_admin(pool: PgPool) {
+    let (org_id, _admin) = seed_org(&pool).await;
+    // A second user in the same org whose server-side users.is_admin is false.
+    let member = Uuid::new_v4();
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, $2, false)")
+        .bind(member)
+        .bind(format!("member-{member}@example.com"))
+        .execute(&pool)
+        .await
+        .expect("seed non-admin user");
+    let scope = scope_for(org_id, member);
+    let state = app_state_with_mock_provider(pool.clone(), "mock", "ok").await;
+    let repo = OrchestrationTaskRepository::new(pool.clone());
+
+    let task = repo.create(&scope, base_row("approved self-fix", true)).await.expect("create");
+    repo.set_pr_metadata(&scope, task.id, 7, "https://github.com/e/r/pull/7", "head7", "approved")
+        .await
+        .expect("set_pr_metadata");
+
+    let err = approve(&state, &scope, task.id, &member.to_string()).await.expect_err("non-admin must be refused");
+    assert!(
+        matches!(err.kind, ErrorKind::Forbidden(_)),
+        "self-fix merge must be platform-admin gated (Forbidden), got {err:?}"
+    );
+
+    // Defense-in-depth: the refusal happens before any merge, so the status is
+    // untouched (still `approved`, never `merged`).
+    let (_, _, _, review_status) = review_fields(&state, &scope, task.id).await.expect("review snapshot");
+    assert_eq!(review_status.as_deref(), Some("approved"), "a refused non-admin approve must not merge");
 }
 
 // ---------------------------------------------------------------------------

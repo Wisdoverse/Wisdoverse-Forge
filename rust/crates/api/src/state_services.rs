@@ -349,6 +349,7 @@ impl AppState {
         crate::services::self_fix::SelfFixService::new(
             crate::repositories::orchestration::OrchestrationTaskRepository::new(self.pool.clone()),
             crate::repositories::agent::AgentRepository::new(self.pool.clone()),
+            crate::repositories::user::UserRepository::new(self.pool.clone()),
             self.agent_container_control_service(),
             self.github_app_client(),
             crate::services::agent_workspace::workspace_root_from_env(),

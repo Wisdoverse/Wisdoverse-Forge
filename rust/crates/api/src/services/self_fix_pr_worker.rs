@@ -122,6 +122,7 @@ mod tests {
         crate::services::self_fix::SelfFixService::new(
             crate::repositories::orchestration::OrchestrationTaskRepository::new(pool.clone()),
             crate::repositories::agent::AgentRepository::new(pool.clone()),
+            crate::repositories::user::UserRepository::new(pool.clone()),
             container_control,
             None, // github not configured -> open_pr returns github_not_configured BEFORE touching container_control
             crate::services::agent_workspace::workspace_root_from_env(),
