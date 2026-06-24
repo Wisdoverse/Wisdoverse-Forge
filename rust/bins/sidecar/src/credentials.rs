@@ -133,6 +133,7 @@ async fn publish_once(
         Err(err) => {
             tracing::warn!(error = %err, "credential sync skipped (build failed)");
             metrics::counter!("credential_sync_publish_errors_total", "reason" => "build_failed").increment(1);
+            errors.fetch_add(1, Ordering::Relaxed);
             return;
         }
     };
@@ -146,6 +147,7 @@ async fn publish_once(
         Ok(v) => v,
         Err(err) => {
             metrics::counter!("credential_sync_publish_errors_total", "reason" => "serialize_failed").increment(1);
+            errors.fetch_add(1, Ordering::Relaxed);
             tracing::error!(error = %err, "credential sync: serialize failed");
             return;
         }
@@ -154,6 +156,7 @@ async fn publish_once(
         Ok(e) => e,
         Err(err) => {
             metrics::counter!("credential_sync_publish_errors_total", "reason" => "sign_failed").increment(1);
+            errors.fetch_add(1, Ordering::Relaxed);
             tracing::error!(error = %err, "credential sync: sign failed");
             return;
         }
@@ -166,6 +169,7 @@ async fn publish_once(
                 "reason" => "envelope_encode_failed"
             )
             .increment(1);
+            errors.fetch_add(1, Ordering::Relaxed);
             tracing::error!(error = %err, "credential sync: envelope encode failed");
             return;
         }

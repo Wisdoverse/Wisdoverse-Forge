@@ -133,10 +133,12 @@ pub struct HealthSnapshot {
     pub reason: Option<String>,
     pub wal_pending: usize,
     pub wal_dropped: u64,
-    /// Count of credential-sync publishes lost to an unreachable NATS (no WAL
-    /// retry on the sidecar). Non-zero means a user's `claude /login` credentials
-    /// failed to reach the platform and they must re-authenticate — surfaced so
-    /// the platform has visibility instead of only a container-local log (#891/F063).
+    /// Count of credential syncs that did not reach the platform — whether the
+    /// payload could not be built/serialized/signed, or the NATS publish/ack
+    /// failed (no WAL retry on the sidecar). Non-zero means a user's
+    /// `claude /login` credentials failed to sync and they must re-authenticate —
+    /// surfaced so the platform has visibility instead of only a container-local
+    /// log (#891/F063).
     pub creds_sync_errors: u64,
 }
 
