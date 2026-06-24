@@ -140,37 +140,41 @@ pub fn create_router(state: AppState) -> Router {
         }
     }
 
-    router
+    let router = router
         // State
         .with_state(state.clone())
         // Make JwtManager available to the AuthUser extractor via request extensions
         .layer(Extension(state.jwt.clone()))
         // Inner middleware (applied bottom-up): CORS, then tracing, then
-        // CatchPanic wraps both.
+        // CatchPanic + metrics wrap both (see apply_panic_and_metrics_layers).
         .layer(middleware::cors_layer(state.config.is_production(), state.config.cors_origin.as_deref()))
-        .layer(middleware::trace_layer())
+        .layer(middleware::trace_layer());
+
+    // Outermost: CatchPanic (inner) wrapped by the HTTP-metrics layer, in the
+    // load-bearing order. Extracted into a shared helper so the ordering test
+    // exercises the EXACT production wiring — the ordering cannot drift undetected.
+    apply_panic_and_metrics_layers(router)
+}
+
+/// Apply the panic-accounting + HTTP-metrics layers in the load-bearing order:
+/// the metrics layer is OUTERMOST and wraps `catch_panic_layer`.
+///
+/// Ordering is load-bearing two ways:
+///  1. Panic accounting. Tower/Axum layers run bottom-up, so the metrics layer
+///     runs first on the request path and `catch_panic_layer` runs just inside
+///     it. A panicking handler unwinds up to CatchPanic, which converts the
+///     panic into a synthesized 500 `Response`; that 500 flows back out through
+///     the metrics layer's `next.run().await` as a normal value and is counted
+///     as `http_requests_total{status="500"}`. If the metrics layer were inside
+///     CatchPanic, the unwind would tear through its own `next.run().await` and
+///     panic-induced 500s would be invisible to the metric.
+///  2. MatchedPath. The metrics layer still wraps the routed `Router`, so the
+///     `path` label is the matched route template.
+///
+/// Shared by `create_router` and `observability::http_metrics`'s ordering test
+/// so production layer order is pinned by a single source of truth (#891/F080).
+pub(crate) fn apply_panic_and_metrics_layers(router: axum::Router) -> axum::Router {
+    router
         .layer(middleware::catch_panic_layer())
-        // HTTP request metrics (http_requests_total / http_request_duration_seconds).
-        //
-        // Applied LAST so it is the OUTERMOST layer — it wraps `catch_panic_layer`.
-        // Ordering is load-bearing two ways:
-        //
-        //  1. Panic accounting. Tower/Axum layers run bottom-up, so on the
-        //     request path this layer runs first and `catch_panic_layer` runs
-        //     just inside it. A panicking handler therefore unwinds *up to*
-        //     CatchPanic, which converts the panic into a synthesized 500
-        //     `Response`, and that 500 then flows back out through this layer's
-        //     `next.run(req).await` as a normal value — so it is counted as
-        //     `http_requests_total{status="500"}`. If this layer were inside
-        //     CatchPanic, the unwind would tear through its own
-        //     `next.run().await` and the recording code would never execute,
-        //     making panic-induced 500s invisible to the metric (the bug this
-        //     fixes). See `observability::http_metrics` for the ordering test.
-        //  2. MatchedPath. This still wraps the routed `Router`, so
-        //     `MatchedPath` is populated and the `path` label is the matched
-        //     route template (e.g. `/api/v1/agents/{id}/restart`) — what the
-        //     agents-runtime SLO alert rules and Grafana panels query. Unmatched
-        //     URIs (404s, SPA fallback) collapse into a single `<unmatched>`
-        //     series.
         .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
 }
