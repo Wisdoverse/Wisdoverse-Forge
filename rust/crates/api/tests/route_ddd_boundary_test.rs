@@ -195,65 +195,15 @@ fn repositories_do_not_reintroduce_domain_policy_helpers() {
                 ));
             }
 
-            if is_context_candidate_repository(&repository) && contains_repository_error_policy(trimmed) {
+            // DDD-3: deny-by-default. NO repository owns user-visible ErrorKind
+            // policy in production code — error contracts belong in domain
+            // helpers. This replaces the old per-file opt-in (which left repos
+            // not named in any `is_*_repository` boundary unguarded); every
+            // repository is now guarded. `REPO_ERROR_POLICY_ALLOWLIST` is the
+            // shrink-only set of documented exceptions (empty today).
+            if contains_repository_error_policy(trimmed) && !repo_error_policy_allowed(&repository, &repositories_dir) {
                 violations.push(format!(
-                    "{}:{} owns context candidate error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_context_repository_policy_boundary(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns context repository error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_orchestration_repository(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns orchestration repository error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_agent_repository(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns agent repository error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_identity_repository(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns identity repository error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_resource_repository_policy_boundary(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns resource repository error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_flat_repository_error_policy_boundary(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns flat repository error policy in production repository code; move error contracts to domain helpers",
-                    repository.display(),
-                    line_no + 1
-                ));
-            }
-
-            if is_remaining_repository_error_policy_boundary(&repository) && contains_repository_error_policy(trimmed) {
-                violations.push(format!(
-                    "{}:{} owns remaining repository error policy in production repository code; move error contracts to domain helpers",
+                    "{}:{} owns ErrorKind policy in production repository code; move user-visible error contracts to domain helpers",
                     repository.display(),
                     line_no + 1
                 ));
@@ -262,6 +212,17 @@ fn repositories_do_not_reintroduce_domain_policy_helpers() {
     }
 
     assert!(violations.is_empty(), "repository DDD boundary violations:\n{}", violations.join("\n"));
+}
+
+/// Documented exceptions to the deny-by-default repository error-policy rule
+/// (DDD-3). Empty today — every repository delegates user-visible error
+/// contracts to domain helpers. Keyed by path relative to `src/repositories`.
+const REPO_ERROR_POLICY_ALLOWLIST: &[&str] = &[];
+
+fn repo_error_policy_allowed(path: &Path, repositories_dir: &Path) -> bool {
+    let rel =
+        path.strip_prefix(repositories_dir).unwrap_or(path).to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+    REPO_ERROR_POLICY_ALLOWLIST.contains(&rel.as_str())
 }
 
 #[test]
@@ -656,77 +617,6 @@ fn contains_resource_slug_policy(line: &str) -> bool {
 
 fn contains_cross_cutting_util_policy(line: &str) -> bool {
     line.contains("crate::util::")
-}
-
-fn is_context_candidate_repository(path: &Path) -> bool {
-    path.components().any(|component| component.as_os_str() == "context_candidate")
-}
-
-fn is_context_repository_policy_boundary(path: &Path) -> bool {
-    matches!(
-        path.file_name().and_then(|file_name| file_name.to_str()),
-        Some("context_envelope.rs" | "context_preview.rs" | "memory.rs")
-    )
-}
-
-fn is_orchestration_repository(path: &Path) -> bool {
-    path.components().any(|component| component.as_os_str() == "orchestration")
-}
-
-fn is_agent_repository(path: &Path) -> bool {
-    path.components().any(|component| component.as_os_str() == "agent")
-}
-
-fn is_identity_repository(path: &Path) -> bool {
-    path.components().any(|component| component.as_os_str() == "identity")
-}
-
-fn is_resource_repository_policy_boundary(path: &Path) -> bool {
-    matches!(
-        path.file_name().and_then(|file_name| file_name.to_str()),
-        Some("member.rs" | "navigation.rs" | "permission.rs")
-    )
-}
-
-fn is_flat_repository_error_policy_boundary(path: &Path) -> bool {
-    let Some(file_name) = path.file_name().and_then(|file_name| file_name.to_str()) else {
-        return false;
-    };
-    if matches!(
-        file_name,
-        "api_key.rs"
-            | "attachment.rs"
-            | "favorite.rs"
-            | "feature_flag.rs"
-            | "git.rs"
-            | "license.rs"
-            | "llm_config.rs"
-            | "profile.rs"
-            | "project.rs"
-            | "prompt.rs"
-            | "quota.rs"
-            | "setting.rs"
-            | "ssh_key.rs"
-            | "tile.rs"
-            | "voice.rs"
-            | "workspace.rs"
-    ) {
-        return true;
-    }
-    false
-}
-
-fn is_remaining_repository_error_policy_boundary(path: &Path) -> bool {
-    let Some(file_name) = path.file_name().and_then(|file_name| file_name.to_str()) else {
-        return false;
-    };
-    if matches!(file_name, "admin.rs" | "billing.rs" | "dev_environment.rs" | "plugin.rs" | "usage_analytics.rs") {
-        return true;
-    }
-
-    path.ends_with(Path::new("user/mod.rs"))
-        || path.ends_with(Path::new("skill/mod.rs"))
-        || path.ends_with(Path::new("skill/version.rs"))
 }
 
 fn contains_repository_error_policy(line: &str) -> bool {
