@@ -461,15 +461,15 @@ impl OutboundMcp for FailingOutboundMcp {
         Err(anyhow::anyhow!("{}", self.error))
     }
 
-    async fn session_prompt(&self, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
+    async fn session_prompt(&self, _org_id: &str, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("{}", self.error))
     }
 
-    async fn session_destroy(&self, _agent_id: &str) -> anyhow::Result<()> {
+    async fn session_destroy(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("{}", self.error))
     }
 
-    async fn session_status(&self, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
+    async fn session_status(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
         Err(anyhow::anyhow!("{}", self.error))
     }
 }
@@ -490,15 +490,15 @@ impl OutboundMcp for FixedOutboundMcp {
         })
     }
 
-    async fn session_prompt(&self, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
+    async fn session_prompt(&self, _org_id: &str, _agent_id: &str, _prompt: &str) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn session_destroy(&self, _agent_id: &str) -> anyhow::Result<()> {
+    async fn session_destroy(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn session_status(&self, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
+    async fn session_status(&self, _org_id: &str, _agent_id: &str) -> anyhow::Result<SessionStatusResult> {
         Ok(SessionStatusResult { agent_id: self.session_id.clone(), status: "idle".to_string() })
     }
 }

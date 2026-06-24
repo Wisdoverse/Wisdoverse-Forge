@@ -252,7 +252,7 @@ async fn assign(
                         }
 
                         let prompt = task_prompt(&title, &description);
-                        if let Err(err) = outbound_mcp.session_prompt(session.session_id(), &prompt).await {
+                        if let Err(err) = outbound_mcp.session_prompt(&org_id, session.session_id(), &prompt).await {
                             tracing::error!(%task_id, error = %err, "failed to send outbound MCP prompt");
                             if let Err(ue) = store
                                 .update_dispatch(&dispatch_id, &org_id, "failed", Some(&err.to_string()), None)
