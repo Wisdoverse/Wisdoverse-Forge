@@ -105,3 +105,101 @@ pub fn record_callout_worker_status(status: &'static str) {
 pub fn record_callout_signing_error(site: &'static str) {
     metrics::counter!("nats_auth_callout_signing_errors_total", "site" => site).increment(1);
 }
+
+// ---------------------------------------------------------------------------
+// Closed label sets (#891/F078)
+//
+// One source of truth shared by the `record_*` callers (which pass a literal
+// from these lists) and `register_metrics` (which primes every value at 0). If
+// a deny/outcome path is added, extend the matching const here so the series is
+// described and primed on boot.
+// ---------------------------------------------------------------------------
+
+/// `reason` values for `nats_auth_callout_unauthorized_total`.
+pub const UNAUTHORIZED_REASONS: &[&str] =
+    &["agent_unknown", "password_mismatch", "signing_failed", "xkey_open_failed", "bad_request", "lookup_error"];
+
+/// `outcome` values for `nats_auth_callout_revoke_total`.
+pub const REVOKE_OUTCOMES: &[&str] =
+    &["kick_published", "no_tracked_connection", "no_sys_creds", "sys_connect_failed", "kick_publish_failed"];
+
+/// `status` values for `nats_auth_callout_worker_status_total`.
+pub const WORKER_STATUSES: &[&str] = &["subscribe_failed", "subscribed", "shutdown", "subscription_closed"];
+
+/// `site` values for `nats_auth_callout_signing_errors_total`.
+pub const SIGNING_ERROR_SITES: &[&str] = &["deny_path_sign", "deny_path_seal"];
+
+/// Describe every auth-callout instrument and prime every closed-set series at
+/// 0 (#891/F078). Without this, a credential-rejection series does not exist
+/// until its first deny event, so a runbook grep returns nothing on a fresh
+/// process, sustained-deny alerts have no zero baseline, and `rate()`/`increase()`
+/// over a window that starts before the first sample is unreliable — a
+/// credential-stuffing signal can be missed right after a deploy/restart.
+///
+/// Wired from the server binary alongside the other `register_metrics` hooks.
+/// The `metrics` facade is a no-op until a recorder is installed, so this is
+/// safe to call before (or without) one.
+pub fn register_metrics() {
+    metrics::describe_histogram!(
+        "nats_auth_callout_duration_seconds",
+        "End-to-end latency of a single NATS auth-callout invocation, in seconds."
+    );
+    metrics::describe_counter!(
+        "nats_auth_callout_unauthorized_total",
+        "NATS auth-callout denials, partitioned by reason."
+    );
+    metrics::describe_counter!(
+        "nats_auth_callout_revoke_total",
+        "NATS auth-callout revocations, partitioned by outcome."
+    );
+    metrics::describe_counter!(
+        "nats_auth_callout_worker_status_total",
+        "NATS auth-callout subscribe-loop terminal status transitions."
+    );
+    metrics::describe_counter!(
+        "nats_auth_callout_signing_errors_total",
+        "NATS auth-callout deny-path signing/seal failures, partitioned by site."
+    );
+
+    for reason in UNAUTHORIZED_REASONS {
+        metrics::counter!("nats_auth_callout_unauthorized_total", "reason" => *reason).increment(0);
+    }
+    for outcome in REVOKE_OUTCOMES {
+        metrics::counter!("nats_auth_callout_revoke_total", "outcome" => *outcome).increment(0);
+    }
+    for status in WORKER_STATUSES {
+        metrics::counter!("nats_auth_callout_worker_status_total", "status" => *status).increment(0);
+    }
+    for site in SIGNING_ERROR_SITES {
+        metrics::counter!("nats_auth_callout_signing_errors_total", "site" => *site).increment(0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn register_metrics_primes_series() {
+        // Must not panic regardless of whether a recorder is installed.
+        register_metrics();
+    }
+
+    #[test]
+    fn record_paths_accept_every_closed_set_value() {
+        // Each record_* caller passes a literal from these lists; exercising
+        // them here pins the consts as the single source of truth.
+        for reason in UNAUTHORIZED_REASONS {
+            record_callout_unauthorized(reason);
+        }
+        for outcome in REVOKE_OUTCOMES {
+            record_callout_revoke(outcome);
+        }
+        for status in WORKER_STATUSES {
+            record_callout_worker_status(status);
+        }
+        for site in SIGNING_ERROR_SITES {
+            record_callout_signing_error(site);
+        }
+    }
+}
