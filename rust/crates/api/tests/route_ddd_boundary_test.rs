@@ -850,5 +850,11 @@ fn contains_domain_persistence_dependency(line: &str) -> bool {
     if trimmed.starts_with("//") {
         return false;
     }
-    line.contains("agentforge_db") || line.contains("FromRow") || (line.contains("impl From<") && line.contains("Row>"))
+    line.contains("agentforge_db")
+        || line.contains("FromRow")
+        || (line.contains("impl From<") && line.contains("Row>"))
+        // A domain module must not reach into the repository layer for row types
+        // (e.g. `use crate::repositories::agent::SomeRow;`) — that couples domain
+        // to persistence just like an `agentforge_db` import (codex review P2).
+        || line.contains("crate::repositories::")
 }
