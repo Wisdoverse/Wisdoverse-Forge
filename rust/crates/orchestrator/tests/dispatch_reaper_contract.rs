@@ -52,7 +52,7 @@ async fn reaps_only_stale_non_terminal_dispatches(pool: sqlx::PgPool) {
 
     // Run the reaper with a 3600s TTL.
     let reaped = DispatchReaperWorker::tick(&pool, 3600).await.expect("tick should succeed");
-    assert_eq!(reaped, 2, "expected exactly 2 dispatches reaped (A and D)");
+    assert_eq!(reaped.dispatches_reaped, 2, "expected exactly 2 dispatches reaped (A and D)");
 
     // A must now be 'failed' with last_error = 'dispatch_timeout'.
     let (status_a, err_a): (String, Option<String>) =
@@ -103,7 +103,7 @@ async fn failed_dispatch_is_not_reaped(pool: sqlx::PgPool) {
     .expect("seed dispatch E");
 
     let reaped = DispatchReaperWorker::tick(&pool, 3600).await.expect("tick should succeed");
-    assert_eq!(reaped, 0, "no dispatches should be reaped when only failed rows are present");
+    assert_eq!(reaped.dispatches_reaped, 0, "no dispatches should be reaped when only failed rows are present");
 
     // E must still be 'failed' with its original last_error sentinel.
     let (status_e, err_e): (String, Option<String>) =
@@ -142,7 +142,7 @@ async fn ttl_boundary_respected(pool: sqlx::PgPool) {
     .expect("seed dispatch G");
 
     let reaped = DispatchReaperWorker::tick(&pool, 3600).await.expect("tick should succeed");
-    assert_eq!(reaped, 1, "only the 61-minute-old dispatch should be reaped");
+    assert_eq!(reaped.dispatches_reaped, 1, "only the 61-minute-old dispatch should be reaped");
 
     // F must still be 'queued'.
     let status_f: String = sqlx::query_scalar("SELECT status FROM task_dispatches WHERE task_id = 'task-f'")
@@ -183,7 +183,7 @@ async fn multi_org_sweep(pool: sqlx::PgPool) {
     .expect("seed dispatch I");
 
     let reaped = DispatchReaperWorker::tick(&pool, 3600).await.expect("tick should succeed");
-    assert_eq!(reaped, 2, "both cross-org stale dispatches should be reaped in one pass");
+    assert_eq!(reaped.dispatches_reaped, 2, "both cross-org stale dispatches should be reaped in one pass");
 
     // H must be 'failed'.
     let status_h: String = sqlx::query_scalar("SELECT status FROM task_dispatches WHERE task_id = 'task-h'")
@@ -198,4 +198,95 @@ async fn multi_org_sweep(pool: sqlx::PgPool) {
         .await
         .expect("fetch dispatch I");
     assert_eq!(status_i, "failed", "dispatch I (org-beta) should be reaped");
+}
+
+/// F039: reaping a stuck dispatch must close the loop on the owning task. A
+/// task parked in `assigned` (its dispatch never started) is reset to `pending`
+/// so it is re-dispatchable, in the same atomic pass that fails the dispatch.
+/// A `working` task (agent actively on it) and tasks whose dispatch was NOT
+/// reaped must be left untouched.
+#[sqlx::test(migrations = "./migrations")]
+async fn reaped_dispatch_resets_owning_assigned_task_to_pending(pool: sqlx::PgPool) {
+    let participant_id = "22222222-2222-2222-2222-222222222222";
+    // assigned task with a stale dispatch — should be reset to pending.
+    let assigned_task = "11111111-1111-1111-1111-111111111111";
+    // working task with a stale dispatch — must NOT be reset (agent is on it).
+    let working_task = "33333333-3333-3333-3333-333333333333";
+    // assigned task whose dispatch is fresh — must NOT be reset (not reaped).
+    let fresh_task = "44444444-4444-4444-4444-444444444444";
+
+    sqlx::query(
+        "INSERT INTO participants (id, type, display_name, agent_session_id, org_id)
+         VALUES ($1::uuid, 'agent', 'Recon Agent', 'sess-recon', 'org-recon')",
+    )
+    .bind(participant_id)
+    .execute(&pool)
+    .await
+    .expect("seed participant");
+
+    for (tid, state) in [(assigned_task, "assigned"), (working_task, "working"), (fresh_task, "assigned")] {
+        sqlx::query(
+            "INSERT INTO tasks (id, title, state, created_by, org_id)
+             VALUES ($1::uuid, 'Recon Task', $2, $3::uuid, 'org-recon')",
+        )
+        .bind(tid)
+        .bind(state)
+        .bind(participant_id)
+        .execute(&pool)
+        .await
+        .expect("seed task");
+    }
+
+    // Stale dispatches for the assigned + working tasks (both reaped); fresh
+    // dispatch for fresh_task (not reaped).
+    for (tid, age) in [(assigned_task, "2 hours"), (working_task, "2 hours")] {
+        sqlx::query(&format!(
+            "INSERT INTO task_dispatches (task_id, org_id, status, updated_at)
+             VALUES ($1, 'org-recon', 'starting', NOW() - INTERVAL '{age}')"
+        ))
+        .bind(tid)
+        .execute(&pool)
+        .await
+        .expect("seed stale dispatch");
+    }
+    sqlx::query(
+        "INSERT INTO task_dispatches (task_id, org_id, status, updated_at)
+         VALUES ($1, 'org-recon', 'starting', NOW())",
+    )
+    .bind(fresh_task)
+    .execute(&pool)
+    .await
+    .expect("seed fresh dispatch");
+
+    let outcome = DispatchReaperWorker::tick(&pool, 3600).await.expect("tick should succeed");
+    assert_eq!(outcome.dispatches_reaped, 2, "the two stale dispatches (assigned + working) are reaped");
+    assert_eq!(outcome.tasks_reconciled, 1, "only the assigned task is reset to pending");
+
+    let assigned_state: String = sqlx::query_scalar("SELECT state FROM tasks WHERE id = $1::uuid")
+        .bind(assigned_task)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch assigned task");
+    assert_eq!(assigned_state, "pending", "orphaned assigned task must return to pending");
+
+    let working_state: String = sqlx::query_scalar("SELECT state FROM tasks WHERE id = $1::uuid")
+        .bind(working_task)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch working task");
+    assert_eq!(working_state, "working", "a working task must not be reset by the reaper");
+
+    let fresh_state: String = sqlx::query_scalar("SELECT state FROM tasks WHERE id = $1::uuid")
+        .bind(fresh_task)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch fresh task");
+    assert_eq!(fresh_state, "assigned", "a task whose dispatch was not reaped must be left alone");
+
+    let dispatch_status: String = sqlx::query_scalar("SELECT status FROM task_dispatches WHERE task_id = $1")
+        .bind(assigned_task)
+        .fetch_one(&pool)
+        .await
+        .expect("fetch dispatch");
+    assert_eq!(dispatch_status, "failed", "the stale dispatch is failed");
 }
