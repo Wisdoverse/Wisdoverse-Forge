@@ -3,7 +3,7 @@
   "uid": "agentforge-overview",
   "tags": ["agentforge", "ops"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "timezone": "",
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
@@ -16,10 +16,10 @@
         "current": { "text": "Prometheus", "value": "prometheus" }
       },
       {
-        "name": "route",
+        "name": "path",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "$datasource" },
-        "query": "label_values(http_requests_total, route)",
+        "query": "label_values(http_requests_total, path)",
         "refresh": 2,
         "includeAll": true,
         "multi": true
@@ -34,8 +34,8 @@
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "sum by (route) (rate(http_requests_total{route=~\"$route\"}[5m]))",
-          "legendFormat": "{{ route }}"
+          "expr": "sum by (path) (rate(http_requests_total{path=~\"$path\"}[5m]))",
+          "legendFormat": "{{ path }}"
         }
       ]
     },
@@ -47,8 +47,8 @@
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0 } },
       "targets": [
         {
-          "expr": "sum by (route) (rate(http_requests_total{code=~\"5..\",route=~\"$route\"}[5m])) / sum by (route) (rate(http_requests_total{route=~\"$route\"}[5m]))",
-          "legendFormat": "{{ route }}"
+          "expr": "sum by (path) (rate(http_requests_total{status=~\"5..\",path=~\"$path\"}[5m])) / sum by (path) (rate(http_requests_total{path=~\"$path\"}[5m]))",
+          "legendFormat": "{{ path }}"
         }
       ],
       "thresholds": {
@@ -68,33 +68,33 @@
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le, route) (rate(http_request_duration_seconds_bucket{route=~\"$route\"}[5m])))",
-          "legendFormat": "p50 {{ route }}"
+          "expr": "histogram_quantile(0.50, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "legendFormat": "p50 {{ path }}"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(http_request_duration_seconds_bucket{route=~\"$route\"}[5m])))",
-          "legendFormat": "p95 {{ route }}"
+          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "legendFormat": "p95 {{ path }}"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le, route) (rate(http_request_duration_seconds_bucket{route=~\"$route\"}[5m])))",
-          "legendFormat": "p99 {{ route }}"
+          "expr": "histogram_quantile(0.99, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "legendFormat": "p99 {{ path }}"
         }
       ]
     },
     {
-      "title": "Orchestrator backlog age (s)",
+      "title": "Orchestrator outbox oldest-unpublished age (s)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "$datasource" },
       "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
       "fieldConfig": { "defaults": { "unit": "s" } },
-      "targets": [{ "expr": "agentforge_orchestration_lag_seconds" }]
+      "targets": [{ "expr": "agentforge_orchestration_outbox_oldest_age_seconds" }]
     },
     {
-      "title": "NATS pending messages",
+      "title": "Orchestrator outbox backlog (unpublished)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "$datasource" },
       "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
-      "targets": [{ "expr": "agentforge_nats_consumer_pending_messages" }]
+      "targets": [{ "expr": "agentforge_orchestration_outbox_backlog" }]
     },
     {
       "title": "Server resident memory (bytes)",
