@@ -245,16 +245,23 @@ async fn main() -> anyhow::Result<()> {
                         tracing::warn!(
                             "credential sync enabled but agent_id/org_id are not valid UUIDs — skipping watcher"
                         );
+                        // Sync is ENABLED but can never start (misconfig) — degrade
+                        // the heartbeat instead of reporting healthy (#891/F063).
+                        creds_sync_errors.fetch_add(1, Ordering::Relaxed);
                         None
                     }
                 }
             }
             _ => {
                 tracing::info!("credential sync enabled but CREDS_DIR/ORG_ID/cli_tool not all set — skipping watcher");
+                // Sync is ENABLED but required env is missing so it can never
+                // start — degrade the heartbeat instead of reporting healthy.
+                creds_sync_errors.fetch_add(1, Ordering::Relaxed);
                 None
             }
         }
     } else {
+        // Sync intentionally disabled (flag off) — NOT a failure, stays healthy.
         tracing::info!("credential sync disabled (flag off)");
         None
     };
