@@ -108,7 +108,10 @@ fn is_forbidden_mount(source: &str) -> bool {
     if is_forbidden_normalized(&norm) {
         return true;
     }
-    if let Some(resolved) = resolve_symlinks_best_effort(source)
+    // Resolve symlinks on the LEXICALLY-NORMALIZED path (not the raw source): `..` and
+    // `.` are already collapsed, so a crafted suffix like `/tmp/link/new/..` cannot
+    // dodge resolution (its `file_name()` would otherwise be `None`).
+    if let Some(resolved) = resolve_symlinks_best_effort(&norm)
         && is_forbidden_normalized(&resolved)
     {
         return true;
@@ -352,6 +355,21 @@ mod tests {
         let result = validate_security(&mount_cfg(&target));
         let _ = std::fs::remove_file(&link);
         let err = result.expect_err("symlinked parent with missing leaf must be rejected");
+        assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
+    }
+
+    #[test]
+    fn rejects_symlink_with_dotdot_suffix() {
+        // `/tmp/link/new/..` lexically reduces to `/tmp/link`, which symlinks to /etc.
+        // Resolution must run on the normalized path, not the raw `..`-suffixed string.
+        use std::os::unix::fs::symlink;
+        let link = std::env::temp_dir().join(format!("af-sec-dotdot-{}", std::process::id()));
+        let _ = std::fs::remove_file(&link);
+        symlink("/etc", &link).expect("create symlink to /etc");
+        let target = format!("{}/new/..", link.to_str().unwrap());
+        let result = validate_security(&mount_cfg(&target));
+        let _ = std::fs::remove_file(&link);
+        let err = result.expect_err("dotdot-suffixed symlink path must be rejected");
         assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
     }
 }
