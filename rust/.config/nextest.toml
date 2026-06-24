@@ -1,0 +1,23 @@
+# cargo-nextest profile configuration.
+# Ref: https://nexte.st/book/configuration.html
+#
+# `default` — used by local `cargo nextest run`. Loose retry + rich output.
+# `ci` — used by `.gitlab-ci.yml::rust-test`. JUnit reporter writes to
+#        `target/nextest/ci/junit.xml` which gitlab-runner uploads as the
+#        JUnit test artifact. Single retry on transient network failures
+#        (e.g. sqlx::test DB race), then the test fails hard.
+
+[profile.default]
+# Match `cargo test` default: run all tests, no implicit retries.
+retries = 0
+
+[profile.ci]
+# Emit JUnit so gitlab-runner's `artifacts.reports.junit` can ingest it.
+junit = { path = "junit.xml" }
+# One retry absorbs known flaky categories (sqlx test DB allocation
+# contention, transient NATS connect). Second flake = real failure.
+retries = 1
+# Fail the run as soon as a test panics to keep the CI budget honest.
+# Nextest default is "run the rest anyway"; override so rust-test surfaces
+# failures quickly instead of burning 15 minutes on a known-broken run.
+fail-fast = true

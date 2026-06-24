@@ -1,0 +1,80 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOOK_CMD__",
+            "timeout": 5,
+            "statusMessage": "Reporting session start"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOOK_CMD__",
+            "timeout": 5,
+            "statusMessage": "Reporting prompt"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOOK_CMD__",
+            "timeout": 5,
+            "statusMessage": "Reporting tool start"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOOK_CMD__",
+            "timeout": 5,
+            "statusMessage": "Reporting permission request"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOOK_CMD__",
+            "timeout": 5,
+            "statusMessage": "Reporting tool finish"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOOK_CMD__",
+            "timeout": 5,
+            "statusMessage": "Reporting stop"
+          }
+        ]
+      }
+    ]
+  }
+}

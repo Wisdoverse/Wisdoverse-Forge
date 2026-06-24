@@ -1,0 +1,88 @@
+//! Business logic services — validation, state machines, and orchestration.
+
+pub mod admin;
+pub mod agent;
+pub mod agent_commands;
+pub mod agent_container_control;
+pub mod agent_container_credentials;
+pub mod agent_container_lifecycle;
+pub(crate) mod agent_enrollment;
+pub mod agent_message;
+pub mod agent_prompt;
+pub mod agent_query;
+pub mod agent_reconcile_worker;
+pub mod agent_workspace;
+pub mod analytics;
+pub mod api_key;
+pub mod attachment;
+pub mod audit;
+pub mod auth;
+pub mod auth_callout;
+pub mod billing;
+pub mod cli_auth_proxy;
+pub mod cli_credential;
+pub mod cli_image;
+pub mod cli_image_build;
+pub mod cli_image_roll;
+pub mod context;
+pub mod context_envelope;
+pub mod context_feature;
+pub mod context_governance;
+pub mod context_preview;
+pub mod context_resolver;
+pub mod credential_writer;
+pub mod dev_environment;
+pub mod email;
+pub mod event;
+pub mod evidence_projection;
+pub mod favorite;
+pub mod feature_flag;
+pub(crate) mod gateway_terminal;
+pub mod git_credential;
+// `pub(crate)` in production; widened to `pub` under `test-support` so the
+// `crate::testing::github_app` re-export can reach it from integration tests.
+#[cfg(not(any(test, feature = "test-support")))]
+pub(crate) mod github_app;
+#[cfg(any(test, feature = "test-support"))]
+pub mod github_app;
+pub mod governance_audit;
+pub mod group;
+pub(crate) mod inbox;
+pub mod legacy_navigation;
+pub mod license;
+pub mod llm_provider;
+pub mod mcp_agent;
+pub(crate) mod mcp_agent_store;
+pub(crate) mod mcp_docker_runtime;
+pub mod mcp_live_components;
+pub mod memory;
+pub mod orchestration;
+pub mod organization;
+pub mod plugin;
+pub mod pool;
+pub mod project;
+pub mod project_clone_worker;
+pub mod prompt;
+pub mod prompt_library;
+pub mod quota;
+pub mod resource_member;
+pub mod resource_permission;
+pub mod resource_profile;
+pub mod runtime_capability_registry;
+pub mod self_fix;
+pub mod self_fix_pr_worker;
+pub mod setting;
+pub mod skill;
+pub mod ssh_key;
+pub(crate) mod system;
+pub mod task_context;
+pub mod team;
+pub mod tile;
+pub mod turn;
+pub mod usage_analytics;
+pub mod user;
+pub mod voice;
+pub mod workspace;
+
+#[cfg(test)]
+mod tests;

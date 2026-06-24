@@ -1,0 +1,248 @@
+{
+  "uid": "agents-runtime",
+  "title": "Agents Runtime (SLOs)",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["agents", "runtime_kind", "slo"],
+  "timezone": "",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "prometheus" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Agent Create p95 (SLO: 500ms)",
+      "description": "POST /api/v1/agents — p95 latency. Alert: AgentCreateP95Slow fires when this exceeds 500ms for 10m.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=\"/api/v1/agents\", method=\"POST\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{path=\"/api/v1/agents\", method=\"POST\"}[5m])))",
+          "refId": "B",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Host CLI Enroll p95 (SLO: 800ms)",
+      "description": "POST /api/v1/agents/local-enroll — p95 latency. Alert: HostCliEnrollP95Slow fires when this exceeds 800ms for 10m.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.8 }
+            ]
+          }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=\"/api/v1/agents/local-enroll\", method=\"POST\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{path=\"/api/v1/agents/local-enroll\", method=\"POST\"}[5m])))",
+          "refId": "B",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Container Restart p95 (SLO: 2s, Docker-bound)",
+      "description": "POST /api/v1/agents/:id/restart — p95 latency. Alert: ContainerRestartP95Slow fires when this exceeds 2s for 10m.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 2.0 }
+            ]
+          }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=~\"/api/v1/agents/[^/]+/restart\", method=\"POST\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{path=~\"/api/v1/agents/[^/]+/restart\", method=\"POST\"}[5m])))",
+          "refId": "B",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "CHECK Constraint Violations (5m)",
+      "description": "Any non-zero value means runtime_kind validation was bypassed. Alert: AgentsCheckConstraintViolation fires immediately.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "targets": [
+        {
+          "expr": "increase(agents_check_constraint_violations_total[5m])",
+          "refId": "A",
+          "legendFormat": "violations"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Agents Created by Runtime Kind",
+      "description": "Rate of agents_created_total split by runtime_kind (container vs host_cli). Useful for capacity planning and spotting enrollment spikes.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum by (runtime_kind) (rate(agents_created_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{runtime_kind}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Lifecycle Rejections by Runtime Kind + Action",
+      "description": "Rate of agents_lifecycle_rejected_total. A sustained rise means the validation or state-machine path is returning errors.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum by (runtime_kind, action) (rate(agents_lifecycle_rejected_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{runtime_kind}} / {{action}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Host CLI Enrollments by CLI Tool",
+      "description": "Rate of agents_enrolled_total split by cli_tool. Shows which Container CLI flavours are actively enrolling.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum by (cli_tool) (rate(agents_enrolled_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{cli_tool}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Idempotency-Key Replay Rate (/local-enroll)",
+      "description": "Rate of agents_idempotency_replay_total. Alert: HostCliEnrollmentIdempotencyReplayBurst fires when rate > 5/s for 5m.",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "rate(agents_idempotency_replay_total[5m])",
+          "refId": "A",
+          "legendFormat": "replay rate"
+        }
+      ]
+    }
+  ]
+}

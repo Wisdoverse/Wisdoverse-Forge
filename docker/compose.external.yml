@@ -1,0 +1,66 @@
+# =============================================================================
+# Wisdoverse Forge — External Services Overlay
+# =============================================================================
+#
+# Adds external network connectivity for services that need to reach
+# externally-managed PostgreSQL, Redis, etc.
+#
+# Usage:
+#   make prod-ext   (applies this overlay automatically)
+#
+# Or manually:
+#   docker compose -f docker/compose.yml -f docker/compose.external.yml --profile external up -d --build
+#
+# =============================================================================
+
+services:
+  agentforge-server:
+    networks:
+      - default
+      - external-network
+      - agent-network
+
+  orchestrator:
+    depends_on:
+      temporal-ext:
+        condition: service_healthy
+    environment:
+      - ORCHESTRATOR_DATABASE_URL=${ORCHESTRATOR_DATABASE_URL:?set ORCHESTRATOR_DATABASE_URL}
+      - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp
+      - ORCHESTRATOR_TEMPORAL_HOST=temporal-internal:7233
+      - ORCHESTRATOR_AUTH_MODE=internal-token
+      - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN}
+      # Realtime relay (issue #879). A list-form `environment` override REPLACES
+      # the base orchestrator env, so the relay URL must be repeated here or it
+      # is lost in external mode. SAME BACKEND credential as agentforge-server —
+      # `broadcast.>` publish is denied to per-agent/sidecar NATS creds.
+      - ORCHESTRATOR_NATS_URL=${NATS_URL:-nats://backend:${NATS_BACKEND_PASSWORD:?NATS_BACKEND_PASSWORD required}@nats:4222}
+    networks:
+      - default
+      - external-network
+
+  # orchestrator-db disabled -- external PostgreSQL used instead
+  orchestrator-db:
+    entrypoint: ['echo', 'disabled in external mode']
+    restart: 'no'
+
+  temporal-ext:
+    environment:
+      - DB=postgres12
+      - DB_PORT=${DB_PORT:-5432}
+      - POSTGRES_USER=${TEMPORAL_DB_USER:-temporal}
+      - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD:-temporal}
+      - POSTGRES_SEEDS=${DB_HOST:-db}
+      - DBNAME=${TEMPORAL_DB_NAME:-temporal}
+      - VISIBILITY_DBNAME=${TEMPORAL_DB_NAME:-temporal}_visibility
+      - SKIP_DB_CREATE=true
+    networks:
+      default: {}
+      external-network:
+        aliases:
+          - temporal-internal
+
+networks:
+  external-network:
+    name: ${EXTERNAL_NETWORK:-external-network}
+    external: true

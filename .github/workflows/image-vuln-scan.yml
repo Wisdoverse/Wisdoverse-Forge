@@ -1,0 +1,103 @@
+# =============================================================================
+# Trivy image vulnerability scan
+# =============================================================================
+# Scans every published GHCR image (frontend, server, orchestrator, sidecar,
+# agent-base, agent-{opencode,codex,gemini}) for CVEs and misconfigurations
+# on a schedule. Findings post to the Security tab via SARIF.
+#
+# Trigger:
+#   * cron 02:00 UTC every day — covers regressions in pinned npm/cargo/base
+#     layers as upstream advisories land.
+#   * `workflow_dispatch` — ad-hoc rebuild after a notable CVE.
+#
+# Severity policy: scan reports `CRITICAL,HIGH,MEDIUM`. Job exits non-zero only
+# on `CRITICAL` so a transient HIGH does not page on-call; HIGH still surfaces
+# on the Security tab for triage.
+# =============================================================================
+
+name: Trivy Image Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to scan (default: main)'
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  REGISTRY: ghcr.io
+
+jobs:
+  scan:
+    name: Scan ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - '' # frontend (root namespace)
+          - /server
+          - /orchestrator
+          - /sidecar
+          - /agent-base
+          - /agent-opencode
+          - /agent-codex
+          - /agent-gemini
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - id: image
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - id: ref
+        run: |
+          TAG="${{ inputs.tag || 'main' }}"
+          IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}${{ matrix.image }}"
+          echo "ref=$IMAGE:$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.ref }}
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0' # report-only here; gate is the SARIF + summary below
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          format: sarif
+          output: trivy-image.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image-${{ matrix.image == '' && 'frontend' || matrix.image }}
+
+      - name: Fail on CRITICAL severity
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.ref }}
+          severity: CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          format: table

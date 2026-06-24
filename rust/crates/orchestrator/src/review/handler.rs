@@ -1,0 +1,335 @@
+use std::sync::Arc;
+
+use axum::Json;
+use axum::extract::{Path, Query, State};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Response};
+use serde::Deserialize;
+use serde_json::json;
+
+use crate::audit::{AuditAction, AuditLog};
+use crate::auth;
+use crate::state::AppState;
+use crate::task::TaskState;
+
+use super::errors::ReviewError;
+use super::model::{AddCommentRequest, CodeReview, CreateReviewRequest, ReviewComment, ReviewFilter, ReviewState};
+use super::store::Store;
+use super::verdict::{VerdictError, apply_review_verdict};
+
+pub fn routes() -> axum::Router<AppState> {
+    axum::Router::new()
+        .route("/", axum::routing::get(list).post(create))
+        .route("/{id}", axum::routing::get(get))
+        .route("/{id}/approve", axum::routing::post(approve))
+        .route("/{id}/reject", axum::routing::post(reject))
+        .route("/{id}/comments", axum::routing::post(add_comment))
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListQuery {
+    task_id: Option<String>,
+    state: Option<ReviewState>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct RejectRequest {
+    feedback: Option<String>,
+}
+
+fn error(status: StatusCode, message: &str) -> Response {
+    (status, Json(json!({"ok": false, "error": message}))).into_response()
+}
+
+#[allow(clippy::result_large_err)]
+fn require_store(state: &AppState) -> Result<Arc<dyn Store>, Response> {
+    state.review_store.clone().ok_or_else(|| error(StatusCode::SERVICE_UNAVAILABLE, "database not configured"))
+}
+
+fn map_error(err: ReviewError) -> Response {
+    match err {
+        ReviewError::NotFound => error(StatusCode::NOT_FOUND, "review not found"),
+        // InvalidInput is caller-supplied and safe to surface verbatim.
+        ReviewError::InvalidInput(message) => error(StatusCode::BAD_REQUEST, &message),
+        // Internal wraps raw SQLx/store errors; do NOT leak them to the client.
+        // Log the detail server-side and return a generic message instead.
+        ReviewError::Internal(message) => {
+            tracing::error!(error = %message, "internal review error");
+            error(StatusCode::INTERNAL_SERVER_ERROR, "internal review error")
+        }
+    }
+}
+
+/// Map the transport-independent [`VerdictError`] to the existing HTTP responses.
+///
+/// `IllegalTransition` is intentionally NOT handled here: the approve and reject
+/// call sites map it to their own 409 message ("...approved..." vs "...rejected...")
+/// to preserve the pre-refactor HTTP contract exactly.
+fn map_verdict_error(err: VerdictError) -> Response {
+    match err {
+        VerdictError::NotFound => error(StatusCode::NOT_FOUND, "review not found"),
+        VerdictError::SelfApproval => error(StatusCode::FORBIDDEN, "cannot approve your own review"),
+        VerdictError::Review(review_err) => map_error(review_err),
+        // Fail-closed audit: the verdict committed but the audit write failed. The
+        // raw detail is already logged server-side in `record_verdict_audit`; return
+        // a generic message so the internal error never reaches the client.
+        VerdictError::Audit(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "failed to record review audit"),
+        // Handled per call site; unreachable but kept total to avoid silent drift.
+        VerdictError::IllegalTransition => error(StatusCode::CONFLICT, "illegal review transition"),
+    }
+}
+
+/// Emit an audit log entry. Returns `Err(Response)` if the store is present but the write fails
+/// (fail-closed). When no audit store is configured this is a no-op (best-effort callers can
+/// ignore the return value with `let _ =`).
+async fn record_audit(
+    state: &AppState,
+    action: AuditAction,
+    resource_id: Option<String>,
+    org_id: String,
+    actor_id: String,
+    changes: Option<serde_json::Value>,
+) -> Result<(), Response> {
+    let Some(audit_store) = state.audit_store.as_ref() else {
+        return Ok(());
+    };
+    let mut log = AuditLog {
+        id: String::new(),
+        action,
+        actor_id,
+        actor_type: "human".to_string(),
+        resource: "review".to_string(),
+        resource_id,
+        org_id,
+        changes,
+        ip_address: None,
+        user_agent: None,
+        created_at: chrono::Utc::now(),
+    };
+    audit_store
+        .create(&mut log)
+        .await
+        .map_err(|err| error(StatusCode::INTERNAL_SERVER_ERROR, &format!("audit log failed: {err}")))
+}
+
+async fn list(State(state): State<AppState>, headers: HeaderMap, Query(query): Query<ListQuery>) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    match store
+        .list(ReviewFilter {
+            org_id: identity.org_id,
+            task_id: query.task_id,
+            state: query.state,
+            limit: 50,
+            offset: 0,
+        })
+        .await
+    {
+        Ok(reviews) => (StatusCode::OK, Json(json!({"ok": true, "reviews": reviews}))).into_response(),
+        Err(err) => map_error(err),
+    }
+}
+
+async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Json<CreateReviewRequest>) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    if req.task_id.trim().is_empty() || req.session_id.trim().is_empty() {
+        return error(StatusCode::BAD_REQUEST, "taskId and sessionId are required");
+    }
+
+    let mut review = CodeReview {
+        id: String::new(),
+        task_id: req.task_id.clone(),
+        session_id: req.session_id,
+        diff_ref: if req.diff_ref.trim().is_empty() { "manual".to_string() } else { req.diff_ref },
+        diff_snapshot: None,
+        state: ReviewState::Pending,
+        assigned_to: req.assigned_to,
+        org_id: identity.org_id.clone(),
+        created_by: identity.user_id.clone(),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+        // i64::try_from guards the u64->i64 cast: a pathological env value can't
+        // wrap to a negative (past) deadline; saturate at i64::MAX instead.
+        due_at: Some(
+            chrono::Utc::now()
+                + chrono::Duration::seconds(i64::try_from(state.config.review_sla_secs).unwrap_or(i64::MAX)),
+        ),
+        escalated_at: None,
+    };
+
+    match store.create(&mut review).await {
+        Ok(()) => {
+            if let Some(task_store) = state.task_store.as_ref() {
+                let _ = task_store.set_review_id(&review.task_id, &identity.org_id, review.id.clone()).await;
+            }
+            let _ = record_audit(
+                &state,
+                AuditAction::ReviewCreate,
+                Some(review.id.clone()),
+                identity.org_id,
+                identity.user_id,
+                None,
+            )
+            .await;
+            (StatusCode::CREATED, Json(json!({"ok": true, "review": review}))).into_response()
+        }
+        Err(err) => map_error(err),
+    }
+}
+
+async fn get(State(state): State<AppState>, headers: HeaderMap, Path(id): Path<String>) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    match store.get_by_id(&id, &identity.org_id).await {
+        Ok(review) => (StatusCode::OK, Json(json!({"ok": true, "review": review}))).into_response(),
+        Err(err) => map_error(err),
+    }
+}
+
+async fn approve(State(state): State<AppState>, headers: HeaderMap, Path(id): Path<String>) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    // Shared verdict path (#841): the HTTP and MCP entry points apply the verdict
+    // and write the audit record through one function so they cannot diverge.
+    // actor_type = "human" here -- this is the authenticated session user.
+    match apply_review_verdict(
+        store.as_ref(),
+        state.audit_store.as_deref(),
+        &identity.org_id,
+        &identity.user_id,
+        "human",
+        &id,
+        ReviewState::Approved,
+        TaskState::Completed,
+        None,
+    )
+    .await
+    {
+        Ok(verdict) => (StatusCode::OK, Json(json!({"ok": true, "state": verdict}))).into_response(),
+        Err(VerdictError::IllegalTransition) => {
+            error(StatusCode::CONFLICT, "review cannot be approved from its current state")
+        }
+        Err(err) => map_verdict_error(err),
+    }
+}
+
+async fn reject(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(req): Json<RejectRequest>,
+) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    // Require non-empty feedback.
+    let feedback = match req.feedback.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        Some(feedback) => feedback.to_string(),
+        None => return error(StatusCode::BAD_REQUEST, "feedback is required"),
+    };
+
+    // Shared verdict path (#841): the feedback comment is written inside the
+    // verdict transaction and the audit record carries it under `changes`.
+    // actor_type = "human" -- this is the authenticated session user.
+    match apply_review_verdict(
+        store.as_ref(),
+        state.audit_store.as_deref(),
+        &identity.org_id,
+        &identity.user_id,
+        "human",
+        &id,
+        ReviewState::ChangesRequested,
+        TaskState::ChangesRequested,
+        Some(&feedback),
+    )
+    .await
+    {
+        Ok(verdict) => (StatusCode::OK, Json(json!({"ok": true, "state": verdict}))).into_response(),
+        Err(VerdictError::IllegalTransition) => {
+            error(StatusCode::CONFLICT, "review cannot be rejected from its current state")
+        }
+        Err(err) => map_verdict_error(err),
+    }
+}
+
+async fn add_comment(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(req): Json<AddCommentRequest>,
+) -> Response {
+    let identity = match auth::require_request_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let store = match require_store(&state) {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+
+    if req.body.trim().is_empty() {
+        return error(StatusCode::BAD_REQUEST, "body is required");
+    }
+
+    let mut comment = ReviewComment {
+        id: String::new(),
+        review_id: String::new(),
+        author_id: identity.user_id.clone(),
+        body: req.body,
+        file_path: req.file_path,
+        line: req.line,
+        created_at: chrono::Utc::now(),
+    };
+
+    match store.add_comment(&id, &identity.org_id, &mut comment).await {
+        Ok(()) => {
+            let _ = record_audit(
+                &state,
+                AuditAction::ReviewComment,
+                Some(id.clone()),
+                identity.org_id,
+                identity.user_id,
+                None,
+            )
+            .await;
+            (StatusCode::CREATED, Json(json!({"ok": true, "comment": comment}))).into_response()
+        }
+        Err(err) => map_error(err),
+    }
+}

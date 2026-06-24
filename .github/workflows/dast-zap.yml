@@ -1,0 +1,108 @@
+# =============================================================================
+# OWASP ZAP DAST baseline scan
+# =============================================================================
+# Runs the OWASP ZAP baseline scanner against a deployed environment to surface
+# common runtime vulnerabilities — outdated headers, missing CSP, mixed content,
+# insecure cookies, exposed admin endpoints, and the broader OWASP Top 10
+# starter checks. SAST (CodeQL), source-manifest scanning (Trivy fs), image
+# scanning (Trivy image), supply-chain hygiene (Scorecard), and signature
+# verification (cosign) cover the static and supply-chain side; DAST closes the
+# gap by exercising the actual running app.
+#
+# Trigger:
+#   * cron 04:00 UTC daily — overlaps with the image-vuln-scan run so results
+#     correlate when something lands.
+#   * `workflow_dispatch` — accepts a `target_url` input so an operator can
+#     scan a fresh release URL or a preview environment without editing the
+#     workflow.
+#
+# Scope: baseline (unauthenticated) scan only. The scanner crawls the public
+# surface and runs passive rules. Authenticated full-scan would need login
+# automation + cookie injection and is intentionally out of scope here — keeps
+# the run cheap and predictable. Operators that need authenticated coverage
+# should write a dedicated workflow with their own context file.
+#
+# Output: HTML/Markdown reports as workflow artefacts + SARIF upload to the
+# GitHub code-scanning Security tab. Findings never block a merge — DAST runs
+# against a deployed environment, so a finding usually requires fixing source
+# code anyway. Use the alerts to drive follow-up PRs.
+#
+# Privacy note: the scan target URL is read from the `DAST_TARGET_URL` repo
+# secret rather than hard-coded so internal/staging hostnames don't appear in
+# the public workflow YAML (which is indexed by GitHub Code Search and external
+# crawlers). `allow_issue_writing` is set to `false` for the same reason — the
+# ZAP action's default behaviour is to file a public issue with every scanned
+# URL in the body, which permanently leaks the target. Artefact + SARIF
+# downloads cover the same data without the indexing surface.
+# =============================================================================
+
+name: DAST (OWASP ZAP baseline)
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL to scan (overrides the DAST_TARGET_URL repo secret)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast-zap
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  zap-baseline:
+    name: ZAP baseline scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - id: target
+        env:
+          MANUAL_URL: ${{ inputs.target_url }}
+          SECRET_URL: ${{ secrets.DAST_TARGET_URL }}
+        run: |
+          URL="${MANUAL_URL:-$SECRET_URL}"
+          if [ -z "$URL" ]; then
+            echo "::warning::DAST_TARGET_URL secret is unset and no manual target was provided; skipping scan."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            # Mask the URL so it does not surface in subsequent step logs.
+            echo "::add-mask::$URL"
+            echo "url=$URL" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ZAP baseline scan
+        if: steps.target.outputs.skip != 'true'
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: ${{ steps.target.outputs.url }}
+          rules_file_name: '.zap/rules.tsv'
+          # Do NOT file a GitHub issue with the report — the issue body
+          # includes every scanned URL and gets indexed by Code Search.
+          # Operators read the artefact / SARIF instead.
+          allow_issue_writing: false
+          fail_action: false # report-only; do not gate merge on a transient
+          cmd_options: '-a -j -T 5'
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always() && steps.target.outputs.skip != 'true'
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_md.md
+            report_json.json
+          retention-days: 7

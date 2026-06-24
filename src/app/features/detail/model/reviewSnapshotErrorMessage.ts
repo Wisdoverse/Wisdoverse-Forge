@@ -1,0 +1,111 @@
+type ReviewSnapshotAction = 'load' | 'approve'
+
+const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
+const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/i
+
+const ACTION_FALLBACKS: Record<ReviewSnapshotAction, string> = {
+  load: 'Choose Check fix status again. Forge could not load the current fix check status.',
+  approve:
+    'Choose Check fix status, confirm automated checks passed, then finish this fix again. The fix was not finished.',
+}
+
+export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: unknown): string {
+  const detail = rawDetail(error)
+  const code = statusCode(detail)
+  const text = detail?.toLowerCase() ?? ''
+
+  if (text.includes('can not approve your own pull request')) {
+    return 'Ask another owner or admin to check this fix. This finish step needs someone else to check changes you opened yourself.'
+  }
+
+  if (
+    code === 401 ||
+    text.includes('unauthorized') ||
+    text.includes('bad credentials') ||
+    text.includes('sign in again')
+  ) {
+    return 'Sign in again, then choose Check fix status. Forge could not confirm your finish access.'
+  }
+
+  if (
+    code === 403 ||
+    text.includes('forbidden') ||
+    text.includes('permission') ||
+    text.includes('role required') ||
+    text.includes('resource not accessible')
+  ) {
+    return 'Ask an owner or admin to check finish access for this code project, then choose Check fix status.'
+  }
+
+  if (
+    code === 404 ||
+    text.includes('not found') ||
+    text.includes('no pull request') ||
+    text.includes('pull request could not be found')
+  ) {
+    return 'Open this task again from the Tasks page, then choose Check fix status. Forge could not find the fix check for this task.'
+  }
+
+  if (
+    text.includes('conflict') ||
+    text.includes('mergeable_state') ||
+    text.includes('mergeable state') ||
+    text.includes('cannot be merged')
+  ) {
+    return 'Choose Check fix status after the project code is updated. This fix needs the latest project code before it can finish.'
+  }
+
+  if (
+    text.includes('checks') ||
+    text.includes('status check') ||
+    text.includes('check_suite') ||
+    text.includes('required status')
+  ) {
+    return 'Wait for automated checks to finish, then choose Check fix status before finishing.'
+  }
+
+  if ((code != null && code >= 500) || RAW_SERVICE_DETAIL.test(text)) {
+    return serviceRecoveryMessage(action)
+  }
+
+  const safeDetail = userSafeDetail(detail)
+  if (safeDetail) {
+    return `${ACTION_FALLBACKS[action]} ${safeDetail}`
+  }
+
+  return ACTION_FALLBACKS[action]
+}
+
+function serviceRecoveryMessage(action: ReviewSnapshotAction): string {
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check finish access for this code project.`
+}
+
+function rawDetail(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  return null
+}
+
+function statusCode(detail: string | null): number | null {
+  const match = detail?.match(/\b(?:API|HTTP|Server error|GraphQL|Code:)\s*\(?(\d{3})\b/i)
+  if (!match) return null
+  const value = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(value) ? value : null
+}
+
+function userSafeDetail(detail: string | null): string | null {
+  if (!detail) return null
+  if (RAW_NETWORK_ERRORS.some((pattern) => pattern.test(detail))) return null
+  if (RAW_STATUS_ERRORS.some((pattern) => pattern.test(detail))) return null
+  if (detail.length > 160) return null
+  if (
+    /\b(?:api|http|graphql|json|stack trace|traceback|exception|panic|stdout|stderr|database|sql|token|secret|authorization|bearer)\b/i.test(
+      detail
+    )
+  ) {
+    return null
+  }
+  return detail
+}

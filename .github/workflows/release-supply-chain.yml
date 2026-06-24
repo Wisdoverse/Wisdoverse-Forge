@@ -1,0 +1,210 @@
+# =============================================================================
+# Release Supply Chain — sign artifacts + generate SBOMs
+#
+# Triggers: GitHub release published, workflow_dispatch (manual re-run).
+# This workflow is purely additive to the main release pipeline. It runs
+# after a release is published — by which point `release.yml`'s
+# `release-binaries` job has already attached the cross-platform
+# `agentforge-*` and `agentforge-sidecar-*` binaries to the release — and
+# uploads signatures + SBOMs as additional release assets.
+#
+# Signing uses Sigstore keyless cosign (OIDC, no long-lived keys). The OIDC
+# identity is bound to this workflow file AT THE RELEASE TAG REF, so any
+# artifact signed by a fork, a different workflow, or a different tag will
+# fail `agentforge verify`.
+#
+# IMPORTANT — workflow_dispatch identity constraint:
+#   `agentforge verify` (rust/crates/cli/src/cmd/verify.rs) requires the Fulcio
+#   cert subject to end with `@refs/tags/<tag>`. A workflow_dispatch run from a
+#   branch would otherwise produce `@refs/heads/<branch>` and fail verification.
+#   To keep both trigger paths identical, manual runs REQUIRE a `tag` input and
+#   `actions/checkout` checks out that exact tag ref, so the OIDC claim is
+#   always `@refs/tags/<tag>`. Re-runs therefore only work against a real,
+#   already-published tag — never an arbitrary branch.
+#
+# SBOMs are generated in CycloneDX JSON format by syft (Anchore) and uploaded
+# alongside `.sig.bundle` files. Downstream operators can run:
+#
+#   agentforge verify --tag v1.2.3 ./agentforge-sidecar-linux-amd64
+#
+# See docs/runbooks/host-cli-agent-enrollment.md for the full setup path.
+# =============================================================================
+
+name: Release Supply Chain (sign + SBOM)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        # Must be an already-published release tag (e.g. v1.2.3). The run checks
+        # out this exact tag ref so the cosign OIDC identity is bound to
+        # `@refs/tags/<tag>`, matching `agentforge verify`. A branch ref would
+        # produce a signature that fails verification.
+        description: 'Published release tag to sign (e.g. v1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  sign-and-sbom:
+    name: Sign release artifacts + generate SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh release download/upload of signed assets + SBOMs
+      id-token: write # cosign keyless (Sigstore OIDC) signing
+
+    steps:
+      # Check out the EXACT release tag ref on both trigger paths so the cosign
+      # Fulcio OIDC identity is `...release-supply-chain.yml@refs/tags/<tag>`,
+      # which is what `agentforge verify` pins. On workflow_dispatch the `tag`
+      # input supplies the ref; on `release: published` the published tag does.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: refs/tags/${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "## Supply-chain run for $TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+
+      - name: Download release artifacts
+        run: |
+          mkdir -p release-artifacts
+          gh release download "${{ steps.tag.outputs.tag }}" \
+            --dir release-artifacts \
+            --pattern '*' \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List downloaded artifacts
+        run: ls -lh release-artifacts/
+
+      - name: Generate SBOM for each artifact
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          cd release-artifacts
+          # Collect the release binaries we expect to attest. A single
+          # `agentforge-*` glob already covers the `agentforge-sidecar-*`
+          # binaries (they share the prefix), so there are no duplicates. Build
+          # outputs from an earlier re-run (.sbom.json / .sig.bundle) are
+          # excluded so a re-run never treats its own products as signable input.
+          signables=()
+          for f in agentforge-*; do
+            case "$f" in
+              *.sbom.json|*.sig.bundle) continue ;;
+            esac
+            [ -f "$f" ] || continue
+            signables+=("$f")
+          done
+          # Fail closed: a release with zero matching binaries must NOT pass with
+          # a green check (the #452 bug class — with no matches an unguarded
+          # `for f in <glob>` iterates the literal glob string and every
+          # iteration is skipped, so the job exits 0 having signed nothing).
+          if [ ${#signables[@]} -eq 0 ]; then
+            echo "::error::No agentforge-* release binaries found for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
+            exit 1
+          fi
+          for f in "${signables[@]}"; do
+            echo "Generating SBOM for $f"
+            syft "$f" -o cyclonedx-json="${f}.sbom.json"
+          done
+
+      - name: Cosign keyless sign each artifact and SBOM
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          cd release-artifacts
+          # Sign the release binaries plus their freshly-generated SBOMs. The
+          # `agentforge-*` glob also matches `agentforge-*.sbom.json`, which the
+          # `*.sbom.json` glob matches again, so dedupe by tracking seen names —
+          # otherwise the same blob would be signed twice. Existing .sig.bundle
+          # files are excluded so a re-run never double-wraps a signature.
+          declare -A seen=()
+          signables=()
+          for f in agentforge-* *.sbom.json; do
+            case "$f" in
+              *.sig.bundle) continue ;;
+            esac
+            [ -f "$f" ] || continue
+            [ -n "${seen[$f]:-}" ] && continue
+            seen[$f]=1
+            signables+=("$f")
+          done
+          # Fail closed: nothing to sign means the release would ship UNSIGNED
+          # behind a green check. Refuse rather than pass vacuously.
+          if [ ${#signables[@]} -eq 0 ]; then
+            echo "::error::No agentforge-* release binaries or SBOMs found for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
+            exit 1
+          fi
+          # Sign once per unique content digest. Platform-independent SBOMs can
+          # be byte-identical across targets; signing the same digest twice in
+          # one run hits Rekor's transparency-log dedupe (409 conflict) because
+          # the certificate and digest match. The bundle binds to the digest,
+          # not the filename, so an identical file reuses the first bundle and
+          # `agentforge verify` still passes for every name.
+          declare -A bundle_for_digest=()
+          for f in "${signables[@]}"; do
+            digest=$(sha256sum "$f" | cut -d' ' -f1)
+            if [ -n "${bundle_for_digest[$digest]:-}" ]; then
+              echo "Reusing signature for $f (content identical to ${bundle_for_digest[$digest]%.sig.bundle})"
+              cp "${bundle_for_digest[$digest]}" "${f}.sig.bundle"
+            else
+              echo "Signing $f"
+              cosign sign-blob --yes "$f" \
+                --bundle "${f}.sig.bundle"
+              bundle_for_digest[$digest]="${f}.sig.bundle"
+            fi
+          done
+
+      - name: Upload signatures and SBOMs to release
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          cd release-artifacts
+          bundles=(*.sig.bundle)
+          sboms=(*.sbom.json)
+          # Fail closed: an empty upload set means the signing steps produced
+          # nothing, so the release would ship unsigned behind a green check.
+          if [ ${#bundles[@]} -eq 0 ] && [ ${#sboms[@]} -eq 0 ]; then
+            echo "::error::No signatures or SBOMs to upload for tag ${{ steps.tag.outputs.tag }} — refusing green run with nothing signed"
+            exit 1
+          fi
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            "${bundles[@]}" "${sboms[@]}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### Artifacts signed" >> "$GITHUB_STEP_SUMMARY"
+          ls release-artifacts/*.sig.bundle 2>/dev/null | while read -r f; do
+            echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
+          done || true
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### SBOMs generated (CycloneDX JSON)" >> "$GITHUB_STEP_SUMMARY"
+          ls release-artifacts/*.sbom.json 2>/dev/null | while read -r f; do
+            echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
+          done || true

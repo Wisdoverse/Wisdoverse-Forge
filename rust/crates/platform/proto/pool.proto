@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service PoolService {
+  rpc AllocateContainer(AllocateRequest) returns (AllocateResponse);
+  rpc ReleaseContainer(ReleaseRequest) returns (Empty);
+  rpc WarmPool(WarmPoolRequest) returns (WarmPoolResponse);
+  rpc GetPoolStatus(Empty) returns (PoolStatus);
+  rpc DrainPool(DrainRequest) returns (DrainResponse);
+}
+
+message AllocateRequest {
+  string image = 1;
+  map<string, string> labels = 2;
+  map<string, string> env = 3;
+  string agent_id = 4;
+  int32 timeout_seconds = 5;
+}
+
+message AllocateResponse {
+  string container_id = 1;
+  bool from_warm_pool = 2;
+  int64 allocation_ms = 3;
+}
+
+message ReleaseRequest {
+  string container_id = 1;
+  bool destroy = 2;
+}
+
+message WarmPoolRequest {
+  string image = 1;
+  int32 count = 2;
+}
+
+message WarmPoolResponse {
+  int32 created = 1;
+  int32 already_warm = 2;
+}
+
+message DrainRequest {
+  bool force = 1;
+  int32 timeout_seconds = 2;
+}
+
+message DrainResponse {
+  int32 drained = 1;
+  int32 failed = 2;
+}
+
+message PoolStatus {
+  int32 warm_count = 1;
+  int32 active_count = 2;
+  int32 total_count = 3;
+  int32 target_warm = 4;
+  string image = 5;
+  repeated PoolContainer containers = 6;
+}
+
+message PoolContainer {
+  string container_id = 1;
+  string state = 2; // warm, active, draining
+  string agent_id = 3;
+  Timestamp allocated_at = 4;
+  Timestamp created_at = 5;
+  int64 ttl_seconds = 6;
+}

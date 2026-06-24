@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service EventService {
+  rpc IngestEvent(IngestEventRequest) returns (IngestEventResponse);
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  rpc StreamEvents(StreamEventsRequest) returns (stream EventPayload);
+  rpc GetEventCount(EventCountRequest) returns (EventCountResponse);
+}
+
+message IngestEventRequest {
+  string agent_id = 1;
+  string org_id = 2;
+  bytes event_json = 3; // ClaudeEvent serialized as JSON (preserves shared/types.ts structure)
+}
+
+message IngestEventResponse {
+  string event_id = 1;
+  string agent_status = 2; // resulting session status after processing
+  bool broadcast_sent = 3;
+}
+
+message GetHistoryRequest {
+  string agent_id = 1;
+  int32 limit = 2;
+  string before_id = 3;
+  repeated string event_types = 4;
+}
+
+message GetHistoryResponse {
+  repeated EventPayload events = 1;
+  bool has_more = 2;
+}
+
+message StreamEventsRequest {
+  string agent_id = 1;
+  repeated string event_types = 2;
+}
+
+message EventPayload {
+  string id = 1;
+  string agent_id = 2;
+  string type = 3;
+  bytes data = 4; // JSON payload
+  Timestamp created_at = 5;
+}
+
+message EventCountRequest {
+  string agent_id = 1;
+}
+
+message EventCountResponse {
+  int64 count = 1;
+}

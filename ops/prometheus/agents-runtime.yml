@@ -1,0 +1,163 @@
+# =============================================================================
+# Wisdoverse Forge — Agents Runtime SLO alert rules
+# =============================================================================
+# SLOs from the Host CLI Enrollment spec §10.3. Import alongside the main
+# alerts.yml:
+#
+#   prometheus.yml
+#     rule_files:
+#       - /etc/prometheus/agentforge/alerts.yml
+#       - /etc/prometheus/agentforge/agents-runtime.yml
+#
+# Counters emitted by the agents-runtime service (#447):
+#   agents_created_total{runtime_kind}
+#   agents_lifecycle_rejected_total{runtime_kind, action}
+#   agents_enrolled_total{cli_tool}
+#   agents_check_constraint_violations_total
+#   agents_idempotency_replay_total
+#
+# HTTP histogram / counter labels assumed:
+#   http_requests_total{path, method, status}
+#   http_request_duration_seconds_bucket{path, method, le}
+# =============================================================================
+
+groups:
+  - name: agents-runtime
+    interval: 30s
+    rules:
+      # -----------------------------------------------------------------------
+      # POST /api/v1/agents — create container/host-cli agent
+      # SLO: p95 < 500ms, success > 99.5% (28-day window)
+      # -----------------------------------------------------------------------
+      - alert: AgentCreateP95Slow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{path="/api/v1/agents", method="POST"}[5m]))
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          slo: agents-create-p95
+        annotations:
+          summary: 'POST /api/v1/agents p95 above 500ms (SLO)'
+          description: 'p95 latency on agent creation is {{ $value | humanizeDuration }}, exceeding the 500ms SLO budget.'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'
+
+      - alert: AgentCreateSuccessRatioBelowSLO
+        expr: |
+          (
+            1 - (
+              sum(rate(http_requests_total{path="/api/v1/agents", method="POST", status=~"5.."}[28d]))
+              / sum(rate(http_requests_total{path="/api/v1/agents", method="POST"}[28d]))
+            )
+          ) < 0.995
+        for: 1h
+        labels:
+          severity: warning
+          slo: agents-create-success
+        annotations:
+          summary: 'POST /api/v1/agents success ratio below 99.5% (SLO)'
+          description: 'Success ratio over 28d is {{ $value | humanizePercentage }}, below the 99.5% SLO target.'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'
+
+      # -----------------------------------------------------------------------
+      # POST /api/v1/agents/local-enroll — host CLI enrollment
+      # SLO: p95 < 800ms, success > 99.5% (28-day window)
+      # -----------------------------------------------------------------------
+      - alert: HostCliEnrollP95Slow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{path="/api/v1/agents/local-enroll", method="POST"}[5m]))
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          slo: enroll-p95
+        annotations:
+          summary: 'POST /api/v1/agents/local-enroll p95 above 800ms (SLO)'
+          description: 'p95 latency on host CLI enrollment is {{ $value | humanizeDuration }}, exceeding the 800ms SLO budget.'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'
+
+      - alert: HostCliEnrollSuccessRatioBelowSLO
+        expr: |
+          (
+            1 - (
+              sum(rate(http_requests_total{path="/api/v1/agents/local-enroll", method="POST", status=~"5.."}[28d]))
+              / sum(rate(http_requests_total{path="/api/v1/agents/local-enroll", method="POST"}[28d]))
+            )
+          ) < 0.995
+        for: 1h
+        labels:
+          severity: warning
+          slo: enroll-success
+        annotations:
+          summary: 'POST /api/v1/agents/local-enroll success ratio below 99.5% (SLO)'
+          description: 'Success ratio over 28d is {{ $value | humanizePercentage }}, below the 99.5% SLO target.'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'
+
+      # -----------------------------------------------------------------------
+      # POST /api/v1/agents/:id/restart — Docker-bound container restart
+      # SLO: p95 < 2000ms, success > 99.0% (28-day window)
+      # -----------------------------------------------------------------------
+      - alert: ContainerRestartP95Slow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{path=~"/api/v1/agents/[^/]+/restart", method="POST"}[5m]))
+          ) > 2.0
+        for: 10m
+        labels:
+          severity: warning
+          slo: restart-p95
+        annotations:
+          summary: 'POST /api/v1/agents/:id/restart p95 above 2s (SLO)'
+          description: 'p95 latency on container restart is {{ $value | humanizeDuration }}, exceeding the 2s SLO budget (Docker-bound path).'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'
+
+      - alert: ContainerRestartSuccessRatioBelowSLO
+        expr: |
+          (
+            1 - (
+              sum(rate(http_requests_total{path=~"/api/v1/agents/[^/]+/restart", method="POST", status=~"5.."}[28d]))
+              / sum(rate(http_requests_total{path=~"/api/v1/agents/[^/]+/restart", method="POST"}[28d]))
+            )
+          ) < 0.99
+        for: 1h
+        labels:
+          severity: warning
+          slo: restart-success
+        annotations:
+          summary: 'POST /api/v1/agents/:id/restart success ratio below 99.0% (SLO)'
+          description: 'Success ratio over 28d is {{ $value | humanizePercentage }}, below the 99.0% SLO target.'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'
+
+      # -----------------------------------------------------------------------
+      # DB invariant: runtime_kind CHECK constraint violation
+      # Application should catch this before it reaches the DB; any violation
+      # means the validation layer was bypassed.
+      # -----------------------------------------------------------------------
+      - alert: AgentsCheckConstraintViolation
+        expr: increase(agents_check_constraint_violations_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          slo: db-invariant
+        annotations:
+          summary: 'agents_runtime_kind CHECK constraint violation detected'
+          description: 'The DB enforced a runtime_kind invariant that the application should have caught. Investigate the validation path immediately.'
+          runbook: 'docs/runbooks/migration-062-runtime-kind.md'
+
+      # -----------------------------------------------------------------------
+      # Idempotency-Key replay burst on /local-enroll
+      # A sustained burst may indicate a misconfigured client retry loop or a
+      # replay attack attempting to re-enroll an existing agent token.
+      # -----------------------------------------------------------------------
+      - alert: HostCliEnrollmentIdempotencyReplayBurst
+        expr: rate(agents_idempotency_replay_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          slo: idempotency-replay
+        annotations:
+          summary: 'High Idempotency-Key replay rate on /local-enroll'
+          description: 'Replay rate is {{ $value | humanize }}/s over 5m. May indicate a misconfigured client retry loop or an attempted replay attack.'
+          runbook: 'docs/runbooks/observability-slo.md#agents-runtime-slos'

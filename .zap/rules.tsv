@@ -1,0 +1,6 @@
+# ZAP rule overrides for the baseline scan.
+# Format (tab-separated): RULE_ID	THRESHOLD	[NEW_RISK]
+#   THRESHOLD: IGNORE | LOW | MEDIUM | HIGH
+# Add an entry here to suppress or relax a finding once it has been triaged
+# and accepted as acceptable risk for the staging environment. Leaving this
+# file empty applies the ZAP defaults to every rule.

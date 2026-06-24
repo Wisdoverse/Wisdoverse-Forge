@@ -1,0 +1,28 @@
+[package]
+name = "agentforge-buildx-plugin-bin"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+
+[lib]
+name = "agentforge_buildx_plugin"
+path = "src/lib.rs"
+
+[[bin]]
+name = "docker-buildx"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+url.workspace = true
+bytes = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+
+[dev-dependencies]
+axum.workspace = true
+tempfile = "3"

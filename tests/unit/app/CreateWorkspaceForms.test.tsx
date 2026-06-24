@@ -1,0 +1,510 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { CreateProjectForm } from '@app/features/manage-project'
+import { CreateTeamForm } from '@app/features/manage-team'
+import type { NavTeam } from '@app/entities/team'
+
+const team: NavTeam = {
+  id: 'team-1',
+  orgId: 'org-1',
+  name: 'Platform',
+  slug: 'platform',
+  visibility: 'private',
+  description: '',
+}
+
+function chooseCopyCodeNow() {
+  fireEvent.click(screen.getByRole('button', { name: /add code during creation/i }))
+}
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('workspace setup create forms', () => {
+  test('keeps team creation actionable and explains a missing name', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    const status = screen.getByTestId('create-team-status')
+    expect(within(status).getByText('Next: name the team')).toBeInTheDocument()
+    const createButton = screen.getByRole('button', { name: /create team/i })
+    expect(createButton).not.toBeDisabled()
+    const nameInput = screen.getByLabelText(/team name/i)
+    expect(nameInput).toHaveAccessibleDescription(/Pick a name teammates will recognize/i)
+    expect(nameInput).toHaveAccessibleDescription(/Next: name the team/i)
+
+    fireEvent.click(createButton)
+
+    expect(onSave).not.toHaveBeenCalled()
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a team name before creating it.')
+    expect(nameInput).toHaveFocus()
+    expect(nameInput).toHaveAccessibleDescription(/Enter a team name before creating it/i)
+
+    fireEvent.change(nameInput, { target: { value: 'Support Ops' } })
+
+    expect(within(status).getByText('Ready to create team')).toBeInTheDocument()
+    fireEvent.click(createButton)
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('Support Ops'))
+  })
+
+  test('keeps team creation open and shows a safe recovery step when save fails', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('API 500: database unavailable while creating team'))
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
+      expect(alert).not.toHaveTextContent('team space setup')
+      expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+    expect(onSave).toHaveBeenCalledWith('Support Ops')
+  })
+
+  test('does not show backend details from a half-formatted team creation error', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Check your connection, then create this team again. database unavailable')
+      )
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+  })
+
+  test('does not show raw server error names from a half-formatted team creation error', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Check your connection, then create this team again. Internal Server Error')
+      )
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent('Open Settings, then Teams again, then create this team.')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Teams in Settings')
+      expect(alert).not.toHaveTextContent('Internal Server Error')
+    })
+    expect(screen.getByLabelText(/team name/i)).toHaveValue('Support Ops')
+  })
+
+  test('shows team creation access guidance for plain role failures', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('owner role required'))
+
+    render(<CreateTeamForm onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Support Ops' } })
+    fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Ask an owner or admin to let you create teams in this team space.'
+      )
+      expect(alert).not.toHaveTextContent('owner role required')
+    })
+  })
+
+  test('explains that a project needs a team before it can be created', () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateProjectForm teams={[]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    expect(screen.getByText(/name the work area and choose its team/i)).toBeInTheDocument()
+    expect(screen.getByText(/create the project first if you are not sure/i)).toBeInTheDocument()
+    expect(screen.queryByText(/saved work records/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/receive tasks and evidence/i)).toBeNull()
+    const status = screen.getByTestId('create-project-status')
+    expect(within(status).getByText('Next: create a team first')).toBeInTheDocument()
+    const createButton = screen.getByRole('button', { name: /create project/i })
+    expect(createButton).not.toBeDisabled()
+
+    fireEvent.click(createButton)
+
+    expect(onSave).not.toHaveBeenCalled()
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Create or choose a team before creating this project.')
+    const missingTeamMessage = screen.getByText('No teams — create a team first')
+    expect(missingTeamMessage).toHaveFocus()
+    expect(missingTeamMessage).toHaveAccessibleDescription(/Create a team first/i)
+    expect(missingTeamMessage).toHaveAccessibleDescription(
+      /Create or choose a team before creating this project/i
+    )
+  })
+
+  test('keeps project creation actionable and focuses the missing name field', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    const status = screen.getByTestId('create-project-status')
+    expect(within(status).getByText('Next: name the project')).toBeInTheDocument()
+    const createButton = screen.getByRole('button', { name: /create project/i })
+    expect(createButton).not.toBeDisabled()
+    const nameInput = screen.getByLabelText(/project name/i)
+    expect(nameInput).toHaveAccessibleDescription(/Pick the name users will look for/i)
+    expect(nameInput).toHaveAccessibleDescription(/Next: name the project/i)
+    const teamSelect = screen.getByLabelText(/^team/i)
+    expect(teamSelect).toHaveAccessibleDescription(
+      /Choose the team that should own this project and manage access/i
+    )
+    expect(teamSelect).toHaveAccessibleDescription(/Next: name the project/i)
+
+    fireEvent.click(createButton)
+
+    expect(onSave).not.toHaveBeenCalled()
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Enter a project name before creating it.')
+    expect(nameInput).toHaveFocus()
+    expect(nameInput).toHaveAccessibleDescription(/Enter a project name before creating it/i)
+
+    fireEvent.change(nameInput, { target: { value: 'Customer Portal' } })
+
+    expect(within(status).getByText('Ready to create project')).toBeInTheDocument()
+    expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
+      'No code link added. Create the project now, then add code access later if agents need files.'
+    )
+    fireEvent.click(createButton)
+
+    // Empty optional repo URL → submits WITHOUT a repositoryUrl (third arg undefined).
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('Customer Portal', 'team-1', undefined))
+  })
+
+  test('keeps optional code setup collapsed until it is requested', () => {
+    render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
+
+    expect(screen.getByText('Create a project')).toBeInTheDocument()
+    expect(screen.queryByText('Project creation steps')).not.toBeInTheDocument()
+    expect(screen.queryByText('Choose how to add code')).not.toBeInTheDocument()
+    expect(screen.queryByText(/create this project without code/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add code during creation/i })).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Use this when you want a place for tasks now/i)
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/create the project first if you are not sure/i)).toBeInTheDocument()
+
+    chooseCopyCodeNow()
+
+    expect(screen.getByLabelText(/^code link/i)).toBeInTheDocument()
+    expect(screen.getByText('Copy code now')).toBeInTheDocument()
+    expect(screen.getByText('Paste the https:// code link below.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Create the project. Watch this project in the list for copy status.')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create without code instead/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /create without code instead/i }))
+
+    expect(screen.queryByLabelText(/^code link/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add code during creation/i })).toBeInTheDocument()
+  })
+
+  test('explains the generated project folder before showing the support folder', () => {
+    render(<CreateProjectForm teams={[team]} onSave={vi.fn()} onCancel={vi.fn()} saving={false} />)
+
+    expect(screen.queryByText(/\/workspace\//)).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'My New Repo' },
+    })
+
+    expect(screen.getByText(/Agents will open this project in a folder named/i)).toBeInTheDocument()
+    expect(screen.getByText('my-new-repo')).toBeInTheDocument()
+    expect(screen.getByText(/You do not need to type this/i)).toBeInTheDocument()
+    expect(screen.getByText('Show folder details for support')).toBeInTheDocument()
+    expect(screen.queryByText('Show support folder')).toBeNull()
+    expect(screen.queryByText('Show exact folder for troubleshooting')).toBeNull()
+    expect(screen.queryByText(/\/workspace\/my-new-repo/i)).toBeNull()
+
+    fireEvent.click(screen.getByText('Show folder details for support'))
+
+    expect(
+      screen.getByText(
+        /Use this only if an owner, admin, or support message asks for the project folder/i
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Copy this support reference if asked: /workspace/my-new-repo')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Project folder for support: /workspace/my-new-repo')).toBeNull()
+    expect(screen.queryByText('Exact folder: /workspace/my-new-repo')).toBeNull()
+  })
+
+  test('submits a valid https code link as the third arg', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    chooseCopyCodeNow()
+    expect(screen.getByText('Code link')).toBeInTheDocument()
+    expect(screen.queryByText('Git repository URL')).toBeNull()
+    expect(screen.getByPlaceholderText('https://github.com/team/project.git')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('https://github.com/org/repo.git')).toBeNull()
+    expect(screen.getByRole('button', { name: /create without code instead/i })).toBeInTheDocument()
+    expect(screen.queryByText(/when agents need project files right away/i)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/choose Code, then HTTPS/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Never paste passwords or access keys here/i).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/copy from your browser/i)).toBeNull()
+    expect(screen.queryByText(/for git@ links/i)).toBeNull()
+    expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
+      'Copy code now selected. Paste an https:// code link below, or choose Create without code.'
+    )
+    expect(screen.queryByText(/clone an existing repo/i)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Cloned Project' },
+    })
+    fireEvent.change(screen.getByLabelText(/^code link/i), {
+      target: { value: 'https://github.com/team/project.git' },
+    })
+    expect(screen.getByTestId('create-project-status')).toHaveTextContent(
+      'Ready to create project and copy code'
+    )
+    expect(screen.getByTestId('create-project-code-link-status')).toHaveTextContent(
+      'Code copy requested. After creation, watch this project in the list for Code copy waiting, Copying code, or Code copied. If it needs help, choose Copy code again.'
+    )
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        'Cloned Project',
+        'team-1',
+        'https://github.com/team/project.git'
+      )
+    )
+  })
+
+  test('blocks submit with a visible banner for a non-https code link', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    chooseCopyCodeNow()
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'SSH Project' },
+    })
+    fireEvent.change(screen.getByLabelText(/^code link/i), {
+      target: { value: 'git@github.com:org/repo.git' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    // No silent dead-click: a visible banner AND no submit.
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Paste the https:// code link from your browser')
+    expect(alert).toHaveTextContent('leave this blank')
+    expect(alert).toHaveTextContent('SSH code access')
+    expect(alert).not.toHaveTextContent('for git@ links')
+    expect(alert).not.toHaveTextContent('SSH keys')
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  test('blocks submit with a visible banner for a credential-bearing URL', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    chooseCopyCodeNow()
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Token Project' },
+    })
+    fireEvent.change(screen.getByLabelText(/^code link/i), {
+      target: { value: 'https://user:ghp_secrettoken@github.com/org/repo.git' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/remove account details/i)
+    )
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent('Save code access in Settings')
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  test('surfaces a code link server rejection as a beginner-safe banner', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('repository_url must be an https URL'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Server Rejects' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent('Paste an https:// code link without account details')
+      expect(alert).toHaveTextContent('leave the code link blank')
+      expect(alert).toHaveTextContent('add code access in Settings')
+      expect(alert).not.toHaveTextContent('repository_url')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('reopens Settings when the selected team is no longer available for project creation', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('HTTP 404: team not found'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Moved Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
+        'Open Settings, then Projects again, choose the team, then create this project.'
+      )
+      expect(alert).not.toHaveTextContent('Refresh Settings')
+      expect(alert).not.toHaveTextContent('HTTP 404')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('shows project creation access guidance for plain role failures', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('owner role required'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Blocked Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'Ask an owner or admin to let you create projects in this team.'
+      )
+      expect(alert).not.toHaveTextContent('owner role required')
+    })
+  })
+
+  test('does not expose raw server details when project creation fails', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('API 500: database unavailable while inserting project'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Server Details' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
+      expect(alert).toHaveTextContent('Forge could not create the project right now')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Projects in Settings')
+      expect(alert).not.toHaveTextContent('project setup')
+      expect(alert).not.toHaveTextContent('API 500')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('does not blame the project name when an unformatted server failure happens', async () => {
+    const onSave = vi
+      .fn()
+      .mockRejectedValue(new Error('database unavailable while inserting project'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Server Details' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent('Wait a few minutes, then create this project again.')
+      expect(alert).toHaveTextContent('Forge could not create the project right now')
+      expect(alert).toHaveTextContent('ask an owner or admin to check Projects in Settings')
+      expect(alert).not.toHaveTextContent('Check the project name and team')
+      expect(alert).not.toHaveTextContent('database unavailable')
+    })
+    expect(onSave).toHaveBeenCalled()
+  })
+
+  test('starts project rate-limit failures with the wait step', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('HTTP 429: too many requests'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Busy Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
+        'Wait a minute, then create this project again. Too many project changes are happening right now.'
+      )
+      expect(alert).not.toHaveTextContent('HTTP 429')
+    })
+  })
+
+  test('starts unknown project creation failures with the recovery step', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('unexpected create failure'))
+
+    render(<CreateProjectForm teams={[team]} onSave={onSave} onCancel={vi.fn()} saving={false} />)
+
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Unknown Failure' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveAttribute('aria-live', 'polite')
+      expect(alert).toHaveTextContent(
+        'Check the project name and team, then create this project again. Forge could not create the project.'
+      )
+      expect(alert).not.toHaveTextContent('unexpected create failure')
+    })
+  })
+})

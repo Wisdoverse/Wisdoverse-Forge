@@ -1,0 +1,240 @@
+openapi: 3.0.3
+info:
+  title: Wisdoverse Forge Turn API
+  version: 1.1.0
+  license:
+    name: LicenseRef-Wisdoverse-Forge-BSL-1.1
+    url: https://github.com/Wisdoverse/Wisdoverse-Forge/blob/main/LICENSE
+  description: |
+    Agent-scoped Turn API for the current Rust backend. Raw runtime events are
+    projected into chronological Turns for a managed Agent.
+servers:
+  - url: '{scheme}://{host}:{port}'
+    description: Wisdoverse Forge API
+    variables:
+      scheme:
+        default: https
+        enum: [http, https]
+      host:
+        default: localhost
+      port:
+        default: '4003'
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/agents/{agentId}/turns:
+    get:
+      operationId: listAgentTurns
+      summary: List turns for an Agent
+      description: |
+        Returns a cursor-paginated list of projected Turn objects for the given
+        Agent. The authenticated tenant scope must be allowed to read the Agent.
+      tags: [Turns]
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          description: Managed Agent UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque pagination cursor returned by a previous response.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Page size. Defaults to 50 and is clamped server-side.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Paginated turn list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - $ref: '#/components/schemas/TurnPageResponse'
+              example:
+                ok: true
+                turns:
+                  - id: evt_abc123
+                    sessionId: cli_sess_001
+                    sequence: 1
+                    type: user
+                    status: complete
+                    prompt: Read the README
+                    steps: []
+                    startedAt: 1709812800000
+                    completedAt: 1709812800000
+                    rawEventCount: 1
+                cursor: eyJzZXF1ZW5jZSI6NTB9
+                hasMore: true
+                totalTurnCount: 12
+                lastEvent:
+                  timestamp: '2026-03-22T10:00:00Z'
+                  id: evt_abc123
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '403':
+          $ref: '#/components/responses/AuthRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from `/api/v1/auth/login`.
+  responses:
+    AuthRequired:
+      description: Missing, invalid, or unauthorized Bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            ok: false
+            error: Authentication required
+    ValidationError:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            ok: false
+            error: VALIDATION_ERROR
+    NotFound:
+      description: Agent or turn data not found for the authenticated tenant.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            ok: false
+            error: NOT_FOUND
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+      required: [ok]
+    ErrorEnvelope:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+      required: [ok, error]
+    TurnPageResponse:
+      type: object
+      properties:
+        turns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Turn'
+        cursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+        totalTurnCount:
+          type: integer
+        lastEvent:
+          $ref: '#/components/schemas/EventCursor'
+      required: [turns, cursor, hasMore, totalTurnCount]
+    EventCursor:
+      type: object
+      nullable: true
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        id:
+          type: string
+      required: [timestamp, id]
+    Turn:
+      type: object
+      properties:
+        id:
+          type: string
+        sessionId:
+          type: string
+          description: External CLI/hook session identifier.
+        sequence:
+          type: integer
+        type:
+          type: string
+          enum: [user, assistant, system, worker]
+        status:
+          type: string
+          enum: [pending, thinking, tool_use, complete, error, interrupted]
+        prompt:
+          type: string
+        thinking:
+          type: string
+        response:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/TurnStep'
+        startedAt:
+          type: integer
+          format: int64
+        completedAt:
+          type: integer
+          format: int64
+          nullable: true
+        durationMs:
+          type: integer
+          nullable: true
+        rawEventCount:
+          type: integer
+      required: [id, sequence, type, status, steps, startedAt, rawEventCount]
+    TurnStep:
+      type: object
+      properties:
+        id:
+          type: string
+        toolName:
+          type: string
+        input:
+          type: string
+        output:
+          type: string
+        hasFullContent:
+          type: boolean
+        success:
+          type: boolean
+        durationMs:
+          type: integer
+          nullable: true
+        startedAt:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum: [pending, complete, error]
+        isSubagent:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [id, toolName, input, output, hasFullContent, status]

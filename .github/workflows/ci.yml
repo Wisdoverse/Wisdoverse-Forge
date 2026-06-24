@@ -1,0 +1,436 @@
+# =============================================================================
+# Wisdoverse Forge GitHub CI Pipeline
+#
+# Runs quality gates for GitHub PRs and pushes.
+# Structure: validate (parallel) → test → build, security (parallel with all)
+#
+# Enterprise patterns:
+#   - Concurrency groups to auto-cancel superseded runs
+#   - DAG via needs/job dependencies for maximum parallelism
+#   - Shared setup via .github/actions/setup-node-cache composite
+#   - Security scans run with zero dependencies (immediate start)
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Allow other workflows (release.yml) to reuse this pipeline instead of
+  # duplicating the validate/test/security/build job set.
+  workflow_call:
+    inputs:
+      upload_sarif:
+        description: 'Upload Trivy SARIF results to GitHub code scanning'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # IMPORTANT: Keep NODE_VERSION in sync with Dockerfile Node build args.
+  NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  # ===========================================================================
+  # Stage: validate (parallel, fast-fail quality gates)
+  # ===========================================================================
+
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run lint
+
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run format:check
+
+  # Lint ONLY the project-git-clone shell scripts (and agent-entrypoint.sh, which
+  # is shellcheck-clean). Scoped on purpose — the rest of the repo's pre-existing
+  # scripts are out of scope for this gate. shellcheck is preinstalled on the
+  # ubuntu-latest runner; `make shellcheck-clone` falls back to the
+  # koalaman/shellcheck image locally when the binary is absent.
+  shellcheck-clone:
+    name: ShellCheck (clone scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: ShellCheck clone scripts
+        run: make shellcheck-clone
+
+  typecheck:
+    name: Typecheck (Client)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run typecheck
+
+  version-guard:
+    name: Version Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          install: 'false'
+      - name: Check version consistency
+        run: |
+          set -eo pipefail
+          PR_VERSION=$(node -p "require('./package.json').version")
+          TARGET_VERSION=$(git show "origin/${{ github.base_ref }}:package.json" \
+            | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+
+          echo "PR: $PR_VERSION | Target: $TARGET_VERSION"
+          if [ "$PR_VERSION" != "$TARGET_VERSION" ]; then
+            VJ_VERSION=$(node -p "require('./public/version.json').latest" 2>/dev/null || echo "MISSING")
+            if [ "$VJ_VERSION" = "$PR_VERSION" ]; then
+              echo "OK: Version bump via 'npm version' detected (version.json in sync)."
+              exit 0
+            fi
+            echo "ERROR: package.json version changed ($TARGET_VERSION -> $PR_VERSION) but version.json is out of sync."
+            echo "Use 'npm version <patch|minor|major>' instead of editing package.json directly."
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Stage: test (after validate)
+  # ===========================================================================
+
+  unit-test:
+    name: Unit Tests
+    needs: [eslint, prettier, typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run test:unit -- --reporter=default --reporter=junit --outputFile=junit-report.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-report
+          path: junit-report.xml
+          retention-days: 7
+
+  integration-test:
+    name: Integration Tests
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run test:integration -- --reporter=default --reporter=junit --outputFile=junit-integration.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-integration-report
+          path: junit-integration.xml
+          retention-days: 7
+
+  coverage:
+    name: Coverage Report
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run test:coverage
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  rust-test:
+    name: Rust Tests
+    needs: [eslint, prettier, typecheck]
+    runs-on: ubuntu-latest
+    # Postgres service for #[sqlx::test]. Each test auto-provisions a
+    # throwaway DB against DATABASE_URL.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: agentforge
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: agentforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://agentforge@localhost:5432/agentforge_test
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Install protobuf compiler and mold linker
+        run: |
+          sudo apt-get update
+          # mold: memory-efficient linker that prevents SIGSEGV on large Rust
+          # test binaries (linker OOM on debug-profile crate graphs). Installed
+          # alongside protobuf-compiler to avoid a second apt-get update round.
+          sudo apt-get install -y protobuf-compiler mold
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
+      - name: Install Rust toolchain
+        working-directory: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add clippy rustfmt --toolchain stable
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: rust
+      - name: Check Rust formatting
+        working-directory: rust
+        run: cargo fmt --all -- --check
+      - name: Run Rust clippy
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run Rust tests
+        working-directory: rust
+        run: cargo test --workspace
+
+  # ---------------------------------------------------------------------------
+  # E2E smoke — Playwright against an ephemeral, self-contained seeded stack.
+  #
+  # Why this exists: the E2E specs used to run only manually against staging, so
+  # they rotted silently through UI redesigns. This job runs them on every PR.
+  #
+  # Shape: a throwaway Postgres service + a debug build of the Rust server. In
+  # non-production NATS/Redis/LLM_ENCRYPTION_KEY are optional (graceful
+  # degradation), so the backend boots on Postgres alone and its only real job
+  # is to serve auth register/login for global-setup — every data call in the
+  # smoke specs is page.route()-mocked. The Vite preview server serves the built
+  # SPA and proxies /api+/ws to the backend. Only the fully-mocked smoke specs
+  # run here; specs needing real agents/LLMs/containers are intentionally excluded.
+  # ---------------------------------------------------------------------------
+  e2e-smoke:
+    name: E2E Smoke
+    needs: [eslint, prettier, typecheck]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: agentforge
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: agentforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://agentforge@localhost:5432/agentforge
+      # Throwaway, non-secret value for this ephemeral CI stack (>=32 chars).
+      # Never used outside the job; real secrets are deployment-managed.
+      JWT_SECRET: ci-e2e-smoke-only-jwt-secret-0123456789abcdef
+      BASE_URL: http://localhost:4002
+      E2E_EMAIL: dev@example.com
+      # >= 12 chars to satisfy the backend register rule (auth validation).
+      E2E_PASSWORD: DevPass1234!
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install protobuf compiler and mold linker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler mold
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
+      - name: Install Rust toolchain
+        working-directory: rust
+        run: rustup toolchain install stable --profile minimal
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: rust
+      - name: Build server (debug)
+        working-directory: rust
+        run: cargo build --bin agentforge-server
+      - name: Start backend (auto-migrates on boot)
+        run: |
+          ./rust/target/debug/agentforge-server &
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:4003/health >/dev/null; then
+              echo "backend healthy"; exit 0
+            fi
+            sleep 2
+          done
+          echo "backend did not become healthy in time"; exit 1
+      - name: Build SPA
+        run: npm run build
+      - name: Serve SPA (vite preview; proxies /api + /ws to :4003)
+        run: |
+          npx vite preview --port 4002 --strictPort &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4002/ >/dev/null; then
+              echo "frontend up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "frontend did not start in time"; exit 1
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Resolve Chromium executable path
+        run: |
+          echo "PLAYWRIGHT_CHROMIUM_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
+      - name: Run E2E smoke (fully-mocked specs)
+        run: npm run test:e2e -- react-app-smoke.spec.ts provider-prompt.spec.ts
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-e2e-report
+          path: |
+            playwright-report/e2e
+            test-results
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage: security (no dependencies — runs in parallel with everything)
+  # ===========================================================================
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Audit dependencies
+        run: |
+          RESULT=$(npm audit --json 2>/dev/null || echo '{}')
+          CRITICAL=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.critical||0}catch{0}")
+          HIGH=$(echo "$RESULT" | node -p "try{JSON.parse(require('fs').readFileSync(0,'utf8')).metadata?.vulnerabilities?.high||0}catch{0}")
+          echo "Vulnerabilities — critical: $CRITICAL, high: $HIGH"
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "ERROR: Critical/high vulnerabilities found"
+            npm audit --audit-level=high 2>&1 || true
+            exit 1
+          fi
+          echo "No critical/high vulnerabilities found"
+
+  dangerous-patterns:
+    name: Dangerous Pattern Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Scan for dangerous patterns
+        run: node scripts/check-dangerous-patterns.mjs
+
+  secret-scan:
+    name: Secret Leak Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Scan for secrets
+        env:
+          # Internal hostname blocklist is injected from a repo secret so the
+          # values themselves never appear in the public repo. The script does
+          # nothing for this check when the env var is empty.
+          INTERNAL_HOSTNAME_BLOCKLIST: ${{ secrets.INTERNAL_HOSTNAME_BLOCKLIST }}
+        run: node scripts/check-secret-scan.mjs
+
+  # ===========================================================================
+  # Stage: build (after validate + test)
+  # ===========================================================================
+
+  build-client:
+    name: Build Client
+    needs: [eslint, prettier, typecheck, unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/setup-node-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run build:client
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: client-dist
+          path: dist/
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage: security — Trivy filesystem vulnerability scan
+  #
+  # Scans the working tree for vulnerable dependencies (npm, cargo, container
+  # base layers referenced from Dockerfiles). Fails the job when CRITICAL or
+  # HIGH-severity issues land in the dep graph; MEDIUM/LOW are surfaced as
+  # warnings without blocking the merge.
+  #
+  # Secret detection is intentionally disabled (`scanners: vuln`) — the
+  # dedicated `Secret Leak Scan` job (gitleaks) owns that surface and Trivy's
+  # secret scanner false-positives on redaction sentinels.
+  #
+  # Image scans live separately on GHCR via build-time provenance/SBOM; this
+  # job catches drift in source-managed manifests before publish.
+  # ===========================================================================
+
+  trivy-fs:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Run Trivy in fs mode
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+      - name: Upload SARIF to code scanning
+        if: always() && (github.event_name != 'workflow_call' || inputs.upload_sarif)
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs

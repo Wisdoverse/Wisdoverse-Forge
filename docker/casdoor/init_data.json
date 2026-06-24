@@ -1,0 +1,98 @@
+{
+  "organizations": [
+    {
+      "owner": "admin",
+      "name": "agentforge",
+      "createdTime": "2024-01-01T00:00:00Z",
+      "displayName": "Wisdoverse Forge",
+      "websiteUrl": "https://wisdoverse.com",
+      "passwordType": "bcrypt",
+      "countryCodes": ["CN", "US"],
+      "languages": ["zh", "en"],
+      "defaultAvatar": "",
+      "tags": [],
+      "masterPassword": "",
+      "initScore": 2000,
+      "enableSoftDeletion": false,
+      "isProfilePublic": false
+    }
+  ],
+  "certs": [
+    {
+      "owner": "admin",
+      "name": "cert-agentforge",
+      "createdTime": "2024-01-01T00:00:00Z",
+      "displayName": "Wisdoverse Forge Certificate",
+      "scope": "JWT",
+      "type": "x509",
+      "cryptoAlgorithm": "RS256",
+      "bitSize": 4096,
+      "expireInYears": 20,
+      "certificate": "",
+      "privateKey": ""
+    }
+  ],
+  "applications": [
+    {
+      "owner": "admin",
+      "name": "agentforge",
+      "createdTime": "2024-01-01T00:00:00Z",
+      "displayName": "Wisdoverse Forge",
+      "organization": "agentforge",
+      "cert": "cert-agentforge",
+      "clientId": "agentforge-client",
+      "clientSecret": "agentforge-secret",
+      "redirectUris": ["http://localhost:4003/api/v1/auth/sso/casdoor/callback"],
+      "enablePassword": true,
+      "enableSignUp": true,
+      "tokenFormat": "JWT",
+      "expireInHours": 168,
+      "grantTypes": ["authorization_code", "refresh_token"],
+      "homepageUrl": "http://localhost:4003",
+      "signinUrl": "",
+      "signupUrl": "",
+      "forgetUrl": "",
+      "providers": [],
+      "signupItems": [
+        { "name": "ID", "visible": false, "required": true, "rule": "Random" },
+        { "name": "Username", "visible": true, "required": true, "rule": "None" },
+        { "name": "Display name", "visible": true, "required": true, "rule": "None" },
+        { "name": "Password", "visible": true, "required": true, "rule": "None" },
+        { "name": "Confirm password", "visible": true, "required": true, "rule": "None" },
+        { "name": "Email", "visible": true, "required": true, "rule": "None" },
+        { "name": "Agreement", "visible": true, "required": true, "rule": "None" }
+      ]
+    },
+    {
+      "owner": "admin",
+      "name": "orchestrator",
+      "createdTime": "2024-01-01T00:00:00Z",
+      "displayName": "R&D Orchestrator",
+      "organization": "agentforge",
+      "cert": "cert-agentforge",
+      "clientId": "orchestrator-client",
+      "clientSecret": "orchestrator-secret",
+      "redirectUris": ["http://localhost:4010/auth/callback"],
+      "enablePassword": true,
+      "enableSignUp": true,
+      "tokenFormat": "JWT",
+      "expireInHours": 168,
+      "grantTypes": ["authorization_code", "refresh_token"],
+      "homepageUrl": "http://localhost:4010",
+      "signinUrl": "",
+      "signupUrl": "",
+      "forgetUrl": "",
+      "providers": [],
+      "signupItems": [
+        { "name": "ID", "visible": false, "required": true, "rule": "Random" },
+        { "name": "Username", "visible": true, "required": true, "rule": "None" },
+        { "name": "Display name", "visible": true, "required": true, "rule": "None" },
+        { "name": "Password", "visible": true, "required": true, "rule": "None" },
+        { "name": "Confirm password", "visible": true, "required": true, "rule": "None" },
+        { "name": "Email", "visible": true, "required": true, "rule": "None" },
+        { "name": "Agreement", "visible": true, "required": true, "rule": "None" }
+      ]
+    }
+  ],
+  "users": []
+}

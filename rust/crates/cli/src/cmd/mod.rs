@@ -1,0 +1,15 @@
+pub mod agents;
+pub mod api;
+pub mod auth;
+pub mod completion;
+pub mod config;
+pub mod events;
+pub mod groups;
+pub mod health;
+pub mod migrate;
+pub mod prelude;
+pub mod root;
+pub mod verify;
+pub mod verify_image;
+pub mod version;
+pub mod whoami;

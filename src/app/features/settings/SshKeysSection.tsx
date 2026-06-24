@@ -1,0 +1,475 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
+import { useSettingsStore } from '@app/shared/model/settings.store'
+import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
+import type { UserSshKey } from '@app/entities/agent'
+import { formatAccessDate } from './formatAccessDate'
+import { sshKeysErrorMessage } from './sshKeysErrorMessage'
+
+function describeKeyType(keyType: string): string {
+  if (keyType === 'ssh-ed25519') return 'Recommended for new access'
+  if (keyType === 'ssh-rsa') return 'Works, but older'
+  return 'Ask an admin to check this saved key'
+}
+
+const SSH_KEY_SETUP_STEPS = [
+  {
+    label: 'Name the computer or team',
+    value: 'Use a name people will recognize, like Work laptop.',
+  },
+  {
+    label: 'Paste the safe public key line',
+    value:
+      'Copy the one-line public key from the .pub file. It usually starts with ssh-ed25519 or ssh-rsa.',
+  },
+  {
+    label: 'Never paste the private key',
+    value: 'If the text says BEGIN PRIVATE KEY, stop and copy the .pub line instead.',
+  },
+]
+
+function containsPrivateKeyBlock(value: string): boolean {
+  return /\bBEGIN(?:\s+[A-Z0-9]+)?\s+PRIVATE KEY\b/i.test(value)
+}
+
+function hasMultiplePublicKeyLines(value: string): boolean {
+  return (
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean).length > 1
+  )
+}
+
+// ============================================================================
+// SSH Key Row
+// ============================================================================
+
+interface SshKeyRowProps {
+  sshKey: UserSshKey
+  onDelete: (id: string) => Promise<boolean>
+}
+
+function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
+  const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const removeWarningId = `ssh-key-remove-warning-${sshKey.id}`
+
+  async function handleDelete() {
+    if (!confirming) {
+      setConfirming(true)
+      return
+    }
+    setRemoving(true)
+    const removed = await onDelete(sshKey.id)
+    setRemoving(false)
+    if (removed) setConfirming(false)
+  }
+
+  return (
+    <tr className={uiStyles.row}>
+      <td className={uiStyles.tableCell}>
+        <span className="text-ui-body text-foreground-light dark:text-foreground-dark">
+          {sshKey.label}
+        </span>
+      </td>
+      <td className={uiStyles.tableCell}>
+        <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {sshKey.fingerprint}
+        </span>
+      </td>
+      <td className={uiStyles.tableCell}>
+        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {describeKeyType(sshKey.keyType)}
+        </span>
+      </td>
+      <td className={uiStyles.tableCell}>
+        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+          {formatAccessDate(sshKey.createdAt, {
+            missing: 'Open code access for SSH links again to load added date',
+            invalid: 'Open code access for SSH links again to check added date',
+          })}
+        </span>
+      </td>
+      <td className={cn(uiStyles.tableCell, 'text-right')}>
+        <div className="flex flex-wrap justify-end gap-2">
+          {confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+              className={uiStyles.subtleButton}
+            >
+              Keep access
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={removing}
+            aria-label={
+              confirming
+                ? `Confirm removing ${sshKey.label} code access for SSH links`
+                : `Remove ${sshKey.label} code access for SSH links`
+            }
+            aria-describedby={confirming ? removeWarningId : undefined}
+            aria-busy={removing || undefined}
+            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+          >
+            {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
+          </button>
+        </div>
+        {confirming && (
+          <p id={removeWarningId} className="ml-auto mt-1 max-w-44 text-ui-caption text-apple-red">
+            Removing this access can block agents that use private code links starting with git@.
+          </p>
+        )}
+      </td>
+    </tr>
+  )
+}
+
+// ============================================================================
+// Add SSH Key Form
+// ============================================================================
+
+interface AddSshKeyFormProps {
+  onSave: (label: string, publicKey: string) => Promise<void>
+  onCancel: () => void
+  saving: boolean
+}
+
+function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
+  const [label, setLabel] = useState('')
+  const [publicKey, setPublicKey] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const labelInputId = 'ssh-key-label'
+  const labelHelpId = 'ssh-key-label-help'
+  const publicKeyInputId = 'ssh-public-key'
+  const publicKeyHelpId = 'ssh-public-key-help'
+  const publicKeySafetyId = 'ssh-public-key-safety'
+  const errorId = 'ssh-key-form-error'
+  const trimmedLabel = label.trim()
+  const trimmedPublicKey = publicKey.trim()
+  const missingField = !trimmedLabel ? 'label' : !trimmedPublicKey ? 'publicKey' : null
+  const privateKeyPasted = containsPrivateKeyBlock(trimmedPublicKey)
+  const multiplePublicKeyLines = hasMultiplePublicKeyLines(trimmedPublicKey)
+  const isReady = missingField === null && !privateKeyPasted && !multiplePublicKeyLines
+  const publicKeyInvalid =
+    missingField === 'publicKey' || privateKeyPasted || multiplePublicKeyLines
+  const visibleError =
+    submitAttempted && missingField === 'label'
+      ? 'Add a name your team will recognize before saving.'
+      : submitAttempted && missingField === 'publicKey'
+        ? 'Paste the safe public key line before saving.'
+        : submitAttempted && privateKeyPasted
+          ? 'This looks like a private key. Do not save it. Copy the one-line .pub public key instead.'
+          : submitAttempted && multiplePublicKeyLines
+            ? 'Paste one safe public key line from the .pub file. Remove any extra lines, then save again.'
+            : null
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setSubmitAttempted(true)
+    if (!isReady) {
+      document.getElementById(missingField === 'label' ? labelInputId : publicKeyInputId)?.focus()
+      return
+    }
+    await onSave(trimmedLabel, trimmedPublicKey)
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className={cn(
+        'border-t border-black/[0.06] p-4 dark:border-white/[0.08]',
+        'bg-black/[0.015] dark:bg-white/[0.025]'
+      )}
+    >
+      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+        <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          Add code access for SSH links
+        </div>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+          {SSH_KEY_SETUP_STEPS.map((step) => (
+            <div
+              key={step.label}
+              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+            >
+              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                {step.label}
+              </span>
+              <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
+                {step.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 mb-3">
+        <div>
+          <label htmlFor="ssh-key-label" className={uiStyles.label}>
+            Name for this access <span className="text-red-500">*</span>
+          </label>
+          <p
+            id={labelHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Use a name people will recognize, for example Work laptop.
+          </p>
+          <input
+            id={labelInputId}
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Work laptop"
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={visibleError !== null && missingField === 'label'}
+            aria-describedby={`${labelHelpId}${visibleError !== null && missingField === 'label' ? ` ${errorId}` : ''}`}
+            className={uiStyles.input}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="ssh-public-key" className={uiStyles.label}>
+            Safe public key line <span className="text-red-500">*</span>
+          </label>
+          <p
+            id={publicKeyHelpId}
+            className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            Paste the one-line public key from your .pub file. This is the safe line you add to
+            Forge.
+          </p>
+          <textarea
+            id={publicKeyInputId}
+            value={publicKey}
+            onChange={(e) => setPublicKey(e.target.value)}
+            placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com"
+            required
+            rows={6}
+            className={cn(
+              'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
+            )}
+            aria-invalid={visibleError !== null && publicKeyInvalid}
+            aria-describedby={`${publicKeyHelpId} ${publicKeySafetyId}${visibleError !== null && publicKeyInvalid ? ` ${errorId}` : ''}`}
+          />
+          <p
+            id={publicKeySafetyId}
+            className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+          >
+            If the text says BEGIN PRIVATE KEY, stop and copy the .pub line instead.
+          </p>
+        </div>
+      </div>
+      {visibleError && (
+        <p
+          id={errorId}
+          role="alert"
+          aria-live="polite"
+          className="mb-3 text-ui-caption text-apple-red"
+        >
+          {visibleError}
+        </p>
+      )}
+
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className={uiStyles.secondaryButton}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving || !label.trim() || !publicKey.trim()}
+          className={uiStyles.primaryButton}
+        >
+          {saving ? 'Saving code access for SSH links...' : 'Save code access'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================================================
+// SshKeysSection
+// ============================================================================
+
+export function SshKeysSection() {
+  const { sshKeys, sshKeysLoading, sshKeysError, loadSshKeys, createSshKey, deleteSshKey } =
+    useSettingsStore()
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedMessage, setSavedMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    void loadSshKeys()
+  }, [loadSshKeys])
+
+  async function handleSave(label: string, publicKey: string) {
+    setSavedMessage(null)
+    setSaving(true)
+    const ok = await createSshKey(label, publicKey)
+    setSaving(false)
+    if (ok) {
+      setShowForm(false)
+      setSavedMessage(
+        'Code access for SSH links saved. Create a small task with a git@ private code link to confirm agents can open it. If agents cannot open the code, come back here and replace this key.'
+      )
+    }
+  }
+
+  async function handleDelete(id: string) {
+    return deleteSshKey(id)
+  }
+
+  const tableHeaders: { label: string; className?: string }[] = [
+    { label: 'Key name' },
+    { label: 'Saved key check text' },
+    { label: 'Accepted by Forge' },
+    { label: 'Added on' },
+    { label: '', className: 'w-20' },
+  ]
+
+  return (
+    <div>
+      {/* Section header */}
+      <div className={uiStyles.sectionHeader}>
+        <div>
+          <h2 className={uiStyles.sectionTitle}>Code access for SSH links</h2>
+          <p className={uiStyles.sectionDescription}>
+            Use this when your private code link starts with git@. If it starts with https://, use
+            code access for HTTPS links instead.
+          </p>
+        </div>
+        {!showForm && (
+          <button
+            type="button"
+            onClick={() => {
+              setSavedMessage(null)
+              setShowForm(true)
+            }}
+            className={uiStyles.primaryButton}
+          >
+            <span>+</span>
+            <span>Add code access for SSH links</span>
+          </button>
+        )}
+      </div>
+
+      {/* Error */}
+      {sshKeysError && (
+        <div role="alert" aria-live="polite" className={uiStyles.error}>
+          {sshKeysErrorMessage(sshKeysError)}
+        </div>
+      )}
+
+      {savedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-3 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-body text-apple-blue"
+        >
+          {savedMessage}
+        </div>
+      )}
+
+      {/* Table */}
+      <div className={cn(uiStyles.card, 'overflow-x-auto')}>
+        {sshKeysLoading && sshKeys.length === 0 ? (
+          <BeginnerLoadingState
+            title="Checking code access for SSH links"
+            detail="Forge is checking which saved public key lines can open git@ private code links."
+            nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check code access."
+            success="Success looks like saved access for SSH links or a step to add one."
+            testId="ssh-access-loading-state"
+            framed={false}
+            compact
+          />
+        ) : sshKeys.length === 0 && !showForm ? (
+          <div
+            className="px-4 py-6"
+            data-testid="ssh-access-empty-state"
+            aria-labelledby="ssh-access-empty-title"
+          >
+            <div className="mx-auto flex max-w-2xl flex-col gap-3 text-left">
+              <div className="text-center">
+                <p
+                  id="ssh-access-empty-title"
+                  className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark"
+                >
+                  Prepare code access for private SSH links
+                </p>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  If your code link starts with https://, use code access for HTTPS links instead.
+                </p>
+                <p className="mx-auto mt-2 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  You can skip this for public projects and normal https:// code links.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {SSH_KEY_SETUP_STEPS.map((step) => (
+                  <div
+                    key={step.label}
+                    className="min-h-20 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+                  >
+                    <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                      {step.label}
+                    </p>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {step.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSavedMessage(null)
+                setShowForm(true)
+              }}
+              className={cn(uiStyles.primaryButton, 'mx-auto mt-3')}
+            >
+              Add code access for SSH links
+            </button>
+          </div>
+        ) : (
+          <>
+            {sshKeys.length > 0 && (
+              <table className={uiStyles.table} aria-label="Code access for SSH links">
+                <thead className={uiStyles.tableHead}>
+                  <tr>
+                    {tableHeaders.map((h) => (
+                      <th key={h.label} className={cn(uiStyles.tableHeaderCell, h.className)}>
+                        {h.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sshKeys.map((key: UserSshKey) => (
+                    <SshKeyRow key={key.id} sshKey={key} onDelete={handleDelete} />
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {/* Add form */}
+        {showForm && (
+          <AddSshKeyForm onSave={handleSave} onCancel={() => setShowForm(false)} saving={saving} />
+        )}
+      </div>
+    </div>
+  )
+}

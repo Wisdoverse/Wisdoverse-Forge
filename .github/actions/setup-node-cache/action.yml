@@ -1,0 +1,23 @@
+name: Setup Node + npm cache
+description: Install Node, restore npm cache, and run `npm ci`. Centralizes the repeated setup block across workflows. Caller must run `actions/checkout` before invoking this composite (local actions require a populated workspace).
+
+inputs:
+  node-version:
+    description: Node.js version to install
+    required: false
+    default: '24'
+  install:
+    description: Run `npm ci` after setup
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+    - if: inputs.install == 'true'
+      shell: bash
+      run: npm ci

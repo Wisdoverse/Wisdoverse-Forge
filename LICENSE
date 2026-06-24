@@ -1,0 +1,112 @@
+Wisdoverse Forge Business Source License 1.1
+LicenseRef-Wisdoverse-Forge-BSL-1.1
+
+Licensor: Wisdoverse
+
+Licensed Work: Wisdoverse Forge, including source code, documentation,
+configuration, examples, SDKs, applications, deployment assets, and any other
+materials distributed in this repository by Licensor.
+
+Change Date: For each version of the Licensed Work, four years after the date
+that version is first made publicly available by Licensor.
+
+Change License: Apache License, Version 2.0
+https://www.apache.org/licenses/LICENSE-2.0
+
+Commercial License: Commercial authorization is available only under a separate
+written agreement with Wisdoverse.
+
+1. Grant of Rights Before the Change Date
+
+Subject to this License, Licensor grants You the right to copy, use, modify,
+create derivative works of, and redistribute the Licensed Work only for the
+following permitted purposes:
+
+- personal learning;
+- research;
+- education;
+- development and testing;
+- internal evaluation;
+- non-production environment use.
+
+2. Commercial and Competitive Restrictions Before the Change Date
+
+Unless You have received a separate written commercial license from Licensor, You
+may not use the Licensed Work, in whole or in part, for any of the following:
+
+- commercial production environment use;
+- providing SaaS, hosted services, or externally available managed services;
+- providing a managed service based on the Licensed Work;
+- resale, sublicensing, or commercial redistribution as a product or service;
+- building, operating, or materially supporting a competing product or service.
+
+3. Definitions
+
+"You" or "Your" means an individual or legal entity exercising rights under this
+License.
+
+"Non-production environment use" means use that is limited to local development,
+testing, staging, proof-of-concept, research, education, or internal evaluation,
+and that is not relied on to provide live service to external users or customers.
+
+"Commercial production environment use" means use in a live environment that
+supports revenue-generating activity, paid services, customer-facing workloads,
+business-critical operations, or externally available production services.
+
+"SaaS", "hosted service", and "managed service" include making the Licensed Work
+or a service substantially powered by the Licensed Work available to third
+parties over a network, whether free or paid, where those third parties do not
+operate the Licensed Work in their own environment.
+
+"Competing product or service" means a product or service that provides
+substantially similar AI workbench, governed agent execution, orchestration,
+runtime, telemetry, context, skill, SDK, hosted, or managed-service capabilities
+to third parties.
+
+4. Change License
+
+On the Change Date for a specific version of the Licensed Work, Your rights to
+that version are governed by the Change License, and the restrictions in Sections
+1 and 2 no longer apply to that version. Each version changes license
+independently. Newer versions remain governed by this License until their own
+Change Date.
+
+5. Redistribution and Notices
+
+You must conspicuously include this License with every copy or substantial
+portion of the Licensed Work that You distribute before the applicable Change
+Date. Modified copies must retain copyright, trademark, attribution, and license
+notices from the original Licensed Work.
+
+6. Contributions
+
+Unless You explicitly state otherwise in a written agreement with Licensor, any
+contribution intentionally submitted to Licensor for inclusion in the Licensed
+Work is submitted under this License and will be subject to the same Change Date
+and Change License model as the version into which it is incorporated.
+
+7. Trademarks
+
+This License does not grant permission to use the trade names, trademarks,
+service marks, or logos of Licensor except as required for reasonable and
+customary use in describing the origin of the Licensed Work.
+
+8. Termination
+
+Any use of the Licensed Work in violation of this License automatically
+terminates Your rights under this License. Licensor may reinstate rights only in
+writing.
+
+9. Disclaimer of Warranty
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING WITHOUT LIMITATION WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, NON-INFRINGEMENT, AND TITLE.
+
+10. Limitation of Liability
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, LICENSOR WILL NOT BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE
+DAMAGES ARISING OUT OF OR RELATING TO THIS LICENSE OR THE LICENSED WORK, EVEN IF
+LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.

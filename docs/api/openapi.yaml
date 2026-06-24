@@ -1,0 +1,2081 @@
+openapi: 3.1.0
+info:
+  title: Wisdoverse Forge CLI API
+  description: |
+    REST API for the Wisdoverse Forge platform, covering agent lifecycle management,
+    real-time event streaming (SSE), server-side wait, and multi-agent group
+    orchestration. This spec documents every endpoint surfaced by the CLI tool (`af`).
+  version: 1.0.0
+  contact:
+    name: Wisdoverse Forge
+    url: https://wisdoverse.com
+  license:
+    name: LicenseRef-Wisdoverse-Forge-BSL-1.1
+    url: https://github.com/Wisdoverse/Wisdoverse-Forge/blob/main/LICENSE
+
+servers:
+  - url: '{scheme}://{host}:{port}'
+    description: Wisdoverse Forge server
+    variables:
+      scheme:
+        default: https
+        enum: [http, https]
+      host:
+        default: localhost
+      port:
+        default: '4003'
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Auth
+    description: Authentication status and identity
+  - name: Health
+    description: Health checks and version info
+  - name: Agents
+    description: Agent CRUD operations
+  - name: Agent Actions
+    description: Agent interaction (prompt, interrupt, restart, keys, permission, move, transfer)
+  - name: Agent Wait
+    description: Server-side long-poll for agent state changes
+  - name: Agent Collaborators
+    description: Agent collaborator management (sharing)
+  - name: Events
+    description: Event history, statistics, and real-time streaming
+  - name: Groups
+    description: Multi-agent group management
+  - name: Group Workers
+    description: Group worker management
+  - name: Group Dispatch
+    description: Task dispatch to group workers
+
+# ===========================================================================
+# Paths
+# ===========================================================================
+paths:
+  # -------------------------------------------------------------------------
+  # Auth
+  # -------------------------------------------------------------------------
+  /api/v1/auth/status:
+    get:
+      operationId: getAuthStatus
+      summary: Check authentication status
+      tags: [Auth]
+      responses:
+        '200':
+          description: Authentication status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, authenticated]
+                properties:
+                  ok:
+                    type: boolean
+                  authenticated:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/UserInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: Get current user info
+      tags: [Auth]
+      responses:
+        '200':
+          description: Current user details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, user]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  user:
+                    $ref: '#/components/schemas/UserInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # -------------------------------------------------------------------------
+  # Health
+  # -------------------------------------------------------------------------
+  /health:
+    get:
+      operationId: getLiveness
+      summary: Lightweight liveness probe
+      description: Current Rust API liveness endpoint. Does not check dependencies.
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, status]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  status:
+                    type: string
+                    const: healthy
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/health:
+    get:
+      operationId: getReadiness
+      summary: Deep readiness probe
+      description: Current Rust API readiness endpoint for database and optional runtime dependencies.
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, status, checks]
+                properties:
+                  ok:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [ready, degraded]
+                  checks:
+                    type: object
+                    required: [database, redis, nats, docker]
+                    properties:
+                      database:
+                        type: boolean
+                      redis:
+                        type: boolean
+                      nats:
+                        type: boolean
+                      docker:
+                        type: boolean
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Retired versioned health check
+      description: Retired compatibility entry in the CLI OpenAPI contract. Current Rust API probes are `/health` and `/api/health`.
+      deprecated: true
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  uptime:
+                    type: number
+                    description: Server uptime in seconds
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/version:
+    get:
+      operationId: getVersion
+      summary: Get server version
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Server version info
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, version]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  version:
+                    type: string
+                    example: '1.0.0'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  # -------------------------------------------------------------------------
+  # Agents CRUD
+  # -------------------------------------------------------------------------
+  /api/v1/agents:
+    get:
+      operationId: listAgents
+      summary: List agents
+      description: |
+        List agents scoped to the authenticated user's organization.
+        Default scope is `visible` (own + project + collaborator agents).
+        `scope=all` requires admin role.
+      tags: [Agents]
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [visible, drafts, project, all]
+            default: visible
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Agent list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, agents]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: createAgent
+      summary: Create a new agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentRequest'
+      responses:
+        '201':
+          description: Agent created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, agent]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  agent:
+                    $ref: '#/components/schemas/AgentData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/agents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+
+    get:
+      operationId: getAgent
+      summary: Get agent by ID
+      tags: [Agents]
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, agent]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  agent:
+                    $ref: '#/components/schemas/AgentData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateAgent
+      summary: Update agent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentRequest'
+      responses:
+        '200':
+          description: Agent updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      operationId: deleteAgent
+      summary: Delete agent
+      tags: [Agents]
+      responses:
+        '200':
+          description: Agent deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # -------------------------------------------------------------------------
+  # Agent Actions
+  # -------------------------------------------------------------------------
+  /api/v1/agents/{id}/prompt:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      operationId: sendPrompt
+      summary: Send prompt to agent
+      tags: [Agent Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  maxLength: 100000
+                  description: Prompt text. Required unless images are provided.
+                images:
+                  type: array
+                  maxItems: 10
+                  items:
+                    $ref: '#/components/schemas/ImageAttachment'
+                  description: Optional image attachments (base64 encoded)
+              required: [prompt]
+      responses:
+        '200':
+          description: Prompt sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/agents/{id}/interrupt:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      operationId: interruptAgent
+      summary: Send interrupt (Ctrl+C) to agent
+      tags: [Agent Actions]
+      responses:
+        '200':
+          description: Interrupt sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/agents/{id}/restart:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      operationId: restartAgent
+      summary: Restart agent container
+      tags: [Agent Actions]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestartAgentRequest'
+      responses:
+        '200':
+          description: Agent restarted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/agents/{id}/keys:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      operationId: sendKeys
+      summary: Send raw keyboard keys to agent
+      tags: [Agent Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keys]
+              properties:
+                keys:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                  description: Array of key strings to send
+      responses:
+        '200':
+          description: Keys sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/agents/{id}/permission:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      operationId: sendPermissionResponse
+      summary: Respond to a permission request
+      tags: [Agent Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response]
+              properties:
+                response:
+                  type: string
+                  description: Permission response (e.g. "allow", "deny")
+      responses:
+        '200':
+          description: Permission response sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '501':
+          description: Permission service not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/agents/{id}/move:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    patch:
+      operationId: moveAgent
+      summary: Move agent to a project
+      tags: [Agent Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId:
+                  type: [string, 'null']
+                  format: uuid
+                  description: Target project ID, or null to unassign
+      responses:
+        '200':
+          description: Agent moved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, agent]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  agent:
+                    $ref: '#/components/schemas/AgentData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/agents/{id}/transfer-ownership:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    post:
+      operationId: transferOwnership
+      summary: Transfer agent ownership to another user
+      tags: [Agent Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newOwnerId]
+              properties:
+                newOwnerId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Ownership transferred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # -------------------------------------------------------------------------
+  # Agent Wait
+  # -------------------------------------------------------------------------
+  /api/v1/agents/{id}/wait:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    get:
+      operationId: waitForAgent
+      summary: Long-poll wait for agent state change
+      description: |
+        Server-side long-poll endpoint that blocks until the agent reaches the
+        target status or a matching event type occurs. Returns immediately if
+        the target condition is already met.
+
+        Supports Go-style duration strings for timeout: `30s`, `5m`, `1h`.
+        Maximum timeout is 10 minutes.
+
+        Maximum 100 concurrent waiters per server instance.
+      tags: [Agent Wait]
+      parameters:
+        - name: status
+          in: query
+          description: |
+            Target agent status to wait for. Defaults to `idle` when no `event`
+            parameter is specified.
+          schema:
+            type: string
+            enum: [idle, working]
+            default: idle
+        - name: event
+          in: query
+          description: |
+            Target stream event type to wait for. When specified, waits for the
+            next matching event instead of a status change. Valid values are the
+            canonical stream event types.
+          schema:
+            type: string
+            enum:
+              - assistant_text
+              - tool_start
+              - tool_finish
+              - agent_idle
+              - agent_start
+              - agent_end
+              - prompt_submitted
+              - permission_request
+        - name: timeout
+          in: query
+          description: Go-style duration string. Maximum 10m.
+          schema:
+            type: string
+            default: '5m'
+            examples:
+              - '30s'
+              - '5m'
+              - '1h'
+      responses:
+        '200':
+          description: Condition met
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  data:
+                    $ref: '#/components/schemas/AgentWaitResult'
+              example:
+                ok: true
+                data:
+                  status: idle
+                  response: "I've fixed the bug in main.ts."
+                  cursor: 'MTcxMTEyMzQ1NjAwMDp1dWlkLTEyMw'
+                  timedOut: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Agent not accessible to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '408':
+          description: Wait timed out
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    const: false
+                  data:
+                    $ref: '#/components/schemas/AgentWaitResult'
+              example:
+                ok: false
+                data:
+                  status: working
+                  timedOut: true
+        '503':
+          description: Too many active waiters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -------------------------------------------------------------------------
+  # Agent Collaborators
+  # -------------------------------------------------------------------------
+  /api/v1/agents/{id}/collaborators:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+
+    get:
+      operationId: listCollaborators
+      summary: List agent collaborators
+      tags: [Agent Collaborators]
+      responses:
+        '200':
+          description: Collaborator list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, collaborators]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  collaborators:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentCollaborator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      operationId: addCollaborator
+      summary: Add collaborator to agent
+      tags: [Agent Collaborators]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, permission]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                permission:
+                  $ref: '#/components/schemas/CollaboratorPermission'
+      responses:
+        '201':
+          description: Collaborator added
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, collaborator]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  collaborator:
+                    $ref: '#/components/schemas/AgentCollaborator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/agents/{id}/collaborators/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    patch:
+      operationId: updateCollaboratorPermission
+      summary: Update collaborator permission
+      tags: [Agent Collaborators]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission]
+              properties:
+                permission:
+                  $ref: '#/components/schemas/CollaboratorPermission'
+      responses:
+        '200':
+          description: Permission updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      operationId: removeCollaborator
+      summary: Remove collaborator from agent
+      tags: [Agent Collaborators]
+      responses:
+        '200':
+          description: Collaborator removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # -------------------------------------------------------------------------
+  # Events
+  # -------------------------------------------------------------------------
+  /api/v1/events:
+    get:
+      operationId: listEvents
+      summary: Get event history
+      description: |
+        Returns paginated event history. By default returns only chat-renderable
+        events. Use `include=all` to include all event types.
+      tags: [Events]
+      parameters:
+        - name: agentId
+          in: query
+          description: Filter events by agent ID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of events to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2000
+            default: 100
+        - name: before
+          in: query
+          description: Cursor for pagination (event timestamp as unix ms)
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Set to `all` to include all event types
+          schema:
+            type: string
+            enum: [all]
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, events, count]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      description: Raw event object (schema varies by event type)
+                  count:
+                    type: integer
+                    description: Number of events returned
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Agent not accessible (when agentId specified)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/events/stream:
+    get:
+      operationId: streamEvents
+      summary: Real-time event stream (SSE)
+      description: |
+        Server-Sent Events endpoint for real-time event streaming.
+        Uses the W3C EventSource protocol (`text/event-stream`).
+
+        Each SSE message has:
+        - `id`: opaque cursor (base64url-encoded `timestamp:eventId`)
+        - `event`: canonical stream event type name
+        - `data`: JSON-encoded stream event object
+
+        Supports reconnection via `Last-Event-ID` header (requires `agent-id`).
+
+        Heartbeat: `: keepalive` comment every 15 seconds.
+
+        Backpressure: when pending writes exceed 1000, events are dropped.
+        Every 100th drop emits an `overflow` event.
+
+        Maximum 200 concurrent SSE connections per server instance.
+
+        **Stream event types:**
+        - `assistant_text` -- assistant's text output
+        - `tool_start` -- tool invocation started
+        - `tool_finish` -- tool invocation completed
+        - `agent_idle` -- agent finished work
+        - `agent_start` -- agent session started
+        - `agent_end` -- agent session ended
+        - `prompt_submitted` -- user prompt was sent
+        - `permission_request` -- permission decision needed
+        - `notification` -- generic notification
+        - `error` -- stream-level error
+      tags: [Events]
+      parameters:
+        - name: agent-id
+          in: query
+          description: >
+            Filter to a single agent. Accepts either managed agent UUID or
+            cliSessionId (opaque string). Also accepts `agentId` as alias.
+          schema:
+            type: string
+        - name: types
+          in: query
+          description: |
+            Comma-separated whitelist of stream event types.
+            Example: `tool_start,agent_idle,permission_request`
+          schema:
+            type: string
+        - name: Last-Event-ID
+          in: header
+          description: |
+            Resume cursor from a previous connection. Requires `agent-id`
+            parameter; returns 400 without it.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                description: |
+                  Newline-delimited SSE messages. Each message contains:
+                  - `id:` line with opaque cursor
+                  - `event:` line with stream event type
+                  - `data:` line with JSON payload
+
+                  The JSON payload is a discriminated union on the `type` field.
+                  See StreamEvent schemas for the full shape of each event type.
+                type: string
+              examples:
+                tool_start:
+                  summary: Tool invocation started
+                  value: |
+                    id: MTcxMTEyMzQ1NjAwMDp1dWlkLTEyMw
+                    event: tool_start
+                    data: {"type":"tool_start","agentId":"550e8400-e29b-41d4-a716-446655440000","tool":"Read","input":{"path":"/src/app/main.tsx"},"toolUseId":"tu-1","ts":"2026-03-22T10:00:00Z","eventId":"evt-1"}
+                agent_idle:
+                  summary: Agent became idle
+                  value: |
+                    id: MTcxMTEyMzQ1NjUwMDp1dWlkLTQ1Ng
+                    event: agent_idle
+                    data: {"type":"agent_idle","agentId":"550e8400-e29b-41d4-a716-446655440000","response":"Fixed the bug.","ts":"2026-03-22T10:00:05Z","eventId":"evt-2"}
+        '400':
+          description: Last-Event-ID provided without agent-id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Agent not accessible or unable to resolve visibility
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Too many SSE connections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/events/replay:
+    get:
+      operationId: replayEventsOrg
+      summary: Cursor-based org-wide event replay
+      description: >
+        Returns events after a given cursor, scoped to the caller's org.
+        Used by CLI poll fallback when no agent-id is specified.
+      tags: [Events]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: after_ts
+          in: query
+          required: true
+          description: ISO 8601 timestamp to replay from
+          schema:
+            type: string
+        - name: after_id
+          in: query
+          required: true
+          description: Event UUID to replay from (for same-timestamp ordering)
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Replay result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  events:
+                    type: array
+                    items:
+                      type: object
+                  hasMore:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/events/stats:
+    get:
+      operationId: getEventStats
+      summary: Get event statistics
+      tags: [Events]
+      responses:
+        '200':
+          description: Event statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/agents/{agentId}/events/replay:
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: replayEvents
+      summary: Cursor-based event replay
+      description: |
+        Returns events after a given cursor (timestamp + event ID) for CQRS
+        reconnection. Used internally by SSE reconnection and CLI replay.
+      tags: [Events]
+      parameters:
+        - name: after_ts
+          in: query
+          required: true
+          description: Unix timestamp (ms) of the cursor position
+          schema:
+            type: string
+        - name: after_id
+          in: query
+          required: true
+          description: Event UUID of the cursor position
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum events to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Replayed events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  events:
+                    type: array
+                    items:
+                      type: object
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # -------------------------------------------------------------------------
+  # Groups
+  # -------------------------------------------------------------------------
+  /api/v1/groups:
+    get:
+      operationId: listGroups
+      summary: List groups
+      tags: [Groups]
+      parameters:
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, groups]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  groups:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GroupData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: createGroup
+      summary: Create a new group
+      tags: [Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, group]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  group:
+                    $ref: '#/components/schemas/GroupData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/groups/{id}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+
+    get:
+      operationId: getGroup
+      summary: Get group by ID
+      tags: [Groups]
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, group]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  group:
+                    $ref: '#/components/schemas/GroupData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateGroup
+      summary: Update group
+      tags: [Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, group]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  group:
+                    $ref: '#/components/schemas/GroupData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      operationId: deleteGroup
+      summary: Delete group
+      tags: [Groups]
+      responses:
+        '204':
+          description: Group deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # -------------------------------------------------------------------------
+  # Group Workers
+  # -------------------------------------------------------------------------
+  /api/v1/groups/{id}/workers:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+
+    get:
+      operationId: listGroupWorkers
+      summary: List workers in group
+      tags: [Group Workers]
+      responses:
+        '200':
+          description: Worker list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, workers]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  workers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GroupWorker'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: addGroupWorker
+      summary: Add worker to group
+      tags: [Group Workers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agentId, name]
+              properties:
+                agentId:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+      responses:
+        '200':
+          description: Worker added
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, group]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  group:
+                    $ref: '#/components/schemas/GroupData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/groups/{id}/workers/{agentId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - name: agentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: removeGroupWorker
+      summary: Remove worker from group
+      tags: [Group Workers]
+      responses:
+        '200':
+          description: Worker removed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, group]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  group:
+                    $ref: '#/components/schemas/GroupData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # -------------------------------------------------------------------------
+  # Group Dispatch
+  # -------------------------------------------------------------------------
+  /api/v1/groups/{id}/dispatch:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    post:
+      operationId: dispatchToGroup
+      summary: Dispatch task to group workers
+      tags: [Group Dispatch]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispatchRequest'
+      responses:
+        '200':
+          description: Task dispatched
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+# ===========================================================================
+# Components
+# ===========================================================================
+components:
+  # -------------------------------------------------------------------------
+  # Security Schemes
+  # -------------------------------------------------------------------------
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for CLI and programmatic access
+
+  # -------------------------------------------------------------------------
+  # Parameters
+  # -------------------------------------------------------------------------
+  parameters:
+    AgentId:
+      name: id
+      in: path
+      required: true
+      description: Agent UUID
+      schema:
+        type: string
+        format: uuid
+
+    GroupId:
+      name: id
+      in: path
+      required: true
+      description: Group UUID
+      schema:
+        type: string
+        format: uuid
+
+  # -------------------------------------------------------------------------
+  # Responses
+  # -------------------------------------------------------------------------
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                properties:
+                  details:
+                    type: array
+                    items:
+                      type: object
+                      description: Zod validation issue
+
+  # -------------------------------------------------------------------------
+  # Schemas
+  # -------------------------------------------------------------------------
+  schemas:
+    # -- Envelope ----------------------------------------------------------
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+
+    ErrorResponse:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: string
+          description: Human-readable error message
+
+    # -- Auth --------------------------------------------------------------
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        role:
+          type: string
+
+    # -- Agent -------------------------------------------------------------
+    AgentStatus:
+      type: string
+      enum: [idle, working, waiting, attention, offline]
+
+    GroupRole:
+      type: string
+      enum: [manager, worker, none]
+
+    CliTool:
+      type: string
+      enum: [claude, opencode, codex, gemini]
+
+    TokenCount:
+      type: object
+      required: [current, cumulative]
+      properties:
+        current:
+          type: integer
+        cumulative:
+          type: integer
+
+    ZonePosition:
+      type: object
+      required: [q, r]
+      properties:
+        q:
+          type: integer
+        r:
+          type: integer
+
+    GitStatusSummary:
+      type: object
+      properties:
+        branch:
+          type: string
+        ahead:
+          type: integer
+        behind:
+          type: integer
+        staged:
+          type: object
+          properties:
+            added:
+              type: integer
+            modified:
+              type: integer
+            deleted:
+              type: integer
+        unstaged:
+          type: object
+          properties:
+            added:
+              type: integer
+            modified:
+              type: integer
+            deleted:
+              type: integer
+        untracked:
+          type: integer
+        totalFiles:
+          type: integer
+        linesAdded:
+          type: integer
+        linesRemoved:
+          type: integer
+        lastCommitTime:
+          type: [integer, 'null']
+        lastCommitMessage:
+          type: [string, 'null']
+        isRepo:
+          type: boolean
+        lastChecked:
+          type: integer
+
+    AgentData:
+      type: object
+      required: [id, name, runtimeId, status, createdAt, lastActivity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        runtimeId:
+          type: string
+          description: Runtime identifier (e.g. 'af-a1b2c3d4')
+        containerId:
+          type: string
+          description: Docker container hash
+        status:
+          $ref: '#/components/schemas/AgentStatus'
+        cliSessionId:
+          type: string
+        createdAt:
+          type: integer
+          description: Unix timestamp in milliseconds
+        lastActivity:
+          type: integer
+          description: Unix timestamp in milliseconds
+        cwd:
+          type: string
+          description: Working directory (display path, ~/...)
+        currentTool:
+          type: string
+        tokens:
+          $ref: '#/components/schemas/TokenCount'
+        gitStatus:
+          $ref: '#/components/schemas/GitStatusSummary'
+        zonePosition:
+          $ref: '#/components/schemas/ZonePosition'
+        groupId:
+          type: string
+          format: uuid
+        groupRole:
+          $ref: '#/components/schemas/GroupRole'
+        userId:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        cliTool:
+          $ref: '#/components/schemas/CliTool'
+        ownerUsername:
+          type: string
+        ownerEmail:
+          type: string
+
+    CreateAgentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cwd:
+          type: string
+        chromeEnabled:
+          type: boolean
+        skipPermissions:
+          type: boolean
+        groupId:
+          type: string
+          format: uuid
+        groupRole:
+          $ref: '#/components/schemas/GroupRole'
+        projectId:
+          type: string
+          format: uuid
+        cliTool:
+          $ref: '#/components/schemas/CliTool'
+        profileId:
+          type: string
+          format: uuid
+          description: Resource profile ID. If omitted, the org default is used.
+
+    UpdateAgentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/AgentStatus'
+        cwd:
+          type: string
+        zonePosition:
+          $ref: '#/components/schemas/ZonePosition'
+        groupId:
+          type: [string, 'null']
+          format: uuid
+        groupRole:
+          $ref: '#/components/schemas/GroupRole'
+
+    RestartAgentRequest:
+      type: object
+      properties:
+        chromeEnabled:
+          type: boolean
+        skipPermissions:
+          type: boolean
+
+    ImageAttachment:
+      type: object
+      required: [name, data, type]
+      properties:
+        name:
+          type: string
+          description: Original filename
+        data:
+          type: string
+          description: Base64 encoded image data
+        type:
+          type: string
+          pattern: '^image/(png|jpeg|gif|webp)$'
+          description: MIME type
+
+    CollaboratorPermission:
+      type: string
+      enum: [view, prompt, manage]
+
+    AgentCollaborator:
+      type: object
+      required: [id, agentId, userId, permission, grantedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        permission:
+          $ref: '#/components/schemas/CollaboratorPermission'
+        grantedBy:
+          type: [string, 'null']
+          format: uuid
+        grantedAt:
+          type: integer
+          description: Unix timestamp in milliseconds
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+
+    # -- Agent Wait --------------------------------------------------------
+    AgentWaitResult:
+      type: object
+      required: [status, timedOut]
+      properties:
+        status:
+          type: string
+          description: Final agent status
+        response:
+          type: string
+          description: Agent's response text (from last stop event, if available)
+        cursor:
+          type: string
+          description: Opaque cursor for subsequent event queries
+        timedOut:
+          type: boolean
+
+    # -- Stream Events -----------------------------------------------------
+    StreamEventType:
+      type: string
+      enum:
+        - assistant_text
+        - tool_start
+        - tool_finish
+        - agent_idle
+        - agent_start
+        - agent_end
+        - prompt_submitted
+        - permission_request
+        - notification
+        - error
+
+    BaseStreamEvent:
+      type: object
+      required: [type, agentId, ts, eventId]
+      properties:
+        type:
+          $ref: '#/components/schemas/StreamEventType'
+        agentId:
+          type: string
+          format: uuid
+          description: Managed agent UUID (not cliSessionId)
+        ts:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp
+        eventId:
+          type: string
+          description: Original event UUID (for cursor/dedup)
+
+    AssistantTextEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [content]
+          properties:
+            type:
+              const: assistant_text
+            content:
+              type: string
+              description: The assistant's text content
+
+    ToolStartEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [tool, input, toolUseId]
+          properties:
+            type:
+              const: tool_start
+            tool:
+              type: string
+              description: Tool name (Read, Write, Bash, etc.)
+            input:
+              type: object
+              additionalProperties: true
+              description: Tool input parameters
+            toolUseId:
+              type: string
+              description: Tool use correlation ID
+
+    ToolFinishEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [tool, output, toolUseId, success]
+          properties:
+            type:
+              const: tool_finish
+            tool:
+              type: string
+            output:
+              type: object
+              additionalProperties: true
+            toolUseId:
+              type: string
+              description: Matches the tool_start toolUseId
+            success:
+              type: boolean
+            durationMs:
+              type: integer
+              description: Duration in milliseconds
+
+    AgentIdleEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          properties:
+            type:
+              const: agent_idle
+            response:
+              type: string
+              description: Agent's final response text (if available)
+
+    AgentStartEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [source]
+          properties:
+            type:
+              const: agent_start
+            source:
+              type: string
+              enum: [startup, resume, clear, compact]
+
+    AgentEndEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [reason]
+          properties:
+            type:
+              const: agent_end
+            reason:
+              type: string
+
+    PromptSubmittedEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [prompt]
+          properties:
+            type:
+              const: prompt_submitted
+            prompt:
+              type: string
+
+    PermissionRequestEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [message]
+          properties:
+            type:
+              const: permission_request
+            message:
+              type: string
+              description: The permission prompt message
+
+    NotificationEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [message]
+          properties:
+            type:
+              const: notification
+            message:
+              type: string
+            notificationType:
+              type: string
+
+    ErrorEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseStreamEvent'
+        - type: object
+          required: [message]
+          properties:
+            type:
+              const: error
+            message:
+              type: string
+            code:
+              type: string
+
+    StreamEvent:
+      description: |
+        Discriminated union of all stream event types.
+        Discriminator field is `type`.
+      oneOf:
+        - $ref: '#/components/schemas/AssistantTextEvent'
+        - $ref: '#/components/schemas/ToolStartEvent'
+        - $ref: '#/components/schemas/ToolFinishEvent'
+        - $ref: '#/components/schemas/AgentIdleEvent'
+        - $ref: '#/components/schemas/AgentStartEvent'
+        - $ref: '#/components/schemas/AgentEndEvent'
+        - $ref: '#/components/schemas/PromptSubmittedEvent'
+        - $ref: '#/components/schemas/PermissionRequestEvent'
+        - $ref: '#/components/schemas/NotificationEvent'
+        - $ref: '#/components/schemas/ErrorEvent'
+      discriminator:
+        propertyName: type
+        mapping:
+          assistant_text: '#/components/schemas/AssistantTextEvent'
+          tool_start: '#/components/schemas/ToolStartEvent'
+          tool_finish: '#/components/schemas/ToolFinishEvent'
+          agent_idle: '#/components/schemas/AgentIdleEvent'
+          agent_start: '#/components/schemas/AgentStartEvent'
+          agent_end: '#/components/schemas/AgentEndEvent'
+          prompt_submitted: '#/components/schemas/PromptSubmittedEvent'
+          permission_request: '#/components/schemas/PermissionRequestEvent'
+          notification: '#/components/schemas/NotificationEvent'
+          error: '#/components/schemas/ErrorEvent'
+
+    # -- Groups ------------------------------------------------------------
+    GroupConfig:
+      type: object
+      properties:
+        autoReport:
+          type: boolean
+        managerPrompt:
+          type: string
+
+    GroupWorker:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    GroupData:
+      type: object
+      required: [id, name, teamId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        managerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        config:
+          $ref: '#/components/schemas/GroupConfig'
+        workers:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupWorker'
+        createdBy:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+
+    CreateGroupRequest:
+      type: object
+      required: [name, teamId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        managerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        config:
+          $ref: '#/components/schemas/GroupConfig'
+
+    UpdateGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        managerId:
+          type: string
+          format: uuid
+        workerIds:
+          type: array
+          maxItems: 9
+          items:
+            type: string
+            format: uuid
+        config:
+          $ref: '#/components/schemas/GroupConfig'
+
+    DispatchRequest:
+      type: object
+      required: [message, task]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        task:
+          type: string
+          minLength: 1
+          maxLength: 200
+        workers:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          description: Optional list of worker names to target
+        metadata:
+          type: object
+          additionalProperties: true

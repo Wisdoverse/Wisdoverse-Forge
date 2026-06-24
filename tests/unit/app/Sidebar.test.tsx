@@ -1,0 +1,976 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
+import { Sidebar } from '@app/layouts/sidebar'
+import { projectApi } from '@app/entities/project'
+import { teamApi } from '@app/entities/team'
+import { useNavigationStore } from '@app/entities/navigation'
+
+vi.mock('@app/entities/team', () => ({
+  teamApi: {
+    getTeams: vi.fn(),
+    updateTeam: vi.fn().mockResolvedValue(undefined),
+    deleteTeam: vi.fn().mockResolvedValue(undefined),
+  },
+}))
+
+vi.mock('@app/entities/project', () => ({
+  projectApi: {
+    getProjects: vi.fn(),
+    updateProject: vi.fn().mockResolvedValue(undefined),
+    deleteProject: vi.fn().mockResolvedValue(undefined),
+    getMembers: vi.fn().mockResolvedValue([]),
+    addMember: vi.fn(),
+    updateMember: vi.fn(),
+    removeMember: vi.fn(),
+  },
+}))
+
+vi.mock('@app/entities/user', () => ({
+  userApi: {
+    getUsers: vi.fn().mockResolvedValue([]),
+  },
+}))
+
+vi.mock('@app/shared/model/auth.context', () => ({
+  useAuth: () => ({
+    authManager: { logout: vi.fn() },
+    user: { role: 'user' },
+    isAuthenticated: true,
+    isLoading: false,
+  }),
+}))
+
+afterEach(cleanup)
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  useNavigationStore.getState().reset()
+})
+
+function seedProjectTree() {
+  useNavigationStore.setState({
+    orgs: [{ id: 'org1', name: 'Org', slug: 'org', plan: 'pro', role: 'owner' }],
+    selectedOrgId: 'org1',
+    sidebarExpanded: true,
+    teams: [
+      {
+        id: 't1',
+        orgId: 'org1',
+        name: 'Team Alpha',
+        slug: 'team-alpha',
+        visibility: 'open',
+        description: '',
+      },
+    ],
+    projects: {
+      t1: [
+        {
+          id: 'p1',
+          teamId: 't1',
+          name: 'Project X',
+          slug: 'proj-x',
+          color: '#007AFF',
+          description: '',
+        },
+      ],
+    },
+    expandedTeams: ['t1'],
+    selectedProjectId: null,
+  })
+}
+
+describe('Sidebar', () => {
+  it('renders expanded sidebar with org name and nav items', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    const onNavigate = vi.fn()
+    render(<Sidebar activePath="/tasks" onNavigate={onNavigate} />)
+
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument()
+    expect(screen.getByText('Wisdoverse Forge')).toBeInTheDocument()
+    expect(screen.getByText('My Org')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-nav-tasks')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-nav-agents')).toBeInTheDocument()
+    expect(screen.getByTestId('project-tree-empty-teams')).toHaveTextContent('Create a team first')
+    expect(screen.getByTestId('project-tree-empty-teams')).toHaveTextContent(
+      'Teams keep projects and people together'
+    )
+    expect(screen.getByTestId('project-tree-empty-teams')).not.toHaveTextContent(
+      'Teams group projects'
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open team settings/i }))
+    expect(onNavigate).toHaveBeenCalledWith('/settings/teams')
+  })
+
+  it('renders collapsed sidebar with only icons', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: false,
+      teams: [],
+      projects: {},
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument()
+    expect(screen.queryByText('My Org')).not.toBeInTheDocument()
+    expect(screen.queryByText('Wisdoverse Forge')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand left menu' })).toBeInTheDocument()
+  })
+
+  it('clicking nav item calls onNavigate', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    const onNavigate = vi.fn()
+    render(<Sidebar activePath="/tasks" onNavigate={onNavigate} />)
+
+    fireEvent.click(screen.getByTestId('sidebar-nav-agents'))
+    expect(onNavigate).toHaveBeenCalledWith('/agents')
+  })
+
+  it('labels tasks navigation in beginner-facing language', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    render(<Sidebar activePath="/agents" onNavigate={vi.fn()} />)
+
+    expect(
+      screen.getByRole('button', { name: 'nav.tasks: see tasks and check progress' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /create tasks and review progress/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /create and review agent work/i })
+    ).not.toBeInTheDocument()
+  })
+
+  it('labels analytics navigation in beginner-facing language', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+
+    expect(
+      screen.getByRole('button', { name: 'nav.analytics: see agent activity and results' })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /usage and outcomes/i })).not.toBeInTheDocument()
+  })
+
+  it('labels billing navigation with payment guidance', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'My Org', slug: 'my-org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [],
+      projects: {},
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+
+    expect(
+      screen.getByRole('button', { name: 'nav.billing: check plan, payments, and invoices' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /review plan and invoices/i })
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders project tree with teams and projects', () => {
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+
+    expect(screen.getByText('Team Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Project X')).toBeInTheDocument()
+  })
+
+  it('guides users to create a project when a team is empty', () => {
+    useNavigationStore.setState({
+      orgs: [{ id: 'org1', name: 'Org', slug: 'org', plan: 'pro', role: 'owner' }],
+      selectedOrgId: 'org1',
+      sidebarExpanded: true,
+      teams: [
+        {
+          id: 't1',
+          orgId: 'org1',
+          name: 'Team Alpha',
+          slug: 'team-alpha',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: { t1: [] },
+      expandedTeams: ['t1'],
+      selectedProjectId: null,
+    })
+    const onNavigate = vi.fn()
+
+    render(<Sidebar activePath="/tasks" onNavigate={onNavigate} />)
+
+    expect(screen.getByTestId('team-t1-empty-projects')).toHaveTextContent(
+      "Add this team's first project"
+    )
+    expect(screen.getByTestId('team-t1-empty-projects')).toHaveTextContent(
+      'Projects hold tasks, agents, and the places where new tasks wait.'
+    )
+    expect(screen.getByTestId('team-t1-empty-projects')).not.toHaveTextContent(/task queues/i)
+    fireEvent.click(screen.getByRole('button', { name: /open project settings/i }))
+    expect(onNavigate).toHaveBeenCalledWith('/settings/projects')
+  })
+
+  it('opens project context menu on right click', () => {
+    seedProjectTree()
+    const onCreateTaskForProject = vi.fn()
+
+    render(
+      <Sidebar
+        activePath="/tasks"
+        onNavigate={vi.fn()}
+        onCreateTaskForProject={onCreateTaskForProject}
+      />
+    )
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+
+    const menu = screen.getByTestId('project-context-menu')
+    const menuScope = within(menu)
+
+    expect(menu).toHaveAttribute('role', 'menu')
+    expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
+    expect(menuScope.getByText('Team Alpha team · Project link preview: proj-x')).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
+    expect(
+      menuScope.getByRole('menuitem', { name: /new task for this project/i })
+    ).toBeInTheDocument()
+    expect(menuScope.queryByRole('menuitem', { name: /create task here/i })).not.toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /share project/i })).toBeInTheDocument()
+    expect(menuScope.getByText(/invite people and choose what they can do/i)).toBeInTheDocument()
+    expect(menuScope.queryByText(/choose roles/i)).not.toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /rename project/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /all project settings/i })).toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy project help text/i })).toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project code/i })
+    ).not.toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project ID/i })
+    ).not.toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy project reference/i })
+    ).not.toBeInTheDocument()
+    expect(
+      menuScope.queryByRole('menuitem', { name: /copy support reference/i })
+    ).not.toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /copy project link preview/i })).toBeInTheDocument()
+    expect(
+      menuScope.getByText(/another page or an owner or admin asks for this project help text/i)
+    ).toBeInTheDocument()
+    expect(menuScope.queryByText(/another page or support asks for this project code/i)).toBeNull()
+    expect(menuScope.queryByText(/another page or support asks for this project ID/i)).toBeNull()
+    expect(menuScope.queryByText(/another page or an owner or admin asks for this project ID/i)).toBeNull()
+    expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/menu link preview/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/project short name/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/short name used in project links/i)).not.toBeInTheDocument()
+    expect(
+      menuScope.getByText(
+        /Project link preview: proj-x\. Forge creates this automatically from the project name\./i
+      )
+    ).toBeInTheDocument()
+    expect(menuScope.queryByText(/project link preview proj-x/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/shown at the end of project links/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/project link ending/i)).not.toBeInTheDocument()
+    expect(menuScope.queryByText(/Forge uses this in project links/i)).not.toBeInTheDocument()
+    expect(menuScope.getByRole('menuitem', { name: /delete project/i })).toBeInTheDocument()
+  })
+
+  it('opens team context menu on right click', () => {
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+
+    expect(screen.getByRole('menu', { name: /team alpha team menu/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /edit team details/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /configure team/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /delete team/i })).toBeInTheDocument()
+  })
+
+  it('does not open team context menu without team management permission', () => {
+    seedProjectTree()
+    useNavigationStore.setState((state) => ({
+      teams: state.teams.map((team) => ({ ...team, canManage: false, canDelete: false })),
+    }))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+
+    expect(screen.queryByRole('menu', { name: /team alpha team menu/i })).not.toBeInTheDocument()
+  })
+
+  it('opens a limited project context menu without project management permission', () => {
+    seedProjectTree()
+    useNavigationStore.setState((state) => ({
+      projects: {
+        t1: (state.projects.t1 ?? []).map((project) => ({
+          ...project,
+          canManage: false,
+          canDelete: false,
+        })),
+      },
+    }))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+
+    expect(screen.getByRole('menu', { name: /project x project menu/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /copy project help text/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /copy project code/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /copy project ID/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitem', { name: /copy project reference/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitem', { name: /copy support reference/i })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /share project/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /rename project/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /delete project/i })).not.toBeInTheDocument()
+  })
+
+  it('opens project from the context menu', async () => {
+    seedProjectTree()
+    const onNavigate = vi.fn()
+
+    render(<Sidebar activePath="/agents" onNavigate={onNavigate} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /open project board/i }))
+
+    await waitFor(() => expect(useNavigationStore.getState().selectedProjectId).toBe('p1'))
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+  })
+
+  it('starts task creation from the project context menu', async () => {
+    seedProjectTree()
+    const onCreateTaskForProject = vi.fn()
+
+    render(
+      <Sidebar
+        activePath="/tasks"
+        onNavigate={vi.fn()}
+        onCreateTaskForProject={onCreateTaskForProject}
+      />
+    )
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /new task for this project/i }))
+
+    await waitFor(() => expect(onCreateTaskForProject).toHaveBeenCalledWith('p1'))
+  })
+
+  it('copies project menu values with visible beginner feedback', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project help text/i }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('p1'))
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project help text copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project ID copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent('Project code copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(
+      'Project reference copied'
+    )
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/support reference/i)
+  })
+
+  it('copies a project link preview with feedback that matches the menu action', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project link preview/i }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('proj-x'))
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project link preview copied')
+    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/Menu link preview/i)
+  })
+
+  it('shows manual project help text when browser copy fails', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project help text/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Use this project help text only when another page or an owner or admin asks for it. Copy did not work, so select it below and copy it yourself.'
+    )
+    expect(alert).not.toHaveTextContent(/project code/i)
+    expect(alert).not.toHaveTextContent(/project ID/i)
+    expect(alert).not.toHaveTextContent(/project reference/i)
+    expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('p1')
+    expect(alert).not.toHaveTextContent(/support reference/i)
+    expect(alert).not.toHaveTextContent(/clipboard access/i)
+    expect(alert).not.toHaveTextContent(/open project settings and copy it from there/i)
+  })
+
+  it('shows a manual project link preview when browser copy fails', async () => {
+    seedProjectTree()
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy project link preview/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'This project link preview is the short text Forge creates from the project name. Copy did not work, so select it below and copy it yourself.'
+    )
+    expect(screen.getByTestId('project-copy-manual-value')).toHaveTextContent('proj-x')
+  })
+
+  it('edits team name from context menu', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockResolvedValue({
+      id: 't1',
+      orgId: 'org1',
+      name: 'Renamed Team',
+      slug: 'team-alpha',
+      visibility: 'open',
+      description: '',
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    expect(screen.getByRole('dialog', { name: /edit team details/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() =>
+      expect(teamApi.updateTeam).toHaveBeenCalledWith('org1', 't1', {
+        name: 'Renamed Team',
+      })
+    )
+    expect(screen.getByText('Renamed Team')).toBeInTheDocument()
+  })
+
+  it('explains team rename permission failures without raw API text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Ask an owner or admin to let you edit this team/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/save this team name again from the left menu/i)).toBeInTheDocument()
+    expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/update your access/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
+  })
+
+  it('explains structured team rename permission failures without raw policy text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce({
+      status: '403',
+      serverError: 'owner role required for team rename',
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Ask an owner or admin to let you edit this team/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/save this team name again from the left menu/i)).toBeInTheDocument()
+    expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/403/i)).not.toBeInTheDocument()
+  })
+
+  it('explains plain team rename role failures without raw policy text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(new Error('owner role required'))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Ask an owner or admin to let you edit this team/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/You do not have permission to rename this team/i)).toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+  })
+
+  it('explains team rename connection failures without raw network text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.updateTeam).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: 'Renamed Team' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(
+        'Check your connection, then save this team name again. Forge could not connect while saving it.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Failed to fetch/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/could not reach the service/i)).not.toBeInTheDocument()
+  })
+
+  it('guides team rename when the name is empty', async () => {
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit team details/i }))
+    fireEvent.change(screen.getByLabelText(/team name people see/i), {
+      target: { value: '   ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Enter a team name, then save this team name again from the left menu.'
+    )
+    expect(screen.queryByText('Team name is required')).not.toBeInTheDocument()
+    expect(teamApi.updateTeam).not.toHaveBeenCalled()
+  })
+
+  it('deletes team from context menu', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    let resolveDelete: () => void = () => {}
+    vi.mocked(teamApi.deleteTeam).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        })
+    )
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+
+    expect(screen.getByRole('dialog', { name: /delete this team/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Check and move or finish any work you still need from "Team Alpha"/i)
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep team$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^keep$/i })).not.toBeInTheDocument()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /^keep team$/i }))
+    expect(screen.queryByRole('dialog', { name: /delete this team/i })).not.toBeInTheDocument()
+    expect(teamApi.deleteTeam).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    expect(screen.getByRole('button', { name: /deleting team/i })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: /^Deleting\.\.\.$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep team$/i })).toBeDisabled()
+
+    resolveDelete()
+    await waitFor(() => expect(teamApi.deleteTeam).toHaveBeenCalledWith('org1', 't1'))
+    expect(screen.queryByText('Team Alpha')).not.toBeInTheDocument()
+    expect(screen.queryByText('Project X')).not.toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it('shows beginner guidance when sidebar team delete is denied', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveAttribute('id', 'sidebar-delete-team-error')
+    expect(screen.getByRole('dialog', { name: /delete this team/i })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sidebar-delete-team-error')
+    )
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to let you delete this team, then delete it again from the left menu. You do not have permission to delete this team.'
+    )
+    expect(alert).not.toHaveTextContent(/update your access/i)
+    expect(alert).not.toHaveTextContent(/owner role required/i)
+    expect(alert).not.toHaveTextContent(/API 403/i)
+    expect(screen.getByText('Team Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Project X')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^delete team$/i })).toBeEnabled()
+  })
+
+  it('explains team delete connection failures without raw network text', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(new Error('Network error'))
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Check your connection, then delete this team again from the left menu.')
+    expect(alert).not.toHaveTextContent(/Network error/i)
+  })
+
+  it('configures project name from context menu', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockResolvedValue({
+      id: 'p1',
+      teamId: 't1',
+      name: 'Renamed Project',
+      slug: 'proj-x',
+      color: '#007AFF',
+      description: '',
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() =>
+      expect(projectApi.updateProject).toHaveBeenCalledWith('t1', 'p1', {
+        name: 'Renamed Project',
+      })
+    )
+    expect(screen.getByText('Renamed Project')).toBeInTheDocument()
+  })
+
+  it('explains project rename validation failures without raw API text', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"project name is required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Enter a project name, then save this project name again/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/project name is required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/API 422/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Code:/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Details:/i)).not.toBeInTheDocument()
+  })
+
+  it('explains project rename permission failures with the next step first', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Ask an owner or admin to let you edit this project/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/save this project name again from the left menu/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/You do not have permission to rename this project/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/owner role required/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/API 403/i)).not.toBeInTheDocument()
+  })
+
+  it('explains structured project rename duplicates without raw details', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce({
+      statusCode: '422',
+      details: { reason: 'project name already exists' },
+    })
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(/Choose a different project name, then open the left menu/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/project name already exists/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/422/i)).not.toBeInTheDocument()
+  })
+
+  it('explains project rename server failures without temporary service language', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.updateProject).mockRejectedValueOnce(
+      new Error('API 500: {"message":"database unavailable"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'Renamed Project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(
+      await screen.findByText(
+        'Open the left menu, choose the current project, then save this project name again. Forge could not save it right now. If it still fails, ask an owner or admin to check Projects in Settings.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/API 500/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/team and project setup/i)).not.toBeInTheDocument()
+  })
+
+  it('guides project rename when the name is empty', async () => {
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename project/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: '   ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Enter a project name, then save this project name again from the left menu.'
+    )
+    expect(screen.queryByText('Project name is required')).not.toBeInTheDocument()
+    expect(projectApi.updateProject).not.toHaveBeenCalled()
+  })
+
+  it('deletes project from context menu', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    let resolveDelete: () => void = () => {}
+    vi.mocked(projectApi.deleteProject).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        })
+    )
+    seedProjectTree()
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+
+    expect(screen.getByRole('dialog', { name: /delete this project/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Check and move or finish any work you still need from "Project X"/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/removed from this team space/i)).toBeInTheDocument()
+    expect(screen.queryByText(/leaves this workspace/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep project$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^keep$/i })).not.toBeInTheDocument()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /^keep project$/i }))
+    expect(screen.queryByRole('dialog', { name: /delete this project/i })).not.toBeInTheDocument()
+    expect(projectApi.deleteProject).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
+
+    expect(screen.getByRole('button', { name: /deleting project/i })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: /^Deleting\.\.\.$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^keep project$/i })).toBeDisabled()
+
+    resolveDelete()
+    await waitFor(() => expect(projectApi.deleteProject).toHaveBeenCalledWith('t1', 'p1'))
+    expect(screen.queryByText('Project X')).not.toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it('shows beginner guidance when sidebar project delete is blocked', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"Move agents first."}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveAttribute('id', 'sidebar-delete-project-error')
+    expect(screen.getByRole('dialog', { name: /delete this project/i })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sidebar-delete-project-error')
+    )
+    expect(alert).toHaveTextContent(
+      'Go to Agents, change or remove agents that use this project, then delete the project again.'
+    )
+    expect(alert).not.toHaveTextContent(/Move agents first/i)
+    expect(alert).not.toHaveTextContent(/API 422/i)
+    expect(screen.getByText('Project X')).toBeInTheDocument()
+  })
+
+  it('shows the task next step when sidebar project delete is blocked by tasks', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 422: {"message":"finish project tasks before delete"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      "Go to Tasks, finish this project's tasks first, then delete the project again."
+    )
+    expect(alert).not.toHaveTextContent(/finish project tasks before delete/i)
+  })
+
+  it('shows the project next step when sidebar team delete is blocked by projects', async () => {
+    seedProjectTree()
+    vi.mocked(teamApi.deleteTeam).mockRejectedValueOnce(
+      new Error('API 422: {"message":"team still has projects"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('team-t1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete team/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      "Open the left menu, delete this team's projects first, then delete the team again."
+    )
+    expect(alert).not.toHaveTextContent(/team still has projects/i)
+  })
+
+  it('shows next-step guidance when sidebar project delete is denied', async () => {
+    seedProjectTree()
+    vi.mocked(projectApi.deleteProject).mockRejectedValueOnce(
+      new Error('API 403: {"error":"owner role required"}')
+    )
+
+    render(<Sidebar activePath="/tasks" onNavigate={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByTestId('project-p1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete project/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete project$/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert).toHaveTextContent(
+      'Ask an owner or admin to let you delete this project, then delete it again from the left menu. You do not have permission to delete this project.'
+    )
+    expect(alert).not.toHaveTextContent(/owner role required/i)
+    expect(alert).not.toHaveTextContent(/API 403/i)
+    expect(screen.getByText('Project X')).toBeInTheDocument()
+  })
+})

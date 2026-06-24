@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Ready(Empty) returns (ReadyResponse);
+  rpc Live(Empty) returns (LiveResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum Status {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  Status status = 1;
+  map<string, ComponentHealth> components = 2;
+}
+
+message ComponentHealth {
+  string name = 1;
+  bool healthy = 2;
+  string message = 3;
+  int64 latency_ms = 4;
+}
+
+message ReadyResponse {
+  bool ready = 1;
+  string message = 2;
+}
+
+message LiveResponse {
+  bool alive = 1;
+}

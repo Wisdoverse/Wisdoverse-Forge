@@ -1,0 +1,214 @@
+export type TaskDetailErrorAction =
+  | 'approveTask'
+  | 'blockTask'
+  | 'cancelTask'
+  | 'loadAgents'
+  | 'loadContext'
+  | 'loadRuns'
+  | 'previewContext'
+  | 'publishTask'
+  | 'retryTask'
+
+const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
+  approveTask:
+    'Check that the task is still waiting for your decision, then choose Allow and continue again. The task did not continue.',
+  blockTask:
+    'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help.',
+  cancelTask:
+    'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled.',
+  loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
+  loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
+  loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
+  previewContext: 'Choose a ready agent, then check saved items again.',
+  publishTask:
+    'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
+  retryTask:
+    'Open this task again from the Tasks page, then choose Retry task again. The task was not retried.',
+}
+
+const RAW_SERVICE_DETAIL =
+  /\b(database|sql|stack trace|traceback|exception|panic|internal server error)\b/
+
+export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unknown): string {
+  const detail = errorDetail(err)
+  const normalized = detail.toLowerCase()
+  const status = errorStatus(err, normalized)
+
+  if (/no available agent|no agent.*available/.test(normalized)) {
+    return 'No ready agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
+  }
+
+  if (isNetworkError(normalized)) {
+    return `${ACTION_FALLBACKS[action]} ${networkRecoveryMessage(action)}`
+  }
+
+  if (status === 401) {
+    const fallback = ACTION_FALLBACKS[action]
+    return `Sign in again, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)}`
+  }
+
+  if (
+    status === 403 ||
+    normalized.includes('permission') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('role required')
+  ) {
+    if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+      return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
+    }
+    const fallback = ACTION_FALLBACKS[action]
+    return `Ask an owner or admin to let you update this task, then ${fallback.charAt(0).toLowerCase()}${fallback.slice(1)} You do not have permission to change this task.`
+  }
+
+  if (status === 404) {
+    return 'Open the Tasks page, then choose the current task again. This task was not found.'
+  }
+
+  if (status === 409) {
+    return `${ACTION_FALLBACKS[action]} This task changed while you were working.`
+  }
+
+  if (status === 422) {
+    return validationMessage(action, detail)
+  }
+
+  if (status === 429) {
+    return busyTaskActionMessage(action)
+  }
+
+  if (status && status >= 500) {
+    return serviceRecoveryMessage(action)
+  }
+
+  if (!status && RAW_SERVICE_DETAIL.test(normalized)) {
+    return serviceRecoveryMessage(action)
+  }
+
+  return validationMessage(action, detail)
+}
+
+function busyTaskActionMessage(action: TaskDetailErrorAction): string {
+  if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+    return 'Wait a moment, then open this task again from the Tasks page. Task details are busy right now.'
+  }
+  return `${ACTION_FALLBACKS[action]} Wait a moment before ${retryActionStep(action)}. Task actions are busy right now.`
+}
+
+function networkRecoveryMessage(action: TaskDetailErrorAction): string {
+  if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+    return 'If it still does not load, check your connection, then open this task again from the Tasks page.'
+  }
+  return `If it still does not update, check your connection before ${retryActionStep(action)}.`
+}
+
+function serviceRecoveryMessage(action: TaskDetailErrorAction): string {
+  if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task details access.`
+  }
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check task action access.`
+}
+
+function retryActionStep(action: TaskDetailErrorAction): string {
+  if (action === 'approveTask') return 'choosing Allow and continue again'
+  if (action === 'blockTask') return 'choosing Needs help again'
+  if (action === 'cancelTask') return 'choosing Cancel again'
+  if (action === 'publishTask') return 'sending the task again'
+  if (action === 'retryTask') return 'choosing Retry task again'
+  return 'opening this task again from the Tasks page'
+}
+
+function errorDetail(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (!err || typeof err !== 'object') return ''
+
+  const value = err as {
+    serverError?: unknown
+    detail?: unknown
+    error?: unknown
+    message?: unknown
+    reason?: unknown
+  }
+
+  for (const candidate of [
+    value.serverError,
+    value.detail,
+    value.error,
+    value.message,
+    value.reason,
+  ]) {
+    const text = payloadText(candidate)
+    if (text) return text
+  }
+
+  return ''
+}
+
+function payloadText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['serverError', 'message', 'error', 'detail', 'reason']) {
+    const text = payloadText(record[key])
+    if (text) return text
+  }
+
+  return null
+}
+
+function errorStatus(err: unknown, normalizedDetail: string): number | null {
+  if (err && typeof err === 'object') {
+    const value = err as { status?: unknown; statusCode?: unknown; code?: unknown }
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      const status = numericStatus(candidate)
+      if (status) return status
+    }
+  }
+
+  const match = normalizedDetail.match(/\b(401|403|404|409|422|429|5\d{2})\b/)
+  return match ? Number(match[1]) : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  return null
+}
+
+function isNetworkError(normalizedDetail: string): boolean {
+  return (
+    normalizedDetail === 'network error' ||
+    normalizedDetail === 'failed to fetch' ||
+    normalizedDetail === 'load failed' ||
+    normalizedDetail.includes('networkerror') ||
+    normalizedDetail.includes('connection refused') ||
+    normalizedDetail.includes('could not reach')
+  )
+}
+
+function validationMessage(action: TaskDetailErrorAction, detail: string): string {
+  const normalized = detail.toLowerCase()
+  if (normalized.includes('already running')) {
+    return 'This task is already in progress. Wait for the current work to finish, then open this task again from the Tasks page.'
+  }
+  if (normalized.includes('agent')) {
+    if (action === 'publishTask') {
+      return 'Choose a ready agent, then send the task again.'
+    }
+    return ACTION_FALLBACKS[action]
+  }
+  if (normalized.includes('context')) {
+    if (action === 'publishTask') {
+      return 'Check the selected saved notes, then send the task again.'
+    }
+    return ACTION_FALLBACKS[action]
+  }
+  if (normalized.includes('approval') || normalized.includes('approve')) {
+    return 'Check that the task is still waiting for your decision, then choose Allow and continue again.'
+  }
+  if (normalized.includes('publish')) {
+    return 'Check the task details, then send the task again.'
+  }
+  return ACTION_FALLBACKS[action]
+}

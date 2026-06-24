@@ -1,0 +1,50 @@
+# Wisdoverse Forge Code Owners
+# These owners will be requested for review when someone opens a pull request.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# NOTE: References @Wisdoverse/* teams; create these in GitHub org settings
+#   (Wisdoverse → Teams → New team) or replace with individual @username for the
+#   review requests to actually fire. Without matching teams, GitHub silently
+#   skips auto-review-assignment for matched paths.
+# Default owners for everything in the repo
+*                           @Wisdoverse/maintainers
+
+# Frontend
+/src/                       @Wisdoverse/frontend
+/src/app/                   @Wisdoverse/frontend
+/shared/                    @Wisdoverse/frontend @Wisdoverse/backend
+
+# Default Rust backend
+/rust/                      @Wisdoverse/backend
+/rust/bins/                 @Wisdoverse/backend
+/rust/crates/               @Wisdoverse/backend
+/shared/generated/platform/ @Wisdoverse/backend
+
+# Infrastructure
+/.github/                   @Wisdoverse/devops
+/.github/workflows/         @Wisdoverse/devops
+/docker/                    @Wisdoverse/devops
+/Makefile                   @Wisdoverse/devops
+/.env.example               @Wisdoverse/devops
+
+# Documentation
+/docs/                      @Wisdoverse/docs
+/*.md                       @Wisdoverse/docs
+/CHANGELOG.md               @Wisdoverse/maintainers
+
+# Security-sensitive files
+/rust/crates/auth/          @Wisdoverse/security
+/rust/crates/api/src/middleware.rs @Wisdoverse/security
+/rust/crates/api/src/mcp.rs @Wisdoverse/security
+
+# Configuration files
+/package.json               @Wisdoverse/maintainers
+/tsconfig.json              @Wisdoverse/maintainers
+/tsconfig.eslint.json       @Wisdoverse/maintainers
+/eslint.config.js           @Wisdoverse/maintainers
+/.prettierrc.*              @Wisdoverse/maintainers
+
+# Tests
+/tests/                     @Wisdoverse/qa
+*.test.ts                   @Wisdoverse/qa
+*.spec.ts                   @Wisdoverse/qa

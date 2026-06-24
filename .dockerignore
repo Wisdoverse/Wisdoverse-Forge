@@ -1,0 +1,139 @@
+# =============================================================================
+# Wisdoverse Forge Docker Ignore
+# Files and directories to exclude from Docker build context
+# =============================================================================
+
+# Dependencies (container installs its own)
+node_modules
+.pnpm-store
+
+# Build outputs (rebuilt in container)
+dist
+build
+*.tsbuildinfo
+
+# Version control
+.git
+.gitignore
+.gitattributes
+.worktrees
+
+# IDE and editors
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.project
+.settings
+
+# Logs
+*.log
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files (container gets via compose)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.test
+
+# Data and uploads
+data
+uploads
+backups
+*.jsonl
+
+# Test and coverage
+coverage
+.nyc_output
+__tests__
+__mocks__
+test-results
+playwright-report
+tests
+
+# Documentation (not needed in container)
+docs
+*.md
+!README.md
+LICENSE
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.pfx
+secrets
+credentials
+
+# Development tools
+.husky
+.eslintcache
+.prettierrcache
+.claude
+.claude-plugin
+
+# CI/CD and deployment configs (not needed inside container)
+.github
+.gitlab-ci.yml
+k8s
+renovate.json
+Makefile
+
+# Test files (not needed in production)
+vitest.config.ts
+*.test.ts
+*.spec.ts
+
+# Docker backups (if stored in docker/)
+docker/backups
+
+# Stale build outputs
+dist-new
+
+# Misc
+*.map
+
+# Monorepo subprojects not needed for TS server image
+orchestrator
+platform
+cli
+vscode-extension
+deploy
+k8s
+policy
+
+# Local agent tooling and scratch state
+.claude
+.gstack
+.gstack-design-audit
+.playwright-mcp
+.remember
+.superpowers
+.tmp
+
+# Nested build caches and reports
+**/target
+**/coverage
+rust/rust-toolchain.toml
+playwright-report
+test-results
+
+# Root-level screenshots and scratch captures
+/*.png

@@ -1,0 +1,55 @@
+/**
+ * Agent API - entity-layer re-export.
+ *
+ * The implementation lives in `@app/shared/api/legacy/AgentAPI` (shared
+ * infrastructure). This module re-exports everything so consumers can import
+ * from `@app/entities/agent` without knowing the underlying path, and so
+ * the FSD layer boundary (entities → shared) is respected.
+ */
+export {
+  createAgentAPI,
+  extractApiError,
+  type AgentAPI,
+  type AgentFlags,
+  type ApiErrorFields,
+  type AuthHeaderProvider,
+  type CreateAgentOptions,
+  type CreateAgentResponse,
+  type SimpleResponse,
+  type StartAgentResponse,
+  type HostAgentEnrollment,
+  type LocalAgentEnrollmentResponse,
+  type LocalAgentEnrollmentOptions,
+  type ServerInfoResponse,
+  type ResourceProfileOption,
+  type UserPreferences,
+  type UserPreferencesResponse,
+  type UserLlmConfig,
+  type UserLlmConfigsResponse,
+  type UserLlmConfigResponse,
+  type CreateUserLlmConfigInput,
+  type UserSshKey,
+  type UserSshKeysResponse,
+  type UserSshKeyResponse,
+  type CreateUserSshKeyInput,
+  type GitProvider,
+  type GitCredential,
+  type GitCredentialsResponse,
+  type CliAuthProxyProvider,
+  type CliAuthProxyProvidersResponse,
+  type CliAuthProxyStatusEntry,
+  type CliAuthProxyStatusResponse,
+  type AnalyticsParams,
+  type AnalyticsSummaryResponse,
+  type AnalyticsToolStat,
+  type AnalyticsToolsResponse,
+  type AnalyticsHourlyActivity,
+  type AnalyticsActivityResponse,
+  type AnalyticsSessionStat,
+  type AnalyticsSessionsResponse,
+  type AnalyticsDailyActivity,
+  type AnalyticsHeatmapResponse,
+  type AnalyticsScopeInfo,
+  type AgentCollaborator,
+  type WorkspaceProject,
+} from '@app/shared/api/legacy/AgentAPI'

@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+import "common.proto";
+
+service WorkerService {
+  rpc StartWorkers(StartWorkersRequest) returns (Empty);
+  rpc StopWorkers(Empty) returns (Empty);
+  rpc GetWorkerStatus(Empty) returns (WorkerStatusResponse);
+  rpc TriggerTokenPoll(Empty) returns (TokenPollResponse);
+  rpc TriggerOutputPoll(Empty) returns (OutputPollResponse);
+  rpc TriggerCleanup(Empty) returns (CleanupResponse);
+}
+
+message StartWorkersRequest {
+  bool health_check = 1;
+  bool token_poller = 2;
+  bool output_streamer = 3;
+  bool git_poller = 4;
+  bool cleanup = 5;
+}
+
+message WorkerStatusResponse {
+  repeated WorkerInfo workers = 1;
+}
+
+message WorkerInfo {
+  string name = 1;
+  bool running = 2;
+  Timestamp last_run = 3;
+  int64 run_count = 4;
+  int64 error_count = 5;
+  int64 interval_ms = 6;
+}
+
+message TokenPollResponse {
+  int32 agents_polled = 1;
+  int32 tokens_updated = 2;
+}
+
+message OutputPollResponse {
+  int32 agents_polled = 1;
+  int32 outputs_sent = 2;
+}
+
+message CleanupResponse {
+  int32 stale_agents = 1;
+  int32 orphan_containers = 2;
+  int32 cleaned = 3;
+}

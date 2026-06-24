@@ -1,0 +1,45 @@
+# =============================================================================
+# Wisdoverse Forge Agent CLI Image (overlay)
+#
+# Thin layer on top of agentforge-agent-base that installs a single CLI tool.
+# This image is rebuilt automatically when a new CLI version is detected.
+#
+# Build: docker build -f docker/Dockerfile.agent \
+#          --build-arg CLI_TOOL=opencode --build-arg CLI_VERSION=1.14.41 \
+#          -t agentforge-agent-opencode:1.14.41 .
+#
+# KEEP IN SYNC: the Rust server embeds a claude-only mirror of this file
+# (every instruction after the ARG block) for the server-side local build —
+# rust/crates/jobs/src/cli_image_updater.rs (CLAUDE_OVERLAY_DOCKERFILE).
+# Change the install/ENV/LABEL steps in both places together.
+# =============================================================================
+
+ARG BASE_IMAGE=agentforge-agent-base:latest
+FROM ${BASE_IMAGE}
+
+# CLI_TOOL: opencode | codex | gemini.
+# claude remains available for private/operator builds when license terms allow it,
+# but public release workflows intentionally do not publish that overlay image.
+ARG CLI_TOOL=opencode
+# CLI_VERSION: pinned version for reproducible builds (e.g. "2.1.38")
+ARG CLI_VERSION=latest
+# China mirror: pass --build-arg NPM_REGISTRY=https://registry.npmmirror.com
+ARG NPM_REGISTRY=
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
+
+# Install CLI tool with pinned version for immutable, reproducible images.
+# Version is set at build time by CI pipeline (npm view <pkg> version).
+RUN case "$CLI_TOOL" in \
+      claude)   npm install -g @anthropic-ai/claude-code@${CLI_VERSION} ;; \
+      opencode) npm install -g opencode-ai@${CLI_VERSION} ;; \
+      codex)    npm install -g @openai/codex@${CLI_VERSION} ;; \
+      gemini)   npm install -g @google/gemini-cli@${CLI_VERSION} ;; \
+      *)        echo "Unknown CLI_TOOL: $CLI_TOOL" && exit 1 ;; \
+    esac
+
+# Bake the CLI tool type and version into the image
+ENV AGENTFORGE_CLI_TOOL=$CLI_TOOL
+ENV AGENTFORGE_CLI_VERSION=$CLI_VERSION
+LABEL org.wisdoverse.cli-version=$CLI_VERSION
+# Read back by the server's claude local-build detector (CLAUDE_VERSION_LABEL).
+LABEL org.agentforge.cli-version=$CLI_VERSION

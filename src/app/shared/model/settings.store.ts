@@ -1,0 +1,799 @@
+import { create } from 'zustand'
+import type {
+  LlmProviderConfig,
+  CreateProviderInput,
+  ApiKeyRecord,
+  CreateApiKeyResult,
+  CliTool,
+  RuntimeSettings,
+  RuntimeType,
+} from '@app/shared/api/legacy/settingsApi'
+import type {
+  GitCredential,
+  GitProvider,
+  UserSshKey,
+  ResourceProfileOption,
+} from '@app/shared/api/agent-api-types'
+import type { UserPreferences } from '@app/shared/api/legacy/AgentAPI'
+import { getSettingsApi, getAgentApi } from '@app/shared/api/legacy'
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export const SETTINGS_DEFAULT_SECTION = 'providers'
+
+export const SETTINGS_SECTIONS = [
+  'providers',
+  'keys',
+  'git-credentials',
+  'ssh-keys',
+  'resources',
+  'runtime',
+  'work-tool-sign-ins',
+  'account',
+  'teams',
+  'projects',
+  'about',
+] as const
+
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
+
+const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
+  'ai-services': 'providers',
+  'ai-service': 'providers',
+  services: 'providers',
+  providers: 'providers',
+  'api-keys': 'keys',
+  api: 'keys',
+  'tool-access': 'keys',
+  'tool-access-key': 'keys',
+  'tool-access-keys': 'keys',
+  'outside-tool-access': 'keys',
+  'outside-tools': 'keys',
+  git: 'git-credentials',
+  'code-access': 'git-credentials',
+  'https-code-access': 'git-credentials',
+  'https-access': 'git-credentials',
+  ssh: 'ssh-keys',
+  'ssh-code-access': 'ssh-keys',
+  'ssh-credentials': 'ssh-keys',
+  workspace: 'resources',
+  workspaces: 'resources',
+  'agent-size': 'resources',
+  'agent-size-limits': 'resources',
+  'work-capacity': 'resources',
+  'where-agents-work': 'runtime',
+  'agent-work': 'runtime',
+  'work-location': 'runtime',
+  'work-locations': 'runtime',
+  runtime: 'runtime',
+  'codex-login': 'work-tool-sign-ins',
+  'codex-login-page': 'work-tool-sign-ins',
+  'codex-cli': 'work-tool-sign-ins',
+  'codex-cli-login': 'work-tool-sign-ins',
+  'codex-sign-in': 'work-tool-sign-ins',
+  'codex-signin': 'work-tool-sign-ins',
+  'codex-and-work-tool-sign-in': 'work-tool-sign-ins',
+  codex: 'work-tool-sign-ins',
+  'cli-login': 'work-tool-sign-ins',
+  'cli-sign-ins': 'work-tool-sign-ins',
+  openai: 'work-tool-sign-ins',
+  'openai-codex': 'work-tool-sign-ins',
+  'work-tool-login': 'work-tool-sign-ins',
+  'work-tool-sign-in': 'work-tool-sign-ins',
+  'work-tool-signin': 'work-tool-sign-ins',
+  'work-tool-signins': 'work-tool-sign-ins',
+  'work-tool-sign-ins-page': 'work-tool-sign-ins',
+  profile: 'account',
+  user: 'account',
+  organization: 'teams',
+  organizations: 'teams',
+  team: 'teams',
+  'team-settings': 'teams',
+  project: 'projects',
+  'project-settings': 'projects',
+  'teams-and-projects': 'projects',
+}
+
+export function normalizeSettingsSection(value: unknown): SettingsSection | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+  if ((SETTINGS_SECTIONS as readonly string[]).includes(normalized)) {
+    return normalized as SettingsSection
+  }
+  const routeLike = normalized.replace(/[\s_]+/g, '-').replace(/-+/g, '-')
+  if ((SETTINGS_SECTIONS as readonly string[]).includes(routeLike)) {
+    return routeLike as SettingsSection
+  }
+  return SETTINGS_SECTION_ALIASES[normalized] ?? SETTINGS_SECTION_ALIASES[routeLike] ?? null
+}
+
+type SettingsErrorArea =
+  | 'providers'
+  | 'apiKeys'
+  | 'gitCredentials'
+  | 'sshKeys'
+  | 'resourceProfiles'
+  | 'runtime'
+
+type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
+
+const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
+  providers: 'AI service settings',
+  apiKeys: 'tool access keys',
+  gitCredentials: 'code access',
+  sshKeys: 'SSH code access',
+  resourceProfiles: 'work capacity',
+  runtime: 'Where agents work',
+}
+
+const SETTINGS_ITEM_LABELS: Record<SettingsErrorArea, string> = {
+  providers: 'AI service',
+  apiKeys: 'tool access key',
+  gitCredentials: 'code access',
+  sshKeys: 'SSH code access',
+  resourceProfiles: 'agent size',
+  runtime: 'Where agents work choice',
+}
+
+const SETTINGS_SECTION_LABELS: Record<SettingsErrorArea, string> = {
+  providers: 'AI services',
+  apiKeys: 'Tool access keys',
+  gitCredentials: 'Code access',
+  sshKeys: 'SSH code access',
+  resourceProfiles: 'Work capacity',
+  runtime: 'Where agents work',
+}
+
+function settingsActionPhrase(area: SettingsErrorArea, action: SettingsErrorAction): string {
+  const areaLabel = SETTINGS_AREA_LABELS[area]
+  const itemLabel = SETTINGS_ITEM_LABELS[area]
+  switch (action) {
+    case 'load':
+      return `load ${areaLabel}`
+    case 'save':
+      return `save the ${itemLabel}`
+    case 'delete':
+      return `delete the ${itemLabel}`
+    case 'create':
+      return `create the ${itemLabel}`
+    case 'revoke':
+      return `revoke the ${itemLabel}`
+    case 'update':
+      return `update ${areaLabel}`
+  }
+}
+
+function statusFromSettingsError(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    for (const key of ['statusCode', 'status', 'code'] as const) {
+      const status = numericStatus((error as Record<string, unknown>)[key])
+      if (status) return status
+    }
+  }
+
+  const message = settingsErrorDetail(error)
+  if (message?.toLowerCase().includes('role required')) return 403
+  const match = message?.match(/\b(?:API|HTTP|Server error \()? ?(\d{3})\b/)
+  return match ? Number(match[1]) : null
+}
+
+function numericStatus(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d{3}$/.test(value.trim())) {
+    return Number.parseInt(value, 10)
+  }
+  return null
+}
+
+function settingsErrorDetail(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  if (error && typeof error === 'object') {
+    for (const key of ['serverError', 'detail', 'error', 'message', 'reason'] as const) {
+      const value = (error as Record<string, unknown>)[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+  }
+  return null
+}
+
+function isSettingsConnectionFailure(detail: string | null): boolean {
+  if (!detail) return true
+  const normalized = detail.toLowerCase()
+  return (
+    normalized === 'network error' ||
+    normalized === 'failed to fetch' ||
+    normalized === 'load failed' ||
+    normalized.includes('networkerror') ||
+    normalized.includes('connection refused') ||
+    normalized.includes('could not reach')
+  )
+}
+
+function isRawSettingsFailure(detail: string | null): boolean {
+  if (!detail) return true
+  return (
+    /^API \d{3}/i.test(detail) ||
+    /^HTTP \d{3}/i.test(detail) ||
+    /^Server error \(\d{3}\)$/i.test(detail) ||
+    /^Network error$/i.test(detail) ||
+    /^Failed to fetch$/i.test(detail)
+  )
+}
+
+function settingsOpenSectionStep(area: SettingsErrorArea): string {
+  return `open Settings and ${SETTINGS_SECTION_LABELS[area]} again`
+}
+
+function settingsRetryStep(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  actionPhrase: string
+): string {
+  if (action === 'load') return settingsOpenSectionStep(area)
+  return `${actionPhrase} again`
+}
+
+function startSettingsOpenSectionStep(area: SettingsErrorArea): string {
+  const step = settingsOpenSectionStep(area)
+  return `${step.charAt(0).toUpperCase()}${step.slice(1)}`
+}
+
+function settingsConnectionMessage(
+  area: SettingsErrorArea,
+  actionPhrase: string,
+  action: SettingsErrorAction
+): string {
+  if (action === 'load') {
+    return `Check your connection, then ${settingsOpenSectionStep(area)}. Forge could not connect while loading Settings.`
+  }
+  return `Check your connection, then ${settingsRetryStep(area, action, actionPhrase)}. Forge could not connect while updating Settings.`
+}
+
+function settingsUnavailableMessage(
+  area: SettingsErrorArea,
+  actionPhrase: string,
+  action: SettingsErrorAction
+): string {
+  const operation = action === 'load' ? 'load Settings' : 'update Settings'
+  const retryStep =
+    action === 'load'
+      ? startSettingsOpenSectionStep(area)
+      : `${startSettingsOpenSectionStep(area)}, then ${settingsRetryStep(area, action, actionPhrase)}`
+  return `${retryStep}. Forge could not ${operation} right now. If it still fails, ask an owner or admin to check Settings.`
+}
+
+function settingsPermissionMessage(area: SettingsErrorArea, actionPhrase: string): string {
+  if (area === 'gitCredentials') {
+    return `Ask an owner or admin to let you manage code access, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  }
+  if (area === 'sshKeys') {
+    return `Ask an owner or admin to let you manage SSH code access, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  }
+  if (area === 'resourceProfiles') {
+    return `Ask an owner or admin to let you manage work capacity, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+  }
+  return `Ask an owner or admin to give you access to ${SETTINGS_AREA_LABELS[area]}, then ${actionPhrase} again. You do not have permission to ${actionPhrase}.`
+}
+
+export function settingsActionErrorMessage(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  error?: unknown
+): string {
+  const actionPhrase = settingsActionPhrase(area, action)
+  const status = statusFromSettingsError(error)
+  const detail = settingsErrorDetail(error)
+
+  if (!status) {
+    if (isSettingsConnectionFailure(detail)) {
+      return settingsConnectionMessage(area, actionPhrase, action)
+    }
+    if (!isRawSettingsFailure(detail)) {
+      return settingsValidationMessage(area, action, detail)
+    }
+    return settingsConnectionMessage(area, actionPhrase, action)
+  }
+
+  if (status === 401) {
+    return `Sign in again, then ${settingsRetryStep(area, action, actionPhrase)}.`
+  }
+  if (status === 403) {
+    return settingsPermissionMessage(area, actionPhrase)
+  }
+  if (status === 404) {
+    return `${startSettingsOpenSectionStep(area)}. If it still does not show up, ask an owner or admin to check Settings.`
+  }
+  if (status === 409) {
+    return `This ${SETTINGS_ITEM_LABELS[area]} changed or already exists. ${startSettingsOpenSectionStep(area)}, check the current value, then ${settingsRetryStep(area, action, actionPhrase)}.`
+  }
+  if (status === 422) {
+    return settingsValidationMessage(area, action, detail)
+  }
+  if (status === 429) {
+    return `Wait a moment, then ${settingsRetryStep(area, action, actionPhrase)}. The Settings page is busy.`
+  }
+  if (status >= 500) {
+    return settingsUnavailableMessage(area, actionPhrase, action)
+  }
+
+  if (action === 'load') {
+    return `Open Settings and ${SETTINGS_SECTION_LABELS[area]} again. Settings could not ${actionPhrase}.`
+  }
+  return `Open Settings and ${SETTINGS_SECTION_LABELS[area]} again, then ${settingsRetryStep(area, action, actionPhrase)}. Settings could not ${actionPhrase}.`
+}
+
+function settingsValidationMessage(
+  area: SettingsErrorArea,
+  action: SettingsErrorAction,
+  detail: string | null
+): string {
+  const normalized = detail?.toLowerCase() ?? ''
+
+  if (area === 'providers') {
+    if (
+      normalized.includes('api key') ||
+      normalized.includes('token') ||
+      normalized.includes('key')
+    ) {
+      return 'Paste the service access key from the selected AI service, then save again.'
+    }
+    if (normalized.includes('model')) {
+      return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
+    }
+    if (normalized.includes('base url') || normalized.includes('base_url')) {
+      return 'Add the service address for this AI service, then save again.'
+    }
+    if (normalized.includes('provider')) {
+      return 'Choose an AI service from the list, then save again.'
+    }
+    return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
+  }
+
+  if (area === 'apiKeys') {
+    return action === 'load'
+      ? 'Open Settings and Tool access keys again. If they still do not load, ask an owner or admin for access.'
+      : 'Name this tool access key, choose the allowed access, then create it again.'
+  }
+
+  if (area === 'gitCredentials') {
+    if (normalized.includes('not configured')) {
+      return 'Code access is not configured yet. Ask an owner or admin to finish GitHub or GitLab setup, then open Code access again.'
+    }
+    if (normalized.includes('provider')) {
+      return 'Choose GitHub or GitLab, then save code access again.'
+    }
+    if (normalized.includes('host')) {
+      return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
+    }
+    if (normalized.includes('token') || normalized.includes('key')) {
+      return 'Paste the code access key from GitHub or GitLab, then save again.'
+    }
+    return 'Choose GitHub or GitLab, paste the code access key, then save again.'
+  }
+
+  if (area === 'sshKeys') {
+    if (normalized.includes('label') || normalized.includes('name')) {
+      return 'Add a name for this SSH code access, then save again.'
+    }
+    if (normalized.includes('private key') || normalized.includes('begin private key')) {
+      return 'Paste only the safe one-line public key from the .pub file, then save again. Do not paste a private key block.'
+    }
+    if (
+      normalized.includes('public key') ||
+      normalized.includes('ssh key') ||
+      normalized.includes('key')
+    ) {
+      return 'Paste the safe public key line from the .pub file, then save again.'
+    }
+    return 'Add a name for this access, paste the safe public key line, then save again.'
+  }
+
+  if (area === 'resourceProfiles') {
+    return 'Ask an owner or admin to add an agent size, then open Settings and Work capacity again.'
+  }
+
+  return 'Choose where project files open and a work tool, then save Where agents work again.'
+}
+
+interface SettingsState {
+  // Navigation
+  activeSection: SettingsSection
+
+  // Providers
+  providers: LlmProviderConfig[]
+  providersLoading: boolean
+  providersError: string | null
+
+  // API Keys
+  apiKeys: ApiKeyRecord[]
+  keysLoading: boolean
+  keysError: string | null
+
+  // Git Credentials
+  gitCredentials: GitCredential[]
+  gitCredentialsLoading: boolean
+  gitCredentialsError: string | null
+
+  // SSH Keys
+  sshKeys: UserSshKey[]
+  sshKeysLoading: boolean
+  sshKeysError: string | null
+
+  // Resource Profiles
+  resourceProfiles: ResourceProfileOption[]
+  resourceProfilesLoading: boolean
+  resourceProfilesError: string | null
+
+  // Runtime Settings
+  runtimeSettings: RuntimeSettings | null
+  runtimeLoading: boolean
+  runtimeError: string | null
+
+  // User Preferences (per-account UI preferences, persisted server-side)
+  preferences: UserPreferences | null
+  preferencesLoaded: boolean
+  preferencesLoading: boolean
+
+  // Setters
+  setActiveSection: (section: SettingsSection) => void
+
+  // Provider actions
+  loadProviders: () => Promise<void>
+  saveProvider: (input: CreateProviderInput) => Promise<LlmProviderConfig | null>
+  setProviderEnabled: (id: string, isEnabled: boolean) => Promise<LlmProviderConfig | null>
+  deleteProvider: (id: string) => Promise<boolean>
+
+  // API Key actions
+  loadApiKeys: () => Promise<void>
+  createApiKey: (name: string) => Promise<CreateApiKeyResult | null>
+  revokeApiKey: (id: string) => Promise<boolean>
+
+  // Git Credential actions
+  loadGitCredentials: () => Promise<void>
+  saveGitCredential: (provider: GitProvider, token: string, host?: string) => Promise<boolean>
+  deleteGitCredential: (id: string) => Promise<boolean>
+
+  // SSH Key actions
+  loadSshKeys: () => Promise<void>
+  createSshKey: (label: string, publicKey: string) => Promise<boolean>
+  deleteSshKey: (id: string) => Promise<boolean>
+
+  // Resource Profile actions
+  loadResourceProfiles: () => Promise<void>
+
+  // Runtime actions
+  loadRuntimeSettings: () => Promise<void>
+  updateRuntimeSettings: (settings: {
+    defaultRuntime?: RuntimeType
+    defaultCliTool?: CliTool
+  }) => Promise<boolean>
+
+  // User Preference actions
+  loadPreferences: () => Promise<void>
+  setGettingStartedDismissed: (dismissed: boolean) => Promise<boolean>
+}
+
+// ============================================================================
+// Store
+// ============================================================================
+
+const initialState = {
+  activeSection: SETTINGS_DEFAULT_SECTION as SettingsSection,
+  providers: [] as LlmProviderConfig[],
+  providersLoading: false,
+  providersError: null as string | null,
+  apiKeys: [] as ApiKeyRecord[],
+  keysLoading: false,
+  keysError: null as string | null,
+  gitCredentials: [] as GitCredential[],
+  gitCredentialsLoading: false,
+  gitCredentialsError: null as string | null,
+  sshKeys: [] as UserSshKey[],
+  sshKeysLoading: false,
+  sshKeysError: null as string | null,
+  resourceProfiles: [] as ResourceProfileOption[],
+  resourceProfilesLoading: false,
+  resourceProfilesError: null as string | null,
+  runtimeSettings: null as RuntimeSettings | null,
+  runtimeLoading: false,
+  runtimeError: null as string | null,
+  preferences: null as UserPreferences | null,
+  preferencesLoaded: false,
+  preferencesLoading: false,
+}
+
+export const useSettingsStore = create<SettingsState>((set, get) => ({
+  ...initialState,
+
+  setActiveSection: (activeSection) => set({ activeSection }),
+
+  // ---------------------------------------------------------------------------
+  // Provider actions
+  // ---------------------------------------------------------------------------
+
+  loadProviders: async () => {
+    set({ providersLoading: true, providersError: null })
+    try {
+      const providers = await getSettingsApi().getProviders()
+      set({ providers, providersLoading: false })
+    } catch (err) {
+      set({
+        providersLoading: false,
+        providersError: settingsActionErrorMessage('providers', 'load', err),
+      })
+    }
+  },
+
+  saveProvider: async (input) => {
+    set({ providersError: null })
+    try {
+      const provider = await getSettingsApi().createProvider(input)
+      set((state) => ({ providers: [...state.providers, provider] }))
+      return provider
+    } catch (err) {
+      set({ providersError: settingsActionErrorMessage('providers', 'save', err) })
+      return null
+    }
+  },
+
+  setProviderEnabled: async (id, isEnabled) => {
+    set({ providersError: null })
+    try {
+      const provider = await getSettingsApi().updateProvider(id, { isEnabled })
+      set((state) => ({
+        providers: state.providers.map((current) => (current.id === id ? provider : current)),
+      }))
+      return provider
+    } catch (err) {
+      set({ providersError: settingsActionErrorMessage('providers', 'update', err) })
+      return null
+    }
+  },
+
+  deleteProvider: async (id) => {
+    set({ providersError: null })
+    try {
+      await getSettingsApi().deleteProvider(id)
+      set((state) => ({ providers: state.providers.filter((p) => p.id !== id) }))
+      return true
+    } catch (err) {
+      set({ providersError: settingsActionErrorMessage('providers', 'delete', err) })
+      return false
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // API Key actions
+  // ---------------------------------------------------------------------------
+
+  loadApiKeys: async () => {
+    set({ keysLoading: true, keysError: null })
+    try {
+      const apiKeys = await getSettingsApi().getApiKeys()
+      set({ apiKeys, keysLoading: false })
+    } catch (err) {
+      set({ keysLoading: false, keysError: settingsActionErrorMessage('apiKeys', 'load', err) })
+    }
+  },
+
+  createApiKey: async (name) => {
+    set({ keysError: null })
+    try {
+      const result = await getSettingsApi().createApiKey(name)
+      set((state) => ({ apiKeys: [result.apiKey, ...state.apiKeys] }))
+      return result
+    } catch (err) {
+      set({ keysError: settingsActionErrorMessage('apiKeys', 'create', err) })
+      return null
+    }
+  },
+
+  revokeApiKey: async (id) => {
+    set({ keysError: null })
+    try {
+      await getSettingsApi().revokeApiKey(id)
+      set((state) => ({ apiKeys: state.apiKeys.filter((k) => k.id !== id) }))
+      return true
+    } catch (err) {
+      set({ keysError: settingsActionErrorMessage('apiKeys', 'revoke', err) })
+      return false
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Git Credential actions
+  // ---------------------------------------------------------------------------
+
+  loadGitCredentials: async () => {
+    set({ gitCredentialsLoading: true, gitCredentialsError: null })
+    const result = await getAgentApi().getGitCredentials()
+    if (result.ok) {
+      set({ gitCredentials: result.credentials, gitCredentialsLoading: false })
+    } else {
+      set({
+        gitCredentialsLoading: false,
+        gitCredentialsError: settingsActionErrorMessage('gitCredentials', 'load', result),
+      })
+    }
+  },
+
+  saveGitCredential: async (provider, token, host) => {
+    set({ gitCredentialsError: null })
+    const result = await getAgentApi().upsertGitCredential(provider, token, host)
+    if (result.ok) {
+      // Reload to get the updated list
+      const listResult = await getAgentApi().getGitCredentials()
+      if (listResult.ok) {
+        set({ gitCredentials: listResult.credentials })
+      }
+      return true
+    } else {
+      set({
+        gitCredentialsError: settingsActionErrorMessage('gitCredentials', 'save', result.error),
+      })
+      return false
+    }
+  },
+
+  deleteGitCredential: async (id) => {
+    set({ gitCredentialsError: null })
+    const result = await getAgentApi().deleteGitCredential(id)
+    if (result.ok) {
+      set((state) => ({
+        gitCredentials: state.gitCredentials.filter((c) => c.id !== id),
+      }))
+      return true
+    } else {
+      set({
+        gitCredentialsError: settingsActionErrorMessage('gitCredentials', 'delete', result.error),
+      })
+      return false
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // SSH Key actions
+  // ---------------------------------------------------------------------------
+
+  loadSshKeys: async () => {
+    set({ sshKeysLoading: true, sshKeysError: null })
+    const result = await getAgentApi().getUserSshKeys()
+    if (result.ok) {
+      set({ sshKeys: result.keys, sshKeysLoading: false })
+    } else {
+      set({
+        sshKeysLoading: false,
+        sshKeysError: settingsActionErrorMessage('sshKeys', 'load', result),
+      })
+    }
+  },
+
+  createSshKey: async (label, publicKey) => {
+    set({ sshKeysError: null })
+    const result = await getAgentApi().createUserSshKey({ label, publicKey })
+    const key = result.key
+    if (result.ok && key) {
+      set((state) => ({ sshKeys: [...state.sshKeys, key] }))
+      return true
+    } else {
+      set({ sshKeysError: settingsActionErrorMessage('sshKeys', 'create', result.error) })
+      return false
+    }
+  },
+
+  deleteSshKey: async (id) => {
+    set({ sshKeysError: null })
+    const result = await getAgentApi().deleteUserSshKey(id)
+    if (result.ok) {
+      set((state) => ({ sshKeys: state.sshKeys.filter((k) => k.id !== id) }))
+      return true
+    } else {
+      set({ sshKeysError: settingsActionErrorMessage('sshKeys', 'delete', result.error) })
+      return false
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Resource Profile actions
+  // ---------------------------------------------------------------------------
+
+  loadResourceProfiles: async () => {
+    set({ resourceProfilesLoading: true, resourceProfilesError: null })
+    try {
+      const profiles = await getAgentApi().getResourceProfiles()
+      set({ resourceProfiles: profiles, resourceProfilesLoading: false })
+    } catch (err) {
+      set({
+        resourceProfilesLoading: false,
+        resourceProfilesError: settingsActionErrorMessage('resourceProfiles', 'load', err),
+      })
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Runtime actions
+  // ---------------------------------------------------------------------------
+
+  loadRuntimeSettings: async () => {
+    set({ runtimeLoading: true, runtimeError: null })
+    try {
+      const settings = await getSettingsApi().getRuntimeSettings()
+      set({ runtimeSettings: settings, runtimeLoading: false })
+    } catch (err) {
+      set({
+        runtimeLoading: false,
+        runtimeError: settingsActionErrorMessage('runtime', 'load', err),
+      })
+    }
+  },
+
+  updateRuntimeSettings: async (settings) => {
+    set({ runtimeError: null })
+    try {
+      const updated = await getSettingsApi().updateRuntimeSettings(settings)
+      set({ runtimeSettings: updated })
+      return true
+    } catch (err) {
+      set({ runtimeError: settingsActionErrorMessage('runtime', 'update', err) })
+      return false
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // User Preference actions
+  // ---------------------------------------------------------------------------
+
+  loadPreferences: async () => {
+    // One successful load per session is enough — preferences only change
+    // through setGettingStartedDismissed (which updates state itself). A
+    // failed load keeps preferencesLoaded=false so later callers retry.
+    const { preferencesLoaded, preferencesLoading } = get()
+    if (preferencesLoaded || preferencesLoading) return
+    set({ preferencesLoading: true })
+    try {
+      const result = await getAgentApi().getUserPreferences()
+      if (result.ok) {
+        set({
+          preferences: result.preferences ?? {},
+          preferencesLoaded: true,
+          preferencesLoading: false,
+        })
+        return
+      }
+    } catch {
+      // getAgentApi() throws before initLegacyApis() has run; treat it like a
+      // failed request so a later caller can retry after login finishes.
+    }
+    set({ preferencesLoading: false })
+  },
+
+  setGettingStartedDismissed: async (dismissed) => {
+    // Optimistic: the sidebar and Getting Started page react immediately;
+    // revert if the server rejects the patch.
+    const previous = get().preferences
+    set({ preferences: { ...(previous ?? {}), gettingStartedDismissed: dismissed } })
+    try {
+      const result = await getAgentApi().updateUserPreferences({
+        gettingStartedDismissed: dismissed,
+      })
+      if (result.ok) {
+        // The server returns the full merged document — treat it as authoritative.
+        set({
+          preferences: result.preferences ?? {
+            ...(previous ?? {}),
+            gettingStartedDismissed: dismissed,
+          },
+          preferencesLoaded: true,
+        })
+        return true
+      }
+    } catch {
+      // Fall through to the revert below.
+    }
+    set({ preferences: previous })
+    return false
+  },
+}))

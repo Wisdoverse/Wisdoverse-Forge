@@ -1,0 +1,149 @@
+import '@app/i18n'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { SkillDetailModal } from '@app/features/skills/SkillDetailModal'
+import type { Skill } from '@app/shared/model/skills.store'
+
+const baseSkill: Skill = {
+  id: 'skill-deploy-review',
+  name: 'deploy-review',
+  description: 'Check deployment steps before release.',
+  plugin: 'Workspace skills',
+  pluginAuthor: 'Platform team',
+  content: 'Verify health checks, rollback notes, and user-facing release status.',
+  path: 'skills/deploy-review',
+  installed: true,
+  marketplace: 'workspace',
+  cliTool: 'codex',
+  triggerPattern: 'deploy',
+}
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('SkillDetailModal', () => {
+  test('explains a skill in beginner-readable terms', () => {
+    render(<SkillDetailModal skill={baseSkill} onClose={() => {}} />)
+
+    expect(screen.getByRole('dialog', { name: 'deploy-review' })).toBeInTheDocument()
+    expect(
+      screen.getByText('Reusable instructions agents can apply during task work.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Ready to use')).toBeInTheDocument()
+    expect(screen.getByText('Best with Codex')).toBeInTheDocument()
+    expect(screen.queryByText(/Codex C[L]I/)).toBeNull()
+    expect(screen.getByText('What to do next')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Where it came from')).toBeInTheDocument()
+    expect(screen.getByText('Saved for this team space')).toBeInTheDocument()
+    expect(screen.queryByText('Team space saved instructions')).toBeNull()
+    expect(screen.queryByText('Workspace skills')).toBeNull()
+    expect(screen.queryByText('Workspace saved instructions')).toBeNull()
+    expect(screen.getByText('Updated by')).toBeInTheDocument()
+    expect(screen.getByText('Platform team')).toBeInTheDocument()
+    expect(screen.getByText('Available to')).toBeInTheDocument()
+    expect(screen.getByText('This team space')).toBeInTheDocument()
+    expect(screen.queryByText('Version')).toBeNull()
+    expect(screen.queryByText('workspace')).toBeNull()
+    expect(screen.getByText('What this helps with')).toBeInTheDocument()
+    expect(screen.getByText('Check deployment steps before release.')).toBeInTheDocument()
+    expect(screen.getByText('When this helps')).toBeInTheDocument()
+    expect(
+      screen.getByText('Use this saved instruction for tasks that include words like these.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('deploy')).toBeInTheDocument()
+    expect(screen.getByText('Reusable instructions')).toBeInTheDocument()
+    expect(
+      screen.getByText('Read these reusable steps before using this saved instruction.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Verify health checks, rollback notes, and user-facing release status.')
+    ).toBeInTheDocument()
+  })
+
+  test('shows safe next-state language when the skill is not ready', () => {
+    render(
+      <SkillDetailModal
+        skill={{
+          ...baseSkill,
+          description: '',
+          content: '',
+          installed: false,
+          plugin: '',
+          pluginAuthor: '',
+          marketplace: '',
+          cliTool: '',
+          triggerPattern: '',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Check before use')).toBeInTheDocument()
+    expect(screen.queryByText('Needs setup before use')).toBeNull()
+    expect(screen.queryByText(/needs install/i)).toBeNull()
+    expect(screen.getByText('Works with any agent')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Ask an owner or admin to finish setup, then use this saved instruction in a task.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/install it/i)).toBeNull()
+    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
+    expect(screen.queryByText('Saved instructions')).toBeNull()
+    expect(
+      screen.getByText('Open Saved instructions again to show who keeps this updated')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).toBeNull()
+    expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
+    expect(
+      screen.getByText('Check the reusable instructions below before using this saved instruction.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  test('hides raw source and work tool slugs in skill details', () => {
+    render(
+      <SkillDetailModal
+        skill={{
+          ...baseSkill,
+          plugin: '@example/team_skill_pack',
+          marketplace: 'private_beta_scope',
+          cliTool: 'future_tool_alpha',
+        }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
+    expect(screen.getByText('Check saved instruction access')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool in Settings')).toBeInTheDocument()
+    expect(screen.getByText('Check work tool in Settings')).toHaveAttribute(
+      'title',
+      'Open Settings, check the work tool, then use this saved instruction.'
+    )
+    expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
+    expect(screen.queryByText('private_beta_scope')).toBeNull()
+    expect(screen.queryByText('Private Beta Scope')).toBeNull()
+    expect(screen.queryByText('future_tool_alpha')).toBeNull()
+    expect(screen.queryByText('Future Tool Alpha')).toBeNull()
+  })
+
+  test('closes from the beginner-friendly done action', () => {
+    const onClose = vi.fn()
+    render(<SkillDetailModal skill={baseSkill} onClose={onClose} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+})

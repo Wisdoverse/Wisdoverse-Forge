@@ -1,0 +1,37 @@
+//! Database repository layer — encapsulates all SQL queries.
+
+pub mod admin;
+pub mod agent;
+pub mod analytics;
+pub mod attachment;
+pub mod audit;
+pub mod billing;
+pub mod context_candidate;
+pub mod context_envelope;
+pub mod context_preview;
+pub mod context_resolver;
+pub mod credential;
+pub mod dev_environment;
+pub mod enrollment_idempotency;
+pub mod favorite;
+pub mod feature_flag;
+pub mod governance_audit;
+pub mod identity;
+pub(crate) mod inbox;
+pub mod license;
+pub mod memory;
+pub mod orchestration;
+pub mod plugin;
+pub mod project;
+pub mod project_clone;
+pub mod prompt;
+pub mod quota;
+pub mod resource;
+pub mod runtime_capability;
+pub mod setting;
+pub mod skill;
+pub mod tile;
+pub mod usage_analytics;
+pub mod user;
+pub mod voice;
+pub mod workspace;

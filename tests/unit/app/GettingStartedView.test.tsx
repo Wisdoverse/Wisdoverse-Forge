@@ -1,0 +1,1054 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import '@app/i18n'
+import { GettingStartedView } from '@app/pages/getting-started'
+import { useNavigationStore } from '@app/entities/navigation'
+import { useAgentsStore } from '@app/entities/agent'
+import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSkillsStore } from '@app/shared/model/skills.store'
+
+const navigateMock = vi.hoisted(() => vi.fn())
+const getTasksMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigateMock,
+}))
+
+vi.mock('@app/shared/api/orchestration', () => ({
+  taskResultArtifacts: (result: unknown) => (Array.isArray(result) ? result : []),
+  orchestrationApi: {
+    getTasks: (...args: unknown[]) => getTasksMock(...args),
+  },
+}))
+
+const loadOrgsMock = vi.fn().mockResolvedValue(undefined)
+const loadProvidersMock = vi.fn().mockResolvedValue(undefined)
+const loadRuntimeSettingsMock = vi.fn().mockResolvedValue(undefined)
+const loadPreferencesMock = vi.fn().mockResolvedValue(undefined)
+const setGettingStartedDismissedMock = vi.fn()
+const loadAgentsMock = vi.fn().mockResolvedValue(undefined)
+const loadSkillsMock = vi.fn().mockResolvedValue(undefined)
+const originalLoadOrgs = useNavigationStore.getState().loadOrgs
+const originalLoadProviders = useSettingsStore.getState().loadProviders
+const originalLoadRuntimeSettings = useSettingsStore.getState().loadRuntimeSettings
+const originalLoadPreferences = useSettingsStore.getState().loadPreferences
+const originalSetGettingStartedDismissed = useSettingsStore.getState().setGettingStartedDismissed
+const originalLoadAgents = useAgentsStore.getState().loadAgents
+const originalLoadSkills = useSkillsStore.getState().loadSkills
+
+beforeEach(() => {
+  navigateMock.mockReset()
+  getTasksMock.mockReset().mockResolvedValue([])
+  loadOrgsMock.mockClear()
+  loadProvidersMock.mockClear()
+  loadRuntimeSettingsMock.mockClear()
+  loadPreferencesMock.mockClear()
+  setGettingStartedDismissedMock.mockReset().mockResolvedValue(true)
+  loadAgentsMock.mockClear()
+  loadSkillsMock.mockClear()
+  useNavigationStore.getState().reset()
+  useAgentsStore.getState().reset()
+  useSkillsStore.getState().reset()
+  useSettingsStore.setState({
+    providers: [],
+    providersLoading: false,
+    providersError: null,
+    runtimeSettings: null,
+    runtimeLoading: false,
+    runtimeError: null,
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
+    loadProviders: loadProvidersMock,
+    loadRuntimeSettings: loadRuntimeSettingsMock,
+    loadPreferences: loadPreferencesMock,
+    setGettingStartedDismissed: setGettingStartedDismissedMock,
+  })
+  useNavigationStore.setState({ loadOrgs: loadOrgsMock })
+  useAgentsStore.setState({ loadAgents: loadAgentsMock })
+  useSkillsStore.setState({ loadSkills: loadSkillsMock })
+})
+
+afterEach(() => {
+  cleanup()
+  useNavigationStore.getState().reset()
+  useAgentsStore.getState().reset()
+  useSkillsStore.getState().reset()
+  useNavigationStore.setState({ loadOrgs: originalLoadOrgs })
+  useSettingsStore.setState({
+    providers: [],
+    runtimeSettings: null,
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+    loadProviders: originalLoadProviders,
+    loadRuntimeSettings: originalLoadRuntimeSettings,
+    loadPreferences: originalLoadPreferences,
+    setGettingStartedDismissed: originalSetGettingStartedDismissed,
+  })
+  useAgentsStore.setState({ loadAgents: originalLoadAgents })
+  useSkillsStore.setState({ loadSkills: originalLoadSkills })
+})
+
+/**
+ * Seed every store so all eight checklist steps read complete. Mirrors the
+ * fixture used by the "shows the first-run checklist" test.
+ */
+function seedCompletedSetup() {
+  useNavigationStore.setState({
+    teams: [
+      {
+        id: 'team-1',
+        orgId: 'org-1',
+        name: 'Launch Team',
+        slug: 'launch-team',
+        visibility: 'open',
+        description: '',
+      },
+    ],
+    projects: {
+      'team-1': [
+        {
+          id: 'project-1',
+          teamId: 'team-1',
+          name: 'Launch Project',
+          slug: 'launch-project',
+          color: '#007AFF',
+          description: '',
+        },
+      ],
+    },
+    selectedProjectId: 'project-1',
+    agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+  })
+  useSettingsStore.setState({
+    providers: [
+      {
+        id: 'provider-1',
+        provider: 'model-service',
+        displayName: 'Model Service',
+        model: 'general-model',
+        isEnabled: true,
+        isDefault: true,
+        lastTestStatus: 'passed',
+      } as any,
+    ],
+    runtimeSettings: {
+      defaultRuntime: 'container',
+      availableRuntimes: ['container', 'api'],
+      defaultCliTool: 'workspace-tool',
+      availableCliTools: ['workspace-tool', 'review-tool'],
+      cliToolDetails: [
+        {
+          cliTool: 'workspace-tool',
+          image: 'agentforge-agent:workspace-tool',
+          version: '1.0.0',
+          imagePresent: true,
+          versionSource: 'docker-label',
+        },
+      ],
+    },
+  })
+  useAgentsStore.setState({
+    agents: [
+      {
+        id: 'agent-1',
+        name: 'Starter Agent',
+        provider: 'model-service',
+        model: 'general-model',
+        status: 'idle',
+        tasksCompleted: 0,
+        tasksInProgress: 0,
+        successRate: 0,
+      },
+    ],
+  })
+  getTasksMock.mockResolvedValueOnce([
+    {
+      id: 'task-1',
+      groupId: 'group-1',
+      state: 'completed',
+      method: 'tasks/send',
+      params: { task: 'Ship first flow', message: 'Review output' },
+      assignedTo: 'agent-1',
+      assignedAgentName: 'Starter Agent',
+      priority: 'normal',
+      progress: 100,
+      result: [{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }],
+      contextCounts: { appliedMemories: 0, appliedSkills: 1, total: 1 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    },
+  ])
+}
+
+describe('GettingStartedView', () => {
+  test('shows the first-run checklist from current workspace state', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container', 'api'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool', 'review-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+    getTasksMock.mockResolvedValueOnce([
+      {
+        id: 'task-1',
+        groupId: 'group-1',
+        state: 'completed',
+        method: 'tasks/send',
+        params: { task: 'Ship first flow', message: 'Review output' },
+        assignedTo: 'agent-1',
+        assignedAgentName: 'Starter Agent',
+        priority: 'normal',
+        progress: 100,
+        result: [{ name: 'summary.md', mimeType: 'text/markdown', data: 'Done' }],
+        contextCounts: { appliedMemories: 0, appliedSkills: 1, total: 1 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+    ])
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByTestId('page-start')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Follow one step at a time. Finish this checklist to create an agent, send a task, and check the result.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.queryByText(
+        'Follow one step at a time. Finish this checklist to create an agent, send work, and check the result.'
+      )
+    ).toBeNull()
+    expect(screen.getAllByText('Team and project').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Workspace')).toBeNull()
+    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent(
+      'Team and project'
+    )
+    expect(screen.queryByText('Review workspace')).toBeNull()
+    expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Project files option is ready\./i)).toBeDefined()
+    expect(screen.queryByText(/managed workspace is ready for agent work/i)).toBeNull()
+    expect(screen.getByText('Model Service')).toBeDefined()
+    expect(screen.getByText('Starter Agent')).toBeDefined()
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(screen.getByText('Ready to run work')).toBeDefined()
+    expect(screen.getByText(/Write one small task from Tasks, or save useful steps/i)).toBeDefined()
+    expect(screen.queryByText(/The basic path is complete/i)).toBeNull()
+    expect(screen.getAllByText('Save useful steps').length).toBeGreaterThan(0)
+    expect(screen.getByText('Saved steps are available for future tasks.')).toBeDefined()
+    expect(
+      within(screen.getByTestId('getting-started-completed-steps')).queryByRole('button')
+    ).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
+    expect(screen.queryByText('Reusable learning')).toBeNull()
+    expect(screen.queryByText(/applied skill context/i)).toBeNull()
+    expect(screen.queryByText(/skill candidates/i)).toBeNull()
+    expect(loadOrgsMock).toHaveBeenCalled()
+    expect(loadProvidersMock).toHaveBeenCalled()
+    expect(loadRuntimeSettingsMock).toHaveBeenCalled()
+    expect(loadAgentsMock).toHaveBeenCalled()
+    expect(loadSkillsMock).toHaveBeenCalled()
+    expect(getTasksMock).toHaveBeenCalledWith('group-1')
+  })
+
+  test('routes incomplete file-change access setup to file-change tool sign-in after runtime exists', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getByText(/Choose one way to let agents work/i)).toBeDefined()
+    expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
+    expect(screen.queryByText('No project selected')).toBeNull()
+    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent(
+      'Team and project'
+    )
+    expect(screen.queryByText(/routing needs/i)).toBeNull()
+    fireEvent.click(
+      within(screen.getByTestId('getting-started-expanded-step')).getByRole('button', {
+        name: /open file-change tool sign-in/i,
+      })
+    )
+
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
+  })
+
+  test('keeps focus on one expanded setup step instead of showing every step as a card', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+
+    const expandedSteps = screen.getAllByTestId('getting-started-expanded-step')
+    expect(expandedSteps).toHaveLength(1)
+    expect(
+      within(expandedSteps[0] as HTMLElement).getByRole('heading', {
+        name: /team and project/i,
+      })
+    ).toBeDefined()
+
+    const laterSteps = screen.getByTestId('getting-started-later-steps')
+    expect(laterSteps).toHaveTextContent('Work location')
+    expect(laterSteps).toHaveTextContent('First task')
+    expect(within(laterSteps).queryByRole('button')).toBeNull()
+    expect(screen.queryAllByTestId('getting-started-step-card')).toHaveLength(0)
+  })
+
+  test('names the chat-only setup as simple chat instead of work', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'api',
+        availableRuntimes: ['api'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: [],
+        cliToolDetails: [],
+      },
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText(/simple chat is ready\./i)).toBeDefined()
+    expect(screen.queryByText(/chat-only work/i)).toBeNull()
+    expect(screen.queryByText(/simple chat is ready for agent work/i)).toBeNull()
+  })
+
+  test('explains where tasks wait without queue wording', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText('Task queue').length).toBeGreaterThan(0)
+    expect(screen.getByText('Set up a task queue for this project.')).toBeDefined()
+    expect(
+      screen.getAllByText(
+        'This gives new work a place to wait until the next available agent starts it.'
+      ).length
+    ).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Set up a task queue before the first task.')).toBeDefined()
+    expect(screen.queryByText('Where tasks wait')).toBeNull()
+
+    const routingStep = screen.getByTestId('getting-started-expanded-step')
+    fireEvent.click(within(routingStep).getByRole('button', { name: /set up task queue/i }))
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
+  })
+
+  test('keeps the first task for later and routes the current action before a project exists', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Create or choose a project, then set up a task queue before the first task.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /write first task/i })).toBeNull()
+
+    const laterSteps = screen.getByTestId('getting-started-later-steps')
+    expect(laterSteps).toHaveTextContent('First task')
+    expect(within(laterSteps).queryByRole('button')).toBeNull()
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /create team and project/i,
+      })[0]!
+    )
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/projects' })
+  })
+
+  test('explains the first task as a small waiting-place start', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'Write one small task. Forge puts it in the task queue until the next available agent starts it.'
+      )
+    ).toBeDefined()
+    expect(
+      screen.getAllByText(
+        'The task appears on the board, either waiting for an agent or already has one.'
+      ).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/where tasks wait/i)).toBeNull()
+    expect(screen.queryByText(/picks it up/i)).toBeNull()
+    expect(screen.getAllByRole('button', { name: /write first task/i }).length).toBeGreaterThan(0)
+    const previousTaskInstruction = ['Create a task', 'assign it', 'and watch the run start.'].join(
+      ', '
+    )
+    expect(screen.queryByText(previousTaskInstruction)).toBeNull()
+  })
+
+  test('explains result review without detail panel wording', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+    getTasksMock.mockResolvedValueOnce([
+      {
+        id: 'task-1',
+        groupId: 'group-1',
+        state: 'pending',
+        method: 'tasks/send',
+        params: { task: 'Ship first flow', message: 'Review output' },
+        priority: 'normal',
+        progress: 0,
+        result: null,
+        contextCounts: { appliedMemories: 0, appliedSkills: 0, total: 0 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ])
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText('Check the result').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText('After an agent starts a task, open it to see progress and results.')
+    ).toBeDefined()
+    expect(screen.queryByText(/picks up/i)).toBeNull()
+    expect(screen.queryByText('Assigned task output will appear in the detail panel.')).toBeNull()
+    expect(screen.queryByText(/detail panel/i)).toBeNull()
+  })
+
+  test('does not expose raw AI service keys in the first-run checklist', async () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-future',
+          provider: 'future_provider',
+          displayName: '',
+          model: 'future-model',
+          isEnabled: true,
+          isDefault: true,
+          lastTestStatus: 'passed',
+        } as any,
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Check AI service')).toBeDefined()
+    expect(screen.queryByText(/future_provider/i)).toBeNull()
+    expect(screen.queryByText(/future provider/i)).toBeNull()
+  })
+
+  test('accepts a local agent as work access', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+      providers: [],
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'host-agent',
+          name: 'Local Agent',
+          provider: 'local-model',
+          model: 'local-runner',
+          cliTool: 'workspace-tool',
+          runtimeId: 'host-abc12345',
+          runtimeKind: 'cli',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(
+      await screen.findByText('Local Agent is ready to run work from this computer.')
+    ).toBeDefined()
+    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent('Local Agent')
+    expect(screen.queryByRole('button', { name: /open agents/i })).toBeNull()
+  })
+
+  test('routes project-file sign-in setup to file-change tool sign-in settings', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+    useSettingsStore.setState({
+      providers: [],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent:codex',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+
+    render(<GettingStartedView />)
+
+    const signInButtons = await screen.findAllByRole('button', {
+      name: /open file-change tool sign-in/i,
+    })
+    expect(signInButtons.length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(
+        /open file-change tool sign-in for Codex or another tool before Tasks need project files/i
+      ).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText(/open work tool sign-in/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /join this computer/i })).toBeNull()
+
+    fireEvent.click(signInButtons[0]!)
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
+  })
+
+  test('does not complete provider step until connection test has passed', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+      agentGroups: [{ id: 'group-1', projectId: 'project-1', name: 'Default' }],
+    })
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'workspace-tool',
+        availableCliTools: ['workspace-tool'],
+        cliToolDetails: [
+          {
+            cliTool: 'workspace-tool',
+            image: 'agentforge-agent:workspace-tool',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+      providers: [
+        {
+          id: 'provider-1',
+          provider: 'model-service',
+          displayName: 'Model Service',
+          model: 'general-model',
+          isEnabled: true,
+          isDefault: true,
+        } as any,
+      ],
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'agent-1',
+          name: 'Starter Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('Check the AI service before giving agents work.')).toBeDefined()
+    expect(screen.getByText('Do this next')).toBeDefined()
+    expect(screen.getAllByText(/Agents need one ready option/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/checked model service/i)).toBeNull()
+    expect(screen.queryByText(/assigning work/i)).toBeNull()
+    expect(screen.queryByText('100%')).toBeNull()
+    const [testProviderButton] = screen.getAllByRole('button', { name: /check AI service/i })
+    expect(testProviderButton).toBeDefined()
+    fireEvent.click(testProviderButton!)
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/providers' })
+  })
+
+  test('routes work location setup directly to runtime settings', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+
+    render(<GettingStartedView />)
+
+    fireEvent.click(
+      within(screen.getByTestId('getting-started-expanded-step')).getByRole('button', {
+        name: /choose work location/i,
+      })
+    )
+
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/runtime' })
+  })
+
+  test('loads stored preferences alongside the other first-run data', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByTestId('page-start')).toBeDefined()
+    expect(loadPreferencesMock).toHaveBeenCalled()
+  })
+
+  test('skip action persists the dismissal and moves to the task board', async () => {
+    render(<GettingStartedView />)
+
+    expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
+    expect(
+      screen.getByText(
+        'This only hides the setup checklist from the left menu. Your projects, agents, and tasks stay the same, and you can reset it from Settings.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()
+    fireEvent.click(await screen.findByTestId('getting-started-skip'))
+
+    expect(screen.getByRole('button', { name: /skipping/i })).toBeDisabled()
+    await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' }))
+  })
+
+  test('reports skip failures before leaving the guide', async () => {
+    setGettingStartedDismissedMock.mockResolvedValue(false)
+
+    render(<GettingStartedView />)
+
+    fireEvent.click(await screen.findByTestId('getting-started-skip'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then choose Skip again. The setup checklist could not be hidden.'
+    )
+    expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /skip and open tasks/i })).not.toBeDisabled()
+  })
+
+  test('auto-dismisses exactly once when every step is complete', async () => {
+    seedCompletedSetup()
+
+    const view = render(<GettingStartedView />)
+    expect(await screen.findByText('100%')).toBeDefined()
+
+    await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledTimes(1))
+    expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true)
+
+    // The same mounted page re-rendering with unchanged completion state must
+    // not fire the persistence again (the mock does not update the store, so
+    // only the ref guard prevents a second call here).
+    view.rerender(<GettingStartedView />)
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(setGettingStartedDismissedMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not auto-dismiss while preferences are still loading', async () => {
+    seedCompletedSetup()
+    useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(screen.getByText('Ready to run work')).toBeDefined()
+    expect(setGettingStartedDismissedMock).not.toHaveBeenCalled()
+  })
+
+  test('does not re-persist a dismissal that is already stored', async () => {
+    seedCompletedSetup()
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByText('100%')).toBeDefined()
+    expect(setGettingStartedDismissedMock).not.toHaveBeenCalled()
+  })
+})

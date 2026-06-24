@@ -1,0 +1,368 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { userEvent } from '@testing-library/user-event'
+import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
+import { orchestrationApi } from '@app/shared/api/orchestration'
+import { useContextStore } from '@app/shared/model/context.store'
+import type { ContextCandidateSummary } from '@shared/types/context'
+
+const subscribeMock = vi.hoisted(() => vi.fn(() => vi.fn()))
+
+vi.mock('@app/shared/model/websocket.context', () => ({
+  useWebSocket: () => ({
+    status: 'connected',
+    send: vi.fn(),
+    subscribe: subscribeMock,
+  }),
+}))
+
+vi.mock('@app/shared/api/orchestration', async () => {
+  const actual = await vi.importActual<typeof import('@app/shared/api/orchestration')>(
+    '@app/shared/api/orchestration'
+  )
+  return {
+    ...actual,
+    orchestrationApi: {
+      ...actual.orchestrationApi,
+      listContextCandidates: vi.fn(),
+      approveContextCandidate: vi.fn(),
+      rejectContextCandidate: vi.fn(),
+    },
+  }
+})
+
+const listContextCandidates = vi.mocked(orchestrationApi.listContextCandidates)
+const approveContextCandidate = vi.mocked(orchestrationApi.approveContextCandidate)
+const rejectContextCandidate = vi.mocked(orchestrationApi.rejectContextCandidate)
+
+const candidate: ContextCandidateSummary = {
+  id: 'candidate-1',
+  workspace_id: 'workspace-1',
+  item_kind: 'memory',
+  state: 'pending',
+  owner_user_id: 'user-1',
+  source_run_id: 'run-1',
+  target_skill_id: null,
+  proposed_scope_kind: 'user',
+  source_available: true,
+  proposed_preview: {
+    title: 'Use stable credentials',
+    content_preview: 'Remember to rotate repository tokens safely.',
+    sensitivity: 'internal',
+  },
+  created_at: '2026-05-20T12:00:00.000Z',
+  updated_at: '2026-05-20T12:00:00.000Z',
+}
+
+beforeEach(() => {
+  subscribeMock.mockClear()
+  useContextStore.getState().reset()
+  listContextCandidates.mockResolvedValue([candidate])
+  approveContextCandidate.mockResolvedValue({
+    candidate: { ...candidate, state: 'approved' },
+    item: null,
+  })
+  rejectContextCandidate.mockResolvedValue({
+    candidate: { ...candidate, state: 'rejected' },
+  })
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+  useContextStore.getState().reset()
+})
+
+describe('ApprovalQueueView', () => {
+  test('explains saved item review loading for first-time users', () => {
+    listContextCandidates.mockImplementationOnce(() => new Promise(() => undefined))
+
+    render(<ApprovalQueueView />)
+
+    const loading = screen.getByRole('status', {
+      name: /checking saved notes and instructions/i,
+    })
+    expect(loading).toHaveTextContent('Checking saved notes and instructions')
+    expect(loading).toHaveTextContent(
+      'Forge is checking which saved notes or instructions need your decision before agents can reuse them.'
+    )
+    expect(loading).toHaveTextContent(
+      'If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access.'
+    )
+    expect(loading).toHaveTextContent(
+      'Success looks like saved items to check or a no-items-to-review message.'
+    )
+    expect(loading).not.toHaveTextContent('Checking saved notes and instructions...')
+  })
+
+  test('guides operators through approval decisions and the approve panel', async () => {
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByTestId('context-approval-path')).toBeDefined()
+    expect(screen.getByText('Check what agents can save')).toBeDefined()
+    expect(screen.getByText('Check steps')).toBeDefined()
+    expect(screen.getByText(/saved notes or instructions are useful/i)).toBeDefined()
+    expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+    expect(screen.getByText('Saved note')).toBeDefined()
+    expect(screen.getAllByText('Needs your check').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Saved\s+memory/i)).toBeNull()
+    expect(screen.queryByText('Pending')).toBeNull()
+    expect(screen.getAllByText('Only me').length).toBeGreaterThan(0)
+    expect(screen.getByText('Who can reuse it: Only me')).toBeDefined()
+    expect(screen.getByText('Original task preview available')).toBeDefined()
+    expect(screen.queryByText(/^Workspace /)).toBeNull()
+    expect(screen.queryByText(/^Owner /)).toBeNull()
+    expect(screen.queryByText(/^Run /)).toBeNull()
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^Do not save$/ })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^Approve$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Reject$/ })).toBeNull()
+
+    await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
+    const dialog = screen.getByRole('dialog', { name: /save use stable credentials/i })
+
+    expect(within(dialog).getByTestId('context-decision-checklist')).toBeDefined()
+    expect(within(dialog).getByText('Save only when')).toBeDefined()
+    expect(screen.queryByText('Approve only when')).toBeNull()
+    expect(within(dialog).getByText(/this saved item still helps/i)).toBeDefined()
+    expect(within(dialog).getByText(/only the right people can reuse it/i)).toBeDefined()
+    expect(within(dialog).getByText(/sensitive details are hidden before saving/i)).toBeDefined()
+    expect(within(dialog).getByText('Who can reuse it')).toBeDefined()
+    expect(within(dialog).getByText(/team or project sharing text from Settings/i)).toBeDefined()
+    expect(within(dialog).queryByText(/team or project sharing code from Settings/i)).toBeNull()
+    expect(within(dialog).queryByText(/team or project ID from Settings/i)).toBeNull()
+    expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
+    expect(within(dialog).getByText('Team only')).toBeDefined()
+    expect(within(dialog).getByRole('button', { name: 'Check later' })).toBeDefined()
+    expect(screen.getByLabelText('Close saved item check')).toBeDefined()
+    expect(screen.queryByLabelText(/review panel/i)).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: /^Cancel$/ })).toBeNull()
+
+    await userEvent.setup().selectOptions(screen.getByTestId('context-approval-scope-kind'), 'team')
+
+    expect(within(dialog).getAllByText(/team sharing text/i).length).toBeGreaterThan(0)
+    expect(within(dialog).getByPlaceholderText(/team sharing text from Settings/i)).toBeDefined()
+    expect(within(dialog).getByText(/Paste the team sharing text before saving/i)).toBeDefined()
+    expect(within(dialog).queryByText(/team sharing code/i)).toBeNull()
+    expect(within(dialog).queryByText('Team ID')).toBeNull()
+    expect(within(dialog).queryByPlaceholderText(/Team ID from Settings/i)).toBeNull()
+    expect(within(dialog).queryByText('Team support reference')).toBeNull()
+    expect(within(dialog).queryByText(/exact support reference from settings/i)).toBeNull()
+  })
+
+  test('review later closes the decision panel without saving or rejecting', async () => {
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approve-candidate-1'))
+    expect(screen.getByTestId('context-decision-checklist')).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: 'Check later' }))
+
+    expect(approveContextCandidate).not.toHaveBeenCalled()
+    expect(rejectContextCandidate).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('context-decision-checklist')).toBeNull()
+    expect(screen.getByText('Use stable credentials')).toBeDefined()
+  })
+
+  test('defaults broad saved-item suggestions to only me so beginners can save safely', async () => {
+    listContextCandidates.mockResolvedValue([{ ...candidate, proposed_scope_kind: 'team' }])
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approve-candidate-1'))
+    const dialog = screen.getByRole('dialog', { name: /save use stable credentials/i })
+
+    expect(screen.getByTestId('context-approval-scope-kind')).toHaveValue('user')
+    expect(within(dialog).getByText(/only me is selected first/i)).toBeDefined()
+    expect(
+      within(dialog).getByText(/change this only when the team should reuse it/i)
+    ).toBeDefined()
+    expect(within(dialog).queryByText(/team sharing text/i)).toBeNull()
+    expect(within(dialog).queryByTestId('context-approval-scope-id')).toBeNull()
+    expect(within(dialog).queryByLabelText(/I checked your team can reuse this safely/i)).toBeNull()
+    expect(within(dialog).getByText('Ready to save for your own account.')).toBeDefined()
+
+    await user.click(screen.getByTestId('context-approval-submit'))
+
+    await waitFor(() => expect(approveContextCandidate).toHaveBeenCalledOnce())
+    expect(approveContextCandidate).toHaveBeenCalledWith(
+      'candidate-1',
+      expect.objectContaining({
+        scope_kind: 'user',
+        scope_id: null,
+        confirm_expansion: false,
+      })
+    )
+  })
+
+  test('labels saved-item decisions without approval jargon', async () => {
+    listContextCandidates.mockResolvedValue([
+      { ...candidate, id: 'candidate-saved', state: 'approved' },
+      { ...candidate, id: 'candidate-not-saved', state: 'rejected' },
+      { ...candidate, id: 'candidate-replaced', state: 'superseded' },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Saved')).toBeDefined()
+    expect(screen.getByText('Not saved')).toBeDefined()
+    expect(screen.getByText('Replaced')).toBeDefined()
+    expect(screen.getAllByText('Decision saved').length).toBe(3)
+    expect(screen.queryByText('Decision recorded')).toBeNull()
+    expect(screen.queryByText('Approved')).toBeNull()
+    expect(screen.queryByText('Rejected')).toBeNull()
+  })
+
+  test('explains why saving waits for the original task details', async () => {
+    listContextCandidates.mockResolvedValue([
+      {
+        ...candidate,
+        id: 'candidate-missing-source',
+        source_available: false,
+      },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    const item = await screen.findByTestId('context-candidate-candidate-missing-source')
+    expect(within(item).getByText('Task details need to load')).toBeDefined()
+    expect(
+      within(item).getByText('Save unlocks after the original task details load.')
+    ).toBeDefined()
+    expect(within(item).queryByText('Original task preview unavailable')).toBeNull()
+
+    const saveButton = within(item).getByRole('button', { name: /^Save$/ })
+    expect(saveButton).toBeDisabled()
+    expect(saveButton).toHaveAttribute(
+      'title',
+      'Check saved items again, then save after the original task details load.'
+    )
+  })
+
+  test('explains how to recover from empty approval filters', async () => {
+    listContextCandidates.mockResolvedValue([])
+
+    render(<ApprovalQueueView />)
+
+    await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(within(emptyState).getByText('No saved items need checking')).toBeDefined()
+    expect(
+      within(emptyState).getByText(
+        /when an agent suggests a saved note or saved instruction, it will appear here/i
+      )
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/open Tasks and finish work/i)).toBeDefined()
+    expect(within(emptyState).queryByText(/finish a task, then come back here/i)).toBeNull()
+    const taskLink = within(emptyState).getByRole('link', { name: 'Open task list' })
+    expect(taskLink).toHaveAttribute('href', '/tasks')
+    expect(within(emptyState).queryByRole('button')).toBeNull()
+    expect(emptyState.textContent).not.toContain('No saved items match these filters')
+  })
+
+  test('clears item filters when they hide saved items from a new reviewer', async () => {
+    listContextCandidates.mockImplementation(async (query) => {
+      if (query.itemKind === 'skill') return []
+      return [candidate]
+    })
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+
+    await user.selectOptions(screen.getByLabelText('Item type'), 'skill')
+
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(within(emptyState).getByText('Filters are hiding saved items')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/clear filters before assuming there is nothing to check/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/check the full list first/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No saved items match these filters')
+
+    await user.click(within(emptyState).getByRole('button', { name: /clear filters/i }))
+
+    expect(await screen.findByText('Use stable credentials')).toBeDefined()
+    expect(screen.getByLabelText('Item type')).toHaveValue('all')
+  })
+
+  test('explains how saved item history starts before the first review', async () => {
+    listContextCandidates.mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<ApprovalQueueView />)
+
+    await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
+    await user.click(screen.getByRole('button', { name: 'All saved items' }))
+
+    const emptyState = await screen.findByTestId('context-approval-empty')
+    expect(
+      within(emptyState).getByText('Check the first saved item to start history')
+    ).toBeDefined()
+    expect(
+      within(emptyState).getByText(/appear here after someone checks the first suggestion/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/switch back to Needs your check/i)).toBeDefined()
+    expect(within(emptyState).queryByText('No saved item history yet')).toBeNull()
+  })
+
+  test('shows beginner network guidance when the review list cannot load', async () => {
+    listContextCandidates.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<ApprovalQueueView />)
+
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('data-testid', 'context-approval-error')
+    expect(error.textContent).toContain(
+      'Check your connection, then choose Check saved items again'
+    )
+    expect(error.textContent).toContain(
+      'Forge could not connect while loading saved notes and instructions'
+    )
+    expect(error.textContent).not.toContain('refresh Saved items')
+    expect(error.textContent).not.toMatch(/failed to fetch/i)
+  })
+
+  test('shows beginner conflict guidance when approving fails', async () => {
+    approveContextCandidate.mockRejectedValueOnce(new Error('409 conflict'))
+
+    render(<ApprovalQueueView />)
+
+    await screen.findByText('Use stable credentials')
+    await userEvent.setup().click(screen.getByTestId('context-approve-candidate-1'))
+    await userEvent.setup().click(screen.getByTestId('context-approval-submit'))
+
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('data-testid', 'context-approval-error')
+    expect(error.textContent).toContain('Choose Check saved items again, then open this item')
+    expect(error.textContent).toContain('It changed while you were checking it')
+    expect(error.textContent).not.toContain('Refresh the list')
+    expect(error.textContent).not.toContain('Code:')
+    expect(error.textContent).not.toContain('409 conflict')
+  })
+
+  test('shows beginner permission guidance when rejecting fails', async () => {
+    rejectContextCandidate.mockRejectedValueOnce(new Error('403 Forbidden'))
+
+    render(<ApprovalQueueView />)
+
+    await screen.findByText('Use stable credentials')
+    await userEvent.setup().click(screen.getByTestId('context-reject-candidate-1'))
+    await userEvent.setup().click(screen.getByTestId('context-reject-submit'))
+
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveAttribute('data-testid', 'context-approval-error')
+    expect(error.textContent).toContain('Ask an owner or admin')
+    expect(error.textContent).toContain('owner or admin')
+    expect(error.textContent).toContain('do not have permission')
+    expect(error.textContent).not.toContain('403 Forbidden')
+  })
+})

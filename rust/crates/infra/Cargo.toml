@@ -1,0 +1,23 @@
+[package]
+name = "agentforge-infra"
+version = "0.1.0"
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+agentforge-core.workspace = true
+redis.workspace = true
+async-nats.workspace = true
+aws-credential-types.workspace = true
+aws-sdk-s3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+secrecy.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
+secrecy.workspace = true

@@ -1,0 +1,170 @@
+import { describe, expect, test } from 'vitest'
+import { governanceAuditErrorMessage } from '@app/features/governance/governanceAuditErrorMessages'
+
+describe('governanceAuditErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Detail:')
+  }
+
+  test('turns auth failures into a sign-in instruction', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', new Error('401 Unauthorized')),
+      'Your sign-in expired. Sign in again, then choose Check change history again.'
+    )
+  })
+
+  test('turns permission failures into team space access guidance', () => {
+    const message = governanceAuditErrorMessage('exportAudit', new Error('HTTP 403: Forbidden'))
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then choose Export change history again. You do not have permission to view or export change history.'
+    )
+    expect(message).not.toContain('retry this change-history action')
+    expect(message).not.toContain('governance audit records')
+    expect(message).not.toContain('audit history')
+    expect(message).not.toContain('role')
+    expect(message).not.toContain('HTTP 403')
+    expect(message).not.toContain('Forbidden')
+  })
+
+  test('turns role-required failures into team space access guidance', () => {
+    const message = governanceAuditErrorMessage('loadAudit', 'owner role required')
+
+    expectBeginnerMessage(
+      message,
+      'Ask an owner or admin to update your team space access, then choose Check change history again. You do not have permission to view or export change history.'
+    )
+    expect(message).not.toContain('owner role required')
+  })
+
+  test('explains load network failures without exposing only a transport error', () => {
+    const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
+
+    expect(message).toContain('Choose Check change history again, then apply the filters again.')
+    expect(message).toContain('If it still does not load, check your connection')
+    expect(message).toContain('choose Check change history again')
+    expect(message).not.toContain('refresh the page')
+    expect(message).not.toContain('API')
+    expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('service')
+    expect(message).not.toContain('Governance audit history could not load')
+  })
+
+  test('explains export network failures with the export recovery path', () => {
+    const message = governanceAuditErrorMessage('exportAudit', 'Network Error')
+
+    expect(message).toContain('Keep secrets hidden')
+    expect(message).toContain('choose Check change history again')
+    expect(message).toContain('choose Export change history again')
+    expect(message).not.toContain('audit export did not finish')
+  })
+
+  test('gives a clear export conflict recovery step', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('exportAudit', new Error('409 conflict')),
+      'Choose Check change history again, then choose Export change history again because the change list changed while export was running.'
+    )
+  })
+
+  test('gives a clear load conflict recovery step', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', { status: 409 }),
+      'Choose Check change history again because the change list changed while you were checking it.'
+    )
+  })
+
+  test('turns service failures into an audit setup recovery step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', new Error('HTTP 500'))
+
+    expectBeginnerMessage(
+      message,
+      'Choose Check change history again, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+    )
+    expect(message).not.toContain('backend')
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('Forge could not load')
+  })
+
+  test('keeps unformatted service failures on the change-history recovery path', () => {
+    const message = governanceAuditErrorMessage(
+      'loadAudit',
+      new Error('database unavailable while reading audit rows')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Choose Check change history again, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+    )
+    expect(message).not.toContain('database unavailable')
+  })
+
+  test('turns missing routes into a view and access recovery step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', { status: 404 })
+
+    expectBeginnerMessage(
+      message,
+      'Open Admin change history again, then choose Check change history again. If it still fails, ask an owner or admin to check team space access.'
+    )
+    expect(message).not.toContain('then retry')
+    expect(message).not.toContain('route')
+    expect(message).not.toContain('workspace access')
+  })
+
+  test('turns rate limits into a wait and retry step', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', { code: '429' }),
+      'Wait a moment, then choose Check change history again. Change history is handling too many requests right now.'
+    )
+  })
+
+  test('turns validation details into a time range next step', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', {
+        error: 'Invalid time range',
+      }),
+      'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
+    )
+  })
+
+  test('maps nested validation details to the time range next step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', {
+      error: { message: 'Invalid time range' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
+    )
+    expect(message).not.toContain('Invalid time range')
+  })
+
+  test('turns limit validation details into the allowed range', () => {
+    expectBeginnerMessage(
+      governanceAuditErrorMessage('loadAudit', {
+        error: 'limit must be less than or equal to 200',
+      }),
+      'Enter a row limit from 1 to 200, then apply the change filters again.'
+    )
+  })
+
+  test('turns ID validation details into a task-help-text next step', () => {
+    const message = governanceAuditErrorMessage('loadAudit', {
+      error: 'Invalid scope id',
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Check the selected team space, work area, person, or task help text, then apply the change filters again.'
+    )
+    expect(message).not.toContain('task ID')
+    expect(message).not.toContain('task code')
+    expect(message).not.toContain('project area')
+    expect(message).not.toContain('user, or task')
+    expect(message).not.toContain('project workspace')
+    expect(message).not.toContain('selected organization')
+    expect(message).not.toMatch(/task reference|support reference/i)
+  })
+})

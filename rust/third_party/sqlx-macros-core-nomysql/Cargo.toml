@@ -1,0 +1,194 @@
+# Vendored fork of sqlx-macros-core 0.8.6 with MySQL and SQLite optional deps
+# stripped out. Used via [patch.crates-io] in ../../Cargo.toml.
+#
+# Why this fork exists:
+#
+#   Upstream sqlx-macros-core declares `sqlx-mysql = { optional = true }` and
+#   `sqlx-sqlite = { optional = true }`. Because cargo records "disabled weak
+#   optional dependencies" in Cargo.lock (rust-lang/cargo#10801), `sqlx-mysql`
+#   appears in our lockfile even though we only enable the `postgres` feature.
+#   `sqlx-mysql` transitively pulls `rsa 0.9.10` which carries an unfixed
+#   advisory (RUSTSEC-2023-0071 "Marvin Attack" timing sidechannel; RustCrypto
+#   has no fixed upgrade available).
+#
+#   Neither `rsa` nor any of its ancestors is actually linked into our built
+#   binaries (verified via `nm` and `cargo tree --all-features`). But
+#   `cargo audit` reads Cargo.lock unconditionally, so the advisory shows up
+#   as an unfixable vulnerability on every CI run.
+#
+#   This fork removes the `sqlx-mysql` and `sqlx-sqlite` optional dependencies
+#   plus the corresponding `mysql` / `sqlite` / `sqlite-unbundled` features,
+#   which we do not use. The result: the MySQL and SQLite dependency chains
+#   disappear from Cargo.lock entirely, `rsa` with them, and `cargo audit`
+#   stops flagging an advisory that never had a runtime exposure.
+#
+#   Re-syncing with upstream:
+#     1. Download the newer sqlx-macros-core crate tarball from crates.io.
+#     2. Extract into rust/third_party/sqlx-macros-core-nomysql/, overwriting.
+#     3. Apply the same Cargo.toml delta as this file (drop sqlx-mysql +
+#        sqlx-sqlite deps, drop mysql/sqlite/sqlite-unbundled features,
+#        drop sqlx-mysql?/* and sqlx-sqlite?/* from other feature lists).
+#     4. `cargo build --workspace` and `cargo audit` to verify.
+#
+#   If we ever add a MySQL- or SQLite-backed service, remove this fork and
+#   re-evaluate the rsa advisory.
+
+[package]
+edition = "2021"
+name = "sqlx-macros-core"
+version = "0.8.6"
+authors = [
+    "Ryan Leckey <leckey.ryan@gmail.com>",
+    "Austin Bonander <austin.bonander@gmail.com>",
+    "Chloe Ross <orangesnowfox@gmail.com>",
+    "Daniel Akhterov <akhterovd@gmail.com>",
+]
+description = "Macro support core for SQLx, the Rust SQL toolkit. Not intended to be used directly."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/launchbadge/sqlx"
+
+[dependencies.async-std]
+version = "1.12"
+optional = true
+
+[dependencies.dotenvy]
+version = "0.15.7"
+default-features = false
+
+[dependencies.either]
+version = "1.6.1"
+
+[dependencies.heck]
+version = "0.5"
+
+[dependencies.hex]
+version = "0.4.3"
+
+[dependencies.once_cell]
+version = "1.9.0"
+
+[dependencies.proc-macro2]
+version = "1.0.79"
+default-features = false
+
+[dependencies.quote]
+version = "1.0.26"
+default-features = false
+
+[dependencies.serde]
+version = "1.0.132"
+features = ["derive"]
+
+[dependencies.serde_json]
+version = "1.0.73"
+
+[dependencies.sha2]
+version = "0.10.0"
+
+[dependencies.sqlx-core]
+version = "=0.8.6"
+features = ["offline"]
+
+[dependencies.sqlx-postgres]
+version = "=0.8.6"
+features = [
+    "offline",
+    "migrate",
+]
+optional = true
+
+[dependencies.syn]
+version = "2.0.52"
+features = [
+    "full",
+    "derive",
+    "parsing",
+    "printing",
+    "clone-impls",
+]
+default-features = false
+
+[dependencies.tokio]
+version = "1"
+features = [
+    "time",
+    "net",
+    "sync",
+    "fs",
+    "io-util",
+    "rt",
+]
+optional = true
+default-features = false
+
+[dependencies.url]
+version = "2.2.2"
+
+[features]
+_rt-async-std = [
+    "async-std",
+    "sqlx-core/_rt-async-std",
+]
+_rt-tokio = [
+    "tokio",
+    "sqlx-core/_rt-tokio",
+]
+_sqlite = []
+_tls-native-tls = ["sqlx-core/_tls-native-tls"]
+_tls-rustls-aws-lc-rs = ["sqlx-core/_tls-rustls-aws-lc-rs"]
+_tls-rustls-ring-native-roots = ["sqlx-core/_tls-rustls-ring-native-roots"]
+_tls-rustls-ring-webpki = ["sqlx-core/_tls-rustls-ring-webpki"]
+bigdecimal = [
+    "sqlx-core/bigdecimal",
+    "sqlx-postgres?/bigdecimal",
+]
+bit-vec = [
+    "sqlx-core/bit-vec",
+    "sqlx-postgres?/bit-vec",
+]
+chrono = [
+    "sqlx-core/chrono",
+    "sqlx-postgres?/chrono",
+]
+default = []
+derive = []
+ipnet = [
+    "sqlx-core/ipnet",
+    "sqlx-postgres?/ipnet",
+]
+ipnetwork = [
+    "sqlx-core/ipnetwork",
+    "sqlx-postgres?/ipnetwork",
+]
+json = [
+    "sqlx-core/json",
+    "sqlx-postgres?/json",
+]
+mac_address = [
+    "sqlx-core/mac_address",
+    "sqlx-postgres?/mac_address",
+]
+macros = []
+migrate = ["sqlx-core/migrate"]
+postgres = ["sqlx-postgres"]
+rust_decimal = [
+    "sqlx-core/rust_decimal",
+    "sqlx-postgres?/rust_decimal",
+]
+time = [
+    "sqlx-core/time",
+    "sqlx-postgres?/time",
+]
+uuid = [
+    "sqlx-core/uuid",
+    "sqlx-postgres?/uuid",
+]
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+priority = 0
+check-cfg = [
+    'cfg(feature, values("mysql", "sqlite", "sqlite-unbundled"))',
+    'cfg(sqlx_macros_unstable)',
+    'cfg(procmacro2_semver_exempt)',
+]

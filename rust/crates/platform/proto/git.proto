@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package platform;
+
+option go_package = "agentforge/platform/proto";
+
+service GitService {
+  rpc GetStatus(GitGetStatusRequest) returns (GitGetStatusResponse);
+  rpc GetBranch(GitGetBranchRequest) returns (GitGetBranchResponse);
+  rpc StreamStatus(GitStreamStatusRequest) returns (stream GitStatusUpdate);
+}
+
+message GitGetStatusRequest {
+  string working_dir = 1;
+}
+
+message GitGetStatusResponse {
+  string branch = 1;
+  bool has_changes = 2;
+  int32 ahead = 3;
+  int32 behind = 4;
+  repeated string modified_files = 5;
+  int32 staged_count = 6;
+  int32 unstaged_count = 7;
+  int32 untracked_count = 8;
+}
+
+message GitGetBranchRequest {
+  string working_dir = 1;
+}
+
+message GitGetBranchResponse {
+  string branch = 1;
+}
+
+message GitStreamStatusRequest {
+  repeated string working_dirs = 1;
+  int32 poll_interval_ms = 2;
+}
+
+message GitStatusUpdate {
+  string working_dir = 1;
+  GitGetStatusResponse status = 2;
+  int64 timestamp = 3;
+}

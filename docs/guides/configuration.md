@@ -1,0 +1,389 @@
+# Configuration Guide
+
+This guide documents the primary configuration surfaces for the Rust-first runtime. It focuses on variables that operators and contributors change regularly. The code remains the final source of truth for defaults and validation.
+
+## Source of Truth
+
+- `rust/crates/core/src/config.rs` for Rust API configuration
+- `rust/crates/orchestrator/src/config.rs` for Rust orchestrator configuration
+- `rust/crates/api/src/mcp.rs` for internal MCP and container runtime settings
+- `docker/compose.yml` and overlays for deployment wiring
+
+## Configuration Layers
+
+| Layer                              | Surface                                                        | Purpose                                                    |
+| ---------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| Docker and Compose                 | `docker/.env`, `docker/compose*.yml`                           | Ports, passwords, profile wiring, external networks        |
+| Rust API                           | standard env vars such as `PORT`, `DATABASE_URL`, `JWT_SECRET` | User-facing API and realtime service                       |
+| Rust orchestrator                  | `ORCHESTRATOR_*` vars                                          | Tasks, reviews, workflows, knowledge, Temporal integration |
+| Internal MCP and container runtime | `MCP_*`, `CONTAINER_*`, `AGENTFORGE_WORKSPACE_ROOT`            | Agent session execution and workflow activities            |
+
+## Minimum Local Development Values
+
+For the recommended Compose path, run `make bootstrap-local` to create and fill
+these values in `docker/.env`:
+
+- `POSTGRES_PASSWORD`
+- `REDIS_PASSWORD`
+- `JWT_SECRET`
+- `MCP_TOKEN`
+- `API_KEY_SALT`
+- `LLM_ENCRYPTION_KEY`
+- `NATS_BACKEND_PASSWORD`
+- `NATS_AUTH_SERVICE_PASSWORD`
+- `NATS_SYS_PASSWORD`
+- `NATS_CALLOUT_ISSUER_SEED`
+- `NATS_CALLOUT_ACCOUNT_SIGNING_KEY_SEED`
+- `NATS_CALLOUT_XKEY_SEED`
+- `NATS_CALLOUT_ISSUER_PUBLIC`
+- `NATS_CALLOUT_XKEY_PUBLIC`
+
+Common optional values for local clarity:
+
+- `AGENTFORGE_PORT`
+- `BIND_ADDRESS`
+- `ORCHESTRATOR_PORT`
+
+Initial owner creation is not controlled by an environment variable. For a fresh
+database, start the web app and complete the setup/register flow in the browser.
+The example environment files intentionally do not ship a default application
+administrator.
+
+## Rust API Variables
+
+| Variable                          | Default       | Required               | Purpose                                                                                                                                                                                                                            |
+| --------------------------------- | ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                            | `4003`        | No                     | Rust API listen port                                                                                                                                                                                                               |
+| `HOST`                            | `0.0.0.0`     | No                     | Rust API bind host                                                                                                                                                                                                                 |
+| `DATABASE_URL`                    | none          | Yes                    | PostgreSQL connection string                                                                                                                                                                                                       |
+| `REDIS_URL`                       | none          | No                     | Redis connection string                                                                                                                                                                                                            |
+| `PRESENCE_REDIS_ENABLED`          | `false`       | No                     | ADR 0008 Phase 2: serve agent liveness from a Redis TTL key instead of a per-heartbeat PostgreSQL write. Requires `REDIS_URL`; degrades to PostgreSQL if Redis is down. Keep off until the per-beat write is a measured bottleneck |
+| `PARTICIPANT_STALE_AFTER_SECS`    | `90`          | No                     | Seconds with no agent heartbeat before the agent is marked offline (also the Redis presence key TTL when Phase 2 is on). Keep ~3x the sidecar heartbeat interval                                                                   |
+| `PARTICIPANT_SWEEP_INTERVAL_SECS` | `30`          | No                     | How often the participant offline sweep runs                                                                                                                                                                                       |
+| `NATS_URL`                        | none          | No                     | NATS connection string                                                                                                                                                                                                             |
+| `JWT_SECRET`                      | none          | Yes                    | JWT signing secret; must be at least 32 characters                                                                                                                                                                                 |
+| `JWT_EXPIRY_SECONDS`              | `900`         | No                     | Access token lifetime in seconds                                                                                                                                                                                                   |
+| `ENVIRONMENT`                     | `development` | No                     | Runtime mode                                                                                                                                                                                                                       |
+| `LOG_LEVEL`                       | `info`        | No                     | Tracing filter                                                                                                                                                                                                                     |
+| `CORS_ORIGIN`                     | none          | Required in production | Allowed browser origin for production CORS                                                                                                                                                                                         |
+
+`NODE_ENV` may still appear in Compose or frontend tooling, but the Rust API configuration source of truth is `ENVIRONMENT`.
+
+## Local Agent Join Variables
+
+These control the one-command Host CLI join flow
+(see [Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md)).
+
+| Variable                    | Default                           | Required | Purpose                                                                                                                                                                            |
+| --------------------------- | --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_URL`                   | none                              | No       | Public URL of this deployment; required for the join commands to be generated                                                                                                      |
+| `NATS_AGENT_URL`            | none                              | No       | NATS address reachable from operator machines; must be `tls://` unless plaintext is explicitly allowed                                                                             |
+| `NATS_CONTAINER_URL`        | falls back to `NATS_AGENT_URL`    | No       | NATS address reachable from agent containers on the Docker network (e.g. `nats://agentforge-nats:4222`); set it when the host firewall blocks containers from the public NATS port |
+| `ALLOW_PLAINTEXT_HOST_NATS` | `false`                           | No       | Permit `nats://` (plaintext) Host CLI enrollment — isolated dev/test only                                                                                                          |
+| `HOST_JOIN_BINARY_BASE_URL` | this repo's GitHub latest release | No       | Where the join script downloads `agentforge-sidecar` binaries; point at an internal mirror for air-gapped deployments                                                              |
+
+## Attachment Storage Variables
+
+The Rust API owns attachment metadata and object access. Metadata is stored in
+PostgreSQL; bytes are stored through the configured object storage provider.
+
+| Variable                        | Default                      | Required                        | Purpose                                              |
+| ------------------------------- | ---------------------------- | ------------------------------- | ---------------------------------------------------- |
+| `STORAGE_PROVIDER`              | `local`                      | No                              | Attachment object provider: `local` or `minio`       |
+| `STORAGE_LOCAL_PATH`            | `~/.agentforge/data/uploads` | Required for local provider     | Local object root used when `STORAGE_PROVIDER=local` |
+| `STORAGE_MAX_FILE_SIZE`         | `10485760`                   | No                              | Maximum upload size in bytes                         |
+| `STORAGE_MAX_FILES_PER_SESSION` | `20`                         | No                              | Per-agent attachment count guard                     |
+| `STORAGE_SIGNED_URL_EXPIRY`     | `3600`                       | No                              | Signed URL expiry contract for object providers      |
+| `MINIO_ENDPOINT`                | none                         | Required when provider is MinIO | S3-compatible endpoint, for example `minio:9000`     |
+| `MINIO_ACCESS_KEY`              | none                         | Required when provider is MinIO | MinIO/S3 access key                                  |
+| `MINIO_SECRET_KEY`              | none                         | Required when provider is MinIO | MinIO/S3 secret key                                  |
+| `MINIO_BUCKET`                  | `agentforge`                 | No                              | Object bucket                                        |
+| `MINIO_USE_SSL`                 | `false`                      | No                              | Use HTTPS for MinIO/S3 access                        |
+| `MINIO_REGION`                  | none                         | No                              | Optional S3 region                                   |
+
+Compose overrides the local-path default to `/var/lib/agentforge/uploads` and
+mounts the `agentforge-uploads` named volume there so the Rust API can keep a
+read-only root filesystem. When `STORAGE_PROVIDER=minio`, set the three required
+MinIO values and start the `storage` profile if MinIO is managed by this stack.
+
+## Rust Orchestrator Variables
+
+| Variable                                     | Default                                    | Required                          | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------- | ------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORCHESTRATOR_PORT`                          | `4010`                                     | No                                | Orchestrator listen port                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `ORCHESTRATOR_HOST`                          | `0.0.0.0`                                  | No                                | Orchestrator bind host                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `ORCHESTRATOR_DATABASE_URL`                  | empty                                      | Yes in live mode                  | Orchestrator PostgreSQL connection                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ORCHESTRATOR_LOG_LEVEL`                     | `info`                                     | No                                | Tracing filter                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `ORCHESTRATOR_INTERNAL_TOKEN`                | none                                       | Recommended                       | Internal auth for live workflow and service-to-service calls                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `ORCHESTRATOR_JWT_SIGNING_KEY`               | none                                       | Optional                          | JWT auth mode signing key; if set, must be valid hex and decode to at least 32 bytes                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `ORCHESTRATOR_NATS_URL`                      | falls back to `NATS_URL`, else none        | Optional                          | NATS server URL that enables the realtime relay to the frontend. When set, the orchestrator also publishes its realtime events (`workflow:status`, `workflow:node_status`, `review.escalated`) to `broadcast.{org_id}`, which the Rust API forwards to browser clients. Without it the orchestrator runs in-process-only and the browser never sees these events. Must be a BACKEND NATS credential (same as the API/jobs publishers): `broadcast.>` publish is denied to per-agent sidecar credentials |
+| `ORCHESTRATOR_MCP_ENDPOINT`                  | `http://localhost:4003/mcp`                | No                                | Rust API MCP endpoint used by workflow activities                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ORCHESTRATOR_MCP_TOKEN`                     | empty                                      | Required when Temporal is enabled | Shared token for internal MCP calls                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ORCHESTRATOR_TEMPORAL_ENABLED`              | `false` in code, `true` in default Compose | No                                | Enables live Temporal runtime                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `ORCHESTRATOR_TEMPORAL_HOST`                 | `localhost:7233`                           | No                                | Temporal frontend address                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `ORCHESTRATOR_TEMPORAL_NAMESPACE`            | `orchestrator`                             | No                                | Temporal namespace                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ORCHESTRATOR_TEMPORAL_CONNECT_TIMEOUT_SECS` | `10`                                       | No                                | Bounded preflight timeout for the boot-time Temporal connect. On timeout or connect failure the orchestrator no longer aborts startup — it serves in degraded (API-only) mode and `/health` reports `workflowRuntime: "unreachable"`                                                                                                                                                                                                                                                                    |
+| `ORCHESTRATOR_DISPATCH_TIMEOUT_SECS`         | `3600`                                     | No                                | TTL in seconds for `task_dispatches` rows stuck in `queued` or `starting` state; the dispatch reaper flips them to `failed` after this interval                                                                                                                                                                                                                                                                                                                                                         |
+| `ORCHESTRATOR_REVIEW_ESCALATION_ENABLED`     | `false`                                    | No                                | Opt-in. When `true`, the orchestrator runs the overdue review escalation reaper, which flags non-terminal reviews past their SLA grace window (`escalated_at`), writes a `review.escalated` audit log, and emits a realtime event. It never changes a review's verdict state                                                                                                                                                                                                                            |
+| `ORCHESTRATOR_REVIEW_ESCALATION_GRACE_SECS`  | `3600`                                     | No                                | Grace period in seconds past a review's `due_at` before the escalation reaper flags it; lets a reviewer who is slightly over SLA finish without an escalation                                                                                                                                                                                                                                                                                                                                           |
+| `ORCHESTRATOR_OPENSEARCH_ENABLED`            | `false`                                    | No                                | Enables OpenSearch-backed knowledge search                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `ORCHESTRATOR_OPENSEARCH_URL`                | `http://localhost:9200`                    | No                                | OpenSearch endpoint                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ORCHESTRATOR_EMBEDDING_API_URL`             | empty                                      | Optional                          | Embedding provider endpoint                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ORCHESTRATOR_EMBEDDING_API_KEY`             | empty                                      | Optional                          | Embedding provider secret                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `ORCHESTRATOR_EMBEDDING_MODEL`               | `text-embedding-3-small`                   | No                                | Embedding model name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+### Orchestration readiness
+
+The orchestrator's public `/health` endpoint reports a `workflowRuntime` field so
+operators can tell the difference between "API up, workflows running" and "API up,
+workflows down":
+
+- `up` — Temporal connected and the workflow worker is running.
+- `disabled` — Temporal is intentionally off (`ORCHESTRATOR_TEMPORAL_ENABLED=false`)
+  or no store is configured.
+- `unreachable` — Temporal is enabled but could not be reached within
+  `ORCHESTRATOR_TEMPORAL_CONNECT_TIMEOUT_SECS` at boot. The process keeps serving
+  read paths instead of crash-looping; workflows are paused until Temporal recovers.
+  Fix Temporal (host/namespace are logged at boot), then restart the orchestrator.
+
+## Internal MCP and Container Runtime Variables
+
+| Variable                      | Default                                    | Purpose                                                    |
+| ----------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| `MCP_ENABLED`                 | `false` in code, `true` in default Compose | Enables the Rust API internal MCP bridge                   |
+| `MCP_TOKEN`                   | none                                       | Shared token for trusted MCP callers                       |
+| `AGENTFORGE_WORKSPACE_ROOT`   | `/data/agentforge/workspaces`              | Root path for managed workspaces                           |
+| `CONTAINER_AGENT_IMAGE`       | `agentforge-agent:latest`                  | Default agent image                                        |
+| `CONTAINER_IMAGE_CLAUDE`      | falls back to default image                | Claude-specific agent image                                |
+| `CONTAINER_IMAGE_OPENCODE`    | empty                                      | OpenCode-specific image override                           |
+| `CONTAINER_IMAGE_CODEX`       | empty                                      | Codex-specific image override                              |
+| `CONTAINER_IMAGE_GEMINI`      | empty                                      | Gemini-specific image override                             |
+| `CONTAINER_ANTHROPIC_API_KEY` | empty                                      | Injected provider credential for Claude agent images       |
+| `CONTAINER_OPENAI_API_KEY`    | empty                                      | Injected provider credential for Codex/OpenAI agent images |
+| `CONTAINER_GOOGLE_API_KEY`    | empty                                      | Injected provider credential for Gemini agent images       |
+
+Public releases publish pre-built `agent-base`, `agent-opencode`,
+`agent-codex`, and `agent-gemini` images to
+`ghcr.io/wisdoverse/wisdoverse-forge`. Run `make update-agents` to pull and tag
+them locally as `agentforge-agent:<tool>`. `agent-base` follows
+`GHCR_IMAGE_TAG` (`main` by default), while the redistributable CLI overlay
+images use `latest`. Public releases intentionally exclude `agent-claude`; build
+it locally with `make build-agent CLI_TOOL=claude` after accepting the vendor
+terms, or pull it from a private registry only when your third-party terms
+permit redistribution.
+
+When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
+
+## CLI Agent Image Updater Variables
+
+These variables control the background CLI agent-image auto-updater. When it is
+enabled, a worker periodically pulls newer Container CLI overlay images so newly
+spawned agents start on the current CLI. Running agents are never touched; only
+the image the next spawn resolves is refreshed.
+
+Prerequisites: set `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` and make Docker available
+to the Rust API service (the same requirement as `MCP_ENABLED=true`). The updater
+is deployment-global and has no tenant scope, because image state is per host.
+
+| Variable                                  | Default                               | Purpose                                                                                                                                                  |
+| ----------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLI_IMAGE_AUTO_UPDATE_ENABLED`           | `false`                               | Enables the background CLI agent-image auto-updater                                                                                                      |
+| `CLI_IMAGE_AUTO_UPDATE_INTERVAL_SECS`     | `900`                                 | Registry poll interval in seconds (15 min); clamped to a 60-second minimum                                                                               |
+| `CLI_IMAGE_PRUNE_ENABLED`                 | `false`                               | Prunes superseded dangling agent overlays after each sweep; only runs when auto-update is on                                                             |
+| `CLI_IMAGE_CLAUDE_AUTO_BUILD`             | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
+| `CLI_IMAGE_NPM_REGISTRY`                  | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
+| `AGENT_REGISTRY`                          | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
+| `AGENT_CLI_IMAGE_TAG`                     | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
+| `AGENT_CONTAINER_RECONCILE_ENABLED`       | `true`                                | Periodic backstop that clears `agents.container_id` references whose container has vanished; no-ops without a Docker runtime                             |
+| `AGENT_CONTAINER_RECONCILE_INTERVAL_SECS` | `300`                                 | Reconcile sweep interval in seconds; must be greater than 0                                                                                              |
+
+Success looks like newly spawned agents picking up the current CLI overlay
+without an operator running `make update-agents` by hand. Confirm status at the
+admin-only `GET /api/v1/admin/cli-images` endpoint, which surfaces the resolved
+`registry`, `imageTag`, and `pollIntervalSecs`, plus per-tool digests and prune
+counters (JSON is camelCase).
+`claude` is excluded from the registry poll set because it has no public
+registry image (the license requires a self-build). Instead, the same sweep
+compares the local `agentforge-agent:claude` image's version label against the
+npm registry and reports `update_available` in the admin panel, where one click
+builds the image on the server — or set `CLI_IMAGE_CLAUDE_AUTO_BUILD=true` to
+build with zero clicks. See the "Claude (local build)" section of
+`docs/guides/cli-image-auto-update.md`.
+
+When `CLI_IMAGE_PRUNE_ENABLED=true`, the prune pass runs inside the updater loop
+and is image-level only: it removes solely the deployment's own dangling agent
+overlays that no running or stopped container references, and never touches
+containers. See `docs/guides/cli-image-auto-update.md` for the full operator
+guide, including the operator-initiated image roll.
+
+## Project Git Clone Variables
+
+These variables control the project-git-clone feature: an optional "Git
+repository URL" on project create that the platform clones into the project's
+workspace directory using a short-lived, locked-down `agentforge-clone`
+container. See [`docs/guides/project-git-clone.md`](project-git-clone.md) for the
+operator/user guide and [`docs/runbooks/clone-egress-firewall.md`](../runbooks/clone-egress-firewall.md)
+for the required deploy-layer egress firewall.
+
+Prerequisites: Docker must be available to the Rust API service (the same
+requirement as `MCP_ENABLED=true`), and — if your host can reach an internal
+network — the egress firewall from the runbook must be applied. Build the clone
+image once with `make build-clone` (also built by `make build-agent-all`).
+
+| Variable                       | Default                         | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROJECT_CLONE_WORKER_ENABLED` | `true`                          | Enables the clone worker + reconciler. When on, the worker starts only if a Docker daemon is available. Set `false` to disable project cloning entirely (e.g. an air-gapped deployment).                                                                                                                                                                                                                                          |
+| `PROJECT_CLONE_IMAGE`          | `agentforge-clone:latest`       | Image ref the worker launches per clone. Override to pin a digest or a registry copy.                                                                                                                                                                                                                                                                                                                                             |
+| `PROJECT_CLONE_SECRET_ROOT`    | `/tmp/agentforge/clone-secrets` | Backend-controlled secret root (created mode `0700`) the per-clone credential file is materialized under, OUTSIDE the projects/workspace tree that agent containers bind. Confidentiality is the `0700` root.                                                                                                                                                                                                                     |
+| `PROJECT_CLONE_TIMEOUT_SECS`   | `600`                           | Hard wall-clock timeout per clone, in seconds (10 min). Also sizes the worker's lease TTL (`timeout + 300s`), heartbeat (≈⅓ of the lease), and the orphan-container sweep ceiling.                                                                                                                                                                                                                                                |
+| `SELF_FIX_PR_WORKER_ENABLED`   | `true`                          | Enables the self-fix PR-bridge worker. When on, a task that completes with `self_fix = true` auto-enqueues a `self_fix_pr` job — in the same transaction as the completion, so the trigger is never lost and never fires for an uncommitted completion — and the worker opens its draft PR via the GitHub App. The worker no-ops with a visible error when the GitHub App is unconfigured. Set `false` to keep PR opening manual. |
+
+Success looks like a project created with a public `https://github.com/...` URL
+reaching the **Ready** clone status, with the repository checked out under the
+workspace directory shown on the create form. A clone whose URL points at a
+private/internal address is rejected at create with a validation error (the
+in-app SSRF deny-list), and — with the egress firewall applied — a DNS-rebinding
+URL that slips past the deny-list still fails closed at the network layer.
+
+Other clone limits (max retry attempts, retry backoff, lease/heartbeat cadence,
+reconcile interval) are derived from `PROJECT_CLONE_TIMEOUT_SECS` or fixed
+compile-time defaults (3 attempts, 30s base backoff) and are not separate
+environment variables in this version.
+
+The clone worker writes to the workspace projects root resolved from
+`AGENTFORGE_WORKSPACE_ROOT` (see the section above); the per-clone staging
+directory and the final atomic rename both live on that same filesystem.
+
+## Self-Fix Loop Variables
+
+These variables enable the human-gated self-fix loop: an agent proposes a code
+change to this repository as a GitHub draft pull request that an operator reviews
+and merges from inside the app. See
+[`docs/guides/self-fix-loop.md`](self-fix-loop.md) for the operator guide and
+[`docs/security/self-fix-loop.md`](../security/self-fix-loop.md) for the safety
+model.
+
+The four `GITHUB_APP_*` variables are **all-or-none**: set all four to enable the
+loop, or leave all four unset to disable it. Setting only some fails startup so
+the loop can never boot half-wired. `LLM_ENCRYPTION_KEY` (see above) must be set
+— the private key is encrypted at rest.
+
+| Variable                     | Default                   | Required          | Purpose                                                                                                                                                                 |
+| ---------------------------- | ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_APP_ID`              | none                      | All four together | GitHub App identifier used to mint installation tokens and open/merge PRs                                                                                               |
+| `GITHUB_APP_INSTALLATION_ID` | none                      | All four together | Installation identifier (the per-account install of the App) that scopes the minted token                                                                               |
+| `GITHUB_APP_PRIVATE_KEY`     | none                      | All four together | App private key. Base64-encoded PEM (env-safe single line) is preferred; raw PEM starting with `-----BEGIN` is also accepted. Stored encrypted via `LLM_ENCRYPTION_KEY` |
+| `GITHUB_APP_REPO`            | none                      | All four together | `owner/repo` the self-fix loop targets                                                                                                                                  |
+| `SELF_FIX_WORK_DIR`          | `/tmp/agentforge-selffix` | No                | Server-owned scratch root for the per-task clone the Bridge builds the PR from. Never inside an agent `/workspace`. One ephemeral subdirectory per task                 |
+
+The GitHub App needs repository permissions **Contents: Read and write** and
+**Pull requests: Read and write**. Success looks like a self-fix task reaching a
+draft PR you can Approve from the task's **Review** tab; the server squash-merges
+the exact reviewed commit and posts an audit comment. Sensitive-path changes are
+server-side hard-refused from in-platform merge and routed to a human maintainer.
+
+## Compose-Level Deployment Variables
+
+| Variable                     | Typical Use                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTFORGE_PORT`            | Host port mapping for the Rust API                                                                                           |
+| `AGENTFORGE_HOST_PORT`       | Optional host-only override for the Rust API published port; the container still listens on `4003`                           |
+| `ORCHESTRATOR_PORT`          | Host port mapping for the Rust orchestrator                                                                                  |
+| `BIND_ADDRESS`               | Bind scope for published ports                                                                                               |
+| `CONTAINER_NAME_PREFIX`      | Optional Compose container-name prefix for running an isolated second stack on the same host                                 |
+| `APP_HOST`                   | Public host served by Caddy in the self-contained `prod` profile                                                             |
+| `HTTP_PORT` / `HTTPS_PORT`   | Public Caddy port mappings for the `prod` profile; non-443 HTTPS ports are included in generated `APP_URL` and `CORS_ORIGIN` |
+| `POSTGRES_PASSWORD`          | Internal PostgreSQL password for dev or prod profiles                                                                        |
+| `REDIS_PASSWORD`             | Internal Redis password for dev or prod profiles                                                                             |
+| `NATS_BACKEND_PASSWORD`      | Backend NATS user password                                                                                                   |
+| `NATS_AUTH_SERVICE_PASSWORD` | NATS auth callout service password                                                                                           |
+| `NATS_SYS_PASSWORD`          | SYS-account password for monitoring and targeted KICK                                                                        |
+| `NATS_CALLOUT_*`             | Issuer, account-signing, and XKey material for NATS auth callout                                                             |
+| `MCP_TOKEN`                  | Shared token used by the Rust API and orchestrator                                                                           |
+| `EXTERNAL_NETWORK`           | External Docker network name for the `external` profile                                                                      |
+| `STORAGE_PROVIDER`           | Attachment object storage provider                                                                                           |
+| `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                                                                             |
+| `MINIO_*`                    | MinIO/S3 settings when using the `storage` profile                                                                           |
+
+## Mainstream China-Region LLM Providers
+
+The LLM gateway ships first-class entries for the mainstream Chinese model
+vendors. You do not need environment variables for these. Open
+Settings -> Providers, choose Add Provider, pick the vendor entry, paste the
+API key, and save — the matching vendor endpoint is filled in for you.
+
+Two things matter before you pick an entry:
+
+- Each vendor sells two separate products. The plain entry (for example
+  `zhipu`) takes the vendor's pay-as-you-go API key and talks to its
+  OpenAI-compatible endpoint. The Coding Plan entry (for example
+  `zhipu_coding`) takes the vendor's coding subscription key and talks to its
+  Anthropic-compatible endpoint. The keys are different products and are not
+  interchangeable — use the key from the product you bought.
+- The default Base URL is the China endpoint. If your account lives on the
+  vendor's global/international platform, paste the global endpoint from the
+  table below into the Base URL field. The Providers form shows the same
+  global URL as a hint under the field.
+
+| Provider entry                                | Product           | China endpoint (default)                               | Global endpoint (paste into Base URL)                       |
+| --------------------------------------------- | ----------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| Zhipu GLM (`zhipu`)                           | Pay-as-you-go API | `https://open.bigmodel.cn/api/paas/v4`                 | `https://api.z.ai/api/paas/v4`                              |
+| Zhipu GLM Coding Plan (`zhipu_coding`)        | Coding Plan       | `https://open.bigmodel.cn/api/anthropic`               | `https://api.z.ai/api/anthropic`                            |
+| MiniMax (`minimax`)                           | Pay-as-you-go API | `https://api.minimaxi.com/v1`                          | `https://api.minimax.io/v1`                                 |
+| MiniMax Coding Plan (`minimax_coding`)        | Coding Plan       | `https://api.minimaxi.com/anthropic`                   | `https://api.minimax.io/anthropic`                          |
+| Moonshot Kimi (`moonshot`)                    | Pay-as-you-go API | `https://api.moonshot.cn/v1`                           | `https://api.moonshot.ai/v1`                                |
+| Moonshot Kimi Coding Plan (`moonshot_coding`) | Coding Plan       | `https://api.moonshot.cn/anthropic`                    | `https://api.moonshot.ai/anthropic`                         |
+| Alibaba Qwen (`dashscope`)                    | Pay-as-you-go API | `https://dashscope.aliyuncs.com/compatible-mode/v1`    | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`    |
+| Alibaba Qwen Coding Plan (`dashscope_coding`) | Coding Plan       | `https://coding.dashscope.aliyuncs.com/apps/anthropic` | `https://coding-intl.dashscope.aliyuncs.com/apps/anthropic` |
+| Tencent Hunyuan (`hunyuan`)                   | Pay-as-you-go API | `https://api.hunyuan.cloud.tencent.com/v1`             | None — China endpoint only today                            |
+| Xiaomi MiMo (`xiaomi`)                        | Pay-as-you-go API | `https://api.xiaomimimo.com/v1`                        | Same host serves all regions                                |
+| Xiaomi MiMo Coding Plan (`xiaomi_coding`)     | Coding Plan       | `https://api.xiaomimimo.com/anthropic`                 | See the Xiaomi note below                                   |
+
+Success looks like: after saving, the provider row's Test button returns
+"Connection ready", and the provider appears when creating a Provider + Prompt
+agent.
+
+Notes:
+
+- Tencent Hunyuan has no Anthropic-compatible coding endpoint today, so there
+  is no `hunyuan_coding` entry.
+- Xiaomi MiMo Token Plan subscribers receive a dedicated endpoint host from
+  the Xiaomi console (for example `token-plan-cn.xiaomimimo.com`). If your
+  console shows one, paste it into the Base URL field instead of the default.
+- Common vendor spellings work as aliases when calling the API directly:
+  `glm`/`bigmodel`/`z-ai` resolve to `zhipu`, `kimi` to `moonshot`,
+  `qwen`/`alibaba`/`aliyun` to `dashscope`, `mimo` to `xiaomi`, and `tencent`
+  to `hunyuan`. The same aliases with a `_coding` suffix resolve to the
+  matching Coding Plan entry.
+
+## Choosing a Model (Live Discovery)
+
+When you add or edit an AI service in Settings → AI services, the model field
+offers the provider's common models as clickable chips, and you can always type
+any model name yourself.
+
+To pull the provider's current model list instead of the built-in one:
+
+1. Pick the AI service and paste the service access key (and Base URL, if your
+   service uses a custom one).
+2. Select **Find available models**.
+3. The chips refresh with the live list and the form shows "Live list from the
+   service". The model field still accepts any custom name.
+
+What success looks like: the chips update to the provider's current models and
+the note reads "Live list from the service".
+
+If discovery cannot reach the provider (no key yet, an unreachable or private
+Base URL, or a provider that does not publish a model list), the form keeps the
+built-in list and shows a short "Showing the built-in models" note — adding the
+service still works normally. Discovery only contacts public HTTPS endpoints;
+private, loopback, and metadata addresses are refused. Results are cached
+briefly so repeated lookups are fast.
+
+## Guidance
+
+- Keep `MCP_TOKEN`, `ORCHESTRATOR_MCP_TOKEN`, and `ORCHESTRATOR_INTERNAL_TOKEN` aligned in trusted deployments.
+- Use separate database URLs or logical databases for the Rust API and orchestrator domains.
+- Keep `STORAGE_LOCAL_PATH` aligned with the Compose volume mount when using local attachment storage.
+- Treat all secrets as deployment-managed values; do not hardcode them in scripts or examples.
+- If you add or rename a runtime variable, update this guide and the corresponding startup or deployment doc in the same change.

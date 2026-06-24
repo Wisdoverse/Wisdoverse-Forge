@@ -1,0 +1,159 @@
+import { describe, expect, test } from 'vitest'
+import { gitCredentialsErrorMessage } from '@app/features/settings/gitCredentialsErrorMessage'
+
+describe('gitCredentialsErrorMessage', () => {
+  function expectBeginnerMessage(actual: string, expected: string): void {
+    expect(actual).toBe(expected)
+    expect(actual).not.toContain('Code:')
+    expect(actual).not.toContain('Details:')
+    expect(actual).not.toContain('HTTP')
+  }
+
+  test('turns invalid token details into code access key guidance', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('Settings could not save Git credential. Details: invalid token'),
+      'Paste a new code access key from GitHub or GitLab, then save again.'
+    )
+  })
+
+  test('maps nested invalid token details to key guidance', () => {
+    const message = gitCredentialsErrorMessage({
+      error: { message: 'invalid token' },
+    })
+
+    expectBeginnerMessage(
+      message,
+      'Paste a new code access key from GitHub or GitLab, then save again.'
+    )
+    expect(message).not.toContain('invalid token')
+  })
+
+  test('turns validation failures into clear fields to check', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('Code: 422 Details: invalid provider'),
+      'Choose GitHub or GitLab, then save code access again.'
+    )
+  })
+
+  test('turns invalid address failures into an address step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('HTTP 422: invalid host'),
+      'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
+    )
+  })
+
+  test('turns permission failures into an owner or admin next step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('HTTP 403'),
+      'Ask an owner or admin to let you manage code access.'
+    )
+  })
+
+  test('turns role-required failures into an owner or admin next step', () => {
+    const message = gitCredentialsErrorMessage('owner role required')
+
+    expectBeginnerMessage(message, 'Ask an owner or admin to let you manage code access.')
+    expect(message).not.toContain('owner role required')
+  })
+
+  test('turns unconfigured providers into a Code access recovery step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage('provider is not configured'),
+      'Ask an owner or admin to check code access settings, then open Settings and Code access again.'
+    )
+  })
+
+  test('turns delete failures into a remove-specific next step', () => {
+    const message = gitCredentialsErrorMessage('Settings could not delete Git credential. HTTP 500')
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Code access again, then remove code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('temporarily unavailable')
+    expect(message).not.toContain('Code access could not be removed')
+  })
+
+  test('turns load server failures into Settings recovery guidance', () => {
+    const message = gitCredentialsErrorMessage('HTTP 500')
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+  })
+
+  test('keeps unformatted service failures on the Code access recovery path', () => {
+    const message = gitCredentialsErrorMessage(
+      new Error('database unavailable while saving token')
+    )
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Code access again, then save code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('Paste a new code access key')
+  })
+
+  test('turns network failures into a connection step', () => {
+    const message = gitCredentialsErrorMessage(new TypeError('Failed to fetch'))
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then open Settings and Code access again. Forge could not connect while opening code access.'
+    )
+    expect(message).not.toContain('service')
+    expect(message).not.toContain('Failed to fetch')
+  })
+
+  test('starts save network failures with the recovery step', () => {
+    const message = gitCredentialsErrorMessage('saving code access failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then save code access again. The save did not finish.'
+    )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening code access')
+  })
+
+  test('starts remove network failures with the recovery step', () => {
+    const message = gitCredentialsErrorMessage('removing code access failed: Network error')
+
+    expectBeginnerMessage(
+      message,
+      'Check your connection, then remove code access again. The removal did not finish.'
+    )
+    expect(message).not.toContain('Network error')
+    expect(message).not.toContain('opening code access')
+  })
+
+  test('turns structured rate limits into a wait and retry step', () => {
+    expectBeginnerMessage(
+      gitCredentialsErrorMessage({ statusCode: '429' }),
+      'Wait a minute, then open Settings and Code access again. Forge is receiving too many code access requests right now.'
+    )
+  })
+
+  test('turns unknown details into an owner or admin setup step', () => {
+    const message = gitCredentialsErrorMessage({ message: 'unexpected vault parse failure' })
+
+    expectBeginnerMessage(
+      message,
+      'Open Settings and Code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('vault')
+  })
+
+  test('uses a direct save step for unknown save failures', () => {
+    const message = gitCredentialsErrorMessage({ message: 'saving code access hit vault edge' })
+
+    expectBeginnerMessage(
+      message,
+      'Save code access again. If it still fails, ask an owner or admin to check code access settings.'
+    )
+    expect(message).not.toContain('Try to')
+    expect(message).not.toContain('vault')
+  })
+})

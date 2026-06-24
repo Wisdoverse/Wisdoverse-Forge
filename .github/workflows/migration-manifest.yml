@@ -1,0 +1,45 @@
+name: Migration Manifest
+
+# Runs whenever a PR touches a migration file in any crate that ships an
+# embedded migration set. Regenerates the SHA-256 manifest from the committed
+# *.sql files and fails if it differs from that crate's MANIFEST.sha256.
+#
+# To fix a failing check locally, regenerate the manifest for the crate that
+# changed, e.g.:
+#   cd rust/crates/db/migrations           # or rust/crates/orchestrator/migrations
+#   sha256sum *.sql > MANIFEST.sha256
+#   git add MANIFEST.sha256 && git commit -m "chore: update migration manifest"
+
+on:
+  pull_request:
+    paths:
+      - 'rust/crates/db/migrations/**'
+      - 'rust/crates/orchestrator/migrations/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify MANIFEST.sha256
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - rust/crates/db/migrations
+          - rust/crates/orchestrator/migrations
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Regenerate and compare manifest
+        run: |
+          cd "${{ matrix.dir }}"
+          sha256sum *.sql | sort > /tmp/manifest.computed
+          sort MANIFEST.sha256 > /tmp/manifest.committed
+          if ! diff -u /tmp/manifest.committed /tmp/manifest.computed; then
+            echo "::error file=${{ matrix.dir }}/MANIFEST.sha256::MANIFEST.sha256 does not match ${{ matrix.dir }}/*.sql contents"
+            echo "::error::Run: cd ${{ matrix.dir }} && sha256sum *.sql > MANIFEST.sha256"
+            exit 1
+          fi
+          echo "${{ matrix.dir }}/MANIFEST.sha256 is up to date."

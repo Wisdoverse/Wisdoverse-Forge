@@ -1,0 +1,89 @@
+# =============================================================================
+# Promote staging → production with soak gate
+# =============================================================================
+# Manual workflow that gates production promotion behind a configurable
+# staging soak window. The soak script (`scripts/staging-soak.sh`, added in
+# PR #26) runs a health-probe loop against staging; this workflow wraps that
+# loop and exits 0 only when the window stays clean. Operators can then point
+# the existing `Release` workflow at the same tag with confidence the build
+# was actually exercised before going live.
+#
+# Default soak: 1h, 60s probe interval, 3-failure abort threshold. The full
+# 24h enterprise window is the script default and is more than this workflow
+# can realistically run in a single Action job (6h job timeout). For the long
+# window, deploy `scripts/staging-soak.sh` to a long-running runner / systemd
+# unit and have it call `gh workflow run release.yml` on success.
+#
+# Trigger: `workflow_dispatch` only. Production promotion is intentionally a
+# human-in-the-loop action — pick the tag, watch the soak, then dispatch the
+# release.
+# =============================================================================
+
+name: Promote to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Health URL to probe (overrides the SOAK_TARGET_URL repo secret if set)'
+        required: false
+        type: string
+      duration_seconds:
+        description: 'Soak window in seconds (default: 3600 = 1h)'
+        required: false
+        default: '3600'
+        type: string
+      max_failures:
+        description: 'Cumulative failures before aborting (default: 3)'
+        required: false
+        default: '3'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  soak:
+    name: Staging soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # GitHub-hosted job ceiling
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Resolve soak target
+        id: resolve
+        env:
+          MANUAL_URL: ${{ inputs.target_url }}
+          SECRET_URL: ${{ secrets.SOAK_TARGET_URL }}
+        run: |
+          URL="${MANUAL_URL:-$SECRET_URL}"
+          if [ -z "$URL" ]; then
+            echo "::error::SOAK_TARGET_URL secret is unset and no manual target was provided."
+            exit 1
+          fi
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run staging soak
+        env:
+          SOAK_TARGET_URL: ${{ steps.resolve.outputs.url }}
+          SOAK_DURATION_SECONDS: ${{ inputs.duration_seconds }}
+          SOAK_MAX_FAILURES: ${{ inputs.max_failures }}
+          SOAK_INTERVAL_SECONDS: '60'
+        run: bash scripts/staging-soak.sh
+
+      - name: Summarise green soak
+        if: success()
+        run: |
+          echo "## ✅ Staging soak passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- window: ${{ inputs.duration_seconds }}s" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promote with: \`gh workflow run release.yml -f version=<tag>\`" >> "$GITHUB_STEP_SUMMARY"

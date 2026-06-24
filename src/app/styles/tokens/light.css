@@ -1,0 +1,152 @@
+/* =============================================================================
+   Light Theme Tokens
+   =============================================================================
+   Apple/Linear inspired light theme.
+   Pure white backgrounds, subtle gray hierarchy, refined shadows, high contrast.
+*/
+
+[data-theme='light'],
+.light-theme {
+  /* -----------------------------------------------------------------------------
+     Background Colors
+     ----------------------------------------------------------------------------- */
+  --color-bg-primary: var(--primitive-white); /* Main app background */
+  --color-bg-surface: var(--primitive-white); /* Cards, panels */
+  --color-bg-subtle: var(--primitive-gray-100); /* #f5f5f7 - Apple gray */
+  --color-bg-muted: var(--primitive-gray-150); /* #e8e8ed - Deeper gray */
+  --color-bg-elevated: var(--primitive-white); /* Elevated elements (modals) */
+  --color-bg-hover: var(--primitive-alpha-black-4); /* Hover state */
+  --color-bg-active: var(--primitive-alpha-black-6); /* Active/pressed state */
+  --color-bg-selected: var(--primitive-alpha-black-6); /* Selected state */
+
+  /* -----------------------------------------------------------------------------
+     Text Colors
+     ----------------------------------------------------------------------------- */
+  --color-text-primary: var(--primitive-gray-900); /* #1d1d1f - Apple black */
+  --color-text-secondary: #424245; /* Secondary text */
+  --color-text-muted: var(--primitive-gray-400); /* #86868b - Muted text */
+  --color-text-disabled: var(--primitive-gray-300); /* #aeaeb2 - Disabled */
+  --color-text-placeholder: var(--primitive-gray-400); /* Placeholder text */
+  --color-text-inverse: var(--primitive-white); /* Text on dark backgrounds */
+
+  /* -----------------------------------------------------------------------------
+     Border Colors
+     ----------------------------------------------------------------------------- */
+  --color-border-default: var(--primitive-alpha-black-10); /* Default borders */
+  --color-border-subtle: var(--primitive-alpha-black-6); /* Subtle borders */
+  --color-border-strong: var(--primitive-alpha-black-15); /* Emphasized borders */
+  --color-border-focus: var(--primitive-violet-600); /* Focus ring */
+
+  /* -----------------------------------------------------------------------------
+     Accent Colors (Brand)
+     ----------------------------------------------------------------------------- */
+  --color-accent: var(--primitive-violet-600); /* #7c3aed */
+  --color-accent-hover: var(--primitive-violet-700); /* #6d28d9 */
+  --color-accent-active: var(--primitive-violet-800); /* #5b21b6 */
+  --color-accent-subtle: rgba(124, 58, 237, 0.08);
+  --color-accent-subtle-hover: rgba(124, 58, 237, 0.12);
+  --color-accent-text: var(--primitive-violet-600);
+  --color-accent-border: rgba(124, 58, 237, 0.25);
+
+  /* -----------------------------------------------------------------------------
+     Status Colors
+     ----------------------------------------------------------------------------- */
+  /* Success */
+  --color-success: var(--primitive-green-600);
+  --color-success-subtle: rgba(22, 163, 74, 0.08);
+  --color-success-text: var(--primitive-green-700);
+  --color-success-border: rgba(22, 163, 74, 0.25);
+
+  /* Warning */
+  --color-warning: var(--primitive-amber-600);
+  --color-warning-subtle: rgba(217, 119, 6, 0.08);
+  --color-warning-text: var(--primitive-amber-700);
+  --color-warning-border: rgba(217, 119, 6, 0.25);
+
+  /* Danger */
+  --color-danger: var(--primitive-red-600);
+  --color-danger-subtle: rgba(220, 38, 38, 0.08);
+  --color-danger-text: var(--primitive-red-700);
+  --color-danger-border: rgba(220, 38, 38, 0.25);
+
+  /* Info */
+  --color-info: var(--primitive-blue-600);
+  --color-info-subtle: rgba(37, 99, 235, 0.08);
+  --color-info-text: var(--primitive-blue-700);
+  --color-info-border: rgba(37, 99, 235, 0.25);
+
+  /* -----------------------------------------------------------------------------
+     Interactive Elements
+     ----------------------------------------------------------------------------- */
+  --color-link: var(--primitive-violet-600);
+  --color-link-hover: var(--primitive-violet-700);
+
+  /* -----------------------------------------------------------------------------
+     Form Elements
+     ----------------------------------------------------------------------------- */
+  --color-input-bg: var(--primitive-white);
+  --color-input-border: var(--primitive-alpha-black-12);
+  --color-input-border-hover: var(--primitive-alpha-black-20);
+  --color-input-border-focus: var(--primitive-violet-600);
+  --color-input-placeholder: var(--primitive-gray-400);
+
+  /* -----------------------------------------------------------------------------
+     Shadows (Light theme uses softer, more refined shadows)
+     ----------------------------------------------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.05);
+
+  /* Focus ring shadow */
+  --shadow-focus: 0 0 0 3px rgba(124, 58, 237, 0.15);
+
+  /* -----------------------------------------------------------------------------
+     Scrollbar
+     ----------------------------------------------------------------------------- */
+  --color-scrollbar-track: var(--primitive-gray-150);
+  --color-scrollbar-thumb: var(--primitive-gray-300);
+  --color-scrollbar-thumb-hover: var(--primitive-gray-400);
+
+  /* -----------------------------------------------------------------------------
+     Overlay
+     ----------------------------------------------------------------------------- */
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-overlay-heavy: rgba(0, 0, 0, 0.6);
+
+  /* -----------------------------------------------------------------------------
+     Code/Syntax
+     ----------------------------------------------------------------------------- */
+  --color-code-bg: var(--primitive-gray-100);
+  --color-code-text: var(--primitive-gray-900);
+  --color-code-border: var(--primitive-alpha-black-8);
+
+  /* -----------------------------------------------------------------------------
+     Specific Component Tokens
+     ----------------------------------------------------------------------------- */
+  /* Feed items */
+  --color-feed-item-bg: var(--primitive-white);
+  --color-feed-item-border: var(--primitive-alpha-black-8);
+  --color-feed-item-hover: var(--primitive-gray-100);
+
+  /* User prompt styling */
+  --color-prompt-bg: rgba(124, 58, 237, 0.06);
+  --color-prompt-border: rgba(124, 58, 237, 0.2);
+
+  /* Session items */
+  --color-agent-bg: var(--primitive-gray-100);
+  --color-agent-border: var(--primitive-alpha-black-8);
+  --color-agent-hover: var(--primitive-gray-150);
+  --color-agent-active-bg: rgba(124, 58, 237, 0.08);
+  --color-agent-active-border: rgba(124, 58, 237, 0.25);
+
+  /* Thinking indicator */
+  --color-thinking-bg: rgba(217, 119, 6, 0.06);
+  --color-thinking-border: rgba(217, 119, 6, 0.2);
+  --color-thinking-text: var(--primitive-amber-700);
+
+  /* Micro-interactions (softer lifts for light theme) */
+  --lift-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --lift-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
