@@ -927,41 +927,33 @@ fn last_type_segment(path: &str) -> &str {
     path.trim().trim_start_matches('&').trim().rsplit("::").next().unwrap_or(path).trim()
 }
 
+/// The entity/type identifiers (CamelCase, uppercase-initial) named anywhere in
+/// an `agentforge_db` `use` statement. Counting identifiers rather than a single
+/// `{...}` pair handles nested imports like
+/// `use agentforge_db::{entities::{User, Workspace}, x::Row};` — module segments
+/// (`entities`, `x`) are lowercase and ignored (codex review P2).
+fn agentforge_db_entity_idents(statement: &str) -> impl Iterator<Item = &str> {
+    statement
+        .split(|character: char| !(character.is_alphanumeric() || character == '_'))
+        .filter(|word| word.chars().next().is_some_and(char::is_uppercase))
+}
+
 /// Record the entity/row type names imported by an `agentforge_db` `use`
-/// statement (braced list or single import) into `out`.
+/// statement into `out`.
 fn collect_imported_entities(statement: &str, out: &mut std::collections::BTreeSet<String>) {
-    match (statement.find('{'), statement.find('}')) {
-        (Some(open), Some(close)) if close > open => {
-            for name in statement[open + 1..close].split(',') {
-                let name = last_type_segment(name);
-                if !name.is_empty() {
-                    out.insert(name.to_string());
-                }
-            }
-        }
-        _ => {
-            if let Some(semi) = statement.find(';') {
-                let name = last_type_segment(&statement[..semi]);
-                if !name.is_empty() && name != "agentforge_db" {
-                    out.insert(name.to_string());
-                }
-            }
-        }
+    for name in agentforge_db_entity_idents(statement) {
+        out.insert(name.to_string());
     }
 }
 
-/// References inside a reconstructed `use` statement: braced `agentforge_db`
-/// imports count one per entity; a bare `agentforge_db` import counts once; each
-/// `crate::repositories::` reference counts once.
+/// References inside a reconstructed `use` statement: each `agentforge_db`
+/// entity/type identifier counts once (a bare single import like
+/// `agentforge_db::inbox_notifications::InboxNotificationRow` yields its one
+/// terminal type); each `crate::repositories::` reference counts once.
 fn count_use_statement_references(statement: &str) -> usize {
     let mut count = 0;
     if statement.contains("agentforge_db") {
-        match (statement.find('{'), statement.find('}')) {
-            (Some(open), Some(close)) if close > open => {
-                count += statement[open + 1..close].split(',').filter(|name| !name.trim().is_empty()).count();
-            }
-            _ => count += 1,
-        }
+        count += agentforge_db_entity_idents(statement).count();
     }
     count += statement.matches("crate::repositories::").count();
     count
