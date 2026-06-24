@@ -782,3 +782,73 @@ fn contains_mcp_live_service_wiring(line: &str) -> bool {
     .iter()
     .any(|pattern| line.contains(pattern))
 }
+
+/// DDD keystone guard (#886-track DDD-1): the domain layer must stay independent
+/// of the persistence layer. Domain types own pure business policies and
+/// `Serialize`-derived projections; `sqlx::FromRow` derives, `agentforge_db`
+/// row/entity imports, and `From<*Row>` adapters belong in services/repositories.
+///
+/// `DOMAIN_PERSISTENCE_ALLOWLIST` captures the CURRENT debt so CI stays green;
+/// it must only shrink. A non-allowlisted domain file with any dependency fails
+/// the build (stops the self-propagating leak the audit found), and an
+/// allowlisted file that becomes clean also fails — forcing its removal from the
+/// list so the guard tightens automatically.
+const DOMAIN_PERSISTENCE_ALLOWLIST: &[&str] = &[
+    "admin.rs",
+    "agent.rs",
+    "context.rs",
+    "context_preview.rs",
+    "credential.rs",
+    "inbox.rs",
+    "observability.rs",
+    "orchestration.rs",
+    "project_clone.rs",
+    "turn.rs",
+];
+
+#[test]
+fn domain_layer_stays_persistence_independent() {
+    let domain_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/domain");
+    let mut violations = Vec::new();
+    let mut allowlisted_now_clean = Vec::new();
+
+    for file in rust_files_recursive(&domain_dir) {
+        let name = file.file_name().and_then(|file_name| file_name.to_str()).unwrap_or_default().to_string();
+        let allowed = DOMAIN_PERSISTENCE_ALLOWLIST.contains(&name.as_str());
+        let source = fs::read_to_string(&file).expect("read domain source");
+
+        let mut file_has_dependency = false;
+        for (line_no, line) in production_lines(&source) {
+            if contains_domain_persistence_dependency(line) {
+                file_has_dependency = true;
+                if !allowed {
+                    violations.push(format!(
+                        "{}:{} domain type depends on persistence (agentforge_db / FromRow / From<*Row>); move row adapters and entity coupling to services/repositories",
+                        file.display(),
+                        line_no
+                    ));
+                }
+            }
+        }
+
+        if allowed && !file_has_dependency {
+            allowlisted_now_clean.push(name);
+        }
+    }
+
+    assert!(violations.is_empty(), "domain purity violations:\n{}", violations.join("\n"));
+    assert!(
+        allowlisted_now_clean.is_empty(),
+        "these domain files are now persistence-clean — remove them from DOMAIN_PERSISTENCE_ALLOWLIST so the guard shrinks:\n{}",
+        allowlisted_now_clean.join("\n")
+    );
+}
+
+fn contains_domain_persistence_dependency(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    // Comments (including doc comments referencing an adapter) are not coupling.
+    if trimmed.starts_with("//") {
+        return false;
+    }
+    line.contains("agentforge_db") || line.contains("FromRow") || (line.contains("impl From<") && line.contains("Row>"))
+}
