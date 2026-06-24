@@ -219,6 +219,7 @@ async fn main() -> anyhow::Result<()> {
                         let creds_shutdown = shutdown_rx.clone();
                         let creds_errors = creds_sync_errors.clone();
                         Some(tokio::spawn(async move {
+                            let watcher_errors = creds_errors.clone();
                             if let Err(err) = credentials::run(
                                 dir,
                                 client,
@@ -227,11 +228,16 @@ async fn main() -> anyhow::Result<()> {
                                 cli_tool,
                                 secret,
                                 creds_shutdown,
-                                creds_errors,
+                                watcher_errors,
                             )
                             .await
                             {
                                 tracing::error!(error = %err, "credential watcher exited with error");
+                                // The watcher never entered its loop (e.g. CREDS_DIR
+                                // unwatchable) so credential sync is permanently stopped
+                                // for this container — mark the heartbeat degraded so it
+                                // is not silently reported as healthy (#891/F063).
+                                creds_errors.fetch_add(1, Ordering::Relaxed);
                             }
                         }))
                     }

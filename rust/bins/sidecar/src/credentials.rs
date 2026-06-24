@@ -198,6 +198,11 @@ async fn publish_once(
                     "cli_tool" => cli_tool.to_string(),
                 )
                 .increment(1);
+                // A successful sync clears the degraded signal: `errors` is the
+                // count of CONSECUTIVE failures since the last success, so once the
+                // user re-authenticates (or the file is re-touched) and the publish
+                // lands, the heartbeat recovers to healthy (#891/F063).
+                errors.store(0, Ordering::Relaxed);
                 tracing::info!(subject, file_count = msg.files.len(), "credential sync published");
             }
         }
