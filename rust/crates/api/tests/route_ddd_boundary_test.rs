@@ -788,60 +788,61 @@ fn contains_mcp_live_service_wiring(line: &str) -> bool {
 /// `Serialize`-derived projections; `sqlx::FromRow` derives, `agentforge_db`
 /// row/entity imports, and `From<*Row>` adapters belong in services/repositories.
 ///
-/// `DOMAIN_PERSISTENCE_ALLOWLIST` captures the CURRENT debt so CI stays green;
-/// it must only shrink. A non-allowlisted domain file with any dependency fails
-/// the build (stops the self-propagating leak the audit found), and an
-/// allowlisted file that becomes clean also fails — forcing its removal from the
-/// list so the guard tightens automatically.
-const DOMAIN_PERSISTENCE_ALLOWLIST: &[&str] = &[
-    "admin.rs",
-    "agent.rs",
-    "context.rs",
-    "context_preview.rs",
-    "credential.rs",
-    "inbox.rs",
-    "observability.rs",
-    "orchestration.rs",
-    "project_clone.rs",
-    "turn.rs",
+/// `DOMAIN_PERSISTENCE_BASELINE` records the EXACT current count of persistence
+/// dependencies per dirty domain file so CI stays green while DDD-2 cleanup
+/// lands. The baseline is a shrink-only ratchet:
+/// - a file not in the baseline must have ZERO dependencies (stops the
+///   self-propagating leak the audit found);
+/// - a baselined file whose count GROWS fails the build (no new debt in an
+///   already-dirty file — the gap codex flagged with a whole-file allowlist);
+/// - a baselined file whose count DROPS fails too, forcing the entry to be
+///   lowered (or removed at 0) so the ratchet tightens automatically.
+const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
+    ("admin.rs", 3),
+    ("agent.rs", 1),
+    ("context.rs", 1),
+    ("context_preview.rs", 1),
+    ("credential.rs", 1),
+    ("inbox.rs", 2),
+    ("observability.rs", 1),
+    ("orchestration.rs", 1),
+    ("project_clone.rs", 1),
+    ("turn.rs", 1),
 ];
 
 #[test]
 fn domain_layer_stays_persistence_independent() {
     let domain_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/domain");
-    let mut violations = Vec::new();
-    let mut allowlisted_now_clean = Vec::new();
+    let mut errors = Vec::new();
 
     for file in rust_files_recursive(&domain_dir) {
         let name = file.file_name().and_then(|file_name| file_name.to_str()).unwrap_or_default().to_string();
-        let allowed = DOMAIN_PERSISTENCE_ALLOWLIST.contains(&name.as_str());
         let source = fs::read_to_string(&file).expect("read domain source");
 
-        let mut file_has_dependency = false;
-        for (line_no, line) in production_lines(&source) {
-            if contains_domain_persistence_dependency(line) {
-                file_has_dependency = true;
-                if !allowed {
-                    violations.push(format!(
-                        "{}:{} domain type depends on persistence (agentforge_db / FromRow / From<*Row>); move row adapters and entity coupling to services/repositories",
-                        file.display(),
-                        line_no
-                    ));
-                }
-            }
-        }
+        let count = production_lines(&source)
+            .into_iter()
+            .filter(|(_, line)| contains_domain_persistence_dependency(line))
+            .count();
 
-        if allowed && !file_has_dependency {
-            allowlisted_now_clean.push(name);
+        let baseline = DOMAIN_PERSISTENCE_BASELINE.iter().find(|(f, _)| *f == name).map(|(_, c)| *c);
+        match baseline {
+            None if count > 0 => errors.push(format!(
+                "{}: {count} persistence dependency(ies) in a clean domain file (agentforge_db / FromRow / From<*Row> / crate::repositories); move row adapters to services/repositories",
+                file.display()
+            )),
+            Some(expected) if count > expected => errors.push(format!(
+                "{}: persistence dependencies grew {expected} -> {count}; the DDD-1 baseline must only shrink (move the new coupling out of domain)",
+                file.display()
+            )),
+            Some(expected) if count < expected => errors.push(format!(
+                "{}: persistence dependencies dropped {expected} -> {count}; lower its DOMAIN_PERSISTENCE_BASELINE entry to {count} (or remove it when 0)",
+                file.display()
+            )),
+            _ => {}
         }
     }
 
-    assert!(violations.is_empty(), "domain purity violations:\n{}", violations.join("\n"));
-    assert!(
-        allowlisted_now_clean.is_empty(),
-        "these domain files are now persistence-clean — remove them from DOMAIN_PERSISTENCE_ALLOWLIST so the guard shrinks:\n{}",
-        allowlisted_now_clean.join("\n")
-    );
+    assert!(errors.is_empty(), "domain purity (DDD-1) violations:\n{}", errors.join("\n"));
 }
 
 fn contains_domain_persistence_dependency(line: &str) -> bool {
