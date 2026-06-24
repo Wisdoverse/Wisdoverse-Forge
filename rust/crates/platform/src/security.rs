@@ -73,12 +73,34 @@ fn is_forbidden_normalized(path: &str) -> bool {
     FORBIDDEN_MOUNT_ROOTS.iter().any(|root| path == *root || path.starts_with(&format!("{root}/")))
 }
 
+/// Resolve symlinks on the longest EXISTING ancestor of `source`, then re-append the
+/// not-yet-created suffix. Docker's bind syntax creates a missing leaf, so a symlinked
+/// *parent* (e.g. `/ws/link -> /etc`, request `/ws/link/new`) must resolve to
+/// `/etc/new`. Returns the symlink-resolved absolute path, or `None` if it cannot be
+/// resolved (callers must fail closed via the lexical check, which already ran).
+fn resolve_symlinks_best_effort(source: &str) -> Option<String> {
+    let mut suffix: Vec<std::ffi::OsString> = Vec::new();
+    let mut cur = std::path::PathBuf::from(source);
+    loop {
+        if let Ok(mut real) = std::fs::canonicalize(&cur) {
+            for name in suffix.iter().rev() {
+                real.push(name);
+            }
+            return real.to_str().map(str::to_string);
+        }
+        suffix.push(cur.file_name()?.to_os_string());
+        if !cur.pop() {
+            return None;
+        }
+    }
+}
+
 /// Whether a bind-mount source targets the docker socket or a sensitive host root.
 ///
 /// Checks the lexically-normalized path first (handles `.`/`..` and not-yet-created
-/// sources), then — because Docker resolves host symlinks at mount time — resolves
-/// symlinks via `canonicalize` when the source exists and re-checks the real target,
-/// so a benign-looking path that symlinks to a forbidden root cannot slip through.
+/// sources), then — because Docker resolves host symlinks at mount time and creates a
+/// missing leaf — resolves symlinks on the longest existing ancestor and re-checks the
+/// real target, so neither a symlinked source nor a symlinked parent can slip through.
 fn is_forbidden_mount(source: &str) -> bool {
     let Some(norm) = normalize_mount_source(source) else {
         return false;
@@ -86,9 +108,8 @@ fn is_forbidden_mount(source: &str) -> bool {
     if is_forbidden_normalized(&norm) {
         return true;
     }
-    if let Ok(canonical) = std::fs::canonicalize(source)
-        && let Some(canon) = canonical.to_str()
-        && is_forbidden_normalized(canon)
+    if let Some(resolved) = resolve_symlinks_best_effort(source)
+        && is_forbidden_normalized(&resolved)
     {
         return true;
     }
@@ -315,6 +336,22 @@ mod tests {
         let result = validate_security(&mount_cfg(link.to_str().unwrap()));
         let _ = std::fs::remove_file(&link);
         let err = result.expect_err("symlink resolving to /etc must be rejected");
+        assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
+    }
+
+    #[test]
+    fn rejects_symlinked_parent_with_missing_leaf() {
+        // Docker creates a missing bind-source leaf, so a symlinked *parent* pointing at
+        // a forbidden root must be rejected even when the final component does not exist
+        // yet (codex review P1, follow-up).
+        use std::os::unix::fs::symlink;
+        let link = std::env::temp_dir().join(format!("af-sec-parent-{}", std::process::id()));
+        let _ = std::fs::remove_file(&link);
+        symlink("/etc", &link).expect("create symlink to /etc");
+        let target = format!("{}/newdir", link.to_str().unwrap());
+        let result = validate_security(&mount_cfg(&target));
+        let _ = std::fs::remove_file(&link);
+        let err = result.expect_err("symlinked parent with missing leaf must be rejected");
         assert!(err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))));
     }
 }
