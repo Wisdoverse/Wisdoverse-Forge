@@ -1,6 +1,9 @@
 //! Background worker loop for processing jobs from a queue.
 //!
-//! Uses a polling loop with `pg_notify` wake-up as an optimization hint.
+//! Uses a fixed-interval polling loop. (A `pg_notify`-driven low-latency wake-up
+//! was never wired — the trigger that emitted it was removed in migration 073 —
+//! so latency is bounded by `poll_interval`. To add low-latency dispatch later,
+//! reintroduce the trigger and add a `PgListener` arm to `run`.)
 //! The worker dequeues one job at a time, processes it via a user-supplied handler,
 //! then marks it as completed or failed.
 
@@ -43,8 +46,8 @@ pub struct Worker {
 impl Worker {
     /// Create a new worker for the given queue.
     ///
-    /// Default poll interval is 1 second — `pg_notify` will wake the worker sooner
-    /// when new jobs arrive, but polling is the reliable fallback.
+    /// Default poll interval is 1 second. Job-pickup latency is bounded by this
+    /// interval (there is no notify-driven wake-up; see the module docs).
     pub fn new(pool: PgPool, queue: &str, worker_id: &str) -> Self {
         Self { pool, queue: queue.to_string(), worker_id: worker_id.to_string(), poll_interval: Duration::from_secs(1) }
     }
@@ -144,7 +147,7 @@ impl Worker {
                 }
             }
             Ok(None) => {
-                // No jobs available — wait for next poll or pg_notify wake-up.
+                // No jobs available — wait for the next poll tick.
             }
             Err(err) => {
                 tracing::error!(error = %err, queue = %self.queue, "Failed to dequeue job");
