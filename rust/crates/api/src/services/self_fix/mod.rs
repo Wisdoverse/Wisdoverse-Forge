@@ -234,8 +234,10 @@ impl SelfFixService {
         //    - `merged`           → idempotent success (already done).
         //    - `sensitive_blocked`→ HARD refuse, no GitHub call.
         //    - `approved`         → merges (already approved, e.g. a retry).
-        //    - `in_review`        → the platform-admin approve action records the
-        //                           explicit `in_review` → `approved` transition, then merges.
+        //    - `in_review`        → accepted: the route is the platform-admin's
+        //                           approve action, so an admin-gated approve of an
+        //                           in-review PR merges directly (success → `merged`;
+        //                           failure leaves it `in_review`, no stale write).
         match task.review_status.as_deref() {
             Some(MERGED) => {
                 metrics::record_merge_outcome("already_merged");
@@ -249,13 +251,7 @@ impl SelfFixService {
                 metrics::record_merge_outcome("sensitive_blocked");
                 return Err(SelfFixPolicy::sensitive_path_blocked());
             }
-            Some(APPROVED) => {}
-            Some(IN_REVIEW) => {
-                // The platform-admin's approve action IS the explicit approval:
-                // record the `in_review` → `approved` transition before merging, so
-                // an un-reviewed task can never merge without a deliberate approval.
-                self.tasks.set_review_status(scope, task_id, APPROVED).await?;
-            }
+            Some(APPROVED) | Some(IN_REVIEW) => {}
             _ => return Err(SelfFixPolicy::not_approved_for_merge()),
         }
 
