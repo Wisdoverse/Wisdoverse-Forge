@@ -46,6 +46,7 @@ fn map_error(err: TaskError) -> Response {
     match err {
         TaskError::NotFound => error(StatusCode::NOT_FOUND, "task not found"),
         TaskError::InvalidInput(message) => error(StatusCode::BAD_REQUEST, &message),
+        TaskError::Conflict(message) => error(StatusCode::CONFLICT, &message),
         TaskError::Internal(message) => error(StatusCode::INTERNAL_SERVER_ERROR, &message),
     }
 }
