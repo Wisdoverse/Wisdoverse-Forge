@@ -64,3 +64,4 @@ cli/af
 .playwright-mcp/
 coverage/
 .remember/
+docs/plans/
