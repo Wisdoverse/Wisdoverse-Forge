@@ -52,6 +52,9 @@ async fn upsert_flag(
     Path(name): Path<String>,
     Json(req): Json<UpsertFeatureFlagRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
+    // Live per-org admin gate (#889/F008): flipping governance/billing/injection
+    // flags is an org-admin action; previously this PUT had no privilege gate.
+    state.admin_service().require_org_admin(auth.scope.org_id().as_uuid(), auth.scope.user_id().as_uuid()).await?;
     let service = make_service(&state);
     let flag = service
         .upsert(&auth.scope, &name, UpsertFeatureFlagInput { enabled: req.enabled, metadata: req.metadata })

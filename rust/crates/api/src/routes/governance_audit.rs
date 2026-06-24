@@ -37,6 +37,9 @@ async fn list_governance_audit(
     Query(query): Query<GovernanceAuditQueryParams>,
 ) -> AppResult<Json<serde_json::Value>> {
     make_feature_service(&state).ensure_governance_enabled(&auth.scope).await?;
+    // Live per-org admin gate (#889/F052): governance audit access is org-admin only,
+    // verified against the current organization_members.role rather than the JWT claim.
+    state.admin_service().require_org_admin(auth.scope.org_id().as_uuid(), auth.scope.user_id().as_uuid()).await?;
     let data = make_service(&state)?.list(&auth.scope, &auth.role, query).await?;
     Ok(Json(governance_audit_response(data)))
 }
@@ -47,6 +50,8 @@ async fn export_governance_audit(
     Json(query): Json<GovernanceAuditQueryParams>,
 ) -> AppResult<Json<serde_json::Value>> {
     make_feature_service(&state).ensure_governance_enabled(&auth.scope).await?;
+    // Live per-org admin gate (#889/F052): see list_governance_audit.
+    state.admin_service().require_org_admin(auth.scope.org_id().as_uuid(), auth.scope.user_id().as_uuid()).await?;
     let data = make_service(&state)?.export(&auth.scope, &auth.role, query).await?;
     Ok(Json(governance_audit_response(data)))
 }
