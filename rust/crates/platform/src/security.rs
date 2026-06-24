@@ -30,8 +30,51 @@ pub enum SecurityViolation {
 /// Capabilities that are never allowed on agent containers.
 const FORBIDDEN_CAPS: &[&str] = &["ALL", "SYS_ADMIN", "SYS_PTRACE", "NET_RAW"];
 
-/// Host paths that must never be bind-mounted into containers.
-const FORBIDDEN_MOUNT_PREFIXES: &[&str] = &["/var/run/docker.sock", "/etc/shadow", "/etc/passwd"];
+/// Host directories that must never be bind-mounted into agent containers.
+/// Checked against a lexically-normalized source (see [`normalize_mount_source`]),
+/// so `.`/`..`/parent-dir tricks cannot bypass it. Both `/run` and `/var/run` are
+/// listed because they are the same directory on systemd hosts via a symlink the
+/// validator cannot resolve for a not-yet-created path.
+const FORBIDDEN_MOUNT_ROOTS: &[&str] =
+    &["/etc", "/proc", "/sys", "/dev", "/run", "/var/run", "/var/lib/docker", "/boot", "/root"];
+
+/// Lexically normalize an absolute path: collapse `.`, `..`, and redundant
+/// separators WITHOUT touching the filesystem (mount sources may not exist yet at
+/// validation time). Returns `None` for a non-absolute source — those are Docker
+/// named volumes, not host-path binds, and cannot traverse the host filesystem.
+fn normalize_mount_source(source: &str) -> Option<String> {
+    if !source.starts_with('/') {
+        return None;
+    }
+    let mut parts: Vec<&str> = Vec::new();
+    for segment in source.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    Some(format!("/{}", parts.join("/")))
+}
+
+/// Whether a bind-mount source targets the docker socket or a sensitive host root.
+fn is_forbidden_mount(source: &str) -> bool {
+    let Some(norm) = normalize_mount_source(source) else {
+        return false;
+    };
+    // The docker socket by basename, wherever it is mounted from.
+    if norm.rsplit('/').next() == Some("docker.sock") {
+        return true;
+    }
+    // The whole host root.
+    if norm == "/" {
+        return true;
+    }
+    // A sensitive host root, exactly or as a parent of the source.
+    FORBIDDEN_MOUNT_ROOTS.iter().any(|root| norm == *root || norm.starts_with(&format!("{root}/")))
+}
 
 /// Validate a container config against the security policy.
 ///
@@ -62,12 +105,12 @@ pub fn validate_security(config: &ContainerConfig) -> Result<(), Vec<SecurityVio
         violations.push(SecurityViolation::HostNetwork);
     }
 
-    // Check forbidden mounts.
+    // Check forbidden mounts (lexically canonicalized so `.`/`..`/parent-dir and
+    // symlinked socket paths cannot bypass the denial of the docker socket and
+    // sensitive host roots).
     for mount in &config.mounts {
-        for prefix in FORBIDDEN_MOUNT_PREFIXES {
-            if mount.source.starts_with(prefix) {
-                violations.push(SecurityViolation::ForbiddenMount(mount.source.clone()));
-            }
+        if is_forbidden_mount(&mount.source) {
+            violations.push(SecurityViolation::ForbiddenMount(mount.source.clone()));
         }
     }
 
@@ -204,5 +247,41 @@ mod tests {
         assert!(is_forbidden_capability("NET_RAW"));
         assert!(!is_forbidden_capability("NET_BIND_SERVICE"));
         assert!(!is_forbidden_capability("CHOWN"));
+    }
+
+    fn mount_cfg(source: &str) -> ContainerConfig {
+        let mut cfg = valid_config();
+        cfg.mounts = vec![Mount { source: source.to_string(), target: "/mnt".to_string(), read_only: true }];
+        cfg
+    }
+
+    #[test]
+    fn rejects_docker_socket_via_noncanonical_path() {
+        // The naive prefix check missed these; a canonicalizing check must not.
+        for src in ["/var/run/./docker.sock", "/var/run/../run/docker.sock", "/run/docker.sock", "/var/run"] {
+            let err = validate_security(&mount_cfg(src)).unwrap_err();
+            assert!(
+                err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))),
+                "socket-bearing mount `{src}` must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_sensitive_host_roots() {
+        for src in ["/", "/etc/cron.d", "/root/.ssh", "/proc/1/root", "/sys", "/dev/mem", "/var/lib/docker/x"] {
+            let err = validate_security(&mount_cfg(src)).unwrap_err();
+            assert!(
+                err.iter().any(|v| matches!(v, SecurityViolation::ForbiddenMount(_))),
+                "sensitive host mount `{src}` must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn allows_benign_scratch_and_workspace_mounts() {
+        for src in ["/tmp/work", "/data/agentforge/workspaces/x", "/home/agent/project", "/srv/scratch"] {
+            assert!(validate_security(&mount_cfg(src)).is_ok(), "benign mount `{src}` should be allowed");
+        }
     }
 }
