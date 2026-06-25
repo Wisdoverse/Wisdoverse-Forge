@@ -560,11 +560,16 @@ export function createAgentAPI(
      * error envelopes, NOT SSE. Reading `body.getReader()` on an error response
      * surfaces raw JSON bytes as pseudo-stream content.
      */
-    async streamPrompt(agentId: string, content: string, signal: AbortSignal): Promise<Response> {
+    async streamPrompt(
+      agentId: string,
+      content: string,
+      imageIds: string[],
+      signal: AbortSignal
+    ): Promise<Response> {
       return fetchFn(`${apiUrl}/agents/${agentId}/prompt`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, images: imageIds }),
         signal,
       })
     },

@@ -31,7 +31,15 @@ interface AgentControlPanelProps {
 }
 
 export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) {
-  const { sendPrompt, uploadImage, startAgent, restartAgent, deleteAgent, error } = useAgentsStore()
+  const {
+    sendPrompt,
+    streamComposerPrompt,
+    uploadImage,
+    startAgent,
+    restartAgent,
+    deleteAgent,
+    error,
+  } = useAgentsStore()
 
   const [prompt, setPrompt] = useState('')
   const [promptError, setPromptError] = useState<string | null>(null)
@@ -43,6 +51,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Aborts an in-flight provider stream when the composer closes/unmounts.
+  const composerAbortRef = useRef<AbortController | null>(null)
   const canAttachImages = isImageCapable(agent)
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
@@ -80,6 +90,16 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     setImagePreviews([])
     setImageError(null)
   }, [agent.id, chatOnlyAgent])
+
+  // Abort any in-flight provider stream when the panel unmounts or the agent
+  // changes, so its frames don't outlive the composer.
+  useEffect(
+    () => () => {
+      composerAbortRef.current?.abort()
+      composerAbortRef.current = null
+    },
+    [agent.id]
+  )
 
   async function uploadFiles(files: File[]) {
     if (!canAttachImages || files.length === 0) return
@@ -138,7 +158,18 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     setLocalActionStatus(null)
     setSending(true)
     try {
-      const ok = await sendPrompt(agent.id, trimmedPrompt, imageIds)
+      // Provider+Prompt agents reply over SSE — consume the stream and report
+      // success. Container CLI agents get a JSON ack from the sidecar path.
+      // On failure, streamComposerPrompt/sendPrompt set a specific `error` in the
+      // store (shown via controlError); the local code below is the fallback.
+      let ok: boolean
+      if (chatOnlyAgent) {
+        const controller = new AbortController()
+        composerAbortRef.current = controller
+        ok = (await streamComposerPrompt(agent.id, trimmedPrompt, imageIds, controller.signal)).ok
+      } else {
+        ok = await sendPrompt(agent.id, trimmedPrompt, imageIds)
+      }
       if (ok) {
         setPrompt('')
         setImageIds([])
@@ -157,6 +188,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
       setLocalActionError(LOCAL_AGENT_CONTROL_FAILURE.sendInstruction)
     } finally {
       setSending(false)
+      composerAbortRef.current = null
     }
   }
 

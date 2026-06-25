@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { CliTool, ManagedAgent } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
+import {
+  chatStreamRequestErrorMessage,
+  consumePromptStream,
+  isAbortError,
+} from '@app/shared/api/promptStream'
 import { extractApiError, type LocalAgentEnrollmentResponse } from '../api/AgentAPI'
 import type { AgentInfo, AgentRuntimeKind, AgentStatus } from './types'
 import { isHostCliAgent } from './runtime-kind'
@@ -55,6 +60,16 @@ interface AgentsState {
   deleteAgent: (id: string) => Promise<boolean>
   updateAgentSystemPrompt: (id: string, systemPrompt: string | null) => Promise<boolean>
   sendPrompt: (id: string, prompt: string, imageIds?: string[]) => Promise<boolean>
+  /** Send a prompt to a Provider+Prompt agent, which replies over SSE. Consumes
+   * (and discards) the stream and reports send success; the reply renders in the
+   * history view. Use for provider/chat agents; `sendPrompt` is the JSON-ack path
+   * for Container CLI agents. */
+  streamComposerPrompt: (
+    id: string,
+    prompt: string,
+    imageIds: string[],
+    signal: AbortSignal
+  ) => Promise<{ ok: boolean; error?: string }>
   uploadImage: (id: string, file: File) => Promise<{ ok: boolean; id?: string; error?: string }>
   startAgent: (id: string) => Promise<boolean>
   restartAgent: (id: string) => Promise<boolean>
@@ -712,6 +727,23 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       set({ error: agentActionErrorMessage('sendPrompt', err) })
       return false
     }
+  },
+
+  streamComposerPrompt: async (id, prompt, imageIds, signal) => {
+    set({ error: null })
+    let resp: Response
+    try {
+      resp = await getAgentApi().streamPrompt(id, prompt, imageIds, signal)
+    } catch (err) {
+      // User closed the composer mid-send → not an error worth showing.
+      if (isAbortError(err)) return { ok: true }
+      const error = chatStreamRequestErrorMessage(err)
+      if (error) set({ error })
+      return { ok: false, error }
+    }
+    const outcome = await consumePromptStream(resp)
+    if (!outcome.ok && outcome.error) set({ error: outcome.error })
+    return outcome
   },
 
   startAgent: async (id) => {
