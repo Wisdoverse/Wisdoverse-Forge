@@ -346,7 +346,15 @@ async function main() {
   try {
     await sendViaUds(eventJson)
   } catch (err) {
-    process.stderr.write(`agentforge-relay-hook: failed to deliver event: ${err.message}\n`)
+    // Best-effort boundary: if the sidecar socket is unavailable (sidecar
+    // starting/restarting/OOM-killed mid-session) the event is dropped here,
+    // BEFORE any durable layer — the WAL only covers events that reach the
+    // sidecar. This stderr line is the only local trace. See
+    // docs/architecture/overview.md "Relay event durability" (#893 / F067).
+    const eventType = (event && event.type) || 'unknown'
+    process.stderr.write(
+      `agentforge-relay-hook: dropped ${eventType} event (sidecar socket unavailable): ${err.message}\n`
+    )
   }
 }
 

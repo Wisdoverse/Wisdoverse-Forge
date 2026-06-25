@@ -57,6 +57,24 @@ PostgreSQL / Redis / NATS / Docker runtime / agent images
 3. Runtime events are published to NATS.
 4. Rust jobs consume, persist, and rebroadcast those events to connected clients.
 
+#### Relay event durability (best-effort boundary)
+
+Inside the agent container, the CLI relay hook (`hooks/`) forwards lifecycle and
+telemetry events to the sidecar over a Unix domain socket. The sidecar then
+durably relays each event to NATS using a write-ahead log (WAL): the event is
+persisted before the publish and the WAL record is deleted only after the NATS
+server confirms receipt, so events survive a NATS reconnect or a sidecar restart
+once they have reached the sidecar.
+
+The WAL covers loss only **after** an event reaches the sidecar. It does **not**
+cover the window before the socket is available — if the sidecar is starting,
+restarting, or has been OOM-killed mid-session, a hook event emitted during that
+window is delivered best-effort and may be dropped, with only a container-local
+stderr line as a trace. The agent entrypoint waits for sidecar readiness before
+running the CLI, which covers the cold-start case; the residual gap is a
+mid-session sidecar crash/restart. Operators should not assume the WAL closes
+this pre-socket window. (See issue #893 / F067.)
+
 ### 3. Workflow Execution Flow
 
 1. Clients call the Rust orchestrator on `:4010` for `/api/v1/workflows/**`.
