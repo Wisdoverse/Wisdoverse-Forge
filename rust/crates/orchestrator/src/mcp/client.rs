@@ -130,6 +130,13 @@ impl OutboundMcpClient {
         if !self.token.is_empty() {
             http_request = http_request.bearer_auth(&self.token);
         }
+        // MS-1 cross-hop propagation: forward this request's correlation id onto
+        // the call into the API's MCP bridge so both services' logs share one
+        // `request_id`. `current_request_id()` is None outside request context
+        // (e.g. a workflow worker) → no header added, a graceful no-op.
+        if let Some(request_id) = crate::observability::current_request_id() {
+            http_request = http_request.header(crate::observability::REQUEST_ID_HEADER, request_id);
+        }
 
         let response = http_request.send().await.context("send outbound MCP request")?;
         let status = response.status();
