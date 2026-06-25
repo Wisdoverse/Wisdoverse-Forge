@@ -39,13 +39,40 @@ pub fn create_router(state: AppState) -> Router {
     let mut router = Router::new()
         .route("/health", get(health))
         .route("/health/ready", get(health_ready))
+        .route("/metrics", get(metrics_scrape))
         .nest("/api/v1", api)
         .nest("/ws", realtime::routes());
     if state.mcp_server.is_some() {
         router = router.route("/mcp", post(mcp::handle_request));
     }
 
-    router.with_state(state)
+    // Record request count + latency keyed by the matched route TEMPLATE.
+    // Applied on the OUTER router (which holds the `/api/v1` nest) so the `path`
+    // label carries the full prefixed template, not the inner-only path. The
+    // orchestrator has no catch-panic layer, so this is the outermost layer.
+    router.layer(axum::middleware::from_fn(crate::observability::track_http_metrics)).with_state(state)
+}
+
+/// `GET /metrics` — the orchestrator's process-level Prometheus exposition
+/// (CN-5): request rate, latency, and status for the coordinator API.
+///
+/// Distinct from the business dashboard metrics at `/api/v1/metrics/*` (active
+/// tasks, pending reviews, …), which are tenant-scoped JSON. This exposition is
+/// an operator/infra surface gated to the internal token — the credential a
+/// Prometheus scraper carries. A valid *user session* JWT is rejected with 403
+/// (it is not tenant data). When auth is disabled (dev: no internal token, no
+/// signing key) the endpoint is open, matching the unauthenticated `/health`.
+async fn metrics_scrape(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    match auth::require_api_auth(&state, &headers) {
+        Ok(auth::AuthContext::InternalToken) | Ok(auth::AuthContext::Anonymous) => {
+            let body = state.prometheus_handle.render();
+            ([("content-type", "text/plain; version=0.0.4")], body).into_response()
+        }
+        Ok(auth::AuthContext::Session(_)) => {
+            error(StatusCode::FORBIDDEN, "metrics scrape requires the internal operator token")
+        }
+        Err(response) => response,
+    }
 }
 
 #[derive(Debug, Deserialize)]

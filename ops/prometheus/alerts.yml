@@ -22,6 +22,15 @@
 #   * `agentforge_orchestration_outbox_oldest_age_seconds` — orchestrator backlog age
 #   * `agentforge_orchestration_outbox_backlog` — orchestrator publish backlog depth
 #   * `process_resident_memory_bytes` — exporter standard (external)
+#
+# Service discrimination (CN-5): the orchestrator emits the SAME HTTP metric
+# names as the API, tagged `service="orchestrator"`; the API emits no `service`
+# label. The `agentforge.api.*` groups therefore scope to `service!="orchestrator"`
+# so orchestrator traffic never counts toward the API error budget, and the
+# `agentforge.orchestrator.http` group scopes to `service="orchestrator"`.
+# (The `agentforge.agents-runtime` rules in agents-runtime.yml filter by
+# API-exclusive `/api/v1/agents*` paths the orchestrator never serves, so they
+# need no service filter.)
 # =============================================================================
 
 groups:
@@ -30,9 +39,9 @@ groups:
       - alert: APIHigh5xxRate
         expr: |
           (
-            sum by (path) (rate(http_requests_total{status=~"5.."}[5m]))
+            sum by (path) (rate(http_requests_total{status=~"5..",service!="orchestrator"}[5m]))
             /
-            sum by (path) (rate(http_requests_total[5m]))
+            sum by (path) (rate(http_requests_total{service!="orchestrator"}[5m]))
           ) > 0.01
         for: 5m
         labels:
@@ -47,15 +56,15 @@ groups:
         # budget in 5d. See SRE Workbook chapter 5.
         expr: |
           (
-            sum(rate(http_requests_total{status=~"5.."}[1h]))
+            sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[1h]))
             /
-            sum(rate(http_requests_total[1h]))
+            sum(rate(http_requests_total{service!="orchestrator"}[1h]))
           ) > 0.014
           and
           (
-            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[5m]))
             /
-            sum(rate(http_requests_total[5m]))
+            sum(rate(http_requests_total{service!="orchestrator"}[5m]))
           ) > 0.014
         for: 2m
         labels:
@@ -71,7 +80,7 @@ groups:
         expr: |
           histogram_quantile(
             0.95,
-            sum by (le, path) (rate(http_request_duration_seconds_bucket[5m]))
+            sum by (le, path) (rate(http_request_duration_seconds_bucket{service!="orchestrator"}[5m]))
           ) > 1
         for: 10m
         labels:
@@ -84,7 +93,7 @@ groups:
         expr: |
           histogram_quantile(
             0.99,
-            sum by (le, path) (rate(http_request_duration_seconds_bucket[5m]))
+            sum by (le, path) (rate(http_request_duration_seconds_bucket{service!="orchestrator"}[5m]))
           ) > 3
         for: 10m
         labels:
@@ -92,6 +101,40 @@ groups:
           slo: latency
         annotations:
           summary: 'p99 latency >3s on {{ $labels.path }} for 10m'
+
+  - name: agentforge.orchestrator.http
+    # CN-5: the orchestrator emits the same HTTP metric names as the API,
+    # tagged `service="orchestrator"`. These rules watch the coordinator's own
+    # request error rate + latency, scoped to that label so they never overlap
+    # the `agentforge.api.*` budget above.
+    rules:
+      - alert: OrchestratorHigh5xxRate
+        expr: |
+          (
+            sum by (path) (rate(http_requests_total{status=~"5..",service="orchestrator"}[5m]))
+            /
+            sum by (path) (rate(http_requests_total{service="orchestrator"}[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: page
+          slo: availability
+        annotations:
+          summary: 'Orchestrator 5xx rate >1% on {{ $labels.path }} for 5m'
+          runbook: 'docs/runbooks/api-5xx.md'
+
+      - alert: OrchestratorLatencyHighP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, path) (rate(http_request_duration_seconds_bucket{service="orchestrator"}[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: ticket
+          slo: latency
+        annotations:
+          summary: 'Orchestrator p95 latency >1s on {{ $labels.path }} for 10m'
 
   - name: agentforge.orchestration
     rules:
