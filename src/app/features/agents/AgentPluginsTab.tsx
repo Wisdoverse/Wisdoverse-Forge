@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { authFetch } from '@app/shared/api/authFetch'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { agentPluginErrorMessage } from './model/pluginErrorMessage'
 
@@ -56,11 +57,6 @@ const PLUGIN_FILTERS: { value: PluginFilter; label: string; ariaLabel: string }[
     ariaLabel: 'Show tools changed only for this agent',
   },
 ]
-
-function authHeaders(): Record<string, string> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 function effectiveEnabled(row: AgentPluginRow): boolean {
   return row.enabled ?? row.pluginEnabled
@@ -226,9 +222,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
 
     async function load() {
       try {
-        const res = await fetch(`/api/v1/agents/${encodeURIComponent(agentId)}/plugins`, {
-          headers: authHeaders(),
-        })
+        const res = await authFetch(`/api/v1/agents/${encodeURIComponent(agentId)}/plugins`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = (await res.json()) as { ok: boolean; plugins: AgentPluginRow[] }
         if (!data.ok) throw new Error('server returned ok: false')
@@ -274,11 +268,11 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
       prev.map((p) => (p.id === plugin.id ? { ...p, enabled: next, saving: true } : p))
     )
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `/api/v1/agents/${encodeURIComponent(agentId)}/plugins/${encodeURIComponent(plugin.id)}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ enabled: next }),
         }
       )
