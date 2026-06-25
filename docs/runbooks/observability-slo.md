@@ -8,9 +8,15 @@ recording the change next to their deployment config.
 
 ## SLIs
 
-The Rust API and orchestrator emit Prometheus metrics through
-`metrics_exporter_prometheus`. The default scrape endpoint is `/metrics` on
-the orchestrator. The relevant metric families are:
+The Rust API and orchestrator each emit Prometheus metrics through
+`metrics_exporter_prometheus`. Both expose a top-level `/metrics` scrape
+endpoint — the API on its HTTP port (default `:4003`) and the orchestrator on
+its own (default `:4010`) — so configure a Prometheus scrape job for each
+target. Both endpoints are access-gated and are not world-readable: the API
+endpoint requires a platform-admin principal, and the orchestrator endpoint
+requires the internal operator token (`ORCHESTRATOR_INTERNAL_TOKEN`) — the
+credential the scraper carries in its `Authorization: Bearer` header. The
+relevant metric families are:
 
 | SLI                       | Metric                                                                                                                            | Definition                                                                                                                                                   |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |

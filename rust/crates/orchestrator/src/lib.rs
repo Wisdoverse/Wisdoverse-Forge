@@ -6,6 +6,7 @@ pub mod knowledge;
 pub mod mcp;
 pub mod metrics;
 mod migrations;
+pub mod observability;
 pub mod realtime;
 pub mod review;
 pub mod review_escalation_reaper;
