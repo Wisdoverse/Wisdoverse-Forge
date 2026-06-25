@@ -127,12 +127,20 @@ its reasoning. Nothing extra is needed in the prompt text.
 
 Troubleshooting:
 
-- No image control in the task form: the selected agent does not support image
-  input, or no agent is assigned yet. Pick a vision-capable Container CLI agent.
+- No image control in the task form: the selected agent is not a vision-capable
+  Container CLI agent, no agent is assigned yet, or the agent is still running an
+  older build that predates image support (see the rolling-deploy note below).
 - Upload rejected: the file is not a supported image type, is too large, or is
   not a real image. Re-export it as PNG and retry.
 - "image tasks are only supported for container CLI agents": the assignee is a
   Host CLI or API agent. Reassign to a Container CLI agent.
+- "agent's sidecar does not yet support instruction images": the agent is still
+  running an older container image from before image support shipped. This is
+  expected during a rolling upgrade — the platform refuses to run an image task
+  without its images rather than silently dropping them. Roll or restart the
+  agent onto the current image, then retry. The task form also hides the image
+  control for such agents, so this only appears for tasks created before the
+  agent was upgraded.
 
 ## Task Review
 
