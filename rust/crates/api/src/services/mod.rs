@@ -83,6 +83,7 @@ pub mod usage_analytics;
 pub mod user;
 pub mod voice;
 pub mod workspace;
+pub mod workspace_image_writer;
 
 #[cfg(test)]
 mod tests;

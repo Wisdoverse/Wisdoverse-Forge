@@ -34,6 +34,7 @@ hmac.workspace = true
 sha2.workspace = true
 hex.workspace = true
 image.workspace = true
+rustix.workspace = true
 base64.workspace = true
 data-encoding.workspace = true
 bollard.workspace = true
