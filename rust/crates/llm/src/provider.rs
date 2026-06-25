@@ -37,11 +37,80 @@ pub(crate) fn timed_client() -> Client {
     client_with_timeouts(PROVIDER_CONNECT_TIMEOUT, PROVIDER_READ_IDLE_TIMEOUT)
 }
 
+/// Content of a chat message: plain text, or an ordered list of blocks
+/// (text + images) for multimodal input. Serializes untagged, so `Text` is a
+/// bare JSON string (identical to the pre-multimodal wire format) and `Blocks`
+/// is a JSON array — but providers render `Blocks` explicitly to their own
+/// image shapes rather than relying on this neutral representation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageContent {
+    Text(String),
+    Blocks(Vec<ContentBlock>),
+}
+
+/// One block of multimodal message content.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentBlock {
+    Text {
+        text: String,
+    },
+    /// Base64-encoded image with its IANA media type (e.g. "image/png").
+    Image {
+        media_type: String,
+        data: String,
+    },
+}
+
+impl From<String> for MessageContent {
+    fn from(text: String) -> Self {
+        Self::Text(text)
+    }
+}
+
+impl From<&str> for MessageContent {
+    fn from(text: &str) -> Self {
+        Self::Text(text.to_string())
+    }
+}
+
+impl MessageContent {
+    /// Best-effort plain-text view: the text for `Text`, or the newline-joined
+    /// text blocks for `Blocks` (images skipped). Used where a provider field
+    /// must be a string, e.g. an Anthropic/Gemini system instruction.
+    pub fn to_text_lossy(&self) -> String {
+        match self {
+            Self::Text(text) => text.clone(),
+            Self::Blocks(blocks) => blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::Text { text } => Some(text.as_str()),
+                    ContentBlock::Image { .. } => None,
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
+    }
+
+    /// Image blocks in order, if any.
+    pub fn images(&self) -> impl Iterator<Item = (&str, &str)> {
+        let blocks: &[ContentBlock] = match self {
+            Self::Blocks(blocks) => blocks,
+            Self::Text(_) => &[],
+        };
+        blocks.iter().filter_map(|block| match block {
+            ContentBlock::Image { media_type, data } => Some((media_type.as_str(), data.as_str())),
+            ContentBlock::Text { .. } => None,
+        })
+    }
+}
+
 /// A single chat message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
-    pub content: String,
+    pub content: MessageContent,
 }
 
 /// Request payload sent to any LLM provider.
@@ -198,5 +267,57 @@ mod timeout_tests {
     #[test]
     fn timed_client_builds_with_production_timeouts() {
         let _ = timed_client();
+    }
+}
+
+#[cfg(test)]
+mod content_tests {
+    use super::*;
+
+    #[test]
+    fn text_content_serializes_as_bare_string() {
+        // Backward-compat: text-only messages must keep the pre-multimodal wire
+        // shape (a JSON string), not a tagged enum.
+        let content = MessageContent::from("hello");
+        assert_eq!(serde_json::to_value(&content).unwrap(), serde_json::json!("hello"));
+    }
+
+    #[test]
+    fn from_str_and_string_produce_text() {
+        assert_eq!(MessageContent::from("x"), MessageContent::Text("x".to_string()));
+        assert_eq!(MessageContent::from("y".to_string()), MessageContent::Text("y".to_string()));
+    }
+
+    #[test]
+    fn block_content_serializes_as_typed_array() {
+        let content = MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "look".to_string() },
+            ContentBlock::Image { media_type: "image/png".to_string(), data: "AAAA".to_string() },
+        ]);
+        let value = serde_json::to_value(&content).unwrap();
+        assert_eq!(value[0], serde_json::json!({"type": "text", "text": "look"}));
+        assert_eq!(value[1], serde_json::json!({"type": "image", "media_type": "image/png", "data": "AAAA"}));
+    }
+
+    #[test]
+    fn to_text_lossy_joins_text_blocks_and_skips_images() {
+        let content = MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "a".to_string() },
+            ContentBlock::Image { media_type: "image/png".to_string(), data: "x".to_string() },
+            ContentBlock::Text { text: "b".to_string() },
+        ]);
+        assert_eq!(content.to_text_lossy(), "a\nb");
+        assert_eq!(MessageContent::from("solo").to_text_lossy(), "solo");
+    }
+
+    #[test]
+    fn images_iterates_only_image_blocks() {
+        let content = MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "t".to_string() },
+            ContentBlock::Image { media_type: "image/png".to_string(), data: "D".to_string() },
+        ]);
+        let images: Vec<_> = content.images().collect();
+        assert_eq!(images, vec![("image/png", "D")]);
+        assert_eq!(MessageContent::from("t").images().count(), 0);
     }
 }

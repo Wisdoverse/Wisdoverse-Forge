@@ -43,7 +43,7 @@ fn split_system(messages: &[ChatMessage]) -> (Option<String>, Vec<serde_json::Va
     let mut rest = Vec::with_capacity(messages.len());
     for m in messages {
         if m.role == "system" {
-            system_text = Some(m.content.clone());
+            system_text = Some(m.content.to_text_lossy());
         } else {
             rest.push(serde_json::json!({ "role": m.role, "content": m.content }));
         }

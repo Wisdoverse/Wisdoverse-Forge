@@ -27,7 +27,8 @@ pub use gateway::LlmGateway;
 pub use gemini::GeminiProvider;
 pub use openai::OpenAiProvider;
 pub use provider::{
-    ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, model_context_limit,
+    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
+    StreamDelta, Usage, model_context_limit,
 };
 pub use registry::{
     ProviderModel, ProviderSpec, ProviderTransport, normalize_provider_key, provider_spec, supported_provider_specs,
@@ -135,7 +136,7 @@ mod tests {
     fn chat_request_serialization() {
         let req = ChatRequest {
             model: "claude-3-opus".to_string(),
-            messages: vec![ChatMessage { role: "user".to_string(), content: "Hello".to_string() }],
+            messages: vec![ChatMessage { role: "user".to_string(), content: "Hello".into() }],
             max_tokens: Some(1024),
             temperature: Some(0.7),
         };

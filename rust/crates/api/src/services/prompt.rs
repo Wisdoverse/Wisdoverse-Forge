@@ -50,7 +50,7 @@ pub fn build_history(all_msgs: &[AgentMessage], system_prompt: &str, model: &str
     Ok(policy
         .select_history(&history, system_prompt)?
         .into_iter()
-        .map(|message| ChatMessage { role: message.role().to_string(), content: message.content().to_string() })
+        .map(|message| ChatMessage { role: message.role().to_string(), content: message.content().into() })
         .collect())
 }
 
@@ -87,8 +87,8 @@ mod build_history_tests {
         let h = vec![msg("user", "hi"), msg("assistant", "hello"), msg("user", "how are you")];
         let r = build_history(&h, "you are helpful", "claude-sonnet-4-6").unwrap();
         assert_eq!(r.len(), 3);
-        assert_eq!(r[0].content, "hi");
-        assert_eq!(r[2].content, "how are you");
+        assert_eq!(r[0].content.to_text_lossy(), "hi");
+        assert_eq!(r[2].content.to_text_lossy(), "how are you");
     }
 
     #[test]
@@ -98,7 +98,7 @@ mod build_history_tests {
         let h = vec![msg("user", &huge), msg("user", "short tail")];
         let r = build_history(&h, "", "llama3.2").unwrap();
         assert_eq!(r.len(), 1);
-        assert_eq!(r[0].content, "short tail");
+        assert_eq!(r[0].content.to_text_lossy(), "short tail");
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod build_history_tests {
         let h = vec![msg("user", "hi")];
         let r = build_history(&h, "", "mystery-model").unwrap();
         assert_eq!(r.len(), 1);
-        assert_eq!(r[0].content, "hi");
+        assert_eq!(r[0].content.to_text_lossy(), "hi");
     }
 
     #[test]
@@ -241,7 +241,7 @@ impl PromptService {
             messages: {
                 let mut v = Vec::with_capacity(history.len() + 1);
                 if !sys.is_empty() {
-                    v.push(ChatMessage { role: "system".into(), content: sys.clone() });
+                    v.push(ChatMessage { role: "system".into(), content: sys.clone().into() });
                 }
                 v.extend(history);
                 v
