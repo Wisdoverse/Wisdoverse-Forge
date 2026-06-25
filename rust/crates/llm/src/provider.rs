@@ -110,8 +110,18 @@ pub trait LlmStream: Send + Sync {
     -> Result<BoxStream<'static, Result<StreamDelta, LlmError>>, LlmError>;
 }
 
-/// Static context-window limits. Unknown models fall back to 4_096 (intentionally
-/// conservative — `PromptService::build_history` handles underflow safely).
+/// Per-model context-window limits used to size the prompt history budget.
+///
+/// F029 design note: an unknown model falls back to 4_096 ON PURPOSE. This is a
+/// per-MODEL table; a provider's `capability_profile().max_context_tokens` is a
+/// per-PROVIDER ceiling, so it cannot stand in for a specific model's window
+/// here (different models on the same provider differ). The fallback is
+/// deliberately the SMALL side because the failure modes are asymmetric: an
+/// under-estimate makes `PromptService` truncate a little extra history (safe,
+/// the request still fits), while an over-estimate would let the request exceed
+/// the real window and be rejected by the provider with a 400. So we never guess
+/// a generous limit for an unrecognized model; add the model here when its real
+/// window is known.
 const MODEL_LIMITS: &[(&str, usize)] = &[
     ("claude-sonnet-4-6", 200_000),
     ("claude-opus-4-7", 200_000),
@@ -121,6 +131,8 @@ const MODEL_LIMITS: &[(&str, usize)] = &[
     ("llama3.2", 8_192),
 ];
 
+/// Context-window limit for `model`, or a conservative 4_096 fallback for an
+/// unrecognized model (see `MODEL_LIMITS` for why the fallback is small).
 pub fn model_context_limit(model: &str) -> usize {
     MODEL_LIMITS.iter().find(|(m, _)| *m == model).map(|(_, l)| *l).unwrap_or(4_096)
 }

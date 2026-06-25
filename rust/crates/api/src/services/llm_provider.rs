@@ -350,6 +350,16 @@ impl LlmProviderService {
 
         // SSRF guard for remote endpoints. Ollama is a local, keyless,
         // operator-configured runtime, so it is intentionally exempt.
+        //
+        // NOTE (F022): this is a literal-host guard only. It parses the host via
+        // the `url` crate and rejects private/loopback/metadata/link-local IPs
+        // (incl. IPv6 ULA, IPv4-mapped, and inet_aton-encoded forms), but it does
+        // NOT resolve DNS — a public hostname whose A/AAAA record points at a
+        // private IP (DNS rebinding) still passes here. There is no network-layer
+        // egress backstop on this outbound discovery client (unlike the project-
+        // clone path, which runs in a restricted-egress container). Treat this as
+        // best-effort defense-in-depth; a connect-time resolve-and-recheck (or an
+        // operator allowlist) is the residual hardening tracked in F022.
         if !is_ollama && !is_outbound_https_host_allowed(&base) {
             return curated;
         }
