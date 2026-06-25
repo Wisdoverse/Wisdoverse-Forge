@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { authFetch } from '@app/shared/api/authFetch'
 
 // ============================================================================
 // Types
@@ -273,12 +274,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
   loadSkills: async () => {
     set({ loading: true, error: null })
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-      const res = await fetch('/api/v1/skills', {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      })
+      const res = await authFetch('/api/v1/skills')
       if (!res.ok) {
         throw userFacingError(
           skillHttpErrorMessage('load', res.status, await readErrorPayload(res))
@@ -304,12 +300,10 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
 
   createSkill: async (input) => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-      const res = await fetch('/api/v1/skills', {
+      const res = await authFetch('/api/v1/skills', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           name: input.name,

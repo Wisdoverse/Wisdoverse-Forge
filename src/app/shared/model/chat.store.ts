@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ClaudeEvent } from '@shared/types/events'
 import type { AgentMessageRow } from '@shared/types'
 import { getAgentApi } from '@app/shared/api/legacy'
+import { authFetch } from '@app/shared/api/authFetch'
 import { extractApiError } from '@app/shared/api/agent-api-types'
 import { chatErrorMessage } from './chat.errors'
 
@@ -153,12 +154,7 @@ export const useChatStore = create<ChatState>((set) => ({
   fetchEvents: async (agentId: string) => {
     set({ loading: true, error: null })
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-      const res = await fetch(`/api/v1/agents/${encodeURIComponent(agentId)}/events?limit=200`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      })
+      const res = await authFetch(`/api/v1/agents/${encodeURIComponent(agentId)}/events?limit=200`)
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
