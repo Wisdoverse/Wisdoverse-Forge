@@ -42,11 +42,21 @@ pub struct UserService {
     jwt: Arc<JwtManager>,
     password_reset_delivery: Option<PasswordResetDelivery>,
     refresh_cookie_policy: AuthRefreshCookiePolicy,
+    /// Accept legacy unsalted SHA-256 password hashes at login (F004). Defaults
+    /// OFF; enabled only outside production so the compat window is closed in
+    /// prod (where a migration force-resets any remaining SHA-256 rows).
+    allow_legacy_sha256_login: bool,
 }
 
 impl UserService {
     pub fn new(repo: UserRepository, jwt: Arc<JwtManager>) -> Self {
-        Self { repo, jwt, password_reset_delivery: None, refresh_cookie_policy: AuthRefreshCookiePolicy::new(false) }
+        Self {
+            repo,
+            jwt,
+            password_reset_delivery: None,
+            refresh_cookie_policy: AuthRefreshCookiePolicy::new(false),
+            allow_legacy_sha256_login: false,
+        }
     }
 
     pub(crate) fn from_pool(pool: PgPool, jwt: Arc<JwtManager>) -> Self {
@@ -59,9 +69,11 @@ impl UserService {
         email_sender: Arc<dyn EmailSender>,
         config: &AppConfig,
     ) -> Self {
-        Self::new(UserRepository::new(pool), jwt)
+        let mut service = Self::new(UserRepository::new(pool), jwt)
             .with_password_reset_delivery(email_sender, config.app_url.clone())
-            .with_refresh_cookie_policy(AuthRefreshCookiePolicy::new(config.is_production()))
+            .with_refresh_cookie_policy(AuthRefreshCookiePolicy::new(config.is_production()));
+        service.allow_legacy_sha256_login = !config.is_production();
+        service
     }
 
     pub(crate) fn with_password_reset_delivery(
@@ -97,7 +109,8 @@ impl UserService {
 
         // 2. Verify password
         let hash = UserAccountPolicy::require_password_hash(user.password_hash.as_deref())?;
-        let verification = agentforge_auth::password::verify_password_compat(password, hash);
+        let verification =
+            agentforge_auth::password::verify_password_compat(password, hash, self.allow_legacy_sha256_login);
         UserAccountPolicy::ensure_password_verified(verification.valid)?;
 
         if verification.needs_upgrade {
@@ -286,6 +299,12 @@ impl UserService {
 
     pub(crate) async fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
         let claims = self.jwt.verify_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
+        // F004: an account whose password was force-reset cannot keep refreshing
+        // an existing session — reject so it is pushed back through password reset
+        // (refresh is otherwise stateless and never reads password_hash).
+        if self.repo.requires_password_reset(UserId::from(claims.sub)).await? {
+            return Err(UserAccountPolicy::invalid_refresh_token().into());
+        }
         // #889/F002: re-read the LIVE org-membership role instead of echoing the
         // token's `role` claim. A demoted admin is re-minted at their current
         // role; a user whose membership was revoked can no longer refresh.

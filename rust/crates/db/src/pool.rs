@@ -147,6 +147,10 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("071_dead_events.sql", include_str!("../migrations/071_dead_events.sql")),
     ("072_bootstrap_platform_admin.sql", include_str!("../migrations/072_bootstrap_platform_admin.sql")),
     ("073_drop_unused_job_notify.sql", include_str!("../migrations/073_drop_unused_job_notify.sql")),
+    (
+        "074_force_reset_legacy_sha256_hashes.sql",
+        include_str!("../migrations/074_force_reset_legacy_sha256_hashes.sql"),
+    ),
 ];
 
 /// Run pending SQLx migrations against the database.
@@ -192,6 +196,18 @@ mod migration_sources_tests {
     fn embedded_sources_match_manifest_exactly() {
         verify_manifest(MIGRATION_MANIFEST, MIGRATION_SOURCES)
             .expect("MIGRATION_SOURCES must list every migration in MANIFEST.sha256 — add the new include_str! entry");
+    }
+
+    /// F004: the force-reset migration must write the exact sentinel the code
+    /// (`agentforge_auth::password::LEGACY_PASSWORD_RESET_SENTINEL`) checks for at
+    /// login and refresh. Keep the literal here in sync if either side changes.
+    #[test]
+    fn force_reset_migration_writes_the_reset_sentinel() {
+        let (_, sql) = MIGRATION_SOURCES
+            .iter()
+            .find(|(name, _)| *name == "074_force_reset_legacy_sha256_hashes.sql")
+            .expect("migration 074 must be embedded");
+        assert!(sql.contains("LEGACY_SHA256_RESET_REQUIRED"), "migration 074 must set the reset sentinel");
     }
 
     /// Every .sql file in the migrations directory must be embedded. Catches

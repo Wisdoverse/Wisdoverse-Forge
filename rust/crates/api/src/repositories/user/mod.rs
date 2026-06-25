@@ -287,6 +287,21 @@ impl UserRepository {
         .map_err(Into::into)
     }
 
+    /// True when the user's password was force-reset (F004) — their stored hash
+    /// is the reset sentinel. Used to reject refreshes for such accounts so an
+    /// existing session cannot keep minting tokens past the reset.
+    pub async fn requires_password_reset(&self, user_id: UserId) -> AppResult<bool> {
+        // COALESCE so a NULL password_hash (OAuth / passwordless accounts) yields
+        // `false` instead of a NULL that fails to decode into `bool`.
+        sqlx::query_scalar::<_, bool>(r#"SELECT COALESCE(password_hash = $2, false) FROM users WHERE id = $1"#)
+            .bind(user_id.as_uuid())
+            .bind(agentforge_auth::password::LEGACY_PASSWORD_RESET_SENTINEL)
+            .fetch_optional(&self.pool)
+            .await
+            .map(|opt| opt.unwrap_or(false))
+            .map_err(Into::into)
+    }
+
     pub async fn workspace_exists_in_org(&self, org_id: uuid::Uuid, workspace_id: uuid::Uuid) -> AppResult<bool> {
         sqlx::query_scalar::<_, bool>(
             r#"SELECT EXISTS (

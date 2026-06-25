@@ -18,6 +18,7 @@ pub use crate::domain::auth::{
 };
 use crate::repositories::identity::{OrganizationRepository, TeamRepository};
 use crate::repositories::project::ProjectRepository;
+use crate::repositories::user::UserRepository;
 use crate::repositories::workspace::WorkspaceRepository;
 
 /// Cross-aggregate orchestration for session context switches.
@@ -26,6 +27,7 @@ pub struct AuthService {
     teams: TeamRepository,
     workspaces: WorkspaceRepository,
     projects: ProjectRepository,
+    users: UserRepository,
     jwt: Arc<JwtManager>,
 }
 
@@ -35,9 +37,10 @@ impl AuthService {
         teams: TeamRepository,
         workspaces: WorkspaceRepository,
         projects: ProjectRepository,
+        users: UserRepository,
         jwt: Arc<JwtManager>,
     ) -> Self {
-        Self { organizations, teams, workspaces, projects, jwt }
+        Self { organizations, teams, workspaces, projects, users, jwt }
     }
 
     pub(crate) fn from_pool(pool: PgPool, jwt: Arc<JwtManager>) -> Self {
@@ -45,7 +48,8 @@ impl AuthService {
             OrganizationRepository::new(pool.clone()),
             TeamRepository::new(pool.clone()),
             WorkspaceRepository::new(pool.clone()),
-            ProjectRepository::new(pool),
+            ProjectRepository::new(pool.clone()),
+            UserRepository::new(pool),
             jwt,
         )
     }
@@ -59,6 +63,11 @@ impl AuthService {
         org_id: Uuid,
         axes: SwitchContextAxes,
     ) -> AppResult<SwitchContextResult> {
+        // F004: a force-reset account cannot mint fresh tokens by switching
+        // context either — block every token-minting path, not just cookie refresh.
+        if self.users.requires_password_reset(user_id).await? {
+            return Err(AuthContextSwitchPolicy::missing_org_membership());
+        }
         let role = self
             .organizations
             .find_member_role(user_id.as_uuid(), org_id)
