@@ -42,13 +42,62 @@ pub struct WsQuery {
     pub token: String,
 }
 
+/// Bounded queue capacities so a slow or stuck client cannot grow API process
+/// memory without limit (F058). A producer that fills the queue is treated as a
+/// dead-slow client and its connection is dropped rather than buffered forever.
+const OUTBOUND_CHANNEL_CAP: usize = 1024;
+/// Per-terminal stdin queue. Kept small and paired with a per-message byte cap so
+/// the worst-case buffered memory is bounded: CAP * MAX_TERMINAL_INPUT_BYTES *
+/// MAX_TERMINAL_SESSIONS (16 * 64 KiB * 8 = 8 MiB) rather than message-count only.
+const TERMINAL_INPUT_CHANNEL_CAP: usize = 16;
+/// Max bytes accepted in a single terminal stdin payload (a generous paste);
+/// larger payloads are rejected rather than queued.
+const MAX_TERMINAL_INPUT_BYTES: usize = 64 * 1024;
+/// Max time to write one frame to the client socket before treating it as dead.
+const WS_SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Max concurrent terminal attach sessions per WebSocket connection (F061), so a
+/// single client cannot exhaust Docker connections / fds / tokio tasks.
+const MAX_TERMINAL_SESSIONS: usize = 8;
+
+/// Inbound WebSocket size caps applied at the protocol layer (F059), bounding
+/// client-supplied control/terminal payloads before they are buffered.
+const MAX_WS_MESSAGE_BYTES: usize = 256 * 1024;
+/// Equal to the message cap so per-frame fragmentation never rejects a valid
+/// message whose JSON-wrapped terminal payload approaches MAX_TERMINAL_INPUT_BYTES
+/// (the message cap, not the frame cap, is the real inbound bound).
+const MAX_WS_FRAME_BYTES: usize = MAX_WS_MESSAGE_BYTES;
+const _: () = assert!(MAX_TERMINAL_INPUT_BYTES <= MAX_WS_MESSAGE_BYTES);
+
 struct TerminalSession {
     container_id: String,
-    input_tx: mpsc::UnboundedSender<Vec<u8>>,
+    input_tx: mpsc::Sender<Vec<u8>>,
     task: JoinHandle<()>,
 }
 
-type OutboundTx = mpsc::UnboundedSender<String>;
+/// Bounded outbound sender. `send` is non-blocking: `Err` means the client is
+/// gone OR too slow to drain the bounded queue. On failure it also fires `close`
+/// so the main loop tears the whole connection down (rather than only ending the
+/// one producer that hit backpressure, which would leave the client "connected"
+/// but with realtime/terminal output silently stopped). Keeping the
+/// `send(..) -> Result` shape lets every existing call site stay unchanged (F058).
+#[derive(Clone)]
+struct OutboundTx {
+    tx: mpsc::Sender<String>,
+    close: Arc<tokio::sync::Notify>,
+}
+
+impl OutboundTx {
+    fn send(&self, msg: String) -> Result<(), ()> {
+        match self.tx.try_send(msg) {
+            Ok(()) => Ok(()),
+            Err(_) => {
+                self.close.notify_one();
+                Err(())
+            }
+        }
+    }
+}
 
 /// `GET /ws?token=<jwt>` — upgrade to WebSocket with JWT authentication.
 ///
@@ -90,8 +139,13 @@ pub async fn ws_handler(
     // toast). Captured here from the verified JWT, never from client input.
     let role = claims.role;
 
-    // Upgrade connection — authentication is done, hand off to async handler
-    Ok(ws.on_upgrade(move |socket| handle_ws(socket, state, scope, role)))
+    // Upgrade connection — authentication is done, hand off to async handler.
+    // Bound inbound message/frame size so a client cannot push an arbitrarily
+    // large control/terminal payload into process memory (F059).
+    Ok(ws
+        .max_message_size(MAX_WS_MESSAGE_BYTES)
+        .max_frame_size(MAX_WS_FRAME_BYTES)
+        .on_upgrade(move |socket| handle_ws(socket, state, scope, role)))
 }
 
 /// Handle an established WebSocket connection.
@@ -103,27 +157,42 @@ async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, role:
     tracing::info!(org_id = %org_id, "WebSocket connected");
 
     let (mut ws_tx, mut ws_rx) = socket.split();
-    let (outbound_tx, mut outbound_rx) = mpsc::unbounded_channel::<String>();
+    let (outbound_tx, mut outbound_rx) = mpsc::channel::<String>(OUTBOUND_CHANNEL_CAP);
+    // Fired when a producer hits outbound backpressure (bounded queue full); it
+    // tears down the whole connection so the client reconnects with fresh state.
+    let close = Arc::new(tokio::sync::Notify::new());
+    let outbound_tx = OutboundTx { tx: outbound_tx, close: close.clone() };
     let nats_tasks = spawn_nats_forwarders(&state, &scope, &role, outbound_tx.clone());
     let mut terminals: HashMap<Uuid, TerminalSession> = HashMap::new();
 
     loop {
         tokio::select! {
+            _ = close.notified() => {
+                tracing::warn!(org_id = %org_id, "WebSocket closing: outbound backpressure (slow client)");
+                break;
+            }
             outbound = outbound_rx.recv() => {
                 let Some(text) = outbound else {
                     break;
                 };
-                if ws_tx.send(Message::Text(text.into())).await.is_err() {
-                    break;
+                // Bound the socket write: a client that stops reading applies TCP
+                // backpressure that would otherwise leave this `.await` pending
+                // forever (starving the close branch) and pin the task + socket.
+                match tokio::time::timeout(WS_SEND_TIMEOUT, ws_tx.send(Message::Text(text.into()))).await {
+                    Ok(Ok(())) => {}
+                    Ok(Err(_)) | Err(_) => {
+                        tracing::warn!(org_id = %org_id, "WebSocket closing: outbound write failed or timed out");
+                        break;
+                    }
                 }
             }
             msg = ws_rx.next() => {
                 match msg {
                     Some(Ok(Message::Close(_))) | None => break,
                     Some(Ok(Message::Ping(data))) => {
-                        let pong_sent = ws_tx.send(Message::Pong(data)).await;
-                        if pong_sent.is_err() {
-                            tracing::debug!(org_id = %org_id, "Pong send failed, connection dead");
+                        let pong_sent = tokio::time::timeout(WS_SEND_TIMEOUT, ws_tx.send(Message::Pong(data))).await;
+                        if !matches!(pong_sent, Ok(Ok(()))) {
+                            tracing::debug!(org_id = %org_id, "Pong send failed or timed out, connection dead");
                             break;
                         }
                     }
@@ -221,7 +290,17 @@ async fn attach_terminal(
     let Some(agent_id) = terminal_payload_agent_id(payload) else {
         return;
     };
+    // Re-attaching the same agent detaches first (no net growth); a NEW distinct
+    // agent is capped so one connection cannot open unbounded attach streams (F061).
     detach_terminal_by_id(terminals, agent_id);
+    // Reap sessions whose task already ended (container exited / output closed)
+    // so dead entries do not consume the cap until the client reconnects.
+    reap_finished_terminals(terminals);
+    if terminal_session_limit_reached(terminals.len()) {
+        tracing::warn!(agent_id = %agent_id, "terminal attach rejected: too many concurrent sessions");
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, "too many open terminals on this connection"));
+        return;
+    }
 
     let Some(docker) = state.docker.clone() else {
         tracing::warn!(agent_id = %agent_id, "terminal attach rejected: docker unavailable");
@@ -241,7 +320,7 @@ async fn attach_terminal(
 
     let cols = terminal_payload_dimension(payload, "cols").unwrap_or(80).max(1);
     let rows = terminal_payload_dimension(payload, "rows").unwrap_or(24).max(1);
-    let (input_tx, input_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+    let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(TERMINAL_INPUT_CHANNEL_CAP);
     let task = tokio::spawn(run_terminal_attach(
         docker,
         agent_id,
@@ -284,9 +363,16 @@ fn write_terminal_bytes(
     agent_id: Uuid,
     bytes: Vec<u8>,
 ) {
+    if bytes.len() > MAX_TERMINAL_INPUT_BYTES {
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal input payload too large"));
+        return;
+    }
     match terminals.get(&agent_id) {
-        Some(session) if session.input_tx.send(bytes).is_err() => {
-            let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal input stream is closed"));
+        // `try_send` fails when the input queue is full (client flooding stdin
+        // faster than the container drains) or the stream is closed — both are
+        // surfaced to the client rather than buffered unboundedly (F058/F059).
+        Some(session) if session.input_tx.try_send(bytes).is_err() => {
+            let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal input stream is closed or overloaded"));
         }
         Some(_) => {}
         None => {
@@ -336,7 +422,7 @@ async fn run_terminal_attach(
     container_id: String,
     cols: u16,
     rows: u16,
-    mut input_rx: mpsc::UnboundedReceiver<Vec<u8>>,
+    mut input_rx: mpsc::Receiver<Vec<u8>>,
     outbound_tx: OutboundTx,
 ) {
     if let Err(err) = resize_container_tty(&docker, &container_id, cols, rows).await {
@@ -401,6 +487,18 @@ async fn run_terminal_attach(
     }
 }
 
+/// A new distinct terminal attach is refused once this many sessions are open on
+/// one connection (F061).
+fn terminal_session_limit_reached(current_sessions: usize) -> bool {
+    current_sessions >= MAX_TERMINAL_SESSIONS
+}
+
+/// Drop sessions whose attach task has already finished (container exited or the
+/// output stream ended) so they do not count toward the F061 cap.
+fn reap_finished_terminals(terminals: &mut HashMap<Uuid, TerminalSession>) {
+    terminals.retain(|_, session| !session.task.is_finished());
+}
+
 async fn resize_container_tty(
     docker: &DockerClient,
     container_id: &str,
@@ -433,5 +531,79 @@ mod tests {
     fn ws_query_empty_token_deserializes() {
         let query: WsQuery = serde_json::from_str(r#"{"token":""}"#).unwrap();
         assert!(query.token.is_empty());
+    }
+
+    #[tokio::test]
+    async fn outbound_tx_sheds_a_slow_client_instead_of_buffering_unboundedly() {
+        // Capacity 2, receiver intentionally not draining.
+        let (tx, _rx) = mpsc::channel::<String>(2);
+        let tx = OutboundTx { tx, close: Arc::new(tokio::sync::Notify::new()) };
+        assert!(tx.send("a".into()).is_ok());
+        assert!(tx.send("b".into()).is_ok());
+        // The queue is full — the next frame is shed and the caller sees Err, so
+        // a stuck client is dropped rather than growing process memory (F058).
+        assert!(tx.send("c".into()).is_err());
+    }
+
+    #[tokio::test]
+    async fn outbound_tx_errors_when_client_is_gone() {
+        let (tx, rx) = mpsc::channel::<String>(4);
+        let tx = OutboundTx { tx, close: Arc::new(tokio::sync::Notify::new()) };
+        drop(rx);
+        assert!(tx.send("x".into()).is_err());
+    }
+
+    #[test]
+    fn terminal_session_limit_caps_concurrent_attachments() {
+        assert!(!terminal_session_limit_reached(MAX_TERMINAL_SESSIONS - 1));
+        // The (MAX+1)-th distinct attach is refused.
+        assert!(terminal_session_limit_reached(MAX_TERMINAL_SESSIONS));
+        assert!(terminal_session_limit_reached(MAX_TERMINAL_SESSIONS + 1));
+    }
+
+    #[tokio::test]
+    async fn write_terminal_bytes_rejects_oversized_payload() {
+        let (tx, mut rx) = mpsc::channel::<String>(4);
+        let outbound = OutboundTx { tx, close: Arc::new(tokio::sync::Notify::new()) };
+        let terminals: HashMap<Uuid, TerminalSession> = HashMap::new();
+        let agent = Uuid::new_v4();
+        // One byte over the cap is rejected with an error frame, never queued.
+        write_terminal_bytes(&outbound, &terminals, agent, vec![0u8; MAX_TERMINAL_INPUT_BYTES + 1]);
+        let frame = rx.try_recv().expect("an error frame should be emitted");
+        assert!(frame.contains("too large"), "frame: {frame}");
+    }
+
+    #[tokio::test]
+    async fn reap_finished_terminals_drops_completed_but_keeps_live_sessions() {
+        let mut terminals: HashMap<Uuid, TerminalSession> = HashMap::new();
+
+        // A session whose task has run to completion.
+        let (signal_tx, signal_rx) = tokio::sync::oneshot::channel();
+        let finished = tokio::spawn(async move {
+            let _ = signal_tx.send(());
+        });
+        signal_rx.await.unwrap();
+        while !finished.is_finished() {
+            tokio::task::yield_now().await;
+        }
+        let (in_tx_a, _in_rx_a) = mpsc::channel::<Vec<u8>>(1);
+        let dead_id = Uuid::new_v4();
+        terminals.insert(dead_id, TerminalSession { container_id: "c-dead".into(), input_tx: in_tx_a, task: finished });
+
+        // A still-running session.
+        let live = tokio::spawn(async { std::future::pending::<()>().await });
+        let (in_tx_b, _in_rx_b) = mpsc::channel::<Vec<u8>>(1);
+        let live_id = Uuid::new_v4();
+        terminals.insert(live_id, TerminalSession { container_id: "c-live".into(), input_tx: in_tx_b, task: live });
+
+        reap_finished_terminals(&mut terminals);
+
+        assert_eq!(terminals.len(), 1);
+        assert!(terminals.contains_key(&live_id));
+        assert!(!terminals.contains_key(&dead_id));
+
+        if let Some(session) = terminals.remove(&live_id) {
+            session.task.abort();
+        }
     }
 }
