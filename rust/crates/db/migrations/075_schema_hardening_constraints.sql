@@ -9,8 +9,15 @@
 -- otherwise-uniform enum-CHECK discipline. Pin it to the canonical self-fix
 -- vocabulary (the `domain::self_fix::review_status` constants) so a typo'd state
 -- ('aproved') cannot silently strand a self-fix PR's merge eligibility. NULL is
--- the resting state for non-self-fix tasks. `sensitive_blocked` IS a real state
--- (CODEOWNERS-routed PRs); `pending`/`rejected` are NOT written by any code path.
+-- the resting state for non-self-fix tasks.
+--
+-- The vocabulary is the UNION of the two writers: the orchestrator `ReviewState`
+-- (`pending`, `in_review`, `approved`, `changes_requested`, `rejected` — the
+-- `#[serde(rename_all = "snake_case")]` enum the column mirrors) PLUS the
+-- API-side self-fix extras `merged` (post-merge) and `sensitive_blocked`
+-- (CODEOWNERS-routed). All seven are written by `set_review_status` /
+-- `set_pr_metadata` callers or existing tests, so the CHECK must admit every one
+-- (and any already-stored value passes VALIDATE).
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -20,7 +27,9 @@ BEGIN
             ADD CONSTRAINT orchestration_tasks_review_status_check
             CHECK (
                 review_status IS NULL
-                OR review_status IN ('in_review', 'approved', 'changes_requested', 'merged', 'sensitive_blocked')
+                OR review_status IN (
+                    'pending', 'in_review', 'approved', 'changes_requested', 'rejected', 'merged', 'sensitive_blocked'
+                )
             ) NOT VALID;
     END IF;
 END $$;

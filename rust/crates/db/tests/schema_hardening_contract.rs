@@ -71,7 +71,7 @@ async fn review_status_check_accepts_canonical_and_rejects_unknown(pool: PgPool)
     .await
     .expect("seed task");
 
-    for value in ["in_review", "approved", "changes_requested", "merged", "sensitive_blocked"] {
+    for value in ["pending", "in_review", "approved", "changes_requested", "rejected", "merged", "sensitive_blocked"] {
         sqlx::query("UPDATE orchestration_tasks SET review_status = $1 WHERE id = $2")
             .bind(value)
             .bind(task)
