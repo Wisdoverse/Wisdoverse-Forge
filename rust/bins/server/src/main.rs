@@ -143,11 +143,10 @@ async fn main() -> Result<()> {
     run_migrations(&pool).await?;
     tracing::info!("Migrations complete");
 
-    if run_mode == RunMode::MigrateOnly {
-        tracing::info!("Migrate-only mode complete");
-        return Ok(());
-    }
-
+    // Reseed the runtime capability registry from the typed matrix. This must run
+    // BEFORE the migrate-only early return: migration 074 clears the table and the
+    // reseed is what repopulates it, so skipping it under --migrate-only would
+    // leave the registry empty until the next serve.
     let runtime_capability_registry =
         agentforge_api::services::runtime_capability_registry::RuntimeCapabilityRegistryService::new(
             agentforge_api::repositories::runtime_capability::RuntimeCapabilityRepository::new(pool.clone()),
@@ -157,6 +156,11 @@ async fn main() -> Result<()> {
         .await
         .map_err(|err| anyhow!("runtime capability registry startup refresh failed: {}", err.kind))?;
     tracing::info!("Runtime capability registry refreshed from typed matrix");
+
+    if run_mode == RunMode::MigrateOnly {
+        tracing::info!("Migrate-only mode complete");
+        return Ok(());
+    }
 
     let orchestration_result_consumer_enabled = env_flag("ORCHESTRATION_RESULT_CONSUMER_ENABLED", true)?;
     let orchestration_outbox_publisher_enabled = env_flag("ORCHESTRATION_ASSIGNMENT_OUTBOX_PUBLISHER_ENABLED", true)?;

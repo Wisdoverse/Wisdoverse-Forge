@@ -36,11 +36,17 @@ pub(crate) struct ValidatedImage {
 /// input that a `--dangerously-skip-permissions` CLI agent may later read.
 /// 1. Format is detected from MAGIC BYTES (not the declared content type) and
 ///    must be in the allowlist (png/jpeg/webp/gif).
-/// 2. Dimensions are read from the header BEFORE decoding; an image whose pixel
-///    count exceeds `max_pixels` is rejected without allocating the canvas
-///    (decompression-bomb guard).
+/// 2. Dimensions are read BEFORE the full decode. The decoder may scan the
+///    compressed stream (which is already bounded by the caller's upload-size
+///    cap), but the decoded pixel canvas — the actual decompression bomb — is
+///    NOT allocated until `decode()`, which only runs after an image whose pixel
+///    count exceeds `max_pixels` has been rejected.
 /// 3. The decoded image is re-encoded to PNG, which drops EXIF/GPS metadata and
 ///    any trailing/appended polyglot payload (bytes after the image data).
+///
+/// Callers MUST enforce a raw-byte size cap before calling this, and the caller
+/// is responsible for the `workspace_id` an image is recorded under (this layer
+/// does not know the tenant scope).
 pub(crate) fn validate_and_reencode_image(bytes: &[u8], max_pixels: u64) -> AppResult<ValidatedImage> {
     let reader = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()

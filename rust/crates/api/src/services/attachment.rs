@@ -140,6 +140,14 @@ impl AttachmentService {
     /// appended polyglot payload, see `validate_and_reencode_image`), bounded by
     /// the configured pixel ceiling, and recorded with `kind='image'`, the
     /// owning `workspace_id`, decoded dimensions, and a content checksum.
+    ///
+    /// # Security
+    /// `workspace_id` is trusted as given and persisted as image ownership; this
+    /// method does NOT verify it against the caller's authorization. The route
+    /// layer MUST pass a workspace the authenticated principal owns (the
+    /// resolve-time check `attachment.workspace_id == agent.workspace_id` then
+    /// enforces the boundary). Do not expose this method to a path that forwards
+    /// an unvalidated client-supplied workspace id.
     pub async fn create_image_upload(
         &self,
         scope: &TenantScope,
