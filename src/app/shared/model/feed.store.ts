@@ -48,6 +48,10 @@ const MAX_FEED_ITEMS = 100
 // Cap retained notifications. Distinct-id producers (e.g. the per-version CLI
 // image toast) would otherwise grow this list without bound over a long session.
 const MAX_NOTIFICATIONS = 100
+// F072: cap pending attention items. They are appended (newest last) and only
+// removed when explicitly dismissed, so a long session with a steady stream of
+// distinct-id items would otherwise grow this list without bound.
+const MAX_ATTENTION_ITEMS = 100
 
 interface FeedState {
   feedItems: FeedItem[]
@@ -78,10 +82,12 @@ export const useFeedStore = create<FeedState>((set) => ({
   setAgents: (agents) => set({ agents }),
   addAttentionItem: (item) =>
     set((s) => ({
+      // Append newest last, then keep only the most recent MAX so the list
+      // cannot grow unbounded across a long session (F072).
       attentionItems: [
         ...s.attentionItems,
         { ...item, reason: attentionReasonPreview(item.reason) },
-      ],
+      ].slice(-MAX_ATTENTION_ITEMS),
     })),
   removeAttentionItem: (id) =>
     set((s) => ({ attentionItems: s.attentionItems.filter((a) => a.id !== id) })),

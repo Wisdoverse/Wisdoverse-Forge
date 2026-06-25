@@ -19,6 +19,15 @@ import {
   type OrchestrationRealtimeMessage,
 } from '@app/features/orchestration/model/orchestrationRealtime'
 
+// F072: monotonic counter so two attention items created in the same millisecond
+// get distinct ids. A bare `attention-${Date.now()}` collides under a burst, and
+// since `removeAttentionItem` filters by id, dismissing one would remove both.
+let attentionSeq = 0
+function nextAttentionId(): string {
+  attentionSeq += 1
+  return `attention-${Date.now()}-${attentionSeq}`
+}
+
 interface WsMessage {
   type: string
   [key: string]: unknown
@@ -130,7 +139,7 @@ export function dispatchWsMessage(msg: WsMessage) {
 
         if (eventType === 'permission_prompt' || eventType === 'blocked') {
           useFeedStore.getState().addAttentionItem({
-            id: `attention-${Date.now()}`,
+            id: nextAttentionId(),
             taskTitle: tool ?? 'Task',
             agentName,
             reason: eventType === 'permission_prompt' ? 'Permission required' : 'Blocked',
@@ -202,15 +211,22 @@ function recordField(value: unknown): Record<string, unknown> | null {
     : null
 }
 
+// F073: `currentUserId` runs once per dispatched WS message (owner-notification
+// gating). Cache the parsed id and only re-`JSON.parse` when the stored string
+// actually changes, so a steady stream of broadcasts does not re-parse the user
+// blob on every message. The cheap `getItem` still runs to detect a change.
+let cachedUserRaw: string | null = null
+let cachedUserId: string | null = null
 function currentUserId(): string | null {
+  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('af:auth:user') : null
+  if (raw === cachedUserRaw) return cachedUserId
+  cachedUserRaw = raw
   try {
-    const raw = localStorage.getItem('af:auth:user')
-    if (!raw) return null
-    const user = JSON.parse(raw) as { id?: unknown }
-    return stringField(user.id)
+    cachedUserId = raw ? stringField((JSON.parse(raw) as { id?: unknown }).id) : null
   } catch {
-    return null
+    cachedUserId = null
   }
+  return cachedUserId
 }
 
 function taskOwnerId(task: TaskSummary): string | null {

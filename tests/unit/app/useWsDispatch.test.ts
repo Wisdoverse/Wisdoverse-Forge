@@ -109,6 +109,21 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
   })
 
+  it('gives same-millisecond attention items distinct ids (F072)', () => {
+    const event = {
+      type: 'event' as const,
+      payload: { type: 'permission_prompt', agentName: 'Claude', tool: 'Bash', timestamp: 1 },
+    }
+    dispatchWsMessage(event)
+    dispatchWsMessage(event)
+
+    const items = useFeedStore.getState().attentionItems
+    expect(items).toHaveLength(2)
+    // Distinct ids so dismissing one (removeAttentionItem filters by id) cannot
+    // remove the other — a bare `attention-${Date.now()}` would collide.
+    expect(items[0].id).not.toBe(items[1].id)
+  })
+
   it('turns command activity events into plain work steps', () => {
     dispatchWsMessage({
       type: 'event',
