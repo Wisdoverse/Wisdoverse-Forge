@@ -1,6 +1,10 @@
 import { useEffect } from 'react'
 import type { ErrorComponentProps } from '@tanstack/react-router'
-import { clearChunkReloadGuard, recoverFromChunkError } from '@app/shared/lib/chunkError'
+import {
+  clearChunkReloadGuard,
+  recoverFromChunkError,
+  reloadPage,
+} from '@app/shared/lib/chunkError'
 import { ErrorFallback } from './ErrorFallback'
 
 /**
@@ -16,7 +20,7 @@ export function RouteErrorFallback({ error }: ErrorComponentProps) {
 
   const handleReload = (): void => {
     clearChunkReloadGuard()
-    window.location.reload()
+    reloadPage()
   }
 
   return <ErrorFallback onReload={handleReload} />

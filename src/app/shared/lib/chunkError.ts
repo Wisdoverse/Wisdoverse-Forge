@@ -23,11 +23,20 @@ export function isChunkLoadError(error: unknown): boolean {
 }
 
 /**
+ * Reload the page. A seam so callers and tests never touch `window.location`
+ * directly (jsdom's `location.reload` is non-configurable and cannot be spied).
+ */
+export function reloadPage(): void {
+  if (typeof window !== 'undefined') window.location.reload()
+}
+
+/**
  * If `error` is a chunk-load failure and we have not already reloaded this
  * session, reload the page once and return `true`. Otherwise return `false` so
- * the caller renders a recovery UI instead of looping.
+ * the caller renders a recovery UI instead of looping. `reload` is injectable
+ * for tests; production uses the default page reload.
  */
-export function recoverFromChunkError(error: unknown): boolean {
+export function recoverFromChunkError(error: unknown, reload: () => void = reloadPage): boolean {
   if (typeof window === 'undefined' || !isChunkLoadError(error)) return false
   try {
     if (sessionStorage.getItem(RELOAD_FLAG)) return false
@@ -36,7 +45,7 @@ export function recoverFromChunkError(error: unknown): boolean {
     // No sessionStorage → cannot guard against a loop, so do NOT auto-reload.
     return false
   }
-  window.location.reload()
+  reload()
   return true
 }
 

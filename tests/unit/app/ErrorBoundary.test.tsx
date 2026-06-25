@@ -20,16 +20,8 @@ describe('chunkError util (F069)', () => {
 })
 
 describe('ErrorBoundary (F069)', () => {
-  let reloadMock: ReturnType<typeof vi.fn>
-
   beforeEach(() => {
     sessionStorage.clear()
-    reloadMock = vi.fn()
-    Object.defineProperty(window, 'location', {
-      value: { ...window.location, reload: reloadMock },
-      writable: true,
-      configurable: true,
-    })
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -47,7 +39,7 @@ describe('ErrorBoundary (F069)', () => {
     expect(screen.getByTestId('ok')).toBeInTheDocument()
   })
 
-  test('renders the recovery UI on a non-chunk render throw — no blank screen, no reload', () => {
+  test('renders the recovery UI on a non-chunk render throw — no blank screen', () => {
     render(
       <ErrorBoundary>
         <Boom error={new Error('kaboom')} />
@@ -55,23 +47,26 @@ describe('ErrorBoundary (F069)', () => {
     )
     expect(screen.getByTestId('error-fallback')).toBeInTheDocument()
     expect(screen.getByTestId('error-fallback-reload')).toBeInTheDocument()
-    expect(reloadMock).not.toHaveBeenCalled()
   })
 
+  // The reload is injected (no window.location mocking — jsdom's location.reload
+  // is non-configurable and cannot be spied).
   test('recoverFromChunkError reloads once then guards against a loop', () => {
+    const reload = vi.fn()
     const chunkErr = Object.assign(new Error('Failed to fetch dynamically imported module'), {
       name: 'ChunkLoadError',
     })
     // First episode this session: reload triggered.
-    expect(recoverFromChunkError(chunkErr)).toBe(true)
-    expect(reloadMock).toHaveBeenCalledTimes(1)
+    expect(recoverFromChunkError(chunkErr, reload)).toBe(true)
+    expect(reload).toHaveBeenCalledTimes(1)
     // Still broken in the same session: no second reload (loop guard).
-    expect(recoverFromChunkError(chunkErr)).toBe(false)
-    expect(reloadMock).toHaveBeenCalledTimes(1)
+    expect(recoverFromChunkError(chunkErr, reload)).toBe(false)
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 
   test('recoverFromChunkError ignores non-chunk errors', () => {
-    expect(recoverFromChunkError(new Error('plain error'))).toBe(false)
-    expect(reloadMock).not.toHaveBeenCalled()
+    const reload = vi.fn()
+    expect(recoverFromChunkError(new Error('plain error'), reload)).toBe(false)
+    expect(reload).not.toHaveBeenCalled()
   })
 })

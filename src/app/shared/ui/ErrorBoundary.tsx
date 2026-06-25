@@ -1,5 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { clearChunkReloadGuard, recoverFromChunkError } from '@app/shared/lib/chunkError'
+import {
+  clearChunkReloadGuard,
+  recoverFromChunkError,
+  reloadPage,
+} from '@app/shared/lib/chunkError'
 import { ErrorFallback } from './ErrorFallback'
 
 type ErrorBoundaryProps = {
@@ -24,13 +28,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { error }
   }
 
-  componentDidMount(): void {
-    // A clean mount means the previous load (or reload) succeeded — reset the
-    // once-per-session reload guard so a future, different chunk error can also
-    // recover. Only clear on the no-error path so an error-on-mount cannot
-    // re-arm a reload loop.
-    if (!this.state.error) clearChunkReloadGuard()
-  }
+  // NB: the once-per-session reload guard is deliberately NOT cleared on mount.
+  // A lazy chunk needed during the FIRST render rejects asynchronously, AFTER
+  // React has already committed the pending UI and called `componentDidMount`
+  // with `state.error` still null; clearing here would drop the guard set by the
+  // previous recovery reload and loop forever on a persistently-broken chunk.
+  // The guard lives for the browser session (so we auto-reload at most once) and
+  // is re-armed only on an explicit user reload (see `handleReload`).
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     // Stale-hash chunk 404 right after a deploy → reload once to fetch the new
@@ -43,7 +47,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   private handleReload = (): void => {
     clearChunkReloadGuard()
-    window.location.reload()
+    reloadPage()
   }
 
   render(): ReactNode {
