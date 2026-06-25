@@ -7,7 +7,7 @@
 use std::any::Any;
 
 use axum::Json;
-use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderName};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::IntoResponse;
 use tower_http::catch_panic::{CatchPanicLayer, ResponseForPanic};
@@ -23,6 +23,12 @@ use crate::domain::system::internal_error_response;
 ///   is configured, defaults to same-origin only (no external origins allowed)
 ///   and logs a warning.
 pub fn cors_layer(is_production: bool, cors_origin: Option<&str>) -> CorsLayer {
+    // The request-id correlation header (MS-1). For a configured cross-origin
+    // frontend it must be both ALLOWED inbound (so a browser may supply its own
+    // correlation id without failing CORS preflight) and EXPOSED outbound (so
+    // frontend JavaScript can read the echoed id off the response). Reuse the
+    // single source of truth for the header name from the middleware.
+    let request_id = HeaderName::from_static(crate::observability::REQUEST_ID_HEADER);
     if is_production {
         let allow_origin = match cors_origin {
             Some(origin) => AllowOrigin::exact(HeaderValue::from_str(origin).unwrap_or_else(|_| {
@@ -39,10 +45,13 @@ pub fn cors_layer(is_production: bool, cors_origin: Option<&str>) -> CorsLayer {
         };
         CorsLayer::new()
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::PATCH])
-            .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT])
+            .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT, request_id.clone()])
+            .expose_headers([request_id])
             .allow_origin(allow_origin)
     } else {
-        CorsLayer::permissive()
+        // Permissive already allows any inbound header; still expose x-request-id
+        // so a cross-origin dev frontend can read it too.
+        CorsLayer::permissive().expose_headers([request_id])
     }
 }
 
@@ -131,6 +140,66 @@ where
             .filter(|s| !s.is_empty() && s.len() <= 256)
             .map(|s| IdempotencyKey(s.to_string()))
             .ok_or_else(IdempotencyKeyPolicy::missing_header_error)
+    }
+}
+
+#[cfg(test)]
+mod cors_tests {
+    use super::*;
+    use axum::Router;
+    use axum::body::Body;
+    use axum::http::{Request, header};
+    use axum::routing::get;
+    use tower::ServiceExt;
+
+    const ORIGIN: &str = "https://app.example.com";
+
+    fn app() -> Router {
+        Router::new().route("/x", get(|| async { "ok" })).layer(cors_layer(true, Some(ORIGIN)))
+    }
+
+    /// Cross-origin preflight: a browser asking to send `x-request-id` must be
+    /// allowed it, otherwise a client-supplied correlation id fails CORS and the
+    /// request never reaches the server.
+    #[tokio::test]
+    async fn production_cors_allows_inbound_request_id_header() {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .method(Method::OPTIONS)
+                    .uri("/x")
+                    .header(header::ORIGIN, ORIGIN)
+                    .header(header::ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                    .header(header::ACCESS_CONTROL_REQUEST_HEADERS, "x-request-id")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let allowed = response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_HEADERS)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        assert!(allowed.contains("x-request-id"), "preflight must allow x-request-id, got: {allowed:?}");
+    }
+
+    /// Cross-origin actual request: the echoed `x-request-id` must be exposed so
+    /// frontend JavaScript can read it off the response for correlation.
+    #[tokio::test]
+    async fn production_cors_exposes_response_request_id_header() {
+        let response = app()
+            .oneshot(Request::builder().uri("/x").header(header::ORIGIN, ORIGIN).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let exposed = response
+            .headers()
+            .get(header::ACCESS_CONTROL_EXPOSE_HEADERS)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        assert!(exposed.contains("x-request-id"), "response must expose x-request-id, got: {exposed:?}");
     }
 }
 
