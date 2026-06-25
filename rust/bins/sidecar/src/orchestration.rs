@@ -579,12 +579,37 @@ struct AssignmentHandler {
     result_subject_prefix: String,
 }
 
+/// Decode an inbound assignment payload, accepting either a signed envelope or a
+/// legacy unsigned assignment (F064).
+///
+/// A [`SignedEnvelope`] is verified with this agent's `hmac_key` and its
+/// `payload` decoded; a payload that parses as an envelope but fails
+/// verification is rejected (a tampered/forged assignment). A payload that is
+/// not an envelope (the legacy unsigned shape — `TaskAssignment` has no
+/// `signature` field) is accepted as a raw assignment during the signing
+/// rollout. Returns the assignment or a human-readable rejection reason.
+fn decode_assignment_payload(payload: &[u8], hmac_key: &[u8]) -> Result<TaskAssignment, String> {
+    if let Ok(envelope) = serde_json::from_slice::<SignedEnvelope>(payload) {
+        if !envelope.verify(hmac_key) {
+            return Err("assignment envelope signature did not verify".to_string());
+        }
+        return serde_json::from_value::<TaskAssignment>(envelope.payload)
+            .map_err(|err| format!("signed assignment payload undecodable: {err}"));
+    }
+    serde_json::from_slice::<TaskAssignment>(payload).map_err(|err| format!("malformed assignment: {err}"))
+}
+
 impl AssignmentHandler {
     async fn dispatch(&self, payload: Vec<u8>) -> DispatchAction {
-        let assignment = match serde_json::from_slice::<TaskAssignment>(&payload) {
+        // Accept either a SignedEnvelope (verified with this agent's hmac_key) or
+        // a legacy unsigned assignment. A tampered/forged envelope is rejected
+        // before execution — assignments run with --dangerously-skip-permissions,
+        // so an unsigned payload from a compromised NATS would otherwise be RCE
+        // (F064). Unsigned payloads are accepted during the signing rollout.
+        let assignment = match decode_assignment_payload(&payload, &self.hmac_key) {
             Ok(assignment) => assignment,
-            Err(err) => {
-                tracing::warn!(error = %err, "Dropping malformed orchestration assignment");
+            Err(reason) => {
+                tracing::warn!(%reason, "Dropping orchestration assignment");
                 return DispatchAction::Term;
             }
         };
@@ -1065,6 +1090,38 @@ mod tests {
             context_envelope: None,
             runtime_kind: None,
         }
+    }
+
+    #[test]
+    fn decode_assignment_verifies_signed_accepts_legacy_rejects_tampered() {
+        let secret = b"agent-secret";
+        let assignment = sample_assignment();
+
+        // A SignedEnvelope signed with this agent's secret verifies and unwraps.
+        let envelope =
+            SignedEnvelope::sign(secret, &assignment.agent_id.to_string(), Utc::now().timestamp(), &assignment)
+                .unwrap();
+        let signed_bytes = serde_json::to_vec(&envelope).unwrap();
+        let decoded = decode_assignment_payload(&signed_bytes, secret).expect("signed assignment must verify + decode");
+        assert_eq!(decoded.task_id, assignment.task_id);
+
+        // Verifying with the wrong key is rejected (compromised-NATS forgery).
+        assert!(decode_assignment_payload(&signed_bytes, b"wrong-secret").is_err(), "forged signer must be rejected");
+
+        // A tampered signature is rejected.
+        let mut tampered = envelope.clone();
+        tampered.signature = "00".repeat(32);
+        let tampered_bytes = serde_json::to_vec(&tampered).unwrap();
+        assert!(decode_assignment_payload(&tampered_bytes, secret).is_err(), "tampered signature must be rejected");
+
+        // A legacy unsigned raw assignment is accepted during the signing rollout.
+        let raw_bytes = serde_json::to_vec(&assignment).unwrap();
+        let decoded_raw =
+            decode_assignment_payload(&raw_bytes, secret).expect("legacy unsigned assignment must be accepted");
+        assert_eq!(decoded_raw.task_id, assignment.task_id);
+
+        // Garbage is rejected.
+        assert!(decode_assignment_payload(b"not json", secret).is_err());
     }
 
     #[test]

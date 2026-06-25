@@ -278,7 +278,7 @@ async fn assignment_outbox_publishes_only_after_commit(pool: PgPool) {
         .await
         .expect("create temporary assignment consumer");
 
-    let publisher = OrchestrationOutboxPublisher::new(pool.clone(), client.clone());
+    let publisher = OrchestrationOutboxPublisher::new(pool.clone(), client.clone(), false);
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
     let worker = tokio::spawn(async move { publisher.run(shutdown_rx).await });
 
@@ -358,7 +358,7 @@ async fn assignment_outbox_backlog_drains_after_publisher_restart(pool: PgPool) 
         "assignment published before publisher restart"
     );
 
-    let publisher = OrchestrationOutboxPublisher::new(pool.clone(), client.clone());
+    let publisher = OrchestrationOutboxPublisher::new(pool.clone(), client.clone(), false);
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
     let worker = tokio::spawn(async move { publisher.run(shutdown_rx).await });
 

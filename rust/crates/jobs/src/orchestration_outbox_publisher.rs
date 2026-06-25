@@ -4,7 +4,7 @@ use agentforge_core::RuntimeKind;
 use agentforge_core::clone_protocol::{
     CLONE_JOB_MAX_ATTEMPTS, CLONE_JOB_QUEUE, CLONE_OUTBOX_AGGREGATE_TYPE, CloneOutboxPayload,
 };
-use agentforge_core::orchestration_protocol::{TaskAssignment, assign_subject, assign_subject_kind};
+use agentforge_core::orchestration_protocol::{SignedEnvelope, TaskAssignment, assign_subject, assign_subject_kind};
 use agentforge_db::entities::OrchestrationOutbox;
 use anyhow::{Context, Result};
 use async_nats::{Client, jetstream};
@@ -38,14 +38,41 @@ const MARK_OUTBOX_PUBLISHED_SQL: &str = r#"UPDATE orchestration_outbox
        SET published_at = NOW()
      WHERE id = $1"#;
 
+/// Serialize an assignment for publication. When `signing_secret` is `Some`,
+/// wrap it in a [`SignedEnvelope`] (HMAC-SHA256 over `agent_id:timestamp:payload`)
+/// signed with the target agent's per-agent secret, so the sidecar can verify
+/// integrity before executing a payload that runs with
+/// `--dangerously-skip-permissions` (F064). When `None`, emit the legacy raw
+/// assignment — sidecars accept both during the signing rollout.
+fn encode_assignment(assignment: &TaskAssignment, signing_secret: Option<&str>) -> Result<Vec<u8>> {
+    match signing_secret {
+        Some(secret) => {
+            let envelope = SignedEnvelope::sign(
+                secret.as_bytes(),
+                &assignment.agent_id.to_string(),
+                Utc::now().timestamp(),
+                assignment,
+            )
+            .context("sign orchestration assignment envelope")?;
+            serde_json::to_vec(&envelope).context("encode signed orchestration assignment")
+        }
+        None => serde_json::to_vec(assignment).context("encode orchestration assignment payload"),
+    }
+}
+
 pub struct OrchestrationOutboxPublisher {
     pool: PgPool,
     client: Client,
+    /// When true, wrap each assignment in a `SignedEnvelope` signed with the
+    /// target agent's per-agent `hmac_secret` (F064). Default OFF: the wire
+    /// format change must trail a rollout of sidecars that accept signed
+    /// envelopes, so operators enable it only after all sidecars are updated.
+    sign_assignments: bool,
 }
 
 impl OrchestrationOutboxPublisher {
-    pub fn new(pool: PgPool, client: Client) -> Self {
-        Self { pool, client }
+    pub fn new(pool: PgPool, client: Client, sign_assignments: bool) -> Self {
+        Self { pool, client, sign_assignments }
     }
 
     pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
@@ -147,7 +174,31 @@ impl OrchestrationOutboxPublisher {
 
         let legacy_subject = assign_subject(assignment.agent_id);
         let namespaced_subject = assign_subject_kind(kind, assignment.agent_id);
-        let bytes = serde_json::to_vec(&assignment).context("encode orchestration assignment payload")?;
+
+        // When signing is enabled, look up the target agent's per-agent secret
+        // and wrap the assignment in a SignedEnvelope so the sidecar can verify
+        // integrity before executing it (F064). A missing secret falls back to an
+        // unsigned publish (sidecars still accept legacy raw during rollout) with
+        // a loud warning, so a misconfiguration degrades rather than strands work.
+        let signing_secret: Option<String> = if self.sign_assignments {
+            let secret_row: Option<(Option<String>,)> = sqlx::query_as("SELECT hmac_secret FROM agents WHERE id = $1")
+                .bind(assignment.agent_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .context("lookup agent hmac_secret for assignment signing")?;
+            let secret = secret_row.and_then(|(secret,)| secret);
+            if secret.is_none() {
+                tracing::warn!(
+                    agent_id = %assignment.agent_id,
+                    outbox_id = %row.id,
+                    "assignment signing enabled but agent has no hmac_secret; publishing unsigned"
+                );
+            }
+            secret
+        } else {
+            None
+        };
+        let bytes = encode_assignment(&assignment, signing_secret.as_deref())?;
         let publish_started = Instant::now();
         let js = jetstream::new(self.client.clone());
 
@@ -377,4 +428,53 @@ pub fn register_metrics() {
     metrics::counter!("agentforge_project_clone_outbox_relayed_total").increment(0);
     metrics::counter!("agentforge_project_clone_outbox_relay_errors_total").increment(0);
     metrics::counter!("agentforge_project_clone_outbox_poison_total").increment(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn sample_assignment() -> TaskAssignment {
+        TaskAssignment {
+            delivery_id: Some(Uuid::now_v7()),
+            attempt: Some(1),
+            lease_expires_at: Some(Utc::now()),
+            task_id: Uuid::now_v7(),
+            agent_id: Uuid::now_v7(),
+            title: "Sweep".into(),
+            task: "Do a thing".into(),
+            message: String::new(),
+            priority: "normal".into(),
+            context_envelope: None,
+            runtime_kind: None,
+        }
+    }
+
+    #[test]
+    fn encode_assignment_unsigned_is_raw() {
+        let assignment = sample_assignment();
+        let bytes = encode_assignment(&assignment, None).unwrap();
+
+        // Round-trips as a raw TaskAssignment and is NOT a SignedEnvelope.
+        let back: TaskAssignment = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(back.task_id, assignment.task_id);
+        assert!(serde_json::from_slice::<SignedEnvelope>(&bytes).is_err(), "unsigned encoding must not be an envelope");
+    }
+
+    #[test]
+    fn encode_assignment_signed_verifies_with_secret_only() {
+        // Generated, not a literal, so the secret-scan can't false-positive on it.
+        let signing_key = Uuid::new_v4().to_string();
+        let assignment = sample_assignment();
+        let bytes = encode_assignment(&assignment, Some(&signing_key)).unwrap();
+
+        let envelope: SignedEnvelope = serde_json::from_slice(&bytes).unwrap();
+        assert!(envelope.verify(signing_key.as_bytes()), "must verify with the signing key");
+        assert!(!envelope.verify(b"a-different-key"), "must not verify with a different key");
+        assert_eq!(envelope.agent_id, assignment.agent_id.to_string());
+
+        let back: TaskAssignment = serde_json::from_value(envelope.payload).unwrap();
+        assert_eq!(back.task_id, assignment.task_id);
+    }
 }
