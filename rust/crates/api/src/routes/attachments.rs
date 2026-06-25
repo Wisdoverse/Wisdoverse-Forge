@@ -86,6 +86,9 @@ async fn download_attachment(
         header::CONTENT_LENGTH,
         HeaderValue::from_str(&download.len().to_string()).unwrap_or_else(|_| HeaderValue::from_static("0")),
     );
+    // Defense-in-depth (F019): forbid MIME-sniffing of attacker-controlled
+    // user-uploaded bytes, alongside the forced attachment disposition.
+    headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
 
     Ok((StatusCode::OK, headers, download.into_bytes()).into_response())
 }
