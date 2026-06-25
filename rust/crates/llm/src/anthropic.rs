@@ -68,6 +68,12 @@ impl LlmStream for AnthropicProvider {
         if let Some(sys) = system_text {
             body["system"] = serde_json::Value::String(sys);
         }
+        // Forward temperature on the streaming path too — `chat()` already does,
+        // and dropping it here silently gave streamed replies the provider default
+        // instead of the caller's requested value (F028).
+        if let Some(temp) = request.temperature {
+            body["temperature"] = serde_json::json!(temp);
+        }
 
         let resp = self
             .client
@@ -267,6 +273,38 @@ data: {\"type\":\"message_stop\"}\n\n";
         // return LlmError::Api. Collecting at least one Text delta proves both that
         // the mock matched AND that the SSE parser wired through.
         let mut s = provider.stream(req).await.expect("mock did not match — system likely absent from body");
+        let mut got_text = false;
+        while let Some(delta) = s.next().await {
+            if matches!(delta.unwrap(), StreamDelta::Text(_)) {
+                got_text = true;
+            }
+        }
+        assert!(got_text, "stream produced no text deltas");
+    }
+
+    #[tokio::test]
+    async fn stream_forwards_temperature_into_request_body() {
+        let srv = MockServer::start().await;
+        // The matcher requires `temperature: 0.2` in the streamed request body.
+        // If stream() dropped it (the F028 bug), the mock would 404 and stream()
+        // would return LlmError::Api instead of a usable stream.
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .and(wiremock::matchers::body_partial_json(serde_json::json!({ "temperature": 0.5, "stream": true })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_string(SSE_BODY).insert_header("content-type", "text/event-stream"),
+            )
+            .mount(&srv)
+            .await;
+
+        let provider = AnthropicProvider::with_base_url("test".into(), srv.uri());
+        let req = ChatRequest {
+            model: "claude-sonnet-4-6".into(),
+            messages: vec![ChatMessage { role: "user".into(), content: "hi".into() }],
+            max_tokens: Some(100),
+            temperature: Some(0.5),
+        };
+        let mut s = provider.stream(req).await.expect("mock did not match — temperature likely absent from body");
         let mut got_text = false;
         while let Some(delta) = s.next().await {
             if matches!(delta.unwrap(), StreamDelta::Text(_)) {
