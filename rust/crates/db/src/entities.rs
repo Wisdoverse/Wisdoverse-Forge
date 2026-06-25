@@ -953,9 +953,28 @@ pub struct Attachment {
     pub filename: String,
     pub content_type: String,
     pub size_bytes: i64,
+    /// Object-storage key. Never sent to clients: it reveals the org-scoped
+    /// object layout and is not needed by the UI (downloads go through the
+    /// attachment download endpoint). `default` keeps JSON deserialization
+    /// (FromRow always supplies it from the DB).
+    #[serde(skip_serializing, default)]
     pub storage_path: String,
     pub storage_backend: String,
+    /// `'file'` (generic upload) or `'image'` (vision instruction input).
+    #[serde(default = "default_attachment_kind")]
+    pub kind: String,
+    /// Workspace the upload was made in; asserted against the executing agent's
+    /// workspace when an image attachment is used on an instruction.
+    pub workspace_id: Option<Uuid>,
+    /// Decoded image dimensions (image kind only), for token estimate + preview.
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub checksum_sha256: Option<String>,
     pub created_at: DateTime<Utc>,
+}
+
+fn default_attachment_kind() -> String {
+    "file".to_string()
 }
 
 /// A resource profile defining container resource limits.
@@ -1499,6 +1518,11 @@ mod tests {
             size_bytes: 1048576,
             storage_path: "/uploads/report.pdf".to_string(),
             storage_backend: "local".to_string(),
+            kind: "file".to_string(),
+            workspace_id: None,
+            width: None,
+            height: None,
+            checksum_sha256: None,
             created_at: Utc::now(),
         };
         let json = serde_json::to_string(&att).unwrap();
@@ -1506,6 +1530,32 @@ mod tests {
         assert_eq!(att.id, deserialized.id);
         assert_eq!(deserialized.filename, "report.pdf");
         assert_eq!(deserialized.size_bytes, 1048576);
+    }
+
+    #[test]
+    fn attachment_never_serializes_storage_path_to_clients() {
+        let att = Attachment {
+            id: AttachmentId::new(),
+            organization_id: OrgId::new(),
+            user_id: UserId::new(),
+            agent_id: None,
+            run_id: None,
+            filename: "shot.png".to_string(),
+            content_type: "image/png".to_string(),
+            size_bytes: 42,
+            storage_path: "organizations/secret/attachments/x/shot.png".to_string(),
+            storage_backend: "minio".to_string(),
+            kind: "image".to_string(),
+            workspace_id: Some(Uuid::new_v4()),
+            width: Some(800),
+            height: Some(600),
+            checksum_sha256: Some("abc".to_string()),
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&att).unwrap();
+        assert!(!json.contains("storage_path"), "storage_path must not leak to clients: {json}");
+        assert!(!json.contains("organizations/secret"), "object layout must not leak: {json}");
+        assert!(json.contains("\"kind\":\"image\""), "kind should be exposed: {json}");
     }
 
     #[test]
