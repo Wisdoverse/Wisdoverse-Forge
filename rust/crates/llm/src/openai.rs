@@ -4,7 +4,7 @@ use agentforge_core::RuntimeCapability;
 use futures::stream::{BoxStream, StreamExt};
 use reqwest::Client;
 
-use crate::provider::{ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage};
+use crate::provider::{ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, timed_client};
 
 /// OpenAI Chat Completions API provider.
 ///
@@ -22,7 +22,7 @@ impl OpenAiProvider {
     /// If `base_url` is `None`, defaults to `https://api.openai.com`.
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         Self {
-            client: Client::new(),
+            client: timed_client(),
             api_key,
             base_url: base_url.unwrap_or_else(|| "https://api.openai.com".to_string()),
             provider_name: "openai".to_string(),
@@ -31,7 +31,7 @@ impl OpenAiProvider {
 
     /// Create an Ollama-compatible provider (no API key needed).
     pub fn ollama(base_url: String) -> Self {
-        Self { client: Client::new(), api_key: String::new(), base_url, provider_name: "ollama".to_string() }
+        Self { client: timed_client(), api_key: String::new(), base_url, provider_name: "ollama".to_string() }
     }
 
     /// Create a provider for an OpenAI-compatible API.
@@ -42,7 +42,7 @@ impl OpenAiProvider {
     /// to (MiniMax uses `https://api.minimaxi.com/v1`, Zhipu uses
     /// `https://open.bigmodel.cn/api/paas/v4`). See [`chat_completions_url`].
     pub fn compatible(provider_name: impl Into<String>, api_key: String, base_url: String) -> Self {
-        Self { client: Client::new(), api_key, base_url, provider_name: provider_name.into() }
+        Self { client: timed_client(), api_key, base_url, provider_name: provider_name.into() }
     }
 }
 
@@ -65,7 +65,7 @@ fn chat_completions_url(base_url: &str) -> String {
 #[cfg(test)]
 impl OpenAiProvider {
     pub fn with_base_url(api_key: String, base_url: String) -> Self {
-        Self { client: Client::new(), api_key, base_url, provider_name: "openai".to_string() }
+        Self { client: timed_client(), api_key, base_url, provider_name: "openai".to_string() }
     }
 
     pub fn base_url(&self) -> &str {

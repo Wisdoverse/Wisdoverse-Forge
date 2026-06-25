@@ -7,15 +7,25 @@ use agentforge_llm::{LlmProviderBuildConfig, LlmProviderFactory};
 use async_trait::async_trait;
 use futures::{StreamExt, stream::BoxStream};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::oneshot;
 
 use crate::domain::prompt::{
     PromptAgentPolicy, PromptContent, PromptContextPolicy, PromptHistoryMessage, PromptProviderPolicy, SseFrame,
-    sse_error_for_llm_error,
+    sse_error_for_llm_error, sse_idle_timeout_error,
 };
 use crate::domain::resource::ensure_provider_base_url_allowed;
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::agent::message::MessageRepository;
+
+/// Max time to wait for the provider to BEGIN streaming (first response). A
+/// tighter app-level bound than the provider HTTP client's transport timeouts.
+const STREAM_START_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Max idle gap between decoded stream tokens before the stream is abandoned.
+/// Catches the case where an upstream keeps the connection alive with heartbeat
+/// bytes (which reset the transport read timeout) but sends no real content.
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 
 fn prompt_context_policy(model: &str) -> PromptContextPolicy {
     PromptContextPolicy::new(model, model_context_limit(model))
@@ -258,7 +268,15 @@ impl PromptService {
         // TODO(T12): remap `LlmError::Api { status, .. }` to user-remediable `ErrorKind`
         // (Validation / Unauthorized / Conflict / RateLimited) at the route layer so
         // the frontend can distinguish "your API key is wrong" (401) from a real 500.
-        let mut llm_stream = provider_instance.stream(req).await.map_err(PromptProviderPolicy::stream_failed)?;
+        // Bound the time to BEGIN streaming. The provider's HTTP client already
+        // carries connect/read timeouts, but this is a tighter app-level deadline
+        // so the caller fails fast instead of waiting out the transport timeout.
+        let mut llm_stream = match tokio::time::timeout(STREAM_START_TIMEOUT, provider_instance.stream(req)).await {
+            // A transport connect/read timeout can fire before the outer deadline;
+            // classify it (and upstream 5xx) as retryable 503, not a 500.
+            Ok(result) => result.map_err(|e| PromptProviderPolicy::stream_construction_failed(&e))?,
+            Err(_elapsed) => return Err(PromptProviderPolicy::stream_start_timed_out().into()),
+        };
 
         let messages_repo = self.messages.clone();
         let message_id = MessageId::new();
@@ -282,20 +300,41 @@ impl PromptService {
                         finish_reason = "interrupted".into();
                         break;
                     }
-                    next = llm_stream.next() => match next {
-                        None => break,
-                        Some(Ok(StreamDelta::Text(t))) => {
+                    next = tokio::time::timeout(STREAM_IDLE_TIMEOUT, llm_stream.next()) => match next {
+                        // No decoded token within the idle deadline (the upstream
+                        // may still be sending heartbeat bytes the transport-level
+                        // read timeout would not catch). Abandon the stream.
+                        Err(_elapsed) => {
+                            errored = true;
+                            finish_reason = "error".into();
+                            let (code, message, retryable) = sse_idle_timeout_error();
+                            tracing::warn!(
+                                agent_id = %agent_id,
+                                message_id = %message_id,
+                                "LLM stream idle timeout — abandoning stream"
+                            );
+                            yield Ok(SseFrame::Error { code: code.into(), message: message.into(), retryable });
+                            break;
+                        }
+                        Ok(None) => break,
+                        Ok(Some(Ok(StreamDelta::Text(t)))) => {
                             buffer.push_str(&t);
                             yield Ok(SseFrame::Delta { text: t });
                         }
-                        Some(Ok(StreamDelta::Usage { input_tokens, output_tokens })) => {
+                        Ok(Some(Ok(StreamDelta::Usage { input_tokens, output_tokens }))) => {
                             tokens_in = input_tokens;
                             tokens_out = output_tokens;
                         }
-                        Some(Ok(StreamDelta::Done { finish_reason: fr })) => {
+                        Ok(Some(Ok(StreamDelta::Done { finish_reason: fr }))) => {
+                            // `Done` is terminal per the LlmStream contract (usage
+                            // is emitted before it). Stop here instead of waiting
+                            // for the body to close, so a slow-closing socket can't
+                            // trip the idle timeout and turn a completed reply into
+                            // an error frame that suppresses message_stop.
                             finish_reason = fr;
+                            break;
                         }
-                        Some(Err(e)) => {
+                        Ok(Some(Err(e))) => {
                             errored = true;
                             finish_reason = "error".into();
                             let (code, message, retryable) = sse_error_for_llm_error(&e);
