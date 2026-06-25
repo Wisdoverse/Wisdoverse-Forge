@@ -65,20 +65,31 @@ impl Claims {
 }
 
 /// True when a token issued at `iat` (unix seconds) must be rejected because it
-/// was issued at or before the account's session floor (`sessions_invalid_before`,
-/// unix seconds). `None` floor = never invalidated, so nothing is revoked.
+/// was issued strictly before the account's session floor
+/// (`sessions_invalid_before`, unix seconds). `None` floor = never invalidated.
 ///
-/// The comparison is `<=`, not `<`, on purpose. `iat` is whole seconds (JWT
-/// standard) while a `NOW()` floor carries sub-second precision; comparing the
-/// truncated `floor.timestamp()` with `<` would let a stale token issued *earlier
-/// in the same wall-clock second as the reset* survive (its `iat` equals the
-/// truncated floor). Rejecting `iat == floor` closes that gap. The only token
-/// this over-rejects is a legitimate re-authentication landing in the exact same
-/// second as the reset — a sub-second race that simply retries and succeeds the
-/// next second.
+/// The comparison is `<` (not `<=`), and the floor is stored unmodified (no
+/// rounding). `iat` is whole seconds (JWT standard) while the `NOW()` floor has
+/// sub-second precision, so within the single wall-clock second of the reset a
+/// pre-reset token and a fresh post-reset login carry the SAME truncated value —
+/// they are indistinguishable at second granularity. We resolve that tie in
+/// favour of availability:
+///   - `<` keeps a token whose `iat` equals the floor second, so a user who logs
+///     in again in the same second as their reset is NOT locked out (a `<=`
+///     would permanently revoke that brand-new token — there is no later second
+///     to retry into, the `iat` is fixed).
+///   - The cost is that a token minted in the *exact same second* as the reset
+///     survives. That is a <=1s residual requiring an attacker to have
+///     authenticated in the very second of the victim's reset; the real threat —
+///     a copied refresh token inside its multi-day lifetime — has an `iat` from a
+///     prior second and is always revoked.
+///
+/// ponytail: a monotonic per-user token-version counter embedded in the claims
+/// would remove the second-granularity tie entirely, but that is a larger
+/// Claims-schema + mint-path change unwarranted for a <=1s unexploitable window.
 pub fn session_token_revoked(iat: u64, floor_secs: Option<i64>) -> bool {
     match floor_secs {
-        Some(floor) => (iat as i64) <= floor,
+        Some(floor) => (iat as i64) < floor,
         None => false,
     }
 }
@@ -147,18 +158,20 @@ mod tests {
     }
 
     #[test]
-    fn session_token_revoked_rejects_tokens_issued_at_or_before_floor() {
-        // Strictly before the floor -> revoked.
+    fn session_token_revoked_rejects_tokens_issued_before_floor() {
+        // Strictly before the floor second -> revoked (the real threat: a copied
+        // refresh token from a prior second).
         assert!(session_token_revoked(1_699_999_000, Some(1_700_000_000)));
-        // Same truncated second as the floor -> revoked (closes the sub-second
-        // gap where a stale token from earlier in the reset second would survive).
-        assert!(session_token_revoked(1_700_000_000, Some(1_700_000_000)));
+        assert!(session_token_revoked(1_699_999_999, Some(1_700_000_000)));
     }
 
     #[test]
-    fn session_token_revoked_keeps_tokens_issued_after_floor() {
-        // Strictly after the floor -> kept.
-        assert!(!session_token_revoked(1_700_000_001, Some(1_700_000_000)));
+    fn session_token_revoked_keeps_same_second_and_later_tokens() {
+        // Same truncated second as the floor -> kept, so a legitimate immediate
+        // post-reset login is never permanently locked out (its `iat` is fixed
+        // and equals the floor second).
+        assert!(!session_token_revoked(1_700_000_000, Some(1_700_000_000)));
+        // Strictly after -> kept.
         assert!(!session_token_revoked(1_700_000_500, Some(1_700_000_000)));
     }
 }
