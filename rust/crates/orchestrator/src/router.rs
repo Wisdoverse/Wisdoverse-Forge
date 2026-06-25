@@ -46,11 +46,18 @@ pub fn create_router(state: AppState) -> Router {
         router = router.route("/mcp", post(mcp::handle_request));
     }
 
-    // Record request count + latency keyed by the matched route TEMPLATE.
-    // Applied on the OUTER router (which holds the `/api/v1` nest) so the `path`
-    // label carries the full prefixed template, not the inner-only path. The
-    // orchestrator has no catch-panic layer, so this is the outermost layer.
-    router.layer(axum::middleware::from_fn(crate::observability::track_http_metrics)).with_state(state)
+    // Layer order (Tower runs the LAST-applied layer OUTERMOST):
+    //   - track_http_metrics records request count + latency keyed by the matched
+    //     route TEMPLATE; applied on the OUTER router (which holds the `/api/v1`
+    //     nest) so the `path` label carries the full prefixed template.
+    //   - track_request_id is applied last → outermost, so its correlation span
+    //     is active while the metrics layer and the handler run (their logs
+    //     inherit `request_id`) and the `x-request-id` echo wraps the whole
+    //     response. The orchestrator has no catch-panic layer between them.
+    router
+        .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
+        .layer(axum::middleware::from_fn(crate::observability::track_request_id))
+        .with_state(state)
 }
 
 /// `GET /metrics` — the orchestrator's process-level Prometheus exposition
