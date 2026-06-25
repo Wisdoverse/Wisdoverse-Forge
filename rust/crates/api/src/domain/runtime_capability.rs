@@ -6,7 +6,7 @@ use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind, RuntimeCapabi
 use anyhow::anyhow;
 use serde_json::Value;
 
-const RESEED_MIGRATION: &str = "074_runtime_capabilities_image.sql";
+const RESEED_MIGRATION: &str = "082_runtime_capabilities_image.sql";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct RuntimeCapabilityKey {

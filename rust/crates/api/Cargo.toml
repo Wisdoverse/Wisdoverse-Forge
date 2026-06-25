@@ -61,5 +61,6 @@ bcrypt = "0.19"
 http = "1"
 httpmock = "0.7"
 metrics-util.workspace = true
+tracing-subscriber.workspace = true
 agentforge-llm = { workspace = true, features = ["test-support"] }
 agentforge-api = { path = ".", features = ["test-support"] }

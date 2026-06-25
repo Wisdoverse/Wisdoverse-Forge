@@ -95,6 +95,24 @@ describe('Feed Store', () => {
     expect(useFeedStore.getState().feedItems).toHaveLength(100)
   })
 
+  test('attention items are capped at 100, keeping the most recent (F072)', () => {
+    const store = useFeedStore.getState()
+    for (let i = 0; i < 110; i++) {
+      store.addAttentionItem({
+        id: `att-${i}`,
+        taskTitle: `Task ${i}`,
+        agentName: 'C1',
+        reason: 'Blocked',
+        timestamp: Date.now(),
+      })
+    }
+    const items = useFeedStore.getState().attentionItems
+    expect(items).toHaveLength(100)
+    // Newest are appended last and retained; the oldest 10 are dropped.
+    expect(items[0].id).toBe('att-10')
+    expect(items[items.length - 1].id).toBe('att-109')
+  })
+
   test('addNotification is idempotent by notification id', () => {
     const store = useFeedStore.getState()
     store.addNotification({

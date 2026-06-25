@@ -10,6 +10,8 @@ agentforge-db.workspace = true
 agentforge-infra.workspace = true
 async-nats.workspace = true
 axum.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -39,4 +41,5 @@ temporalio-common.workspace = true
 [dev-dependencies]
 temp-env.workspace = true
 tower.workspace = true
+metrics-util.workspace = true
 tokio-tungstenite = "0.29"

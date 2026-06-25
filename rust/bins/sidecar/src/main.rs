@@ -332,8 +332,12 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Block until SIGINT / ctrl-c.
-    tokio::signal::ctrl_c().await?;
+    // CN-1: block until SIGINT (ctrl-c) OR SIGTERM. A container stop
+    // (`docker stop`, a Kubernetes pod termination) delivers SIGTERM, not
+    // SIGINT; awaiting only ctrl_c meant the sidecar ignored it and was
+    // hard-killed after the grace period, dropping in-flight events instead of
+    // draining. Mirror the API server's dual-signal handler.
+    wait_for_shutdown_signal().await;
     tracing::info!("Shutdown signal received");
     let _ = shutdown_tx.send(true);
 
@@ -347,6 +351,31 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Sidecar shut down");
     Ok(())
+}
+
+/// CN-1: resolve when EITHER SIGINT (ctrl-c) or SIGTERM is received, so a
+/// container/pod stop (which delivers SIGTERM) triggers the same graceful drain
+/// as an interactive ctrl-c. Mirrors the API server's `shutdown_signal`.
+async fn wait_for_shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
 
 fn info_command<I, S>(args: I) -> Option<InfoCommand>

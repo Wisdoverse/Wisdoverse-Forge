@@ -36,12 +36,50 @@ pub fn create_router(state: AppState) -> Router {
         api = api.nest("/auth", auth::routes());
     }
 
-    let mut router = Router::new().route("/health", get(health)).nest("/api/v1", api).nest("/ws", realtime::routes());
+    let mut router = Router::new()
+        .route("/health", get(health))
+        .route("/health/ready", get(health_ready))
+        .route("/metrics", get(metrics_scrape))
+        .nest("/api/v1", api)
+        .nest("/ws", realtime::routes());
     if state.mcp_server.is_some() {
         router = router.route("/mcp", post(mcp::handle_request));
     }
 
-    router.with_state(state)
+    // Layer order (Tower runs the LAST-applied layer OUTERMOST):
+    //   - track_http_metrics records request count + latency keyed by the matched
+    //     route TEMPLATE; applied on the OUTER router (which holds the `/api/v1`
+    //     nest) so the `path` label carries the full prefixed template.
+    //   - track_request_id is applied last → outermost, so its correlation span
+    //     is active while the metrics layer and the handler run (their logs
+    //     inherit `request_id`) and the `x-request-id` echo wraps the whole
+    //     response. The orchestrator has no catch-panic layer between them.
+    router
+        .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
+        .layer(axum::middleware::from_fn(crate::observability::track_request_id))
+        .with_state(state)
+}
+
+/// `GET /metrics` — the orchestrator's process-level Prometheus exposition
+/// (CN-5): request rate, latency, and status for the coordinator API.
+///
+/// Distinct from the business dashboard metrics at `/api/v1/metrics/*` (active
+/// tasks, pending reviews, …), which are tenant-scoped JSON. This exposition is
+/// an operator/infra surface gated to the internal token — the credential a
+/// Prometheus scraper carries. A valid *user session* JWT is rejected with 403
+/// (it is not tenant data). When auth is disabled (dev: no internal token, no
+/// signing key) the endpoint is open, matching the unauthenticated `/health`.
+async fn metrics_scrape(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    match auth::require_api_auth(&state, &headers) {
+        Ok(auth::AuthContext::InternalToken) | Ok(auth::AuthContext::Anonymous) => {
+            let body = state.prometheus_handle.render();
+            ([("content-type", "text/plain; version=0.0.4")], body).into_response()
+        }
+        Ok(auth::AuthContext::Session(_)) => {
+            error(StatusCode::FORBIDDEN, "metrics scrape requires the internal operator token")
+        }
+        Err(response) => response,
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +98,24 @@ pub fn health_body(status: crate::workflow::WorkflowRuntimeStatus) -> serde_json
 
 async fn health(axum::extract::State(state): axum::extract::State<AppState>) -> axum::Json<serde_json::Value> {
     axum::Json(health_body(state.workflow_runtime))
+}
+
+/// CN-3: readiness probe. Unlike `/health` (liveness — the process is up), this
+/// reports whether the orchestrator can actually do work: the Postgres pool must
+/// be configured and answering. Returns 503 otherwise so a load balancer / k8s
+/// readiness gate stops routing to an orchestrator that has lost its database,
+/// instead of the old shallow check that reported healthy regardless.
+async fn health_ready(State(state): State<AppState>) -> Response {
+    let db_ok = match &state.pool {
+        Some(pool) => agentforge_db::check_health(pool).await,
+        None => false,
+    };
+    let body = json!({
+        "ok": db_ok,
+        "workflowRuntime": state.workflow_runtime.as_str(),
+        "checks": { "database": db_ok },
+    });
+    if db_ok { Json(body).into_response() } else { (StatusCode::SERVICE_UNAVAILABLE, Json(body)).into_response() }
 }
 
 fn error(status: StatusCode, message: &str) -> Response {

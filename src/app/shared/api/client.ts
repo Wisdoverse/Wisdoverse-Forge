@@ -1,18 +1,13 @@
-function getAuthToken(): string | null {
-  try {
-    return localStorage.getItem('af:auth:access')
-  } catch {
-    return null
-  }
-}
+import { authFetch } from './authFetch'
 
 export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const token = typeof window !== 'undefined' ? getAuthToken() : null
-  const res = await fetch(url, {
+  // F068/F075: route through the shared auth-aware fetch (token injection +
+  // 401 refresh/retry) instead of stamping the token by hand, so a mid-session
+  // token expiry recovers transparently instead of surfacing a raw `API 401`.
+  const res = await authFetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   })

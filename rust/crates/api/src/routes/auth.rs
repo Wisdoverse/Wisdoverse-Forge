@@ -187,7 +187,7 @@ pub async fn switch_context(
     };
 
     let service = make_auth_service(&state);
-    let result = match service.switch_context(auth.scope.user_id(), req.org_id, axes).await {
+    let result = match service.switch_context(auth.scope.user_id(), auth.claims.iat, req.org_id, axes).await {
         Ok(result) => result,
         Err(err) => return auth_error_response(err, None),
     };

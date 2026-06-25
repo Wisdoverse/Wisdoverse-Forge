@@ -13,18 +13,37 @@ use crate::domain::admin::{
     AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery, AdminAgentListProjection,
     AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
     AdminOrgProjection, AdminRoleChange, AdminRolePolicy, AdminUserListProjection, AdminUserModificationPolicy,
-    AdminUserProjection, DeadEventPage, OrgControlPlaneSnapshot, admin_role_label, admin_user_deleted_audit_details,
-    admin_user_role_audit_details,
+    AdminUserProjection, DeadEventPage, DeadEventRow, OrgControlPlaneSnapshot, admin_role_label,
+    admin_user_deleted_audit_details, admin_user_role_audit_details,
 };
 pub(crate) use crate::domain::admin::{
     admin_agent_detail_response, admin_agent_list_response, admin_bulk_delete_response, admin_data_response,
     admin_delete_response, admin_org_list_response, admin_user_list_response, admin_user_role_response,
 };
 use crate::repositories::admin::{
-    AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminOrgRow, AdminRepository, AdminStats,
+    AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminOrgRow, AdminRepository, AdminStats, DeadEventRecord,
 };
 use crate::repositories::audit::AuditRepository;
 use crate::services::auth_callout::AuthCalloutService;
+
+/// Persistence adapter: project a stored `dead_events` row onto the domain wire
+/// shape. Lives in the service layer so `domain/admin.rs` stays free of any
+/// SQLx row coupling.
+impl From<DeadEventRecord> for DeadEventRow {
+    fn from(row: DeadEventRecord) -> Self {
+        Self {
+            id: row.id,
+            source: row.source,
+            reason: row.reason,
+            subject: row.subject,
+            detail: row.detail,
+            delivery_id: row.delivery_id,
+            org_id: row.org_id,
+            payload_excerpt: row.payload_excerpt,
+            recorded_at: row.recorded_at,
+        }
+    }
+}
 
 /// Service input for the admin agent list endpoint. This is intentionally
 /// independent of the HTTP query DTO so the route only performs extraction.
@@ -392,7 +411,8 @@ impl AdminService {
     ) -> AppResult<DeadEventPage> {
         let page = page.max(1);
         let list_page = AdminListPage::new(limit, (page - 1).saturating_mul(limit));
-        let items = self.repo.list_dead_events(list_page.limit(), list_page.offset(), reason).await?;
+        let records = self.repo.list_dead_events(list_page.limit(), list_page.offset(), reason).await?;
+        let items = records.into_iter().map(DeadEventRow::from).collect();
         let total = self.repo.count_dead_events(reason).await?;
         Ok(DeadEventPage::new(items, total, page, list_page.limit()))
     }

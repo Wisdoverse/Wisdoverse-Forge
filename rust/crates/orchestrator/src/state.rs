@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use axum::Router;
+use metrics_exporter_prometheus::PrometheusHandle;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tokio::time::Duration;
 
@@ -45,6 +46,11 @@ pub struct AppState {
     pub broadcaster: Arc<Broadcaster>,
     pub workflow_runtime: crate::workflow::WorkflowRuntimeStatus,
     pub ready: bool,
+    /// Render handle for the process-level Prometheus exposition served at the
+    /// top-level `/metrics` route. The live path installs the global recorder
+    /// ([`crate::observability::install_recorder`]); test/default states use a
+    /// non-installed placeholder that renders an empty exposition.
+    pub prometheus_handle: Arc<PrometheusHandle>,
 }
 
 impl Default for AppState {
@@ -69,6 +75,7 @@ impl Default for AppState {
             broadcaster: Arc::new(Broadcaster::new()),
             workflow_runtime: crate::workflow::WorkflowRuntimeStatus::Disabled,
             ready: false,
+            prometheus_handle: crate::observability::placeholder_handle(),
         }
     }
 }
@@ -258,6 +265,7 @@ impl AppState {
             broadcaster: Arc::new(Broadcaster::new()),
             workflow_runtime: crate::workflow::WorkflowRuntimeStatus::Disabled,
             ready: true,
+            prometheus_handle: crate::observability::placeholder_handle(),
         }
     }
 
@@ -268,6 +276,13 @@ impl AppState {
 
     pub async fn live_with_runtime(config: Config) -> anyhow::Result<(Self, Option<WorkflowWorkerHandle>)> {
         let config = Arc::new(config);
+        // Install the global Prometheus recorder before any worker can emit
+        // metrics, then register the HTTP metric descriptions so the `/metrics`
+        // exposition has the series present from the first scrape. Both are
+        // no-ops if a recorder is somehow already installed (degrades to an
+        // empty exposition rather than erroring — see `install_recorder`).
+        let prometheus_handle = crate::observability::install_recorder();
+        crate::observability::register_http_metrics();
         let pool = if config.database_url.is_empty() {
             None
         } else {
@@ -331,6 +346,7 @@ impl AppState {
                 metrics_cache: Arc::new(MetricsCache::with_default_ttl()),
                 broadcaster,
                 workflow_runtime,
+                prometheus_handle,
             },
             workflow_worker,
         ))

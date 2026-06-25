@@ -373,7 +373,11 @@ impl HostCliIdentity {
 
 /// Aggregate root for the Agent bounded context. Loaded by
 /// `AgentRepository::find_aggregate` for write-side operations (added in Task 4.3).
-#[derive(Debug, Clone, sqlx::FromRow)]
+///
+/// The SQLx `query_as` target (`AgentAggregateRow`) lives in
+/// `repositories/agent`, which converts it into this aggregate — the domain root
+/// carries no persistence (`FromRow`) coupling.
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct AgentAggregate {
     pub(crate) id: Uuid,

@@ -27,14 +27,30 @@ use sqlx::PgPool;
 /// leaves `working` tasks (agent actively on them) alone. Returns the dispatch
 /// and reconciled-task counts. Kept as a `pub(crate) const` so the SQL-pin unit
 /// test can assert the scope predicates without a live database.
+///
+/// F051: the sweep is BOUNDED. The `stuck` CTE selects at most
+/// [`REAP_BATCH_LIMIT`] of the oldest eligible rows with `FOR UPDATE SKIP
+/// LOCKED`, so one statement never locks the entire stuck set (which, after an
+/// orchestrator crash, can be thousands of rows) in a single long transaction
+/// that contends with live `update_dispatch()` writers and bloats WAL.
+/// [`DispatchReaperWorker::tick`] loops this statement until a pass reaps zero,
+/// matching the project's batched-backfill convention (migration 062).
 pub(crate) const REAP_STUCK_DISPATCHES_SQL: &str = "
-    WITH reaped AS (
+    WITH stuck AS (
+        SELECT id
+        FROM task_dispatches
+        WHERE status IN ('queued', 'starting')
+          AND updated_at < NOW() - make_interval(secs => $1)
+        ORDER BY updated_at
+        LIMIT 1000
+        FOR UPDATE SKIP LOCKED
+    ),
+    reaped AS (
         UPDATE task_dispatches
         SET status = 'failed',
             last_error = 'dispatch_timeout',
             updated_at = NOW()
-        WHERE status IN ('queued', 'starting')
-          AND updated_at < NOW() - make_interval(secs => $1)
+        WHERE id IN (SELECT id FROM stuck)
         RETURNING task_id, org_id
     ),
     reconciled AS (
@@ -51,6 +67,11 @@ pub(crate) const REAP_STUCK_DISPATCHES_SQL: &str = "
         (SELECT COUNT(*) FROM reaped)::bigint AS dispatches_reaped,
         (SELECT COUNT(*) FROM reconciled)::bigint AS tasks_reconciled
 ";
+
+/// Per-statement cap for the bounded reap sweep (F051). Mirrors the literal
+/// `LIMIT 1000` pinned in [`REAP_STUCK_DISPATCHES_SQL`]; kept here so the loop
+/// in [`DispatchReaperWorker::tick`] and the SQL-pin test reference one value.
+pub(crate) const REAP_BATCH_LIMIT: u64 = 1000;
 
 /// Outcome of one reap pass: how many stuck dispatches were failed and how many
 /// owning tasks were reset to `pending` for re-dispatch (F039).
@@ -111,21 +132,36 @@ impl DispatchReaperWorker {
         }
     }
 
-    /// Single-shot reap pass. Exposed for tests. Returns the number of
-    /// dispatches timed out and owning tasks reset to pending.
+    /// One reap pass. Exposed for tests. Returns the TOTAL dispatches timed out
+    /// and owning tasks reset to pending across however many bounded batches the
+    /// current stuck backlog needs.
+    ///
+    /// F051: each statement caps at [`REAP_BATCH_LIMIT`] rows
+    /// (`FOR UPDATE SKIP LOCKED`), and this loops until a batch reaps zero — so a
+    /// large stuck backlog drains in bounded transactions instead of one
+    /// table-wide lock. Termination is guaranteed: each batch flips its rows to
+    /// `failed` (leaving the `queued`/`starting` eligible set), and rows arriving
+    /// after the first statement have `updated_at = NOW()` so they are not yet
+    /// past the TTL.
     pub async fn tick(pool: &PgPool, ttl_secs: u64) -> sqlx::Result<ReapOutcome> {
-        let (dispatches_reaped, tasks_reconciled): (i64, i64) =
-            sqlx::query_as(REAP_STUCK_DISPATCHES_SQL).bind(ttl_secs as f64).fetch_one(pool).await?;
-        Ok(ReapOutcome {
-            dispatches_reaped: dispatches_reaped.max(0) as u64,
-            tasks_reconciled: tasks_reconciled.max(0) as u64,
-        })
+        let mut total = ReapOutcome { dispatches_reaped: 0, tasks_reconciled: 0 };
+        loop {
+            let (dispatches_reaped, tasks_reconciled): (i64, i64) =
+                sqlx::query_as(REAP_STUCK_DISPATCHES_SQL).bind(ttl_secs as f64).fetch_one(pool).await?;
+            let batch = dispatches_reaped.max(0) as u64;
+            total.dispatches_reaped += batch;
+            total.tasks_reconciled += tasks_reconciled.max(0) as u64;
+            if batch < REAP_BATCH_LIMIT {
+                break;
+            }
+        }
+        Ok(total)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::REAP_STUCK_DISPATCHES_SQL;
+    use super::{REAP_BATCH_LIMIT, REAP_STUCK_DISPATCHES_SQL};
 
     /// Pin the SQL scope predicates so a future "simplification" that widens
     /// the WHERE clause (e.g. touching `started`/`failed`, or resetting a
@@ -145,5 +181,18 @@ mod tests {
         assert!(sql.contains("t.state = 'assigned'"));
         assert!(sql.contains("t.id::text = r.task_id"));
         assert!(!sql.contains("t.state = 'working'"));
+    }
+
+    /// F051: pin the bounded-sweep shape so a future edit cannot revert to the
+    /// unbounded single-statement UPDATE that locks the whole stuck set.
+    #[test]
+    fn reap_dispatches_sql_is_bounded_and_skip_locked() {
+        let sql = REAP_STUCK_DISPATCHES_SQL;
+        assert!(sql.contains("FOR UPDATE SKIP LOCKED"), "reap must take row locks with SKIP LOCKED");
+        assert!(sql.contains("LIMIT 1000"), "reap must cap each batch");
+        assert!(sql.contains("ORDER BY updated_at"), "reap must take the oldest stuck rows first");
+        // The cap constant and the SQL literal must agree.
+        assert_eq!(REAP_BATCH_LIMIT, 1000);
+        assert!(sql.contains(&format!("LIMIT {REAP_BATCH_LIMIT}")));
     }
 }

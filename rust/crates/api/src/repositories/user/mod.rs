@@ -287,6 +287,43 @@ impl UserRepository {
         .map_err(Into::into)
     }
 
+    /// The user's session-invalidation floor (F004): refresh/switch tokens whose
+    /// `iat` predates this instant must be rejected. `None` means the row is
+    /// absent or the column is NULL (never invalidated). Set by a password reset
+    /// and by the operator-gated legacy SHA-256 force-reset. Unlike a sentinel
+    /// hash check, this stays in force after the user resets their password, so a
+    /// copied refresh token inside its multi-day lifetime cannot revive a session.
+    pub async fn session_floor(&self, user_id: UserId) -> AppResult<Option<DateTime<Utc>>> {
+        sqlx::query_scalar::<_, Option<DateTime<Utc>>>(r#"SELECT sessions_invalid_before FROM users WHERE id = $1"#)
+            .bind(user_id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map(Option::flatten)
+            .map_err(Into::into)
+    }
+
+    /// Force-reset every remaining legacy unsalted SHA-256 hash (F004): replace
+    /// it with the reset sentinel (so login fails and no brute-forceable digest
+    /// is left at rest) AND stamp `sessions_invalid_before = NOW()` so any live
+    /// session for that account is invalidated. Returns the number of rows reset.
+    ///
+    /// Idempotent: after the first run no 64-hex hashes remain, so re-running
+    /// affects zero rows. The caller MUST gate this on a configured reset path —
+    /// see the server startup routine.
+    pub async fn force_reset_legacy_sha256_hashes(&self) -> AppResult<u64> {
+        let result = sqlx::query(
+            r#"UPDATE users
+                  SET password_hash = $1,
+                      sessions_invalid_before = NOW(),
+                      updated_at = NOW()
+                WHERE password_hash ~ '^[0-9a-fA-F]{64}$'"#,
+        )
+        .bind(agentforge_auth::password::LEGACY_PASSWORD_RESET_SENTINEL)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn workspace_exists_in_org(&self, org_id: uuid::Uuid, workspace_id: uuid::Uuid) -> AppResult<bool> {
         sqlx::query_scalar::<_, bool>(
             r#"SELECT EXISTS (
@@ -445,11 +482,27 @@ impl UserRepository {
             return Ok(false);
         };
 
-        sqlx::query("UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
-            .bind(user_id)
-            .bind(password_hash)
-            .execute(&mut *tx)
-            .await?;
+        // F004: a successful reset stamps the session floor so the long-lived
+        // token-minting paths (`/auth/refresh`, `/auth/switch-context`) reject
+        // every refresh/switch token issued at or before this instant — closing
+        // the window where a copied pre-reset refresh token could revive the
+        // session after the hash is no longer the sentinel.
+        //
+        // ponytail: pre-reset *access* tokens are NOT checked per-request (the
+        // AuthUser extractor stays stateless — no DB read on the hot path), so
+        // they remain usable until they expire on their own. That residual is
+        // bounded by the short access TTL (`jwt_expiry_seconds`, 900s by
+        // default), the standard stateless-JWT trade-off. Upgrade path if instant
+        // access revocation is ever required: have the auth middleware consult
+        // `session_floor` per request (one indexed PK read per call).
+        sqlx::query(
+            "UPDATE users SET password_hash = $2, sessions_invalid_before = NOW(), updated_at = NOW() \
+             WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(user_id)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await?;
 
         sqlx::query(
             r#"UPDATE password_reset_tokens

@@ -147,8 +147,16 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("071_dead_events.sql", include_str!("../migrations/071_dead_events.sql")),
     ("072_bootstrap_platform_admin.sql", include_str!("../migrations/072_bootstrap_platform_admin.sql")),
     ("073_drop_unused_job_notify.sql", include_str!("../migrations/073_drop_unused_job_notify.sql")),
-    ("074_runtime_capabilities_image.sql", include_str!("../migrations/074_runtime_capabilities_image.sql")),
-    ("075_attachment_image_metadata.sql", include_str!("../migrations/075_attachment_image_metadata.sql")),
+    ("074_add_sessions_invalid_before.sql", include_str!("../migrations/074_add_sessions_invalid_before.sql")),
+    ("075_schema_hardening_constraints.sql", include_str!("../migrations/075_schema_hardening_constraints.sql")),
+    ("076_outbox_event_type_index.sql", include_str!("../migrations/076_outbox_event_type_index.sql")),
+    ("077_outbox_aggregate_type_index.sql", include_str!("../migrations/077_outbox_aggregate_type_index.sql")),
+    ("078_validate_review_status_check.sql", include_str!("../migrations/078_validate_review_status_check.sql")),
+    ("079_validate_enrollment_org_fk.sql", include_str!("../migrations/079_validate_enrollment_org_fk.sql")),
+    ("080_validate_enrollment_user_fk.sql", include_str!("../migrations/080_validate_enrollment_user_fk.sql")),
+    ("081_validate_join_codes_org_fk.sql", include_str!("../migrations/081_validate_join_codes_org_fk.sql")),
+    ("082_runtime_capabilities_image.sql", include_str!("../migrations/082_runtime_capabilities_image.sql")),
+    ("083_attachment_image_metadata.sql", include_str!("../migrations/083_attachment_image_metadata.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.
@@ -194,6 +202,23 @@ mod migration_sources_tests {
     fn embedded_sources_match_manifest_exactly() {
         verify_manifest(MIGRATION_MANIFEST, MIGRATION_SOURCES)
             .expect("MIGRATION_SOURCES must list every migration in MANIFEST.sha256 — add the new include_str! entry");
+    }
+
+    /// F004: migration 074 must be ADDITIVE — it adds the session-invalidation
+    /// floor column and must never rewrite a password hash (a destructive deploy
+    /// could lock out legacy users with no reset path). The force-reset is an
+    /// operator-gated startup step, not a migration.
+    #[test]
+    fn migration_074_adds_session_floor_and_is_non_destructive() {
+        let (_, sql) = MIGRATION_SOURCES
+            .iter()
+            .find(|(name, _)| *name == "074_add_sessions_invalid_before.sql")
+            .expect("migration 074 must be embedded");
+        assert!(sql.contains("sessions_invalid_before"), "migration 074 must add the session floor column");
+        assert!(
+            !sql.contains("UPDATE users") && !sql.contains("LEGACY_SHA256_RESET_REQUIRED"),
+            "migration 074 must not rewrite password hashes — the force-reset is operator-gated at startup"
+        );
     }
 
     /// Every .sql file in the migrations directory must be embedded. Catches

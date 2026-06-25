@@ -194,7 +194,12 @@ async fn assign(
                     let project_id = req.project_id.clone().unwrap_or_default();
                     let agent_directory = state.agent_directory.clone();
                     let spawn_dispatch_id = dispatch_id.clone();
-                    tokio::spawn(async move {
+                    // Capture the correlation id BEFORE spawning: Tokio task-locals
+                    // are not inherited by spawned tasks, so the outbound MCP calls
+                    // below would otherwise lose `x-request-id`. `scope_request_id`
+                    // re-establishes it inside the spawned task (MS-1 cross-hop).
+                    let request_id = crate::observability::current_request_id();
+                    tokio::spawn(crate::observability::scope_request_id(request_id, async move {
                         let dispatch_id = spawn_dispatch_id;
 
                         // Mark as starting (best-effort — a failure here must not abort the spawn).
@@ -282,7 +287,7 @@ async fn assign(
                         if let Err(err) = store.update_dispatch(&dispatch_id, &org_id, "started", None, None).await {
                             tracing::warn!(%task_id, error = %err, "failed to update dispatch to started");
                         }
-                    });
+                    }));
 
                     (StatusCode::OK, Json(json!({"ok": true, "task": task, "dispatchId": dispatch_id}))).into_response()
                 } else {

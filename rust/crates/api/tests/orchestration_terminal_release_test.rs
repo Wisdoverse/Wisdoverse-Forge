@@ -98,6 +98,95 @@ async fn task_status(pool: &PgPool, task_id: Uuid) -> String {
         .expect("query task status")
 }
 
+/// Install a `BEFORE UPDATE` trigger that aborts any attempt to move a task
+/// out of `working`. This forces the in-transaction terminal write
+/// (`set_result_in_tx` / `cancel_in_tx` / `mark_blocked_retryable_in_tx`) to
+/// fail, which rolls the whole transaction back before `tx.commit()`. The
+/// participant release runs strictly after that commit, so a failed terminal
+/// write must leave the task `working` and the participant `busy`.
+async fn install_terminal_write_failure_trigger(pool: &PgPool) {
+    sqlx::raw_sql(
+        r#"
+        CREATE OR REPLACE FUNCTION test_block_terminal_task_write() RETURNS trigger AS $$
+        BEGIN
+            IF OLD.status = 'working' AND NEW.status IS DISTINCT FROM 'working' THEN
+                RAISE EXCEPTION 'injected terminal-write failure for task %', NEW.id;
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        CREATE TRIGGER test_block_terminal_task_write_trg
+            BEFORE UPDATE ON orchestration_tasks
+            FOR EACH ROW EXECUTE FUNCTION test_block_terminal_task_write();
+        "#,
+    )
+    .execute(pool)
+    .await
+    .expect("install terminal-write failure trigger");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn fail_task_keeps_participant_busy_when_terminal_write_fails(pool: PgPool) {
+    let (org_id, user_id, agent_id) = seed_org_with_busy_participant(&pool).await;
+    let task_id = seed_working_task(&pool, org_id, user_id, agent_id).await;
+    let scope = scope_for(org_id, user_id);
+    install_terminal_write_failure_trigger(&pool).await;
+
+    let result = service(pool.clone()).fail_task(&scope, task_id, serde_json::json!({ "message": "boom" })).await;
+
+    assert!(result.is_err(), "fail_task must surface the terminal-write failure, not swallow it");
+    assert_eq!(task_status(&pool, task_id).await, "working", "terminal write must roll back");
+    assert_eq!(participant_status(&pool, agent_id).await, "busy", "release must not run when the terminal write fails");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn cancel_task_keeps_participant_busy_when_terminal_write_fails(pool: PgPool) {
+    let (org_id, user_id, agent_id) = seed_org_with_busy_participant(&pool).await;
+    let task_id = seed_working_task(&pool, org_id, user_id, agent_id).await;
+    let scope = scope_for(org_id, user_id);
+    install_terminal_write_failure_trigger(&pool).await;
+
+    let result = service(pool.clone()).cancel_task(&scope, task_id).await;
+
+    assert!(result.is_err(), "cancel_task must surface the terminal-write failure, not swallow it");
+    assert_eq!(task_status(&pool, task_id).await, "working", "terminal write must roll back");
+    assert_eq!(participant_status(&pool, agent_id).await, "busy", "release must not run when the terminal write fails");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn complete_task_keeps_participant_busy_when_terminal_write_fails(pool: PgPool) {
+    let (org_id, user_id, agent_id) = seed_org_with_busy_participant(&pool).await;
+    let task_id = seed_working_task(&pool, org_id, user_id, agent_id).await;
+    let scope = scope_for(org_id, user_id);
+    install_terminal_write_failure_trigger(&pool).await;
+
+    let result = service(pool.clone()).complete_task(&scope, task_id, serde_json::json!({ "ok": true })).await;
+
+    assert!(result.is_err(), "complete_task must surface the terminal-write failure, not swallow it");
+    assert_eq!(task_status(&pool, task_id).await, "working", "terminal write must roll back");
+    assert_eq!(participant_status(&pool, agent_id).await, "busy", "release must not run when the terminal write fails");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn quota_block_keeps_participant_busy_when_terminal_write_fails(pool: PgPool) {
+    let (org_id, user_id, agent_id) = seed_org_with_busy_participant(&pool).await;
+    let task_id = seed_working_task(&pool, org_id, user_id, agent_id).await;
+    let scope = scope_for(org_id, user_id);
+    install_terminal_write_failure_trigger(&pool).await;
+
+    // `code: quota_exceeded` routes fail_task through the quota-block branch,
+    // which marks the task `blocked` in a transaction and releases the
+    // participant only after commit.
+    let result = service(pool.clone())
+        .fail_task(&scope, task_id, serde_json::json!({ "code": "quota_exceeded", "used": 100, "limit": 100 }))
+        .await;
+
+    assert!(result.is_err(), "quota-block path must surface the terminal-write failure, not swallow it");
+    assert_eq!(task_status(&pool, task_id).await, "working", "blocked write must roll back");
+    assert_eq!(participant_status(&pool, agent_id).await, "busy", "release must not run when the terminal write fails");
+}
+
 #[sqlx::test(migrations = "../db/migrations")]
 async fn fail_task_commits_terminal_state_before_releasing_participant(pool: PgPool) {
     let (org_id, user_id, agent_id) = seed_org_with_busy_participant(&pool).await;

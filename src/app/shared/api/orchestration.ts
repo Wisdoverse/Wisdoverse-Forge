@@ -13,6 +13,7 @@ import type {
   RejectContextCandidateRequest,
   TaskContextResponse,
 } from '@shared/types/context'
+import { authFetch } from './authFetch'
 
 export type TaskState =
   | 'backlog'
@@ -317,15 +318,17 @@ async function apiV1Fetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function apiFetchFrom<T>(base: string, path: string, options?: RequestInit): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-  const res = await fetch(`${base}${path}`, {
+  // F068/F075: route the task-board clients through the shared auth-aware fetch
+  // (token injection + 401 refresh/retry) so an access token that expires
+  // between scheduled refreshes recovers transparently instead of 401-ing every
+  // getTasks/createTask/updateTask/approveSelfFix call with a raw `API 401`.
+  const res = await authFetch(`${base}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(options?.headers instanceof Headers
         ? Object.fromEntries(options.headers.entries())
         : (options?.headers ?? {})),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
   if (!res.ok) {

@@ -109,6 +109,21 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
   })
 
+  it('gives same-millisecond attention items distinct ids (F072)', () => {
+    const event = {
+      type: 'event' as const,
+      payload: { type: 'permission_prompt', agentName: 'Claude', tool: 'Bash', timestamp: 1 },
+    }
+    dispatchWsMessage(event)
+    dispatchWsMessage(event)
+
+    const items = useFeedStore.getState().attentionItems
+    expect(items).toHaveLength(2)
+    // Distinct ids so dismissing one (removeAttentionItem filters by id) cannot
+    // remove the other — a bare `attention-${Date.now()}` would collide.
+    expect(items[0].id).not.toBe(items[1].id)
+  })
+
   it('turns command activity events into plain work steps', () => {
     dispatchWsMessage({
       type: 'event',
@@ -243,6 +258,41 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).toContain('needs your answer before work can continue')
     expect(notifications[0].message).not.toContain('needs owner input')
     expect(notifications[0].message).not.toContain('is blocked')
+  })
+
+  it('fails closed on a valid→malformed user blob — no stale-owner notifications (F073)', () => {
+    const blocked = (taskId: string) => ({
+      type: 'orchestration:task_update' as const,
+      payload: {
+        action: 'updated',
+        task: {
+          id: taskId,
+          groupId: 'g-other',
+          state: 'blocked',
+          method: 'code',
+          params: { task: 'Deploy', message: '' },
+          createdBy: 'user-owner',
+          assignedAgentName: 'Codex',
+          blockedHint: 'Waiting',
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+        },
+      },
+    })
+
+    // Valid user → owner notified (and the parsed id is cached).
+    localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+    dispatchWsMessage(blocked('task-a'))
+    expect(useFeedStore.getState().notifications).toHaveLength(1)
+
+    // The blob becomes malformed. Two more owned tasks must NOT notify — the
+    // cache must not keep serving the previous user's id after a parse failure.
+    localStorage.setItem('af:auth:user', '{not json')
+    dispatchWsMessage(blocked('task-b'))
+    dispatchWsMessage(blocked('task-c'))
+    expect(useFeedStore.getState().notifications).toHaveLength(1)
   })
 
   it('uses chosen-agent wording when a task owner notification has no agent name yet', () => {
