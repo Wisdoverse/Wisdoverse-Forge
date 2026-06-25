@@ -126,14 +126,17 @@ impl AgentPromptService {
 
         // Resolve + authorize (capability + org + workspace + kind) + fetch images
         // BEFORE persisting the user turn, so a rejected multimodal request never
-        // leaves an orphaned text-only history row.
+        // leaves an orphaned text-only history row. `required_model` is pure
+        // pre-persist validation, so resolving it first (to gate images on the
+        // model, not just the provider) keeps the fail-closed-before-persist
+        // contract intact.
+        let model = PromptAgentPolicy::required_model(agent.model.clone())?;
         let image_blocks = if has_images {
-            self.resolve_image_blocks(&scope, &agent, images.unwrap_or_default()).await?
+            self.resolve_image_blocks(&scope, &agent, &model, images.unwrap_or_default()).await?
         } else {
             Vec::new()
         };
 
-        let model = PromptAgentPolicy::required_model(agent.model.clone())?;
         let system_prompt = agent.system_prompt.clone();
         let prompt_service = self.provider_prompt_service();
 
@@ -156,19 +159,22 @@ impl AgentPromptService {
         &self,
         scope: &TenantScope,
         agent: &agentforge_db::entities::Agent,
+        model: &str,
         image_ids: &[String],
     ) -> AppResult<Vec<ContentBlock>> {
         let provider = agent
             .provider
             .clone()
             .ok_or_else(|| ErrorKind::Validation("agent has no provider for image input".to_string()))?;
-        let supports_images = self
-            .llm_factory
-            .build(&provider, String::new())
-            .map(|p| p.capability_profile().supports_image_input)
-            .unwrap_or(false);
-        if !supports_images {
-            return Err(ErrorKind::Validation(format!("provider '{provider}' does not support image input")).into());
+        // Gate on the specific (provider, model): the provider-level
+        // `capability_profile` reports vision for every first-party model, so a
+        // text-only model on a vision-capable provider would otherwise pass here
+        // and be rejected upstream only after the user uploaded.
+        if !agentforge_llm::vision::model_supports_image(&provider, model) {
+            return Err(ErrorKind::Validation(format!(
+                "model '{model}' on provider '{provider}' does not support image input"
+            ))
+            .into());
         }
         if image_ids.len() > MAX_INSTRUCTION_IMAGES {
             return Err(ErrorKind::Validation(format!(

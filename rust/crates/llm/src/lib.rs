@@ -12,6 +12,7 @@ pub mod openai;
 pub mod provider;
 pub mod registry;
 pub mod sse_framer;
+pub mod vision;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
