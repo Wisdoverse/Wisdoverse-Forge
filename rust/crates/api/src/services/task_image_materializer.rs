@@ -77,10 +77,10 @@ impl TaskImageMaterializer {
         // Runtime gate: workspace-file delivery only works for a CONTAINER agent,
         // whose `/workspace` is a server-side bind mount we can write into. A
         // Host-CLI agent runs on the operator's own machine (its `/workspace` is
-        // unreachable here), and is identified by a non-NULL `runtime_id`
-        // (`host-*`); container agents have `runtime_id IS NULL`. Fail closed so a
-        // vision-capable Host-CLI agent can't be handed dangling paths.
-        if agent.runtime_id.is_some() {
+        // unreachable here). Gate on the typed `runtime_kind` (NOT `runtime_id`,
+        // which an upgraded container agent may still carry as a legacy non-host
+        // value) so the classification matches migration 062. Fail closed.
+        if agent.runtime_kind != RuntimeKind::Container {
             return Err(
                 ErrorKind::Validation("image tasks are only supported for container CLI agents".to_string()).into()
             );

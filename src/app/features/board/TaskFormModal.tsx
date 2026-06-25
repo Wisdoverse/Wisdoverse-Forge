@@ -68,6 +68,7 @@ interface TaskFormAgentOption {
   name: string
   status: string
   capabilities?: string[]
+  runtimeKind?: 'container' | 'cli' | 'api'
 }
 
 const TASK_BRIEF_TEMPLATES: TaskBriefTemplate[] = [
@@ -244,13 +245,13 @@ export function TaskFormModal({
     ? 'Save task anyway'
     : 'Create task anyway'
   const selectedAssignedAgent = agents.find((agent) => agent.id === assignedToValue)
-  // Image upload is offered only when the assignee reports a vision-capable CLI
-  // tool (claude/codex/gemini), so a Provider+Prompt/API or opencode assignee
-  // never sees an affordance that would fail at the server dispatch gate. (A Host
-  // CLI agent reports the same tool, so it can still pass this view; the server
-  // rejects it.) Images upload scoped to that agent's workspace; switching the
-  // assignee clears them since they belong to the previous agent's workspace.
-  const canAttachImages = isTaskImageCapable(selectedAssignedAgent?.capabilities)
+  // Image upload is offered only when the assignee is a container CLI agent
+  // running a vision-capable tool (claude/codex/gemini). Host CLI, opencode, and
+  // Provider+Prompt/API assignees are excluded so the user never sees an
+  // affordance that would fail at the server dispatch gate. Images upload scoped
+  // to that agent's workspace; switching the assignee clears them since they
+  // belong to the previous agent's workspace.
+  const canAttachImages = isTaskImageCapable(selectedAssignedAgent)
 
   useEffect(() => {
     setImageIds([])

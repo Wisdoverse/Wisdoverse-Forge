@@ -26,18 +26,19 @@ export const isImageCapable = (a: Pick<AgentInfo, 'cliTool' | 'provider'>): bool
 const VISION_CLI_TOOLS = new Set<string>(['claude', 'codex', 'gemini'])
 
 /**
- * Whether a *task* may carry instruction images for this assignee, judged from
- * the CLI tools it reports in `capabilities` (a participant reports its tool,
- * e.g. `['claude']`). Task images are materialized into a Container CLI agent's
- * `/workspace`, so only a vision-capable CLI (claude/codex/gemini) qualifies;
- * Provider+Prompt/API agents report no CLI tool and opencode has no vision, so
- * both are excluded here. A Host CLI agent reports the same tool as a container
- * one and so can still pass this UI check, but the server dispatch gate rejects
- * it (its `/workspace` is off-host) — see `task_image_materializer`. The server
- * always enforces the real boundary; this only gates the UI affordance.
+ * Whether a *task* may carry instruction images for this assignee. Task images
+ * are materialized into a Container CLI agent's `/workspace`, so this requires
+ * BOTH a container runtime (`runtimeKind === 'container'` — a Host CLI agent's
+ * workspace is off-host and the server rejects it) AND a vision-capable CLI tool
+ * reported in `capabilities` (claude/codex/gemini; opencode and Provider+Prompt/
+ * API agents are excluded). The server still enforces the real boundary; this
+ * only gates the UI affordance so users don't upload only to hit a failure.
  */
-export const isTaskImageCapable = (capabilities: readonly string[] | undefined): boolean =>
-  !!capabilities?.some((tool) => VISION_CLI_TOOLS.has(tool.toLowerCase()))
+export const isTaskImageCapable = (
+  agent: { runtimeKind?: AgentRuntimeKind; capabilities?: readonly string[] } | undefined
+): boolean =>
+  agent?.runtimeKind === 'container' &&
+  !!agent.capabilities?.some((tool) => VISION_CLI_TOOLS.has(tool.toLowerCase()))
 
 /**
  * Canonical user-facing labels for each runtime kind. These labels are plain

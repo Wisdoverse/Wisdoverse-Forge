@@ -76,6 +76,7 @@ impl From<Participant> for ParticipantSummary {
             name: p.name,
             status: p.status,
             capabilities: p.capabilities,
+            runtime_kind: p.runtime_kind,
             last_heartbeat_at: p.last_heartbeat_at.map(|t| t.to_rfc3339()),
         }
     }

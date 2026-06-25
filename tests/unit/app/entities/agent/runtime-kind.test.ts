@@ -53,14 +53,21 @@ describe('runtime-kind specifications', () => {
     expect(runtimeKindShortLabel(undefined)).toBe('Check location')
   })
 
-  it('isTaskImageCapable gates on vision-capable CLI tools in capabilities', () => {
-    expect(isTaskImageCapable(['claude'])).toBe(true)
-    expect(isTaskImageCapable(['codex'])).toBe(true)
-    expect(isTaskImageCapable(['gemini'])).toBe(true)
-    expect(isTaskImageCapable(['Claude'])).toBe(true) // case-insensitive
-    // opencode has no vision; chat/API agents report no CLI tool.
-    expect(isTaskImageCapable(['opencode'])).toBe(false)
-    expect(isTaskImageCapable([])).toBe(false)
+  it('isTaskImageCapable requires a container runtime AND a vision-capable CLI', () => {
+    const cap = (runtimeKind: 'container' | 'cli' | 'api' | undefined, capabilities?: string[]) =>
+      isTaskImageCapable({ runtimeKind, capabilities })
+    // Container + vision CLI → allowed (case-insensitive).
+    expect(cap('container', ['claude'])).toBe(true)
+    expect(cap('container', ['codex'])).toBe(true)
+    expect(cap('container', ['gemini'])).toBe(true)
+    expect(cap('container', ['Claude'])).toBe(true)
+    // Host CLI reports the same tool but is off-host — excluded.
+    expect(cap('cli', ['claude'])).toBe(false)
+    // opencode has no vision; API/chat agents report no CLI tool.
+    expect(cap('container', ['opencode'])).toBe(false)
+    expect(cap('api', [])).toBe(false)
+    // Missing runtime kind (older server) degrades safely to hidden.
+    expect(cap(undefined, ['claude'])).toBe(false)
     expect(isTaskImageCapable(undefined)).toBe(false)
   })
 

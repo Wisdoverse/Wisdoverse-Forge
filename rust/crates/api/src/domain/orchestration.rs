@@ -401,6 +401,11 @@ pub struct ParticipantSummary {
     pub name: String,
     pub status: String,
     pub capabilities: Vec<String>,
+    /// Agent runtime kind (`container`/`cli`/`api`), surfaced so clients can gate
+    /// runtime-specific affordances (e.g. only a container CLI can take task
+    /// images). `None` when the participant's agent row could not be resolved.
+    #[serde(rename = "runtimeKind", skip_serializing_if = "Option::is_none")]
+    pub runtime_kind: Option<String>,
     #[serde(rename = "lastHeartbeatAt", skip_serializing_if = "Option::is_none")]
     pub last_heartbeat_at: Option<String>,
 }
@@ -1366,6 +1371,7 @@ mod tests {
             name: "worker-1".to_owned(),
             status: "available".to_owned(),
             capabilities: vec!["rust".to_owned()],
+            runtime_kind: Some("container".to_owned()),
             last_heartbeat_at: Some("2026-04-20T12:00:00Z".to_owned()),
         };
         let participants = vec![participant.clone()];

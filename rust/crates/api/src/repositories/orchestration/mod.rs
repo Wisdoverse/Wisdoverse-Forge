@@ -789,12 +789,17 @@ impl ParticipantRepository {
 
     /// List participants with optional status filter (tenant-scoped).
     pub async fn list(&self, scope: &TenantScope, status: Option<&str>) -> AppResult<Vec<Participant>> {
+        // LEFT JOIN agents so each participant carries its agent's typed
+        // `runtime_kind` (used by the task form's image-capability gate). LEFT so
+        // a participant whose agent row is missing still lists (runtime_kind NULL).
         let participants = match status {
             Some(s) => {
                 sqlx::query_as::<_, Participant>(
-                    r#"SELECT * FROM participants
-                       WHERE organization_id = $1 AND status = $2
-                       ORDER BY registered_at DESC"#,
+                    r#"SELECT participants.*, agents.runtime_kind
+                       FROM participants
+                       LEFT JOIN agents ON agents.id = participants.agent_id
+                       WHERE participants.organization_id = $1 AND participants.status = $2
+                       ORDER BY participants.registered_at DESC"#,
                 )
                 .bind(scope.org_id().as_uuid())
                 .bind(s)
@@ -803,9 +808,11 @@ impl ParticipantRepository {
             }
             None => {
                 sqlx::query_as::<_, Participant>(
-                    r#"SELECT * FROM participants
-                       WHERE organization_id = $1
-                       ORDER BY registered_at DESC"#,
+                    r#"SELECT participants.*, agents.runtime_kind
+                       FROM participants
+                       LEFT JOIN agents ON agents.id = participants.agent_id
+                       WHERE participants.organization_id = $1
+                       ORDER BY participants.registered_at DESC"#,
                 )
                 .bind(scope.org_id().as_uuid())
                 .fetch_all(&self.pool)
@@ -932,5 +939,67 @@ impl ParticipantRepository {
             return Err(OrchestrationRepositoryPolicy::participant_not_found(agent_id));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod participant_list_runtime_tests {
+    use super::*;
+    use crate::test_support::tenant_scope_for_ids;
+    use uuid::Uuid;
+
+    // The participant list LEFT JOINs agents so each row carries the agent's
+    // typed runtime_kind, which the task form uses to gate image upload. Verify
+    // the JOIN executes and FromRow maps the joined column onto the
+    // `#[sqlx(default)]` field.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_surfaces_agent_runtime_kind(pool: sqlx::PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind("Img Org")
+            .bind(format!("img-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(org_id)
+            .execute(&pool)
+            .await
+            .expect("seed workspace");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+        // Container agent (overrides the 'api' column default) with a CLI tool,
+        // satisfying the runtime_kind invariant.
+        sqlx::query(
+            r#"INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status, cli_tool, runtime_kind)
+               VALUES ($1, $2, $2, $3, 'a', 'idle', 'claude', 'container')"#,
+        )
+        .bind(agent_id)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed agent");
+
+        let repo = ParticipantRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        repo.register(&scope, AgentId::from(agent_id), "worker", &["claude".to_string()])
+            .await
+            .expect("register participant");
+
+        let participants = repo.list(&scope, None).await.expect("list participants");
+        assert_eq!(participants.len(), 1);
+        assert_eq!(
+            participants[0].runtime_kind.as_deref(),
+            Some("container"),
+            "list() must surface the agent's runtime_kind via the JOIN"
+        );
     }
 }

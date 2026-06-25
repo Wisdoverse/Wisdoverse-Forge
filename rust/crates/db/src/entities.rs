@@ -6,7 +6,7 @@
 use agentforge_core::{
     AgentId, AgentStatus, AnalyticsEventId, AttachmentId, AuditLogId, DevEnvironmentId, EventId, FavoriteId,
     FeatureFlagId, GroupId, LicenseId, MemoryItemId, MessageId, OrgId, PluginId, ProjectId, PromptId, QuotaUsageId,
-    ResourceProfileId, SettingId, SkillId, TeamId, TileId, UserId, VoiceProviderId, WorkspaceId,
+    ResourceProfileId, RuntimeKind, SettingId, SkillId, TeamId, TileId, UserId, VoiceProviderId, WorkspaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -102,6 +102,10 @@ pub struct Agent {
     pub git_status: Option<String>,
     /// Sidecar/runtime identifier (e.g. "af-XXXXXXXX") — distinct from the DB PK.
     pub runtime_id: Option<String>,
+    /// STI discriminator for how this agent runs (`container` / `cli` / `api`),
+    /// NOT NULL since migration 062. The authoritative runtime classification —
+    /// prefer this over sniffing `runtime_id`/`container_id`.
+    pub runtime_kind: RuntimeKind,
     /// Cached MAX(events.created_at) so the admin list doesn't have to recompute it.
     pub last_activity_at: Option<DateTime<Utc>>,
     pub started_at: Option<DateTime<Utc>>,
@@ -515,6 +519,12 @@ pub struct Participant {
     pub status: String,
     pub registered_at: DateTime<Utc>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
+    /// The participant's agent runtime kind (`container`/`cli`/`api`), joined
+    /// from `agents` by queries that need it (e.g. the participant list that
+    /// feeds the task form's image-capability gate). `#[sqlx(default)]` so the
+    /// plain `SELECT * FROM participants` callers that don't join leave it `None`.
+    #[sqlx(default)]
+    pub runtime_kind: Option<String>,
 }
 
 /// A group within an organization (for multi-user management).
@@ -1067,6 +1077,7 @@ mod tests {
             tokens_cumulative: 56789,
             git_status: Some("clean".to_string()),
             runtime_id: Some("af-12345678".to_string()),
+            runtime_kind: RuntimeKind::Container,
             last_activity_at: Some(Utc::now()),
             started_at: Some(Utc::now()),
             ended_at: None,

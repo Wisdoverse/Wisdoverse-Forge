@@ -416,6 +416,7 @@ export function AppLayout({
           name: p.name,
           status: p.status,
           capabilities: p.capabilities,
+          runtimeKind: p.runtimeKind,
         }))}
         projects={taskProjectOptions}
         selectedProjectId={selectedProjectId}
