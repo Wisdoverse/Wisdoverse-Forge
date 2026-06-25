@@ -13,6 +13,7 @@ use crate::domain::prompt::{
     PromptAgentPolicy, PromptContent, PromptContextPolicy, PromptHistoryMessage, PromptProviderPolicy, SseFrame,
     sse_error_for_llm_error,
 };
+use crate::domain::resource::ensure_provider_base_url_allowed;
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::agent::message::MessageRepository;
 
@@ -242,6 +243,10 @@ impl PromptService {
         let provider_name =
             PromptAgentPolicy::required_provider(self.agents.find_by_id(&scope, agent_id).await?.provider)?;
         let credential = self.keys.resolve(&scope, &provider_name).await?;
+        // SSRF guard: refuse to stream the prompt to an operator-supplied base URL
+        // that points at a private/loopback/metadata host (mirrors the discovery
+        // guard; Ollama is exempt). Fails closed before any network call.
+        ensure_provider_base_url_allowed(&provider_name, credential.base_url.as_deref())?;
         let provider_instance = self
             .factory
             .build_with_config(LlmProviderBuildConfig {

@@ -5,8 +5,11 @@
 //! HTTP route DTOs.
 
 use agentforge_core::{AppError, AppResult, ErrorKind, GroupId, OrgId, ProjectId, TeamId, TenantScope, WorkspaceId};
+use agentforge_llm::{ProviderTransport, provider_spec};
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::net::IpAddr;
+use url::{Host, Url};
 use uuid::Uuid;
 
 const VALID_FAVORITE_TARGET_TYPES: &[&str] = &["agent", "project", "workspace"];
@@ -215,34 +218,43 @@ impl ProjectRepositoryUrl {
             )
             .into());
         }
-        let host_port = authority;
-        // Split off an optional `:port` to isolate the bare host label. An IPv6
-        // literal `[::1]:443` keeps its brackets in `host`; that is fine for the
-        // deny-list match below, which checks for `[::1]`/`::1` explicitly.
-        let host = if host_port.starts_with('[') {
-            // IPv6 literal: host ends at the closing ']'.
-            match host_port.find(']') {
-                Some(end) => &host_port[..=end],
-                None => host_port, // malformed; let the empty/deny checks catch it
-            }
-        } else {
-            host_port.split(':').next().unwrap_or(host_port)
-        };
-        if host.is_empty() {
+        // Reject a hostless authority up front with a dedicated message: empty
+        // (`https://`, `https:///repo` — the WHATWG parser would otherwise take a
+        // triple-slash path segment as the host) or port-only (`https://:8080/r`,
+        // whose host label before `:port` is empty). An IPv6 literal keeps its
+        // brackets, so the url parser validates it.
+        let host_label = if authority.starts_with('[') { authority } else { authority.split(':').next().unwrap_or("") };
+        if host_label.is_empty() {
             return Err(ErrorKind::Validation("repository URL must include a host".into()).into());
         }
-        // Host label must not contain whitespace (already excluded globally, but
-        // assert at the host level as a forward guard).
-        if host.chars().any(|c| c.is_whitespace()) {
-            return Err(ErrorKind::Validation("repository URL host must not contain whitespace".into()).into());
-        }
-        if is_blocked_clone_host(host) {
+        // Classify the host with a spec-compliant URL parser rather than ad-hoc
+        // string slicing. `url` percent-decodes the host, applies WHATWG IPv4
+        // (inet_aton) normalization, and parses IPv6 literals — so encodings a
+        // libc resolver would still route to an internal target cannot evade the
+        // deny-list (percent-encoded `localhost`, decimal/hex/octal IPv4 such as
+        // `2130706433` / `0x7f000001` / `0177.0.0.1`), and a genuine hostname is
+        // never misclassified as a numeric literal. IP hosts are range-checked;
+        // domains are rejected only for `localhost` / `.local`.
+        let parsed = Url::parse(value)
+            .map_err(|_| AppError::from(ErrorKind::Validation("repository URL is not a valid URL".into())))?;
+        let blocked = match parsed.host() {
+            None => true,
+            Some(Host::Ipv4(v4)) => is_blocked_ip(IpAddr::V4(v4)),
+            Some(Host::Ipv6(v6)) => is_blocked_ip(IpAddr::V6(v6)),
+            Some(Host::Domain(domain)) => {
+                let domain = domain.to_ascii_lowercase();
+                domain.is_empty() || domain == "localhost" || domain.ends_with(".local")
+            }
+        };
+        if blocked {
             return Err(ErrorKind::Validation(
                 "repository host is not allowed (private, loopback, or metadata address)".into(),
             )
             .into());
         }
-        Ok(Self { host: host.to_string() })
+        // Store the parser's normalized (decoded, lowercased, IDNA) host for M6
+        // credential-host-matching. `host_str` is present because `host()` was.
+        Ok(Self { host: parsed.host_str().unwrap_or_default().to_string() })
     }
 
     /// The validated host authority label (no userinfo, no port), as written in
@@ -265,45 +277,95 @@ pub(crate) fn is_outbound_https_host_allowed(base_url: &str) -> bool {
     ProjectRepositoryUrl::parse(base_url).is_ok()
 }
 
-/// Best-effort literal-IP / name deny-list for clone targets (SSRF
-/// defense-in-depth; M4 egress filtering is the authoritative control).
+/// SSRF policy for an operator-supplied provider `base_url`, enforced at the
+/// persistence, *inference*, and *connection-test* surfaces so a private/
+/// metadata host can neither be stored nor reached.
 ///
-/// Blocks loopback, link-local + cloud metadata, RFC1918 private ranges, and the
-/// `.local` mDNS suffix. Comparison is case-insensitive. This does NOT resolve
-/// DNS (a hostname that resolves to a private IP is NOT caught here — that is M4's
-/// job at the network layer); it only stops the obvious literal-address shapes.
-fn is_blocked_clone_host(host: &str) -> bool {
-    let h = host.to_ascii_lowercase();
-    let h = h.as_str();
-
-    // Loopback (v4 + v6 literal forms, with or without brackets) and localhost.
-    if h == "localhost" || h == "::1" || h == "[::1]" || h.starts_with("127.") {
+/// The guard targets **hosted-SaaS** providers, where the only legitimate
+/// `base_url` override is a public coding-plan vendor and a private/loopback/
+/// metadata override is therefore an SSRF attempt. This is determined per
+/// provider, NOT per transport: the `OpenAiCompatible` transport is shared by
+/// both hosted vendors that ship a public default (groq, deepseek, zhipu,
+/// openrouter, …) and genuine bring-your-own endpoints, so exempting the whole
+/// transport would bypass the guard for that large hosted set.
+///
+/// A provider is **bring-your-own-endpoint** (exempt) iff it is Ollama (local,
+/// keyless) or its spec default base URL is absent (the generic
+/// `openai_compatible` provider, which requires operator-supplied infra) or
+/// itself non-public (a self-hosted litellm at `http://litellm:4000`). For BYO
+/// providers a private host is a supported deployment, so the network-egress
+/// allowlist (see F022) is the authoritative control, not this literal check.
+///
+/// Returns `true` (allowed) when the override is absent/blank (the factory then
+/// uses the vetted compile-time spec default), the provider is bring-your-own,
+/// or the override is a well-formed public HTTPS URL. Returns `false` for a
+/// private/loopback/metadata/link-local host or any non-HTTPS / credential-
+/// bearing URL on a hosted-SaaS provider. An unknown provider is treated
+/// strictly (public HTTPS required).
+pub(crate) fn provider_base_url_allowed(provider_key: &str, base_url: Option<&str>) -> bool {
+    let Some(base) = base_url.map(str::trim).filter(|value| !value.is_empty()) else {
         return true;
-    }
-    // Link-local + cloud metadata endpoint (AWS/GCP/Azure 169.254.169.254).
-    if h.starts_with("169.254.") || h.starts_with("fe80:") || h.starts_with("[fe80:") {
-        return true;
-    }
-    // RFC1918 private IPv4 ranges.
-    if h.starts_with("10.") || h.starts_with("192.168.") || is_172_private(h) {
-        return true;
-    }
-    // mDNS / local-network suffix.
-    if h.ends_with(".local") {
-        return true;
-    }
-    false
+    };
+    let Some(spec) = provider_spec(provider_key) else {
+        return is_outbound_https_host_allowed(base);
+    };
+    let bring_your_own_endpoint = match spec.transport {
+        // Local, keyless runtime.
+        ProviderTransport::Ollama => true,
+        // Shared transport: exempt only when the default is absent (generic
+        // openai_compatible) or non-public (self-hosted litellm). Hosted vendors
+        // ship a public default and stay guarded.
+        ProviderTransport::OpenAiCompatible => {
+            spec.default_base_url.map(|default| !is_outbound_https_host_allowed(default)).unwrap_or(true)
+        }
+        // Name-brand hosted SaaS (default is the adapter's hardcoded public host).
+        ProviderTransport::Anthropic | ProviderTransport::OpenAi | ProviderTransport::Gemini => false,
+    };
+    bring_your_own_endpoint || is_outbound_https_host_allowed(base)
 }
 
-/// True for the RFC1918 `172.16.0.0/12` range (`172.16.` through `172.31.`).
-fn is_172_private(host: &str) -> bool {
-    let Some(rest) = host.strip_prefix("172.") else {
-        return false;
-    };
-    let Some(second) = rest.split('.').next() else {
-        return false;
-    };
-    matches!(second.parse::<u8>(), Ok(n) if (16..=31).contains(&n))
+/// `provider_base_url_allowed` as a fail-closed guard returning a typed
+/// `Validation` error, for call sites that propagate `AppResult`.
+pub(crate) fn ensure_provider_base_url_allowed(provider_key: &str, base_url: Option<&str>) -> AppResult<()> {
+    if provider_base_url_allowed(provider_key, base_url) {
+        Ok(())
+    } else {
+        Err(ErrorKind::Validation(
+            "provider base URL host is not allowed (private, loopback, or metadata address)".into(),
+        )
+        .into())
+    }
+}
+
+/// Reject loopback / private / link-local / ULA / metadata / unspecified /
+/// multicast IPs in either family. The 169.254.0.0/16 metadata endpoint is
+/// covered by IPv4 `is_link_local`. Hosts are parsed by `url::Host` (WHATWG),
+/// so non-canonical IPv4 forms (decimal/hex/octal) are normalized before reaching
+/// here; this remains best-effort SSRF defense-in-depth (it does NOT resolve DNS —
+/// a hostname resolving to a private IP is the network-egress layer's job).
+fn is_blocked_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            v4.is_private()
+                || v4.is_loopback()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_broadcast()
+                || v4.octets()[0] == 0
+        }
+        IpAddr::V6(v6) => {
+            if v6.is_loopback() || v6.is_unspecified() || v6.is_multicast() {
+                return true;
+            }
+            // IPv4-mapped (`::ffff:a.b.c.d`): classify the embedded IPv4.
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_blocked_ip(IpAddr::V4(v4));
+            }
+            let seg0 = v6.segments()[0];
+            // ULA `fc00::/7` (fc00–fdff) and link-local `fe80::/10` (fe80–febf).
+            (seg0 & 0xfe00) == 0xfc00 || (seg0 & 0xffc0) == 0xfe80
+        }
+    }
 }
 
 /// Group membership role.
@@ -807,8 +869,18 @@ mod tests {
 
     #[test]
     fn project_repository_url_rejects_empty_or_port_only_authority() {
-        // H3: a port-only authority has no real host.
-        assert!(ProjectRepositoryUrl::parse("https://:8080/r").is_err());
+        // H3: a port-only authority has no real host. It must be rejected by the
+        // dedicated empty-host branch (its own message), NOT the SSRF deny-list —
+        // `project_clone_security::port_only_authority_is_rejected_by_empty_host_branch`
+        // asserts the same contract at the service layer.
+        for hostless in ["https://:8080/r", "https://", "https:///repo"] {
+            let err = ProjectRepositoryUrl::parse(hostless).unwrap_err();
+            let ErrorKind::Validation(message) = &err.kind else {
+                panic!("{hostless} must be a Validation error, got {err:?}");
+            };
+            assert!(message.contains("must include a host"), "{hostless} -> {message:?}");
+            assert!(!message.contains("private, loopback, or metadata"), "{hostless} -> {message:?}");
+        }
         // Any `@` in the authority is now rejected as embedded credentials BEFORE
         // the empty-host check — so these all fail on the userinfo gate regardless
         // of whether userinfo/host happen to be empty.
@@ -832,6 +904,24 @@ mod tests {
             "https://172.16.0.1/r",
             "https://172.31.255.255/r",
             "https://internal.local/r",
+            // IPv6 loopback / unspecified / ULA / link-local + IPv4-mapped IPv6.
+            "https://[::]/r",                     // unspecified
+            "https://[fd00::1]/r",                // ULA (fc00::/7)
+            "https://[fc00::abcd]/r",             // ULA
+            "https://[fe80::1]/r",                // link-local
+            "https://[::ffff:10.0.0.1]/r",        // IPv4-mapped RFC1918
+            "https://[::ffff:169.254.169.254]/r", // IPv4-mapped metadata
+            "https://[fe80::1%25eth0]/r",         // scoped (zone-id) link-local
+            "https://0.0.0.0/r",                  // unspecified IPv4
+            // inet_aton-style numeric evasions that resolve to 127.0.0.1.
+            "https://2130706433/r", // decimal
+            "https://0x7f000001/r", // hex
+            "https://0177.0.0.1/r", // octal first octet
+            "https://127.1/r",      // partial dotted (→127.0.0.1)
+            // Percent-encoded hosts that decode to a private/loopback/metadata
+            // target (the URL parser decodes before classification).
+            "https://%6c%6f%63%61%6c%68%6f%73%74/r", // -> localhost
+            "https://%31%36%39.254.169.254/r",       // -> 169.254.169.254
         ];
         for url in blocked {
             assert!(ProjectRepositoryUrl::parse(url).is_err(), "{url} should be blocked");
@@ -839,6 +929,75 @@ mod tests {
         // Public-looking 172.x addresses OUTSIDE 172.16-31 are not blocked here.
         assert!(ProjectRepositoryUrl::parse("https://172.15.0.1/r").is_ok());
         assert!(ProjectRepositoryUrl::parse("https://172.32.0.1/r").is_ok());
+        // Public IPv6 literals and normal hostnames remain allowed — including
+        // hostnames whose labels happen to be all hex digits with a hex TLD
+        // (e.g. `.de`), which must NOT be mistaken for a numeric IP literal.
+        assert!(ProjectRepositoryUrl::parse("https://[2606:4700::1111]/r").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://api.groq.com/r").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://deadbeef.example.com/r").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://abc123.de/r").is_ok());
+        assert!(ProjectRepositoryUrl::parse("https://cafe.be/r").is_ok());
+    }
+
+    #[test]
+    fn provider_base_url_ssrf_guard_blocks_hosted_saas_private_hosts() {
+        // A missing or blank operator override is allowed: the factory falls back
+        // to the vetted compile-time spec default (api.anthropic.com, …).
+        assert!(provider_base_url_allowed("anthropic", None));
+        assert!(provider_base_url_allowed("anthropic", Some("   ")));
+
+        // An operator-supplied public HTTPS host is allowed.
+        assert!(provider_base_url_allowed("anthropic", Some("https://api.anthropic.com")));
+
+        // Hosted-SaaS transports: an operator-supplied private / loopback /
+        // metadata host (or non-HTTPS) is an SSRF attempt and is blocked.
+        for blocked in [
+            "https://127.0.0.1/v1",
+            "https://localhost/v1",
+            "https://169.254.169.254/latest/meta-data/",
+            "https://10.0.0.5/v1",
+            "https://192.168.1.10/v1",
+            "https://[fd00::1]/v1",          // IPv6 ULA
+            "https://[::ffff:127.0.0.1]/v1", // IPv4-mapped loopback
+            "https://2130706433/v1",         // inet_aton decimal -> 127.0.0.1
+            "http://api.anthropic.com",
+        ] {
+            assert!(!provider_base_url_allowed("anthropic", Some(blocked)), "{blocked} must be blocked");
+        }
+
+        // Bring-your-own-endpoint providers are exempt: a self-hosted Ollama or
+        // OpenAI-compatible (litellm/vLLM) endpoint on a private host is a
+        // supported deployment; the network-egress allowlist is the control there.
+        assert!(provider_base_url_allowed("ollama", Some("http://127.0.0.1:11434")));
+        assert!(provider_base_url_allowed("litellm", Some("http://litellm:4000")));
+        assert!(provider_base_url_allowed("openai_compatible", Some("http://vllm:8000/v1")));
+
+        // Hosted vendors that SHARE the OpenAI-compatible transport but ship a
+        // PUBLIC default endpoint stay guarded — a private override is an SSRF
+        // attempt, not a self-hosted deployment.
+        for hosted in ["groq", "deepseek", "zhipu", "openrouter"] {
+            assert!(
+                !provider_base_url_allowed(hosted, Some("https://169.254.169.254/v1")),
+                "{hosted} private override must be blocked"
+            );
+            assert!(
+                provider_base_url_allowed(hosted, Some("https://api.example.com/v1")),
+                "{hosted} public override must be allowed"
+            );
+        }
+
+        // Unknown provider is treated strictly (public HTTPS required).
+        assert!(!provider_base_url_allowed("not_a_real_provider", Some("http://10.0.0.5/v1")));
+
+        // The ensure_* wrapper surfaces a typed Validation error for blocked hosts
+        // and Ok for allowed ones.
+        assert!(matches!(
+            ensure_provider_base_url_allowed("anthropic", Some("https://127.0.0.1/v1")).unwrap_err().kind,
+            ErrorKind::Validation(_)
+        ));
+        assert!(ensure_provider_base_url_allowed("anthropic", Some("https://api.anthropic.com")).is_ok());
+        assert!(ensure_provider_base_url_allowed("anthropic", None).is_ok());
+        assert!(ensure_provider_base_url_allowed("openai_compatible", Some("http://vllm:8000/v1")).is_ok());
     }
 
     #[test]
