@@ -148,6 +148,13 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("072_bootstrap_platform_admin.sql", include_str!("../migrations/072_bootstrap_platform_admin.sql")),
     ("073_drop_unused_job_notify.sql", include_str!("../migrations/073_drop_unused_job_notify.sql")),
     ("074_add_sessions_invalid_before.sql", include_str!("../migrations/074_add_sessions_invalid_before.sql")),
+    ("075_schema_hardening_constraints.sql", include_str!("../migrations/075_schema_hardening_constraints.sql")),
+    ("076_outbox_event_type_index.sql", include_str!("../migrations/076_outbox_event_type_index.sql")),
+    ("077_outbox_aggregate_type_index.sql", include_str!("../migrations/077_outbox_aggregate_type_index.sql")),
+    ("078_validate_review_status_check.sql", include_str!("../migrations/078_validate_review_status_check.sql")),
+    ("079_validate_enrollment_org_fk.sql", include_str!("../migrations/079_validate_enrollment_org_fk.sql")),
+    ("080_validate_enrollment_user_fk.sql", include_str!("../migrations/080_validate_enrollment_user_fk.sql")),
+    ("081_validate_join_codes_org_fk.sql", include_str!("../migrations/081_validate_join_codes_org_fk.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.
