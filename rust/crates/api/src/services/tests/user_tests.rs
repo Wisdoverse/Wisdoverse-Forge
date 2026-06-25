@@ -89,19 +89,23 @@ fn test_password_hash_is_unique_per_call() {
 #[test]
 fn test_legacy_bcrypt_hash_verifies_and_needs_upgrade() {
     let hash = bcrypt::hash("legacy_password", 12).unwrap();
-    let result = agentforge_auth::password::verify_password_compat("legacy_password", &hash);
+    let result = agentforge_auth::password::verify_password_compat("legacy_password", &hash, false);
     assert!(result.valid);
     assert!(result.needs_upgrade);
 }
 
 #[test]
-fn test_legacy_sha256_hash_verifies_and_needs_upgrade() {
+fn test_legacy_sha256_hash_verifies_and_needs_upgrade_when_allowed() {
     use sha2::{Digest, Sha256};
 
     let hash = hex::encode(Sha256::digest(b"legacy_password"));
-    let result = agentforge_auth::password::verify_password_compat("legacy_password", &hash);
-    assert!(result.valid);
-    assert!(result.needs_upgrade);
+    // Compat window on (dev): the legacy hash verifies and is flagged for upgrade.
+    let allowed = agentforge_auth::password::verify_password_compat("legacy_password", &hash, true);
+    assert!(allowed.valid);
+    assert!(allowed.needs_upgrade);
+    // Compat window off (production default, F004): the same legacy hash is rejected.
+    let denied = agentforge_auth::password::verify_password_compat("legacy_password", &hash, false);
+    assert!(!denied.valid);
 }
 
 // ---------------------------------------------------------------------------

@@ -28,6 +28,6 @@ pub mod jwt;
 pub mod middleware;
 pub mod password;
 
-pub use claims::Claims;
+pub use claims::{Claims, session_token_revoked};
 pub use jwt::JwtManager;
 pub use middleware::AuthUser;

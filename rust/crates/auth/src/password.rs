@@ -9,6 +9,12 @@ use argon2::{
 };
 use sha2::{Digest, Sha256};
 
+/// Sentinel written into `users.password_hash` by the F004 force-reset migration
+/// (074). It matches no real hash format, so login fails for the account; the
+/// refresh path also rejects accounts carrying it so an existing session cannot
+/// keep minting tokens. MUST stay in sync with the literal in migration 074.
+pub const LEGACY_PASSWORD_RESET_SENTINEL: &str = "LEGACY_SHA256_RESET_REQUIRED";
+
 /// Result of verifying a stored password hash against a plaintext password.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PasswordVerification {
@@ -40,8 +46,11 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, argon2::passw
 /// Supported formats:
 /// - Argon2 PHC strings: valid, no upgrade needed.
 /// - bcrypt hashes: valid, should be upgraded to Argon2 on successful login.
-/// - legacy SHA-256 hex digests: valid, should be upgraded to Argon2 on successful login.
-pub fn verify_password_compat(password: &str, hash: &str) -> PasswordVerification {
+/// - legacy unsalted SHA-256 hex digests: accepted ONLY when `allow_legacy_sha256`
+///   is true (F004). The compat window defaults off in production; a one-off
+///   migration force-resets any remaining SHA-256 rows, so this branch should
+///   match nothing in a migrated production deployment.
+pub fn verify_password_compat(password: &str, hash: &str, allow_legacy_sha256: bool) -> PasswordVerification {
     if hash.starts_with("$argon2") {
         return PasswordVerification { valid: verify_password(password, hash).unwrap_or(false), needs_upgrade: false };
     }
@@ -50,7 +59,7 @@ pub fn verify_password_compat(password: &str, hash: &str) -> PasswordVerificatio
         return PasswordVerification { valid: bcrypt::verify(password, hash).unwrap_or(false), needs_upgrade: true };
     }
 
-    if is_sha256_hex(hash) {
+    if allow_legacy_sha256 && is_sha256_hex(hash) {
         let digest = Sha256::digest(password.as_bytes());
         let expected = hex::encode(digest);
         return PasswordVerification { valid: expected.eq_ignore_ascii_case(hash), needs_upgrade: true };
@@ -122,7 +131,7 @@ mod tests {
     fn compat_verifies_argon2_without_upgrade() {
         let password = test_password();
         let hash = hash_password(&password).unwrap();
-        let result = verify_password_compat(&password, &hash);
+        let result = verify_password_compat(&password, &hash, false);
         assert!(result.valid);
         assert!(!result.needs_upgrade);
     }
@@ -131,24 +140,35 @@ mod tests {
     fn compat_verifies_bcrypt_with_upgrade_flag() {
         let password = test_password();
         let hash = bcrypt::hash(&password, 12).unwrap();
-        let result = verify_password_compat(&password, &hash);
+        let result = verify_password_compat(&password, &hash, false);
         assert!(result.valid);
         assert!(result.needs_upgrade);
     }
 
     #[test]
-    fn compat_verifies_sha256_hex_with_upgrade_flag() {
+    fn compat_verifies_sha256_hex_with_upgrade_flag_when_allowed() {
         let password = test_password();
         let hash = hex::encode(Sha256::digest(password.as_bytes()));
-        let result = verify_password_compat(&password, &hash);
+        let result = verify_password_compat(&password, &hash, true);
         assert!(result.valid);
         assert!(result.needs_upgrade);
+    }
+
+    #[test]
+    fn compat_rejects_sha256_hex_when_legacy_disabled() {
+        // F004: with the compat window closed (production default), a correct
+        // legacy SHA-256 password is NOT accepted.
+        let password = test_password();
+        let hash = hex::encode(Sha256::digest(password.as_bytes()));
+        let result = verify_password_compat(&password, &hash, false);
+        assert!(!result.valid);
+        assert!(!result.needs_upgrade);
     }
 
     #[test]
     fn compat_rejects_unknown_hash_format() {
         let password = test_password();
-        let result = verify_password_compat(&password, "legacy:opaque");
+        let result = verify_password_compat(&password, "legacy:opaque", false);
         assert!(!result.valid);
         assert!(!result.needs_upgrade);
     }
