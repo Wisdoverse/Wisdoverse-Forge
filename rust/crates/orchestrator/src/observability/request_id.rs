@@ -56,6 +56,20 @@ pub fn sanitize_request_id(inbound: Option<&str>) -> String {
     }
 }
 
+/// Build the request-correlation span carrying `request_id`.
+///
+/// The span is at **ERROR** level on purpose. A span is only recorded while its
+/// level passes the subscriber's filter, and an event inherits a parent span's
+/// fields only if that span is enabled. The orchestrator's `EnvFilter` is
+/// operator-set (`ORCHESTRATOR_LOG_LEVEL`); under `warn` or `error` an
+/// INFO-level span would be disabled, so WARN/ERROR handler logs — exactly the
+/// ones you most need to correlate — would lose `request_id`. ERROR is the
+/// highest severity, so this span stays enabled under every level filter
+/// (`error` ⊆ `warn` ⊆ `info` …) while never itself emitting a log line.
+fn request_span(request_id: &str) -> tracing::Span {
+    tracing::error_span!("http_request", request_id = %request_id)
+}
+
 /// Tower/Axum middleware that establishes the request-id correlation span and
 /// echoes the id in the response.
 ///
@@ -65,11 +79,10 @@ pub async fn track_request_id(req: Request<Body>, next: Next) -> Response {
     let inbound = req.headers().get(REQUEST_ID_HEADER).and_then(|value| value.to_str().ok());
     let request_id = sanitize_request_id(inbound);
 
-    // Run the inner service inside a span carrying the id, so handler logs
-    // inherit `request_id`. The id is a safe charset, so the HeaderValue
-    // conversion below never fails — but fall back gracefully rather than panic.
-    let span = tracing::info_span!("http_request", request_id = %request_id);
-    let mut response = next.run(req).instrument(span).await;
+    // Run the inner service inside the correlation span so handler logs inherit
+    // `request_id`. The id is a safe charset, so the HeaderValue conversion below
+    // never fails — but fall back gracefully rather than panic.
+    let mut response = next.run(req).instrument(request_span(&request_id)).await;
 
     if let Ok(header_value) = HeaderValue::from_str(&request_id) {
         response.headers_mut().insert(REQUEST_ID_HEADER, header_value);
@@ -149,5 +162,55 @@ mod tests {
         // Exactly at the bound is still accepted.
         let at_bound = "a".repeat(MAX_REQUEST_ID_LEN);
         assert_eq!(sanitize_request_id(Some(&at_bound)), at_bound);
+    }
+
+    /// Shared-buffer writer so a test can capture what a `tracing` subscriber
+    /// renders, then assert on it.
+    #[derive(Clone)]
+    struct BufWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for BufWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("writer lock").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl tracing_subscriber::fmt::MakeWriter<'_> for BufWriter {
+        type Writer = BufWriter;
+        fn make_writer(&self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    /// The correlation contract that matters operationally: under a `warn`
+    /// `EnvFilter` (a common production setting), a WARN log emitted by a handler
+    /// inside the request span must STILL carry `request_id`. This fails if the
+    /// span is INFO-level (the filter would disable it); it passes because
+    /// `request_span` is ERROR-level. Regression guard for that level choice.
+    #[test]
+    fn warn_log_under_warn_filter_keeps_request_id() {
+        use tracing_subscriber::EnvFilter;
+        use tracing_subscriber::fmt;
+
+        let buf = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let subscriber =
+            fmt().with_env_filter(EnvFilter::new("warn")).with_writer(BufWriter(buf.clone())).with_ansi(false).finish();
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = request_span("corr-9f3");
+            let _enter = span.enter();
+            tracing::warn!("handler hit a problem");
+        });
+
+        let out = String::from_utf8(buf.lock().expect("buf lock").clone()).expect("utf8");
+        assert!(out.contains("handler hit a problem"), "the warn event must be emitted under a warn filter:\n{out}");
+        assert!(
+            out.contains("corr-9f3"),
+            "a warn log under a warn filter must still carry request_id (span must outrank the filter):\n{out}"
+        );
     }
 }
