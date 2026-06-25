@@ -15,12 +15,19 @@ its own (default `:4010`) — so configure a Prometheus scrape job for each
 target. Both endpoints are access-gated and are not world-readable: the API
 endpoint requires a platform-admin principal, and the orchestrator endpoint
 requires the internal operator token (`ORCHESTRATOR_INTERNAL_TOKEN`) — the
-credential the scraper carries in its `Authorization: Bearer` header. The
-relevant metric families are:
+credential the scraper carries in its `Authorization: Bearer` header.
+
+The two services share the HTTP metric names `http_requests_total` and
+`http_request_duration_seconds`. To keep them apart in a shared Prometheus, the
+orchestrator stamps every series with `service="orchestrator"`; the API emits no
+`service` label. So API-only queries select `service!="orchestrator"` (the
+absent label matches a negative matcher) and orchestrator-only queries select
+`service="orchestrator"`. The shipped alert rules in `ops/prometheus/alerts.yml`
+follow exactly this split. The relevant metric families are:
 
 | SLI                       | Metric                                                                                                                            | Definition                                                                                                                                                   |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| API availability          | `http_requests_total{status=~"5..",service="api"}`                                                                                | `1 - (5xx requests / total requests)` over a rolling window.                                                                                                 |
+| API availability          | `http_requests_total{status=~"5..",service!="orchestrator"}`                                                                      | `1 - (5xx requests / total requests)` over a rolling window.                                                                                                 |
 | API latency (p95)         | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=~"/api/v1/agents.*", method="POST"}[5m])))` | p95 over the agents-runtime write paths, computed from the histogram `_bucket` series (labels `method`/`path`); excludes WebSocket upgrades and SSE streams. |
 | Orchestrator success rate | `task_runs_completed_total{status="success"} / task_runs_completed_total`                                                         | Fraction of completed task runs that ended without an error status.                                                                                          |
 | Workflow start latency    | `temporal_workflow_start_seconds{quantile="0.95"}`                                                                                | Time from `start_workflow` accepted to the workflow worker picking it up.                                                                                    |

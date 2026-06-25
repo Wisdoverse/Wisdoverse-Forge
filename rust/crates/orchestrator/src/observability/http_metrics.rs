@@ -48,23 +48,42 @@ const UNMATCHED_PATH: &str = "<unmatched>";
 /// `histogram_quantile(0.95, …)` resolves identically across both services.
 pub const HTTP_DURATION_BUCKETS: [f64; 8] = [0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0];
 
+/// Global `service` label value stamped on every orchestrator metric.
+///
+/// The orchestrator intentionally reuses the API server's metric NAMES
+/// (`http_requests_total`, `http_request_duration_seconds`) so one dashboard
+/// can aggregate across both. To keep them distinguishable in a shared
+/// Prometheus — and so the API SLO/burn alert rules in `ops/prometheus/` can
+/// exclude orchestrator traffic (`service!="orchestrator"`) — every series this
+/// recorder emits carries `service="orchestrator"`. The API server emits no
+/// `service` label, so a negative matcher selects exactly the API series.
+const SERVICE_LABEL_VALUE: &str = "orchestrator";
+
+/// Configure the Prometheus builder shared by [`install_recorder`] and its
+/// test: SLO-aligned histogram buckets + the `service="orchestrator"` global
+/// label. Returns the configured builder so the caller chooses whether to
+/// install it globally or build a local recorder.
+fn configure_builder() -> Result<PrometheusBuilder, metrics_exporter_prometheus::BuildError> {
+    Ok(PrometheusBuilder::new()
+        .set_buckets_for_metric(Matcher::Full("http_request_duration_seconds".to_owned()), &HTTP_DURATION_BUCKETS)?
+        .add_global_label("service", SERVICE_LABEL_VALUE))
+}
+
 /// Install the global Prometheus recorder for the orchestrator process and
 /// return the render handle for the `/metrics` scrape route.
 ///
 /// Configures the SLO-aligned histogram buckets for
 /// `http_request_duration_seconds` (without explicit buckets the exporter
 /// renders a summary, so no `_bucket{le=…}` series exist and
-/// `histogram_quantile()` queries return nothing).
+/// `histogram_quantile()` queries return nothing) and stamps every series with
+/// `service="orchestrator"` (see [`SERVICE_LABEL_VALUE`]).
 ///
 /// A metrics-recorder hiccup must never take down the coordinator, so a build
 /// or install failure (most commonly: a recorder is already installed in this
 /// process) degrades to a non-installed local handle that renders an empty
 /// exposition, and logs a warning, rather than erroring.
 pub fn install_recorder() -> Arc<PrometheusHandle> {
-    match PrometheusBuilder::new()
-        .set_buckets_for_metric(Matcher::Full("http_request_duration_seconds".to_owned()), &HTTP_DURATION_BUCKETS)
-        .and_then(|builder| builder.install_recorder())
-    {
+    match configure_builder().and_then(|builder| builder.install_recorder()) {
         Ok(handle) => Arc::new(handle),
         Err(err) => {
             tracing::warn!(
@@ -278,6 +297,41 @@ mod tests {
         assert!(
             !rendered.contains("http_request_duration_seconds{quantile="),
             "metric must render as a histogram, not a summary:\n{rendered}"
+        );
+    }
+
+    /// The recorder built by `configure_builder` (the same config
+    /// `install_recorder` installs) must stamp every series with
+    /// `service="orchestrator"`. This is the discriminator the shipped API SLO
+    /// alert rules use (`service!="orchestrator"`) to avoid counting
+    /// orchestrator traffic as API error-budget burn once both services are
+    /// scraped into one Prometheus.
+    #[test]
+    fn configured_recorder_stamps_service_label() {
+        let recorder = configure_builder().expect("configure builder").build_recorder();
+        let handle = recorder.handle();
+
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
+        metrics::with_local_recorder(&recorder, || {
+            rt.block_on(async {
+                let app = router();
+                let res = app.oneshot(Request::builder().uri("/x/42").body(Body::empty()).unwrap()).await.unwrap();
+                assert_eq!(res.status(), StatusCode::OK);
+            });
+        });
+
+        let rendered = handle.render();
+        assert!(
+            rendered.contains("service=\"orchestrator\""),
+            "every orchestrator series must carry service=\"orchestrator\":\n{rendered}"
+        );
+        // Concretely: the counter the API SLO burn rule sums must be tagged, so
+        // a `service!=\"orchestrator\"` matcher excludes it.
+        assert!(
+            rendered
+                .lines()
+                .any(|line| line.starts_with("http_requests_total{") && line.contains("service=\"orchestrator\"")),
+            "http_requests_total must carry the service label:\n{rendered}"
         );
     }
 }
