@@ -3,7 +3,39 @@
 use agentforge_core::RuntimeCapability;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
+
+/// Max time to establish a TCP+TLS connection to a provider before failing.
+pub(crate) const PROVIDER_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Max idle gap BETWEEN bytes on a provider response. This is a per-read
+/// timeout, NOT a total-request deadline, so a long legitimate streaming
+/// response is never cut — but a stalled or black-hole upstream cannot hang the
+/// request (and its tokio task + DB/connection-pool resources) indefinitely.
+/// Without it, `Client::new()` has no timeouts at all, so a single bad upstream
+/// can exhaust the async runtime under load (F024).
+pub(crate) const PROVIDER_READ_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Build an outbound HTTP client with the given connect + read-idle timeouts.
+/// Crate-internal so tests can exercise the deadline behavior with short values
+/// against a stalled server.
+pub(crate) fn client_with_timeouts(connect: Duration, read_idle: Duration) -> Client {
+    Client::builder()
+        .connect_timeout(connect)
+        .read_timeout(read_idle)
+        .build()
+        // A builder failure means the TLS backend could not initialize; fall back
+        // to a default client rather than panicking in a provider constructor.
+        .unwrap_or_else(|_| Client::new())
+}
+
+/// The shared, timeout-bounded HTTP client every provider uses for both
+/// non-streaming and streaming requests.
+pub(crate) fn timed_client() -> Client {
+    client_with_timeouts(PROVIDER_CONNECT_TIMEOUT, PROVIDER_READ_IDLE_TIMEOUT)
+}
 
 /// A single chat message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,5 +150,41 @@ mod model_limit_tests {
     #[test]
     fn unknown_model_fallback_4k() {
         assert_eq!(model_context_limit("mystery-model"), 4_096);
+    }
+}
+
+#[cfg(test)]
+mod timeout_tests {
+    use super::*;
+    use std::time::Instant;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// F030 lock-in: the shared client's read-idle timeout must abort a stalled
+    /// upstream instead of hanging. If a refactor drops `read_timeout`, this test
+    /// hangs past its short deadline and fails.
+    #[tokio::test]
+    async fn read_idle_timeout_aborts_a_stalled_upstream() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(10)))
+            .mount(&server)
+            .await;
+
+        // A 300ms read-idle deadline must fire well before the 10s stall.
+        let client = client_with_timeouts(Duration::from_secs(2), Duration::from_millis(300));
+        let start = Instant::now();
+        let result = client.get(server.uri()).send().await;
+        let elapsed = start.elapsed();
+
+        assert!(result.is_err(), "a stalled upstream must produce a timeout error, got {result:?}");
+        assert!(elapsed < Duration::from_secs(3), "must abort on the read deadline, took {elapsed:?}");
+    }
+
+    /// The production helper must construct successfully (exercises the real path
+    /// providers use).
+    #[test]
+    fn timed_client_builds_with_production_timeouts() {
+        let _ = timed_client();
     }
 }

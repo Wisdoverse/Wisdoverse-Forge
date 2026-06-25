@@ -4,7 +4,9 @@ use agentforge_core::RuntimeCapability;
 use futures::stream::{BoxStream, StreamExt};
 use reqwest::Client;
 
-use crate::provider::{ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage};
+use crate::provider::{
+    ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, timed_client,
+};
 
 /// Anthropic Messages API provider.
 pub struct AnthropicProvider {
@@ -19,7 +21,7 @@ impl AnthropicProvider {
     /// If `base_url` is `None`, defaults to `https://api.anthropic.com`.
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         Self {
-            client: Client::new(),
+            client: timed_client(),
             api_key,
             base_url: base_url.unwrap_or_else(|| "https://api.anthropic.com".to_string()),
         }
@@ -30,7 +32,7 @@ impl AnthropicProvider {
 #[cfg(test)]
 impl AnthropicProvider {
     pub fn with_base_url(api_key: String, base_url: String) -> Self {
-        Self { client: Client::new(), api_key, base_url }
+        Self { client: timed_client(), api_key, base_url }
     }
 }
 

@@ -60,9 +60,37 @@ impl PromptProviderPolicy {
         ErrorKind::Validation(format!("{err}"))
     }
 
-    pub(crate) fn stream_failed(err: impl std::fmt::Display) -> ErrorKind {
-        ErrorKind::Internal(anyhow::anyhow!("{err}"))
+    /// The provider never began streaming within the start deadline (F024).
+    /// Surfaced as a retryable upstream condition (503 Service Unavailable), NOT
+    /// a 500 — the stall is the provider's, not an internal bug, and the client
+    /// should retry rather than treat it as a server fault.
+    pub(crate) fn stream_start_timed_out() -> ErrorKind {
+        ErrorKind::Unavailable("provider did not begin streaming before the timeout — try again".to_string())
     }
+
+    /// Map a stream-construction error (`provider.stream(req).await`) to an HTTP
+    /// error class. A network/timeout (`Http`) or upstream 5xx failure is the
+    /// provider's transient fault → retryable 503, consistent with the start
+    /// deadline; everything else is an internal error. This keeps a connect/read
+    /// timeout that fires before the outer app deadline from masquerading as a 500.
+    pub(crate) fn stream_construction_failed(err: &agentforge_llm::LlmError) -> ErrorKind {
+        use agentforge_llm::LlmError;
+        match err {
+            // Any provider-side 5xx or transport error is the upstream's transient
+            // fault, matching the mid-stream `sse_error_for_llm_error` 5xx mapping.
+            LlmError::Http(_) | LlmError::Api { status: 500..=599, .. } => {
+                ErrorKind::Unavailable("provider connection failed — try again".to_string())
+            }
+            other => ErrorKind::Internal(anyhow::anyhow!("{other}")),
+        }
+    }
+}
+
+/// SSE error frame parts (code, message, retryable) for a mid-stream idle
+/// timeout: bytes may still flow (provider heartbeats) but no decoded token has
+/// arrived within the idle deadline, so the stream is abandoned (F024).
+pub(crate) fn sse_idle_timeout_error() -> (&'static str, &'static str, bool) {
+    ("timeout", "provider stopped responding — try again", true)
 }
 
 /// Borrowed chat history item used by the context-window selector.
@@ -238,6 +266,34 @@ mod tests {
     }
 
     #[test]
+    fn stream_start_timeout_is_retryable_unavailable_not_internal() {
+        // A provider start-timeout must surface as 503-class (retryable), never a
+        // 500 that reads as an internal bug.
+        assert!(matches!(PromptProviderPolicy::stream_start_timed_out(), ErrorKind::Unavailable(_)));
+        // The mid-stream idle-timeout SSE frame is retryable.
+        assert!(sse_idle_timeout_error().2);
+        // Any upstream 5xx (and, by the same arm, a network/timeout `Http` error)
+        // from stream construction is a retryable 503.
+        for status in [500u16, 502, 503, 504] {
+            assert!(
+                matches!(
+                    PromptProviderPolicy::stream_construction_failed(&agentforge_llm::LlmError::Api {
+                        status,
+                        message: "upstream down".to_string(),
+                    }),
+                    ErrorKind::Unavailable(_)
+                ),
+                "status {status} must map to Unavailable"
+            );
+        }
+        // A non-network failure stays internal.
+        assert!(matches!(
+            PromptProviderPolicy::stream_construction_failed(&agentforge_llm::LlmError::NotConfigured("x".to_string())),
+            ErrorKind::Internal(_)
+        ));
+    }
+
+    #[test]
     fn prompt_content_trims_and_rejects_empty() {
         assert_eq!(PromptContent::parse("  hi  ").unwrap().value(), "hi");
         assert!(PromptContent::parse("   ").is_err());
@@ -259,7 +315,6 @@ mod tests {
         assert!(format!("{}", PromptProviderPolicy::missing_encryption_key()).contains("LLM_ENCRYPTION_KEY"));
         assert!(format!("{}", PromptProviderPolicy::decrypt_api_key_failed("bad cipher")).contains("bad cipher"));
         assert!(format!("{}", PromptProviderPolicy::build_error("bad model")).contains("bad model"));
-        assert!(format!("{}", PromptProviderPolicy::stream_failed("stream broke")).contains("stream broke"));
     }
 
     #[test]

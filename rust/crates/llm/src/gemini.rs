@@ -6,7 +6,9 @@ use futures::stream::{BoxStream, StreamExt};
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::Client;
 
-use crate::provider::{ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage};
+use crate::provider::{
+    ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, timed_client,
+};
 
 // Path-safe encoding: escape everything except unreserved chars, keep `-._~` literal.
 const MODEL_PATH: &AsciiSet = &CONTROLS
@@ -30,11 +32,11 @@ pub struct GeminiProvider {
 
 impl GeminiProvider {
     pub fn new(api_key: String) -> Self {
-        Self { client: Client::new(), api_key, base_url: "https://generativelanguage.googleapis.com".into() }
+        Self { client: timed_client(), api_key, base_url: "https://generativelanguage.googleapis.com".into() }
     }
 
     pub fn with_base_url(api_key: String, base_url: String) -> Self {
-        Self { client: Client::new(), api_key, base_url }
+        Self { client: timed_client(), api_key, base_url }
     }
 }
 
