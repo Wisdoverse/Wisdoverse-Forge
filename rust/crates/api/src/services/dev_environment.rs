@@ -12,9 +12,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::dev_environment::{
-    DEFAULT_STOP_TIMEOUT_SECONDS, DevEnvironmentLifecyclePolicy, DevEnvironmentName, DevEnvironmentRuntimePolicy,
-    DevEnvironmentRuntimeSpec, DevEnvironmentRuntimeState, DevEnvironmentStatusUpdate, ERROR_STATUS, RUNNING_STATUS,
-    STARTING_STATUS, STOPPED_STATUS, StopPlan,
+    DEFAULT_STOP_TIMEOUT_SECONDS, DevEnvironmentImagePolicy, DevEnvironmentLifecyclePolicy, DevEnvironmentName,
+    DevEnvironmentRuntimePolicy, DevEnvironmentRuntimeSpec, DevEnvironmentRuntimeState, DevEnvironmentStatusUpdate,
+    ERROR_STATUS, RUNNING_STATUS, STARTING_STATUS, STOPPED_STATUS, StopPlan,
 };
 pub(crate) use crate::domain::dev_environment::{
     dev_environment_data_response, dev_environment_delete_response, dev_environment_message_response,
@@ -135,11 +135,19 @@ impl DevEnvironmentRuntime for DockerDevEnvironmentRuntime {
 pub struct DevEnvironmentService<R = DevEnvironmentRepository> {
     repo: R,
     runtime: Option<Arc<dyn DevEnvironmentRuntime>>,
+    /// Operator-configured extra image-reference prefixes (F018). The built-in
+    /// safe set (official Docker Hub library + managed agent images) always
+    /// applies on top of this.
+    allowed_image_registries: Vec<String>,
 }
 
 impl DevEnvironmentService<DevEnvironmentRepository> {
-    pub fn from_runtime(pool: PgPool, runtime: Option<Arc<dyn DevEnvironmentRuntime>>) -> Self {
-        Self::with_runtime(DevEnvironmentRepository::new(pool), runtime)
+    pub fn from_runtime(
+        pool: PgPool,
+        runtime: Option<Arc<dyn DevEnvironmentRuntime>>,
+        allowed_image_registries: Vec<String>,
+    ) -> Self {
+        Self { repo: DevEnvironmentRepository::new(pool), runtime, allowed_image_registries }
     }
 }
 
@@ -148,11 +156,11 @@ where
     R: DevEnvironmentStore,
 {
     pub fn new(repo: R) -> Self {
-        Self { repo, runtime: None }
+        Self { repo, runtime: None, allowed_image_registries: Vec::new() }
     }
 
     pub fn with_runtime(repo: R, runtime: Option<Arc<dyn DevEnvironmentRuntime>>) -> Self {
-        Self { repo, runtime }
+        Self { repo, runtime, allowed_image_registries: Vec::new() }
     }
 
     /// List dev environments for the org.
@@ -180,6 +188,12 @@ where
         config: &serde_json::Value,
     ) -> AppResult<DevEnvironment> {
         let name = DevEnvironmentName::parse(name)?;
+        // F018: reject a disallowed image at creation (fail-early UX), in addition
+        // to the authoritative gate in build_container_config at start. Only the
+        // image is validated here; other config is checked when the spec is parsed.
+        if let Some(image) = config.get("image").and_then(|v| v.as_str()) {
+            DevEnvironmentImagePolicy::ensure_image_allowed(image, &self.allowed_image_registries)?;
+        }
         self.repo.create(scope, name.value(), project_id, config).await
     }
 
@@ -189,7 +203,7 @@ where
         DevEnvironmentLifecyclePolicy::ensure_can_start(&env.status, env.container_id.as_deref())?;
 
         let runtime = self.runtime.as_ref().ok_or_else(DevEnvironmentRuntimePolicy::docker_unavailable)?;
-        let config = build_container_config(scope, &env)?;
+        let config = build_container_config(scope, &env, &self.allowed_image_registries)?;
         self.repo.update_status(scope, id, STARTING_STATUS, None).await?;
 
         let container_id = match runtime.create_container(config).await {
@@ -274,8 +288,14 @@ where
     }
 }
 
-fn build_container_config(scope: &TenantScope, env: &DevEnvironment) -> AppResult<ContainerConfig> {
+fn build_container_config(
+    scope: &TenantScope,
+    env: &DevEnvironment,
+    allowed_image_registries: &[String],
+) -> AppResult<ContainerConfig> {
     let spec = DevEnvironmentRuntimeSpec::parse(&env.config)?;
+    // F018: fail closed before the daemon pulls/runs an unvetted image.
+    DevEnvironmentImagePolicy::ensure_image_allowed(&spec.image, allowed_image_registries)?;
     let mut container_env = spec.env;
     container_env.push(format!("AGENTFORGE_DEV_ENVIRONMENT_ID={}", env.id));
     container_env.push(format!("AGENTFORGE_ORG_ID={}", scope.org_id()));
@@ -525,7 +545,7 @@ mod tests {
             None,
         );
 
-        let config = build_container_config(&scope, &env).expect("container config");
+        let config = build_container_config(&scope, &env, &[]).expect("container config");
         let expected_name = format!("agentforge-devenv-{}", env.id);
 
         assert_eq!(config.image, "ubuntu:22.04");
@@ -544,7 +564,7 @@ mod tests {
         let scope = test_scope();
         let env = test_env("stopped", json!({"env": ["A=one"]}), None);
 
-        let err = build_container_config(&scope, &env).expect_err("missing image should fail");
+        let err = build_container_config(&scope, &env, &[]).expect_err("missing image should fail");
 
         match err.kind {
             ErrorKind::Validation(message) => assert!(message.contains("config.image is required")),
