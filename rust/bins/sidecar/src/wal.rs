@@ -128,6 +128,22 @@ impl Wal {
         Ok(entries)
     }
 
+    /// Replay only entries older than `min_age`, by the nanosecond creation
+    /// timestamp encoded in each file name (`<nanos>.json`).
+    ///
+    /// The periodic and startup drain use this so they never re-publish a record
+    /// the live relay path is still actively publishing — that path's
+    /// publish + flush is bounded by `FLUSH_CONFIRM_TIMEOUT`, so a file younger
+    /// than that may still be in flight and is left for a later drain. This
+    /// closes the live-vs-drain duplicate window (F066) without a per-file lock
+    /// or inflight rename. A file whose name is not a parseable timestamp is
+    /// treated as old (drained) so a malformed entry is never silently stranded.
+    pub async fn replay_older_than(&self, min_age: std::time::Duration) -> std::io::Result<Vec<(PathBuf, Vec<u8>)>> {
+        let cutoff = cutoff_nanos(min_age);
+        let all = self.replay().await?;
+        Ok(all.into_iter().filter(|(path, _)| file_nanos(path).is_none_or(|nanos| nanos <= cutoff)).collect())
+    }
+
     /// Acknowledge (delete) a single WAL file after successful publish.
     ///
     /// Decrements the `pending` counter (saturating — it will never go below 0).
@@ -172,6 +188,20 @@ impl Wal {
     pub fn dropped_total(&self) -> u64 {
         self.dropped.load(Ordering::Relaxed)
     }
+}
+
+/// The nanosecond creation timestamp encoded in a WAL file name (`<nanos>.json`),
+/// or `None` if the stem is not a parseable integer.
+fn file_nanos(path: &std::path::Path) -> Option<i64> {
+    path.file_stem()?.to_str()?.parse::<i64>().ok()
+}
+
+/// Newest creation timestamp (nanos) a drain should still process: a file
+/// created more recently than `min_age` ago may still be in flight on the live
+/// relay path, so it is left for a later drain.
+fn cutoff_nanos(min_age: std::time::Duration) -> i64 {
+    let now = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(i64::MAX);
+    now.saturating_sub(min_age.as_nanos().min(i64::MAX as u128) as i64)
 }
 
 #[cfg(test)]
@@ -311,5 +341,35 @@ mod tests {
         tokio::fs::write(&stale, b"{}").await.unwrap();
         wal.acknowledge(&stale).await.unwrap();
         assert_eq!(wal.pending_cached(), 0, "saturating decrement: must not underflow");
+    }
+
+    /// F066: the drain (`replay_older_than`) must skip a file written within
+    /// `min_age` — the live relay path may still be publishing it — while still
+    /// returning older files. A file whose name is not a timestamp is treated as
+    /// old (drained) so it is never stranded.
+    #[tokio::test]
+    async fn replay_older_than_skips_recent_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let now = chrono::Utc::now().timestamp_nanos_opt().unwrap();
+        let old_nanos = now - 3_600_000_000_000; // 1 hour ago
+
+        tokio::fs::write(dir.join(format!("{old_nanos}.json")), b"old").await.unwrap();
+        tokio::fs::write(dir.join(format!("{now}.json")), b"recent").await.unwrap();
+        tokio::fs::write(dir.join("not-a-timestamp.json"), b"weird").await.unwrap();
+
+        let wal = Wal::new(Some(dir.to_str().unwrap()));
+
+        // Plain replay returns all three.
+        assert_eq!(wal.replay().await.unwrap().len(), 3);
+
+        // Drain skips only the recent file; the old and the unparseable-named one
+        // (treated as old) are drainable.
+        let drainable = wal.replay_older_than(std::time::Duration::from_secs(5)).await.unwrap();
+        let payloads: Vec<Vec<u8>> = drainable.iter().map(|(_, data)| data.clone()).collect();
+        assert_eq!(drainable.len(), 2, "recent file must be skipped, got {payloads:?}");
+        assert!(payloads.contains(&b"old".to_vec()), "old file must be drainable");
+        assert!(payloads.contains(&b"weird".to_vec()), "unparseable-named file must be drainable, not stranded");
+        assert!(!payloads.contains(&b"recent".to_vec()), "recent file must NOT be drained");
     }
 }

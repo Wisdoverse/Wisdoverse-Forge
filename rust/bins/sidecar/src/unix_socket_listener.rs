@@ -375,7 +375,11 @@ async fn attempt_durable_publish(publisher: &EventPublisher, event_type: &str, d
 /// NATS outage was deleted from the WAL and then lost if NATS dropped before the
 /// server confirmed (F062).
 pub(crate) async fn drain_wal(wal: &Wal, publisher: &EventPublisher) {
-    let entries = match wal.replay().await {
+    // Skip records younger than the confirm-handoff timeout: the live relay path
+    // may still be publishing them, and re-publishing here would duplicate the
+    // event (F066). A record the live path failed to confirm ages past this
+    // window and is retried on a later drain.
+    let entries = match wal.replay_older_than(FLUSH_CONFIRM_TIMEOUT).await {
         Ok(entries) => entries,
         Err(err) => {
             tracing::warn!(error = %err, "Failed to read WAL for drain");
