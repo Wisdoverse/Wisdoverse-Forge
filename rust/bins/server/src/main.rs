@@ -300,8 +300,12 @@ async fn main() -> Result<()> {
     };
 
     let orchestration_outbox_handle = if orchestration_outbox_publisher_enabled {
+        // Default OFF (F064): signing changes the assignment wire format, so it
+        // must trail a rollout of sidecars that accept signed envelopes. Enable
+        // `ORCHESTRATION_SIGN_ASSIGNMENTS=true` only once all sidecars are updated.
+        let sign_assignments = env_flag("ORCHESTRATION_SIGN_ASSIGNMENTS", false)?;
         nats.client().cloned().map(|client| {
-            let worker = OrchestrationOutboxPublisher::new(pool.clone(), client);
+            let worker = OrchestrationOutboxPublisher::new(pool.clone(), client, sign_assignments);
             let worker_shutdown = shutdown_rx.clone();
             tokio::spawn(async move { worker.run(worker_shutdown).await })
         })
