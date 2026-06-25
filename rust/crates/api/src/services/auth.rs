@@ -60,12 +60,15 @@ impl AuthService {
     pub async fn switch_context(
         &self,
         user_id: UserId,
+        token_iat: u64,
         org_id: Uuid,
         axes: SwitchContextAxes,
     ) -> AppResult<SwitchContextResult> {
-        // F004: a force-reset account cannot mint fresh tokens by switching
-        // context either — block every token-minting path, not just cookie refresh.
-        if self.users.requires_password_reset(user_id).await? {
+        // F004: block every token-minting path, not just cookie refresh. A token
+        // issued before the account's session floor (password reset / operator
+        // force-reset) cannot mint a fresh token pair by switching context.
+        let floor = self.users.session_floor(user_id).await?;
+        if agentforge_auth::session_token_revoked(token_iat, floor.map(|f| f.timestamp())) {
             return Err(AuthContextSwitchPolicy::missing_org_membership());
         }
         let role = self

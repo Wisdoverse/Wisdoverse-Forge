@@ -64,6 +64,7 @@ fn default_test_config() -> agentforge_core::AppConfig {
         container_server_url: None,
         ollama_base_url: None,
         dev_env_allowed_image_registries: Vec::new(),
+        force_reset_legacy_sha256: false,
         llm_encryption_key: None,
         container_anthropic_api_key: None,
         container_google_api_key: None,

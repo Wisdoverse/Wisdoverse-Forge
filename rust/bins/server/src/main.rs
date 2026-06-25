@@ -215,6 +215,27 @@ async fn main() -> Result<()> {
     } else {
         tracing::warn!("SMTP email sender disabled; password reset requests will return EMAIL_UNAVAILABLE");
     }
+
+    // F004: operator-gated legacy SHA-256 force-reset. Runs ONLY when explicitly
+    // enabled AND a password-reset path (SMTP) is configured, so it can never
+    // strand a legacy user with a sentinel hash and no way to recover. Idempotent
+    // (zero rows after the first run). The compat window already blocks legacy
+    // logins in production; this removes the brute-forceable digest at rest and
+    // invalidates any live session for the affected accounts.
+    if config.force_reset_legacy_sha256 {
+        if email_sender.is_configured() {
+            let reset = agentforge_api::repositories::user::UserRepository::new(pool.clone())
+                .force_reset_legacy_sha256_hashes()
+                .await
+                .map_err(|err| anyhow!("legacy SHA-256 force-reset failed: {}", err.kind))?;
+            tracing::warn!(count = reset, "F004: force-reset legacy SHA-256 password hashes (operator-enabled)");
+        } else {
+            tracing::error!(
+                "FORCE_RESET_LEGACY_SHA256 is enabled but no SMTP reset path is configured; \
+                 skipping the force-reset to avoid locking out legacy users — configure SMTP, then redeploy"
+            );
+        }
+    }
     if config.is_production() && orchestration_requires_nats && nats.client().is_none() {
         return Err(anyhow!(
             "NATS must be connected in production when orchestration result/outbox/liveness workers are enabled"

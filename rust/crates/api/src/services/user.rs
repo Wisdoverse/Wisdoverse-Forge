@@ -299,10 +299,13 @@ impl UserService {
 
     pub(crate) async fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
         let claims = self.jwt.verify_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
-        // F004: an account whose password was force-reset cannot keep refreshing
-        // an existing session — reject so it is pushed back through password reset
-        // (refresh is otherwise stateless and never reads password_hash).
-        if self.repo.requires_password_reset(UserId::from(claims.sub)).await? {
+        // F004: durable session invalidation. A refresh token issued before the
+        // account's session floor (password reset or operator force-reset) is
+        // rejected even after the password hash is no longer the sentinel, so a
+        // copied/stale refresh token inside its multi-day lifetime cannot mint
+        // fresh access tokens.
+        let floor = self.repo.session_floor(UserId::from(claims.sub)).await?;
+        if agentforge_auth::session_token_revoked(claims.iat, floor.map(|f| f.timestamp())) {
             return Err(UserAccountPolicy::invalid_refresh_token().into());
         }
         // #889/F002: re-read the LIVE org-membership role instead of echoing the
@@ -423,5 +426,71 @@ mod tests {
 
         let err = user_service(&pool, &jwt).refresh_session(&refresh).await.expect_err("revoked must fail");
         assert!(matches!(err.kind, agentforge_core::ErrorKind::Unauthorized), "got: {:?}", err.kind);
+    }
+
+    async fn set_session_floor(pool: &PgPool, user_id: Uuid, floor: chrono::DateTime<chrono::Utc>) {
+        sqlx::query("UPDATE users SET sessions_invalid_before = $2 WHERE id = $1")
+            .bind(user_id)
+            .bind(floor)
+            .execute(pool)
+            .await
+            .expect("set session floor");
+    }
+
+    /// F004: a refresh token issued BEFORE the account's session floor is
+    /// rejected, even though the hash is a normal Argon2 hash (not the sentinel).
+    /// This is the durable replacement for the transient sentinel-hash gate.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn refresh_session_rejects_token_issued_before_session_floor(pool: PgPool) {
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let (org_id, user_id) = seed_member(&pool, Some("member")).await;
+        let refresh = jwt.create_token(user_id, org_id, "member").expect("mint refresh");
+        // Floor in the future: the just-minted token's `iat` predates it.
+        set_session_floor(&pool, user_id, chrono::Utc::now() + chrono::Duration::days(1)).await;
+
+        let err =
+            user_service(&pool, &jwt).refresh_session(&refresh).await.expect_err("pre-floor token must be rejected");
+        assert!(matches!(err.kind, agentforge_core::ErrorKind::Unauthorized), "got: {:?}", err.kind);
+    }
+
+    /// A token issued AFTER the floor is still accepted (a normal post-reset login).
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn refresh_session_accepts_token_issued_after_session_floor(pool: PgPool) {
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let (org_id, user_id) = seed_member(&pool, Some("member")).await;
+        // Floor in the past: a freshly minted token is newer and accepted.
+        set_session_floor(&pool, user_id, chrono::Utc::now() - chrono::Duration::days(1)).await;
+        let refresh = jwt.create_token(user_id, org_id, "member").expect("mint refresh");
+
+        let session = user_service(&pool, &jwt).refresh_session(&refresh).await.expect("post-floor token must pass");
+        assert!(!session.access_token().is_empty());
+    }
+
+    /// F004: force-reset replaces a legacy 64-hex SHA-256 hash with the sentinel
+    /// AND stamps the session floor, and is idempotent.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn force_reset_legacy_sha256_resets_hash_and_stamps_floor(pool: PgPool) {
+        let (_org_id, user_id) = seed_member(&pool, Some("member")).await;
+        sqlx::query("UPDATE users SET password_hash = $2 WHERE id = $1")
+            .bind(user_id)
+            .bind("a".repeat(64))
+            .execute(&pool)
+            .await
+            .expect("seed legacy sha256 hash");
+
+        let repo = UserRepository::new(pool.clone());
+        assert_eq!(repo.force_reset_legacy_sha256_hashes().await.expect("force reset"), 1);
+
+        let (hash, floor): (String, Option<chrono::DateTime<chrono::Utc>>) =
+            sqlx::query_as("SELECT password_hash, sessions_invalid_before FROM users WHERE id = $1")
+                .bind(user_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read back");
+        assert_eq!(hash, agentforge_auth::password::LEGACY_PASSWORD_RESET_SENTINEL);
+        assert!(floor.is_some(), "force-reset must stamp the session floor");
+
+        // Idempotent: no 64-hex rows remain after the first run.
+        assert_eq!(repo.force_reset_legacy_sha256_hashes().await.expect("idempotent re-run"), 0);
     }
 }

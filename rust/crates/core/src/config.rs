@@ -346,6 +346,15 @@ pub struct AppConfig {
     #[serde(default, deserialize_with = "deserialize_comma_separated")]
     pub dev_env_allowed_image_registries: Vec<String>,
 
+    /// F004: operator opt-in to force-reset stored legacy unsalted SHA-256
+    /// password hashes at startup — replace each with the reset sentinel and
+    /// stamp the session-invalidation floor. The startup routine runs it ONLY
+    /// when a password-reset path (SMTP) is configured, so enabling it can never
+    /// lock out a legacy user who would otherwise have no way back in. Off by
+    /// default; the compat window already blocks legacy logins in production.
+    #[serde(default = "default_false")]
+    pub force_reset_legacy_sha256: bool,
+
     /// 64-hex-char AES-256 key used by the legacy TS `encryptAesGcm` / Rust
     /// `core::crypto::decrypt_base64` pair. Required to decrypt stored OAuth
     /// credentials (`user_cli_credentials`) and per-user LLM API keys
@@ -902,6 +911,7 @@ mod tests {
             container_server_url: None,
             ollama_base_url: None,
             dev_env_allowed_image_registries: Vec::new(),
+            force_reset_legacy_sha256: false,
             llm_encryption_key: None,
             container_anthropic_api_key: None,
             container_google_api_key: None,
@@ -1309,6 +1319,7 @@ mod tests {
             container_server_url: None,
             ollama_base_url: None,
             dev_env_allowed_image_registries: Vec::new(),
+            force_reset_legacy_sha256: false,
             llm_encryption_key: Some(SecretString::from("enc-key-supersecret".to_string())),
             container_anthropic_api_key: Some(SecretString::from("sk-ant-supersecret".to_string())),
             container_google_api_key: Some(SecretString::from("goog-supersecret".to_string())),

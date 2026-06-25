@@ -64,6 +64,21 @@ impl Claims {
     }
 }
 
+/// True when a token issued at `iat` (unix seconds) must be rejected because it
+/// predates the account's session floor (`sessions_invalid_before`, unix
+/// seconds). `None` floor = never invalidated, so nothing is revoked.
+///
+/// Whole-second granularity: a token whose `iat` equals the floor is treated as
+/// post-floor (not revoked). The reset that sets the floor commits before the
+/// reset user can authenticate again, so a fresh token's `iat` is `>=` the
+/// floor; only strictly-older (pre-reset) tokens are revoked.
+pub fn session_token_revoked(iat: u64, floor_secs: Option<i64>) -> bool {
+    match floor_secs {
+        Some(floor) => (iat as i64) < floor,
+        None => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,5 +134,25 @@ mod tests {
         assert_eq!(claims.workspace_id, Some(workspace_id));
         assert_eq!(claims.team_id, Some(team_id));
         assert_eq!(claims.project_id, Some(project_id));
+    }
+
+    #[test]
+    fn session_token_revoked_when_no_floor_is_never_revoked() {
+        assert!(!session_token_revoked(0, None));
+        assert!(!session_token_revoked(u64::MAX, None));
+    }
+
+    #[test]
+    fn session_token_revoked_rejects_tokens_issued_before_floor() {
+        // iat strictly before the floor -> revoked.
+        assert!(session_token_revoked(1_699_999_000, Some(1_700_000_000)));
+    }
+
+    #[test]
+    fn session_token_revoked_keeps_tokens_at_or_after_floor() {
+        // Same-second as the floor -> kept (post-reset login).
+        assert!(!session_token_revoked(1_700_000_000, Some(1_700_000_000)));
+        // After the floor -> kept.
+        assert!(!session_token_revoked(1_700_000_500, Some(1_700_000_000)));
     }
 }
