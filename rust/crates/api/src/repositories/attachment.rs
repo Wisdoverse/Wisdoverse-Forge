@@ -21,6 +21,13 @@ pub struct NewAttachment<'a> {
     pub size_bytes: i64,
     pub storage_path: &'a str,
     pub storage_backend: &'a str,
+    /// `"file"` (generic) or `"image"` (validated instruction image input).
+    pub kind: &'a str,
+    /// Workspace the upload belongs to (image instruction inputs only).
+    pub workspace_id: Option<Uuid>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub checksum_sha256: Option<&'a str>,
 }
 
 impl AttachmentRepository {
@@ -73,8 +80,8 @@ impl AttachmentRepository {
     /// Create a new attachment metadata record.
     pub async fn create(&self, scope: &TenantScope, new: NewAttachment<'_>) -> AppResult<Attachment> {
         let att = sqlx::query_as::<_, Attachment>(
-            r#"INSERT INTO attachments (id, organization_id, user_id, agent_id, filename, content_type, size_bytes, storage_path, storage_backend)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            r#"INSERT INTO attachments (id, organization_id, user_id, agent_id, filename, content_type, size_bytes, storage_path, storage_backend, kind, workspace_id, width, height, checksum_sha256)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                RETURNING *"#,
         )
         .bind(new.id.as_uuid())
@@ -86,6 +93,11 @@ impl AttachmentRepository {
         .bind(new.size_bytes)
         .bind(new.storage_path)
         .bind(new.storage_backend)
+        .bind(new.kind)
+        .bind(new.workspace_id)
+        .bind(new.width)
+        .bind(new.height)
+        .bind(new.checksum_sha256)
         .fetch_one(&self.pool)
         .await?;
         Ok(att)
