@@ -708,6 +708,16 @@ impl OrchestrationTaskRepository {
                  AND status IN ('queued', 'blocked')
                  AND (blocked_reason IS NULL OR blocked_reason = 'waiting_agent')
                  AND assigned_agent_id IS NULL
+                 -- Image tasks are PUSH-only to an explicitly chosen vision-capable
+                 -- container agent (the self-claim/auto-dispatch lanes can't
+                 -- materialize images). Excluding them here also keeps a blocked
+                 -- image task off the head of the sweep so it can't starve later
+                 -- plain queued tasks. Mirrors jobs::NEXT_DISPATCHABLE_SQL.
+                 AND COALESCE(
+                       CASE WHEN jsonb_typeof(params -> 'imageAttachmentIds') = 'array'
+                            THEN jsonb_array_length(params -> 'imageAttachmentIds')
+                            ELSE 0 END,
+                       0) = 0
                ORDER BY
                  CASE priority
                    WHEN 'urgent' THEN 0
@@ -1001,5 +1011,71 @@ mod participant_list_runtime_tests {
             Some("container"),
             "list() must surface the agent's runtime_kind via the JOIN"
         );
+    }
+
+    // An image task is push-only to a vision-capable container agent; the
+    // auto-dispatch sweep (next_dispatchable) must NEVER pick one, or a blocked
+    // image task sits at the head of every sweep and starves later plain tasks.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn next_dispatchable_skips_image_tasks(pool: sqlx::PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind("Img Org")
+            .bind(format!("img-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+
+        // Image task: unassigned + queued + sorted FIRST (urgent) — must be skipped.
+        let image_task = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, priority, created_by, params, created_at, updated_at)
+               VALUES ($1, $2, 'Image', 'queued', 'urgent', $3, $4::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
+        )
+        .bind(image_task)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(serde_json::json!({ "imageAttachmentIds": ["11111111-1111-1111-1111-111111111111"] }))
+        .execute(&pool)
+        .await
+        .expect("seed image task");
+
+        // Plain task: unassigned + queued, lower priority + later.
+        let plain_task = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, priority, created_by, created_at, updated_at)
+               VALUES ($1, $2, 'Plain', 'queued', 'normal', $3, NOW(), NOW())"#,
+        )
+        .bind(plain_task)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed plain task");
+
+        let repo = OrchestrationTaskRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let next = repo.next_dispatchable(&scope).await.expect("next_dispatchable");
+        // Despite urgent priority + earlier created_at, the image task is skipped.
+        assert_eq!(next.map(|t| t.id), Some(plain_task), "next_dispatchable must skip image tasks");
+
+        // With ONLY an image task queued, the sweep finds nothing to dispatch.
+        sqlx::query("DELETE FROM orchestration_tasks WHERE id = $1")
+            .bind(plain_task)
+            .execute(&pool)
+            .await
+            .expect("del");
+        let none = repo.next_dispatchable(&scope).await.expect("next_dispatchable again");
+        assert!(none.is_none(), "an image-only queue must not auto-dispatch");
     }
 }
