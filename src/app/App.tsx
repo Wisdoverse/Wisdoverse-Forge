@@ -13,6 +13,7 @@ import { Route as billingRoute } from './routes/billing'
 import { Route as adminRoute } from './routes/admin'
 import { Route as analyticsRoute } from './routes/analytics'
 import { resolveLandingPath } from './routes/landing'
+import { RouteErrorFallback } from './shared/ui/RouteErrorFallback'
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -39,7 +40,7 @@ const routeTree = rootRoute.addChildren([
   analyticsRoute,
 ])
 
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree, defaultErrorComponent: RouteErrorFallback })
 
 declare module '@tanstack/react-router' {
   interface Register {

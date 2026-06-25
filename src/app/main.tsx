@@ -5,6 +5,7 @@ import { I18nProvider } from './providers/I18nProvider'
 import { ThemeProvider } from './providers/ThemeProvider'
 import { AuthProvider } from './providers/AuthProvider'
 import { WebSocketProvider } from './providers/WebSocketProvider'
+import { ErrorBoundary } from './shared/ui/ErrorBoundary'
 import App from './App'
 import './styles/globals.css'
 import './styles/tokens/primitives.css'
@@ -21,14 +22,21 @@ if (!root) throw new Error('Root element not found')
 
 createRoot(root).render(
   <StrictMode>
-    <I18nProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <WebSocketProvider url={wsUrl}>
-            <App />
-          </WebSocketProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </I18nProvider>
+    {/* ErrorBoundary is the OUTERMOST wrapper so it also catches a provider that
+        throws during init/render (e.g. AuthProvider building AuthManager when
+        localStorage is denied). The fallback is self-contained — it needs no
+        i18n/theme context — so it renders correctly even if those providers are
+        the thing that failed. */}
+    <ErrorBoundary>
+      <I18nProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <WebSocketProvider url={wsUrl}>
+              <App />
+            </WebSocketProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </I18nProvider>
+    </ErrorBoundary>
   </StrictMode>
 )
