@@ -24,7 +24,7 @@ pub(crate) use crate::domain::credential::{
     discovered_models_response, llm_provider_delete_response, llm_provider_list_response, llm_provider_response,
     llm_provider_test_response, supported_providers_response,
 };
-use crate::domain::resource::is_outbound_https_host_allowed;
+use crate::domain::resource::{is_outbound_https_host_allowed, provider_base_url_allowed};
 use crate::repositories::user::llm_config::{
     InsertLlmProviderConfig, LlmProviderConfigRow, UpdateLlmProviderConfig, UserLlmConfigRepository,
 };
@@ -204,6 +204,19 @@ impl LlmProviderService {
             crypto::decrypt_base64(&key, &provider.encrypted_api_key)
                 .map_err(LlmProviderPolicy::decrypt_api_key_failed)?
         };
+
+        // SSRF guard: refuse to probe an operator-supplied base URL pointing at a
+        // private/loopback/metadata host (mirrors the discovery + inference guards;
+        // Ollama is exempt). Record it as a failed test rather than a 500.
+        if !provider_base_url_allowed(&provider.provider, provider.base_url.as_deref()) {
+            let LlmProviderTestResult::Error(test_error) = LlmProviderTestResult::blocked_base_url() else {
+                unreachable!("blocked_base_url is an Error variant");
+            };
+            self.repo
+                .record_test_result(scope, id, "failed", Some(test_error.code()), Some(test_error.message()))
+                .await?;
+            return Ok(LlmProviderTestResult::Error(test_error));
+        }
 
         let provider_instance = match self.llm_factory.build_with_config(LlmProviderBuildConfig {
             provider_key: provider.provider.clone(),

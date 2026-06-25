@@ -4,6 +4,7 @@
 //! credential policies that are independent of repositories, encryption, HTTP
 //! handlers, and filesystem mount materialization.
 
+use crate::domain::resource::ensure_provider_base_url_allowed;
 use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
 use agentforge_db::entities::{ApiKey, GitCredential, SshKey};
 use agentforge_llm::{LlmError, Usage, normalize_provider_key, provider_spec, supported_provider_specs};
@@ -191,6 +192,14 @@ impl LlmProviderTestResult {
             code: "timeout",
             message: "Provider connection test timed out.",
             retryable: true,
+        })
+    }
+
+    pub(crate) fn blocked_base_url() -> Self {
+        Self::Error(LlmProviderTestError {
+            code: "blocked_base_url",
+            message: "Provider base URL host is not allowed (private, loopback, or metadata address).",
+            retryable: false,
         })
     }
 
@@ -834,6 +843,10 @@ impl LlmProviderPolicy {
         if Self::requires_base_url(&provider) && base_url.is_none() {
             return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
         }
+        // SSRF guard at persist time: a private/loopback/metadata base_url can
+        // never be stored for a hosted-SaaS transport (bring-your-own-endpoint
+        // transports are exempt; see `provider_base_url_allowed`).
+        ensure_provider_base_url_allowed(&provider, base_url.as_deref())?;
         let display_name = clean_optional(display_name).unwrap_or_else(|| Self::display_name(&provider).to_string());
 
         Ok(LlmProviderCreateDraft { provider, display_name, model, api_key, base_url })
@@ -862,6 +875,8 @@ impl LlmProviderPolicy {
         if Self::requires_base_url(provider) && base_url.is_none() {
             return Err(ErrorKind::Validation("baseUrl is required for this provider".into()).into());
         }
+        // SSRF guard at persist time (see create_draft).
+        ensure_provider_base_url_allowed(provider, base_url.as_deref())?;
         let is_enabled = is_enabled.unwrap_or(current_is_enabled.unwrap_or(true));
 
         Ok(LlmProviderUpdateDraft { display_name, model, api_key, base_url, is_enabled })
@@ -1299,6 +1314,63 @@ mod tests {
         assert_eq!(draft.provider, "ollama");
         assert_eq!(draft.api_key, None);
         assert_eq!(draft.base_url.as_deref(), Some("http://ollama:11434"));
+    }
+
+    #[test]
+    fn llm_provider_draft_blocks_private_base_url_for_hosted_saas() {
+        // Hosted-SaaS transport (anthropic) with a private/metadata base_url
+        // override is rejected at persist time — it can never be stored.
+        let err = LlmProviderPolicy::create_draft(
+            "anthropic".to_string(),
+            "claude-sonnet-4-6".to_string(),
+            None,
+            Some("sk-ant".to_string()),
+            Some("https://169.254.169.254/v1".to_string()),
+        )
+        .unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::Validation(_)));
+
+        // A public HTTPS override on a hosted-SaaS transport (coding-plan vendor)
+        // is fine.
+        assert!(
+            LlmProviderPolicy::create_draft(
+                "anthropic".to_string(),
+                "glm-4.6".to_string(),
+                None,
+                Some("sk-zhipu".to_string()),
+                Some("https://open.bigmodel.cn/api/anthropic".to_string()),
+            )
+            .is_ok()
+        );
+
+        // Bring-your-own-endpoint transport (openai_compatible) on a private host
+        // is a supported self-hosted deployment and persists fine.
+        assert!(
+            LlmProviderPolicy::create_draft(
+                "openai_compatible".to_string(),
+                "custom".to_string(),
+                None,
+                Some("sk".to_string()),
+                Some("http://vllm:8000/v1".to_string()),
+            )
+            .is_ok()
+        );
+
+        // The same guard applies on update_draft (anthropic private override).
+        let err = LlmProviderPolicy::update_draft(
+            "anthropic",
+            Some("claude-sonnet-4-6".to_string()),
+            None,
+            None,
+            Some(true),
+            None,
+            None,
+            None,
+            Some("http://10.0.0.5/v1".to_string()),
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::Validation(_)));
     }
 
     #[test]
