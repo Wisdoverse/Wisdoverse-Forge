@@ -111,7 +111,7 @@ impl AgentPromptService {
 
     pub(crate) async fn interrupt_provider_stream(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
         self.agents.find_by_id(scope, agent_id).await?;
-        let mut map = self.inflight_prompts.lock().expect("inflight_prompts poisoned");
+        let mut map = self.inflight_prompts.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(tx) = map.remove(&agent_id) {
             let _ = tx.send(());
         }
@@ -144,7 +144,7 @@ impl AgentPromptService {
         frames: BoxStream<'static, AppResult<SseFrame>>,
     ) -> AppResult<BoxStream<'static, AppResult<SseFrame>>> {
         {
-            let mut map = self.inflight_prompts.lock().expect("inflight_prompts poisoned");
+            let mut map = self.inflight_prompts.lock().unwrap_or_else(|e| e.into_inner());
             PromptAgentPolicy::ensure_not_busy(map.contains_key(&agent_id))?;
             map.insert(agent_id, cancel_tx);
         }

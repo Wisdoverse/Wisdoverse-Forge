@@ -186,8 +186,11 @@ impl CliAuthProxyPolicy {
         ErrorKind::Validation("OAuth state belongs to a different user".into())
     }
 
-    pub(crate) fn token_exchange_failed(status: impl std::fmt::Display, body: &str) -> ErrorKind {
-        ErrorKind::Validation(format!("token exchange failed: HTTP {status} — {body}"))
+    /// Client-facing token-exchange error. Carries the numeric upstream status
+    /// only — the raw IdP body is never reflected to the client (F021); it is
+    /// logged server-side at the call site.
+    pub(crate) fn token_exchange_failed(status: impl std::fmt::Display) -> ErrorKind {
+        ErrorKind::Validation(format!("token exchange failed (HTTP {status})"))
     }
 
     pub(crate) fn urlencode_failed(err: impl std::fmt::Display) -> ErrorKind {
@@ -646,7 +649,11 @@ mod tests {
         );
         assert!(format!("{}", CliAuthProxyPolicy::provider_mismatch("openai", "codex")).contains("stored openai"));
         assert!(format!("{}", CliAuthProxyPolicy::state_user_mismatch()).contains("different user"));
-        assert!(format!("{}", CliAuthProxyPolicy::token_exchange_failed(400, "bad")).contains("HTTP 400"));
+        // F021: the client-facing error carries the status but NEVER the upstream
+        // body (which could leak correlation IDs / internal hosts / token material).
+        let exchange_err = format!("{}", CliAuthProxyPolicy::token_exchange_failed(400));
+        assert!(exchange_err.contains("HTTP 400"));
+        assert!(!exchange_err.contains("bad"), "upstream body must not be reflected: {exchange_err}");
     }
 
     #[test]

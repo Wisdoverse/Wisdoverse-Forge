@@ -209,7 +209,9 @@ where
         let container_id = match runtime.create_container(config).await {
             Ok(container_id) => container_id,
             Err(err) => {
-                let _ = self.repo.update_status(scope, id, ERROR_STATUS, None).await;
+                if let Err(e) = self.repo.update_status(scope, id, ERROR_STATUS, None).await {
+                    tracing::warn!(error = ?e, dev_environment_id = %id, "failed to mark dev environment errored");
+                }
                 return Err(err);
             }
         };
@@ -217,7 +219,9 @@ where
         if let Err(err) = runtime.start_container(&container_id).await {
             let remove_result = runtime.remove_container(&container_id, true).await;
             let retained_container_id = remove_result.as_ref().err().map(|_| container_id.as_str());
-            let _ = self.repo.update_status(scope, id, ERROR_STATUS, retained_container_id).await;
+            if let Err(e) = self.repo.update_status(scope, id, ERROR_STATUS, retained_container_id).await {
+                tracing::warn!(error = ?e, dev_environment_id = %id, "failed to mark dev environment errored");
+            }
             return Err(err);
         }
 
@@ -236,11 +240,15 @@ where
 
         let runtime = self.runtime.as_ref().ok_or_else(DevEnvironmentRuntimePolicy::docker_unavailable)?;
         if let Err(err) = runtime.stop_container(container_id, DEFAULT_STOP_TIMEOUT_SECONDS).await {
-            let _ = self.repo.update_status(scope, id, ERROR_STATUS, Some(container_id)).await;
+            if let Err(e) = self.repo.update_status(scope, id, ERROR_STATUS, Some(container_id)).await {
+                tracing::warn!(error = ?e, dev_environment_id = %id, container_id = %container_id, "failed to mark dev environment errored");
+            }
             return Err(err);
         }
         if let Err(err) = runtime.remove_container(container_id, true).await {
-            let _ = self.repo.update_status(scope, id, ERROR_STATUS, Some(container_id)).await;
+            if let Err(e) = self.repo.update_status(scope, id, ERROR_STATUS, Some(container_id)).await {
+                tracing::warn!(error = ?e, dev_environment_id = %id, container_id = %container_id, "failed to mark dev environment errored");
+            }
             return Err(err);
         }
 

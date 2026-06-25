@@ -724,8 +724,14 @@ impl CliAuthProxyService {
             .map_err(CliAuthProxyPolicy::token_exchange_request_failed)?;
         if !resp.status().is_success() {
             let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(CliAuthProxyPolicy::token_exchange_failed(status, &body).into());
+            // F021: never reflect the upstream IdP body to the client, and do NOT
+            // log it verbatim either — a non-standard or admin-configured token
+            // endpoint could place correlation IDs, internal hostnames, or
+            // token-shaped material in it (logs may be retained/shipped). Record
+            // only the status and the body length as safe diagnostic metadata.
+            let body_len = resp.text().await.map(|b| b.len()).unwrap_or(0);
+            tracing::debug!(%status, body_len, "OAuth token exchange failed");
+            return Err(CliAuthProxyPolicy::token_exchange_failed(status).into());
         }
         let tokens = resp.json::<TokenResponse>().await.map_err(CliAuthProxyPolicy::token_exchange_invalid_json)?;
         Ok(tokens)
