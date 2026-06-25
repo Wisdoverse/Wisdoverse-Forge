@@ -307,9 +307,10 @@ pub(crate) struct OrgControlPlaneSnapshot {
 /// stdout/stderr for a `bad_payload` drop). It is stored-XSS-capable — any UI
 /// must render it as escaped plain text. `org_id`/`delivery_id` are NULL for the
 /// pre-auth early drops (most of them); the `subject` carries the agent UUID,
-/// which is the real debugging key. Doubles as the `query_as` target for the
-/// repository (precedent: `domain/agent.rs` already derives `sqlx::FromRow`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
+/// which is the real debugging key. This is the API wire projection only; the
+/// SQLx `query_as` target lives in `repositories/admin.rs` (`DeadEventRecord`)
+/// and is converted into this type by the admin service.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeadEventRow {
     pub id: Uuid,

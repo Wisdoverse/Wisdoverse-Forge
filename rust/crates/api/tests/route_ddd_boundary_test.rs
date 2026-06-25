@@ -688,12 +688,15 @@ fn contains_mcp_live_service_wiring(line: &str) -> bool {
 /// - a baselined file whose count DROPS fails too, forcing the entry to be
 ///   lowered (or removed at 0) so the ratchet tightens automatically.
 const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
-    ("admin.rs", 3),
-    ("agent.rs", 1),
+    // admin.rs/agent.rs/inbox.rs tightened in #896 F054: the `DeadEventRow`,
+    // `AgentAggregate`, and inbox `From<InboxNotificationRow>` persistence
+    // adapters moved to repositories/services. admin.rs drops 3 -> 2 (the
+    // residual 2 are `agentforge_db::entities::{ImpersonationLog, User}`
+    // imports); agent.rs and inbox.rs reach 0 and leave the baseline entirely.
+    ("admin.rs", 2),
     ("context.rs", 5),
     ("context_preview.rs", 1),
     ("credential.rs", 3),
-    ("inbox.rs", 2),
     ("observability.rs", 1),
     ("orchestration.rs", 2),
     ("project_clone.rs", 1),

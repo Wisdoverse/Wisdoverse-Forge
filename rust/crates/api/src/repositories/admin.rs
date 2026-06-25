@@ -8,8 +8,25 @@ use sqlx::{FromRow, PgPool, QueryBuilder};
 use uuid::Uuid;
 
 use crate::domain::admin::{
-    AdminAgentSort, AdminRepositoryPolicy, DeadEventRow, OrgControlPlaneSnapshot, SortOrder, admin_user_not_found_error,
+    AdminAgentSort, AdminRepositoryPolicy, OrgControlPlaneSnapshot, SortOrder, admin_user_not_found_error,
 };
+
+/// SQLx `query_as` target for `dead_events` rows. The repository owns this row
+/// shape; the admin service converts it into the domain `DeadEventRow` wire
+/// projection (`From<DeadEventRecord>`), keeping the persistence concern out of
+/// `domain/`.
+#[derive(Debug, Clone, FromRow)]
+pub struct DeadEventRecord {
+    pub id: Uuid,
+    pub source: String,
+    pub reason: String,
+    pub subject: String,
+    pub detail: Option<String>,
+    pub delivery_id: Option<String>,
+    pub org_id: Option<Uuid>,
+    pub payload_excerpt: Option<String>,
+    pub recorded_at: DateTime<Utc>,
+}
 
 /// Filter parameters for the admin agent list query.
 #[derive(Debug, Default, Clone)]
@@ -624,10 +641,10 @@ impl AdminRepository {
         limit: i64,
         offset: i64,
         reason: Option<&str>,
-    ) -> AppResult<Vec<DeadEventRow>> {
+    ) -> AppResult<Vec<DeadEventRecord>> {
         let rows = match Self::reason_filter(reason) {
             Some(reason) => {
-                sqlx::query_as::<_, DeadEventRow>(
+                sqlx::query_as::<_, DeadEventRecord>(
                     r#"SELECT id, source, reason, subject, detail, delivery_id, org_id, payload_excerpt, recorded_at
                        FROM dead_events
                        WHERE reason = $3
@@ -641,7 +658,7 @@ impl AdminRepository {
                 .await?
             }
             None => {
-                sqlx::query_as::<_, DeadEventRow>(
+                sqlx::query_as::<_, DeadEventRecord>(
                     r#"SELECT id, source, reason, subject, detail, delivery_id, org_id, payload_excerpt, recorded_at
                        FROM dead_events
                        ORDER BY recorded_at DESC
