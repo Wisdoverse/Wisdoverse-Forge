@@ -836,7 +836,9 @@ services:
     networks:
       - default
     healthcheck:
-      test: ['CMD', 'curl', '-sf', 'http://localhost:4010/health']
+      # CN-3: probe readiness (DB pool answering), not just liveness, so a
+      # database-disconnected orchestrator is reported unhealthy instead of healthy.
+      test: ['CMD', 'curl', '-sf', 'http://localhost:4010/health/ready']
       interval: ${HEALTHCHECK_INTERVAL:-30s}
       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
       retries: ${HEALTHCHECK_RETRIES:-3}

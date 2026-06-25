@@ -36,7 +36,11 @@ pub fn create_router(state: AppState) -> Router {
         api = api.nest("/auth", auth::routes());
     }
 
-    let mut router = Router::new().route("/health", get(health)).nest("/api/v1", api).nest("/ws", realtime::routes());
+    let mut router = Router::new()
+        .route("/health", get(health))
+        .route("/health/ready", get(health_ready))
+        .nest("/api/v1", api)
+        .nest("/ws", realtime::routes());
     if state.mcp_server.is_some() {
         router = router.route("/mcp", post(mcp::handle_request));
     }
@@ -60,6 +64,24 @@ pub fn health_body(status: crate::workflow::WorkflowRuntimeStatus) -> serde_json
 
 async fn health(axum::extract::State(state): axum::extract::State<AppState>) -> axum::Json<serde_json::Value> {
     axum::Json(health_body(state.workflow_runtime))
+}
+
+/// CN-3: readiness probe. Unlike `/health` (liveness — the process is up), this
+/// reports whether the orchestrator can actually do work: the Postgres pool must
+/// be configured and answering. Returns 503 otherwise so a load balancer / k8s
+/// readiness gate stops routing to an orchestrator that has lost its database,
+/// instead of the old shallow check that reported healthy regardless.
+async fn health_ready(State(state): State<AppState>) -> Response {
+    let db_ok = match &state.pool {
+        Some(pool) => agentforge_db::check_health(pool).await,
+        None => false,
+    };
+    let body = json!({
+        "ok": db_ok,
+        "workflowRuntime": state.workflow_runtime.as_str(),
+        "checks": { "database": db_ok },
+    });
+    if db_ok { Json(body).into_response() } else { (StatusCode::SERVICE_UNAVAILABLE, Json(body)).into_response() }
 }
 
 fn error(status: StatusCode, message: &str) -> Response {
