@@ -22,16 +22,21 @@ if (!root) throw new Error('Root element not found')
 
 createRoot(root).render(
   <StrictMode>
-    <I18nProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <WebSocketProvider url={wsUrl}>
-            <ErrorBoundary>
+    {/* ErrorBoundary is the OUTERMOST wrapper so it also catches a provider that
+        throws during init/render (e.g. AuthProvider building AuthManager when
+        localStorage is denied). The fallback is self-contained — it needs no
+        i18n/theme context — so it renders correctly even if those providers are
+        the thing that failed. */}
+    <ErrorBoundary>
+      <I18nProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <WebSocketProvider url={wsUrl}>
               <App />
-            </ErrorBoundary>
-          </WebSocketProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </I18nProvider>
+            </WebSocketProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </I18nProvider>
+    </ErrorBoundary>
   </StrictMode>
 )
