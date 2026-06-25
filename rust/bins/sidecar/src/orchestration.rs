@@ -848,13 +848,29 @@ fn namespaced_result_prefix(kind: RuntimeKind) -> String {
 ///
 /// Returns `None` when the tool is unsupported so the caller can fail the task
 /// with a useful stderr instead of panicking.
-fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str) -> Option<Command> {
-    let mut cmd = match CliToolKind::parse_legacy(cli_tool).ok()? {
+fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_paths: &[String]) -> Option<Command> {
+    let kind = CliToolKind::parse_legacy(cli_tool).ok()?;
+
+    // Claude Code takes images via repeated `--image <path>` flags. The other CLIs
+    // have no documented image flag, so reference the workspace files inline in the
+    // prompt (`@<path>`), which their file-mention handling resolves.
+    let prompt = if image_paths.is_empty() || matches!(kind, CliToolKind::Claude) {
+        prompt.to_string()
+    } else {
+        let refs = image_paths.iter().map(|p| format!("@{p}")).collect::<Vec<_>>().join(" ");
+        format!("{prompt}\n\nAttached images: {refs}")
+    };
+    let prompt = prompt.as_str();
+
+    let mut cmd = match kind {
         CliToolKind::Claude => {
             let mut c = Command::new("claude");
             c.args(["-p", prompt, "--dangerously-skip-permissions"]);
             if let Some(model) = cli_model {
                 c.args(["--model", model]);
+            }
+            for path in image_paths {
+                c.args(["--image", path]);
             }
             c
         }
@@ -934,7 +950,7 @@ async fn run_cli(cli_tool: &str, cli_model: Option<&str>, assignment: &TaskAssig
     }
 
     let prompt = build_prompt(assignment);
-    let Some(mut cmd) = cli_command(cli_tool, cli_model, &prompt) else {
+    let Some(mut cmd) = cli_command(cli_tool, cli_model, &prompt, &assignment.image_paths) else {
         return TaskOutcome::Failed { stderr: format!("unsupported cli_tool '{cli_tool}'"), exit_code: None };
     };
     let Some(timeout) = cli_timeout_for_assignment(assignment) else {
@@ -1307,13 +1323,37 @@ mod tests {
     #[test]
     fn cli_command_supports_known_tools() {
         for tool in CliToolKind::ALL.map(CliToolKind::as_str) {
-            assert!(cli_command(tool, Some("test-model"), "hello").is_some(), "{tool} must be supported");
+            assert!(cli_command(tool, Some("test-model"), "hello", &[]).is_some(), "{tool} must be supported");
         }
     }
 
     #[test]
     fn cli_command_returns_none_for_unknown_tool() {
-        assert!(cli_command("fake-cli", None, "hello").is_none());
+        assert!(cli_command("fake-cli", None, "hello", &[]).is_none());
+    }
+
+    #[test]
+    fn claude_command_passes_images_as_flags() {
+        let img = "/workspace/.task-images/t/a.png".to_string();
+        let cmd = cli_command("claude", None, "look", std::slice::from_ref(&img)).expect("claude command");
+        let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(
+            args.windows(2).any(|w| w[0] == "--image" && w[1] == img),
+            "claude must receive --image <path>, got {args:?}"
+        );
+        // The prompt argument is left clean (no @-reference injected).
+        assert!(args.iter().any(|a| a == "look"), "prompt arg preserved: {args:?}");
+    }
+
+    #[test]
+    fn codex_command_references_images_inline() {
+        let img = "/workspace/.task-images/t/a.png".to_string();
+        let cmd = cli_command("codex", None, "describe", std::slice::from_ref(&img)).expect("codex command");
+        let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(
+            args.iter().any(|a| a.contains(&format!("@{img}"))),
+            "codex must reference the image inline in the prompt, got {args:?}"
+        );
     }
 
     #[tokio::test]
