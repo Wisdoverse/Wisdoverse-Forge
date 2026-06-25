@@ -368,6 +368,7 @@ export const orchestrationApi = {
       inputs?: Record<string, unknown>
       env?: Record<string, unknown>
       apiKeys?: Record<string, unknown>
+      imageAttachmentIds?: string[]
     }
     priority?: string
     assignedTo?: string

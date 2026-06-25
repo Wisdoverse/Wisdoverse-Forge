@@ -457,7 +457,13 @@ export function AppLayout({
           }
           const response = await orchestrationApi.createTask({
             groupId,
-            params: { task: data.title, message: data.description || data.title },
+            params: {
+              task: data.title,
+              message: data.description || data.title,
+              ...(data.imageAttachmentIds && data.imageAttachmentIds.length > 0
+                ? { imageAttachmentIds: data.imageAttachmentIds }
+                : {}),
+            },
             priority: data.priority,
             // Empty string from the dropdown means "leave it to auto-dispatch".
             ...(data.assignedTo ? { assignedTo: data.assignedTo } : {}),

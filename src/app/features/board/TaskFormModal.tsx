@@ -7,12 +7,14 @@ import {
   ChevronRight,
   ClipboardCheck,
   FolderKanban,
+  ImagePlus,
   Search,
   ShieldCheck,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import { waitingPlaceDisplayName } from '@app/entities/agent-group'
+import { useAgentsStore } from '@app/entities/agent'
 import { cn } from '@app/shared/lib/utils'
 import { boardActionErrorMessage } from './boardErrorMessages'
 import {
@@ -132,7 +134,7 @@ const ASSIGNED_AGENT_NOT_READY_ERROR =
 interface TaskFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: TaskFormData) => void | Promise<void>
+  onSubmit: (data: TaskFormData & { imageAttachmentIds?: string[] }) => void | Promise<void>
   agents?: TaskFormAgentOption[]
   projects?: TaskProjectOption[]
   selectedProjectId?: string | null
@@ -183,6 +185,12 @@ export function TaskFormModal({
   const [confirmIncompleteBrief, setConfirmIncompleteBrief] = useState(false)
   const [taskTemplatesOpen, setTaskTemplatesOpen] = useState(true)
   const [taskOptionsOpen, setTaskOptionsOpen] = useState(false)
+  const [imageIds, setImageIds] = useState<string[]>([])
+  const [imagePreviews, setImagePreviews] = useState<{ id: string; name: string }[]>([])
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const uploadImage = useAgentsStore((state) => state.uploadImage)
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
@@ -236,6 +244,47 @@ export function TaskFormModal({
     ? 'Save task anyway'
     : 'Create task anyway'
   const selectedAssignedAgent = agents.find((agent) => agent.id === assignedToValue)
+  // Image upload is offered once an agent is assigned (images upload scoped to
+  // that agent's workspace). The server enforces the real vision-capability
+  // boundary at dispatch. Switching the assignee clears uploaded images since
+  // they belong to the previous agent's workspace.
+  const canAttachImages = Boolean(assignedToValue)
+
+  useEffect(() => {
+    setImageIds([])
+    setImagePreviews([])
+    setImageError(null)
+  }, [assignedToValue])
+
+  async function uploadFiles(files: File[]) {
+    if (!canAttachImages || files.length === 0) return
+    setImageError(null)
+    setUploadingImage(true)
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          setImageError('Only image files can be attached.')
+          continue
+        }
+        const res = await uploadImage(assignedToValue, file)
+        if (res.ok && res.id) {
+          const id = res.id
+          setImageIds((ids) => [...ids, id])
+          setImagePreviews((prev) => [...prev, { id, name: file.name || 'image' }])
+        } else {
+          setImageError('Image upload failed. Check the file and try again.')
+        }
+      }
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  function removeImage(id: string) {
+    setImageIds((ids) => ids.filter((existing) => existing !== id))
+    setImagePreviews((prev) => prev.filter((preview) => preview.id !== id))
+  }
+
   const taskOptionsSummary = `${PRIORITY_LABELS[priorityValue]} priority, ${
     selectedAssignedAgent
       ? `${selectedAssignedAgent.name} starts first`
@@ -322,7 +371,7 @@ export function TaskFormModal({
       return
     }
     try {
-      await onSubmit({ ...data, title: data.title.trim() })
+      await onSubmit({ ...data, title: data.title.trim(), imageAttachmentIds: imageIds })
     } catch (err) {
       setSubmitError(boardActionErrorMessage('createTask', err))
       return
@@ -886,6 +935,62 @@ export function TaskFormModal({
             <p className="font-semibold text-apple-blue">What happens after this</p>
             <p className="mt-1 text-secondary-light dark:text-secondary-dark">{submitPreview}</p>
           </div>
+
+          {canAttachImages && (
+            <div className="flex flex-col gap-2">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void uploadFiles(Array.from(e.target.files ?? []))
+                  e.target.value = ''
+                }}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption text-secondary-light hover:bg-black/[0.03] disabled:opacity-50 dark:border-white/[0.1] dark:text-secondary-dark"
+                >
+                  <ImagePlus className="size-4" aria-hidden />
+                  {uploadingImage ? 'Uploading…' : 'Attach image'}
+                </button>
+                <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Add a screenshot for a vision-capable agent (e.g. Claude Code, Codex).
+                </span>
+              </div>
+              {imagePreviews.length > 0 && (
+                <ul className="flex flex-wrap gap-2">
+                  {imagePreviews.map((preview) => (
+                    <li
+                      key={preview.id}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-2.5 py-1 text-ui-caption text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark"
+                    >
+                      <ImagePlus className="size-3.5" aria-hidden />
+                      <span className="max-w-[140px] truncate">{preview.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(preview.id)}
+                        aria-label={`Remove ${preview.name}`}
+                        className="text-secondary-light hover:text-apple-red dark:text-secondary-dark"
+                      >
+                        <X className="size-3.5" aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {imageError && (
+                <div className="text-ui-caption text-apple-red" role="alert" aria-live="polite">
+                  {imageError}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
