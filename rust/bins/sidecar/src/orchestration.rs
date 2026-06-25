@@ -851,14 +851,16 @@ fn namespaced_result_prefix(kind: RuntimeKind) -> String {
 fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_paths: &[String]) -> Option<Command> {
     let kind = CliToolKind::parse_legacy(cli_tool).ok()?;
 
-    // Claude Code takes images via repeated `--image <path>` flags. The other CLIs
-    // have no documented image flag, so reference the workspace files inline in the
-    // prompt (`@<path>`), which their file-mention handling resolves.
-    let prompt = if image_paths.is_empty() || matches!(kind, CliToolKind::Claude) {
-        prompt.to_string()
-    } else {
+    // Codex takes real image files via repeated `-i <file>` flags (`codex exec
+    // -i ...`). Claude Code, Gemini, and opencode have no image flag, so the
+    // workspace paths are referenced inline in the prompt (`@<path>`), which their
+    // file-mention handling reads from /workspace.
+    let inline_images = !image_paths.is_empty() && !matches!(kind, CliToolKind::Codex);
+    let prompt = if inline_images {
         let refs = image_paths.iter().map(|p| format!("@{p}")).collect::<Vec<_>>().join(" ");
         format!("{prompt}\n\nAttached images: {refs}")
+    } else {
+        prompt.to_string()
     };
     let prompt = prompt.as_str();
 
@@ -868,9 +870,6 @@ fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_path
             c.args(["-p", prompt, "--dangerously-skip-permissions"]);
             if let Some(model) = cli_model {
                 c.args(["--model", model]);
-            }
-            for path in image_paths {
-                c.args(["--image", path]);
             }
             c
         }
@@ -888,6 +887,9 @@ fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_path
             ]);
             if let Some(model) = cli_model {
                 c.args(["--model", model]);
+            }
+            for path in image_paths {
+                c.args(["-i", path]);
             }
             c.arg(prompt);
             c
@@ -1333,27 +1335,25 @@ mod tests {
     }
 
     #[test]
-    fn claude_command_passes_images_as_flags() {
+    fn claude_command_references_images_inline() {
         let img = "/workspace/.task-images/t/a.png".to_string();
         let cmd = cli_command("claude", None, "look", std::slice::from_ref(&img)).expect("claude command");
         let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        // Claude Code has no --image flag (would crash); the path is referenced in the prompt.
+        assert!(args.iter().all(|a| a != "--image"), "claude must not pass --image, got {args:?}");
         assert!(
-            args.windows(2).any(|w| w[0] == "--image" && w[1] == img),
-            "claude must receive --image <path>, got {args:?}"
+            args.iter().any(|a| a.contains(&format!("@{img}"))),
+            "claude prompt must reference the workspace image path, got {args:?}"
         );
-        // The prompt argument is left clean (no @-reference injected).
-        assert!(args.iter().any(|a| a == "look"), "prompt arg preserved: {args:?}");
     }
 
     #[test]
-    fn codex_command_references_images_inline() {
+    fn codex_command_passes_images_as_flags() {
         let img = "/workspace/.task-images/t/a.png".to_string();
         let cmd = cli_command("codex", None, "describe", std::slice::from_ref(&img)).expect("codex command");
         let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
-        assert!(
-            args.iter().any(|a| a.contains(&format!("@{img}"))),
-            "codex must reference the image inline in the prompt, got {args:?}"
-        );
+        // Codex exec accepts real image files via -i <file>.
+        assert!(args.windows(2).any(|w| w[0] == "-i" && w[1] == img), "codex must pass -i <path>, got {args:?}");
     }
 
     #[tokio::test]

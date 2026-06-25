@@ -14,8 +14,9 @@
 //!
 //! The per-task subdirectory is named with the server-generated task UUID, which
 //! the agent cannot predict, so it cannot pre-plant files inside it; combined
-//! with `O_EXCL | O_NOFOLLOW` on the file create, the materialized file can never
-//! be an attacker-planted symlink.
+//! with `O_NOFOLLOW` on the file create, the materialized file can never be an
+//! attacker-planted symlink. We use `O_TRUNC` (not `O_EXCL`) so a retry always
+//! overwrites with our re-encoded bytes rather than trusting whatever is present.
 
 use std::io::Write;
 use std::os::fd::OwnedFd;
@@ -57,7 +58,7 @@ fn open_dir_nofollow(parent: &OwnedFd, name: &str, create: bool) -> AppResult<Ow
 ///
 /// `filename`s MUST already be sanitized by the caller (e.g. attachment-UUID
 /// prefixed, no path separators). A retry that re-materializes the same task
-/// tolerates already-present files (`O_EXCL` → `EEXIST`) idempotently.
+/// overwrites any already-present file (`O_TRUNC`) with our bytes.
 pub fn materialize_task_images(
     projects_root: &Path,
     task_id: Uuid,
@@ -79,22 +80,26 @@ pub fn materialize_task_images(
 
     let mut paths = Vec::with_capacity(images.len());
     for (filename, bytes) in images {
-        match openat(
+        // O_TRUNC (not O_EXCL): the workspace is agent-writable, so on a retry the
+        // file may already exist and could have been modified by the agent — always
+        // overwrite with our re-encoded bytes. O_NOFOLLOW still rejects a symlink
+        // swapped in for the file (ELOOP), preserving the escape guarantee.
+        let fd = openat(
             &task_fd,
             filename.as_str(),
-            OFlags::CREATE | OFlags::EXCL | OFlags::WRONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            OFlags::CREATE | OFlags::TRUNC | OFlags::WRONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::from_bits_truncate(0o600),
-        ) {
-            Ok(fd) => {
-                let mut file = std::fs::File::from(fd);
-                file.write_all(bytes).map_err(|err| internal(&format!("write image {filename}"), err))?;
-                file.sync_all().map_err(|err| internal(&format!("sync image {filename}"), err))?;
+        )
+        .map_err(|err| {
+            if err == rustix::io::Errno::LOOP {
+                ErrorKind::Validation(format!("workspace image file '{filename}' is a symlink")).into()
+            } else {
+                internal(&format!("create image {filename}"), err)
             }
-            // A prior attempt for this (unpredictable) task dir already wrote it.
-            // ponytail: idempotent-on-EEXIST; add content re-verify if retries flake.
-            Err(rustix::io::Errno::EXIST) => {}
-            Err(err) => return Err(internal(&format!("create image {filename}"), err)),
-        }
+        })?;
+        let mut file = std::fs::File::from(fd);
+        file.write_all(bytes).map_err(|err| internal(&format!("write image {filename}"), err))?;
+        file.sync_all().map_err(|err| internal(&format!("sync image {filename}"), err))?;
         paths.push(format!("/workspace/{TASK_IMAGES_DIR}/{task_dir}/{filename}"));
     }
     Ok(paths)
@@ -144,6 +149,43 @@ mod tests {
 
         std::fs::remove_dir_all(&root).ok();
         std::fs::remove_dir_all(&escape).ok();
+    }
+
+    #[test]
+    fn retry_overwrites_existing_file_with_new_bytes() {
+        let root = temp_root();
+        let task_id = Uuid::new_v4();
+        // First materialization writes the original bytes.
+        materialize_task_images(&root, task_id, &[("a.png".to_string(), b"FIRST".to_vec())]).expect("first");
+        let on_disk = root.join(".task-images").join(task_id.to_string()).join("a.png");
+        assert_eq!(std::fs::read(&on_disk).expect("read first"), b"FIRST");
+
+        // A retry (e.g. after a transient dispatch failure) must overwrite with
+        // our re-encoded bytes, not trust whatever is on disk.
+        materialize_task_images(&root, task_id, &[("a.png".to_string(), b"SECOND".to_vec())]).expect("retry");
+        assert_eq!(std::fs::read(&on_disk).expect("read retry"), b"SECOND");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn rejects_symlinked_image_file() {
+        let root = temp_root();
+        let task_id = Uuid::new_v4();
+        // Pre-create the task dir and plant the target file as a symlink, as a
+        // malicious agent could between a retry's dir creation and file write.
+        let task_dir = root.join(".task-images").join(task_id.to_string());
+        std::fs::create_dir_all(&task_dir).expect("mk task dir");
+        let escape = std::env::temp_dir().join(format!("af-escape-file-{}", Uuid::new_v4()));
+        std::os::unix::fs::symlink(&escape, task_dir.join("a.png")).expect("plant file symlink");
+
+        let result = materialize_task_images(&root, task_id, &[("a.png".to_string(), b"x".to_vec())]);
+
+        assert!(result.is_err(), "must reject a symlinked image file");
+        assert!(!escape.exists(), "must not write through the symlink to the escape target");
+
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_file(&escape).ok();
     }
 
     #[test]

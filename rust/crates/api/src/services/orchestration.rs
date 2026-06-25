@@ -566,8 +566,7 @@ impl OrchestrationService {
         // Materialize instruction images into the agent workspace (symlink-safe)
         // and attach their container paths to the assignment. Fails closed: a
         // capability/workspace/kind violation rolls the dispatch back.
-        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await
-        {
+        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await {
             Ok(paths) => paths,
             Err(err) => {
                 let _ = tx.rollback().await;
@@ -1076,8 +1075,7 @@ impl OrchestrationService {
         // Materialize instruction images into the agent workspace (symlink-safe)
         // and attach their container paths to the assignment. Fails closed: a
         // capability/workspace/kind violation rolls the dispatch back.
-        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await
-        {
+        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await {
             Ok(paths) => paths,
             Err(err) => {
                 let _ = tx.rollback().await;

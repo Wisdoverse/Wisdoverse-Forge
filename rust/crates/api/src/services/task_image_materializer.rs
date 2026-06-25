@@ -17,6 +17,10 @@ use crate::repositories::attachment::AttachmentRepository;
 use crate::services::attachment::filename_segment;
 use crate::services::workspace_image_writer::materialize_task_images;
 
+/// Max images materialized for one task (bounds the in-tx MinIO+FS work and the
+/// assignment envelope size); mirrors the provider/quick-message cap.
+const MAX_TASK_IMAGES: usize = 8;
+
 #[derive(Clone)]
 pub struct TaskImageMaterializer {
     attachments: Arc<AttachmentRepository>,
@@ -46,10 +50,24 @@ impl TaskImageMaterializer {
         if image_ids.is_empty() {
             return Ok(Vec::new());
         }
+        if image_ids.len() > MAX_TASK_IMAGES {
+            return Err(
+                ErrorKind::Validation(format!("at most {MAX_TASK_IMAGES} images may be attached to a task")).into()
+            );
+        }
 
-        // Capability gate: only a vision-capable container CLI agent can consume
-        // workspace-file images. The agent entity does not carry runtime_kind, so
-        // container delivery is assumed; Host-CLI image delivery is out of scope.
+        // Runtime gate: workspace-file delivery only works for a CONTAINER agent,
+        // whose `/workspace` is a server-side bind mount we can write into. A
+        // Host-CLI agent runs on the operator's own machine (its `/workspace` is
+        // unreachable here), and is identified by a non-NULL `runtime_id`
+        // (`host-*`); container agents have `runtime_id IS NULL`. Fail closed so a
+        // vision-capable Host-CLI agent can't be handed dangling paths.
+        if agent.runtime_id.is_some() {
+            return Err(
+                ErrorKind::Validation("image tasks are only supported for container CLI agents".to_string()).into()
+            );
+        }
+        // Capability gate: only a vision-capable container CLI tool can consume images.
         let cli_tool = agent
             .cli_tool
             .as_deref()
