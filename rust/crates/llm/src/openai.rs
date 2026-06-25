@@ -4,7 +4,10 @@ use agentforge_core::RuntimeCapability;
 use futures::stream::{BoxStream, StreamExt};
 use reqwest::Client;
 
-use crate::provider::{ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, timed_client};
+use crate::provider::{
+    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
+    StreamDelta, Usage, timed_client,
+};
 
 /// OpenAI Chat Completions API provider.
 ///
@@ -73,6 +76,33 @@ impl OpenAiProvider {
     }
 }
 
+/// Render a message to OpenAI's chat shape. Text content stays a string; blocks
+/// become an array of `text` / `image_url` (data-URI) parts. A hand-written
+/// renderer is required because the neutral `MessageContent` serialization does
+/// not produce OpenAI's `image_url` image shape.
+fn openai_message(message: &ChatMessage) -> serde_json::Value {
+    let content = match &message.content {
+        MessageContent::Text(text) => serde_json::json!(text),
+        MessageContent::Blocks(blocks) => serde_json::Value::Array(
+            blocks
+                .iter()
+                .map(|block| match block {
+                    ContentBlock::Text { text } => serde_json::json!({ "type": "text", "text": text }),
+                    ContentBlock::Image { media_type, data } => serde_json::json!({
+                        "type": "image_url",
+                        "image_url": { "url": format!("data:{media_type};base64,{data}") },
+                    }),
+                })
+                .collect(),
+        ),
+    };
+    serde_json::json!({ "role": message.role, "content": content })
+}
+
+fn openai_messages(messages: &[ChatMessage]) -> Vec<serde_json::Value> {
+    messages.iter().map(openai_message).collect()
+}
+
 #[async_trait::async_trait]
 impl LlmStream for OpenAiProvider {
     async fn stream(
@@ -81,7 +111,7 @@ impl LlmStream for OpenAiProvider {
     ) -> Result<BoxStream<'static, Result<StreamDelta, LlmError>>, LlmError> {
         let mut req = serde_json::json!({
             "model": request.model,
-            "messages": request.messages,
+            "messages": openai_messages(&request.messages),
             "stream": true,
             // `stream_options.include_usage` makes real OpenAI send usage in a
             // dedicated frame after the finish_reason frame, before [DONE].
@@ -208,7 +238,7 @@ impl LlmProvider for OpenAiProvider {
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {
         let mut body = serde_json::json!({
             "model": request.model,
-            "messages": request.messages,
+            "messages": openai_messages(&request.messages),
         });
 
         if let Some(max_tokens) = request.max_tokens {
@@ -304,6 +334,27 @@ mod stream_tests {
     use crate::provider::ChatMessage;
     use futures::StreamExt;
     use wiremock::matchers::{header, method, path};
+
+    #[test]
+    fn openai_message_renders_text_string_and_image_data_uri() {
+        let text_msg = ChatMessage { role: "user".to_string(), content: "hi".into() };
+        assert_eq!(openai_message(&text_msg)["content"], serde_json::json!("hi"));
+
+        let img_msg = ChatMessage {
+            role: "user".to_string(),
+            content: MessageContent::Blocks(vec![
+                ContentBlock::Text { text: "look".to_string() },
+                ContentBlock::Image { media_type: "image/png".to_string(), data: "QUJD".to_string() },
+            ]),
+        };
+        let value = openai_message(&img_msg);
+        assert_eq!(value["role"], "user");
+        assert_eq!(value["content"][0], serde_json::json!({ "type": "text", "text": "look" }));
+        assert_eq!(
+            value["content"][1],
+            serde_json::json!({ "type": "image_url", "image_url": { "url": "data:image/png;base64,QUJD" } })
+        );
+    }
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     // Real OpenAI dual-frame shape: finish_reason and usage arrive in separate
