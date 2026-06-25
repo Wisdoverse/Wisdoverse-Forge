@@ -5,13 +5,12 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
+// F074: `unknown` (an unrecognised src/app dir) is deliberately NOT in this rank
+// map. The old default classified such dirs as `app` (highest), letting them
+// import from any layer with no violation flagged. They are now handled
+// explicitly in `isAllowedLayerImport` (import-only-shared, importable-by-none),
+// which a single rank cannot express.
 const layerRank = new Map([
-  // F074: an UNRECOGNISED top-level dir under src/app is treated as the LOWEST
-  // layer (tied with shared), NOT the highest. Ranking it as `app` would let a
-  // misplaced dir import from any layer with no violation ever flagged; ranking
-  // it lowest means it can only import `shared`, so any reach into entities /
-  // features / widgets / pages surfaces it for proper classification.
-  ['unknown', 0],
   ['shared', 0],
   ['entities', 1],
   ['features', 2],
@@ -89,6 +88,14 @@ function resolveSpecifier(appRoot, sourceFile, specifier) {
 }
 
 function isAllowedLayerImport(source, target) {
+  // F074: an unrecognised src/app dir is `unknown`. It is not a valid module
+  // location, so NOTHING may import from it (importing an unknown dir is itself a
+  // violation), and it may itself depend ONLY on `shared`. This is asymmetric, so
+  // it cannot be expressed by a single rank — a misplaced dir is surfaced rather
+  // than silently bypassing the layer rules as the old `app`-rank default did.
+  if (target.layer === 'unknown') return false
+  if (source.layer === 'unknown') return target.layer === 'shared'
+
   const sourceRank = layerRank.get(source.layer)
   const targetRank = layerRank.get(target.layer)
   if (sourceRank === undefined || targetRank === undefined) return false

@@ -169,4 +169,23 @@ export const helper = 1
     const result = checkFsdBoundaries({ cwd })
     expect(result.ok).toBe(true)
   })
+
+  it('forbids importing FROM an unrecognised src/app dir (F074)', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/a.ts': `
+import { util } from '@app/scratch/util'
+export const x = util
+`,
+      'src/app/scratch/util.ts': `
+export const util = 1
+`,
+    })
+
+    const result = checkFsdBoundaries({ cwd })
+
+    // An unknown dir is not a valid module location, so even `shared` must not
+    // import from it — ranking it equal to shared would have wrongly allowed this.
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('unknown/scratch')
+  })
 })
