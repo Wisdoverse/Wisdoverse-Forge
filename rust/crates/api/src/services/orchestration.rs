@@ -91,6 +91,10 @@ pub struct OrchestrationService {
     context_envelopes: Option<ContextEnvelopeService>,
     context_injection_enabled: bool,
     broadcast_bus: Option<Arc<NatsClient>>,
+    /// Materializes instruction images into the agent workspace at dispatch.
+    /// `None` in tests and where image input is not configured (image tasks then
+    /// fail closed at the create-time gate).
+    image_materializer: Option<Arc<crate::services::task_image_materializer::TaskImageMaterializer>>,
 }
 
 impl OrchestrationService {
@@ -106,18 +110,35 @@ impl OrchestrationService {
             context_envelopes: None,
             context_injection_enabled: true,
             broadcast_bus: None,
+            image_materializer: None,
         }
+    }
+
+    pub fn with_image_materializer(
+        mut self,
+        materializer: Arc<crate::services::task_image_materializer::TaskImageMaterializer>,
+    ) -> Self {
+        self.image_materializer = Some(materializer);
+        self
     }
 
     pub fn from_runtime(
         pool: PgPool,
+        object_storage: Arc<agentforge_infra::ObjectStorageClient>,
+        workspace_root: String,
         context_features: ContextFeatureFlags,
         context_resolver: Arc<ContextResolverService>,
         nats: Arc<NatsClient>,
     ) -> Self {
+        let materializer = Arc::new(crate::services::task_image_materializer::TaskImageMaterializer::new(
+            Arc::new(crate::repositories::attachment::AttachmentRepository::new(pool.clone())),
+            object_storage,
+            workspace_root,
+        ));
         Self::new(OrchestrationTaskRepository::new(pool.clone()), ParticipantRepository::new(pool))
             .with_context_runtime(context_features, context_resolver)
             .with_broadcast_bus(nats)
+            .with_image_materializer(materializer)
     }
 
     pub fn with_context_resolver(mut self, context_resolver: Arc<ContextResolverService>) -> Self {
@@ -171,6 +192,18 @@ impl OrchestrationService {
         TaskTitle::validate(title)?;
         let priority = TaskPriority::validate(priority.unwrap_or("normal"))?;
         TaskCreationPolicy::ensure_approval_task_is_unassigned(requires_approval, assigned_to)?;
+
+        // An instruction with images must be explicitly assigned to a
+        // vision-capable container agent, so it goes through create_task_with_assignee
+        // (which materializes) and never reaches the capability-unaware
+        // auto-dispatcher with unmaterialized image references.
+        if assigned_to.is_none() && !crate::domain::orchestration::task_image_attachment_ids(params.as_ref()).is_empty()
+        {
+            return Err(agentforge_core::ErrorKind::Validation(
+                "an instruction with images must be assigned to a vision-capable agent".to_string(),
+            )
+            .into());
+        }
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
         // Parent status gates child creation on waiting_dependency. Missing
         // parents become validation errors; infrastructure failures propagate.
@@ -424,6 +457,28 @@ impl OrchestrationService {
         self.assign_to_participant_with_resolved_context(scope, task, participant, None).await
     }
 
+    /// Resolve + materialize instruction images for an assignment into the
+    /// agent workspace, or empty when the task has none / no materializer is
+    /// configured. Fails closed (capability/workspace/kind violations error).
+    async fn resolve_assignment_images(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+        task: &OrchestrationTask,
+    ) -> AppResult<Vec<String>> {
+        let Some(materializer) = self.image_materializer.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let image_ids = crate::domain::orchestration::task_image_attachment_ids(task.params.as_ref());
+        if image_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let agent = crate::repositories::agent::AgentRepository::new(self.task_repo.pool().clone())
+            .find_by_id(scope, agent_id)
+            .await?;
+        materializer.materialize_for_dispatch(scope, &agent, task.id, &image_ids).await
+    }
+
     async fn assign_to_participant_with_resolved_context(
         &self,
         scope: &TenantScope,
@@ -508,7 +563,19 @@ impl OrchestrationService {
                 }
             }
         }
-        let assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
+        // Materialize instruction images into the agent workspace (symlink-safe)
+        // and attach their container paths to the assignment. Fails closed: a
+        // capability/workspace/kind violation rolls the dispatch back.
+        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await
+        {
+            Ok(paths) => paths,
+            Err(err) => {
+                let _ = tx.rollback().await;
+                return Err(err);
+            }
+        };
+        let mut assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
+        assignment.image_paths = image_paths;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;
@@ -1006,7 +1073,19 @@ impl OrchestrationService {
                 }
             }
         }
-        let assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
+        // Materialize instruction images into the agent workspace (symlink-safe)
+        // and attach their container paths to the assignment. Fails closed: a
+        // capability/workspace/kind violation rolls the dispatch back.
+        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await
+        {
+            Ok(paths) => paths,
+            Err(err) => {
+                let _ = tx.rollback().await;
+                return Err(err);
+            }
+        };
+        let mut assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
+        assignment.image_paths = image_paths;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             let _ = tx.rollback().await;

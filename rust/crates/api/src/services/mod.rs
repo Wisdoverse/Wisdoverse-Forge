@@ -76,6 +76,7 @@ pub mod skill;
 pub mod ssh_key;
 pub(crate) mod system;
 pub mod task_context;
+pub mod task_image_materializer;
 pub mod team;
 pub mod tile;
 pub mod turn;

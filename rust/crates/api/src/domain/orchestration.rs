@@ -419,6 +419,19 @@ pub(crate) struct CreateTaskParamsInput<'a> {
     /// at completion time. Kept as a raw `Value` on purpose: over-typing here would
     /// silently drop sub-keys a newer producer adds.
     pub(crate) expected_result: Option<&'a Value>,
+    /// Attachment UUIDs of instruction images, stored as `params.imageAttachmentIds`
+    /// and materialized into the agent workspace at dispatch.
+    pub(crate) image_attachment_ids: &'a [String],
+}
+
+/// Read `params.imageAttachmentIds` back as a list of id strings (empty if
+/// absent or malformed).
+pub(crate) fn task_image_attachment_ids(params: Option<&Value>) -> Vec<String> {
+    params
+        .and_then(|p| p.get("imageAttachmentIds"))
+        .and_then(Value::as_array)
+        .map(|ids| ids.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+        .unwrap_or_default()
 }
 
 pub(crate) fn create_task_request_parts(
@@ -450,6 +463,9 @@ pub(crate) fn create_task_request_parts(
         // written.
         if let Some(expected_result) = p.expected_result {
             out.insert("expectedResult".into(), expected_result.clone());
+        }
+        if !p.image_attachment_ids.is_empty() {
+            out.insert("imageAttachmentIds".into(), json!(p.image_attachment_ids));
         }
         Value::Object(out)
     });
@@ -1253,6 +1269,7 @@ mod tests {
             env: None,
             api_keys: None,
             expected_result: None,
+            image_attachment_ids: &[],
         };
 
         let (title, description, params_value) =
@@ -1277,6 +1294,7 @@ mod tests {
             env: Some(&env),
             api_keys: Some(&api_keys),
             expected_result: None,
+            image_attachment_ids: &[],
         };
 
         let (title, description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1305,6 +1323,7 @@ mod tests {
             env: None,
             api_keys: None,
             expected_result: Some(&expected_result),
+            image_attachment_ids: &[],
         };
 
         let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1328,6 +1347,7 @@ mod tests {
             env: None,
             api_keys: None,
             expected_result: None,
+            image_attachment_ids: &[],
         };
 
         let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));

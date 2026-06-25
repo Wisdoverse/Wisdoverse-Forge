@@ -235,7 +235,7 @@ fn object_key(scope: &TenantScope, id: AttachmentId, filename: &str) -> String {
     format!("organizations/{}/attachments/{}/{}", scope.org_id().as_uuid(), id.as_uuid(), filename_segment(filename))
 }
 
-fn filename_segment(filename: &str) -> String {
+pub(crate) fn filename_segment(filename: &str) -> String {
     let segment = filename
         .chars()
         .map(|ch| match ch {
