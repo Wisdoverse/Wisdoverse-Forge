@@ -224,9 +224,14 @@ function currentUserId(): string | null {
     // rather than abort `dispatchWsMessage` and drop the live update.
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('af:auth:user') : null
     if (raw === cachedUserRaw) return cachedUserId
+    // Parse FIRST, then commit both cache fields only on success — otherwise a
+    // valid→malformed transition would leave `cachedUserId` holding the previous
+    // user's id while `cachedUserRaw` advanced, so the next same-malformed call
+    // would return that stale owner (fail-open) instead of null (fail-closed).
+    const id = raw ? stringField((JSON.parse(raw) as { id?: unknown }).id) : null
     cachedUserRaw = raw
-    cachedUserId = raw ? stringField((JSON.parse(raw) as { id?: unknown }).id) : null
-    return cachedUserId
+    cachedUserId = id
+    return id
   } catch {
     return null
   }
