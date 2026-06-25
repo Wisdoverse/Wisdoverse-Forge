@@ -798,6 +798,12 @@ services:
     container_name: ${CONTAINER_NAME_PREFIX:-agentforge}-orchestrator
     hostname: orchestrator
     restart: unless-stopped
+    # CN-2: the orchestrator already drains on SIGTERM (Temporal workflow runtime
+    # + Axum graceful shutdown). Give that drain time to finish before the runtime
+    # SIGKILLs it (default is only 10s), and bias the OOM killer away from the
+    # coordinator so a memory spike sheds a worker first, not the orchestrator.
+    stop_grace_period: 30s
+    oom_score_adj: -200
     profiles: [dev, prod, external]
     ports:
       - '${BIND_ADDRESS:-127.0.0.1}:${ORCHESTRATOR_PORT:-4010}:4010'
