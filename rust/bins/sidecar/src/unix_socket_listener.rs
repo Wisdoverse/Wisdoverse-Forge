@@ -62,19 +62,54 @@ const MAX_CONCURRENT_RELAY_CONNECTIONS: usize = 256;
 /// container unhealthy.
 pub const RELAY_SOCKET_PATH: &str = "/tmp/agentforge-relay.sock";
 
-/// Bind the relay socket and serve framed hook events until shutdown.
+/// Bind the relay Unix socket **owner-only**, closing the TOCTOU window where the
+/// socket node would otherwise be briefly group/other-accessible between `bind()`
+/// (which honours the process umask — typically 0o022 → a 0o755 node) and the
+/// `chmod` to 0o600 (F065).
 ///
-/// Removes any stale socket file, binds a fresh [`UnixListener`], tightens the
-/// socket to owner-only (`0o600` — hook and sidecar run as the same agent user),
-/// then accepts connections in a loop. Each connection is handled on its own task
-/// so a slow or malformed peer cannot stall the listener. On shutdown the socket
-/// file is removed.
-pub async fn run(
-    socket_path: &str,
-    publisher: Arc<EventPublisher>,
-    wal: Arc<Wal>,
-    mut shutdown_rx: watch::Receiver<bool>,
-) -> anyhow::Result<()> {
+/// We tighten the umask to `0o077` only across the `bind`, so the node is created
+/// `0o700` (never world-accessible) and is then refined to the exact `0o600`
+/// owner-rw intent. The prior umask is restored immediately.
+/// Serializes the process-global `umask` mutation in [`bind_relay_socket_owner_only`]
+/// so overlapping callers (notably parallel tests) cannot restore each other's
+/// mask. In production the bind happens once, before any task is spawned, so
+/// this lock is uncontended.
+static UMASK_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn bind_relay_socket_owner_only(path: &Path) -> std::io::Result<UnixListener> {
+    // Hold the guard across the umask mutation + bind so a concurrent caller
+    // cannot interleave and restore the wrong mask.
+    let umask_guard = UMASK_GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    // SAFETY: `umask` is an infallible libc call that returns the previous mask.
+    // It is process-global; we hold the tightened mask only across this single
+    // `bind` and restore it immediately. Callers must invoke this before spawning
+    // concurrent tasks (see `bind_relay_listener`) so no other task creates a file
+    // during the window.
+    let prev_umask = unsafe { libc::umask(0o077 as libc::mode_t) };
+    let bind_result = UnixListener::bind(path);
+    unsafe { libc::umask(prev_umask) };
+    drop(umask_guard);
+    let listener = bind_result?;
+
+    // Refine to the exact owner-only rw intent. Best-effort: with the umask above
+    // the node is already 0o700, so a chmod failure leaves it owner-only (not a
+    // world-accessible hole) — log and continue rather than fail startup.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Err(err) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
+            tracing::warn!(error = %err, "Failed to chmod relay socket to 0o600 (umask already restricts it to 0o700)");
+        }
+    }
+    Ok(listener)
+}
+
+/// Remove any stale socket and bind the relay listener **owner-only**. Call this
+/// from the main task **before spawning any other task**, so the brief
+/// process-global umask change in [`bind_relay_socket_owner_only`] runs while the
+/// process is effectively single-threaded and cannot affect concurrent file
+/// creation (F062/F065). The returned listener is then served by [`run`].
+pub fn bind_relay_listener(socket_path: &str) -> anyhow::Result<UnixListener> {
     let path = Path::new(socket_path);
 
     // Remove a stale socket left by a previous (possibly SIGKILLed) sidecar so
@@ -85,18 +120,25 @@ pub async fn run(
         tracing::warn!(error = %err, socket = %socket_path, "Failed to remove stale relay socket");
     }
 
-    let listener = UnixListener::bind(path)?;
-
-    // Owner-only: the hook and sidecar are the same user inside the container.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Err(err) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
-            tracing::warn!(error = %err, socket = %socket_path, "Failed to chmod relay socket to 0o600");
-        }
-    }
-
+    let listener = bind_relay_socket_owner_only(path)?;
     tracing::info!(socket = %socket_path, "Relay socket listener bound");
+    Ok(listener)
+}
+
+/// Serve framed hook events on a pre-bound relay listener until shutdown.
+///
+/// Accepts connections on the pre-bound `listener` in a loop; each connection is
+/// handled on its own task so a slow or malformed peer cannot stall the listener.
+/// On shutdown the socket file at `socket_path` is removed. The socket is bound
+/// owner-only by [`bind_relay_listener`] before any task spawns.
+pub async fn run(
+    listener: UnixListener,
+    socket_path: &str,
+    publisher: Arc<EventPublisher>,
+    wal: Arc<Wal>,
+    mut shutdown_rx: watch::Receiver<bool>,
+) -> anyhow::Result<()> {
+    let path = Path::new(socket_path);
 
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_RELAY_CONNECTIONS));
 
@@ -439,6 +481,44 @@ mod tests {
         assert!(!should_drain(true, 0)); // connected but empty
         assert!(!should_drain(false, 5)); // entries but disconnected
         assert!(!should_drain(false, 0)); // neither
+    }
+
+    #[tokio::test]
+    async fn relay_socket_is_owner_only_after_bind() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let sock = tmp.path().join("relay.sock");
+        // tokio's UnixListener::bind needs a runtime context (provided by tokio::test).
+        let _listener = bind_relay_socket_owner_only(&sock).expect("bind owner-only");
+
+        // The socket node must be exactly owner-rw (0o600) — never group/other
+        // accessible, even for the instant between bind and chmod (the umask
+        // makes the bind-time node 0o700, then chmod refines to 0o600).
+        let mode = std::fs::metadata(&sock).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "relay socket must be owner-only, got {mode:o}");
+    }
+
+    #[tokio::test]
+    async fn umask_makes_bind_owner_only_before_chmod() {
+        // The TOCTOU fix itself: with umask 0o077 the socket node is created
+        // 0o700 (owner-only) *at bind*, before the refining chmod — so it is
+        // never group/other-accessible even for an instant. Without the umask,
+        // bind honours the ambient umask (typically 0o022 → a 0o755 node), which
+        // is exactly the world-traversable window this closes.
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let sock = tmp.path().join("raw.sock");
+
+        // Serialize with `bind_relay_socket_owner_only`'s umask mutation so the
+        // two umask-changing tests cannot interleave and restore the wrong mask.
+        let _umask_guard = UMASK_GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let prev = unsafe { libc::umask(0o077 as libc::mode_t) };
+        let _listener = UnixListener::bind(&sock).unwrap();
+        unsafe { libc::umask(prev) };
+
+        let mode = std::fs::metadata(&sock).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700, "umask 0o077 must make the bind-time node owner-only, got {mode:o}");
     }
 
     #[test]
