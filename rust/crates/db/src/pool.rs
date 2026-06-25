@@ -147,6 +147,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("071_dead_events.sql", include_str!("../migrations/071_dead_events.sql")),
     ("072_bootstrap_platform_admin.sql", include_str!("../migrations/072_bootstrap_platform_admin.sql")),
     ("073_drop_unused_job_notify.sql", include_str!("../migrations/073_drop_unused_job_notify.sql")),
+    ("074_runtime_capabilities_image.sql", include_str!("../migrations/074_runtime_capabilities_image.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

@@ -198,7 +198,11 @@ impl LlmProvider for OpenAiProvider {
 
     fn capability_profile(&self) -> RuntimeCapability {
         let max_context_tokens = if self.provider_name == "ollama" { 8_192 } else { 128_000 };
+        // Coarse provider-level vision gate: only first-party OpenAI models are
+        // assumed vision-capable here. Other OpenAI-transport providers (ollama,
+        // groq, deepseek, ...) stay off until per-model gating refines them.
         RuntimeCapability::api_provider_or_default(self.name(), max_context_tokens)
+            .with_image_input(self.provider_name == "openai")
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {

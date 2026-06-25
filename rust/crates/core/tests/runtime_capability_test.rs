@@ -14,10 +14,64 @@ fn cli_tool_kind_serializes_and_deserializes_all_known_variants() {
 
 #[test]
 fn zero_context_window_is_rejected_for_api_runtime() {
-    let err = RuntimeCapability::new(None, RuntimeKind::Api, 0, false, false, false, false, false)
+    let err = RuntimeCapability::new(None, RuntimeKind::Api, 0, false, false, false, false, false, false)
         .expect_err("zero-token API runtime should be rejected");
 
     assert_eq!(err.to_string(), "max_context_tokens must be greater than zero for api runtime");
+}
+
+#[test]
+fn container_cli_image_input_matches_tool_vision_support() {
+    // Claude Code, Codex, and Gemini CLIs accept local image file paths; opencode
+    // has no documented image support, so it stays off until verified.
+    assert!(RuntimeCapability::for_cli_tool(CliToolKind::Claude, RuntimeKind::Container).supports_image_input);
+    assert!(RuntimeCapability::for_cli_tool(CliToolKind::Codex, RuntimeKind::Container).supports_image_input);
+    assert!(RuntimeCapability::for_cli_tool(CliToolKind::Gemini, RuntimeKind::Container).supports_image_input);
+    assert!(!RuntimeCapability::for_cli_tool(CliToolKind::Opencode, RuntimeKind::Container).supports_image_input);
+}
+
+#[test]
+fn host_cli_runtime_never_supports_image_input() {
+    // Host-CLI agents run on the operator's own host with no shared /workspace
+    // mount, so file-based image delivery is impossible regardless of tool.
+    for tool in CliToolKind::ALL {
+        assert!(
+            !RuntimeCapability::for_cli_tool(tool, RuntimeKind::Cli).supports_image_input,
+            "host-cli {tool} must not advertise image input"
+        );
+    }
+}
+
+#[test]
+fn fallback_and_api_default_disable_image_input() {
+    assert!(
+        !RuntimeCapability::fallback_for_cli_tool(CliToolKind::Claude, RuntimeKind::Container).supports_image_input
+    );
+    assert!(!RuntimeCapability::api_default("anthropic").supports_image_input);
+}
+
+#[test]
+fn with_image_input_enables_the_flag() {
+    let cap = RuntimeCapability::api_default("openai").with_image_input(true);
+    assert!(cap.supports_image_input);
+}
+
+#[test]
+fn legacy_capability_profile_without_image_field_defaults_to_false() {
+    // Capability_profile JSONB persisted before this feature predates
+    // supports_image_input; it must deserialize to false so existing rows decode
+    // instead of aborting startup.
+    let legacy = serde_json::json!({
+        "runtime_kind": "container",
+        "max_context_tokens": 200_000,
+        "supports_skills_mount": true,
+        "supports_hooks": true,
+        "supports_subagents": true,
+        "supports_mcp_bridge": true,
+        "supports_terminal": true
+    });
+    let profile: RuntimeCapability = serde_json::from_value(legacy).expect("legacy profile decodes");
+    assert!(!profile.supports_image_input);
 }
 
 #[test]

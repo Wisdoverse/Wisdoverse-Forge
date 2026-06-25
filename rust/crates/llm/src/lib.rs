@@ -347,6 +347,32 @@ mod tests {
     }
 
     #[test]
+    fn vision_providers_advertise_image_input() {
+        // Coarse provider-level vision gate; the agent projection refines per-model.
+        // anthropic + gemini are vision across all current models; openai is vision
+        // for its first-party models; ollama/groq/mock stay off until verified.
+        let f = LlmProviderFactory::new(Some("http://localhost:11434".into()));
+        let cases = [
+            ("anthropic", "sk-test", true),
+            ("openai", "sk-test", true),
+            ("google", "goog-test", true),
+            ("ollama", "", false),
+            ("groq", "gsk-test", false),
+        ];
+        for (provider_key, api_key, expected) in cases {
+            let p = f.build(provider_key, api_key.to_string()).unwrap();
+            assert_eq!(
+                p.capability_profile().supports_image_input,
+                expected,
+                "provider {provider_key} image-input gate"
+            );
+        }
+
+        let mock = LlmProviderFactory::with_mock("mocky", "hi").build("mocky", String::new()).unwrap();
+        assert!(!mock.capability_profile().supports_image_input);
+    }
+
+    #[test]
     fn factory_builds_google() {
         let f = LlmProviderFactory::new(None);
         let p = f.build("google", "goog-test".into()).unwrap();

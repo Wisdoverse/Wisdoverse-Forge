@@ -94,7 +94,8 @@ impl LlmProvider for GeminiProvider {
     }
 
     fn capability_profile(&self) -> RuntimeCapability {
-        RuntimeCapability::api_provider_or_default(self.name(), 1_000_000)
+        // Gemini 2.x models accept image input.
+        RuntimeCapability::api_provider_or_default(self.name(), 1_000_000).with_image_input(true)
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {

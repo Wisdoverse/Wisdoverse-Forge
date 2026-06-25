@@ -165,7 +165,8 @@ impl LlmProvider for AnthropicProvider {
     }
 
     fn capability_profile(&self) -> RuntimeCapability {
-        RuntimeCapability::api_provider_or_default(self.name(), 200_000)
+        // Every current Claude model is vision-capable.
+        RuntimeCapability::api_provider_or_default(self.name(), 200_000).with_image_input(true)
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {
