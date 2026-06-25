@@ -525,6 +525,17 @@ pub async fn apply_heartbeat(
     Ok(Some((participant, status_changed)))
 }
 
+/// Stable fingerprint of an advertised capability set, used as the Redis
+/// presence value. A changed set (e.g. a sidecar that now reports `image_input`
+/// after a rolling-deploy restart) yields a different fingerprint, so the beat
+/// is treated as a transition and forced through the PostgreSQL capability write
+/// rather than suppressed under the still-live presence key.
+fn capability_fingerprint(capabilities: &[String]) -> String {
+    let mut sorted = capabilities.to_vec();
+    sorted.sort();
+    sorted.join(",")
+}
+
 pub async fn handle_heartbeat(
     client: &Client,
     pool: &PgPool,
@@ -556,14 +567,16 @@ pub async fn handle_heartbeat(
 
     // ADR 0008 Phase 2: when Redis presence is active and the agent is already
     // live, the beat is recorded entirely in Redis — no PostgreSQL write,
-    // broadcast, or auto-dispatch. A transition (first-seen / TTL resurrection)
-    // or any Redis fallback still runs the PostgreSQL path below.
-    if presence.record(subject_agent).await == RedisRecord::SteadyState {
+    // broadcast, or auto-dispatch. A transition (first-seen / TTL resurrection /
+    // CHANGED capabilities) or any Redis fallback still runs the PostgreSQL path
+    // below. The capability fingerprint ensures a sidecar that newly advertises a
+    // capability (e.g. `image_input` after a rolling-deploy restart) forces a PG
+    // write instead of being suppressed under its still-live Redis key.
+    let capabilities = payload.normalized_capabilities();
+    if presence.record(subject_agent, &capability_fingerprint(&capabilities)).await == RedisRecord::SteadyState {
         metrics::counter!("agentforge_orchestration_presence_redis_steady_total").increment(1);
         return Ok(());
     }
-
-    let capabilities = payload.normalized_capabilities();
     let Some((participant, status_changed)) = apply_heartbeat(pool, subject_agent, capabilities).await? else {
         // The Redis `SET` already wrote the presence key (Transition), but there
         // is no agent row to back it. Drop the key so the next beat retries the

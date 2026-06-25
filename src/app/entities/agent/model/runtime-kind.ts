@@ -25,20 +25,30 @@ export const isImageCapable = (a: Pick<AgentInfo, 'cliTool' | 'provider'>): bool
  * `CliToolKind::supports_image_input` (claude/codex/gemini, NOT opencode). */
 const VISION_CLI_TOOLS = new Set<string>(['claude', 'codex', 'gemini'])
 
+/** Heartbeat token a sidecar advertises once it understands image_paths. Mirrors
+ * the Rust `agentforge_core::SIDECAR_IMAGE_INPUT_CAPABILITY`. */
+const SIDECAR_IMAGE_INPUT_CAPABILITY = 'image_input'
+
 /**
  * Whether a *task* may carry instruction images for this assignee. Task images
  * are materialized into a Container CLI agent's `/workspace`, so this requires
- * BOTH a container runtime (`runtimeKind === 'container'` — a Host CLI agent's
- * workspace is off-host and the server rejects it) AND a vision-capable CLI tool
- * reported in `capabilities` (claude/codex/gemini; opencode and Provider+Prompt/
- * API agents are excluded). The server still enforces the real boundary; this
- * only gates the UI affordance so users don't upload only to hit a failure.
+ * ALL of: a container runtime (`runtimeKind === 'container'` — a Host CLI agent's
+ * workspace is off-host and the server rejects it); a vision-capable CLI tool in
+ * `capabilities` (claude/codex/gemini; opencode and Provider+Prompt/API agents
+ * are excluded); AND the live sidecar advertising the `image_input` protocol
+ * token, so an older not-yet-restarted sidecar (which the server dispatch gate
+ * rejects) isn't offered an upload that would fail. The server still enforces the
+ * real boundary; this only gates the UI affordance.
  */
 export const isTaskImageCapable = (
   agent: { runtimeKind?: AgentRuntimeKind; capabilities?: readonly string[] } | undefined
-): boolean =>
-  agent?.runtimeKind === 'container' &&
-  !!agent.capabilities?.some((tool) => VISION_CLI_TOOLS.has(tool.toLowerCase()))
+): boolean => {
+  if (agent?.runtimeKind !== 'container' || !agent.capabilities) return false
+  const caps = agent.capabilities.map((c) => c.toLowerCase())
+  return (
+    caps.some((tool) => VISION_CLI_TOOLS.has(tool)) && caps.includes(SIDECAR_IMAGE_INPUT_CAPABILITY)
+  )
+}
 
 /**
  * Canonical user-facing labels for each runtime kind. These labels are plain
