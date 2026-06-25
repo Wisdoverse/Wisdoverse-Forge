@@ -66,7 +66,9 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const ControlSummaryIcon = controlSummary.Icon
   const controlError = error ?? localActionError
   const messageAvailability = getMessageAvailability(agent, { canStartContainer, hostCli })
-  const messageDisabled = sending || !messageAvailability.canSend
+  // Block sending while an image upload is still in flight, otherwise the prompt
+  // goes out with the not-yet-appended id array and the upload is orphaned.
+  const messageDisabled = sending || !messageAvailability.canSend || uploadingImage
   const showMessageComposer = chatOnlyAgent || messageComposerOpen
   const MessageComposerDisclosureIcon = messageComposerOpen ? ChevronDown : ChevronRight
 
@@ -327,7 +329,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault()
-                  if (messageAvailability.canSend) void handleSendPrompt()
+                  if (messageAvailability.canSend && !uploadingImage) void handleSendPrompt()
                 }
               }}
               onPaste={handlePaste}

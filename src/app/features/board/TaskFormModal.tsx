@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { waitingPlaceDisplayName } from '@app/entities/agent-group'
-import { useAgentsStore } from '@app/entities/agent'
+import { useAgentsStore, isTaskImageCapable } from '@app/entities/agent'
 import { cn } from '@app/shared/lib/utils'
 import { boardActionErrorMessage } from './boardErrorMessages'
 import {
@@ -244,11 +244,13 @@ export function TaskFormModal({
     ? 'Save task anyway'
     : 'Create task anyway'
   const selectedAssignedAgent = agents.find((agent) => agent.id === assignedToValue)
-  // Image upload is offered once an agent is assigned (images upload scoped to
-  // that agent's workspace). The server enforces the real vision-capability
-  // boundary at dispatch. Switching the assignee clears uploaded images since
-  // they belong to the previous agent's workspace.
-  const canAttachImages = Boolean(assignedToValue)
+  // Image upload is offered only when the assignee reports a vision-capable CLI
+  // tool (claude/codex/gemini), so a Provider+Prompt/API or opencode assignee
+  // never sees an affordance that would fail at the server dispatch gate. (A Host
+  // CLI agent reports the same tool, so it can still pass this view; the server
+  // rejects it.) Images upload scoped to that agent's workspace; switching the
+  // assignee clears them since they belong to the previous agent's workspace.
+  const canAttachImages = isTaskImageCapable(selectedAssignedAgent?.capabilities)
 
   useEffect(() => {
     setImageIds([])
@@ -1002,21 +1004,23 @@ export function TaskFormModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || selectingProject}
-              aria-busy={isSubmitting || selectingProject}
+              disabled={isSubmitting || selectingProject || uploadingImage}
+              aria-busy={isSubmitting || selectingProject || uploadingImage}
               className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {selectingProject
-                ? 'Preparing project...'
-                : isSubmitting
-                  ? taskWillWaitForAgent
-                    ? 'Saving task to wait...'
-                    : 'Creating task...'
-                  : confirmIncompleteBrief && !briefReady
-                    ? incompleteBriefActionLabel
-                    : taskWillWaitForAgent
-                      ? 'Save task to wait'
-                      : 'Create task'}
+              {uploadingImage
+                ? 'Uploading image...'
+                : selectingProject
+                  ? 'Preparing project...'
+                  : isSubmitting
+                    ? taskWillWaitForAgent
+                      ? 'Saving task to wait...'
+                      : 'Creating task...'
+                    : confirmIncompleteBrief && !briefReady
+                      ? incompleteBriefActionLabel
+                      : taskWillWaitForAgent
+                        ? 'Save task to wait'
+                        : 'Create task'}
             </button>
           </div>
         </form>

@@ -435,6 +435,22 @@ impl OrchestrationService {
         if !BlockedTaskPolicy::can_enter_dispatch(&task.status, task.blocked_reason.as_deref()) {
             return Ok(task);
         }
+        // An image task must be PUSH-dispatched to an explicitly chosen
+        // vision-capable container agent (create_task_with_assignee / re-assign),
+        // which materializes the images. This capability-blind auto-dispatcher
+        // picks an arbitrary available participant, for which materialization
+        // fails closed — so an image task that lost its assignee (retried, or
+        // patched to queued/unassigned) would just churn on failed dispatch.
+        // Block it instead so the operator re-assigns a vision-capable agent.
+        if !crate::domain::orchestration::task_image_attachment_ids(task.params.as_ref()).is_empty() {
+            let (available, busy, offline) = self.participant_repo.count_by_status(scope).await?;
+            let metadata = BlockedTaskPolicy::waiting_agent_metadata(available, busy, offline);
+            tracing::info!(task_id = %task.id, "Image task without assignee — blocked pending vision-capable assignment");
+            return self
+                .task_repo
+                .mark_blocked(scope, task.id, BlockedTaskPolicy::waiting_agent_reason(), metadata)
+                .await;
+        }
         match self.participant_repo.find_available(scope).await? {
             Some(participant) => self.assign_to_participant(scope, &task, &participant).await,
             None => {

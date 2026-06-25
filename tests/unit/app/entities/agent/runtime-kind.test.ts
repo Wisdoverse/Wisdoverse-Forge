@@ -3,6 +3,7 @@ import {
   isApiAgent,
   isContainerAgent,
   isHostCliAgent,
+  isTaskImageCapable,
   runtimeKindLabel,
   runtimeKindShortLabel,
 } from '@app/entities/agent'
@@ -50,6 +51,17 @@ describe('runtime-kind specifications', () => {
   it('uses beginner-facing labels when runtime kind is missing', () => {
     expect(runtimeKindLabel(undefined)).toBe('Check where it works')
     expect(runtimeKindShortLabel(undefined)).toBe('Check location')
+  })
+
+  it('isTaskImageCapable gates on vision-capable CLI tools in capabilities', () => {
+    expect(isTaskImageCapable(['claude'])).toBe(true)
+    expect(isTaskImageCapable(['codex'])).toBe(true)
+    expect(isTaskImageCapable(['gemini'])).toBe(true)
+    expect(isTaskImageCapable(['Claude'])).toBe(true) // case-insensitive
+    // opencode has no vision; chat/API agents report no CLI tool.
+    expect(isTaskImageCapable(['opencode'])).toBe(false)
+    expect(isTaskImageCapable([])).toBe(false)
+    expect(isTaskImageCapable(undefined)).toBe(false)
   })
 
   it('does not expose unknown runtime kind slugs', () => {

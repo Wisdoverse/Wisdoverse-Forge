@@ -8,6 +8,7 @@ export {
 export {
   isHostCliAgent,
   isImageCapable,
+  isTaskImageCapable,
   isContainerAgent,
   isApiAgent,
   runtimeKindLabel,
