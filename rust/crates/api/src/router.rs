@@ -27,7 +27,9 @@ use crate::routes;
 /// 1. CORS (innermost)
 /// 2. Tracing
 /// 3. CatchPanic (converts handler panics into a synthesized 500 Response)
-/// 4. HTTP metrics (outermost — so the synthesized 500 is counted; see below)
+/// 4. HTTP metrics (so the synthesized 500 is counted; see below)
+/// 5. Request-id correlation (outermost — its span wraps everything so all logs
+///    carry `request_id`, and the `x-request-id` echo wraps the whole response)
 pub fn create_router(state: AppState) -> Router {
     let attachment_upload_body_limit = usize::try_from(state.config.storage_max_file_size)
         .unwrap_or(usize::MAX.saturating_sub(1024 * 1024))
@@ -150,10 +152,16 @@ pub fn create_router(state: AppState) -> Router {
         .layer(middleware::cors_layer(state.config.is_production(), state.config.cors_origin.as_deref()))
         .layer(middleware::trace_layer());
 
-    // Outermost: CatchPanic (inner) wrapped by the HTTP-metrics layer, in the
-    // load-bearing order. Extracted into a shared helper so the ordering test
-    // exercises the EXACT production wiring — the ordering cannot drift undetected.
-    apply_panic_and_metrics_layers(router)
+    // CatchPanic (inner) wrapped by the HTTP-metrics layer, in the load-bearing
+    // order. Extracted into a shared helper so the ordering test exercises the
+    // EXACT production wiring — the ordering cannot drift undetected.
+    let router = apply_panic_and_metrics_layers(router);
+
+    // Request-id correlation is applied LAST → truly outermost, so its span wraps
+    // the metrics + catch-panic layers and the handler (their logs inherit
+    // `request_id`) and the `x-request-id` echo wraps the whole response,
+    // including a panic-synthesised 500.
+    router.layer(axum::middleware::from_fn(crate::observability::track_request_id))
 }
 
 /// Apply the panic-accounting + HTTP-metrics layers in the load-bearing order:
