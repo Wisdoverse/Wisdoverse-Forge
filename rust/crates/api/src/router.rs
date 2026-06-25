@@ -23,13 +23,14 @@ use crate::routes;
 
 /// Build the top-level Axum router with all routes and middleware.
 ///
-/// Middleware is applied bottom-up (last `.layer()` call = outermost):
-/// 1. CORS (innermost)
-/// 2. Tracing
-/// 3. CatchPanic (converts handler panics into a synthesized 500 Response)
-/// 4. HTTP metrics (so the synthesized 500 is counted; see below)
-/// 5. Request-id correlation (outermost — its span wraps everything so all logs
-///    carry `request_id`, and the `x-request-id` echo wraps the whole response)
+/// Middleware nests like this (request enters outer→inner; see
+/// [`apply_outer_layers`] for why the outer order is load-bearing):
+/// 1. Request-id correlation (outermost — span wraps everything; echoes `x-request-id`)
+/// 2. HTTP metrics (counts every request, including panic-synthesized 500s)
+/// 3. CORS (outside CatchPanic so panic-500s stay CORS-readable cross-origin)
+/// 4. CatchPanic (converts handler panics into a synthesized 500 Response)
+/// 5. Tracing
+/// 6. Handler (innermost)
 pub fn create_router(state: AppState) -> Router {
     let attachment_upload_body_limit = usize::try_from(state.config.storage_max_file_size)
         .unwrap_or(usize::MAX.saturating_sub(1024 * 1024))
@@ -147,21 +148,39 @@ pub fn create_router(state: AppState) -> Router {
         .with_state(state.clone())
         // Make JwtManager available to the AuthUser extractor via request extensions
         .layer(Extension(state.jwt.clone()))
-        // Inner middleware (applied bottom-up): CORS, then tracing, then
-        // CatchPanic + metrics wrap both (see apply_panic_and_metrics_layers).
-        .layer(middleware::cors_layer(state.config.is_production(), state.config.cors_origin.as_deref()))
+        // Tracing is innermost of the outer stack; CORS moved OUT to wrap
+        // CatchPanic (see apply_outer_layers) so panic-500s stay CORS-readable.
         .layer(middleware::trace_layer());
 
-    // CatchPanic (inner) wrapped by the HTTP-metrics layer, in the load-bearing
-    // order. Extracted into a shared helper so the ordering test exercises the
-    // EXACT production wiring — the ordering cannot drift undetected.
-    let router = apply_panic_and_metrics_layers(router);
+    // Apply the load-bearing OUTER middleware (CatchPanic → CORS → metrics →
+    // request-id) in one shared, test-pinned helper.
+    apply_outer_layers(router, state.config.is_production(), state.config.cors_origin.as_deref())
+}
 
-    // Request-id correlation is applied LAST → truly outermost, so its span wraps
-    // the metrics + catch-panic layers and the handler (their logs inherit
-    // `request_id`) and the `x-request-id` echo wraps the whole response,
-    // including a panic-synthesised 500.
-    router.layer(axum::middleware::from_fn(crate::observability::track_request_id))
+/// Apply the load-bearing OUTER middleware in production order. Tower runs the
+/// last-applied layer outermost, so the request path enters in this order:
+/// request-id → metrics → CORS → CatchPanic → (inner: tracing, handler).
+///
+/// Why this exact nesting:
+///  - **CORS outside CatchPanic.** A panicking handler unwinds up to
+///    `catch_panic_layer`, which synthesises a 500 *inside* CORS. If CORS were
+///    inside CatchPanic (the unwind would tear past it) that 500 would carry no
+///    `Access-Control-Allow-Origin` / `Access-Control-Expose-Headers`, so a
+///    cross-origin browser could not read it — including the `x-request-id` the
+///    outer layer adds. Outside CatchPanic, the synthesised 500 flows back out
+///    through CORS and is decorated. (Trade-off: CORS now also short-circuits
+///    preflight `OPTIONS` before the metrics layer, so preflights are not
+///    counted in `http_requests_total` — intentional; they are CORS noise.)
+///  - **Metrics outside CatchPanic** so panic-induced 500s are counted (see
+///    [`apply_panic_and_metrics_layers`]).
+///  - **Request-id outermost** so its correlation span wraps everything and the
+///    `x-request-id` echo wraps the whole response, including the panic 500.
+///
+/// Shared by `create_router` and the ordering tests so the order can't drift.
+pub(crate) fn apply_outer_layers(router: axum::Router, is_production: bool, cors_origin: Option<&str>) -> axum::Router {
+    apply_panic_and_metrics_layers(router)
+        .layer(middleware::cors_layer(is_production, cors_origin))
+        .layer(axum::middleware::from_fn(crate::observability::track_request_id))
 }
 
 /// Apply the panic-accounting + HTTP-metrics layers in the load-bearing order:
@@ -185,4 +204,45 @@ pub(crate) fn apply_panic_and_metrics_layers(router: axum::Router) -> axum::Rout
     router
         .layer(middleware::catch_panic_layer())
         .layer(axum::middleware::from_fn(crate::observability::track_http_metrics))
+}
+
+#[cfg(test)]
+mod outer_layer_tests {
+    use axum::Router;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode, header};
+    use axum::routing::get;
+    use tower::ServiceExt;
+
+    const ORIGIN: &str = "https://app.example.com";
+
+    async fn boom() -> &'static str {
+        panic!("handler panic for the ordering test");
+    }
+
+    /// A cross-origin request to a PANICKING handler must come back as a 500 that
+    /// still carries BOTH the CORS decoration (`Access-Control-Allow-Origin`) and
+    /// the `x-request-id` correlation header. This pins the load-bearing nesting
+    /// in [`super::apply_outer_layers`]: CORS + request-id sit OUTSIDE CatchPanic,
+    /// so the synthesised 500 flows back out through them. If CORS were inside
+    /// CatchPanic (the original bug), a cross-origin browser could not read the
+    /// correlation id for exactly the 500s it most needs.
+    #[tokio::test]
+    async fn panic_500_keeps_cors_and_request_id_headers() {
+        let app = super::apply_outer_layers(Router::new().route("/panic", get(boom)), true, Some(ORIGIN));
+
+        let response = app
+            .oneshot(Request::builder().uri("/panic").header(header::ORIGIN, ORIGIN).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR, "CatchPanic must synthesise a 500");
+        let headers = response.headers();
+        assert_eq!(
+            headers.get(header::ACCESS_CONTROL_ALLOW_ORIGIN).and_then(|v| v.to_str().ok()),
+            Some(ORIGIN),
+            "panic 500 must carry CORS allow-origin so a cross-origin browser can read it"
+        );
+        assert!(headers.get("x-request-id").is_some(), "panic 500 must carry x-request-id for correlation");
+    }
 }
