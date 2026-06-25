@@ -5,6 +5,7 @@ import { I18nProvider } from './providers/I18nProvider'
 import { ThemeProvider } from './providers/ThemeProvider'
 import { AuthProvider } from './providers/AuthProvider'
 import { WebSocketProvider } from './providers/WebSocketProvider'
+import { ErrorBoundary } from './shared/ui/ErrorBoundary'
 import App from './App'
 import './styles/globals.css'
 import './styles/tokens/primitives.css'
@@ -25,7 +26,9 @@ createRoot(root).render(
       <ThemeProvider>
         <AuthProvider>
           <WebSocketProvider url={wsUrl}>
-            <App />
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
           </WebSocketProvider>
         </AuthProvider>
       </ThemeProvider>
