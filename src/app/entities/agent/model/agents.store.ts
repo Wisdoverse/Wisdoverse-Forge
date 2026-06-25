@@ -54,7 +54,8 @@ interface AgentsState {
   }) => Promise<LocalAgentEnrollmentResponse | null>
   deleteAgent: (id: string) => Promise<boolean>
   updateAgentSystemPrompt: (id: string, systemPrompt: string | null) => Promise<boolean>
-  sendPrompt: (id: string, prompt: string) => Promise<boolean>
+  sendPrompt: (id: string, prompt: string, imageIds?: string[]) => Promise<boolean>
+  uploadImage: (id: string, file: File) => Promise<{ ok: boolean; id?: string; error?: string }>
   startAgent: (id: string) => Promise<boolean>
   restartAgent: (id: string) => Promise<boolean>
 }
@@ -691,11 +692,13 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
     }
   },
 
-  sendPrompt: async (id, prompt) => {
+  uploadImage: async (id, file) => getAgentApi().uploadImage(id, file),
+
+  sendPrompt: async (id, prompt, imageIds) => {
     set({ error: null })
     try {
       const api = getAgentApi()
-      const result = await api.sendPrompt(id, prompt)
+      const result = await api.sendPrompt(id, prompt, imageIds)
       if (result.ok) {
         // Update status to working
         get().updateAgentStatus(id, 'working')

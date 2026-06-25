@@ -7,6 +7,7 @@ export {
 } from './model/local-connection-copy'
 export {
   isHostCliAgent,
+  isImageCapable,
   isContainerAgent,
   isApiAgent,
   runtimeKindLabel,

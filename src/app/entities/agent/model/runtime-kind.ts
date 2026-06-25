@@ -8,6 +8,19 @@ export const isContainerAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean =>
 
 export const isApiAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean => a.runtimeKind === 'api'
 
+/** Providers whose models accept image input (vision). */
+const VISION_PROVIDERS = new Set(['anthropic', 'openai', 'google'])
+
+/**
+ * Whether the quick-message composer should offer image upload for this agent.
+ * Container CLI agents receive images via tasks (workspace files), not quick
+ * messages — the quick-message path is provider/API only — so this is limited to
+ * provider/API (chat) agents whose provider is vision-capable. The server
+ * enforces the real boundary; this only gates the UI affordance.
+ */
+export const isImageCapable = (a: Pick<AgentInfo, 'cliTool' | 'provider'>): boolean =>
+  !a.cliTool && VISION_PROVIDERS.has((a.provider ?? '').toLowerCase())
+
 /**
  * Canonical user-facing labels for each runtime kind. These labels are plain
  * language; protocol slugs still stay in sync with server-side RuntimeKind.

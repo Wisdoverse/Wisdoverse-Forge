@@ -1,17 +1,19 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ImagePlus,
   MessageSquareText,
   Play,
   RotateCcw,
   Trash2,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { isHostCliAgent, useAgentsStore, type AgentInfo } from '@app/entities/agent'
+import { isHostCliAgent, isImageCapable, useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
 const LOCAL_AGENT_CONTROL_FAILURE = {
   sendInstruction: 'local-send-instruction-failed',
@@ -29,13 +31,19 @@ interface AgentControlPanelProps {
 }
 
 export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) {
-  const { sendPrompt, startAgent, restartAgent, deleteAgent, error } = useAgentsStore()
+  const { sendPrompt, uploadImage, startAgent, restartAgent, deleteAgent, error } = useAgentsStore()
 
   const [prompt, setPrompt] = useState('')
   const [promptError, setPromptError] = useState<string | null>(null)
   const [localActionError, setLocalActionError] = useState<string | null>(null)
   const [localActionStatus, setLocalActionStatus] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [imageIds, setImageIds] = useState<string[]>([])
+  const [imagePreviews, setImagePreviews] = useState<{ id: string; name: string }[]>([])
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const canAttachImages = isImageCapable(agent)
   const [starting, setStarting] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -66,7 +74,50 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     setMessageComposerOpen(chatOnlyAgent)
     setPromptError(null)
     setPrompt('')
+    setImageIds([])
+    setImagePreviews([])
+    setImageError(null)
   }, [agent.id, chatOnlyAgent])
+
+  async function uploadFiles(files: File[]) {
+    if (!canAttachImages || files.length === 0) return
+    setImageError(null)
+    setUploadingImage(true)
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+          setImageError('Only image files can be attached.')
+          continue
+        }
+        const res = await uploadImage(agent.id, file)
+        if (res.ok && res.id) {
+          const id = res.id
+          setImageIds((ids) => [...ids, id])
+          setImagePreviews((prev) => [...prev, { id, name: file.name || 'image' }])
+        } else {
+          setImageError('Image upload failed. Check the file and try again.')
+        }
+      }
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  function removeImage(id: string) {
+    setImageIds((ids) => ids.filter((existing) => existing !== id))
+    setImagePreviews((prev) => prev.filter((preview) => preview.id !== id))
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    if (!canAttachImages) return
+    const images = Array.from(event.clipboardData.files).filter((file) =>
+      file.type.startsWith('image/')
+    )
+    if (images.length > 0) {
+      event.preventDefault()
+      void uploadFiles(images)
+    }
+  }
 
   async function handleSendPrompt() {
     if (sending) return
@@ -85,9 +136,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
     setLocalActionStatus(null)
     setSending(true)
     try {
-      const ok = await sendPrompt(agent.id, trimmedPrompt)
+      const ok = await sendPrompt(agent.id, trimmedPrompt, imageIds)
       if (ok) {
         setPrompt('')
+        setImageIds([])
+        setImagePreviews([])
         setLocalActionStatus(
           chatOnlyAgent
             ? "Message sent. Watch this agent's history for the answer."
@@ -277,6 +330,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   if (messageAvailability.canSend) void handleSendPrompt()
                 }
               }}
+              onPaste={handlePaste}
             />
             {promptError && (
               <div
@@ -294,6 +348,61 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             >
               {messageAvailability.help}
             </p>
+            {canAttachImages && (
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    void uploadFiles(Array.from(e.target.files ?? []))
+                    e.target.value = ''
+                  }}
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!messageAvailability.canSend || uploadingImage}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption text-secondary-light hover:bg-black/[0.03] disabled:opacity-50 dark:border-white/[0.1] dark:text-secondary-dark"
+                  >
+                    <ImagePlus className="size-4" aria-hidden />
+                    {uploadingImage ? 'Uploading…' : 'Attach image'}
+                  </button>
+                  <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    Paste or attach a screenshot for this vision model.
+                  </span>
+                </div>
+                {imagePreviews.length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {imagePreviews.map((preview) => (
+                      <li
+                        key={preview.id}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-2.5 py-1 text-ui-caption text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark"
+                      >
+                        <ImagePlus className="size-3.5" aria-hidden />
+                        <span className="max-w-[140px] truncate">{preview.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(preview.id)}
+                          aria-label={`Remove ${preview.name}`}
+                          className="text-secondary-light hover:text-apple-red dark:text-secondary-dark"
+                        >
+                          <X className="size-3.5" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {imageError && (
+                  <div className="text-ui-caption text-apple-red" role="alert" aria-live="polite">
+                    {imageError}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex justify-end">
               <button
                 type="button"
