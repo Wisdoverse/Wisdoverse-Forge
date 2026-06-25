@@ -36,6 +36,7 @@ export interface LoginResult {
 }
 
 type AuthChangeCallback = (authenticated: boolean) => void
+type AccessTokenChangeCallback = (accessToken: string | null) => void
 
 const STORAGE_KEYS = {
   access: 'af:auth:access',
@@ -67,6 +68,7 @@ export class AuthManager {
   private user: AuthUser | null = null
   private refreshTimer: ReturnType<typeof setTimeout> | null = null
   private callbacks: AuthChangeCallback[] = []
+  private tokenListeners: AccessTokenChangeCallback[] = []
   private apiUrl: string
   private refreshPromise: Promise<boolean> | null = null
   private onStorageChange: (e: StorageEvent) => void
@@ -87,12 +89,14 @@ export class AuthManager {
           this.user = null
           this.clearRefreshTimer()
           this.notifyCallbacks()
+          this.notifyTokenListeners()
         } else {
           // Another tab refreshed the token
           this.accessToken = e.newValue
           const userJson = localStorage.getItem(STORAGE_KEYS.user)
           this.user = userJson ? JSON.parse(userJson) : this.user
           this.scheduleRefresh()
+          this.notifyTokenListeners()
         }
       } else if (e.key === STORAGE_KEYS.user && e.newValue !== null) {
         try {
@@ -160,6 +164,11 @@ export class AuthManager {
     } else {
       localStorage.removeItem(STORAGE_KEYS.user)
     }
+    // Notify AFTER persisting so a listener that reads storage (the WebSocket
+    // provider reconnects with the current token) sees the fresh value. A silent
+    // token refresh goes through here, so this is the only signal of a new token
+    // — `notifyCallbacks` (auth-state boolean) does NOT fire on refresh.
+    this.notifyTokenListeners()
   }
 
   private clearStorage(): void {
@@ -168,6 +177,25 @@ export class AuthManager {
     localStorage.removeItem(STORAGE_KEYS.access)
     localStorage.removeItem(STORAGE_KEYS.user)
     localStorage.removeItem(STORAGE_KEYS.legacyRefresh)
+    this.notifyTokenListeners()
+  }
+
+  /**
+   * Subscribe to ACCESS-TOKEN changes (login, silent refresh, org-switch
+   * `updateTokens`, logout). The callback receives the new token, or `null` when
+   * the session is cleared. Returns an unsubscribe. Distinct from
+   * [`onAuthChange`], which only fires on authenticated/unauthenticated
+   * transitions and NOT on a silent refresh.
+   */
+  onAccessTokenChange(callback: AccessTokenChangeCallback): () => void {
+    this.tokenListeners.push(callback)
+    return () => {
+      this.tokenListeners = this.tokenListeners.filter((cb) => cb !== callback)
+    }
+  }
+
+  private notifyTokenListeners(): void {
+    for (const cb of this.tokenListeners) cb(this.accessToken)
   }
 
   private clearRefreshTimer(): void {
