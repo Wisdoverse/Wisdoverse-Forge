@@ -690,6 +690,22 @@ impl AppConfig {
             ));
         }
 
+        // LLM_ENCRYPTION_KEY is mandatory in production. Without it, tier-1 (user
+        // LLM API keys) and tier-2 (stored OAuth/CLI credentials) resolution
+        // fails closed and every agent silently falls back to the shared system
+        // key — i.e. all tenants execute under one identity — and credential
+        // upload/test/save break at runtime with confusing 400s and no boot-time
+        // signal. Fail-fast at startup instead (F020), mirroring the NATS/GitHub
+        // groupings above.
+        let llm_key_missing =
+            cfg.llm_encryption_key.as_ref().map(|v| v.expose_secret().trim().is_empty()).unwrap_or(true);
+        if cfg.is_production() && llm_key_missing {
+            return Err(config::ConfigError::Message(
+                "LLM_ENCRYPTION_KEY is required in production (credential encryption fails closed without it)"
+                    .to_string(),
+            ));
+        }
+
         Ok(cfg)
     }
 
@@ -1336,5 +1352,59 @@ mod tests {
         assert_eq!(default_storage_max_files_per_session(), 20);
         assert_eq!(default_storage_signed_url_expiry(), 3600);
         assert_eq!(default_minio_bucket(), "agentforge");
+    }
+
+    #[test]
+    fn production_requires_llm_encryption_key() {
+        let base = [
+            ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+            ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+            ("NATS_URL", None),
+        ];
+
+        // Production with no LLM_ENCRYPTION_KEY -> rejected at boot (F020).
+        temp_env::with_vars(
+            base.iter()
+                .copied()
+                .chain([("ENVIRONMENT", Some("production")), ("LLM_ENCRYPTION_KEY", None)])
+                .collect::<Vec<_>>(),
+            || {
+                let err = AppConfig::from_env().expect_err("production must require LLM_ENCRYPTION_KEY").to_string();
+                assert!(err.contains("LLM_ENCRYPTION_KEY"), "error was: {err}");
+            },
+        );
+
+        // Production with an empty LLM_ENCRYPTION_KEY -> also rejected.
+        temp_env::with_vars(
+            base.iter()
+                .copied()
+                .chain([("ENVIRONMENT", Some("production")), ("LLM_ENCRYPTION_KEY", Some("   "))])
+                .collect::<Vec<_>>(),
+            || {
+                assert!(AppConfig::from_env().is_err(), "an empty key must be rejected in production");
+            },
+        );
+
+        // Production with a real key -> loads.
+        temp_env::with_vars(
+            base.iter()
+                .copied()
+                .chain([("ENVIRONMENT", Some("production")), ("LLM_ENCRYPTION_KEY", Some("a-real-encryption-key"))])
+                .collect::<Vec<_>>(),
+            || {
+                assert!(AppConfig::from_env().is_ok(), "production with a key must load");
+            },
+        );
+
+        // Development with no key -> loads (the requirement is production-gated).
+        temp_env::with_vars(
+            base.iter()
+                .copied()
+                .chain([("ENVIRONMENT", Some("development")), ("LLM_ENCRYPTION_KEY", None)])
+                .collect::<Vec<_>>(),
+            || {
+                assert!(AppConfig::from_env().is_ok(), "development must not require LLM_ENCRYPTION_KEY");
+            },
+        );
     }
 }
