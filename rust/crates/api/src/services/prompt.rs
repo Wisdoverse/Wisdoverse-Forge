@@ -2,7 +2,9 @@
 
 use agentforge_core::{AgentId, AppResult, MessageId, TenantScope};
 use agentforge_db::entities::AgentMessage;
-use agentforge_llm::provider::{ChatMessage, ChatRequest, StreamDelta, model_context_limit};
+use agentforge_llm::provider::{
+    ChatMessage, ChatRequest, ContentBlock, MessageContent, StreamDelta, model_context_limit,
+};
 use agentforge_llm::{LlmProviderBuildConfig, LlmProviderFactory};
 use async_trait::async_trait;
 use futures::{StreamExt, stream::BoxStream};
@@ -227,6 +229,7 @@ impl PromptService {
         model: String,
         system_prompt: Option<String>,
         content: String,
+        image_blocks: Vec<ContentBlock>,
         mut cancel_rx: oneshot::Receiver<()>,
     ) -> AppResult<BoxStream<'static, AppResult<SseFrame>>> {
         let content = PromptContent::parse(&content)?.value().to_string();
@@ -234,7 +237,19 @@ impl PromptService {
 
         let all = self.messages.list(&scope, agent_id, 1_000, None).await?;
         let sys = system_prompt.clone().unwrap_or_default();
-        let history = build_history(&all, &sys, &model)?;
+        let mut history = build_history(&all, &sys, &model)?;
+
+        // Attach images to the CURRENT user turn (the last history entry, which is
+        // the row just inserted). Images are not persisted to `agent_messages`
+        // (text-only history), so they live only on this request's user message.
+        if !image_blocks.is_empty()
+            && let Some(last) = history.last_mut()
+        {
+            let mut blocks = Vec::with_capacity(image_blocks.len() + 1);
+            blocks.push(ContentBlock::Text { text: last.content.to_text_lossy() });
+            blocks.extend(image_blocks);
+            last.content = MessageContent::Blocks(blocks);
+        }
 
         let req = ChatRequest {
             model: model.clone(),
@@ -480,7 +495,7 @@ mod stream_tests {
         // Keep _cancel_tx alive so the channel stays open (not cancelled).
 
         let mut s = svc
-            .stream(scope.clone(), agent_id, "claude-sonnet-4-6".into(), None, "hi".into(), cancel_rx)
+            .stream(scope.clone(), agent_id, "claude-sonnet-4-6".into(), None, "hi".into(), Vec::new(), cancel_rx)
             .await
             .expect("build stream");
         let mut frames = Vec::new();
@@ -517,7 +532,7 @@ mod stream_tests {
         let keys: Arc<dyn KeyResolver> = Arc::new(MockKeyResolver::with_key("k"));
         let svc = PromptService::new(messages, agents, factory, keys);
         let (_tx, rx) = oneshot::channel();
-        let result = svc.stream(scope, agent_id, "claude-sonnet-4-6".into(), None, "   ".into(), rx).await;
+        let result = svc.stream(scope, agent_id, "claude-sonnet-4-6".into(), None, "   ".into(), Vec::new(), rx).await;
         assert!(result.is_err(), "whitespace content should fail validation");
         let err = result.err().expect("already checked is_err");
         assert!(

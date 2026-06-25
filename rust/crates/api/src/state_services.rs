@@ -107,6 +107,7 @@ impl AppState {
     pub(crate) fn agent_prompt_service(&self) -> AgentPromptService {
         AgentPromptService::from_runtime(
             self.pool.clone(),
+            self.object_storage.clone(),
             self.llm_factory.clone(),
             self.encryption_key,
             self.agent_command_bus.clone(),
