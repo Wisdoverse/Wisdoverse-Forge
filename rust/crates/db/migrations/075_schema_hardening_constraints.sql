@@ -33,7 +33,6 @@ BEGIN
             ) NOT VALID;
     END IF;
 END $$;
-ALTER TABLE orchestration_tasks VALIDATE CONSTRAINT orchestration_tasks_review_status_check;
 
 -- F049: enrollment_idempotency and agent_join_codes carry tenant-boundary
 -- columns with no FK to organizations(id)/users(id), so a row can outlive the
@@ -72,6 +71,10 @@ BEGIN
             FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE NOT VALID;
     END IF;
 END $$;
-ALTER TABLE enrollment_idempotency VALIDATE CONSTRAINT enrollment_idempotency_org_id_fkey;
-ALTER TABLE enrollment_idempotency VALIDATE CONSTRAINT enrollment_idempotency_user_id_fkey;
-ALTER TABLE agent_join_codes VALIDATE CONSTRAINT agent_join_codes_organization_id_fkey;
+
+-- VALIDATE of every constraint added above is deferred to separate single-
+-- statement `-- no-transaction` migrations (078-081), so the brief
+-- ACCESS EXCLUSIVE lock from each `ADD CONSTRAINT ... NOT VALID` here is released
+-- at this migration's commit instead of being held through the validation table
+-- scans (which would turn online validation into a blocking migration). This
+-- mirrors the repo's 016 (add NOT VALID) -> 018/019 (VALIDATE) pattern.
