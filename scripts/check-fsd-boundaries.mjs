@@ -6,6 +6,12 @@ import { fileURLToPath } from 'node:url'
 
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
 const layerRank = new Map([
+  // F074: an UNRECOGNISED top-level dir under src/app is treated as the LOWEST
+  // layer (tied with shared), NOT the highest. Ranking it as `app` would let a
+  // misplaced dir import from any layer with no violation ever flagged; ranking
+  // it lowest means it can only import `shared`, so any reach into entities /
+  // features / widgets / pages surfaces it for proper classification.
+  ['unknown', 0],
   ['shared', 0],
   ['entities', 1],
   ['features', 2],
@@ -58,7 +64,10 @@ function classify(appRoot, filePath) {
   if (first === 'widgets') return { layer: 'widgets', slice: relative[1] ?? null }
   if (first === 'pages') return { layer: 'pages', slice: relative[1] ?? null }
   if (appLayerDirs.has(first) || relative.length === 1) return { layer: 'app', slice: first }
-  return { layer: 'app', slice: first }
+  // F074: an unrecognised multi-segment dir (not an FSD layer, not a known app
+  // dir, not a single top-level file) is `unknown` — ranked lowest, not `app`,
+  // so it cannot silently import from higher layers.
+  return { layer: 'unknown', slice: first }
 }
 
 function resolveSpecifier(appRoot, sourceFile, specifier) {
