@@ -85,12 +85,15 @@ pub struct DispatchReaperWorker {
     pool: PgPool,
     ttl_secs: u64,
     interval: Duration,
+    /// CN-6: when true, each tick runs only if this replica holds the dispatch
+    /// reaper's advisory lock; otherwise the tick is skipped. Default-off.
+    leader_election_enabled: bool,
 }
 
 impl DispatchReaperWorker {
     /// Create a new reaper. The sweep interval defaults to 60 seconds.
-    pub fn new(pool: PgPool, ttl_secs: u64) -> Self {
-        Self { pool, ttl_secs, interval: Duration::from_secs(60) }
+    pub fn new(pool: PgPool, ttl_secs: u64, leader_election_enabled: bool) -> Self {
+        Self { pool, ttl_secs, interval: Duration::from_secs(60), leader_election_enabled }
     }
 
     /// Run the reaper loop. The orchestrator has no shutdown watch channel —
@@ -101,8 +104,29 @@ impl DispatchReaperWorker {
         let mut ticker = tokio::time::interval(self.interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut consecutive_failures: u32 = 0;
+        // CN-6: while this replica stays leader, this slot keeps the advisory-lock
+        // connection across ticks (see leader::ensure_leader). None when election
+        // is disabled or this replica is not the leader.
+        let mut leader_conn: Option<sqlx::pool::PoolConnection<sqlx::Postgres>> = None;
         loop {
             ticker.tick().await;
+            // CN-6: under multiple replicas, only the elected leader runs the
+            // sweep. Default-off → single-replica runs the tick directly.
+            if self.leader_election_enabled {
+                match crate::leader::ensure_leader(&self.pool, crate::leader::DISPATCH_REAPER_LOCK_ID, &mut leader_conn)
+                    .await
+                {
+                    crate::leader::LeaderStatus::Leader => {}
+                    crate::leader::LeaderStatus::NotLeader => {
+                        tracing::debug!("dispatch reaper: another replica is leader; skipping tick");
+                        continue;
+                    }
+                    crate::leader::LeaderStatus::LockError(err) => {
+                        tracing::warn!(error = ?err, "dispatch reaper: leader-lock check failed; skipping tick");
+                        continue;
+                    }
+                }
+            }
             match Self::tick(&self.pool, self.ttl_secs).await {
                 Ok(outcome) if outcome.dispatches_reaped == 0 => {
                     consecutive_failures = 0;

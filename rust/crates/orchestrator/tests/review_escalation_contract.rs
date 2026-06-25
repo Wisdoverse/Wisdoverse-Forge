@@ -84,7 +84,7 @@ async fn read_review(pool: &PgPool, review_id: &str) -> (String, Option<DateTime
 }
 
 fn worker(pool: &PgPool) -> ReviewEscalationReaperWorker {
-    ReviewEscalationReaperWorker::new(pool.clone(), Arc::new(Broadcaster::new()), None, GRACE_SECS)
+    ReviewEscalationReaperWorker::new(pool.clone(), Arc::new(Broadcaster::new()), None, GRACE_SECS, false)
 }
 
 /// (a) Overdue non-terminal unescalated review → escalated_at set, state unchanged.
@@ -260,6 +260,7 @@ async fn escalation_writes_audit_log(pool: PgPool) {
         Arc::new(Broadcaster::new()),
         Some(audit_store.clone()),
         GRACE_SECS,
+        false,
     );
 
     assert_eq!(worker.tick().await.expect("tick"), 1);
@@ -309,7 +310,7 @@ async fn escalation_broadcasts_per_org_event(pool: PgPool) {
     let (_id_a, mut rx_a) = broadcaster.subscribe(org_a);
     let (_id_b, mut rx_b) = broadcaster.subscribe(org_b);
 
-    let worker = ReviewEscalationReaperWorker::new(pool.clone(), broadcaster.clone(), None, GRACE_SECS);
+    let worker = ReviewEscalationReaperWorker::new(pool.clone(), broadcaster.clone(), None, GRACE_SECS, false);
     assert_eq!(worker.tick().await.expect("tick"), 2);
 
     // org A receives exactly its own escalation, with the correct kind + payload.

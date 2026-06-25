@@ -14,8 +14,9 @@ async fn main() -> anyhow::Result<()> {
 
     if let Some(pool) = state.pool.clone() {
         let ttl = state.config.dispatch_timeout_secs;
+        let leader_election = state.config.leader_election_enabled;
         tokio::spawn(async move {
-            agentforge_orchestrator::dispatch_reaper::DispatchReaperWorker::new(pool, ttl).run().await;
+            agentforge_orchestrator::dispatch_reaper::DispatchReaperWorker::new(pool, ttl, leader_election).run().await;
             tracing::error!(
                 "dispatch reaper loop exited unexpectedly — stuck task_dispatches will no longer be aged out"
             );
@@ -31,12 +32,14 @@ async fn main() -> anyhow::Result<()> {
             let broadcaster = state.broadcaster.clone();
             let audit_store = state.audit_store.clone();
             let grace = state.config.review_escalation_grace_secs;
+            let leader_election = state.config.leader_election_enabled;
             tokio::spawn(async move {
                 agentforge_orchestrator::review_escalation_reaper::ReviewEscalationReaperWorker::new(
                     pool,
                     broadcaster,
                     audit_store,
                     grace,
+                    leader_election,
                 )
                 .run()
                 .await;
