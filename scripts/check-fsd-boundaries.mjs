@@ -5,6 +5,11 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
+// F074: `unknown` (an unrecognised src/app dir) is deliberately NOT in this rank
+// map. The old default classified such dirs as `app` (highest), letting them
+// import from any layer with no violation flagged. They are now handled
+// explicitly in `isAllowedLayerImport` (import-only-shared, importable-by-none),
+// which a single rank cannot express.
 const layerRank = new Map([
   ['shared', 0],
   ['entities', 1],
@@ -58,7 +63,10 @@ function classify(appRoot, filePath) {
   if (first === 'widgets') return { layer: 'widgets', slice: relative[1] ?? null }
   if (first === 'pages') return { layer: 'pages', slice: relative[1] ?? null }
   if (appLayerDirs.has(first) || relative.length === 1) return { layer: 'app', slice: first }
-  return { layer: 'app', slice: first }
+  // F074: an unrecognised multi-segment dir (not an FSD layer, not a known app
+  // dir, not a single top-level file) is `unknown` — ranked lowest, not `app`,
+  // so it cannot silently import from higher layers.
+  return { layer: 'unknown', slice: first }
 }
 
 function resolveSpecifier(appRoot, sourceFile, specifier) {
@@ -80,6 +88,14 @@ function resolveSpecifier(appRoot, sourceFile, specifier) {
 }
 
 function isAllowedLayerImport(source, target) {
+  // F074: an unrecognised src/app dir is `unknown`. It is not a valid module
+  // location, so NOTHING may import from it (importing an unknown dir is itself a
+  // violation), and it may itself depend ONLY on `shared`. This is asymmetric, so
+  // it cannot be expressed by a single rank — a misplaced dir is surfaced rather
+  // than silently bypassing the layer rules as the old `app`-rank default did.
+  if (target.layer === 'unknown') return false
+  if (source.layer === 'unknown') return target.layer === 'shared'
+
   const sourceRank = layerRank.get(source.layer)
   const targetRank = layerRank.get(target.layer)
   if (sourceRank === undefined || targetRank === undefined) return false

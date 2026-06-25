@@ -134,4 +134,58 @@ export function TasksPage() {
       expect.stringContaining('route files must import Page entrypoints from @app/pages/*'),
     ])
   })
+
+  it('flags an unrecognised src/app dir that imports above the shared layer (F074)', () => {
+    const cwd = fixture({
+      'src/app/scratch/util.ts': `
+import { thing } from '@app/features/board/BoardView'
+export const x = thing
+`,
+      'src/app/features/board/BoardView.tsx': `
+export const thing = 1
+`,
+    })
+
+    const result = checkFsdBoundaries({ cwd })
+
+    // An unknown dir is ranked LOWEST (not app), so reaching into features is a
+    // violation that surfaces it for proper classification — rather than being
+    // silently allowed as if it were the top `app` layer.
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('unknown/scratch')
+  })
+
+  it('allows an unrecognised src/app dir to import only from shared (F074)', () => {
+    const cwd = fixture({
+      'src/app/scratch/util.ts': `
+import { helper } from '@app/shared/lib/utils'
+export const x = helper
+`,
+      'src/app/shared/lib/utils.ts': `
+export const helper = 1
+`,
+    })
+
+    const result = checkFsdBoundaries({ cwd })
+    expect(result.ok).toBe(true)
+  })
+
+  it('forbids importing FROM an unrecognised src/app dir (F074)', () => {
+    const cwd = fixture({
+      'src/app/shared/lib/a.ts': `
+import { util } from '@app/scratch/util'
+export const x = util
+`,
+      'src/app/scratch/util.ts': `
+export const util = 1
+`,
+    })
+
+    const result = checkFsdBoundaries({ cwd })
+
+    // An unknown dir is not a valid module location, so even `shared` must not
+    // import from it — ranking it equal to shared would have wrongly allowed this.
+    expect(result.ok).toBe(false)
+    expect(result.errors.join('\n')).toContain('unknown/scratch')
+  })
 })
