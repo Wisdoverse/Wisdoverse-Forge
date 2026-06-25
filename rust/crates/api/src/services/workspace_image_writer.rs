@@ -23,10 +23,21 @@ use std::os::fd::OwnedFd;
 use std::path::Path;
 
 use agentforge_core::{AppError, AppResult, ErrorKind};
-use rustix::fs::{CWD, Mode, OFlags, mkdirat, openat};
+use rustix::fs::{CWD, Mode, OFlags, fchmod, mkdirat, openat};
 use uuid::Uuid;
 
 const TASK_IMAGES_DIR: &str = ".task-images";
+
+// The agent container runs under a DIFFERENT UID than the API process that
+// writes here (default images: API `agentforge`, agent UID 1011), and the bind
+// mount shares these inodes verbatim. So the materialized dirs must be
+// other-traversable and the files other-readable, or the CLI hits "permission
+// denied". These live inside the per-workspace projects root, already shared by
+// every agent in that workspace, so other-read does not widen the trust
+// boundary. Applied via `fchmod` after create to bypass a restrictive umask;
+// the `O_NOFOLLOW`/`openat` symlink-escape protections are unaffected.
+const DIR_MODE: u32 = 0o755;
+const FILE_MODE: u32 = 0o644;
 
 fn internal(context: &str, err: impl std::fmt::Display) -> AppError {
     ErrorKind::Internal(anyhow::anyhow!("{context}: {err}")).into()
@@ -43,13 +54,20 @@ fn open_dir_nofollow(parent: &OwnedFd, name: &str, create: bool) -> AppResult<Ow
             Err(err) => return Err(internal(&format!("mkdir {name}"), err)),
         }
     }
-    openat(parent, name, OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC, Mode::empty()).map_err(|err| {
-        if err == rustix::io::Errno::LOOP {
-            ErrorKind::Validation(format!("workspace image path component '{name}' is a symlink")).into()
-        } else {
-            internal(&format!("openat {name}"), err)
-        }
-    })
+    let fd = openat(parent, name, OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC, Mode::empty()).map_err(
+        |err| -> AppError {
+            if err == rustix::io::Errno::LOOP {
+                ErrorKind::Validation(format!("workspace image path component '{name}' is a symlink")).into()
+            } else {
+                internal(&format!("openat {name}"), err)
+            }
+        },
+    )?;
+    if create {
+        // Make the dir traversable by the agent UID (mkdirat's mode is umask-masked).
+        fchmod(&fd, Mode::from_bits_truncate(DIR_MODE)).map_err(|err| internal(&format!("chmod {name}"), err))?;
+    }
+    Ok(fd)
 }
 
 /// Materialize `(filename, bytes)` images into
@@ -97,6 +115,9 @@ pub fn materialize_task_images(
                 internal(&format!("create image {filename}"), err)
             }
         })?;
+        // Make the image other-readable so the agent UID can read it (open's mode
+        // is umask-masked; fchmod the owned fd to set it deterministically).
+        fchmod(&fd, Mode::from_bits_truncate(FILE_MODE)).map_err(|err| internal(&format!("chmod {filename}"), err))?;
         let mut file = std::fs::File::from(fd);
         file.write_all(bytes).map_err(|err| internal(&format!("write image {filename}"), err))?;
         file.sync_all().map_err(|err| internal(&format!("sync image {filename}"), err))?;
@@ -186,6 +207,27 @@ mod tests {
 
         std::fs::remove_dir_all(&root).ok();
         std::fs::remove_file(&escape).ok();
+    }
+
+    #[test]
+    fn materialized_paths_are_readable_by_other_uids() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = temp_root();
+        let task_id = Uuid::new_v4();
+        materialize_task_images(&root, task_id, &[("a.png".to_string(), b"PNG".to_vec())]).expect("materialize");
+
+        // The agent container runs as a DIFFERENT UID than the API process, so it
+        // can only reach the bind-mounted image if every dir is other-traversable
+        // and the file is other-readable. (Defends against a restrictive umask.)
+        let images_dir = root.join(".task-images");
+        let task_dir = images_dir.join(task_id.to_string());
+        let file = task_dir.join("a.png");
+        let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&images_dir) & 0o005, 0o005, ".task-images must be other-readable+traversable");
+        assert_eq!(mode(&task_dir) & 0o005, 0o005, "task dir must be other-readable+traversable");
+        assert_eq!(mode(&file) & 0o004, 0o004, "image file must be other-readable");
+
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]
