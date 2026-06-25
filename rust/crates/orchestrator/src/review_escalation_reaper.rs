@@ -119,32 +119,33 @@ impl ReviewEscalationReaperWorker {
         let mut ticker = tokio::time::interval(self.interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut consecutive_failures: u32 = 0;
+        // CN-6: while this replica stays leader, this slot keeps the advisory-lock
+        // connection across ticks (see leader::ensure_leader).
+        let mut leader_conn: Option<sqlx::pool::PoolConnection<sqlx::Postgres>> = None;
         loop {
             ticker.tick().await;
-            // CN-6: under multiple replicas, only the advisory-lock holder runs
-            // the sweep. Default-off → single-replica runs the tick directly.
-            let tick_result = if self.leader_election_enabled {
-                match crate::leader::run_as_leader(&self.pool, crate::leader::REVIEW_ESCALATION_REAPER_LOCK_ID, || {
-                    self.tick()
-                })
+            // CN-6: under multiple replicas, only the elected leader runs the
+            // sweep. Default-off → single-replica runs the tick directly.
+            if self.leader_election_enabled {
+                match crate::leader::ensure_leader(
+                    &self.pool,
+                    crate::leader::REVIEW_ESCALATION_REAPER_LOCK_ID,
+                    &mut leader_conn,
+                )
                 .await
                 {
-                    crate::leader::LeaderTick::Ran(result) => result,
-                    crate::leader::LeaderTick::Skipped => {
-                        tracing::debug!(
-                            "review escalation reaper: another replica holds the leader lock; skipping tick"
-                        );
+                    crate::leader::LeaderStatus::Leader => {}
+                    crate::leader::LeaderStatus::NotLeader => {
+                        tracing::debug!("review escalation reaper: another replica is leader; skipping tick");
                         continue;
                     }
-                    crate::leader::LeaderTick::LockError(err) => {
+                    crate::leader::LeaderStatus::LockError(err) => {
                         tracing::warn!(error = ?err, "review escalation reaper: leader-lock check failed; skipping tick");
                         continue;
                     }
                 }
-            } else {
-                self.tick().await
-            };
-            match tick_result {
+            }
+            match self.tick().await {
                 Ok(0) => {
                     consecutive_failures = 0;
                 }
