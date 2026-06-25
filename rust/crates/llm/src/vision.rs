@@ -24,17 +24,21 @@ const OPENAI_VISION_PREFIXES: &[&str] = &[
 
 /// Whether `model` on `provider` accepts image input.
 ///
-/// `anthropic` and `gemini` catalogs are currently all-vision, so they return
-/// `true` for any model (matching their hardcoded `capability_profile`).
-/// `openai` is gated to the vision families above. Every other provider
-/// (ollama, groq, deepseek, openai-compatible, custom base_url, …) is
-/// conservatively `false`, matching the providers that do not advertise vision.
+/// The Anthropic and Google (Gemini) catalogs are currently all-vision, so they
+/// return `true` for any model (matching their hardcoded `capability_profile`).
+/// NOTE the provider KEY for Gemini is `"google"` (the registry key and
+/// `GeminiProvider::name()`), not `"gemini"` — gating on the wrong key would
+/// reject every Google image prompt. `openai` is gated to the vision families
+/// above. Every other provider (ollama, groq, deepseek, the CN coding providers,
+/// openai-compatible, custom base_url, …) is conservatively `false`, matching the
+/// providers that do not advertise first-party vision.
 pub fn model_supports_image(provider: &str, model: &str) -> bool {
     let provider = provider.trim().to_ascii_lowercase();
     let model = model.trim().to_ascii_lowercase();
     match provider.as_str() {
         "anthropic" => true,
-        "gemini" => true,
+        // "google" is canonical; "gemini" accepted defensively for any drift.
+        "google" | "gemini" => true,
         "openai" => OPENAI_VISION_PREFIXES.iter().any(|prefix| model.starts_with(prefix)),
         _ => false,
     }
@@ -45,10 +49,13 @@ mod tests {
     use super::model_supports_image;
 
     #[test]
-    fn anthropic_and_gemini_are_vision_for_any_model() {
+    fn anthropic_and_google_are_vision_for_any_model() {
         assert!(model_supports_image("anthropic", "claude-sonnet-4-6"));
         assert!(model_supports_image("anthropic", "claude-opus-4-8"));
-        assert!(model_supports_image("gemini", "gemini-2.5-pro"));
+        // Gemini agents are stored under the canonical provider key "google".
+        assert!(model_supports_image("google", "gemini-2.5-pro"));
+        assert!(model_supports_image("google", "gemini-2.0-flash"));
+        assert!(model_supports_image("gemini", "gemini-2.5-pro")); // defensive alias
         assert!(model_supports_image("Anthropic", "Claude-3-Haiku")); // case-insensitive
     }
 
