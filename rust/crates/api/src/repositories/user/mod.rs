@@ -482,10 +482,19 @@ impl UserRepository {
             return Ok(false);
         };
 
-        // F004: a successful reset stamps the session floor so every token
-        // (access AND refresh) minted before this instant is rejected — closing
+        // F004: a successful reset stamps the session floor so the long-lived
+        // token-minting paths (`/auth/refresh`, `/auth/switch-context`) reject
+        // every refresh/switch token issued at or before this instant — closing
         // the window where a copied pre-reset refresh token could revive the
         // session after the hash is no longer the sentinel.
+        //
+        // ponytail: pre-reset *access* tokens are NOT checked per-request (the
+        // AuthUser extractor stays stateless — no DB read on the hot path), so
+        // they remain usable until they expire on their own. That residual is
+        // bounded by the short access TTL (`jwt_expiry_seconds`, 900s by
+        // default), the standard stateless-JWT trade-off. Upgrade path if instant
+        // access revocation is ever required: have the auth middleware consult
+        // `session_floor` per request (one indexed PK read per call).
         sqlx::query(
             "UPDATE users SET password_hash = $2, sessions_invalid_before = NOW(), updated_at = NOW() \
              WHERE id = $1 AND deleted_at IS NULL",

@@ -65,16 +65,20 @@ impl Claims {
 }
 
 /// True when a token issued at `iat` (unix seconds) must be rejected because it
-/// predates the account's session floor (`sessions_invalid_before`, unix
-/// seconds). `None` floor = never invalidated, so nothing is revoked.
+/// was issued at or before the account's session floor (`sessions_invalid_before`,
+/// unix seconds). `None` floor = never invalidated, so nothing is revoked.
 ///
-/// Whole-second granularity: a token whose `iat` equals the floor is treated as
-/// post-floor (not revoked). The reset that sets the floor commits before the
-/// reset user can authenticate again, so a fresh token's `iat` is `>=` the
-/// floor; only strictly-older (pre-reset) tokens are revoked.
+/// The comparison is `<=`, not `<`, on purpose. `iat` is whole seconds (JWT
+/// standard) while a `NOW()` floor carries sub-second precision; comparing the
+/// truncated `floor.timestamp()` with `<` would let a stale token issued *earlier
+/// in the same wall-clock second as the reset* survive (its `iat` equals the
+/// truncated floor). Rejecting `iat == floor` closes that gap. The only token
+/// this over-rejects is a legitimate re-authentication landing in the exact same
+/// second as the reset — a sub-second race that simply retries and succeeds the
+/// next second.
 pub fn session_token_revoked(iat: u64, floor_secs: Option<i64>) -> bool {
     match floor_secs {
-        Some(floor) => (iat as i64) < floor,
+        Some(floor) => (iat as i64) <= floor,
         None => false,
     }
 }
@@ -143,16 +147,18 @@ mod tests {
     }
 
     #[test]
-    fn session_token_revoked_rejects_tokens_issued_before_floor() {
-        // iat strictly before the floor -> revoked.
+    fn session_token_revoked_rejects_tokens_issued_at_or_before_floor() {
+        // Strictly before the floor -> revoked.
         assert!(session_token_revoked(1_699_999_000, Some(1_700_000_000)));
+        // Same truncated second as the floor -> revoked (closes the sub-second
+        // gap where a stale token from earlier in the reset second would survive).
+        assert!(session_token_revoked(1_700_000_000, Some(1_700_000_000)));
     }
 
     #[test]
-    fn session_token_revoked_keeps_tokens_at_or_after_floor() {
-        // Same-second as the floor -> kept (post-reset login).
-        assert!(!session_token_revoked(1_700_000_000, Some(1_700_000_000)));
-        // After the floor -> kept.
+    fn session_token_revoked_keeps_tokens_issued_after_floor() {
+        // Strictly after the floor -> kept.
+        assert!(!session_token_revoked(1_700_000_001, Some(1_700_000_000)));
         assert!(!session_token_revoked(1_700_000_500, Some(1_700_000_000)));
     }
 }

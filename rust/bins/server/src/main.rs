@@ -217,13 +217,16 @@ async fn main() -> Result<()> {
     }
 
     // F004: operator-gated legacy SHA-256 force-reset. Runs ONLY when explicitly
-    // enabled AND a password-reset path (SMTP) is configured, so it can never
-    // strand a legacy user with a sentinel hash and no way to recover. Idempotent
-    // (zero rows after the first run). The compat window already blocks legacy
-    // logins in production; this removes the brute-forceable digest at rest and
-    // invalidates any live session for the affected accounts.
+    // enabled AND a COMPLETE password-reset path is configured, so it can never
+    // strand a legacy user with a sentinel hash and no way to recover. A working
+    // reset needs BOTH SMTP (`is_configured`) and a non-empty `app_url` for the
+    // reset link — `request_password_reset` requires both — so the precondition
+    // mirrors that exactly. Idempotent (zero rows after the first run). The compat
+    // window already blocks legacy logins in production; this removes the
+    // brute-forceable digest at rest and invalidates the affected sessions.
     if config.force_reset_legacy_sha256 {
-        if email_sender.is_configured() {
+        let app_url_ready = config.app_url.as_deref().map(str::trim).is_some_and(|url| !url.is_empty());
+        if email_sender.is_configured() && app_url_ready {
             let reset = agentforge_api::repositories::user::UserRepository::new(pool.clone())
                 .force_reset_legacy_sha256_hashes()
                 .await
@@ -231,8 +234,11 @@ async fn main() -> Result<()> {
             tracing::warn!(count = reset, "F004: force-reset legacy SHA-256 password hashes (operator-enabled)");
         } else {
             tracing::error!(
-                "FORCE_RESET_LEGACY_SHA256 is enabled but no SMTP reset path is configured; \
-                 skipping the force-reset to avoid locking out legacy users — configure SMTP, then redeploy"
+                smtp_configured = email_sender.is_configured(),
+                app_url_configured = app_url_ready,
+                "FORCE_RESET_LEGACY_SHA256 is enabled but the password-reset path is incomplete \
+                 (needs both SMTP and APP_URL); skipping the force-reset to avoid locking out legacy \
+                 users — configure both, then redeploy"
             );
         }
     }
