@@ -12,4 +12,4 @@ pub mod request_id;
 pub use http_metrics::{
     HTTP_DURATION_BUCKETS, install_recorder, placeholder_handle, register_http_metrics, track_http_metrics,
 };
-pub use request_id::{REQUEST_ID_HEADER, current_request_id, sanitize_request_id, track_request_id};
+pub use request_id::{REQUEST_ID_HEADER, current_request_id, sanitize_request_id, scope_request_id, track_request_id};

@@ -49,6 +49,23 @@ pub fn current_request_id() -> Option<String> {
     REQUEST_ID.try_with(|id| id.clone()).ok()
 }
 
+/// Run `future` with `request_id` re-established as the task-local correlation id.
+///
+/// Tokio task-locals are NOT inherited by `tokio::spawn`ed tasks, so a handler
+/// that offloads work (e.g. the task-dispatch path spawns the outbound MCP
+/// calls) must capture [`current_request_id`] BEFORE spawning and wrap the
+/// spawned future with this so the id survives the task boundary. `None` runs
+/// the future unscoped (no correlation id) — the graceful degrade.
+pub async fn scope_request_id<F>(request_id: Option<String>, future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    match request_id {
+        Some(id) => REQUEST_ID.scope(id, future).await,
+        None => future.await,
+    }
+}
+
 /// Upper bound on an accepted inbound id. Long enough for a UUID, a
 /// `traceparent` trace-id, or a short opaque token; short enough to bound log /
 /// header size. An over-long inbound id is treated as untrusted and regenerated.
@@ -163,6 +180,26 @@ mod tests {
             .unwrap();
         let seen = response.headers().get("x-seen-request-id").and_then(|v| v.to_str().ok());
         assert_eq!(seen, Some("corr-tl-1"), "handler must observe the request id via the task-local");
+    }
+
+    #[tokio::test]
+    async fn scope_request_id_survives_tokio_spawn() {
+        // The dispatch path captures the id in a request scope, then offloads the
+        // MCP work to `tokio::spawn`. Task-locals are NOT inherited by spawned
+        // tasks, so a BARE spawn loses the id — but `scope_request_id` with the
+        // captured id re-establishes it. This pins the task/handler.rs fix.
+        let (bare, scoped) = REQUEST_ID
+            .scope("corr-spawn-1".to_string(), async {
+                let captured = current_request_id();
+                let bare = tokio::spawn(async { current_request_id() }).await.expect("bare join");
+                let scoped = tokio::spawn(scope_request_id(captured, async { current_request_id() }))
+                    .await
+                    .expect("scoped join");
+                (bare, scoped)
+            })
+            .await;
+        assert_eq!(bare, None, "a bare spawn does not inherit the task-local");
+        assert_eq!(scoped.as_deref(), Some("corr-spawn-1"), "scope_request_id must re-establish it across the spawn");
     }
 
     #[tokio::test]
