@@ -218,15 +218,18 @@ function recordField(value: unknown): Record<string, unknown> | null {
 let cachedUserRaw: string | null = null
 let cachedUserId: string | null = null
 function currentUserId(): string | null {
-  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('af:auth:user') : null
-  if (raw === cachedUserRaw) return cachedUserId
-  cachedUserRaw = raw
   try {
+    // `getItem` stays inside the guard: storage-restricted browsers throw a
+    // SecurityError, and owner-notification gating must fail soft (return null)
+    // rather than abort `dispatchWsMessage` and drop the live update.
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('af:auth:user') : null
+    if (raw === cachedUserRaw) return cachedUserId
+    cachedUserRaw = raw
     cachedUserId = raw ? stringField((JSON.parse(raw) as { id?: unknown }).id) : null
+    return cachedUserId
   } catch {
-    cachedUserId = null
+    return null
   }
-  return cachedUserId
 }
 
 function taskOwnerId(task: TaskSummary): string | null {
