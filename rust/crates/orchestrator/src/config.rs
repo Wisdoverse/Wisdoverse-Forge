@@ -155,6 +155,12 @@ pub struct Config {
 
     #[serde(default)]
     pub mcp_token: String,
+
+    /// CN-6: opt-in leader election for the singleton reaper loops. When true and
+    /// more than one replica runs, only the advisory-lock holder runs each reaper
+    /// tick; the rest skip. Default false → single-replica behaviour unchanged.
+    #[serde(default)]
+    pub leader_election_enabled: bool,
 }
 
 impl Default for Config {
@@ -184,6 +190,7 @@ impl Default for Config {
             dispatch_timeout_secs: default_dispatch_timeout_secs(),
             mcp_endpoint: default_mcp_endpoint(),
             mcp_token: String::new(),
+            leader_election_enabled: false,
         }
     }
 }
@@ -236,6 +243,9 @@ impl Config {
                 .unwrap_or_else(default_dispatch_timeout_secs),
             mcp_endpoint: read("ORCHESTRATOR_MCP_ENDPOINT").unwrap_or_else(default_mcp_endpoint),
             mcp_token: read("ORCHESTRATOR_MCP_TOKEN").unwrap_or_default(),
+            leader_election_enabled: read("ORCHESTRATOR_LEADER_ELECTION_ENABLED")
+                .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
+                .unwrap_or(false),
         };
 
         config.validate_runtime()?;

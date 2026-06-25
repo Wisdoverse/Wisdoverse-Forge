@@ -3,6 +3,7 @@ pub mod auth;
 pub mod config;
 pub mod dispatch_reaper;
 pub mod knowledge;
+mod leader;
 pub mod mcp;
 pub mod metrics;
 mod migrations;

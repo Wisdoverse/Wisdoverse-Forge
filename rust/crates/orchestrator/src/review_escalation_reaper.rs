@@ -89,6 +89,9 @@ pub struct ReviewEscalationReaperWorker {
     audit_store: Option<Arc<dyn AuditStore>>,
     grace_secs: u64,
     interval: Duration,
+    /// CN-6: when true, each tick runs only if this replica holds the
+    /// review-escalation reaper's advisory lock; otherwise it is skipped.
+    leader_election_enabled: bool,
 }
 
 impl ReviewEscalationReaperWorker {
@@ -98,8 +101,9 @@ impl ReviewEscalationReaperWorker {
         broadcaster: Arc<Broadcaster>,
         audit_store: Option<Arc<dyn AuditStore>>,
         grace_secs: u64,
+        leader_election_enabled: bool,
     ) -> Self {
-        Self { pool, broadcaster, audit_store, grace_secs, interval: Duration::from_secs(60) }
+        Self { pool, broadcaster, audit_store, grace_secs, interval: Duration::from_secs(60), leader_election_enabled }
     }
 
     /// Run the reaper loop. The orchestrator has no shutdown watch channel — the
@@ -117,7 +121,30 @@ impl ReviewEscalationReaperWorker {
         let mut consecutive_failures: u32 = 0;
         loop {
             ticker.tick().await;
-            match self.tick().await {
+            // CN-6: under multiple replicas, only the advisory-lock holder runs
+            // the sweep. Default-off → single-replica runs the tick directly.
+            let tick_result = if self.leader_election_enabled {
+                match crate::leader::run_as_leader(&self.pool, crate::leader::REVIEW_ESCALATION_REAPER_LOCK_ID, || {
+                    self.tick()
+                })
+                .await
+                {
+                    crate::leader::LeaderTick::Ran(result) => result,
+                    crate::leader::LeaderTick::Skipped => {
+                        tracing::debug!(
+                            "review escalation reaper: another replica holds the leader lock; skipping tick"
+                        );
+                        continue;
+                    }
+                    crate::leader::LeaderTick::LockError(err) => {
+                        tracing::warn!(error = ?err, "review escalation reaper: leader-lock check failed; skipping tick");
+                        continue;
+                    }
+                }
+            } else {
+                self.tick().await
+            };
+            match tick_result {
                 Ok(0) => {
                     consecutive_failures = 0;
                 }

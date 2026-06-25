@@ -85,12 +85,15 @@ pub struct DispatchReaperWorker {
     pool: PgPool,
     ttl_secs: u64,
     interval: Duration,
+    /// CN-6: when true, each tick runs only if this replica holds the dispatch
+    /// reaper's advisory lock; otherwise the tick is skipped. Default-off.
+    leader_election_enabled: bool,
 }
 
 impl DispatchReaperWorker {
     /// Create a new reaper. The sweep interval defaults to 60 seconds.
-    pub fn new(pool: PgPool, ttl_secs: u64) -> Self {
-        Self { pool, ttl_secs, interval: Duration::from_secs(60) }
+    pub fn new(pool: PgPool, ttl_secs: u64, leader_election_enabled: bool) -> Self {
+        Self { pool, ttl_secs, interval: Duration::from_secs(60), leader_election_enabled }
     }
 
     /// Run the reaper loop. The orchestrator has no shutdown watch channel —
@@ -103,7 +106,28 @@ impl DispatchReaperWorker {
         let mut consecutive_failures: u32 = 0;
         loop {
             ticker.tick().await;
-            match Self::tick(&self.pool, self.ttl_secs).await {
+            // CN-6: under multiple replicas, only the advisory-lock holder runs
+            // the sweep. Default-off → single-replica runs the tick directly.
+            let tick_result = if self.leader_election_enabled {
+                match crate::leader::run_as_leader(&self.pool, crate::leader::DISPATCH_REAPER_LOCK_ID, || {
+                    Self::tick(&self.pool, self.ttl_secs)
+                })
+                .await
+                {
+                    crate::leader::LeaderTick::Ran(result) => result,
+                    crate::leader::LeaderTick::Skipped => {
+                        tracing::debug!("dispatch reaper: another replica holds the leader lock; skipping tick");
+                        continue;
+                    }
+                    crate::leader::LeaderTick::LockError(err) => {
+                        tracing::warn!(error = ?err, "dispatch reaper: leader-lock check failed; skipping tick");
+                        continue;
+                    }
+                }
+            } else {
+                Self::tick(&self.pool, self.ttl_secs).await
+            };
+            match tick_result {
                 Ok(outcome) if outcome.dispatches_reaped == 0 => {
                     consecutive_failures = 0;
                 }
