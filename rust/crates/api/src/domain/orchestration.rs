@@ -620,6 +620,7 @@ impl TaskAssignmentPolicy {
             // None (a cold, low-volume path). The auto-dispatcher
             // (participant_liveness) populates it inline on its hot path.
             runtime_kind: None,
+            image_paths: Vec::new(),
         })
     }
 }

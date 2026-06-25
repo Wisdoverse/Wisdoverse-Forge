@@ -448,6 +448,7 @@ mod tests {
             priority: "normal".into(),
             context_envelope: None,
             runtime_kind: None,
+            image_paths: Vec::new(),
         }
     }
 

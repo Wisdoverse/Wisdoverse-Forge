@@ -851,6 +851,7 @@ async fn claim_next_task_for_participant(
         priority: claimed_task.priority.clone(),
         context_envelope: None,
         runtime_kind,
+        image_paths: Vec::new(),
     };
     crate::insert_assignment_outbox_in_tx(&mut tx, participant.organization_id.as_uuid(), claimed_task.id, &assignment)
         .await?;
