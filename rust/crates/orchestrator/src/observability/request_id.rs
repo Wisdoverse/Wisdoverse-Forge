@@ -32,6 +32,40 @@ use uuid::Uuid;
 /// from an HTTP/1.1 client too.
 pub const REQUEST_ID_HEADER: &str = "x-request-id";
 
+tokio::task_local! {
+    /// The current request's correlation id, set by [`track_request_id`] for the
+    /// duration of request handling. Task-locals propagate across `.await` within
+    /// the same task, so any outbound call a handler makes (e.g. the orchestrator
+    /// calling back into the API's MCP bridge) can read it via
+    /// [`current_request_id`] and forward `x-request-id` — lining the two
+    /// services' logs up under one id (MS-1 cross-hop propagation).
+    static REQUEST_ID: String;
+}
+
+/// The correlation id of the request currently being handled on this task, if
+/// any. `None` outside request context (e.g. a background worker), so callers
+/// degrade gracefully to no propagation rather than failing.
+pub fn current_request_id() -> Option<String> {
+    REQUEST_ID.try_with(|id| id.clone()).ok()
+}
+
+/// Run `future` with `request_id` re-established as the task-local correlation id.
+///
+/// Tokio task-locals are NOT inherited by `tokio::spawn`ed tasks, so a handler
+/// that offloads work (e.g. the task-dispatch path spawns the outbound MCP
+/// calls) must capture [`current_request_id`] BEFORE spawning and wrap the
+/// spawned future with this so the id survives the task boundary. `None` runs
+/// the future unscoped (no correlation id) — the graceful degrade.
+pub async fn scope_request_id<F>(request_id: Option<String>, future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    match request_id {
+        Some(id) => REQUEST_ID.scope(id, future).await,
+        None => future.await,
+    }
+}
+
 /// Upper bound on an accepted inbound id. Long enough for a UUID, a
 /// `traceparent` trace-id, or a short opaque token; short enough to bound log /
 /// header size. An over-long inbound id is treated as untrusted and regenerated.
@@ -79,10 +113,12 @@ pub async fn track_request_id(req: Request<Body>, next: Next) -> Response {
     let inbound = req.headers().get(REQUEST_ID_HEADER).and_then(|value| value.to_str().ok());
     let request_id = sanitize_request_id(inbound);
 
-    // Run the inner service inside the correlation span so handler logs inherit
-    // `request_id`. The id is a safe charset, so the HeaderValue conversion below
-    // never fails — but fall back gracefully rather than panic.
-    let mut response = next.run(req).instrument(request_span(&request_id)).await;
+    // Run the inner service inside the correlation span (so handler logs inherit
+    // `request_id`) AND inside the REQUEST_ID task-local scope (so outbound calls
+    // the handler makes can forward the id). The id is a safe charset, so the
+    // HeaderValue conversion below never fails — but fall back gracefully.
+    let inner = next.run(req).instrument(request_span(&request_id));
+    let mut response = REQUEST_ID.scope(request_id.clone(), inner).await;
 
     if let Ok(header_value) = HeaderValue::from_str(&request_id) {
         response.headers_mut().insert(REQUEST_ID_HEADER, header_value);
@@ -118,6 +154,52 @@ mod tests {
         let status = response.status();
         let id = response.headers().get(REQUEST_ID_HEADER).and_then(|v| v.to_str().ok()).map(ToString::to_string);
         (status, id)
+    }
+
+    #[tokio::test]
+    async fn current_request_id_is_none_outside_request_scope() {
+        // No middleware, no scope → outbound callers must see None and skip
+        // propagation rather than panic.
+        assert_eq!(current_request_id(), None);
+    }
+
+    #[tokio::test]
+    async fn track_request_id_populates_task_local_for_handlers() {
+        // A handler reads the task-local and reflects it; if the middleware sets
+        // the REQUEST_ID scope, the handler sees the SAME id it was given.
+        async fn reflect() -> axum::http::HeaderMap {
+            let mut headers = axum::http::HeaderMap::new();
+            let seen = current_request_id().unwrap_or_default();
+            headers.insert("x-seen-request-id", seen.parse().expect("valid header value"));
+            headers
+        }
+        let app = Router::new().route("/x", get(reflect)).layer(axum::middleware::from_fn(track_request_id));
+        let response = app
+            .oneshot(Request::builder().uri("/x").header(REQUEST_ID_HEADER, "corr-tl-1").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let seen = response.headers().get("x-seen-request-id").and_then(|v| v.to_str().ok());
+        assert_eq!(seen, Some("corr-tl-1"), "handler must observe the request id via the task-local");
+    }
+
+    #[tokio::test]
+    async fn scope_request_id_survives_tokio_spawn() {
+        // The dispatch path captures the id in a request scope, then offloads the
+        // MCP work to `tokio::spawn`. Task-locals are NOT inherited by spawned
+        // tasks, so a BARE spawn loses the id — but `scope_request_id` with the
+        // captured id re-establishes it. This pins the task/handler.rs fix.
+        let (bare, scoped) = REQUEST_ID
+            .scope("corr-spawn-1".to_string(), async {
+                let captured = current_request_id();
+                let bare = tokio::spawn(async { current_request_id() }).await.expect("bare join");
+                let scoped = tokio::spawn(scope_request_id(captured, async { current_request_id() }))
+                    .await
+                    .expect("scoped join");
+                (bare, scoped)
+            })
+            .await;
+        assert_eq!(bare, None, "a bare spawn does not inherit the task-local");
+        assert_eq!(scoped.as_deref(), Some("corr-spawn-1"), "scope_request_id must re-establish it across the spawn");
     }
 
     #[tokio::test]
