@@ -200,6 +200,34 @@ async fn multi_org_sweep(pool: sqlx::PgPool) {
     assert_eq!(status_i, "failed", "dispatch I (org-beta) should be reaped");
 }
 
+/// F051: the bounded sweep caps each statement at 1000 rows, so a stuck backlog
+/// LARGER than one batch must still be fully drained in a single `tick()` — the
+/// loop runs batches until a pass returns fewer than the limit. This fails if the
+/// loop is removed (only the first 1000 would be reaped) while still proving the
+/// statement is bounded (asserted structurally by the SQL-pin unit test).
+#[sqlx::test(migrations = "./migrations")]
+async fn tick_drains_backlog_larger_than_one_batch(pool: sqlx::PgPool) {
+    // Seed 1001 stale queued dispatches — one more than the 1000-row batch cap.
+    sqlx::query(
+        "INSERT INTO task_dispatches (task_id, org_id, status, updated_at)
+         SELECT 'task-batch-' || g, 'org-batch', 'queued', NOW() - INTERVAL '2 hours'
+         FROM generate_series(1, 1001) AS g",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed 1001 stale dispatches");
+
+    let outcome = DispatchReaperWorker::tick(&pool, 3600).await.expect("tick should succeed");
+    assert_eq!(outcome.dispatches_reaped, 1001, "one tick must drain the whole backlog across batches");
+
+    let remaining: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM task_dispatches WHERE org_id = 'org-batch' AND status <> 'failed'")
+            .fetch_one(&pool)
+            .await
+            .expect("count remaining");
+    assert_eq!(remaining, 0, "no stuck dispatch may be left behind after a single tick");
+}
+
 /// F039: reaping a stuck dispatch must close the loop on the owning task. A
 /// task parked in `assigned` (its dispatch never started) is reset to `pending`
 /// so it is re-dispatchable, in the same atomic pass that fails the dispatch.

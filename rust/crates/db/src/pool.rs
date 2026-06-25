@@ -148,6 +148,8 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("072_bootstrap_platform_admin.sql", include_str!("../migrations/072_bootstrap_platform_admin.sql")),
     ("073_drop_unused_job_notify.sql", include_str!("../migrations/073_drop_unused_job_notify.sql")),
     ("074_add_sessions_invalid_before.sql", include_str!("../migrations/074_add_sessions_invalid_before.sql")),
+    ("075_schema_hardening_constraints.sql", include_str!("../migrations/075_schema_hardening_constraints.sql")),
+    ("076_outbox_consumer_indexes.sql", include_str!("../migrations/076_outbox_consumer_indexes.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.
