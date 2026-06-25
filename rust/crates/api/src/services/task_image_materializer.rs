@@ -21,6 +21,24 @@ use crate::services::workspace_image_writer::materialize_task_images;
 /// assignment envelope size); mirrors the provider/quick-message cap.
 const MAX_TASK_IMAGES: usize = 8;
 
+/// Cap on the readable stem of a materialized filename so the full on-disk
+/// component (`<uuid>-<stem>.png`) stays under the 255-byte `NAME_MAX`:
+/// 255 - 36 (uuid) - 1 (`-`) - 4 (`.png`) = 214.
+const MAX_IMAGE_FILENAME_STEM: usize = 214;
+
+/// Build the on-disk workspace filename for one image: `<uuid>-<stem>.png`.
+/// The `uuid` prefix makes two same-named uploads collide-free and gives the
+/// agent-unpredictable component; the stored bytes are always re-encoded PNG so
+/// the extension is forced to `.png`; and the readable stem is bounded so the
+/// component never exceeds `NAME_MAX` (which would fail `openat` at dispatch).
+/// `filename_segment` is ASCII-only, so byte-slicing the stem is safe.
+fn materialized_image_filename(uuid: Uuid, original: &str) -> String {
+    let seg = filename_segment(original);
+    let stem = seg.strip_suffix(".png").unwrap_or(&seg);
+    let stem = &stem[..stem.len().min(MAX_IMAGE_FILENAME_STEM)];
+    format!("{uuid}-{stem}.png")
+}
+
 #[derive(Clone)]
 pub struct TaskImageMaterializer {
     attachments: Arc<AttachmentRepository>,
@@ -91,10 +109,7 @@ impl TaskImageMaterializer {
                 return Err(ErrorKind::NotFound(format!("image {uuid}")).into());
             }
             let bytes = self.object_storage.get_bytes(&attachment.storage_path).await?;
-            // UUID-prefixed + sanitized so two same-named images can't collide and
-            // the on-disk name has no path separators.
-            let filename = format!("{uuid}-{}", filename_segment(&attachment.filename));
-            images.push((filename, bytes));
+            images.push((materialized_image_filename(uuid, &attachment.filename), bytes));
         }
 
         let paths = resolve_agent_workspace_paths(
@@ -103,5 +118,30 @@ impl TaskImageMaterializer {
             None,
         )?;
         materialize_task_images(&paths.host_projects_root, task_id, &images)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn materialized_filename_is_uuid_prefixed_png() {
+        let id = Uuid::nil();
+        assert_eq!(materialized_image_filename(id, "screenshot.png"), format!("{id}-screenshot.png"));
+        // Non-png stored name still gets a .png on-disk name (bytes are re-encoded PNG).
+        assert_eq!(materialized_image_filename(id, "photo.jpeg"), format!("{id}-photo.jpeg.png"));
+        // Path separators / odd chars are sanitized to underscores.
+        assert_eq!(materialized_image_filename(id, "a/b c.png"), format!("{id}-a_b_c.png"));
+    }
+
+    #[test]
+    fn materialized_filename_never_exceeds_name_max() {
+        // A pathological near-255-char upload name must not produce an on-disk
+        // component over NAME_MAX (255) — that would fail openat at dispatch.
+        let long = format!("{}.png", "x".repeat(300));
+        let name = materialized_image_filename(Uuid::new_v4(), &long);
+        assert!(name.len() <= 255, "component must fit NAME_MAX, got {}", name.len());
+        assert!(name.ends_with(".png"), "must keep the .png extension: {name}");
     }
 }

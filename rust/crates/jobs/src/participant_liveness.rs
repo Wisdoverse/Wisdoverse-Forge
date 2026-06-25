@@ -169,6 +169,15 @@ pub(crate) const NEXT_DISPATCHABLE_SQL: &str = r#"SELECT *
            AND status IN ('queued', 'blocked')
            AND (blocked_reason IS NULL OR blocked_reason = 'waiting_agent')
            AND assigned_agent_id IS NULL
+           -- Image tasks are bound to a specific vision-capable container agent
+           -- and need server-side image materialization that this self-claim
+           -- lane cannot perform; never auto-dispatch one here (it would run the
+           -- CLI without its images and bypass the vision/workspace gates).
+           AND COALESCE(
+                 CASE WHEN jsonb_typeof(params -> 'imageAttachmentIds') = 'array'
+                      THEN jsonb_array_length(params -> 'imageAttachmentIds')
+                      ELSE 0 END,
+                 0) = 0
          ORDER BY
            CASE priority
              WHEN 'urgent' THEN 0
@@ -1141,5 +1150,82 @@ mod tests {
         assert_eq!(participant_status_for_ws("busy"), "busy");
         assert_eq!(participant_status_for_ws("offline"), "offline");
         assert_eq!(participant_status_for_ws("unknown"), "online");
+    }
+
+    // An image task is bound to a specific vision-capable container agent and
+    // needs server-side image materialization (object storage + symlink-safe
+    // workspace write), which this self-claim lane cannot do. So it must NEVER
+    // be auto-claimed here — otherwise the CLI runs without its images and the
+    // vision/workspace gates are bypassed. See task_image_materializer.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn next_dispatchable_excludes_image_tasks(pool: sqlx::PgPool) {
+        use uuid::Uuid;
+
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind("Img Test Org")
+            .bind(format!("img-org-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+
+        // Image task: unassigned + queued + sorted FIRST (earlier created_at).
+        let image_task = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, created_by, params, created_at, updated_at)
+               VALUES ($1, $2, 'Image', 'queued', $3, $4::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
+        )
+        .bind(image_task)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(serde_json::json!({ "imageAttachmentIds": ["11111111-1111-1111-1111-111111111111"] }))
+        .execute(&pool)
+        .await
+        .expect("seed image task");
+
+        // Plain task: unassigned + queued, later created_at.
+        let plain_task = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, created_by, created_at, updated_at)
+               VALUES ($1, $2, 'Plain', 'queued', $3, NOW(), NOW())"#,
+        )
+        .bind(plain_task)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed plain task");
+
+        let claimed = sqlx::query_as::<_, OrchestrationTask>(NEXT_DISPATCHABLE_SQL)
+            .bind(org_id)
+            .fetch_optional(&pool)
+            .await
+            .expect("query dispatchable");
+
+        // Despite sorting first, the image task is skipped; the plain task wins.
+        assert_eq!(claimed.map(|t| t.id), Some(plain_task), "image task must be excluded from the self-claim lane");
+
+        // And with ONLY an image task queued, the lane returns nothing.
+        sqlx::query("DELETE FROM orchestration_tasks WHERE id = $1")
+            .bind(plain_task)
+            .execute(&pool)
+            .await
+            .expect("del");
+        let none = sqlx::query_as::<_, OrchestrationTask>(NEXT_DISPATCHABLE_SQL)
+            .bind(org_id)
+            .fetch_optional(&pool)
+            .await
+            .expect("query dispatchable again");
+        assert!(none.is_none(), "an image-only queue must not self-dispatch");
     }
 }
