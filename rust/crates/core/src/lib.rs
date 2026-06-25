@@ -29,3 +29,11 @@ pub use types::*;
 
 /// Crate version from Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Heartbeat capability token a sidecar advertises once it understands the
+/// `TaskAssignment.image_paths` field. The dispatcher gates instruction-image
+/// delivery on the live participant reporting this, so a pre-image sidecar
+/// (rolling deploy, not yet restarted) fails closed instead of silently running
+/// an image task with the text prompt only. Sidecar publishes it; the
+/// orchestration dispatch path requires it before materializing images.
+pub const SIDECAR_IMAGE_INPUT_CAPABILITY: &str = "image_input";

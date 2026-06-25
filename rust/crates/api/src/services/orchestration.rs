@@ -482,6 +482,7 @@ impl OrchestrationService {
         scope: &TenantScope,
         agent_id: AgentId,
         task: &OrchestrationTask,
+        participant_capabilities: &[String],
     ) -> AppResult<Vec<String>> {
         let Some(materializer) = self.image_materializer.as_ref() else {
             return Ok(Vec::new());
@@ -489,6 +490,19 @@ impl OrchestrationService {
         let image_ids = crate::domain::orchestration::task_image_attachment_ids(task.params.as_ref());
         if image_ids.is_empty() {
             return Ok(Vec::new());
+        }
+        // Rolling-deploy gate: only a sidecar that advertises the image-input
+        // capability understands `TaskAssignment.image_paths`. An older
+        // still-running sidecar would verify the signed envelope and then ignore
+        // the unknown field, running the CLI with the text prompt only. Fail
+        // closed so the dispatch rolls back instead of silently dropping the
+        // images; the operator rolls/restarts the agent and re-dispatches.
+        if !participant_capabilities.iter().any(|c| c == agentforge_core::SIDECAR_IMAGE_INPUT_CAPABILITY) {
+            return Err(agentforge_core::ErrorKind::Validation(
+                "agent's sidecar does not yet support instruction images; restart or roll the agent and retry"
+                    .to_string(),
+            )
+            .into());
         }
         let agent = crate::repositories::agent::AgentRepository::new(self.task_repo.pool().clone())
             .find_by_id(scope, agent_id)
@@ -583,13 +597,14 @@ impl OrchestrationService {
         // Materialize instruction images into the agent workspace (symlink-safe)
         // and attach their container paths to the assignment. Fails closed: a
         // capability/workspace/kind violation rolls the dispatch back.
-        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await {
-            Ok(paths) => paths,
-            Err(err) => {
-                let _ = tx.rollback().await;
-                return Err(err);
-            }
-        };
+        let image_paths =
+            match self.resolve_assignment_images(scope, participant.agent_id, &task, &participant.capabilities).await {
+                Ok(paths) => paths,
+                Err(err) => {
+                    let _ = tx.rollback().await;
+                    return Err(err);
+                }
+            };
         let mut assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
         assignment.image_paths = image_paths;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
@@ -1092,13 +1107,14 @@ impl OrchestrationService {
         // Materialize instruction images into the agent workspace (symlink-safe)
         // and attach their container paths to the assignment. Fails closed: a
         // capability/workspace/kind violation rolls the dispatch back.
-        let image_paths = match self.resolve_assignment_images(scope, participant.agent_id, &task).await {
-            Ok(paths) => paths,
-            Err(err) => {
-                let _ = tx.rollback().await;
-                return Err(err);
-            }
-        };
+        let image_paths =
+            match self.resolve_assignment_images(scope, participant.agent_id, &task, &participant.capabilities).await {
+                Ok(paths) => paths,
+                Err(err) => {
+                    let _ = tx.rollback().await;
+                    return Err(err);
+                }
+            };
         let mut assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
         assignment.image_paths = image_paths;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await

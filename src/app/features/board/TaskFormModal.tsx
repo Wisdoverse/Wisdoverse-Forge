@@ -191,6 +191,9 @@ export function TaskFormModal({
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  // Live mirror of the assignee so an in-flight upload can detect a mid-upload
+  // assignee change and discard a now-stale attachment id.
+  const assignedToRef = useRef('')
   const uploadImage = useAgentsStore((state) => state.uploadImage)
 
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -257,10 +260,15 @@ export function TaskFormModal({
     setImageIds([])
     setImagePreviews([])
     setImageError(null)
+    assignedToRef.current = assignedToValue
   }, [assignedToValue])
 
   async function uploadFiles(files: File[]) {
     if (!canAttachImages || files.length === 0) return
+    // The upload scopes the image to THIS assignee's workspace. If the user
+    // switches/clears the assignee while it's in flight, the result belongs to
+    // the old agent and must be discarded rather than submitted for the wrong one.
+    const uploadAssignee = assignedToValue
     setImageError(null)
     setUploadingImage(true)
     try {
@@ -269,7 +277,11 @@ export function TaskFormModal({
           setImageError('Only image files can be attached.')
           continue
         }
-        const res = await uploadImage(assignedToValue, file)
+        const res = await uploadImage(uploadAssignee, file)
+        if (assignedToRef.current !== uploadAssignee) {
+          // Assignee changed mid-upload — drop this now-stale attachment.
+          continue
+        }
         if (res.ok && res.id) {
           const id = res.id
           setImageIds((ids) => [...ids, id])
