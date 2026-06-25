@@ -23,6 +23,38 @@ use uuid::Uuid;
 
 use crate::domain::agent::{AgentAggregate, AgentRepositoryPolicy, NewAgent};
 
+/// SQLx `query_as` target for the agent write-side aggregate. The repository
+/// owns this row shape and converts it into the domain [`AgentAggregate`], so
+/// the aggregate root in `domain/` carries no `FromRow` coupling.
+#[derive(Debug, Clone, FromRow)]
+struct AgentAggregateRow {
+    id: Uuid,
+    runtime_kind: RuntimeKind,
+    cli_tool: Option<String>,
+    container_id: Option<String>,
+    runtime_id: Option<String>,
+    workspace_id: Uuid,
+    organization_id: Uuid,
+    user_id: Uuid,
+    status: AgentStatus,
+}
+
+impl From<AgentAggregateRow> for AgentAggregate {
+    fn from(row: AgentAggregateRow) -> Self {
+        Self {
+            id: row.id,
+            runtime_kind: row.runtime_kind,
+            cli_tool: row.cli_tool,
+            container_id: row.container_id,
+            runtime_id: row.runtime_id,
+            workspace_id: row.workspace_id,
+            organization_id: row.organization_id,
+            user_id: row.user_id,
+            status: row.status,
+        }
+    }
+}
+
 /// Enriched agent row with owner and project info joined in.
 ///
 /// Used by user-facing list/get endpoints so the frontend can display
@@ -439,7 +471,7 @@ impl AgentRepository {
     /// and identity columns so lifecycle and enrollment services can operate on
     /// a fully typed aggregate instead of the raw `Agent` DB entity.
     pub async fn find_aggregate(&self, scope: &TenantScope, id: Uuid) -> AppResult<AgentAggregate> {
-        sqlx::query_as::<_, AgentAggregate>(
+        sqlx::query_as::<_, AgentAggregateRow>(
             "SELECT id, runtime_kind, cli_tool, container_id, runtime_id,
                     workspace_id, organization_id, user_id, status
              FROM agents
@@ -449,6 +481,7 @@ impl AgentRepository {
         .bind(scope.org_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?
+        .map(AgentAggregate::from)
         .ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(id))
     }
 
