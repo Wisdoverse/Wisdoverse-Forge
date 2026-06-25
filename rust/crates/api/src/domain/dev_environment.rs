@@ -189,6 +189,111 @@ impl DevEnvironmentRuntimeSpec {
     }
 }
 
+/// Image-source allowlist policy for dev-environment containers (F018).
+///
+/// The dev-environment runs an operator-supplied image on the host Docker
+/// daemon, so an unrestricted reference is a supply-chain / arbitrary-image RCE
+/// vector (and the pull can reach internal registries, SSRF-style). The policy
+/// is lenient-by-default but closed: official Docker Hub **library** images
+/// (e.g. `ubuntu:22.04`, `library/alpine`) and the managed `agentforge-agent`
+/// images are always allowed; operators widen it with
+/// `DEV_ENV_ALLOWED_IMAGE_REGISTRIES` (a list of reference prefixes such as
+/// `ghcr.io/myorg/` or `docker.io/`). Anything else — a namespaced Docker Hub
+/// image, or any other registry host — is rejected, so a tenant cannot pull
+/// `evil.example/malware` or reach `internal-registry:5000/...`.
+pub(crate) struct DevEnvironmentImagePolicy;
+
+impl DevEnvironmentImagePolicy {
+    const MANAGED_IMAGE_REPO: &'static str = "agentforge-agent";
+
+    pub(crate) fn ensure_image_allowed(image: &str, configured_prefixes: &[String]) -> AppResult<()> {
+        let image = image.trim();
+        if image.is_empty() {
+            return Err(ErrorKind::Validation("config.image is required to start a dev environment".into()).into());
+        }
+        // Reject whitespace / control chars: the reference is passed to the
+        // daemon's image-pull, and this also forecloses argv/cmdline injection.
+        if image.chars().any(|c| c.is_control() || c.is_whitespace()) {
+            return Err(ErrorKind::Validation(
+                "image reference must not contain whitespace or control characters".into(),
+            )
+            .into());
+        }
+        // Explicit operator opt-in: a configured reference prefix, matched at a
+        // component boundary so `ghcr.io` does not also admit `ghcr.io.evil/...`
+        // and `ghcr.io/myorg` does not admit `ghcr.io/myorg-malware/...`.
+        if configured_prefixes.iter().any(|prefix| Self::prefix_matches(image, prefix)) {
+            return Ok(());
+        }
+        // Split off the registry component per Docker's rule (the first path
+        // segment is a registry IFF it contains `.`/`:` or is `localhost`). The
+        // managed and official-library cases require NO registry — otherwise a ref
+        // like `agentforge-agent:5000/malware` (registry host `agentforge-agent:5000`)
+        // would masquerade as the managed image and pull from an arbitrary host.
+        if let Some(path) = Self::docker_hub_path(image) {
+            let repo = Self::repository_of(path);
+            // Managed local agent image (`agentforge-agent[:tag]`).
+            if repo == Self::MANAGED_IMAGE_REPO {
+                return Ok(());
+            }
+            // Official Docker Hub library image: bare `name` (-> library/name) or
+            // an explicit single-level `library/name`. The library namespace is
+            // curated by Docker, so it cannot host a tenant's malicious image.
+            if !repo.contains('/') || repo.strip_prefix("library/").is_some_and(|rest| !rest.contains('/')) {
+                return Ok(());
+            }
+        }
+        Err(ErrorKind::Validation(format!(
+            "image '{image}' is not from an allowed source; use an official Docker Hub library image \
+             (e.g. ubuntu:22.04), a managed agentforge-agent image, or a registry prefix configured in \
+             DEV_ENV_ALLOWED_IMAGE_REGISTRIES"
+        ))
+        .into())
+    }
+
+    /// Return the Docker Hub repository path of a reference, or `None` if it
+    /// targets a non-Hub registry. A canonical Docker Hub registry host
+    /// (`docker.io`, `index.docker.io`, `registry-1.docker.io`) is stripped so
+    /// `docker.io/library/ubuntu` is recognized as the same official image as the
+    /// bare `ubuntu`. Otherwise Docker treats the first `/`-segment as a registry
+    /// when it contains `.`/`:` or equals `localhost`.
+    fn docker_hub_path(image: &str) -> Option<&str> {
+        match image.split_once('/') {
+            Some(("docker.io" | "index.docker.io" | "registry-1.docker.io", rest)) => Some(rest),
+            Some((first, _)) if first.contains('.') || first.contains(':') || first == "localhost" => None,
+            _ => Some(image),
+        }
+    }
+
+    /// Strip an optional `@digest` then `:tag` from a Docker Hub reference path,
+    /// leaving the bare repository (e.g. `library/ubuntu`, `agentforge-agent`).
+    fn repository_of(path: &str) -> &str {
+        let without_digest = path.split('@').next().unwrap_or(path);
+        // A `:` only follows the repository as a tag separator here (the registry,
+        // which is the only other `:` source, was already excluded).
+        match without_digest.rsplit_once(':') {
+            Some((repo, _tag)) => repo,
+            None => without_digest,
+        }
+    }
+
+    /// Does an operator-configured `prefix` match `image` at a component boundary?
+    /// A bare prefix (no trailing `/`) matches only when the next character in the
+    /// image is a path/tag boundary (`/` or `:`) or the image ends there — so
+    /// `ghcr.io` matches `ghcr.io/x` but not `ghcr.io.evil/x`, and `ghcr.io/myorg`
+    /// matches `ghcr.io/myorg/x` but not `ghcr.io/myorg-malware/x`. A prefix that
+    /// already ends with `/` is a plain path-prefix and is taken as-is.
+    fn prefix_matches(image: &str, prefix: &str) -> bool {
+        if prefix.is_empty() {
+            return false;
+        }
+        let Some(rest) = image.strip_prefix(prefix) else {
+            return false;
+        };
+        prefix.ends_with('/') || rest.is_empty() || rest.starts_with('/') || rest.starts_with(':')
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DevEnvironmentMountSpec {
     pub(crate) source: String,
@@ -266,6 +371,77 @@ fn validate_env_key(key: &str) -> AppResult<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn image_policy_allows_official_library_and_managed_images() {
+        let none: &[String] = &[];
+        // Official Docker Hub library images (curated namespace), including the
+        // canonical registry-qualified forms.
+        for ok in [
+            "ubuntu:22.04",
+            "alpine:3.19",
+            "python:3.12-slim",
+            "library/ubuntu:22.04",
+            "debian",
+            "docker.io/library/ubuntu:22.04",
+            "index.docker.io/library/alpine",
+            "docker.io/ubuntu",
+        ] {
+            assert!(DevEnvironmentImagePolicy::ensure_image_allowed(ok, none).is_ok(), "{ok} should be allowed");
+        }
+        // A canonical Docker Hub *namespaced* (non-library) image is still rejected.
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("docker.io/someuser/img", none).is_err());
+        // Managed local agent images.
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("agentforge-agent", none).is_ok());
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("agentforge-agent:codex", none).is_ok());
+    }
+
+    #[test]
+    fn image_policy_blocks_untrusted_registries_and_namespaces_by_default() {
+        let none: &[String] = &[];
+        for bad in [
+            "evil.example/malware:latest",   // arbitrary external registry
+            "ghcr.io/someorg/img:1",         // other registry host
+            "registry.internal:5000/x",      // internal registry (SSRF-style)
+            "someuser/customimage:tag",      // non-library docker.io namespace
+            "127.0.0.1:5000/x",              // host-local registry
+            "agentforge-agent:5000/malware", // registry `agentforge-agent:5000`, NOT the managed image
+            "library/ns/extra",              // multi-level under library
+            "",                              // empty
+            "ubuntu 22.04",                  // whitespace
+        ] {
+            assert!(
+                matches!(
+                    DevEnvironmentImagePolicy::ensure_image_allowed(bad, none).unwrap_err().kind,
+                    ErrorKind::Validation(_)
+                ),
+                "{bad:?} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn image_policy_honors_configured_prefixes() {
+        let allowed = vec!["ghcr.io/myorg/".to_string(), "docker.io/".to_string()];
+        // Now permitted because they match a configured prefix.
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("ghcr.io/myorg/runner:1", &allowed).is_ok());
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("docker.io/library/ubuntu", &allowed).is_ok());
+        // A registry NOT in the allowlist is still rejected.
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("ghcr.io/otherorg/x", &allowed).is_err());
+    }
+
+    #[test]
+    fn image_policy_prefix_match_respects_component_boundaries() {
+        // Bare-host and bare-namespace prefixes (no trailing `/`) must only match
+        // at a `/` or `:` boundary, so look-alike registries/namespaces are blocked.
+        let host = vec!["ghcr.io".to_string()];
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("ghcr.io/org/img:1", &host).is_ok());
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("ghcr.io.evil/img", &host).is_err());
+
+        let ns = vec!["ghcr.io/myorg".to_string()];
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("ghcr.io/myorg/img:1", &ns).is_ok());
+        assert!(DevEnvironmentImagePolicy::ensure_image_allowed("ghcr.io/myorg-malware/img", &ns).is_err());
+    }
 
     #[test]
     fn valid_status_list_matches_persisted_contract() {

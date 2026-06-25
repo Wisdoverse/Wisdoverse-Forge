@@ -205,7 +205,11 @@ impl AppState {
             .docker
             .as_ref()
             .map(|docker| Arc::new(DockerDevEnvironmentRuntime::new(docker.clone())) as Arc<dyn DevEnvironmentRuntime>);
-        DevEnvironmentService::from_runtime(self.pool.clone(), runtime)
+        DevEnvironmentService::from_runtime(
+            self.pool.clone(),
+            runtime,
+            self.config.dev_env_allowed_image_registries.clone(),
+        )
     }
 
     pub(crate) fn event_service(&self) -> EventService {

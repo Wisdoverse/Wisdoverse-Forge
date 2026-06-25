@@ -99,6 +99,7 @@ mod tests {
             static_dir: None,
             container_server_url: None,
             ollama_base_url: None,
+            dev_env_allowed_image_registries: Vec::new(),
             llm_encryption_key: None,
             container_anthropic_api_key: None,
             container_google_api_key: None,

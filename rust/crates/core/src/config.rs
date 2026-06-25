@@ -10,6 +10,39 @@ fn default_port() -> u16 {
     4003
 }
 
+/// Deserialize a `Vec<String>` from either a comma-separated string (how the env
+/// source delivers list values) or a native sequence (config files / tests).
+/// Whitespace around each item is trimmed and empty items are dropped.
+fn deserialize_comma_separated<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct CommaSeparated;
+    impl<'de> serde::de::Visitor<'de> for CommaSeparated {
+        type Value = Vec<String>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a comma-separated string or a sequence of strings")
+        }
+
+        fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+            Ok(value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
+        }
+
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+            let mut out = Vec::new();
+            while let Some(item) = seq.next_element::<String>()? {
+                let item = item.trim().to_string();
+                if !item.is_empty() {
+                    out.push(item);
+                }
+            }
+            Ok(out)
+        }
+    }
+    deserializer.deserialize_any(CommaSeparated)
+}
+
 fn default_host() -> String {
     "0.0.0.0".to_string()
 }
@@ -302,6 +335,16 @@ pub struct AppConfig {
     /// `http://localhost:11434`). Required when using the "ollama" provider in
     /// `LlmProviderFactory::build`. When unset, build returns `NotConfigured`.
     pub ollama_base_url: Option<String>,
+
+    /// Additional allowed image-reference prefixes for dev-environment containers
+    /// (`DEV_ENV_ALLOWED_IMAGE_REGISTRIES`, comma-separated, e.g.
+    /// `ghcr.io/myorg/,docker.io/`). Official Docker Hub library images and the
+    /// managed `agentforge-agent` images are always allowed; this only widens the
+    /// F018 allowlist. Empty by default (closed except the built-in safe set).
+    /// Deserialized from a comma-separated string because the env source provides
+    /// scalar strings, not sequences.
+    #[serde(default, deserialize_with = "deserialize_comma_separated")]
+    pub dev_env_allowed_image_registries: Vec<String>,
 
     /// 64-hex-char AES-256 key used by the legacy TS `encryptAesGcm` / Rust
     /// `core::crypto::decrypt_base64` pair. Required to decrypt stored OAuth
@@ -858,6 +901,7 @@ mod tests {
             static_dir: None,
             container_server_url: None,
             ollama_base_url: None,
+            dev_env_allowed_image_registries: Vec::new(),
             llm_encryption_key: None,
             container_anthropic_api_key: None,
             container_google_api_key: None,
@@ -1264,6 +1308,7 @@ mod tests {
             static_dir: None,
             container_server_url: None,
             ollama_base_url: None,
+            dev_env_allowed_image_registries: Vec::new(),
             llm_encryption_key: Some(SecretString::from("enc-key-supersecret".to_string())),
             container_anthropic_api_key: Some(SecretString::from("sk-ant-supersecret".to_string())),
             container_google_api_key: Some(SecretString::from("goog-supersecret".to_string())),
@@ -1352,6 +1397,37 @@ mod tests {
         assert_eq!(default_storage_max_files_per_session(), 20);
         assert_eq!(default_storage_signed_url_expiry(), 3600);
         assert_eq!(default_minio_bucket(), "agentforge");
+    }
+
+    #[test]
+    fn dev_env_allowed_image_registries_parses_comma_separated_env() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("DEV_ENV_ALLOWED_IMAGE_REGISTRIES", Some("ghcr.io/myorg/, docker.io/ ,")),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("config with a comma list must load");
+                // Trimmed, empty items dropped.
+                assert_eq!(cfg.dev_env_allowed_image_registries, vec!["ghcr.io/myorg/", "docker.io/"]);
+            },
+        );
+
+        // Unset -> empty (closed except built-in safe set).
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("DEV_ENV_ALLOWED_IMAGE_REGISTRIES", None),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("config without the var must load");
+                assert!(cfg.dev_env_allowed_image_registries.is_empty());
+            },
+        );
     }
 
     #[test]
