@@ -59,13 +59,6 @@ impl CliToolKind {
     fn supports_subagents(self) -> bool {
         matches!(self, Self::Claude | Self::Codex)
     }
-
-    /// Whether the CLI accepts local image file paths in a one-shot prompt.
-    /// Claude Code (`--image`), Codex, and Gemini (`@path`) do; opencode has no
-    /// documented image support, so it stays off until verified.
-    fn supports_image_input(self) -> bool {
-        matches!(self, Self::Claude | Self::Codex | Self::Gemini)
-    }
 }
 
 impl fmt::Display for CliToolKind {
@@ -166,11 +159,6 @@ pub struct RuntimeCapability {
     pub supports_subagents: bool,
     pub supports_mcp_bridge: bool,
     pub supports_terminal: bool,
-    /// Whether the runtime can accept image input on an instruction. Defaulted
-    /// so capability_profile JSONB persisted before this field still decodes
-    /// (as `false`) instead of aborting registry startup.
-    #[serde(default)]
-    pub supports_image_input: bool,
 }
 
 impl RuntimeCapability {
@@ -197,7 +185,6 @@ impl RuntimeCapability {
         supports_subagents: bool,
         supports_mcp_bridge: bool,
         supports_terminal: bool,
-        supports_image_input: bool,
     ) -> Result<Self, RuntimeCapabilityError> {
         if max_context_tokens == 0 {
             return Err(RuntimeCapabilityError::MaxContextTokensZero { runtime_kind });
@@ -213,16 +200,7 @@ impl RuntimeCapability {
             supports_subagents,
             supports_mcp_bridge,
             supports_terminal,
-            supports_image_input,
         })
-    }
-
-    /// Builder override for image input. Used by provider capability profiles to
-    /// flag vision-capable API runtimes on top of the conservative base profile.
-    #[must_use]
-    pub fn with_image_input(mut self, supports_image_input: bool) -> Self {
-        self.supports_image_input = supports_image_input;
-        self
     }
 
     /// Built-in capability profile for a supported Container CLI or local CLI.
@@ -238,9 +216,6 @@ impl RuntimeCapability {
             supports_subagents: is_container && cli_tool.supports_subagents(),
             supports_mcp_bridge: is_container,
             supports_terminal: is_container,
-            // File-based image delivery needs the shared /workspace mount, which
-            // only container runtimes have; Host-CLI (`Cli`) agents never qualify.
-            supports_image_input: is_container && cli_tool.supports_image_input(),
         }
     }
 
@@ -257,7 +232,6 @@ impl RuntimeCapability {
             supports_subagents: false,
             supports_mcp_bridge: false,
             supports_terminal: false,
-            supports_image_input: false,
         }
     }
 
@@ -274,7 +248,6 @@ impl RuntimeCapability {
             supports_subagents: false,
             supports_mcp_bridge: false,
             supports_terminal: false,
-            supports_image_input: false,
         }
     }
 
@@ -291,8 +264,7 @@ impl RuntimeCapability {
         provider_name: impl Into<String>,
         max_context_tokens: u32,
     ) -> Result<Self, RuntimeCapabilityError> {
-        let mut profile =
-            Self::new(None, RuntimeKind::Api, max_context_tokens, false, false, false, false, false, false)?;
+        let mut profile = Self::new(None, RuntimeKind::Api, max_context_tokens, false, false, false, false, false)?;
         let provider_name = provider_name.into();
         if !provider_name.trim().is_empty() {
             profile.provider_name = Some(provider_name);

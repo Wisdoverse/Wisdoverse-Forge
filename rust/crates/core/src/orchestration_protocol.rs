@@ -234,12 +234,6 @@ pub struct TaskAssignment {
     /// and the legacy subject (still dual-published) covers old sidecars anyway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_kind: Option<RuntimeKind>,
-    /// Container-relative paths (under `/workspace`) of instruction images the
-    /// API materialized for this assignment, e.g.
-    /// `/workspace/.task-images/<task_id>/<file>.png`. Empty for text-only tasks
-    /// and for old wire payloads. Signed with the rest of the envelope.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub image_paths: Vec<String>,
 }
 
 /// Outcome emitted by the sidecar once the wrapped CLI exits.
@@ -463,7 +457,6 @@ mod tests {
             priority: "high".into(),
             context_envelope: None,
             runtime_kind: Some(RuntimeKind::Cli),
-            image_paths: Vec::new(),
         };
         let round: TaskAssignment = serde_json::from_str(&serde_json::to_string(&msg).unwrap()).unwrap();
         assert_eq!(round, msg);
@@ -514,7 +507,6 @@ mod tests {
             priority: "normal".into(),
             context_envelope: None,
             runtime_kind: None,
-            image_paths: Vec::new(),
         };
         let key = b"shared-secret";
         let env = SignedEnvelope::sign(key, &assignment.agent_id.to_string(), 123, &assignment).unwrap();

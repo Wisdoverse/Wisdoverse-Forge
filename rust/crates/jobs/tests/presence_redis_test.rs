@@ -34,35 +34,12 @@ async fn record_distinguishes_first_beat_from_steady_state() {
     let agent = Uuid::new_v4();
 
     // First beat: key absent -> Transition (caller does the PG status write).
-    assert_eq!(backend.record(agent, "claude").await, RedisRecord::Transition);
-    // Second beat: same fingerprint, key present -> SteadyState (zero PostgreSQL).
-    assert_eq!(backend.record(agent, "claude").await, RedisRecord::SteadyState);
-    assert_eq!(backend.record(agent, "claude").await, RedisRecord::SteadyState);
+    assert_eq!(backend.record(agent).await, RedisRecord::Transition);
+    // Second beat: key present -> SteadyState (zero PostgreSQL).
+    assert_eq!(backend.record(agent).await, RedisRecord::SteadyState);
+    assert_eq!(backend.record(agent).await, RedisRecord::SteadyState);
     // A successful Redis op clears any fallback grace.
     assert!(!backend.pg_sweep_within_grace());
-}
-
-#[tokio::test]
-async fn changed_capabilities_force_a_transition() {
-    let Some(backend) = backend(Duration::from_secs(30)).await else {
-        eprintln!("skipping: no REDIS_TEST_URL");
-        return;
-    };
-    let agent = Uuid::new_v4();
-
-    // Steady-state on an old capability set.
-    assert_eq!(backend.record(agent, "claude").await, RedisRecord::Transition);
-    assert_eq!(backend.record(agent, "claude").await, RedisRecord::SteadyState);
-    // A rolling-deploy restart that now advertises `image_input` changes the
-    // fingerprint, so even though the presence key still exists it must be a
-    // Transition — forcing the PG capability write instead of being suppressed.
-    assert_eq!(
-        backend.record(agent, "claude,image_input").await,
-        RedisRecord::Transition,
-        "a changed capability fingerprint must force the PostgreSQL write"
-    );
-    // The new fingerprint is now the steady-state baseline.
-    assert_eq!(backend.record(agent, "claude,image_input").await, RedisRecord::SteadyState);
 }
 
 #[tokio::test]
@@ -75,7 +52,7 @@ async fn dead_agents_reports_only_expired_keys() {
     let live = Uuid::new_v4();
     let never_seen = Uuid::new_v4();
 
-    backend.record(live, "claude").await; // sets live's key with a 1s TTL
+    backend.record(live).await; // sets live's key with a 1s TTL
 
     // Immediately: live is present, never_seen is absent (dead).
     let dead = backend.dead_agents(&[live, never_seen]).await.expect("redis available");
@@ -98,10 +75,10 @@ async fn forget_clears_a_stray_key_so_the_next_beat_retries() {
 
     // First beat sets the key (Transition). Simulate the "no agent row" path by
     // forgetting it; the agent must then look absent again so the PG write retries.
-    assert_eq!(backend.record(agent, "claude").await, RedisRecord::Transition);
+    assert_eq!(backend.record(agent).await, RedisRecord::Transition);
     backend.forget(agent).await;
     assert_eq!(
-        backend.record(agent, "claude").await,
+        backend.record(agent).await,
         RedisRecord::Transition,
         "after forget the next beat is a transition again, not a suppressed steady-state"
     );

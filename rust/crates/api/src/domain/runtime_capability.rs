@@ -6,7 +6,7 @@ use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind, RuntimeCapabi
 use anyhow::anyhow;
 use serde_json::Value;
 
-const RESEED_MIGRATION: &str = "082_runtime_capabilities_image.sql";
+const RESEED_MIGRATION: &str = "051_runtime_capabilities.sql";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct RuntimeCapabilityKey {
@@ -33,7 +33,6 @@ pub(crate) struct RuntimeCapabilityRecord {
     pub(crate) supports_subagents: bool,
     pub(crate) supports_mcp_bridge: bool,
     pub(crate) supports_terminal: bool,
-    pub(crate) supports_image_input: bool,
     pub(crate) capability_profile: Value,
 }
 
@@ -134,7 +133,6 @@ fn row_scalars_match_profile(row: &RuntimeCapabilityRecord, profile: &RuntimeCap
         && row.supports_subagents == profile.supports_subagents
         && row.supports_mcp_bridge == profile.supports_mcp_bridge
         && row.supports_terminal == profile.supports_terminal
-        && row.supports_image_input == profile.supports_image_input
 }
 
 fn startup_error(message: String) -> AppError {
@@ -156,7 +154,6 @@ mod tests {
             supports_subagents: profile.supports_subagents,
             supports_mcp_bridge: profile.supports_mcp_bridge,
             supports_terminal: profile.supports_terminal,
-            supports_image_input: profile.supports_image_input,
             capability_profile: serde_json::to_value(profile).expect("serialize test profile"),
         }
     }
@@ -207,21 +204,6 @@ mod tests {
             RuntimeCapabilityRegistryPolicy::validate_records(vec![row], &expected).expect_err("drift should fail");
 
         assert!(internal_message(err).contains("scalar columns for codex/container diverge from capability_profile"));
-    }
-
-    #[test]
-    fn registry_policy_rejects_image_input_scalar_drift() {
-        let expected = RuntimeCapabilityRegistryPolicy::expected_profiles();
-        // claude/container is image-capable, so its scalar column must mirror the
-        // JSONB. Flipping only the scalar must be caught as drift.
-        let profile = RuntimeCapability::for_cli_tool(CliToolKind::Claude, RuntimeKind::Container);
-        let mut row = record_from_profile(&profile);
-        row.supports_image_input = !row.supports_image_input;
-
-        let err = RuntimeCapabilityRegistryPolicy::validate_records(vec![row], &expected)
-            .expect_err("image-input scalar drift should fail");
-
-        assert!(internal_message(err).contains("scalar columns for claude/container diverge from capability_profile"));
     }
 
     #[test]

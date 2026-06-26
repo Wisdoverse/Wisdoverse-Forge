@@ -112,9 +112,6 @@ pub struct TaskParamsRequest {
     /// sub-keys a newer producer adds.
     #[serde(default, rename = "expectedResult", skip_serializing_if = "Option::is_none")]
     pub expected_result: Option<serde_json::Value>,
-    /// Attachment UUIDs of instruction images (vision-capable container CLI tasks).
-    #[serde(default, rename = "imageAttachmentIds")]
-    pub image_attachment_ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -189,7 +186,6 @@ fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<se
             env: p.env.as_ref(),
             api_keys: p.api_keys.as_ref(),
             expected_result: p.expected_result.as_ref(),
-            image_attachment_ids: &p.image_attachment_ids,
         }),
     )
 }

@@ -107,7 +107,6 @@ impl AppState {
     pub(crate) fn agent_prompt_service(&self) -> AgentPromptService {
         AgentPromptService::from_runtime(
             self.pool.clone(),
-            self.object_storage.clone(),
             self.llm_factory.clone(),
             self.encryption_key,
             self.agent_command_bus.clone(),
@@ -268,8 +267,6 @@ impl AppState {
     pub(crate) fn orchestration_service(&self) -> OrchestrationService {
         OrchestrationService::from_runtime(
             self.pool.clone(),
-            self.object_storage.clone(),
-            crate::services::agent_workspace::workspace_root_from_env(),
             self.context_features,
             self.context_resolver.clone(),
             self.nats.clone(),

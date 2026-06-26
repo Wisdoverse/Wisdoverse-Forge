@@ -104,12 +104,7 @@ impl EventPublisher {
     /// participant status or dispatcher logic (issue #808).
     pub async fn heartbeat(&self, health: HealthSnapshot) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let subject = format!("sidecar.{}.heartbeat", self.agent_id);
-        // Advertise the CLI tool plus the image-input protocol token so the
-        // dispatcher knows this (current) sidecar understands `image_paths` and
-        // can be sent instruction-image tasks. An older sidecar omits it and is
-        // gated out, failing closed rather than silently dropping the images.
-        let mut capabilities: Vec<String> = self.cli_tool.clone().into_iter().collect();
-        capabilities.push(agentforge_core::SIDECAR_IMAGE_INPUT_CAPABILITY.to_string());
+        let capabilities: Vec<String> = self.cli_tool.clone().into_iter().collect();
         let payload = serde_json::json!({
             "agent_id": self.agent_id,
             "timestamp": Utc::now().timestamp(),

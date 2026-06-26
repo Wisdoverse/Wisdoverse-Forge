@@ -9,7 +9,7 @@
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -57,59 +57,6 @@ async fn create_attachment(
     let service = make_service(&state);
     let att = service.create_upload(&auth.scope, upload).await?;
     Ok((StatusCode::CREATED, Json(attachment_data_response(att))))
-}
-
-/// `POST /api/v1/attachments/image` — upload a validated instruction image.
-///
-/// The bytes are validated + re-encoded to PNG (magic-byte allowlist,
-/// decompression-bomb guard, EXIF/polyglot stripping) and recorded with
-/// `kind='image'` and the agent's workspace. The workspace is derived from the
-/// (org-scoped) `agent_id` so the upload cannot be mislabeled into another
-/// workspace.
-async fn create_image_attachment(
-    State(state): State<AppState>,
-    auth: AuthUser,
-    multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    let (bytes, filename, agent_id) = parse_image_upload(multipart).await?;
-    let agent =
-        crate::repositories::agent::AgentRepository::new(state.pool.clone()).find_by_id(&auth.scope, agent_id).await?;
-    let service = make_service(&state);
-    let att = service
-        .create_image_upload(&auth.scope, agent.workspace_id.as_uuid(), Some(agent_id), &filename, bytes)
-        .await?;
-    Ok((StatusCode::CREATED, Json(attachment_data_response(att))))
-}
-
-async fn parse_image_upload(mut multipart: Multipart) -> AppResult<(Vec<u8>, String, AgentId)> {
-    let mut bytes: Option<Vec<u8>> = None;
-    let mut file_name: Option<String> = None;
-    let mut agent_id: Option<AgentId> = None;
-
-    while let Some(field) = multipart.next_field().await.map_err(multipart_error)? {
-        match field.name().unwrap_or("") {
-            "file" => {
-                if bytes.is_some() {
-                    return Err(AttachmentMultipartPolicy::duplicate_file_field().into());
-                }
-                file_name = field.file_name().map(ToString::to_string);
-                bytes = Some(field.bytes().await.map_err(multipart_error)?.to_vec());
-            }
-            "agent_id" => {
-                let value = field.text().await.map_err(multipart_error)?;
-                agent_id = Some(AttachmentAgentScope::parse(&value)?);
-            }
-            "" => return Err(AttachmentMultipartPolicy::missing_field_name().into()),
-            other => return Err(AttachmentMultipartPolicy::unsupported_field(other).into()),
-        }
-    }
-
-    let bytes = bytes
-        .ok_or_else(|| agentforge_core::ErrorKind::Validation("multipart field 'file' is required".to_string()))?;
-    let agent_id = agent_id
-        .ok_or_else(|| agentforge_core::ErrorKind::Validation("multipart field 'agent_id' is required".to_string()))?;
-    let filename = file_name.unwrap_or_else(|| "image.png".to_string());
-    Ok((bytes, filename, agent_id))
 }
 
 /// `GET /api/v1/attachments/{id}` — get attachment metadata.
@@ -223,8 +170,7 @@ fn content_disposition_header(filename: &str) -> HeaderValue {
 pub fn attachment_routes(max_upload_body_bytes: usize) -> Router<AppState> {
     Router::new()
         .route("/attachments", get(list_attachments).post(create_attachment))
-        // Static routes BEFORE parameterized (per CLAUDE.md)
-        .route("/attachments/image", post(create_image_attachment))
+        // Static route BEFORE parameterized (per CLAUDE.md)
         .route("/attachments/{id}/download", get(download_attachment))
         .route("/attachments/{id}", get(get_attachment).delete(delete_attachment))
         .layer(DefaultBodyLimit::max(max_upload_body_bytes))
