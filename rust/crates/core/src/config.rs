@@ -824,6 +824,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 // Clear any ambient optional vars to make assertions deterministic.
                 ("REDIS_URL", None),
@@ -1016,6 +1017,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("SMTP_HOST", Some("smtp.example.com")),
                 ("SMTP_USER", Some("noreply@example.com")),
@@ -1037,6 +1039,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("SMTP_HOST", Some("")),
                 ("SMTP_PORT", Some("")),
@@ -1065,6 +1068,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STRIPE_SECRET_KEY", Some("sk_test_configured")),
                 ("STRIPE_WEBHOOK_SECRET", None),
@@ -1084,6 +1088,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STRIPE_SECRET_KEY", Some("sk_test_configured")),
                 ("STRIPE_WEBHOOK_SECRET", Some("whsec_configured")),
@@ -1106,6 +1111,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", Some("nats://backend:pw@nats:4222")),
                 // Intentionally NOT setting the six callout env vars.
@@ -1144,6 +1150,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("NATS_AGENT_URL", None),
@@ -1167,6 +1174,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("GITHUB_APP_ID", Some("123456")),
@@ -1187,6 +1195,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("GITHUB_APP_ID", Some("123456")),
@@ -1210,6 +1219,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("GITHUB_APP_ID", None),
@@ -1230,7 +1240,11 @@ mod tests {
     #[test]
     fn jwt_secret_too_short_rejected() {
         temp_env::with_vars(
-            [("DATABASE_URL", Some("postgres://localhost/agentforge_test")), ("JWT_SECRET", Some("too-short"))],
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("too-short")),
+            ],
             || {
                 let result = AppConfig::from_env();
                 assert!(result.is_err());
@@ -1245,6 +1259,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("SMTP_HOST", None),
@@ -1265,6 +1280,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("SMTP_HOST", None),
@@ -1287,6 +1303,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STORAGE_PROVIDER", Some("s3")),
             ],
@@ -1306,6 +1323,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STORAGE_PROVIDER", Some("minio")),
                 ("MINIO_ENDPOINT", None),
@@ -1538,6 +1556,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("DEV_ENV_ALLOWED_IMAGE_REGISTRIES", Some("ghcr.io/myorg/, docker.io/ ,")),
@@ -1553,6 +1572,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("DEV_ENV_ALLOWED_IMAGE_REGISTRIES", None),
@@ -1568,6 +1588,7 @@ mod tests {
     fn production_requires_llm_encryption_key() {
         let base = [
             ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+            ("REQUIRE_EXTERNAL_STATE", None),
             ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
             ("NATS_URL", None),
         ];
