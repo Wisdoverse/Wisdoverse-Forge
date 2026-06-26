@@ -4,7 +4,7 @@ import {
   chatStreamHttpErrorMessage,
   chatStreamRequestErrorMessage,
   parseSseFrame,
-} from '@app/features/chat/useChatStream'
+} from '@app/shared/api/promptStream'
 
 function expectBeginnerMessage(actual: string, expected: string): void {
   expect(actual).toBe(expected)

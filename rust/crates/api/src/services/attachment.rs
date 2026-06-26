@@ -5,6 +5,7 @@ use std::sync::Arc;
 use agentforge_core::{AgentId, AppConfig, AppResult, AttachmentId, TenantScope};
 use agentforge_db::entities::Attachment;
 use agentforge_infra::ObjectStorageClient;
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -14,33 +15,44 @@ pub(crate) use crate::domain::attachment::{
 };
 use crate::domain::attachment::{
     AttachmentContentType, AttachmentCountPolicy, AttachmentDownload, AttachmentFilename, AttachmentPayloadSize,
+    IMAGE_OUTPUT_CONTENT_TYPE, MAX_IMAGE_PIXELS, image_output_filename, validate_and_reencode_image,
 };
+use crate::repositories::agent::AgentRepository;
 use crate::repositories::attachment::{AttachmentRepository, NewAttachment};
 
 /// Business logic layer for attachment operations.
 pub struct AttachmentService {
     repo: AttachmentRepository,
+    /// Resolves an agent's workspace for image uploads, so the route does not wire
+    /// repositories itself (DDD boundary).
+    agents: AgentRepository,
     storage: Arc<ObjectStorageClient>,
     max_file_size: i64,
     max_files_per_session: i64,
 }
 
 impl AttachmentService {
-    pub fn from_app_config(repo: AttachmentRepository, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
-        Self::new(repo, storage, config.storage_max_file_size, config.storage_max_files_per_session)
+    pub fn from_app_config(
+        repo: AttachmentRepository,
+        agents: AgentRepository,
+        storage: Arc<ObjectStorageClient>,
+        config: &AppConfig,
+    ) -> Self {
+        Self::new(repo, agents, storage, config.storage_max_file_size, config.storage_max_files_per_session)
     }
 
     pub fn from_pool_and_app_config(pool: PgPool, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
-        Self::from_app_config(AttachmentRepository::new(pool), storage, config)
+        Self::from_app_config(AttachmentRepository::new(pool.clone()), AgentRepository::new(pool), storage, config)
     }
 
     pub fn new(
         repo: AttachmentRepository,
+        agents: AgentRepository,
         storage: Arc<ObjectStorageClient>,
         max_file_size: i64,
         max_files_per_session: i64,
     ) -> Self {
-        Self { repo, storage, max_file_size, max_files_per_session }
+        Self { repo, agents, storage, max_file_size, max_files_per_session }
     }
 
     /// List attachments, optionally filtered by agent.
@@ -109,6 +121,11 @@ impl AttachmentService {
                     size_bytes,
                     storage_path: &storage_path,
                     storage_backend,
+                    kind: "file",
+                    workspace_id: None,
+                    width: None,
+                    height: None,
+                    checksum_sha256: None,
                 },
             )
             .await
@@ -126,6 +143,95 @@ impl AttachmentService {
                 Err(err)
             }
         }
+    }
+
+    /// Validate, re-encode, and store an image for use as instruction image
+    /// input. The bytes are decoded and re-encoded to PNG (stripping EXIF and any
+    /// appended polyglot payload, see `validate_and_reencode_image`), bounded by
+    /// the configured pixel ceiling, and recorded with `kind='image'`, the
+    /// owning `workspace_id`, decoded dimensions, and a content checksum.
+    ///
+    /// # Security
+    /// `workspace_id` is trusted as given and persisted as image ownership; this
+    /// method does NOT verify it against the caller's authorization. The route
+    /// layer MUST pass a workspace the authenticated principal owns (the
+    /// resolve-time check `attachment.workspace_id == agent.workspace_id` then
+    /// enforces the boundary). Do not expose this method to a path that forwards
+    /// an unvalidated client-supplied workspace id.
+    pub async fn create_image_upload(
+        &self,
+        scope: &TenantScope,
+        workspace_id: Uuid,
+        agent_id: Option<AgentId>,
+        filename: &str,
+        bytes: Vec<u8>,
+    ) -> AppResult<Attachment> {
+        // Cheap guard on the raw upload before decoding.
+        AttachmentPayloadSize::from_len(bytes.len(), self.max_file_size)?;
+        if let Some(agent_id) = agent_id {
+            let existing = self.repo.count_for_agent(scope, agent_id).await?;
+            AttachmentCountPolicy::ensure_agent_file_slot(agent_id, existing, self.max_files_per_session)?;
+        }
+
+        let validated = validate_and_reencode_image(&bytes, MAX_IMAGE_PIXELS)?;
+        // The re-encoded PNG can be larger than the input; bound the stored size too.
+        let size_bytes = AttachmentPayloadSize::from_len(validated.png_bytes.len(), self.max_file_size)?.bytes();
+        let checksum = hex::encode(Sha256::digest(&validated.png_bytes));
+        let filename = AttachmentFilename::parse(&image_output_filename(filename))?;
+
+        let id = AttachmentId::new();
+        let storage_path = object_key(scope, id, filename.value());
+        let storage_backend = self.storage.backend();
+        self.storage.put_bytes(&storage_path, IMAGE_OUTPUT_CONTENT_TYPE, validated.png_bytes).await?;
+
+        match self
+            .repo
+            .create(
+                scope,
+                NewAttachment {
+                    id,
+                    agent_id,
+                    filename: filename.value(),
+                    content_type: IMAGE_OUTPUT_CONTENT_TYPE,
+                    size_bytes,
+                    storage_path: &storage_path,
+                    storage_backend,
+                    kind: "image",
+                    workspace_id: Some(workspace_id),
+                    width: Some(validated.width),
+                    height: Some(validated.height),
+                    checksum_sha256: Some(&checksum),
+                },
+            )
+            .await
+        {
+            Ok(attachment) => Ok(attachment),
+            Err(err) => {
+                if let Err(cleanup_err) = self.storage.delete(&storage_path).await {
+                    tracing::warn!(
+                        attachment_id = %id,
+                        storage_path = %storage_path,
+                        error = ?cleanup_err.kind,
+                        "failed to clean up image object after metadata insert failure"
+                    );
+                }
+                Err(err)
+            }
+        }
+    }
+
+    /// Upload an instruction image scoped to an agent: resolve the (org-scoped)
+    /// agent's workspace here so the route never wires a repository, then record the
+    /// image against that workspace (a client cannot mislabel it into another).
+    pub async fn create_image_upload_for_agent(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+        filename: &str,
+        bytes: Vec<u8>,
+    ) -> AppResult<Attachment> {
+        let agent = self.agents.find_by_id(scope, agent_id).await?;
+        self.create_image_upload(scope, agent.workspace_id.as_uuid(), Some(agent_id), filename, bytes).await
     }
 
     /// Load attachment metadata and object bytes.
@@ -153,7 +259,7 @@ fn object_key(scope: &TenantScope, id: AttachmentId, filename: &str) -> String {
     format!("organizations/{}/attachments/{}/{}", scope.org_id().as_uuid(), id.as_uuid(), filename_segment(filename))
 }
 
-fn filename_segment(filename: &str) -> String {
+pub(crate) fn filename_segment(filename: &str) -> String {
     let segment = filename
         .chars()
         .map(|ch| match ch {

@@ -8,7 +8,6 @@
 import type {
   ManagedAgent,
   AgentMessageRow,
-  ImageAttachment,
   CliTool,
   LlmProviderKey,
   WorkspaceProject,
@@ -430,23 +429,54 @@ export function createAgentAPI(
      * the body field named `content`. The `prompt` parameter here is the
      * frontend-facing label; it is serialized as `content` on the wire.
      *
-     * Optionally includes image attachments (currently rejected server-side
-     * with 422 — wire reserved for future multimodal support).
+     * Optionally includes image attachment ids (see `uploadImage`); the backend
+     * resolves them, gates on the agent's vision capability + workspace, and
+     * delivers them to the model.
      */
     async sendPrompt(
       agentId: string,
       prompt: string,
-      images?: ImageAttachment[]
+      imageIds?: string[]
     ): Promise<SimpleResponse> {
       try {
         const response = await fetchFn(`${apiUrl}/agents/${agentId}/prompt`, {
           method: 'POST',
           headers: headers(),
-          body: JSON.stringify({ content: prompt, images }),
+          body: JSON.stringify({ content: prompt, images: imageIds }),
         })
         return await response.json()
       } catch (e) {
         console.error('Error sending prompt:', e)
+        return { ok: false, error: LEGACY_API_NETWORK_ERROR }
+      }
+    },
+
+    /**
+     * Upload an instruction image for `agentId`. Multipart; the backend
+     * validates + re-encodes to PNG and stores it scoped to the agent's
+     * workspace. Returns the attachment id to pass to `sendPrompt`.
+     */
+    async uploadImage(
+      agentId: string,
+      file: File
+    ): Promise<{ ok: boolean; id?: string; error?: string }> {
+      try {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('agent_id', agentId)
+        // Multipart: do NOT set Content-Type so the browser adds the boundary.
+        const response = await fetchFn(`${apiUrl}/attachments/image`, {
+          method: 'POST',
+          headers: headersNoBody(),
+          body: form,
+        })
+        const data = await response.json()
+        if (data?.ok && data?.data?.id) {
+          return { ok: true, id: data.data.id as string }
+        }
+        return { ok: false, error: data?.error ?? LEGACY_API_NETWORK_ERROR }
+      } catch (e) {
+        console.error('Error uploading image:', e)
         return { ok: false, error: LEGACY_API_NETWORK_ERROR }
       }
     },
@@ -530,11 +560,16 @@ export function createAgentAPI(
      * error envelopes, NOT SSE. Reading `body.getReader()` on an error response
      * surfaces raw JSON bytes as pseudo-stream content.
      */
-    async streamPrompt(agentId: string, content: string, signal: AbortSignal): Promise<Response> {
+    async streamPrompt(
+      agentId: string,
+      content: string,
+      imageIds: string[],
+      signal: AbortSignal
+    ): Promise<Response> {
       return fetchFn(`${apiUrl}/agents/${agentId}/prompt`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, images: imageIds }),
         signal,
       })
     },

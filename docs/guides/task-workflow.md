@@ -93,6 +93,55 @@ Task creation should capture the title, prompt body, project task group,
 priority, and optional assigned agent. Tasks that require unavailable inputs or
 approval may start blocked instead of immediately dispatching.
 
+## Attaching Images To A Task
+
+Some Container CLI agents can read images (screenshots, mockups, diagrams) as
+part of an instruction. When the task is assigned to a vision-capable agent, the
+task form shows an image attach control next to the prompt.
+
+Prerequisites:
+
+- Object storage (MinIO/S3) is configured for the deployment; uploaded images
+  are stored there, not on the API host.
+- The task is assigned to a **Container CLI** agent whose tool supports image
+  input. Today that is Claude Code, Codex, and Gemini CLI. Provider+prompt (API)
+  agents accept images directly in the instruction composer instead.
+- Host CLI (local-process) agents cannot receive task images: their `/workspace`
+  is on the operator's own machine, so the platform has nowhere to place the
+  file. The task form hides the control for them, and the API rejects the upload
+  if attempted.
+
+Steps:
+
+1. In the task form, pick a vision-capable Container CLI agent as the assignee.
+   The image control appears once a supported agent is selected.
+2. Attach up to 8 images (PNG, JPEG, WebP, or GIF). Each is validated and
+   re-encoded to PNG on upload, which strips metadata and rejects malformed or
+   oversized files.
+3. Create the task as usual.
+
+What success looks like: when the task dispatches, the platform copies the
+images into the agent's workspace under `/workspace/.task-images/<task-id>/` and
+passes them to the Container CLI. The agent can then reference the screenshot in
+its reasoning. Nothing extra is needed in the prompt text.
+
+Troubleshooting:
+
+- No image control in the task form: the selected agent is not a vision-capable
+  Container CLI agent, no agent is assigned yet, or the agent is still running an
+  older build that predates image support (see the rolling-deploy note below).
+- Upload rejected: the file is not a supported image type, is too large, or is
+  not a real image. Re-export it as PNG and retry.
+- "image tasks are only supported for container CLI agents": the assignee is a
+  Host CLI or API agent. Reassign to a Container CLI agent.
+- "agent's sidecar does not yet support instruction images": the agent is still
+  running an older container image from before image support shipped. This is
+  expected during a rolling upgrade — the platform refuses to run an image task
+  without its images rather than silently dropping them. Roll or restart the
+  agent onto the current image, then retry. The task form also hides the image
+  control for such agents, so this only appears for tasks created before the
+  agent was upgraded.
+
 ## Task Review
 
 Open a task from the board to review the work. The detail panel is the primary

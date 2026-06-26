@@ -12,6 +12,7 @@ pub mod openai;
 pub mod provider;
 pub mod registry;
 pub mod sse_framer;
+pub mod vision;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
@@ -27,7 +28,8 @@ pub use gateway::LlmGateway;
 pub use gemini::GeminiProvider;
 pub use openai::OpenAiProvider;
 pub use provider::{
-    ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, model_context_limit,
+    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
+    StreamDelta, Usage, model_context_limit,
 };
 pub use registry::{
     ProviderModel, ProviderSpec, ProviderTransport, normalize_provider_key, provider_spec, supported_provider_specs,
@@ -135,7 +137,7 @@ mod tests {
     fn chat_request_serialization() {
         let req = ChatRequest {
             model: "claude-3-opus".to_string(),
-            messages: vec![ChatMessage { role: "user".to_string(), content: "Hello".to_string() }],
+            messages: vec![ChatMessage { role: "user".to_string(), content: "Hello".into() }],
             max_tokens: Some(1024),
             temperature: Some(0.7),
         };
@@ -344,6 +346,32 @@ mod tests {
         let profile = mock.capability_profile();
         assert_eq!(profile.provider_name.as_deref(), Some("mocky"));
         assert_eq!(profile.max_context_tokens, 8_192);
+    }
+
+    #[test]
+    fn vision_providers_advertise_image_input() {
+        // Coarse provider-level vision gate; the agent projection refines per-model.
+        // anthropic + gemini are vision across all current models; openai is vision
+        // for its first-party models; ollama/groq/mock stay off until verified.
+        let f = LlmProviderFactory::new(Some("http://localhost:11434".into()));
+        let cases = [
+            ("anthropic", "sk-test", true),
+            ("openai", "sk-test", true),
+            ("google", "goog-test", true),
+            ("ollama", "", false),
+            ("groq", "gsk-test", false),
+        ];
+        for (provider_key, api_key, expected) in cases {
+            let p = f.build(provider_key, api_key.to_string()).unwrap();
+            assert_eq!(
+                p.capability_profile().supports_image_input,
+                expected,
+                "provider {provider_key} image-input gate"
+            );
+        }
+
+        let mock = LlmProviderFactory::with_mock("mocky", "hi").build("mocky", String::new()).unwrap();
+        assert!(!mock.capability_profile().supports_image_input);
     }
 
     #[test]
