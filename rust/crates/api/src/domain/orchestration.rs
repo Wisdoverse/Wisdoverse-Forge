@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::TaskAssignment;
 use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, OrgId, TenantScope, WorkspaceId};
-use agentforge_db::entities::{OrchestrationTask, TaskRun};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -503,86 +502,12 @@ pub(crate) fn task_update_broadcast_subject(org_id: Uuid) -> String {
     format!("broadcast.{org_id}")
 }
 
-pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
-    let blocked_hint = match task.status.as_str() {
-        "blocked" => {
-            task.blocked_reason.as_deref().map(|reason| BlockedTaskPolicy::hint(reason, task.blocked_metadata.as_ref()))
-        }
-        _ => None,
-    };
-
-    let (task_text, message) =
-        TaskInstruction::from_params(&task.title, task.description.as_deref(), task.params.as_ref()).into_parts();
-    let params = TaskParams { task: task_text, message };
-
-    let error = task
-        .error
-        .as_ref()
-        .map(|e| e.get("message").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| e.to_string()));
-
-    let is_completed = task.status == "completed";
-
-    TaskSummary {
-        id: task.id,
-        group_id: task.group_id,
-        state: task.status,
-        method: "tasks/send".into(),
-        params,
-        priority: task.priority,
-        progress: task.progress,
-        created_by: task.created_by.as_uuid(),
-        assigned_to: task.assigned_agent_id.map(|a| a.as_uuid()),
-        assigned_agent_name: agent_name,
-        error,
-        result: task.result,
-        blocked_reason: task.blocked_reason,
-        blocked_hint,
-        blocked_metadata: task.blocked_metadata,
-        created_at: task.created_at.to_rfc3339(),
-        updated_at: task.updated_at.to_rfc3339(),
-        completed_at: if is_completed { task.completed_at.map(|t| t.to_rfc3339()) } else { None },
-        self_fix: task.self_fix,
-        pr_number: task.pr_number,
-        pr_url: task.pr_url,
-        pr_head_sha: task.pr_head_sha,
-        review_status: task.review_status,
-        context_counts: TaskContextCounts::default(),
-        attempt: task.attempt,
-        lease_expires_at: task.lease_expires_at.map(|t| t.to_rfc3339()),
-    }
-}
-
-pub fn task_run_summary(run: TaskRun) -> TaskRunSummary {
-    TaskRunSummary {
-        id: run.id,
-        agent_id: run.agent_id.as_uuid(),
-        status: run.status,
-        started_at: run.started_at.to_rfc3339(),
-        finished_at: run.finished_at.map(|t| t.to_rfc3339()),
-        runtime_kind: string_value(&run.capability_profile, "runtime_kind"),
-        cli_tool: string_value(&run.capability_profile, "cli_tool"),
-        provider_name: string_value(&run.capability_profile, "provider_name"),
-        max_context_tokens: run.capability_profile.get("max_context_tokens").and_then(Value::as_u64),
-    }
-}
-
-fn string_value(value: &Value, key: &str) -> Option<String> {
-    value.get(key).and_then(Value::as_str).map(str::to_owned)
-}
-
-pub(crate) fn task_assignment_snapshot(task: &OrchestrationTask) -> TaskAssignmentSnapshot<'_> {
-    TaskAssignmentSnapshot {
-        task_id: task.id,
-        assigned_agent_id: task.assigned_agent_id,
-        last_assignment_id: task.last_assignment_id,
-        lease_expires_at: task.lease_expires_at,
-        attempt: task.attempt,
-        title: &task.title,
-        description: task.description.as_deref(),
-        params: task.params.as_ref(),
-        priority: &task.priority,
-    }
-}
+// The `OrchestrationTask` / `TaskRun` row -> projection adapters
+// (`task_summary`, `task_run_summary`, `task_assignment_snapshot`, and the
+// `string_value` helper) live in `services::orchestration`, keeping this domain
+// module free of `agentforge_db` (DDD-2). The projection TYPES (`TaskSummary`,
+// `TaskRunSummary`, `TaskAssignmentSnapshot`) and the assignment/instruction
+// policies stay here as the pure shapes those adapters build.
 
 /// Assignment delivery protocol policy.
 pub(crate) struct TaskAssignmentPolicy;
@@ -1479,137 +1404,6 @@ mod tests {
     }
 
     #[test]
-    fn task_summary_projects_kanban_response_and_inlines_blocked_hint() {
-        use agentforge_core::{OrgId, UserId};
-
-        let task_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
-        let agent_id = AgentId::from(Uuid::parse_str("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").unwrap());
-        let created_at = chrono::DateTime::parse_from_rfc3339("2026-05-18T10:00:00Z").unwrap().with_timezone(&Utc);
-        let updated_at = chrono::DateTime::parse_from_rfc3339("2026-05-18T10:01:00Z").unwrap().with_timezone(&Utc);
-        let task = OrchestrationTask {
-            id: task_id,
-            organization_id: OrgId::new(),
-            group_id: None,
-            title: "Title".to_string(),
-            description: Some("Description".to_string()),
-            status: "blocked".to_string(),
-            priority: "high".to_string(),
-            progress: 42,
-            params: Some(json!({ "task": "Run", "message": "Use context" })),
-            created_by: UserId::new(),
-            assigned_agent_id: Some(agent_id),
-            parent_task_id: None,
-            result: None,
-            error: Some(json!({ "message": "boom" })),
-            blocked_reason: Some("waiting_input".to_string()),
-            blocked_metadata: Some(json!({ "missing": ["api_key"] })),
-            requires_approval: false,
-            approved_at: None,
-            approved_by: None,
-            attempt: 1,
-            lease_expires_at: None,
-            failure_code: None,
-            retryable: true,
-            last_assignment_id: None,
-            started_at: None,
-            completed_at: None,
-            canceled_at: None,
-            created_at,
-            updated_at,
-            self_fix: false,
-            base_commit_sha: None,
-            pr_number: None,
-            pr_url: None,
-            pr_head_sha: None,
-            review_status: None,
-            merge_attempts: 0,
-            review_opened_at: None,
-        };
-
-        let summary = task_summary(task, Some("Atlas".to_string()));
-
-        assert_eq!(summary.id, task_id);
-        assert_eq!(summary.state, "blocked");
-        assert_eq!(summary.method, "tasks/send");
-        assert_eq!(summary.params.task, "Run");
-        assert_eq!(summary.params.message, "Use context");
-        assert_eq!(summary.priority, "high");
-        assert_eq!(summary.progress, 42);
-        assert_eq!(summary.assigned_to, Some(agent_id.as_uuid()));
-        assert_eq!(summary.assigned_agent_name.as_deref(), Some("Atlas"));
-        assert_eq!(summary.error.as_deref(), Some("boom"));
-        assert_eq!(summary.blocked_reason.as_deref(), Some("waiting_input"));
-        assert!(summary.blocked_hint.is_some(), "blocked tasks get a hint");
-        assert_eq!(summary.created_at, "2026-05-18T10:00:00+00:00");
-        assert_eq!(summary.updated_at, "2026-05-18T10:01:00+00:00");
-        assert!(summary.completed_at.is_none(), "non-completed status drops completed_at");
-        assert_eq!(summary.context_counts.total, 0, "context counts initialize empty");
-    }
-
-    #[test]
-    fn task_assignment_snapshot_borrows_orchestration_task_fields() {
-        use agentforge_core::{OrgId, UserId};
-
-        let task_id = Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap();
-        let agent_id = AgentId::from(Uuid::parse_str("55555555-5555-5555-5555-555555555555").unwrap());
-        let delivery_id = Uuid::parse_str("66666666-6666-6666-6666-666666666666").unwrap();
-        let lease_expires_at = Utc::now();
-        let params = json!({ "task": "Execute", "message": "Use context" });
-        let now = Utc::now();
-        let task = OrchestrationTask {
-            id: task_id,
-            organization_id: OrgId::new(),
-            group_id: None,
-            title: "Snapshot title".to_string(),
-            description: Some("Snapshot description".to_string()),
-            status: "queued".to_string(),
-            priority: "high".to_string(),
-            progress: 0,
-            params: Some(params.clone()),
-            created_by: UserId::new(),
-            assigned_agent_id: Some(agent_id),
-            parent_task_id: None,
-            result: None,
-            error: None,
-            blocked_reason: None,
-            blocked_metadata: None,
-            requires_approval: false,
-            approved_at: None,
-            approved_by: None,
-            attempt: 2,
-            lease_expires_at: Some(lease_expires_at),
-            failure_code: None,
-            retryable: true,
-            last_assignment_id: Some(delivery_id),
-            started_at: None,
-            completed_at: None,
-            canceled_at: None,
-            created_at: now,
-            updated_at: now,
-            self_fix: false,
-            base_commit_sha: None,
-            pr_number: None,
-            pr_url: None,
-            pr_head_sha: None,
-            review_status: None,
-            merge_attempts: 0,
-            review_opened_at: None,
-        };
-
-        let snapshot = task_assignment_snapshot(&task);
-
-        assert_eq!(snapshot.task_id, task_id);
-        assert_eq!(snapshot.assigned_agent_id, Some(agent_id));
-        assert_eq!(snapshot.last_assignment_id, Some(delivery_id));
-        assert_eq!(snapshot.lease_expires_at, Some(lease_expires_at));
-        assert_eq!(snapshot.attempt, 2);
-        assert_eq!(snapshot.title, "Snapshot title");
-        assert_eq!(snapshot.description, Some("Snapshot description"));
-        assert_eq!(snapshot.params, Some(&params));
-        assert_eq!(snapshot.priority, "high");
-    }
-
-    #[test]
     fn task_assignment_policy_builds_delivery_protocol_from_snapshot() {
         let agent_id = AgentId::from(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap());
         let task_id = Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap();
@@ -2163,62 +1957,5 @@ mod tests {
     #[test]
     fn assignment_patch_policy_rejects_invalid_uuid() {
         assert!(TaskAssignmentPatchPolicy::parse(Some("not-a-uuid")).is_err());
-    }
-
-    #[test]
-    fn task_summary_copies_attempt_and_lease_expires_at_from_row() {
-        use agentforge_core::{OrgId, UserId};
-
-        let lease_ts = chrono::DateTime::parse_from_rfc3339("2026-06-22T09:00:00Z").unwrap().with_timezone(&Utc);
-        let now = chrono::DateTime::parse_from_rfc3339("2026-06-22T08:00:00Z").unwrap().with_timezone(&Utc);
-
-        let task = OrchestrationTask {
-            id: Uuid::from_u128(1),
-            organization_id: OrgId::new(),
-            group_id: None,
-            title: "Retry task".to_string(),
-            description: None,
-            status: "working".to_string(),
-            priority: "normal".to_string(),
-            progress: 0,
-            params: Some(json!({ "task": "Do work", "message": "context" })),
-            created_by: UserId::new(),
-            assigned_agent_id: None,
-            parent_task_id: None,
-            result: None,
-            error: None,
-            blocked_reason: None,
-            blocked_metadata: None,
-            requires_approval: false,
-            approved_at: None,
-            approved_by: None,
-            attempt: 3,
-            lease_expires_at: Some(lease_ts),
-            failure_code: None,
-            retryable: true,
-            last_assignment_id: None,
-            started_at: None,
-            completed_at: None,
-            canceled_at: None,
-            created_at: now,
-            updated_at: now,
-            self_fix: false,
-            base_commit_sha: None,
-            pr_number: None,
-            pr_url: None,
-            pr_head_sha: None,
-            review_status: None,
-            merge_attempts: 0,
-            review_opened_at: None,
-        };
-
-        let summary = task_summary(task, None);
-
-        assert_eq!(summary.attempt, 3, "attempt must be copied from the row");
-        assert_eq!(
-            summary.lease_expires_at.as_deref(),
-            Some("2026-06-22T09:00:00+00:00"),
-            "lease_expires_at must be RFC3339 serialized"
-        );
     }
 }
