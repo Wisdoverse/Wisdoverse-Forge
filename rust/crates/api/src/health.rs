@@ -143,7 +143,15 @@ pub async fn health() -> impl IntoResponse {
 /// is owned by the system domain boundary.
 pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = agentforge_db::check_health(&state.pool).await;
-    let redis_ok = state.redis.write().await.check_health().await;
+    // CN-7: when external state is required, readiness must verify Redis can
+    // actually WRITE the state store's SET/GETDEL path, not just answer PING — a
+    // Redis that goes read-only / loses write ACLs after boot must drop the
+    // replica from rotation. Otherwise a PING is the right lightweight check.
+    let redis_ok = if state.config.require_external_state {
+        state.redis.write().await.probe_read_write().await
+    } else {
+        state.redis.write().await.check_health().await
+    };
     let nats_ok = state.nats.check_health().await;
 
     // Docker is optional — absence is not degraded, but if present, check connectivity.
