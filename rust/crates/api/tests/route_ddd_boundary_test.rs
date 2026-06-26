@@ -36,6 +36,19 @@ fn error_policy_ignores_unrelated_errorkind_enums() {
 }
 
 #[test]
+fn error_policy_catches_fully_qualified_type_references() {
+    // The domain error type referenced WITHOUT constructing a variant — a
+    // helper signature, return type, or type alias — is still error-contract
+    // coupling and must stay caught (the fully-qualified path has no trailing
+    // `::Variant` for the usage regex to anchor on).
+    assert!(contains_route_error_policy("    fn map(e: agentforge_core::ErrorKind) -> AppError {"));
+    assert!(contains_service_error_policy("    type DomainError = agentforge_core::ErrorKind;"));
+    assert!(contains_repository_error_policy("    fn classify() -> agentforge_core::ErrorKind {"));
+    // ...but the std type at a fully-qualified path is still not the contract.
+    assert!(!contains_service_error_policy("    fn io() -> std::io::ErrorKind {"));
+}
+
+#[test]
 fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
     let routes_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/routes");
     let mut violations = Vec::new();
@@ -493,7 +506,12 @@ fn owns_error_kind_policy(line: &str) -> bool {
     if trimmed.starts_with("use ") {
         return trimmed.contains("agentforge_core") && trimmed.contains("ErrorKind");
     }
-    ERROR_KIND_POLICY.is_match(line) && !line.contains("std::io::ErrorKind")
+    // Usage as `ErrorKind::Variant` (anchored so `RefreshErrorKind` does not
+    // false-match) OR a fully-qualified bare TYPE reference
+    // `agentforge_core::ErrorKind` with no trailing `::Variant` — a helper
+    // signature, return type, or type alias is still error-contract coupling.
+    (ERROR_KIND_POLICY.is_match(line) || line.contains("agentforge_core::ErrorKind"))
+        && !line.contains("std::io::ErrorKind")
 }
 
 fn contains_service_error_policy(line: &str) -> bool {
