@@ -706,7 +706,6 @@ const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
     ("context.rs", 5),
     ("credential.rs", 3),
     ("observability.rs", 1),
-    ("orchestration.rs", 2),
 ];
 
 #[test]
