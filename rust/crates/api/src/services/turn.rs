@@ -3,12 +3,26 @@
 use chrono::{SecondsFormat, Utc};
 
 use agentforge_core::{AgentId, AppResult, TenantScope};
+use agentforge_db::entities::Event;
 use sqlx::PgPool;
 
 pub(crate) use crate::domain::turn::turn_page_response;
 pub use crate::domain::turn::{LastEventCursor, TurnPage};
-use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns, turn_projection_event};
+use crate::domain::turn::{Turn, TurnCursor, TurnListPage, TurnProjectionEvent, build_turns};
 use crate::repositories::agent::event::EventRepository;
+
+/// Map a persisted `Event` row onto the persistence-free [`TurnProjectionEvent`]
+/// the domain turn-building policy operates on. The service owns this row
+/// adapter so `domain::turn` stays independent of `agentforge_db` (DDD-2).
+fn turn_projection_event(event: &Event) -> TurnProjectionEvent {
+    TurnProjectionEvent {
+        id: event.id.as_uuid(),
+        event_type: event.event_type.clone(),
+        payload: event.payload.clone(),
+        session_id: event.session_id.clone(),
+        created_at_ms: event.created_at.timestamp_millis(),
+    }
+}
 
 pub struct TurnService {
     repo: EventRepository,
@@ -70,4 +84,36 @@ impl TurnService {
 
 pub fn default_turn_limit() -> i64 {
     TurnListPage::DEFAULT_LIMIT
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use agentforge_core::OrgId;
+    use chrono::TimeZone;
+    use uuid::Uuid;
+
+    #[test]
+    fn turn_projection_event_copies_protocol_fields_from_event_row() {
+        let event_uuid = Uuid::parse_str("00000000-0000-0000-0000-000000000123").unwrap();
+        let created_at = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
+        let event = Event {
+            id: event_uuid.into(),
+            organization_id: OrgId::new(),
+            agent_id: AgentId::new(),
+            run_id: None,
+            event_type: "user_prompt_submit".to_string(),
+            payload: serde_json::json!({"prompt": "hello"}),
+            session_id: Some("cli-session-1".to_string()),
+            created_at,
+        };
+
+        let projection = turn_projection_event(&event);
+
+        assert_eq!(projection.id, event_uuid);
+        assert_eq!(projection.event_type, "user_prompt_submit");
+        assert_eq!(projection.payload, serde_json::json!({"prompt": "hello"}));
+        assert_eq!(projection.session_id.as_deref(), Some("cli-session-1"));
+        assert_eq!(projection.created_at_ms, 1_700_000_000_000);
+    }
 }
