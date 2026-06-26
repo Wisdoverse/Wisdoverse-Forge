@@ -90,7 +90,7 @@ impl ProjectService {
         Ok(projects
             .into_iter()
             .map(|project| {
-                let clone = summaries.remove(&project.id.as_uuid()).map(|row| CloneSummary::from_attempt(&row));
+                let clone = summaries.remove(&project.id.as_uuid()).map(|row| Self::clone_summary_of(&row));
                 ProjectWithClone::new(project, clone)
             })
             .collect())
@@ -251,26 +251,113 @@ impl ProjectService {
         // Re-read the new latest attempt to return the queued summary.
         let new_latest =
             self.clones.latest_attempt_summary(scope, id).await?.ok_or_else(CloneApiPolicy::no_attempt_to_retry)?;
-        Ok(CloneSummary::from_attempt(&new_latest))
+        Ok(Self::clone_summary_of(&new_latest))
     }
 
     /// The latest clone-attempt summary for a project, or `None` when it has no
     /// attempt yet. Shared by `get`/`create`/`update` to attach the projection.
     async fn latest_clone_summary(&self, scope: &TenantScope, id: ProjectId) -> AppResult<Option<CloneSummary>> {
-        Ok(self.clones.latest_attempt_summary(scope, id).await?.map(|row| CloneSummary::from_attempt(&row)))
+        Ok(self.clones.latest_attempt_summary(scope, id).await?.map(|row| Self::clone_summary_of(&row)))
     }
 
     /// Project a single clone attempt into the API/UI summary. Re-exported for the
     /// legacy-navigation service so the active settings/sidebar surface attaches
     /// the SAME `CloneSummary` shape (M6/M7 contract).
     pub(crate) fn clone_summary_of(attempt: &ProjectCloneAttempt) -> CloneSummary {
-        CloneSummary::from_attempt(attempt)
+        // Row -> projection mapping owned by the service (DDD-2): only the
+        // secret-free, display-safe fields are copied; everything else on the
+        // attempt row (credential id, worker/container/job ids, lease) is
+        // deliberately dropped so the projection can never leak operational
+        // secrets.
+        CloneSummary {
+            status: attempt.status.clone(),
+            error_class: attempt.error_class.clone(),
+            error_message: attempt.error_message.clone(),
+            resolved_branch: attempt.resolved_branch.clone(),
+            head_sha: attempt.head_sha.clone(),
+            attempt: attempt.attempt,
+            updated_at: attempt.updated_at,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::ProjectService;
     use crate::domain::resource::{ProjectRepositoryUrl, ResourceListPage, ResourceName};
+
+    /// Build a minimal `ProjectCloneAttempt` row for projection tests.
+    fn attempt_row(status: &str) -> agentforge_db::entities::ProjectCloneAttempt {
+        agentforge_db::entities::ProjectCloneAttempt {
+            id: uuid::Uuid::now_v7(),
+            organization_id: agentforge_core::OrgId::new(),
+            workspace_id: agentforge_core::WorkspaceId::new(),
+            project_id: agentforge_core::ProjectId::new(),
+            attempt: 1,
+            repository_url: "https://github.com/o/r".into(),
+            provider: Some("github".into()),
+            credential_id: Some(uuid::Uuid::now_v7()),
+            status: status.into(),
+            resolved_branch: None,
+            head_sha: None,
+            container_id: Some("agentforge-clone-x".into()),
+            worker_id: Some("worker-1".into()),
+            job_id: Some(uuid::Uuid::now_v7()),
+            lease_expires_at: None,
+            error_class: None,
+            error_message: None,
+            bytes_cloned: None,
+            duration_ms: None,
+            materialized_at: None,
+            started_at: None,
+            finished_at: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn clone_summary_projects_ready_branch_and_sha() {
+        let mut row = attempt_row("ready");
+        row.attempt = 3;
+        row.resolved_branch = Some("main".into());
+        row.head_sha = Some("deadbeef".into());
+        let summary = ProjectService::clone_summary_of(&row);
+        assert_eq!(summary.status, "ready");
+        assert_eq!(summary.attempt, 3);
+        assert_eq!(summary.resolved_branch.as_deref(), Some("main"));
+        assert_eq!(summary.head_sha.as_deref(), Some("deadbeef"));
+        assert_eq!(summary.error_class, None);
+        assert_eq!(summary.error_message, None);
+    }
+
+    #[test]
+    fn clone_summary_projects_failed_redacted_error() {
+        let mut row = attempt_row("failed");
+        row.error_class = Some("auth".into());
+        // The worker already redacted this; the projection copies it verbatim.
+        row.error_message = Some("Authentication failed for github.com [REDACTED]".into());
+        let summary = ProjectService::clone_summary_of(&row);
+        assert_eq!(summary.status, "failed");
+        assert_eq!(summary.error_class.as_deref(), Some("auth"));
+        assert_eq!(summary.error_message.as_deref(), Some("Authentication failed for github.com [REDACTED]"));
+    }
+
+    #[test]
+    fn clone_summary_serializes_camel_case_and_omits_secrets() {
+        let row = attempt_row("ready");
+        let value = serde_json::to_value(ProjectService::clone_summary_of(&row)).expect("serialize summary");
+        // camelCase keys the M7 frontend consumes.
+        assert!(value.get("errorClass").is_some());
+        assert!(value.get("errorMessage").is_some());
+        assert!(value.get("resolvedBranch").is_some());
+        assert!(value.get("headSha").is_some());
+        assert!(value.get("updatedAt").is_some());
+        // NO secret-bearing field ever serializes, even though the row carries them.
+        for forbidden in ["credentialId", "credential_id", "workerId", "containerId", "jobId", "leaseExpiresAt"] {
+            assert!(value.get(forbidden).is_none(), "summary must not expose {forbidden}");
+        }
+    }
 
     #[test]
     fn valid_names() {

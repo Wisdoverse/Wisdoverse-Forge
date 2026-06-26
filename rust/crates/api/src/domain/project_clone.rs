@@ -807,24 +807,11 @@ pub struct CloneSummary {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-impl CloneSummary {
-    /// Project the latest clone attempt row into the API/UI summary.
-    ///
-    /// Only the secret-free, display-safe fields are copied; everything else on
-    /// the attempt row (credential id, worker/container/job ids, lease) is
-    /// deliberately dropped so a projection can never leak operational secrets.
-    pub fn from_attempt(attempt: &agentforge_db::entities::ProjectCloneAttempt) -> Self {
-        Self {
-            status: attempt.status.clone(),
-            error_class: attempt.error_class.clone(),
-            error_message: attempt.error_message.clone(),
-            resolved_branch: attempt.resolved_branch.clone(),
-            head_sha: attempt.head_sha.clone(),
-            attempt: attempt.attempt,
-            updated_at: attempt.updated_at,
-        }
-    }
-}
+// The `ProjectCloneAttempt` row -> `CloneSummary` projection lives in
+// `services::project` (`clone_summary_of`), keeping the domain free of
+// `agentforge_db` (DDD-2). `CloneSummary` above stays as the pure, secret-free
+// projection: only display-safe fields exist on it, so a projection can never
+// leak operational secrets (credential id, worker/container/job ids, lease).
 
 // ---------------------------------------------------------------------------
 // Clone API error contracts (M6) — routes/services own no ErrorKind directly
@@ -1611,80 +1598,8 @@ mod tests {
         assert!("Auth".parse::<CloneErrorClass>().is_err());
     }
 
-    // -- CloneSummary projection (M6) ---------------------------------------
-
-    /// Build a minimal `ProjectCloneAttempt` row for projection tests.
-    fn attempt_row(status: &str) -> agentforge_db::entities::ProjectCloneAttempt {
-        agentforge_db::entities::ProjectCloneAttempt {
-            id: uuid::Uuid::now_v7(),
-            organization_id: agentforge_core::OrgId::new(),
-            workspace_id: agentforge_core::WorkspaceId::new(),
-            project_id: agentforge_core::ProjectId::new(),
-            attempt: 1,
-            repository_url: "https://github.com/o/r".into(),
-            provider: Some("github".into()),
-            credential_id: Some(uuid::Uuid::now_v7()),
-            status: status.into(),
-            resolved_branch: None,
-            head_sha: None,
-            container_id: Some("agentforge-clone-x".into()),
-            worker_id: Some("worker-1".into()),
-            job_id: Some(uuid::Uuid::now_v7()),
-            lease_expires_at: None,
-            error_class: None,
-            error_message: None,
-            bytes_cloned: None,
-            duration_ms: None,
-            materialized_at: None,
-            started_at: None,
-            finished_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        }
-    }
-
-    #[test]
-    fn clone_summary_projects_ready_branch_and_sha() {
-        let mut row = attempt_row("ready");
-        row.attempt = 3;
-        row.resolved_branch = Some("main".into());
-        row.head_sha = Some("deadbeef".into());
-        let summary = CloneSummary::from_attempt(&row);
-        assert_eq!(summary.status, "ready");
-        assert_eq!(summary.attempt, 3);
-        assert_eq!(summary.resolved_branch.as_deref(), Some("main"));
-        assert_eq!(summary.head_sha.as_deref(), Some("deadbeef"));
-        assert_eq!(summary.error_class, None);
-        assert_eq!(summary.error_message, None);
-    }
-
-    #[test]
-    fn clone_summary_projects_failed_redacted_error() {
-        let mut row = attempt_row("failed");
-        row.error_class = Some("auth".into());
-        // The worker already redacted this; the projection copies it verbatim.
-        row.error_message = Some("Authentication failed for github.com [REDACTED]".into());
-        let summary = CloneSummary::from_attempt(&row);
-        assert_eq!(summary.status, "failed");
-        assert_eq!(summary.error_class.as_deref(), Some("auth"));
-        assert_eq!(summary.error_message.as_deref(), Some("Authentication failed for github.com [REDACTED]"));
-    }
-
-    #[test]
-    fn clone_summary_serializes_camel_case_and_omits_secrets() {
-        let row = attempt_row("ready");
-        let value = serde_json::to_value(CloneSummary::from_attempt(&row)).expect("serialize summary");
-        // camelCase keys the M7 frontend consumes.
-        assert!(value.get("errorClass").is_some());
-        assert!(value.get("errorMessage").is_some());
-        assert!(value.get("resolvedBranch").is_some());
-        assert!(value.get("headSha").is_some());
-        assert!(value.get("updatedAt").is_some());
-        // NO secret-bearing field ever serializes, even though the row carries them.
-        for forbidden in ["credentialId", "credential_id", "workerId", "containerId", "jobId", "leaseExpiresAt"] {
-            assert!(value.get(forbidden).is_none(), "summary must not expose {forbidden}");
-        }
-    }
+    // CloneSummary projection (M6) is now built in `services::project`
+    // (`clone_summary_of`); its row-mapping + secret-omission tests live there.
 
     // -- Clone API error policy (M6) ----------------------------------------
 
