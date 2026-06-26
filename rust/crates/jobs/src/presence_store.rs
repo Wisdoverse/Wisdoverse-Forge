@@ -86,11 +86,15 @@ impl PresenceBackend {
         self.inner.enabled && self.inner.redis.is_some()
     }
 
-    /// Record a heartbeat. On the Redis path this is a single `SET key 1 EX
-    /// <stale_after> GET`: the returned prior value distinguishes a steady-state
-    /// beat (key existed) from a transition (key absent). Any Redis problem
-    /// degrades to `Unavailable` and arms the post-fallback grace window.
-    pub async fn record(&self, agent_id: Uuid) -> RedisRecord {
+    /// Record a heartbeat. On the Redis path this is a single `SET key
+    /// <fingerprint> EX <stale_after> GET`: the returned prior value distinguishes
+    /// a steady-state beat (key existed with the SAME fingerprint) from a
+    /// transition (key absent, OR the advertised-capability fingerprint changed —
+    /// e.g. a rolling-deploy restart onto a sidecar that now reports `image_input`,
+    /// which must force the PostgreSQL capability write rather than be suppressed
+    /// for the key TTL). Any Redis problem degrades to `Unavailable` and arms the
+    /// post-fallback grace window.
+    pub async fn record(&self, agent_id: Uuid, fingerprint: &str) -> RedisRecord {
         if !self.inner.enabled {
             return RedisRecord::Unavailable;
         }
@@ -103,21 +107,31 @@ impl PresenceBackend {
             return RedisRecord::Unavailable;
         };
         let key = format!("{PRESENCE_KEY_PREFIX}{agent_id}");
+        // The value is a fingerprint of the advertised capabilities so a beat
+        // whose capabilities changed (vs the stored fingerprint) is treated as a
+        // transition and forced through the PostgreSQL write below.
         let prior: Result<Option<String>, redis::RedisError> = redis::cmd("SET")
             .arg(&key)
-            .arg("1")
+            .arg(fingerprint)
             .arg("EX")
             .arg(self.inner.stale_after.as_secs())
             .arg("GET")
             .query_async(conn)
             .await;
         match prior {
-            Ok(Some(_)) => {
+            Ok(Some(prev)) if prev == fingerprint => {
                 self.clear_fallback();
                 // This beat skipped a PostgreSQL write — `last_heartbeat_at` for
                 // this agent is now stale, which is what the sweep grace guards.
                 *self.inner.last_steady_skip.lock().expect("presence steady-skip mutex") = Some(Instant::now());
                 RedisRecord::SteadyState
+            }
+            Ok(Some(_)) => {
+                // Key existed but the capability fingerprint changed — force the
+                // PG path so the new capabilities (e.g. `image_input` after a
+                // rolling-deploy restart) are persisted instead of suppressed.
+                self.clear_fallback();
+                RedisRecord::Transition
             }
             Ok(None) => {
                 self.clear_fallback();
@@ -268,7 +282,7 @@ mod tests {
     #[tokio::test]
     async fn disabled_backend_reports_unavailable_without_arming_grace() {
         let backend = PresenceBackend::postgres_only(Duration::from_secs(90));
-        assert_eq!(backend.record(Uuid::new_v4()).await, RedisRecord::Unavailable);
+        assert_eq!(backend.record(Uuid::new_v4(), "claude").await, RedisRecord::Unavailable);
         // A disabled backend is the steady PG state, not a fallback, so the
         // sweep must run normally (no grace).
         assert!(!backend.pg_sweep_within_grace());

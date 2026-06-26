@@ -666,6 +666,39 @@ impl OrchestrationTaskRepository {
         .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
+    /// Record the workspace an image task's images were materialized into (so the
+    /// cleanup sweeper can find them without the assigned-agent row) and clear any
+    /// prior cleanup mark so a re-materialized (retried) task's new images are
+    /// eligible again. Best-effort, called at dispatch when image_paths are set.
+    /// Persist the workspace a task's instruction images were materialized into
+    /// (so the cleanup sweeper finds them even after the assigned agent is
+    /// deleted) and clear any prior cleanup marker so a retried task's fresh images
+    /// are eligible again. Runs INSIDE the dispatch transaction: the caller already
+    /// holds this task's row lock via `assign_agent_in_tx`, so a separate-connection
+    /// UPDATE would self-deadlock against the open tx — and holding the lock here is
+    /// also what serialises this re-materialize against the sweeper's row-locked
+    /// removal. `$3` = workspace id.
+    pub async fn set_task_images_workspace_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: Uuid,
+        workspace_id: Uuid,
+    ) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE orchestration_tasks
+                SET task_images_workspace_id = $3,
+                    task_images_cleaned_at = NULL,
+                    task_images_retry_after = NULL
+              WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(workspace_id)
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
+
     /// Unblock children that were waiting on the given parent task. Children
     /// marked `blocked/waiting_dependency` for this parent transition to
     /// `queued` so the auto-dispatcher can claim them. Returns the affected
@@ -708,6 +741,16 @@ impl OrchestrationTaskRepository {
                  AND status IN ('queued', 'blocked')
                  AND (blocked_reason IS NULL OR blocked_reason = 'waiting_agent')
                  AND assigned_agent_id IS NULL
+                 -- Image tasks are PUSH-only to an explicitly chosen vision-capable
+                 -- container agent (the self-claim/auto-dispatch lanes can't
+                 -- materialize images). Excluding them here also keeps a blocked
+                 -- image task off the head of the sweep so it can't starve later
+                 -- plain queued tasks. Mirrors jobs::NEXT_DISPATCHABLE_SQL.
+                 AND COALESCE(
+                       CASE WHEN jsonb_typeof(params -> 'imageAttachmentIds') = 'array'
+                            THEN jsonb_array_length(params -> 'imageAttachmentIds')
+                            ELSE 0 END,
+                       0) = 0
                ORDER BY
                  CASE priority
                    WHEN 'urgent' THEN 0
@@ -789,12 +832,17 @@ impl ParticipantRepository {
 
     /// List participants with optional status filter (tenant-scoped).
     pub async fn list(&self, scope: &TenantScope, status: Option<&str>) -> AppResult<Vec<Participant>> {
+        // LEFT JOIN agents so each participant carries its agent's typed
+        // `runtime_kind` (used by the task form's image-capability gate). LEFT so
+        // a participant whose agent row is missing still lists (runtime_kind NULL).
         let participants = match status {
             Some(s) => {
                 sqlx::query_as::<_, Participant>(
-                    r#"SELECT * FROM participants
-                       WHERE organization_id = $1 AND status = $2
-                       ORDER BY registered_at DESC"#,
+                    r#"SELECT participants.*, agents.runtime_kind
+                       FROM participants
+                       LEFT JOIN agents ON agents.id = participants.agent_id
+                       WHERE participants.organization_id = $1 AND participants.status = $2
+                       ORDER BY participants.registered_at DESC"#,
                 )
                 .bind(scope.org_id().as_uuid())
                 .bind(s)
@@ -803,9 +851,11 @@ impl ParticipantRepository {
             }
             None => {
                 sqlx::query_as::<_, Participant>(
-                    r#"SELECT * FROM participants
-                       WHERE organization_id = $1
-                       ORDER BY registered_at DESC"#,
+                    r#"SELECT participants.*, agents.runtime_kind
+                       FROM participants
+                       LEFT JOIN agents ON agents.id = participants.agent_id
+                       WHERE participants.organization_id = $1
+                       ORDER BY participants.registered_at DESC"#,
                 )
                 .bind(scope.org_id().as_uuid())
                 .fetch_all(&self.pool)
@@ -932,5 +982,133 @@ impl ParticipantRepository {
             return Err(OrchestrationRepositoryPolicy::participant_not_found(agent_id));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod participant_list_runtime_tests {
+    use super::*;
+    use crate::test_support::tenant_scope_for_ids;
+    use uuid::Uuid;
+
+    // The participant list LEFT JOINs agents so each row carries the agent's
+    // typed runtime_kind, which the task form uses to gate image upload. Verify
+    // the JOIN executes and FromRow maps the joined column onto the
+    // `#[sqlx(default)]` field.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_surfaces_agent_runtime_kind(pool: sqlx::PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind("Img Org")
+            .bind(format!("img-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(org_id)
+            .execute(&pool)
+            .await
+            .expect("seed workspace");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+        // Container agent (overrides the 'api' column default) with a CLI tool,
+        // satisfying the runtime_kind invariant.
+        sqlx::query(
+            r#"INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status, cli_tool, runtime_kind)
+               VALUES ($1, $2, $2, $3, 'a', 'idle', 'claude', 'container')"#,
+        )
+        .bind(agent_id)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed agent");
+
+        let repo = ParticipantRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        repo.register(&scope, AgentId::from(agent_id), "worker", &["claude".to_string()])
+            .await
+            .expect("register participant");
+
+        let participants = repo.list(&scope, None).await.expect("list participants");
+        assert_eq!(participants.len(), 1);
+        assert_eq!(
+            participants[0].runtime_kind.as_deref(),
+            Some("container"),
+            "list() must surface the agent's runtime_kind via the JOIN"
+        );
+    }
+
+    // An image task is push-only to a vision-capable container agent; the
+    // auto-dispatch sweep (next_dispatchable) must NEVER pick one, or a blocked
+    // image task sits at the head of every sweep and starves later plain tasks.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn next_dispatchable_skips_image_tasks(pool: sqlx::PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind("Img Org")
+            .bind(format!("img-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+
+        // Image task: unassigned + queued + sorted FIRST (urgent) — must be skipped.
+        let image_task = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, priority, created_by, params, created_at, updated_at)
+               VALUES ($1, $2, 'Image', 'queued', 'urgent', $3, $4::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
+        )
+        .bind(image_task)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(serde_json::json!({ "imageAttachmentIds": ["11111111-1111-1111-1111-111111111111"] }))
+        .execute(&pool)
+        .await
+        .expect("seed image task");
+
+        // Plain task: unassigned + queued, lower priority + later.
+        let plain_task = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, priority, created_by, created_at, updated_at)
+               VALUES ($1, $2, 'Plain', 'queued', 'normal', $3, NOW(), NOW())"#,
+        )
+        .bind(plain_task)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed plain task");
+
+        let repo = OrchestrationTaskRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let next = repo.next_dispatchable(&scope).await.expect("next_dispatchable");
+        // Despite urgent priority + earlier created_at, the image task is skipped.
+        assert_eq!(next.map(|t| t.id), Some(plain_task), "next_dispatchable must skip image tasks");
+
+        // With ONLY an image task queued, the sweep finds nothing to dispatch.
+        sqlx::query("DELETE FROM orchestration_tasks WHERE id = $1")
+            .bind(plain_task)
+            .execute(&pool)
+            .await
+            .expect("del");
+        let none = repo.next_dispatchable(&scope).await.expect("next_dispatchable again");
+        assert!(none.is_none(), "an image-only queue must not auto-dispatch");
     }
 }

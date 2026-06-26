@@ -3,7 +3,10 @@
 //! This module owns upload metadata and quota policies that are independent of
 //! repositories, object storage clients, HTTP route DTOs, and persistence details.
 
+use std::io::Cursor;
+
 use agentforge_core::{AgentId, AppError, AppResult, ErrorKind};
+use image::{ImageFormat, ImageReader};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -11,6 +14,83 @@ use uuid::Uuid;
 const MAX_FILENAME_LEN: usize = 255;
 const MAX_CONTENT_TYPE_LEN: usize = 255;
 pub(crate) const DEFAULT_ATTACHMENT_CONTENT_TYPE: &str = "application/octet-stream";
+
+/// Hard ceiling on decoded image pixels (≈50 MP) to bound memory before a full
+/// decode, defeating decompression bombs. Checked from the header only.
+pub(crate) const MAX_IMAGE_PIXELS: u64 = 50_000_000;
+
+/// Canonical content type for re-encoded instruction images.
+pub(crate) const IMAGE_OUTPUT_CONTENT_TYPE: &str = "image/png";
+
+/// A validated, re-encoded image ready to store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ValidatedImage {
+    pub(crate) png_bytes: Vec<u8>,
+    pub(crate) width: i32,
+    pub(crate) height: i32,
+}
+
+/// Validate untrusted image bytes and re-encode to canonical PNG.
+///
+/// Security: this single decode→re-encode pass is the trust boundary for image
+/// input that a `--dangerously-skip-permissions` CLI agent may later read.
+/// 1. Format is detected from MAGIC BYTES (not the declared content type) and
+///    must be in the allowlist (png/jpeg/webp/gif).
+/// 2. Dimensions are read BEFORE the full decode. The decoder may scan the
+///    compressed stream (which is already bounded by the caller's upload-size
+///    cap), but the decoded pixel canvas — the actual decompression bomb — is
+///    NOT allocated until `decode()`, which only runs after an image whose pixel
+///    count exceeds `max_pixels` has been rejected.
+/// 3. The decoded image is re-encoded to PNG, which drops EXIF/GPS metadata and
+///    any trailing/appended polyglot payload (bytes after the image data).
+///
+/// Callers MUST enforce a raw-byte size cap before calling this, and the caller
+/// is responsible for the `workspace_id` an image is recorded under (this layer
+/// does not know the tenant scope).
+pub(crate) fn validate_and_reencode_image(bytes: &[u8], max_pixels: u64) -> AppResult<ValidatedImage> {
+    let reader = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| ErrorKind::Validation(format!("could not read image: {e}")))?;
+    let format = reader.format().ok_or_else(|| ErrorKind::Validation("unrecognized image format".to_string()))?;
+    if !matches!(format, ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP | ImageFormat::Gif) {
+        return Err(ErrorKind::Validation(format!("unsupported image format: {format:?}")).into());
+    }
+
+    let (width, height) =
+        reader.into_dimensions().map_err(|e| ErrorKind::Validation(format!("could not read image dimensions: {e}")))?;
+    if u64::from(width) * u64::from(height) > max_pixels {
+        return Err(
+            ErrorKind::Validation(format!("image {width}x{height} exceeds the {max_pixels}-pixel limit")).into()
+        );
+    }
+
+    let decoded = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| ErrorKind::Validation(format!("could not read image: {e}")))?
+        .decode()
+        .map_err(|e| ErrorKind::Validation(format!("could not decode image: {e}")))?;
+    let mut png_bytes = Vec::new();
+    decoded
+        .write_to(&mut Cursor::new(&mut png_bytes), ImageFormat::Png)
+        .map_err(|e| AppError::from(ErrorKind::Internal(anyhow::anyhow!("png re-encode failed: {e}"))))?;
+
+    Ok(ValidatedImage {
+        png_bytes,
+        width: i32::try_from(decoded.width())
+            .map_err(|_| ErrorKind::Validation("image width too large".to_string()))?,
+        height: i32::try_from(decoded.height())
+            .map_err(|_| ErrorKind::Validation("image height too large".to_string()))?,
+    })
+}
+
+/// Normalize an upload filename to a `.png` name (images are re-encoded to PNG).
+/// The result is still validated by `AttachmentFilename::parse`, so a stem with
+/// path separators is rejected downstream.
+pub(crate) fn image_output_filename(original: &str) -> String {
+    let stem = original.rsplit_once('.').map(|(stem, _ext)| stem).unwrap_or(original).trim();
+    let stem = if stem.is_empty() { "image" } else { stem };
+    format!("{stem}.png")
+}
 
 pub(crate) fn attachment_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
@@ -334,5 +414,59 @@ mod tests {
             AttachmentRepositoryPolicy::attachment_not_found(id).kind,
             ErrorKind::NotFound(message) if message == format!("attachment {id}")
         ));
+    }
+
+    fn tiny_png(width: u32, height: u32) -> Vec<u8> {
+        let img = image::RgbImage::from_pixel(width, height, image::Rgb([10, 20, 30]));
+        let mut bytes = Vec::new();
+        image::DynamicImage::ImageRgb8(img)
+            .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
+            .expect("encode test png");
+        bytes
+    }
+
+    #[test]
+    fn validate_image_accepts_and_reencodes_png() {
+        let png = tiny_png(4, 3);
+        let validated = validate_and_reencode_image(&png, MAX_IMAGE_PIXELS).expect("valid png");
+
+        assert_eq!(validated.width, 4);
+        assert_eq!(validated.height, 3);
+        assert!(validated.png_bytes.starts_with(&[0x89, b'P', b'N', b'G']), "output must be PNG");
+    }
+
+    #[test]
+    fn validate_image_rejects_non_image_bytes() {
+        assert!(validate_and_reencode_image(b"definitely not an image at all", MAX_IMAGE_PIXELS).is_err());
+    }
+
+    #[test]
+    fn validate_image_rejects_dimensions_over_ceiling() {
+        let png = tiny_png(100, 100); // 10_000 px
+        let err = validate_and_reencode_image(&png, 9_999).expect_err("over-ceiling image must be rejected");
+        assert!(matches!(err.kind, ErrorKind::Validation(msg) if msg.contains("pixel")));
+    }
+
+    #[test]
+    fn image_output_filename_normalizes_to_png() {
+        assert_eq!(image_output_filename("screenshot"), "screenshot.png");
+        assert_eq!(image_output_filename("photo.jpeg"), "photo.png");
+        assert_eq!(image_output_filename("a.b.webp"), "a.b.png");
+        assert_eq!(image_output_filename(".hidden"), "image.png");
+        assert_eq!(image_output_filename(""), "image.png");
+    }
+
+    #[test]
+    fn validate_image_strips_trailing_polyglot_payload() {
+        let mut png = tiny_png(4, 4);
+        png.extend_from_slice(b"<<<MALICIOUS_SCRIPT_PAYLOAD>>>");
+
+        let validated = validate_and_reencode_image(&png, MAX_IMAGE_PIXELS).expect("valid png prefix");
+
+        let needle = b"MALICIOUS_SCRIPT_PAYLOAD";
+        assert!(
+            !validated.png_bytes.windows(needle.len()).any(|w| w == needle),
+            "re-encode must drop appended polyglot bytes"
+        );
     }
 }

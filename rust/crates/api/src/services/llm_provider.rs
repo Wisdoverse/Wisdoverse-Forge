@@ -239,7 +239,7 @@ impl LlmProviderService {
             model: model.clone(),
             messages: vec![ChatMessage {
                 role: "user".to_string(),
-                content: "Reply with a short connection check acknowledgement.".to_string(),
+                content: "Reply with a short connection check acknowledgement.".into(),
             }],
             max_tokens: Some(16),
             temperature: Some(0.0),
