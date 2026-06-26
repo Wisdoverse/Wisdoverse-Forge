@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use agentforge_api::repositories::agent::AgentRepository;
 use agentforge_api::repositories::attachment::AttachmentRepository;
 use agentforge_api::services::attachment::AttachmentService;
 use agentforge_api::test_support::{mint_test_jwt, tenant_scope_for_ids, test_app_with_mock_provider};
@@ -43,6 +44,7 @@ fn storage_root() -> PathBuf {
 fn service(pool: &PgPool, root: PathBuf, max_file_size: i64) -> AttachmentService {
     AttachmentService::new(
         AttachmentRepository::new(pool.clone()),
+        AgentRepository::new(pool.clone()),
         Arc::new(ObjectStorageClient::Local { root }),
         max_file_size,
         20,

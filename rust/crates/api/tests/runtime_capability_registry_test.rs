@@ -85,7 +85,7 @@ async fn divergent_seed_refuses_startup_and_preserves_previous_cache(pool: PgPoo
     let err = service.refresh_from_code().await.expect_err("divergent row should fail startup refresh");
     let message = err.kind.to_string();
     assert!(message.contains("runtime_capabilities row for claude/container diverges from code"), "{message}");
-    assert!(message.contains("051_runtime_capabilities.sql"), "{message}");
+    assert!(message.contains("082_runtime_capabilities_image.sql"), "{message}");
 
     let after = service.for_cli_tool(CliToolKind::Claude, RuntimeKind::Container).await;
     assert_eq!(after, before, "failed refresh must not replace the last valid cache");

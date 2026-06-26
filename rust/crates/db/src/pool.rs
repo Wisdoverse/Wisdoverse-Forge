@@ -155,6 +155,9 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("079_validate_enrollment_org_fk.sql", include_str!("../migrations/079_validate_enrollment_org_fk.sql")),
     ("080_validate_enrollment_user_fk.sql", include_str!("../migrations/080_validate_enrollment_user_fk.sql")),
     ("081_validate_join_codes_org_fk.sql", include_str!("../migrations/081_validate_join_codes_org_fk.sql")),
+    ("082_runtime_capabilities_image.sql", include_str!("../migrations/082_runtime_capabilities_image.sql")),
+    ("083_attachment_image_metadata.sql", include_str!("../migrations/083_attachment_image_metadata.sql")),
+    ("084_task_images_cleanup_state.sql", include_str!("../migrations/084_task_images_cleanup_state.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

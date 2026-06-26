@@ -655,10 +655,10 @@ mod tests {
     }
 
     #[test]
-    fn prompt_request_with_images_is_rejected() {
+    fn prompt_request_with_non_uuid_image_is_rejected() {
         let req: PromptRequest = serde_json::from_str(r#"{"content": "hello", "images": ["base64data"]}"#).unwrap();
         let result = crate::domain::agent::PlainTextAgentPrompt::new(&req.content, req.images.as_deref());
-        assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("not supported")));
+        assert!(matches!(result.unwrap_err().kind, ErrorKind::Validation(msg) if msg.contains("UUID")));
     }
 
     #[test]

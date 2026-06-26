@@ -8,6 +8,81 @@ export const isContainerAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean =>
 
 export const isApiAgent = (a: Pick<AgentInfo, 'runtimeKind'>): boolean => a.runtimeKind === 'api'
 
+/** OpenAI model-name prefixes whose families accept image input. Allowlist that
+ * mirrors the server `agentforge_llm::vision` OPENAI_VISION_PREFIXES — base
+ * `gpt-4`/`gpt-4-0613`, `gpt-3.5*`, and `text-*` are text-only and correctly fall
+ * through to false. */
+const OPENAI_VISION_PREFIXES = ['gpt-4o', 'gpt-4-turbo', 'gpt-4.1', 'gpt-5']
+
+/**
+ * Whether a (provider, model) pair accepts image input. Mirrors the server's
+ * `agentforge_llm::vision::model_supports_image` so the UI never advertises an
+ * upload path the backend's model-aware gate would reject afterward: anthropic and
+ * google (the canonical Gemini key) are vision for every model; openai is vision
+ * only for the allowlisted families; any other provider is conservatively false.
+ */
+export const modelSupportsImage = (
+  provider: string | null | undefined,
+  model: string | null | undefined
+): boolean => {
+  const p = (provider ?? '').toLowerCase()
+  const m = model ?? ''
+  switch (p) {
+    case 'anthropic':
+      return true
+    // "google" is canonical; "gemini" accepted defensively for drift.
+    case 'google':
+    case 'gemini':
+      return true
+    case 'openai':
+      return OPENAI_VISION_PREFIXES.some((prefix) => m.startsWith(prefix))
+    default:
+      return false
+  }
+}
+
+/**
+ * Whether the quick-message composer should offer image upload for this agent.
+ * Container CLI agents receive images via tasks (workspace files), not quick
+ * messages — the quick-message path is provider/API only — so this is limited to
+ * provider/API (chat) agents whose (provider, model) is vision-capable. Gating on
+ * the model too (not just the provider) keeps the affordance in lock-step with the
+ * server's model-aware gate, so a text-only model on a vision provider (e.g.
+ * `gpt-4`/`gpt-3.5-turbo` on openai) is not offered an upload that fails on send.
+ * The server still enforces the real boundary; this only gates the UI affordance.
+ */
+export const isImageCapable = (a: Pick<AgentInfo, 'cliTool' | 'provider' | 'model'>): boolean =>
+  !a.cliTool && modelSupportsImage(a.provider, a.model)
+
+/** Container CLI tools that can read image input. Mirrors the server-side
+ * `CliToolKind::supports_image_input` (claude/codex/gemini, NOT opencode). */
+const VISION_CLI_TOOLS = new Set<string>(['claude', 'codex', 'gemini'])
+
+/** Heartbeat token a sidecar advertises once it understands image_paths. Mirrors
+ * the Rust `agentforge_core::SIDECAR_IMAGE_INPUT_CAPABILITY`. */
+const SIDECAR_IMAGE_INPUT_CAPABILITY = 'image_input'
+
+/**
+ * Whether a *task* may carry instruction images for this assignee. Task images
+ * are materialized into a Container CLI agent's `/workspace`, so this requires
+ * ALL of: a container runtime (`runtimeKind === 'container'` — a Host CLI agent's
+ * workspace is off-host and the server rejects it); a vision-capable CLI tool in
+ * `capabilities` (claude/codex/gemini; opencode and Provider+Prompt/API agents
+ * are excluded); AND the live sidecar advertising the `image_input` protocol
+ * token, so an older not-yet-restarted sidecar (which the server dispatch gate
+ * rejects) isn't offered an upload that would fail. The server still enforces the
+ * real boundary; this only gates the UI affordance.
+ */
+export const isTaskImageCapable = (
+  agent: { runtimeKind?: AgentRuntimeKind; capabilities?: readonly string[] } | undefined
+): boolean => {
+  if (agent?.runtimeKind !== 'container' || !agent.capabilities) return false
+  const caps = agent.capabilities.map((c) => c.toLowerCase())
+  return (
+    caps.some((tool) => VISION_CLI_TOOLS.has(tool)) && caps.includes(SIDECAR_IMAGE_INPUT_CAPABILITY)
+  )
+}
+
 /**
  * Canonical user-facing labels for each runtime kind. These labels are plain
  * language; protocol slugs still stay in sync with server-side RuntimeKind.

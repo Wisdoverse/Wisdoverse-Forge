@@ -5,7 +5,8 @@ use futures::stream::{BoxStream, StreamExt};
 use reqwest::Client;
 
 use crate::provider::{
-    ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, timed_client,
+    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
+    StreamDelta, Usage, timed_client,
 };
 
 /// Anthropic Messages API provider.
@@ -36,6 +37,26 @@ impl AnthropicProvider {
     }
 }
 
+/// Render message content to Anthropic's `content` shape: a bare string for
+/// text-only, or an array of `text`/`image` blocks for multimodal input.
+fn anthropic_content(content: &MessageContent) -> serde_json::Value {
+    match content {
+        MessageContent::Text(text) => serde_json::json!(text),
+        MessageContent::Blocks(blocks) => serde_json::Value::Array(
+            blocks
+                .iter()
+                .map(|block| match block {
+                    ContentBlock::Text { text } => serde_json::json!({ "type": "text", "text": text }),
+                    ContentBlock::Image { media_type, data } => serde_json::json!({
+                        "type": "image",
+                        "source": { "type": "base64", "media_type": media_type, "data": data },
+                    }),
+                })
+                .collect(),
+        ),
+    }
+}
+
 /// Split a `ChatRequest`'s messages into an optional top-level system prompt
 /// (Anthropic's expected shape) and the remaining user/assistant turns.
 fn split_system(messages: &[ChatMessage]) -> (Option<String>, Vec<serde_json::Value>) {
@@ -43,9 +64,9 @@ fn split_system(messages: &[ChatMessage]) -> (Option<String>, Vec<serde_json::Va
     let mut rest = Vec::with_capacity(messages.len());
     for m in messages {
         if m.role == "system" {
-            system_text = Some(m.content.clone());
+            system_text = Some(m.content.to_text_lossy());
         } else {
-            rest.push(serde_json::json!({ "role": m.role, "content": m.content }));
+            rest.push(serde_json::json!({ "role": m.role, "content": anthropic_content(&m.content) }));
         }
     }
     (system_text, rest)
@@ -165,7 +186,8 @@ impl LlmProvider for AnthropicProvider {
     }
 
     fn capability_profile(&self) -> RuntimeCapability {
-        RuntimeCapability::api_provider_or_default(self.name(), 200_000)
+        // Every current Claude model is vision-capable.
+        RuntimeCapability::api_provider_or_default(self.name(), 200_000).with_image_input(true)
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {
@@ -230,6 +252,25 @@ mod stream_tests {
     use futures::StreamExt;
     use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[test]
+    fn anthropic_content_renders_text_string_and_image_base64_source() {
+        assert_eq!(anthropic_content(&MessageContent::from("hi")), serde_json::json!("hi"));
+
+        let content = MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "what is this".to_string() },
+            ContentBlock::Image { media_type: "image/png".to_string(), data: "QUJD".to_string() },
+        ]);
+        let value = anthropic_content(&content);
+        assert_eq!(value[0], serde_json::json!({ "type": "text", "text": "what is this" }));
+        assert_eq!(
+            value[1],
+            serde_json::json!({
+                "type": "image",
+                "source": { "type": "base64", "media_type": "image/png", "data": "QUJD" }
+            })
+        );
+    }
 
     const SSE_BODY: &str = "\
 event: message_start

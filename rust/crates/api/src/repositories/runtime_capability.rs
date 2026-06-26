@@ -18,6 +18,7 @@ pub struct RuntimeCapabilityRow {
     pub supports_subagents: bool,
     pub supports_mcp_bridge: bool,
     pub supports_terminal: bool,
+    pub supports_image_input: bool,
     pub capability_profile: Value,
     pub updated_at: DateTime<Utc>,
 }
@@ -43,8 +44,8 @@ impl RuntimeCapabilityRepository {
         sqlx::query_as::<_, RuntimeCapabilityRow>(
             r#"SELECT id, cli_tool, runtime_kind, max_context_tokens,
                       supports_skills_mount, supports_hooks, supports_subagents,
-                      supports_mcp_bridge, supports_terminal, capability_profile,
-                      updated_at
+                      supports_mcp_bridge, supports_terminal, supports_image_input,
+                      capability_profile, updated_at
                  FROM runtime_capabilities
                 ORDER BY cli_tool ASC, runtime_kind ASC"#,
         )
@@ -69,9 +70,10 @@ impl RuntimeCapabilityRepository {
                 r#"INSERT INTO runtime_capabilities (
                        cli_tool, runtime_kind, max_context_tokens,
                        supports_skills_mount, supports_hooks, supports_subagents,
-                       supports_mcp_bridge, supports_terminal, capability_profile
+                       supports_mcp_bridge, supports_terminal, supports_image_input,
+                       capability_profile
                    )
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                    ON CONFLICT (cli_tool, runtime_kind) DO NOTHING"#,
             )
             .bind(cli_tool.as_str())
@@ -82,6 +84,7 @@ impl RuntimeCapabilityRepository {
             .bind(profile.supports_subagents)
             .bind(profile.supports_mcp_bridge)
             .bind(profile.supports_terminal)
+            .bind(profile.supports_image_input)
             .bind(capability_profile)
             .execute(&mut *tx)
             .await?;
