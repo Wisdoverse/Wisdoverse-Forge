@@ -42,6 +42,7 @@ pub mod orchestration_result_consumer;
 pub mod participant_liveness;
 pub mod presence_store;
 pub mod queue;
+pub mod replay_window;
 pub mod self_fix_review_reaper;
 pub mod stale_job_lock_reaper;
 pub mod worker;

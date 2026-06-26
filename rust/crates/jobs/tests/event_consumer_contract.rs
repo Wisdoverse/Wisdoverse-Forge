@@ -471,18 +471,22 @@ async fn rejects_event_outside_replay_window() {
 }
 
 #[tokio::test]
-async fn accepts_event_at_replay_window_edge() {
-    // Exactly WINDOW seconds old still passes — inclusive bound so a normal
-    // slow path is not cut off. Mirrors the orchestration-result edge test.
+async fn accepts_event_near_replay_window_edge() {
+    // A still-old event, just inside the window, flows through the full handle
+    // path and is persisted. We stamp `WINDOW - 5s` rather than exactly `WINDOW`
+    // so the few milliseconds between stamping and the consumer re-reading the
+    // clock can't push it over the edge (that race made this test flaky in CI:
+    // envelope ts vs now came out 301 against a 300s window). The EXACT inclusive
+    // boundary is pinned deterministically in `agentforge_jobs::replay_window`.
     let agent_id = Uuid::now_v7();
     let org_id = Uuid::now_v7();
     let (consumer, store, _agents, _bus) = wired_consumer(agent_id, org_id).await;
 
-    let edge_ts = chrono::Utc::now().timestamp() - TIMESTAMP_REPLAY_WINDOW_SECS;
-    let edge = sign_event(TEST_HMAC, agent_id, event_payload("pre_tool_use"), edge_ts);
+    let near_edge_ts = chrono::Utc::now().timestamp() - (TIMESTAMP_REPLAY_WINDOW_SECS - 5);
+    let edge = sign_event(TEST_HMAC, agent_id, event_payload("pre_tool_use"), near_edge_ts);
     consumer.handle(&subject(agent_id), edge).await.unwrap();
 
-    assert_eq!(store.snapshot().await.len(), 1, "edge-of-window event must be accepted");
+    assert_eq!(store.snapshot().await.len(), 1, "near-edge event must be accepted");
 }
 
 #[tokio::test]

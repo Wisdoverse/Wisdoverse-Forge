@@ -41,11 +41,13 @@ use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_
 
 use crate::orchestration_realtime::publish_task_update;
 
-/// Accept envelopes whose `timestamp` is within ±5 minutes of the consumer's
-/// wall clock. Narrower than the 15-min JWT window because these messages are
-/// produced by a sidecar we just spawned — the clock skew tolerance only has
-/// to absorb NTP drift + one scheduling lag, not cross-region tokens.
-pub(crate) const TIMESTAMP_REPLAY_WINDOW_SECS: i64 = 300;
+// Replay window (skew tolerance, ±5 min): the shared single source of truth and
+// its deterministic boundary test live in `crate::replay_window`. The window is
+// narrower than the 15-min JWT window because these messages are produced by a
+// sidecar we just spawned — the tolerance only absorbs NTP drift + one
+// scheduling lag. (`TIMESTAMP_REPLAY_WINDOW_SECS` itself is imported only where
+// the tests reference it, to avoid a non-test unused-import.)
+use crate::replay_window::within_replay_window;
 pub const ORCHESTRATION_RESULTS_STREAM: &str = "ORCHESTRATION_RESULTS";
 pub const ORCHESTRATION_RESULTS_DURABLE: &str = "orchestration-result-handler";
 const FETCH_BATCH_SIZE: usize = 8;
@@ -400,7 +402,7 @@ where
     // consumer's clock. Constant window; skew tolerance, not expiry, so we
     // use the same bound on both sides of `now`.
     let now_secs = chrono::Utc::now().timestamp();
-    if (now_secs - envelope.timestamp).abs() > TIMESTAMP_REPLAY_WINDOW_SECS {
+    if !within_replay_window(now_secs, envelope.timestamp) {
         return reject_unauthorized(
             "timestamp_outside_window",
             format!("envelope ts {} vs now {now_secs}", envelope.timestamp),
@@ -889,6 +891,7 @@ impl SqlxTaskWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::replay_window::TIMESTAMP_REPLAY_WINDOW_SECS;
     use agentforge_core::orchestration_protocol::{SignedEnvelope, assign_subject, result_subject};
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -1160,17 +1163,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_accepts_envelope_at_window_edge() {
-        // Exactly `WINDOW` seconds old still passes — the bound is
-        // inclusive so a normal slow path doesn't get cut off.
+    async fn handle_accepts_envelope_near_window_edge() {
+        // A still-old envelope, just inside the window, passes through the full
+        // handle path. We stamp `WINDOW - 5s` rather than exactly `WINDOW` so the
+        // few milliseconds between stamping and the consumer re-reading the clock
+        // can't push it over the edge (that race made this test flaky). The EXACT
+        // inclusive boundary is pinned deterministically in `crate::replay_window`.
         let agent_id = Uuid::now_v7();
         let org_id = Uuid::now_v7();
         let lookup = FakeLookup { by_agent: Arc::new(HashMap::from([(agent_id, org_id)])) };
         let writer = FakeWriter::default();
         let hmac = FakeHmac::with(agent_id, TEST_HMAC);
         let result = result_for(agent_id, TaskOutcome::Completed { stdout: "ok".into() });
-        let edge_ts = chrono::Utc::now().timestamp() - TIMESTAMP_REPLAY_WINDOW_SECS;
-        let env = SignedEnvelope::sign(TEST_HMAC.as_bytes(), &agent_id.to_string(), edge_ts, &result).unwrap();
+        let near_edge_ts = chrono::Utc::now().timestamp() - (TIMESTAMP_REPLAY_WINDOW_SECS - 5);
+        let env = SignedEnvelope::sign(TEST_HMAC.as_bytes(), &agent_id.to_string(), near_edge_ts, &result).unwrap();
         let payload = serde_json::to_vec(&env).unwrap();
         handle_message(&lookup, &writer, &hmac, &result_subject(agent_id), &payload).await.unwrap();
         assert_eq!(writer.applied.lock().await.len(), 1);
