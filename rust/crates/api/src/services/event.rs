@@ -7,13 +7,48 @@ use agentforge_db::entities::Event;
 use serde_json::Value;
 use sqlx::PgPool;
 
-#[cfg(test)]
-pub(crate) use crate::domain::observability::event_to_claude_event_json;
-use crate::domain::observability::{EventListPage, EventReplayPage, EventType};
-pub(crate) use crate::domain::observability::{
-    event_ingest_response, event_list_response, event_replay_cursor_response,
-};
+use crate::domain::observability::{EventListPage, EventReplayPage, EventType, EventView};
 use crate::repositories::agent::event::EventRepository;
+
+/// Map a persisted `Event` row onto the persistence-free [`EventView`] the
+/// observability response builders consume, keeping `domain::observability` free
+/// of `agentforge_db` (DDD-2). The view mirrors the row field-for-field, so the
+/// ingest response serializes byte-identically.
+fn event_view_of(event: &Event) -> EventView {
+    EventView {
+        id: event.id,
+        organization_id: event.organization_id,
+        agent_id: event.agent_id,
+        run_id: event.run_id,
+        event_type: event.event_type.clone(),
+        payload: event.payload.clone(),
+        session_id: event.session_id.clone(),
+        created_at: event.created_at,
+    }
+}
+
+/// Wrap a single ingested `Event` row in the API response envelope.
+pub(crate) fn event_ingest_response(event: Event) -> Value {
+    crate::domain::observability::event_ingest_response(event_view_of(&event))
+}
+
+/// Project a page of `Event` rows onto the ClaudeEvent list response.
+pub(crate) fn event_list_response(events: &[Event]) -> Value {
+    let views: Vec<EventView> = events.iter().map(event_view_of).collect();
+    crate::domain::observability::event_list_response(&views)
+}
+
+/// Project a page of `Event` rows onto the cursor-paginated replay response.
+pub(crate) fn event_replay_cursor_response(events: &[Event], has_more: bool) -> Value {
+    let views: Vec<EventView> = events.iter().map(event_view_of).collect();
+    crate::domain::observability::event_replay_cursor_response(&views, has_more)
+}
+
+/// Shape one `Event` row into the flat ClaudeEvent JSON (test-only consumer).
+#[cfg(test)]
+pub(crate) fn event_to_claude_event_json(event: &Event) -> Value {
+    crate::domain::observability::event_to_claude_event_json(&event_view_of(event))
+}
 
 /// Business logic layer for event operations.
 pub struct EventService {

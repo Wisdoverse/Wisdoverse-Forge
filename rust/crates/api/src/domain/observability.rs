@@ -3,12 +3,28 @@
 //! This module owns validation and pagination policies for analytics events,
 //! audit logs, and runtime event streams.
 
-use agentforge_core::{AppResult, ErrorKind};
-use agentforge_db::entities::Event;
+use agentforge_core::{AgentId, AppResult, ErrorKind, EventId, OrgId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
+
+/// Persistence-free mirror of the `Event` row consumed by the event response
+/// builders, so the observability domain stays free of `agentforge_db` (DDD-2).
+/// The field types match `agentforge_db::entities::Event` exactly, so the ingest
+/// response (`{ "data": view }`) serializes byte-identically to the row. The
+/// service ([`crate::services::event`]) maps an `Event` onto this view.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct EventView {
+    pub id: EventId,
+    pub organization_id: OrgId,
+    pub agent_id: AgentId,
+    pub run_id: Option<Uuid>,
+    pub event_type: String,
+    pub payload: Value,
+    pub session_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
 
 pub(crate) fn analytics_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
@@ -260,7 +276,7 @@ fn parse_after_id(raw: &str) -> Uuid {
 /// Shape an `Event` DB entity into the JSON object `shared/types/events.ts`
 /// (ClaudeEvent union) expects: flat keys with `type` + ms `timestamp` +
 /// camelCase `sessionId`, with object payload fields spread at the root.
-pub(crate) fn event_to_claude_event_json(event: &Event) -> Value {
+pub(crate) fn event_to_claude_event_json(event: &EventView) -> Value {
     let mut out = match &event.payload {
         Value::Object(map) => map.clone(),
         other => {
@@ -280,16 +296,16 @@ pub(crate) fn event_to_claude_event_json(event: &Event) -> Value {
     Value::Object(out)
 }
 
-pub(crate) fn event_ingest_response(event: Event) -> Value {
+pub(crate) fn event_ingest_response(event: EventView) -> Value {
     json!({ "ok": true, "data": event })
 }
 
-pub(crate) fn event_list_response(events: &[Event]) -> Value {
+pub(crate) fn event_list_response(events: &[EventView]) -> Value {
     let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
     json!({ "ok": true, "events": shaped })
 }
 
-pub(crate) fn event_replay_cursor_response(events: &[Event], has_more: bool) -> Value {
+pub(crate) fn event_replay_cursor_response(events: &[EventView], has_more: bool) -> Value {
     let shaped: Vec<Value> = events.iter().map(event_to_claude_event_json).collect();
     json!({ "ok": true, "events": shaped, "hasMore": has_more })
 }
@@ -298,11 +314,10 @@ pub(crate) fn event_replay_cursor_response(events: &[Event], has_more: bool) -> 
 mod tests {
     use super::*;
 
-    fn fixture_event(payload: Value) -> Event {
-        use agentforge_core::{AgentId, EventId, OrgId};
+    fn fixture_event(payload: Value) -> EventView {
         use chrono::TimeZone;
 
-        Event {
+        EventView {
             id: EventId::from(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
             organization_id: OrgId::from(Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap()),
             agent_id: AgentId::from(Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap()),
