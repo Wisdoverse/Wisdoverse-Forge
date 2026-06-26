@@ -11,8 +11,6 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use agentforge_db::entities::ContextPreview;
-
 use super::context_resolver::{ResolvedContext, ResolvedItemRef};
 
 pub(crate) const CONTEXT_PREVIEW_TTL_MINUTES: i64 = 15;
@@ -147,7 +145,11 @@ pub struct ContextPreviewResponse {
 }
 
 pub(crate) fn context_preview_response(
-    preview: &ContextPreview,
+    context_preview_id: Uuid,
+    preview_hash: String,
+    task_id: Uuid,
+    agent_id: Uuid,
+    expires_at: DateTime<Utc>,
     resolved: ResolvedContext,
     warnings: Vec<String>,
 ) -> ContextPreviewResponse {
@@ -156,11 +158,11 @@ pub(crate) fn context_preview_response(
     let items = resolved.applied.iter().map(|item| context_preview_item(item, true, false)).collect();
     let suggested_items = resolved.suggested.iter().map(|item| context_preview_item(item, false, false)).collect();
     ContextPreviewResponse {
-        context_preview_id: preview.id,
-        preview_hash: preview.preview_hash.clone(),
-        task_id: preview.task_id,
-        agent_id: preview.agent_id.as_uuid(),
-        expires_at: preview.expires_at,
+        context_preview_id,
+        preview_hash,
+        task_id,
+        agent_id,
+        expires_at,
         capability,
         degradation,
         items,
@@ -274,32 +276,19 @@ mod tests {
 
     #[test]
     fn context_preview_response_serializes_resolved_context_with_degradation_labels() {
-        use agentforge_core::{CliToolKind, OrgId, RuntimeCapability, RuntimeKind, UserId, WorkspaceId};
+        use agentforge_core::{CliToolKind, RuntimeCapability, RuntimeKind};
         use chrono::TimeZone;
 
         use crate::domain::context_resolver::{ContextItemKind, DegradationReason, ResolvedItemRef};
 
+        // The projection function takes primitives (the service extracts these
+        // from the `ContextPreview` row), so the test no longer constructs the
+        // persistence entity.
         let preview_id = Uuid::from_u128(0x66666666666666668666666666666666);
         let task_id = Uuid::from_u128(0x77777777777777778777777777777777);
         let agent_uuid = Uuid::from_u128(0x88888888888888888888888888888888);
         let expires_at = chrono::Utc.timestamp_millis_opt(1_700_000_900_000).unwrap();
-        let created_at = chrono::Utc.timestamp_millis_opt(1_700_000_000_000).unwrap();
 
-        let preview = ContextPreview {
-            id: preview_id,
-            organization_id: OrgId::new(),
-            workspace_id: WorkspaceId::new(),
-            task_id,
-            agent_id: AgentId::from(agent_uuid),
-            created_by_user_id: UserId::new(),
-            task_draft_hash: "draft".to_string(),
-            preview_hash: "preview-hash".to_string(),
-            selected_items: json!([]),
-            removed_item_ids: Vec::new(),
-            pinned_item_ids: Vec::new(),
-            expires_at,
-            created_at,
-        };
         let applied = ResolvedItemRef {
             id: Uuid::from_u128(0x99999999999999999999999999999999),
             kind: ContextItemKind::Memory,
@@ -332,7 +321,15 @@ mod tests {
             envelope_version: "v1".to_string(),
         };
 
-        let response = context_preview_response(&preview, resolved, vec!["resolver fallback".to_string()]);
+        let response = context_preview_response(
+            preview_id,
+            "preview-hash".to_string(),
+            task_id,
+            agent_uuid,
+            expires_at,
+            resolved,
+            vec!["resolver fallback".to_string()],
+        );
 
         assert_eq!(response.context_preview_id, preview_id);
         assert_eq!(response.preview_hash, "preview-hash");

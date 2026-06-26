@@ -103,7 +103,15 @@ impl ContextPreviewService {
             )
             .await?;
 
-        Ok(context_preview_response(&preview, resolved, Vec::new()))
+        Ok(context_preview_response(
+            preview.id,
+            preview.preview_hash.clone(),
+            preview.task_id,
+            preview.agent_id.as_uuid(),
+            preview.expires_at,
+            resolved,
+            Vec::new(),
+        ))
     }
 
     pub async fn validate_publish(

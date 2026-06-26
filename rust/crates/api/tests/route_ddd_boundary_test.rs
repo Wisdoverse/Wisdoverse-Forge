@@ -706,11 +706,9 @@ const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
     // imports); agent.rs and inbox.rs reach 0 and leave the baseline entirely.
     ("admin.rs", 2),
     ("context.rs", 5),
-    ("context_preview.rs", 1),
     ("credential.rs", 3),
     ("observability.rs", 1),
     ("orchestration.rs", 2),
-    ("project_clone.rs", 1),
 ];
 
 #[test]
