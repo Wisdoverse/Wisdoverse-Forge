@@ -49,6 +49,19 @@ fn error_policy_catches_fully_qualified_type_references() {
 }
 
 #[test]
+fn error_policy_still_catches_domain_errorkind_mixed_with_std_io() {
+    // A line that maps an I/O error INTO the domain error mentions both
+    // `std::io::ErrorKind` and the domain `ErrorKind` — the unrelated std type
+    // must not veto the whole line and hide the domain error contract.
+    assert!(contains_service_error_policy(
+        "    .map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { ErrorKind::NotFound(p) } else { x })"
+    ));
+    assert!(contains_route_error_policy(
+        "    let k = if raw == std::io::ErrorKind::Other { agentforge_core::ErrorKind::Internal } else { y };"
+    ));
+}
+
+#[test]
 fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
     let routes_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/routes");
     let mut violations = Vec::new();
@@ -506,12 +519,16 @@ fn owns_error_kind_policy(line: &str) -> bool {
     if trimmed.starts_with("use ") {
         return trimmed.contains("agentforge_core") && trimmed.contains("ErrorKind");
     }
+    // Drop only the unrelated std type, then judge the REMAINDER — so a line
+    // that maps an I/O error INTO a domain error (mentioning both
+    // `std::io::ErrorKind` and the domain `ErrorKind`) is still flagged on the
+    // domain reference instead of being vetoed wholesale.
+    let domain = line.replace("std::io::ErrorKind", "");
     // Usage as `ErrorKind::Variant` (anchored so `RefreshErrorKind` does not
     // false-match) OR a fully-qualified bare TYPE reference
     // `agentforge_core::ErrorKind` with no trailing `::Variant` — a helper
     // signature, return type, or type alias is still error-contract coupling.
-    (ERROR_KIND_POLICY.is_match(line) || line.contains("agentforge_core::ErrorKind"))
-        && !line.contains("std::io::ErrorKind")
+    ERROR_KIND_POLICY.is_match(&domain) || domain.contains("agentforge_core::ErrorKind")
 }
 
 fn contains_service_error_policy(line: &str) -> bool {
