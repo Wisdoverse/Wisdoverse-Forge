@@ -249,6 +249,15 @@ pub struct AppConfig {
     /// Redis connection URL (optional — graceful degradation when absent).
     pub redis_url: Option<String>,
 
+    /// CN-7: the operator's declaration that this deployment runs MORE THAN ONE
+    /// replica, so it must NOT silently fall back to the per-process in-memory
+    /// OAuth/PKCE state store. That fallback splits the authorize-side `put` and
+    /// the callback-side `take` across replicas, breaking the CLI auth flow with
+    /// no boot-time signal. When `true`, [`AppConfig::from_env`] fails fast unless
+    /// `REDIS_URL` is set. Default `false` keeps single-replica behaviour.
+    #[serde(default = "default_false")]
+    pub require_external_state: bool,
+
     /// ADR 0008 Phase 2 rollout gate. When `true` AND Redis is connected, agent
     /// liveness (`last_seen` / offline detection) is served from a Redis TTL key
     /// instead of a per-heartbeat PostgreSQL write; `participants`/`agents`
@@ -758,6 +767,20 @@ impl AppConfig {
             ));
         }
 
+        // CN-7: multi-replica deployments must externalise the OAuth/PKCE state
+        // store to Redis. The in-memory `StateStore::Memory` fallback is
+        // process-local, so with >1 replica the authorize `put` and the callback
+        // `take` can land on different replicas and the CLI auth flow fails with
+        // no boot-time signal. When the operator declares external state required,
+        // fail fast unless Redis is configured rather than silently degrading.
+        if cfg.require_external_state && cfg.redis_url.is_none() {
+            return Err(config::ConfigError::Message(
+                "REQUIRE_EXTERNAL_STATE=true requires REDIS_URL: multi-replica deployments need Redis for the \
+                 shared OAuth/PKCE state store; the in-memory fallback is single-replica only"
+                    .to_string(),
+            ));
+        }
+
         Ok(cfg)
     }
 
@@ -765,6 +788,30 @@ impl AppConfig {
     pub fn is_production(&self) -> bool {
         self.environment == "production"
     }
+}
+
+/// CN-7 STARTUP readiness check, complementing the config-time URL-present guard
+/// in [`AppConfig::from_env`]. When a deployment declares it needs external
+/// (shared) state, Redis must be USABLE for the state store — not merely have a
+/// `REDIS_URL`, not merely be connected, but actually accept the `SET`/`GETDEL`
+/// the CLI auth proxy performs — or the proxy selects the Redis store and then
+/// 500s on every read/write. Call this from the server binary AFTER the Redis
+/// client is created, passing the result of `RedisClient::probe_read_write()`, so
+/// a malformed, unreachable, OR read-only / ACL-restricted `REDIS_URL` fails fast
+/// at boot instead of at runtime.
+pub fn ensure_external_state_redis_ready(
+    require_external_state: bool,
+    redis_usable: bool,
+) -> Result<(), config::ConfigError> {
+    if require_external_state && !redis_usable {
+        return Err(config::ConfigError::Message(
+            "REQUIRE_EXTERNAL_STATE=true but Redis is not usable for the shared state store (check that \
+             REDIS_URL is valid, reachable, and accepts writes — not read-only or ACL-restricted); refusing \
+             to boot a multi-replica deployment without a usable shared state store"
+                .to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -780,6 +827,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 // Clear any ambient optional vars to make assertions deterministic.
                 ("REDIS_URL", None),
@@ -897,6 +945,7 @@ mod tests {
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
             presence_redis_enabled: false,
+            require_external_state: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
@@ -971,6 +1020,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("SMTP_HOST", Some("smtp.example.com")),
                 ("SMTP_USER", Some("noreply@example.com")),
@@ -992,6 +1042,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("SMTP_HOST", Some("")),
                 ("SMTP_PORT", Some("")),
@@ -1020,6 +1071,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STRIPE_SECRET_KEY", Some("sk_test_configured")),
                 ("STRIPE_WEBHOOK_SECRET", None),
@@ -1039,6 +1091,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STRIPE_SECRET_KEY", Some("sk_test_configured")),
                 ("STRIPE_WEBHOOK_SECRET", Some("whsec_configured")),
@@ -1061,6 +1114,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", Some("nats://backend:pw@nats:4222")),
                 // Intentionally NOT setting the six callout env vars.
@@ -1099,6 +1153,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("NATS_AGENT_URL", None),
@@ -1122,6 +1177,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("GITHUB_APP_ID", Some("123456")),
@@ -1142,6 +1198,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("GITHUB_APP_ID", Some("123456")),
@@ -1165,6 +1222,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("GITHUB_APP_ID", None),
@@ -1185,7 +1243,11 @@ mod tests {
     #[test]
     fn jwt_secret_too_short_rejected() {
         temp_env::with_vars(
-            [("DATABASE_URL", Some("postgres://localhost/agentforge_test")), ("JWT_SECRET", Some("too-short"))],
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("too-short")),
+            ],
             || {
                 let result = AppConfig::from_env();
                 assert!(result.is_err());
@@ -1200,6 +1262,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("SMTP_HOST", None),
@@ -1220,6 +1283,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("SMTP_HOST", None),
@@ -1242,6 +1306,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STORAGE_PROVIDER", Some("s3")),
             ],
@@ -1261,6 +1326,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("STORAGE_PROVIDER", Some("minio")),
                 ("MINIO_ENDPOINT", None),
@@ -1280,6 +1346,84 @@ mod tests {
     }
 
     #[test]
+    fn from_env_rejects_require_external_state_without_redis() {
+        // CN-7: a multi-replica deployment that declares it needs external state
+        // but configures no Redis must fail fast, not silently use the
+        // single-replica in-memory store.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("REQUIRE_EXTERNAL_STATE", Some("true")),
+                ("REDIS_URL", None),
+            ],
+            || {
+                let result = AppConfig::from_env();
+                assert!(result.is_err(), "REQUIRE_EXTERNAL_STATE=true with no REDIS_URL must be rejected");
+                let err = result.unwrap_err().to_string();
+                assert!(err.contains("REQUIRE_EXTERNAL_STATE"), "error was: {err}");
+                assert!(err.contains("REDIS_URL"), "error was: {err}");
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_accepts_require_external_state_with_redis() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("REQUIRE_EXTERNAL_STATE", Some("true")),
+                ("REDIS_URL", Some("redis://localhost:6379")),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("REQUIRE_EXTERNAL_STATE with REDIS_URL must be accepted");
+                assert!(cfg.require_external_state);
+                assert_eq!(cfg.redis_url.as_deref(), Some("redis://localhost:6379"));
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_allows_in_memory_state_by_default() {
+        // Default (no REQUIRE_EXTERNAL_STATE) keeps single-replica behaviour:
+        // no Redis is fine, the guard does not trigger.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("REDIS_URL", None),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("default (single-replica) config must be accepted");
+                assert!(!cfg.require_external_state, "must default to false");
+            },
+        );
+    }
+
+    #[test]
+    fn ensure_external_state_redis_ready_rejects_required_but_unusable() {
+        // CN-7 startup guard: REQUIRE_EXTERNAL_STATE=true with a Redis that is not
+        // usable for the state store (unreachable, or read-only / ACL-restricted →
+        // the read/write probe returns false) must fail fast at startup.
+        let err = ensure_external_state_redis_ready(true, false).unwrap_err().to_string();
+        assert!(err.contains("REQUIRE_EXTERNAL_STATE"), "error was: {err}");
+        assert!(err.contains("Redis is not usable"), "error was: {err}");
+    }
+
+    #[test]
+    fn ensure_external_state_redis_ready_accepts_required_and_connected() {
+        assert!(ensure_external_state_redis_ready(true, true).is_ok());
+    }
+
+    #[test]
+    fn ensure_external_state_redis_ready_ignored_when_not_required() {
+        // Single-replica: external state not required → a disconnected Redis is fine.
+        assert!(ensure_external_state_redis_ready(false, false).is_ok());
+    }
+
+    #[test]
     fn debug_output_redacts_secret_fields() {
         // Guards against a future `tracing::info!(?config)` exfiltrating tokens.
         // `SecretString::Debug` emits `SecretBox<…>([REDACTED])` — we assert the
@@ -1290,6 +1434,7 @@ mod tests {
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
             presence_redis_enabled: false,
+            require_external_state: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
@@ -1415,6 +1560,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("DEV_ENV_ALLOWED_IMAGE_REGISTRIES", Some("ghcr.io/myorg/, docker.io/ ,")),
@@ -1430,6 +1576,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 ("NATS_URL", None),
                 ("DEV_ENV_ALLOWED_IMAGE_REGISTRIES", None),
@@ -1445,6 +1592,7 @@ mod tests {
     fn production_requires_llm_encryption_key() {
         let base = [
             ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+            ("REQUIRE_EXTERNAL_STATE", None),
             ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
             ("NATS_URL", None),
         ];

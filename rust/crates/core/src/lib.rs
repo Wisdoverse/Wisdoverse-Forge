@@ -20,7 +20,7 @@ pub mod types;
 
 // Convenient re-exports
 pub use completion_verifier::{CompletionVerifier, ExpectedResult};
-pub use config::{AppConfig, NatsCalloutConfig, StripeConfig};
+pub use config::{AppConfig, NatsCalloutConfig, StripeConfig, ensure_external_state_redis_ready};
 pub use error::{AppError, AppResult, ErrorKind};
 pub use runtime_capability::{CliToolKind, RuntimeCapability, RuntimeCapabilityError, RuntimeKind};
 pub use self_fix_protocol::{SELF_FIX_PR_QUEUE, SelfFixPrJob};

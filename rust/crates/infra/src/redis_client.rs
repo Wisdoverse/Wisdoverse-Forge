@@ -69,6 +69,45 @@ impl RedisClient {
         };
         redis::cmd("PING").query_async::<String>(conn).await.is_ok()
     }
+
+    /// Probe the actual read/write path used by the OAuth/PKCE state store:
+    /// `SET` a short-TTL throwaway key, then `GETDEL` it (the exact operations
+    /// `cli_auth_proxy` performs). Unlike [`is_connected`](Self::is_connected)
+    /// (socket opened) or [`check_health`](Self::check_health) (PING only), this
+    /// verifies the connection can actually WRITE — so a reachable but read-only
+    /// or ACL-restricted Redis (connects, rejects `SET`) is detected. Returns
+    /// `false` if Redis is absent or any step fails.
+    pub async fn probe_read_write(&mut self) -> bool {
+        use redis::AsyncCommands;
+        use std::sync::OnceLock;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        let Some(conn) = &mut self.connection else {
+            return false;
+        };
+        // Probe the SAME keyspace the OAuth state store uses
+        // (`cli-auth-proxy:state:`), so a Redis ACL that restricts that key
+        // pattern is tested accurately — probing a different prefix could pass or
+        // fail independently of the path actually being guarded. A distinctive
+        // `__rw-probe__` marker keeps it from ever colliding with a real state key.
+        //
+        // The instance id is a per-PROCESS random UUID, NOT `process::id()`:
+        // containers commonly share pid 1, so pid + a per-process counter (which
+        // also starts at 0 everywhere) would NOT be unique across replicas, and one
+        // replica's `GETDEL` could consume another's key and falsely fail a healthy
+        // Redis. UUID + monotonic seq makes every probe key distinct across
+        // replicas and across repeated (readiness) probes within a process.
+        static INSTANCE: OnceLock<String> = OnceLock::new();
+        static PROBE_SEQ: AtomicU64 = AtomicU64::new(0);
+        let instance = INSTANCE.get_or_init(|| uuid::Uuid::new_v4().to_string());
+        let key =
+            format!("cli-auth-proxy:state:__rw-probe__:{}:{}", instance, PROBE_SEQ.fetch_add(1, Ordering::Relaxed));
+        if conn.set_ex::<_, _, ()>(&key, "1", 10).await.is_err() {
+            return false;
+        }
+        let got: redis::RedisResult<Option<String>> = redis::cmd("GETDEL").arg(&key).query_async(conn).await;
+        matches!(got, Ok(Some(_)))
+    }
 }
 
 #[cfg(test)]
@@ -86,6 +125,7 @@ mod tests {
             database_url: "postgres://localhost/test".to_string(),
             redis_url,
             presence_redis_enabled: false,
+            require_external_state: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
@@ -165,6 +205,14 @@ mod tests {
     async fn health_check_false_when_not_connected() {
         let mut client = RedisClient::new(&test_config(None)).await;
         assert!(!client.check_health().await);
+    }
+
+    #[tokio::test]
+    async fn probe_read_write_false_when_not_connected() {
+        // No connection → the CN-7 startup probe must report Redis unusable, so
+        // ensure_external_state_redis_ready fails fast under REQUIRE_EXTERNAL_STATE.
+        let mut client = RedisClient::new(&test_config(None)).await;
+        assert!(!client.probe_read_write().await);
     }
 
     #[tokio::test]

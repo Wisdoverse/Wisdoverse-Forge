@@ -183,6 +183,7 @@ mod tests {
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
             presence_redis_enabled: false,
+            require_external_state: false,
             nats_url,
             nats_agent_url: None,
             nats_container_url: None,
