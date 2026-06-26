@@ -52,7 +52,11 @@ impl std::fmt::Display for HandleError {
 
 impl std::error::Error for HandleError {}
 
-pub(crate) const TIMESTAMP_REPLAY_WINDOW_SECS: i64 = 300;
+// Replay window (skew tolerance, ±5 min) — shared source of truth + deterministic
+// boundary test in `crate::replay_window`. The const is imported only in the test
+// module, to avoid a non-test unused-import.
+use crate::replay_window::within_replay_window;
+
 pub const CREDENTIALS_STREAM: &str = "CREDENTIALS";
 pub const CREDENTIALS_DURABLE: &str = "credential-sync-handler";
 /// Filter subject for the credential-sync consumer. Must match the stream's
@@ -132,7 +136,7 @@ where
     }
 
     let now_secs = chrono::Utc::now().timestamp();
-    if (now_secs - envelope.timestamp).abs() > TIMESTAMP_REPLAY_WINDOW_SECS {
+    if !within_replay_window(now_secs, envelope.timestamp) {
         return Err(reject_unauthorized(
             "timestamp_outside_window",
             format!("envelope ts {} vs now {now_secs}", envelope.timestamp),
@@ -401,6 +405,7 @@ pub fn register_metrics() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::replay_window::TIMESTAMP_REPLAY_WINDOW_SECS;
     use std::collections::{BTreeMap, HashMap};
     use std::sync::Arc;
     use tokio::sync::Mutex;

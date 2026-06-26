@@ -64,12 +64,12 @@ const FETCH_TIMEOUT_MS: u64 = 500;
 const ACK_WAIT_SECS: u64 = 30;
 const MAX_DELIVER: i64 = 5;
 
-/// Accept envelopes whose `timestamp` is within ±5 minutes of the consumer's
-/// wall clock. Kept identical to the orchestration-result and credential
-/// consumers so the three signed-envelope paths share one replay window.
-/// Exposed (`pub`) so the out-of-crate `tests/event_consumer_contract.rs`
-/// replay-window test can stamp an envelope exactly past the edge.
-pub const TIMESTAMP_REPLAY_WINDOW_SECS: i64 = 300;
+/// The shared signed-envelope replay window, re-exported at this module path so
+/// the out-of-crate `tests/event_consumer_contract.rs` can keep importing
+/// `event_consumer::TIMESTAMP_REPLAY_WINDOW_SECS`. The single source of truth
+/// (and the deterministic boundary test) lives in [`crate::replay_window`].
+pub use crate::replay_window::TIMESTAMP_REPLAY_WINDOW_SECS;
+use crate::replay_window::within_replay_window;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SignedEventPayload {
@@ -331,7 +331,7 @@ where
         // consumer's clock before doing any work. Same constant window as the
         // orchestration-result and credential consumers.
         let now_secs = chrono::Utc::now().timestamp();
-        if (now_secs - envelope.timestamp).abs() > TIMESTAMP_REPLAY_WINDOW_SECS {
+        if !within_replay_window(now_secs, envelope.timestamp) {
             return Err(reject_unauthorized(
                 "timestamp_outside_window",
                 format!("envelope ts {} vs now {now_secs}", envelope.timestamp),
