@@ -249,6 +249,15 @@ pub struct AppConfig {
     /// Redis connection URL (optional — graceful degradation when absent).
     pub redis_url: Option<String>,
 
+    /// CN-7: the operator's declaration that this deployment runs MORE THAN ONE
+    /// replica, so it must NOT silently fall back to the per-process in-memory
+    /// OAuth/PKCE state store. That fallback splits the authorize-side `put` and
+    /// the callback-side `take` across replicas, breaking the CLI auth flow with
+    /// no boot-time signal. When `true`, [`AppConfig::from_env`] fails fast unless
+    /// `REDIS_URL` is set. Default `false` keeps single-replica behaviour.
+    #[serde(default = "default_false")]
+    pub require_external_state: bool,
+
     /// ADR 0008 Phase 2 rollout gate. When `true` AND Redis is connected, agent
     /// liveness (`last_seen` / offline detection) is served from a Redis TTL key
     /// instead of a per-heartbeat PostgreSQL write; `participants`/`agents`
@@ -758,6 +767,20 @@ impl AppConfig {
             ));
         }
 
+        // CN-7: multi-replica deployments must externalise the OAuth/PKCE state
+        // store to Redis. The in-memory `StateStore::Memory` fallback is
+        // process-local, so with >1 replica the authorize `put` and the callback
+        // `take` can land on different replicas and the CLI auth flow fails with
+        // no boot-time signal. When the operator declares external state required,
+        // fail fast unless Redis is configured rather than silently degrading.
+        if cfg.require_external_state && cfg.redis_url.is_none() {
+            return Err(config::ConfigError::Message(
+                "REQUIRE_EXTERNAL_STATE=true requires REDIS_URL: multi-replica deployments need Redis for the \
+                 shared OAuth/PKCE state store; the in-memory fallback is single-replica only"
+                    .to_string(),
+            ));
+        }
+
         Ok(cfg)
     }
 
@@ -897,6 +920,7 @@ mod tests {
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
             presence_redis_enabled: false,
+            require_external_state: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
@@ -1280,6 +1304,63 @@ mod tests {
     }
 
     #[test]
+    fn from_env_rejects_require_external_state_without_redis() {
+        // CN-7: a multi-replica deployment that declares it needs external state
+        // but configures no Redis must fail fast, not silently use the
+        // single-replica in-memory store.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("REQUIRE_EXTERNAL_STATE", Some("true")),
+                ("REDIS_URL", None),
+            ],
+            || {
+                let result = AppConfig::from_env();
+                assert!(result.is_err(), "REQUIRE_EXTERNAL_STATE=true with no REDIS_URL must be rejected");
+                let err = result.unwrap_err().to_string();
+                assert!(err.contains("REQUIRE_EXTERNAL_STATE"), "error was: {err}");
+                assert!(err.contains("REDIS_URL"), "error was: {err}");
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_accepts_require_external_state_with_redis() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("REQUIRE_EXTERNAL_STATE", Some("true")),
+                ("REDIS_URL", Some("redis://localhost:6379")),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("REQUIRE_EXTERNAL_STATE with REDIS_URL must be accepted");
+                assert!(cfg.require_external_state);
+                assert_eq!(cfg.redis_url.as_deref(), Some("redis://localhost:6379"));
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_allows_in_memory_state_by_default() {
+        // Default (no REQUIRE_EXTERNAL_STATE) keeps single-replica behaviour:
+        // no Redis is fine, the guard does not trigger.
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("REDIS_URL", None),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("default (single-replica) config must be accepted");
+                assert!(!cfg.require_external_state, "must default to false");
+            },
+        );
+    }
+
+    #[test]
     fn debug_output_redacts_secret_fields() {
         // Guards against a future `tracing::info!(?config)` exfiltrating tokens.
         // `SecretString::Debug` emits `SecretBox<…>([REDACTED])` — we assert the
@@ -1290,6 +1371,7 @@ mod tests {
             database_url: "postgres://localhost/test".to_string(),
             redis_url: None,
             presence_redis_enabled: false,
+            require_external_state: false,
             nats_url: None,
             nats_agent_url: None,
             nats_container_url: None,
