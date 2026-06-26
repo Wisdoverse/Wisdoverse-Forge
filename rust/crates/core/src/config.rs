@@ -790,6 +790,27 @@ impl AppConfig {
     }
 }
 
+/// CN-7 STARTUP readiness check, complementing the config-time URL-present guard
+/// in [`AppConfig::from_env`]. When a deployment declares it needs external
+/// (shared) state, Redis must actually be CONNECTED — not merely have a
+/// `REDIS_URL` — or the CLI auth proxy selects the Redis state store and then
+/// 500s on every read/write. Call this from the server binary AFTER the Redis
+/// client is created, passing `RedisClient::is_connected()`, so a malformed or
+/// unreachable `REDIS_URL` fails fast at boot instead of at runtime.
+pub fn ensure_external_state_redis_ready(
+    require_external_state: bool,
+    redis_connected: bool,
+) -> Result<(), config::ConfigError> {
+    if require_external_state && !redis_connected {
+        return Err(config::ConfigError::Message(
+            "REQUIRE_EXTERNAL_STATE=true but Redis is not connected (check that REDIS_URL is valid and \
+             reachable); refusing to boot a multi-replica deployment without a usable shared state store"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1358,6 +1379,26 @@ mod tests {
                 assert!(!cfg.require_external_state, "must default to false");
             },
         );
+    }
+
+    #[test]
+    fn ensure_external_state_redis_ready_rejects_required_but_disconnected() {
+        // CN-7 connectivity guard: REQUIRE_EXTERNAL_STATE=true with a configured
+        // but UNREACHABLE Redis (is_connected=false) must fail fast at startup.
+        let err = ensure_external_state_redis_ready(true, false).unwrap_err().to_string();
+        assert!(err.contains("REQUIRE_EXTERNAL_STATE"), "error was: {err}");
+        assert!(err.contains("Redis is not connected"), "error was: {err}");
+    }
+
+    #[test]
+    fn ensure_external_state_redis_ready_accepts_required_and_connected() {
+        assert!(ensure_external_state_redis_ready(true, true).is_ok());
+    }
+
+    #[test]
+    fn ensure_external_state_redis_ready_ignored_when_not_required() {
+        // Single-replica: external state not required → a disconnected Redis is fine.
+        assert!(ensure_external_state_redis_ready(false, false).is_ok());
     }
 
     #[test]

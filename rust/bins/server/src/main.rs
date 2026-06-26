@@ -187,6 +187,14 @@ async fn main() -> Result<()> {
     // 5. Initialize infrastructure clients (Redis and NATS are optional).
     let jwt = Arc::new(JwtManager::new(config.jwt_secret.expose_secret(), config.jwt_expiry_seconds));
     let redis = Arc::new(RwLock::new(RedisClient::new(&config).await));
+    // CN-7: a deployment that declares it needs external (shared) state must have
+    // a USABLE Redis, not just a `REDIS_URL` — otherwise the CLI auth proxy selects
+    // the Redis state store and then 500s on every read/write. Fail fast at boot
+    // (complements the config-time URL-present guard in `AppConfig::from_env`).
+    agentforge_core::ensure_external_state_redis_ready(
+        config.require_external_state,
+        redis.read().await.is_connected(),
+    )?;
     let context_resolver = Arc::new(
         agentforge_api::services::context_resolver::ContextResolverService::new(
             pool.clone(),
