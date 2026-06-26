@@ -8,11 +8,12 @@
 
 use std::sync::Arc;
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind, RuntimeCapability, RuntimeKind, TenantScope};
+use agentforge_core::{AppResult, CliToolKind, RuntimeCapability, RuntimeKind, TenantScope};
 use agentforge_infra::ObjectStorageClient;
 use uuid::Uuid;
 
 use crate::domain::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
+use crate::domain::attachment::ImageInputPolicy;
 use crate::repositories::attachment::AttachmentRepository;
 use crate::services::attachment::filename_segment;
 use crate::services::workspace_image_writer::materialize_task_images;
@@ -69,9 +70,7 @@ impl TaskImageMaterializer {
             return Ok(Vec::new());
         }
         if image_ids.len() > MAX_TASK_IMAGES {
-            return Err(
-                ErrorKind::Validation(format!("at most {MAX_TASK_IMAGES} images may be attached to a task")).into()
-            );
+            return Err(ImageInputPolicy::too_many_task_images(MAX_TASK_IMAGES));
         }
 
         // Runtime gate: workspace-file delivery only works for a CONTAINER agent,
@@ -81,32 +80,28 @@ impl TaskImageMaterializer {
         // which an upgraded container agent may still carry as a legacy non-host
         // value) so the classification matches migration 062. Fail closed.
         if agent.runtime_kind != RuntimeKind::Container {
-            return Err(
-                ErrorKind::Validation("image tasks are only supported for container CLI agents".to_string()).into()
-            );
+            return Err(ImageInputPolicy::image_tasks_require_container_cli());
         }
         // Capability gate: only a vision-capable container CLI tool can consume images.
-        let cli_tool = agent
-            .cli_tool
-            .as_deref()
-            .ok_or_else(|| ErrorKind::Validation("image task requires a container CLI agent".to_string()))?;
-        let kind = CliToolKind::parse_legacy(cli_tool).map_err(|err| ErrorKind::Validation(err.to_string()))?;
+        let cli_tool =
+            agent.cli_tool.as_deref().ok_or_else(ImageInputPolicy::image_task_requires_container_cli_agent)?;
+        let kind =
+            CliToolKind::parse_legacy(cli_tool).map_err(|err| ImageInputPolicy::invalid_cli_tool(&err.to_string()))?;
         if !RuntimeCapability::for_cli_tool(kind, RuntimeKind::Container).supports_image_input {
-            return Err(ErrorKind::Validation(format!("CLI tool '{cli_tool}' does not support image input")).into());
+            return Err(ImageInputPolicy::cli_tool_without_image_support(cli_tool));
         }
 
         let workspace_id = agent.workspace_id.as_uuid();
         let mut images = Vec::with_capacity(image_ids.len());
         for id in image_ids {
-            let uuid = Uuid::parse_str(id.trim())
-                .map_err(|_| ErrorKind::Validation("image attachment id must be a UUID".to_string()))?;
+            let uuid = Uuid::parse_str(id.trim()).map_err(|_| ImageInputPolicy::attachment_id_not_uuid())?;
             let attachment = self.attachments.get(scope, uuid).await?; // org-scoped
             if attachment.kind != "image" {
-                return Err(ErrorKind::Validation(format!("attachment {uuid} is not an image")).into());
+                return Err(ImageInputPolicy::attachment_not_an_image(uuid));
             }
             // CLAUDE.md execution boundary: image must belong to the agent's workspace.
             if attachment.workspace_id != Some(workspace_id) {
-                return Err(ErrorKind::NotFound(format!("image {uuid}")).into());
+                return Err(ImageInputPolicy::image_not_found(uuid));
             }
             let bytes = self.object_storage.get_bytes(&attachment.storage_path).await?;
             images.push((materialized_image_filename(uuid, &attachment.filename), bytes));

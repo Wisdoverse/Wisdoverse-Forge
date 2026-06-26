@@ -72,12 +72,8 @@ async fn create_image_attachment(
     multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
     let (bytes, filename, agent_id) = parse_image_upload(multipart).await?;
-    let agent =
-        crate::repositories::agent::AgentRepository::new(state.pool.clone()).find_by_id(&auth.scope, agent_id).await?;
     let service = make_service(&state);
-    let att = service
-        .create_image_upload(&auth.scope, agent.workspace_id.as_uuid(), Some(agent_id), &filename, bytes)
-        .await?;
+    let att = service.create_image_upload(&auth.scope, agent_id, &filename, bytes).await?;
     Ok((StatusCode::CREATED, Json(attachment_data_response(att))))
 }
 
@@ -104,10 +100,8 @@ async fn parse_image_upload(mut multipart: Multipart) -> AppResult<(Vec<u8>, Str
         }
     }
 
-    let bytes = bytes
-        .ok_or_else(|| agentforge_core::ErrorKind::Validation("multipart field 'file' is required".to_string()))?;
-    let agent_id = agent_id
-        .ok_or_else(|| agentforge_core::ErrorKind::Validation("multipart field 'agent_id' is required".to_string()))?;
+    let bytes = bytes.ok_or_else(AttachmentMultipartPolicy::file_field_required)?;
+    let agent_id = agent_id.ok_or_else(AttachmentMultipartPolicy::agent_id_field_required)?;
     let filename = file_name.unwrap_or_else(|| "image.png".to_string());
     Ok((bytes, filename, agent_id))
 }

@@ -19,6 +19,7 @@ use agentforge_jobs::insert_assignment_outbox_in_tx;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::attachment::ImageInputPolicy;
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
@@ -38,6 +39,7 @@ pub use crate::domain::orchestration::{
     ParticipantSummary, TaskContextCounts, TaskRunSummary, TaskStatsResponse, TaskSummary,
 };
 use crate::domain::self_fix::self_fix_pr_job_payload;
+use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::run_context_injection::{
     ContextInjectionCounts, RunContextInjectionRepository,
 };
@@ -178,6 +180,8 @@ pub struct OrchestrationService {
     participant_repo: ParticipantRepository,
     task_run_repo: TaskRunRepository,
     context_injections: RunContextInjectionRepository,
+    /// Agent lookup for image-instruction dispatch (workspace + capabilities).
+    agents: AgentRepository,
     context_resolver: Option<Arc<ContextResolverService>>,
     context_envelopes: Option<ContextEnvelopeService>,
     context_injection_enabled: bool,
@@ -192,11 +196,13 @@ impl OrchestrationService {
     pub fn new(task_repo: OrchestrationTaskRepository, participant_repo: ParticipantRepository) -> Self {
         let task_run_repo = TaskRunRepository::new(task_repo.pool().clone());
         let context_injections = RunContextInjectionRepository::new(task_repo.pool().clone());
+        let agents = AgentRepository::new(task_repo.pool().clone());
         Self {
             task_repo,
             participant_repo,
             task_run_repo,
             context_injections,
+            agents,
             context_resolver: None,
             context_envelopes: None,
             context_injection_enabled: true,
@@ -290,10 +296,7 @@ impl OrchestrationService {
         // auto-dispatcher with unmaterialized image references.
         if assigned_to.is_none() && !crate::domain::orchestration::task_image_attachment_ids(params.as_ref()).is_empty()
         {
-            return Err(agentforge_core::ErrorKind::Validation(
-                "an instruction with images must be assigned to a vision-capable agent".to_string(),
-            )
-            .into());
+            return Err(ImageInputPolicy::instruction_images_need_vision_agent());
         }
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
         // Parent status gates child creation on waiting_dependency. Missing
@@ -595,15 +598,9 @@ impl OrchestrationService {
         // images; the operator rolls/restarts the agent and re-dispatches. Checked
         // BEFORE materializing, so a gate failure leaves nothing to compensate.
         if !participant_capabilities.iter().any(|c| c == agentforge_core::SIDECAR_IMAGE_INPUT_CAPABILITY) {
-            return Err(agentforge_core::ErrorKind::Validation(
-                "agent's sidecar does not yet support instruction images; restart or roll the agent and retry"
-                    .to_string(),
-            )
-            .into());
+            return Err(ImageInputPolicy::sidecar_lacks_instruction_image_support());
         }
-        let agent = crate::repositories::agent::AgentRepository::new(self.task_repo.pool().clone())
-            .find_by_id(scope, agent_id)
-            .await?;
+        let agent = self.agents.find_by_id(scope, agent_id).await?;
         let workspace_id = agent.workspace_id.as_uuid();
         // Materialization is not atomic: a failure partway through may leave some
         // files behind. Remove them on error so a failed dispatch never orphans

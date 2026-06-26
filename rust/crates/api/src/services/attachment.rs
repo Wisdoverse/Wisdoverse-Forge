@@ -17,32 +17,37 @@ use crate::domain::attachment::{
     AttachmentContentType, AttachmentCountPolicy, AttachmentDownload, AttachmentFilename, AttachmentPayloadSize,
     IMAGE_OUTPUT_CONTENT_TYPE, MAX_IMAGE_PIXELS, image_output_filename, validate_and_reencode_image,
 };
+use crate::repositories::agent::AgentRepository;
 use crate::repositories::attachment::{AttachmentRepository, NewAttachment};
 
 /// Business logic layer for attachment operations.
 pub struct AttachmentService {
     repo: AttachmentRepository,
+    agents: AgentRepository,
     storage: Arc<ObjectStorageClient>,
     max_file_size: i64,
     max_files_per_session: i64,
 }
 
 impl AttachmentService {
-    pub fn from_app_config(repo: AttachmentRepository, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
-        Self::new(repo, storage, config.storage_max_file_size, config.storage_max_files_per_session)
-    }
-
     pub fn from_pool_and_app_config(pool: PgPool, storage: Arc<ObjectStorageClient>, config: &AppConfig) -> Self {
-        Self::from_app_config(AttachmentRepository::new(pool), storage, config)
+        Self::new(
+            AttachmentRepository::new(pool.clone()),
+            AgentRepository::new(pool),
+            storage,
+            config.storage_max_file_size,
+            config.storage_max_files_per_session,
+        )
     }
 
     pub fn new(
         repo: AttachmentRepository,
+        agents: AgentRepository,
         storage: Arc<ObjectStorageClient>,
         max_file_size: i64,
         max_files_per_session: i64,
     ) -> Self {
-        Self { repo, storage, max_file_size, max_files_per_session }
+        Self { repo, agents, storage, max_file_size, max_files_per_session }
     }
 
     /// List attachments, optionally filtered by agent.
@@ -151,17 +156,17 @@ impl AttachmentService {
     pub async fn create_image_upload(
         &self,
         scope: &TenantScope,
-        workspace_id: Uuid,
-        agent_id: Option<AgentId>,
+        agent_id: AgentId,
         filename: &str,
         bytes: Vec<u8>,
     ) -> AppResult<Attachment> {
+        // Resolve the agent's workspace (image ownership) from the service's own
+        // agent repository, so the route never wires persistence itself (DDD).
+        let workspace_id = self.agents.find_by_id(scope, agent_id).await?.workspace_id.as_uuid();
         // Cheap guard on the raw upload before decoding.
         AttachmentPayloadSize::from_len(bytes.len(), self.max_file_size)?;
-        if let Some(agent_id) = agent_id {
-            let existing = self.repo.count_for_agent(scope, agent_id).await?;
-            AttachmentCountPolicy::ensure_agent_file_slot(agent_id, existing, self.max_files_per_session)?;
-        }
+        let existing = self.repo.count_for_agent(scope, agent_id).await?;
+        AttachmentCountPolicy::ensure_agent_file_slot(agent_id, existing, self.max_files_per_session)?;
 
         let validated = validate_and_reencode_image(&bytes, MAX_IMAGE_PIXELS)?;
         // The re-encoded PNG can be larger than the input; bound the stored size too.
@@ -180,7 +185,7 @@ impl AttachmentService {
                 scope,
                 NewAttachment {
                     id,
-                    agent_id,
+                    agent_id: Some(agent_id),
                     filename: filename.value(),
                     content_type: IMAGE_OUTPUT_CONTENT_TYPE,
                     size_bytes,

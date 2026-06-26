@@ -22,9 +22,11 @@ use std::io::Write;
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
-use agentforge_core::{AppError, AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult};
 use rustix::fs::{AtFlags, CWD, Dir, Mode, OFlags, fchmod, mkdirat, openat, unlinkat};
 use uuid::Uuid;
+
+use crate::domain::attachment::ImageInputPolicy;
 
 const TASK_IMAGES_DIR: &str = ".task-images";
 
@@ -40,7 +42,7 @@ const DIR_MODE: u32 = 0o755;
 const FILE_MODE: u32 = 0o644;
 
 fn internal(context: &str, err: impl std::fmt::Display) -> AppError {
-    ErrorKind::Internal(anyhow::anyhow!("{context}: {err}")).into()
+    ImageInputPolicy::workspace_image_io(context, &err)
 }
 
 /// Open `name` under `parent` as a directory without following symlinks,
@@ -57,7 +59,7 @@ fn open_dir_nofollow(parent: &OwnedFd, name: &str, create: bool) -> AppResult<Ow
     let fd = openat(parent, name, OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC, Mode::empty()).map_err(
         |err| -> AppError {
             if err == rustix::io::Errno::LOOP {
-                ErrorKind::Validation(format!("workspace image path component '{name}' is a symlink")).into()
+                ImageInputPolicy::workspace_image_path_is_symlink(name)
             } else {
                 internal(&format!("openat {name}"), err)
             }
@@ -110,7 +112,7 @@ pub fn materialize_task_images(
         )
         .map_err(|err| {
             if err == rustix::io::Errno::LOOP {
-                ErrorKind::Validation(format!("workspace image file '{filename}' is a symlink")).into()
+                ImageInputPolicy::workspace_image_file_is_symlink(filename)
             } else {
                 internal(&format!("create image {filename}"), err)
             }

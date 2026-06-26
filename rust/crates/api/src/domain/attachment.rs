@@ -198,6 +198,14 @@ impl AttachmentMultipartPolicy {
     pub(crate) fn invalid_body(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Validation(format!("invalid multipart body: {err}"))
     }
+
+    pub(crate) fn file_field_required() -> ErrorKind {
+        ErrorKind::Validation("multipart field 'file' is required".to_string())
+    }
+
+    pub(crate) fn agent_id_field_required() -> ErrorKind {
+        ErrorKind::Validation("multipart field 'agent_id' is required".to_string())
+    }
 }
 
 /// Validated attachment filename.
@@ -304,6 +312,82 @@ impl AttachmentAgentScope {
         let trimmed = value.trim();
         let id = Uuid::parse_str(trimmed).map_err(|_| ErrorKind::Validation("agent_id must be a UUID".to_string()))?;
         Ok(AgentId::from(id))
+    }
+}
+
+/// User-visible error contracts for instruction / task / workspace image input
+/// (DDD-3): the image services (`agent_prompt`, `task_image_materializer`,
+/// `workspace_image_writer`) own NO `ErrorKind` directly — they call these
+/// domain helpers so the service layer stays free of error-policy ownership.
+pub(crate) struct ImageInputPolicy;
+
+impl ImageInputPolicy {
+    // Shared attachment checks (instruction + task dispatch paths).
+    pub(crate) fn attachment_id_not_uuid() -> AppError {
+        ErrorKind::Validation("image attachment id must be a UUID".to_string()).into()
+    }
+    pub(crate) fn attachment_not_an_image(id: Uuid) -> AppError {
+        ErrorKind::Validation(format!("attachment {id} is not an image")).into()
+    }
+    pub(crate) fn image_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("image {id}")).into()
+    }
+
+    // Instruction quick-message images (provider/API agents).
+    pub(crate) fn cli_agent_quick_message_unsupported() -> AppError {
+        ErrorKind::Validation(
+            "images are not supported for a CLI agent's quick message; attach them to a task instead".to_string(),
+        )
+        .into()
+    }
+    pub(crate) fn agent_has_no_provider() -> AppError {
+        ErrorKind::Validation("agent has no provider for image input".to_string()).into()
+    }
+    pub(crate) fn model_without_vision(model: &str, provider: &str) -> AppError {
+        ErrorKind::Validation(format!("model '{model}' on provider '{provider}' does not support image input")).into()
+    }
+    pub(crate) fn too_many_instruction_images(max: usize) -> AppError {
+        ErrorKind::Validation(format!("at most {max} images may be attached to one instruction")).into()
+    }
+
+    // Task images (container CLI dispatch).
+    pub(crate) fn too_many_task_images(max: usize) -> AppError {
+        ErrorKind::Validation(format!("at most {max} images may be attached to a task")).into()
+    }
+    pub(crate) fn image_tasks_require_container_cli() -> AppError {
+        ErrorKind::Validation("image tasks are only supported for container CLI agents".to_string()).into()
+    }
+    pub(crate) fn image_task_requires_container_cli_agent() -> AppError {
+        ErrorKind::Validation("image task requires a container CLI agent".to_string()).into()
+    }
+    pub(crate) fn invalid_cli_tool(reason: &str) -> AppError {
+        ErrorKind::Validation(reason.to_string()).into()
+    }
+    pub(crate) fn cli_tool_without_image_support(cli_tool: &str) -> AppError {
+        ErrorKind::Validation(format!("CLI tool '{cli_tool}' does not support image input")).into()
+    }
+
+    // Workspace image writer (filesystem materialization).
+    pub(crate) fn workspace_image_path_is_symlink(name: &str) -> AppError {
+        ErrorKind::Validation(format!("workspace image path component '{name}' is a symlink")).into()
+    }
+    pub(crate) fn workspace_image_file_is_symlink(filename: &str) -> AppError {
+        ErrorKind::Validation(format!("workspace image file '{filename}' is a symlink")).into()
+    }
+    pub(crate) fn workspace_image_io(context: &str, err: &dyn std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("{context}: {err}")).into()
+    }
+
+    // Assignment-time checks (orchestration dispatch of image instructions).
+    pub(crate) fn instruction_images_need_vision_agent() -> AppError {
+        ErrorKind::Validation("an instruction with images must be assigned to a vision-capable agent".to_string())
+            .into()
+    }
+    pub(crate) fn sidecar_lacks_instruction_image_support() -> AppError {
+        ErrorKind::Validation(
+            "agent's sidecar does not yet support instruction images; restart or roll the agent and retry".to_string(),
+        )
+        .into()
     }
 }
 

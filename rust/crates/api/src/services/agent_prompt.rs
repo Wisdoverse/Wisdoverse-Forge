@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use agentforge_core::{AgentId, AppResult, ErrorKind, TenantScope};
+use agentforge_core::{AgentId, AppResult, TenantScope};
 use agentforge_infra::{NatsClient, ObjectStorageClient};
 use agentforge_llm::LlmProviderFactory;
 use agentforge_llm::provider::ContentBlock;
@@ -17,6 +17,7 @@ use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::domain::agent::PlainTextAgentPrompt;
+use crate::domain::attachment::ImageInputPolicy;
 use crate::domain::prompt::{PromptAgentPolicy, SseFrame};
 use crate::repositories::agent::{AgentRepository, MessageRepository};
 use crate::repositories::attachment::AttachmentRepository;
@@ -114,11 +115,7 @@ impl AgentPromptService {
             if has_images {
                 // The CLI quick-message path does not execute the CLI (it only
                 // acks); images for CLI agents ride the task-dispatch path.
-                return Err(ErrorKind::Validation(
-                    "images are not supported for a CLI agent's quick message; attach them to a task instead"
-                        .to_string(),
-                )
-                .into());
+                return Err(ImageInputPolicy::cli_agent_quick_message_unsupported());
             }
             self.send_sidecar_prompt(agent_id, prompt.content()).await?;
             return Ok(AgentPromptDispatch::Sidecar);
@@ -162,39 +159,29 @@ impl AgentPromptService {
         model: &str,
         image_ids: &[String],
     ) -> AppResult<Vec<ContentBlock>> {
-        let provider = agent
-            .provider
-            .clone()
-            .ok_or_else(|| ErrorKind::Validation("agent has no provider for image input".to_string()))?;
+        let provider = agent.provider.clone().ok_or_else(ImageInputPolicy::agent_has_no_provider)?;
         // Gate on the specific (provider, model): the provider-level
         // `capability_profile` reports vision for every first-party model, so a
         // text-only model on a vision-capable provider would otherwise pass here
         // and be rejected upstream only after the user uploaded.
         if !agentforge_llm::vision::model_supports_image(&provider, model) {
-            return Err(ErrorKind::Validation(format!(
-                "model '{model}' on provider '{provider}' does not support image input"
-            ))
-            .into());
+            return Err(ImageInputPolicy::model_without_vision(model, &provider));
         }
         if image_ids.len() > MAX_INSTRUCTION_IMAGES {
-            return Err(ErrorKind::Validation(format!(
-                "at most {MAX_INSTRUCTION_IMAGES} images may be attached to one instruction"
-            ))
-            .into());
+            return Err(ImageInputPolicy::too_many_instruction_images(MAX_INSTRUCTION_IMAGES));
         }
 
         let mut blocks = Vec::with_capacity(image_ids.len());
         for id in image_ids {
-            let uuid = Uuid::parse_str(id.trim())
-                .map_err(|_| ErrorKind::Validation("image attachment id must be a UUID".to_string()))?;
+            let uuid = Uuid::parse_str(id.trim()).map_err(|_| ImageInputPolicy::attachment_id_not_uuid())?;
             let attachment = self.attachments.get(scope, uuid).await?; // org-scoped
             if attachment.kind != "image" {
-                return Err(ErrorKind::Validation(format!("attachment {uuid} is not an image")).into());
+                return Err(ImageInputPolicy::attachment_not_an_image(uuid));
             }
             // CLAUDE.md execution boundary: an image may only be used by an agent
             // in the same workspace. A cross-workspace reference is a 404.
             if attachment.workspace_id != Some(agent.workspace_id.as_uuid()) {
-                return Err(ErrorKind::NotFound(format!("image {uuid}")).into());
+                return Err(ImageInputPolicy::image_not_found(uuid));
             }
             let bytes = self.object_storage.get_bytes(&attachment.storage_path).await?;
             let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
