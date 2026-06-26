@@ -400,11 +400,6 @@ pub struct ParticipantSummary {
     pub name: String,
     pub status: String,
     pub capabilities: Vec<String>,
-    /// Agent runtime kind (`container`/`cli`/`api`), surfaced so clients can gate
-    /// runtime-specific affordances (e.g. only a container CLI can take task
-    /// images). `None` when the participant's agent row could not be resolved.
-    #[serde(rename = "runtimeKind", skip_serializing_if = "Option::is_none")]
-    pub runtime_kind: Option<String>,
     #[serde(rename = "lastHeartbeatAt", skip_serializing_if = "Option::is_none")]
     pub last_heartbeat_at: Option<String>,
 }
@@ -423,19 +418,6 @@ pub(crate) struct CreateTaskParamsInput<'a> {
     /// at completion time. Kept as a raw `Value` on purpose: over-typing here would
     /// silently drop sub-keys a newer producer adds.
     pub(crate) expected_result: Option<&'a Value>,
-    /// Attachment UUIDs of instruction images, stored as `params.imageAttachmentIds`
-    /// and materialized into the agent workspace at dispatch.
-    pub(crate) image_attachment_ids: &'a [String],
-}
-
-/// Read `params.imageAttachmentIds` back as a list of id strings (empty if
-/// absent or malformed).
-pub(crate) fn task_image_attachment_ids(params: Option<&Value>) -> Vec<String> {
-    params
-        .and_then(|p| p.get("imageAttachmentIds"))
-        .and_then(Value::as_array)
-        .map(|ids| ids.iter().filter_map(Value::as_str).map(str::to_owned).collect())
-        .unwrap_or_default()
 }
 
 pub(crate) fn create_task_request_parts(
@@ -467,9 +449,6 @@ pub(crate) fn create_task_request_parts(
         // written.
         if let Some(expected_result) = p.expected_result {
             out.insert("expectedResult".into(), expected_result.clone());
-        }
-        if !p.image_attachment_ids.is_empty() {
-            out.insert("imageAttachmentIds".into(), json!(p.image_attachment_ids));
         }
         Value::Object(out)
     });
@@ -566,7 +545,6 @@ impl TaskAssignmentPolicy {
             // None (a cold, low-volume path). The auto-dispatcher
             // (participant_liveness) populates it inline on its hot path.
             runtime_kind: None,
-            image_paths: Vec::new(),
         })
     }
 }
@@ -1199,7 +1177,6 @@ mod tests {
             env: None,
             api_keys: None,
             expected_result: None,
-            image_attachment_ids: &[],
         };
 
         let (title, description, params_value) =
@@ -1224,7 +1201,6 @@ mod tests {
             env: Some(&env),
             api_keys: Some(&api_keys),
             expected_result: None,
-            image_attachment_ids: &[],
         };
 
         let (title, description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1253,7 +1229,6 @@ mod tests {
             env: None,
             api_keys: None,
             expected_result: Some(&expected_result),
-            image_attachment_ids: &[],
         };
 
         let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1277,7 +1252,6 @@ mod tests {
             env: None,
             api_keys: None,
             expected_result: None,
-            image_attachment_ids: &[],
         };
 
         let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1296,7 +1270,6 @@ mod tests {
             name: "worker-1".to_owned(),
             status: "available".to_owned(),
             capabilities: vec!["rust".to_owned()],
-            runtime_kind: Some("container".to_owned()),
             last_heartbeat_at: Some("2026-04-20T12:00:00Z".to_owned()),
         };
         let participants = vec![participant.clone()];

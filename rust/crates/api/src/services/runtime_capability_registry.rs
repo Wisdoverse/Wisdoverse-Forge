@@ -74,7 +74,6 @@ fn runtime_capability_record(row: RuntimeCapabilityRow) -> RuntimeCapabilityReco
         supports_subagents: row.supports_subagents,
         supports_mcp_bridge: row.supports_mcp_bridge,
         supports_terminal: row.supports_terminal,
-        supports_image_input: row.supports_image_input,
         capability_profile: row.capability_profile,
     }
 }

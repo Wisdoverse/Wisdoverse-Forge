@@ -80,15 +80,6 @@ hex = "0.4"
 aes-gcm = "0.10"
 libc = "0.2"
 
-# Symlink-safe filesystem ops (openat/mkdirat + O_NOFOLLOW) for materializing
-# instruction images into the agent-writable /workspace mount without a TOCTOU
-# symlink escape. Standard vetted wrapper over the raw syscalls. `cargo audit` gated.
-rustix = { version = "1.0", features = ["fs"] }
-
-# Image decode + re-encode for instruction image-input validation. Minimal codec
-# set; re-encoding to PNG strips EXIF/trailing-polyglot data. `cargo audit` gated.
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
-
 # Base64
 base64 = "0.22"
 

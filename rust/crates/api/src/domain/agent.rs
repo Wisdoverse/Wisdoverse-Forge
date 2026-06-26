@@ -1388,12 +1388,8 @@ impl<'a> PlainTextAgentPrompt<'a> {
             return Err(ErrorKind::Validation("prompt content is required".into()).into());
         }
 
-        // Images are attachment UUIDs (resolved + authorized by the service). Reject
-        // malformed ids early; capability/workspace/kind checks happen downstream.
-        for id in images.unwrap_or_default() {
-            if uuid::Uuid::parse_str(id.trim()).is_err() {
-                return Err(ErrorKind::Validation("prompt image must be an attachment UUID".into()).into());
-            }
+        if images.is_some_and(|images| !images.is_empty()) {
+            return Err(ErrorKind::Validation("prompt images are not supported yet".into()).into());
         }
 
         Ok(Self { content })
@@ -2007,12 +2003,10 @@ mod tests {
     }
 
     #[test]
-    fn plain_text_prompt_validates_content_and_image_ids() {
+    fn plain_text_prompt_rejects_unsupported_shapes() {
         assert!(PlainTextAgentPrompt::new("hello", None).is_ok());
         assert!(PlainTextAgentPrompt::new("   ", None).is_err());
-        // Image ids must be attachment UUIDs; a non-UUID is rejected up front.
         assert!(PlainTextAgentPrompt::new("hello", Some(&["base64".to_string()])).is_err());
-        assert!(PlainTextAgentPrompt::new("hello", Some(&[uuid::Uuid::new_v4().to_string()])).is_ok());
     }
 
     #[test]

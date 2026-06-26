@@ -164,10 +164,6 @@ export interface ParticipantSummary {
   name: string
   status: 'available' | 'busy' | 'offline'
   capabilities: string[]
-  /** Agent runtime kind ('container' | 'cli' | 'api'), used to gate
-   * runtime-specific affordances such as task image upload. Omitted by older
-   * servers / when the agent row could not be resolved. */
-  runtimeKind?: 'container' | 'cli' | 'api'
   lastHeartbeatAt?: string
 }
 
@@ -375,7 +371,6 @@ export const orchestrationApi = {
       inputs?: Record<string, unknown>
       env?: Record<string, unknown>
       apiKeys?: Record<string, unknown>
-      imageAttachmentIds?: string[]
     }
     priority?: string
     assignedTo?: string

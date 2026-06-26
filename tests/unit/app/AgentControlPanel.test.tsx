@@ -4,7 +4,6 @@ import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
 import { useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
 const sendPromptMock = vi.fn()
-const streamComposerPromptMock = vi.fn()
 const startAgentMock = vi.fn()
 const restartAgentMock = vi.fn()
 const deleteAgentMock = vi.fn()
@@ -64,14 +63,12 @@ afterEach(() => {
 beforeEach(() => {
   useAgentsStore.getState().reset()
   sendPromptMock.mockResolvedValue(true)
-  streamComposerPromptMock.mockResolvedValue({ ok: true })
   startAgentMock.mockResolvedValue(true)
   restartAgentMock.mockResolvedValue(true)
   deleteAgentMock.mockResolvedValue(true)
   useAgentsStore.setState({
     error: null,
     sendPrompt: sendPromptMock,
-    streamComposerPrompt: streamComposerPromptMock,
     startAgent: startAgentMock,
     restartAgent: restartAgentMock,
     deleteAgent: deleteAgentMock,
@@ -233,7 +230,7 @@ describe('AgentControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
 
     await waitFor(() => {
-      expect(sendPromptMock).toHaveBeenCalledWith('agent-1', 'Check the latest run', [])
+      expect(sendPromptMock).toHaveBeenCalledWith('agent-1', 'Check the latest run')
     })
     expect(screen.getByLabelText(/send a quick message/i)).toHaveValue('')
     expect(await screen.findByRole('status')).toHaveTextContent(
@@ -254,15 +251,8 @@ describe('AgentControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^send message$/i }))
 
     await waitFor(() => {
-      // Provider/chat agents stream over SSE, not the JSON sendPrompt path.
-      expect(streamComposerPromptMock).toHaveBeenCalledWith(
-        'text-agent',
-        'Summarize this result',
-        [],
-        expect.any(AbortSignal)
-      )
+      expect(sendPromptMock).toHaveBeenCalledWith('text-agent', 'Summarize this result')
     })
-    expect(sendPromptMock).not.toHaveBeenCalled()
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       "Message sent. Watch this agent's history for the answer."
@@ -271,7 +261,7 @@ describe('AgentControlPanel', () => {
   })
 
   test('keeps chat-only message failures away from task recovery', async () => {
-    streamComposerPromptMock.mockResolvedValueOnce({ ok: false, error: 'socket hang up' })
+    sendPromptMock.mockRejectedValueOnce(new Error('socket hang up'))
 
     render(<AgentControlPanel agent={textOnlyAgent} onDeleted={() => {}} />)
 

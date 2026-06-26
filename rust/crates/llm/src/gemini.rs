@@ -7,8 +7,7 @@ use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::Client;
 
 use crate::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
-    StreamDelta, Usage, timed_client,
+    ChatMessage, ChatRequest, ChatResponse, LlmError, LlmProvider, LlmStream, StreamDelta, Usage, timed_client,
 };
 
 // Path-safe encoding: escape everything except unreserved chars, keep `-._~` literal.
@@ -48,33 +47,16 @@ fn split_system_instruction(messages: &[ChatMessage]) -> (Option<String>, Vec<se
     let mut contents = Vec::with_capacity(messages.len());
     for m in messages {
         if m.role == "system" {
-            system_text = Some(m.content.to_text_lossy());
+            system_text = Some(m.content.clone());
             continue;
         }
         let role = if m.role == "assistant" { "model" } else { "user" };
         contents.push(serde_json::json!({
             "role": role,
-            "parts": gemini_parts(&m.content),
+            "parts": [{ "text": m.content }],
         }));
     }
     (system_text, contents)
-}
-
-/// Render message content to Gemini `parts`: a `text` part for text, plus an
-/// `inline_data` part per image (base64).
-fn gemini_parts(content: &MessageContent) -> Vec<serde_json::Value> {
-    match content {
-        MessageContent::Text(text) => vec![serde_json::json!({ "text": text })],
-        MessageContent::Blocks(blocks) => blocks
-            .iter()
-            .map(|block| match block {
-                ContentBlock::Text { text } => serde_json::json!({ "text": text }),
-                ContentBlock::Image { media_type, data } => serde_json::json!({
-                    "inline_data": { "mime_type": media_type, "data": data },
-                }),
-            })
-            .collect(),
-    }
 }
 
 #[async_trait]
@@ -112,8 +94,7 @@ impl LlmProvider for GeminiProvider {
     }
 
     fn capability_profile(&self) -> RuntimeCapability {
-        // Gemini 2.x models accept image input.
-        RuntimeCapability::api_provider_or_default(self.name(), 1_000_000).with_image_input(true)
+        RuntimeCapability::api_provider_or_default(self.name(), 1_000_000)
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {
@@ -193,19 +174,6 @@ mod tests {
     use crate::provider::ChatMessage;
     use wiremock::matchers::{method, path_regex};
     use wiremock::{Mock, MockServer, ResponseTemplate};
-
-    #[test]
-    fn gemini_parts_render_text_and_image_inline_data() {
-        assert_eq!(gemini_parts(&MessageContent::from("t")), vec![serde_json::json!({ "text": "t" })]);
-
-        let content = MessageContent::Blocks(vec![
-            ContentBlock::Text { text: "describe".to_string() },
-            ContentBlock::Image { media_type: "image/png".to_string(), data: "QUJD".to_string() },
-        ]);
-        let parts = gemini_parts(&content);
-        assert_eq!(parts[0], serde_json::json!({ "text": "describe" }));
-        assert_eq!(parts[1], serde_json::json!({ "inline_data": { "mime_type": "image/png", "data": "QUJD" } }));
-    }
 
     const SSE: &str = "\
 data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hel\"}]}}]}\n\n\

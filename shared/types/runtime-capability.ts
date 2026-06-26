@@ -12,6 +12,4 @@ export interface RuntimeCapability {
   supports_subagents: boolean
   supports_mcp_bridge: boolean
   supports_terminal: boolean
-  /** Whether the runtime accepts image input on an instruction (vision). */
-  supports_image_input: boolean
 }

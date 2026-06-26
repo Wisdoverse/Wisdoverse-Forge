@@ -76,7 +76,6 @@ pub mod skill;
 pub mod ssh_key;
 pub(crate) mod system;
 pub mod task_context;
-pub mod task_image_materializer;
 pub mod team;
 pub mod tile;
 pub mod turn;
@@ -84,7 +83,6 @@ pub mod usage_analytics;
 pub mod user;
 pub mod voice;
 pub mod workspace;
-pub mod workspace_image_writer;
 
 #[cfg(test)]
 mod tests;
