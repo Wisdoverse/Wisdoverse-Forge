@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use agentforge_core::{AppResult, TenantScope};
-use agentforge_db::entities::ImpersonationLog;
+use agentforge_db::entities::{ImpersonationLog, User};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -25,6 +25,29 @@ use crate::repositories::admin::{
 };
 use crate::repositories::audit::AuditRepository;
 use crate::services::auth_callout::AuthCalloutService;
+
+/// Persistence adapter: project a stored `User` row onto the admin-console
+/// projection. Lives in the service layer so `domain/admin.rs` stays free of
+/// `agentforge_db` (DDD-2); `AdminUserProjection` itself stays a pure domain type.
+impl From<User> for AdminUserProjection {
+    fn from(user: User) -> Self {
+        let display_name = match user.display_name.as_deref().map(str::trim) {
+            Some(name) if !name.is_empty() => name.to_string(),
+            // Fall back to the local part of the email so the admin table
+            // never renders a blank "Person" cell.
+            _ => user.email.split('@').next().unwrap_or(user.email.as_str()).to_string(),
+        };
+        Self {
+            id: user.id.as_uuid(),
+            display_name,
+            role: admin_role_label(user.is_admin).to_string(),
+            status: "active".to_string(),
+            created_at: user.created_at,
+            last_login_at: user.last_login_at,
+            email: user.email,
+        }
+    }
+}
 
 /// Persistence adapter: project a stored `dead_events` row onto the domain wire
 /// shape. Lives in the service layer so `domain/admin.rs` stays free of any
