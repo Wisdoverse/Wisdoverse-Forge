@@ -477,26 +477,33 @@ impl OrchestrationService {
     /// Resolve + materialize instruction images for an assignment into the
     /// agent workspace, or empty when the task has none / no materializer is
     /// configured. Fails closed (capability/workspace/kind violations error).
+    /// Materialize a task's instruction images and persist the cleanup marker.
+    /// Returns the container paths plus, when images were actually written, the
+    /// workspace they landed in — the caller passes that back to
+    /// `compensate_materialized_images` if a later step in the dispatch tx rolls
+    /// back, so the non-transactional files are not orphaned.
     async fn resolve_assignment_images(
         &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: &TenantScope,
         agent_id: AgentId,
         task: &OrchestrationTask,
         participant_capabilities: &[String],
-    ) -> AppResult<Vec<String>> {
+    ) -> AppResult<(Vec<String>, Option<Uuid>)> {
         let Some(materializer) = self.image_materializer.as_ref() else {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), None));
         };
         let image_ids = crate::domain::orchestration::task_image_attachment_ids(task.params.as_ref());
         if image_ids.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), None));
         }
         // Rolling-deploy gate: only a sidecar that advertises the image-input
         // capability understands `TaskAssignment.image_paths`. An older
         // still-running sidecar would verify the signed envelope and then ignore
         // the unknown field, running the CLI with the text prompt only. Fail
         // closed so the dispatch rolls back instead of silently dropping the
-        // images; the operator rolls/restarts the agent and re-dispatches.
+        // images; the operator rolls/restarts the agent and re-dispatches. Checked
+        // BEFORE materializing, so a gate failure leaves nothing to compensate.
         if !participant_capabilities.iter().any(|c| c == agentforge_core::SIDECAR_IMAGE_INPUT_CAPABILITY) {
             return Err(agentforge_core::ErrorKind::Validation(
                 "agent's sidecar does not yet support instruction images; restart or roll the agent and retry"
@@ -507,7 +514,51 @@ impl OrchestrationService {
         let agent = crate::repositories::agent::AgentRepository::new(self.task_repo.pool().clone())
             .find_by_id(scope, agent_id)
             .await?;
-        materializer.materialize_for_dispatch(scope, &agent, task.id, &image_ids).await
+        let workspace_id = agent.workspace_id.as_uuid();
+        // Materialization is not atomic: a failure partway through may leave some
+        // files behind. Remove them on error so a failed dispatch never orphans
+        // a half-written directory.
+        let paths = match materializer.materialize_for_dispatch(scope, &agent, task.id, &image_ids).await {
+            Ok(paths) => paths,
+            Err(err) => {
+                self.compensate_materialized_images(scope, workspace_id, task.id);
+                return Err(err);
+            }
+        };
+        // Persist (in the dispatch tx — see the repo method) the workspace these
+        // images landed in so the cleanup sweeper finds them even after the agent
+        // is deleted, clearing any prior cleanup mark so a retried task's fresh
+        // images are eligible again. If this write fails the tx will roll back, so
+        // remove the just-materialized files now rather than orphan them.
+        if let Err(err) =
+            crate::repositories::orchestration::OrchestrationTaskRepository::set_task_images_workspace_in_tx(
+                tx,
+                scope,
+                task.id,
+                workspace_id,
+            )
+            .await
+        {
+            self.compensate_materialized_images(scope, workspace_id, task.id);
+            return Err(err);
+        }
+        Ok((paths, Some(workspace_id)))
+    }
+
+    /// Best-effort removal of a task's materialized instruction images after the
+    /// dispatch transaction was EXPLICITLY rolled back (a failed materialize, marker
+    /// write, assignment build, or outbox insert). The DB cleanup marker rolled back
+    /// with the tx, so without this the files would linger in the reused workspace
+    /// with nothing for the sweeper to find. NOT called on a `commit` error, which is
+    /// ambiguous — the assignment may be live and still need the files. A failure here
+    /// is logged, not propagated — we are already returning the original dispatch
+    /// error, and the next successful (re-)dispatch overwrites the directory anyway.
+    fn compensate_materialized_images(&self, scope: &TenantScope, workspace_id: Uuid, task_id: Uuid) {
+        if let Some(materializer) = self.image_materializer.as_ref()
+            && let Err(err) = materializer.remove_materialized_images(scope.org_id().as_uuid(), workspace_id, task_id)
+        {
+            tracing::warn!(%task_id, error = %err, "failed to remove materialized images after dispatch rollback");
+        }
     }
 
     async fn assign_to_participant_with_resolved_context(
@@ -597,22 +648,47 @@ impl OrchestrationService {
         // Materialize instruction images into the agent workspace (symlink-safe)
         // and attach their container paths to the assignment. Fails closed: a
         // capability/workspace/kind violation rolls the dispatch back.
-        let image_paths =
-            match self.resolve_assignment_images(scope, participant.agent_id, &task, &participant.capabilities).await {
-                Ok(paths) => paths,
-                Err(err) => {
-                    let _ = tx.rollback().await;
-                    return Err(err);
+        let (image_paths, materialized_ws) = match self
+            .resolve_assignment_images(&mut tx, scope, participant.agent_id, &task, &participant.capabilities)
+            .await
+        {
+            Ok(resolved) => resolved,
+            Err(err) => {
+                let _ = tx.rollback().await;
+                return Err(err);
+            }
+        };
+        let mut assignment = match TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope) {
+            Ok(assignment) => assignment,
+            Err(err) => {
+                // Compensate BEFORE releasing the row lock: a retry already waiting on
+                // this row must not acquire the lock and materialize fresh images that
+                // this stale compensation would then delete.
+                if let Some(ws) = materialized_ws {
+                    self.compensate_materialized_images(scope, ws, task.id);
                 }
-            };
-        let mut assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
+                let _ = tx.rollback().await;
+                return Err(err);
+            }
+        };
         assignment.image_paths = image_paths;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
+            // Compensate BEFORE releasing the row lock (see the build-error arm).
+            if let Some(ws) = materialized_ws {
+                self.compensate_materialized_images(scope, ws, task.id);
+            }
             let _ = tx.rollback().await;
             return Err(OrchestrationTransactionPolicy::insert_assignment_outbox_failed(err).into());
         }
-        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("assignment", err))?;
+        if let Err(err) = tx.commit().await {
+            // Do NOT compensate on a commit error: it is ambiguous (the server may
+            // have committed before the connection dropped and the ack was lost), so
+            // deleting the directory could strand a LIVE assignment that points the
+            // agent at these paths. A genuinely-aborted commit leaves the files to be
+            // reclaimed by the next (re-)dispatch's overwrite instead.
+            return Err(OrchestrationTransactionPolicy::commit_failed("assignment", err).into());
+        }
         Ok(task)
     }
 
@@ -1107,22 +1183,47 @@ impl OrchestrationService {
         // Materialize instruction images into the agent workspace (symlink-safe)
         // and attach their container paths to the assignment. Fails closed: a
         // capability/workspace/kind violation rolls the dispatch back.
-        let image_paths =
-            match self.resolve_assignment_images(scope, participant.agent_id, &task, &participant.capabilities).await {
-                Ok(paths) => paths,
-                Err(err) => {
-                    let _ = tx.rollback().await;
-                    return Err(err);
+        let (image_paths, materialized_ws) = match self
+            .resolve_assignment_images(&mut tx, scope, participant.agent_id, &task, &participant.capabilities)
+            .await
+        {
+            Ok(resolved) => resolved,
+            Err(err) => {
+                let _ = tx.rollback().await;
+                return Err(err);
+            }
+        };
+        let mut assignment = match TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope) {
+            Ok(assignment) => assignment,
+            Err(err) => {
+                // Compensate BEFORE releasing the row lock: a retry already waiting on
+                // this row must not acquire the lock and materialize fresh images that
+                // this stale compensation would then delete.
+                if let Some(ws) = materialized_ws {
+                    self.compensate_materialized_images(scope, ws, task.id);
                 }
-            };
-        let mut assignment = TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope)?;
+                let _ = tx.rollback().await;
+                return Err(err);
+            }
+        };
         assignment.image_paths = image_paths;
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
+            // Compensate BEFORE releasing the row lock (see the build-error arm).
+            if let Some(ws) = materialized_ws {
+                self.compensate_materialized_images(scope, ws, task.id);
+            }
             let _ = tx.rollback().await;
             return Err(OrchestrationTransactionPolicy::insert_assignment_outbox_failed(err).into());
         }
-        tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("create assigned task", err))?;
+        if let Err(err) = tx.commit().await {
+            // Do NOT compensate on a commit error: it is ambiguous (the server may
+            // have committed before the connection dropped and the ack was lost), so
+            // deleting the directory could strand a LIVE assignment that points the
+            // agent at these paths. A genuinely-aborted commit leaves the files to be
+            // reclaimed by the next (re-)dispatch's overwrite instead.
+            return Err(OrchestrationTransactionPolicy::commit_failed("create assigned task", err).into());
+        }
         Ok(task)
     }
 

@@ -119,6 +119,18 @@ impl TaskImageMaterializer {
         )?;
         materialize_task_images(&paths.host_projects_root, task_id, &images)
     }
+
+    /// Remove a task's materialized `.task-images/<task_id>/` directory. The
+    /// compensation when a dispatch materializes images but then rolls back (a later
+    /// in-tx step fails), so the orphaned files are not left readable in the reused
+    /// workspace with no DB marker for the sweeper to find. Best-effort and
+    /// symlink-safe; `org_id`/`workspace_id` identify the same projects root the
+    /// images were written into.
+    pub fn remove_materialized_images(&self, org_id: Uuid, workspace_id: Uuid, task_id: Uuid) -> AppResult<()> {
+        let paths =
+            resolve_agent_workspace_paths(&self.workspace_root, WorkspaceMountScope { org_id, workspace_id }, None)?;
+        crate::services::workspace_image_writer::remove_task_images(&paths.host_projects_root, task_id)
+    }
 }
 
 #[cfg(test)]

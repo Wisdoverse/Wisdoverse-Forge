@@ -23,7 +23,7 @@ use std::os::fd::OwnedFd;
 use std::path::Path;
 
 use agentforge_core::{AppError, AppResult, ErrorKind};
-use rustix::fs::{CWD, Mode, OFlags, fchmod, mkdirat, openat};
+use rustix::fs::{AtFlags, CWD, Dir, Mode, OFlags, fchmod, mkdirat, openat, unlinkat};
 use uuid::Uuid;
 
 const TASK_IMAGES_DIR: &str = ".task-images";
@@ -124,6 +124,66 @@ pub fn materialize_task_images(
         paths.push(format!("/workspace/{TASK_IMAGES_DIR}/{task_dir}/{filename}"));
     }
     Ok(paths)
+}
+
+/// Remove `<projects_root>/.task-images/<task_id>/` symlink-safely — the compensation
+/// for a dispatch that materialized images but then rolled back, so the orphaned
+/// directory is not left readable in a reused workspace. Best-effort and idempotent:
+/// an already-absent directory is success, and a symlinked/non-directory component or
+/// a planted sub-directory is refused (left in place) rather than followed, mirroring
+/// the write path's escape guards and the background sweeper. The same removal also
+/// runs in the jobs-crate sweeper; this copy keeps the api compensation self-contained
+/// (the two crates do not share a filesystem helper).
+pub fn remove_task_images(projects_root: &Path, task_id: Uuid) -> AppResult<()> {
+    use rustix::io::Errno;
+
+    let root = match std::fs::canonicalize(projects_root) {
+        Ok(root) => root,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => return Err(internal("canonicalize projects root", err)),
+    };
+    let root_fd =
+        openat(CWD, &root, OFlags::DIRECTORY | OFlags::CLOEXEC, Mode::empty()).map_err(|e| internal("open root", e))?;
+
+    let images_fd = match openat(
+        &root_fd,
+        TASK_IMAGES_DIR,
+        OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    ) {
+        Ok(fd) => fd,
+        Err(Errno::NOENT) | Err(Errno::LOOP) | Err(Errno::NOTDIR) => return Ok(()),
+        Err(err) => return Err(internal("openat .task-images", err)),
+    };
+    let task_dir = task_id.to_string();
+    let task_fd = match openat(
+        &images_fd,
+        task_dir.as_str(),
+        OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    ) {
+        Ok(fd) => fd,
+        Err(Errno::NOENT) | Err(Errno::LOOP) | Err(Errno::NOTDIR) => return Ok(()),
+        Err(err) => return Err(internal("openat task dir", err)),
+    };
+
+    let mut names: Vec<std::ffi::CString> = Vec::new();
+    for entry in Dir::read_from(&task_fd).map_err(|e| internal("read task dir", e))? {
+        let name = entry.map_err(|e| internal("read entry", e))?.file_name().to_owned();
+        if name.to_bytes() == b"." || name.to_bytes() == b".." {
+            continue;
+        }
+        names.push(name);
+    }
+    for name in &names {
+        // unlinkat removes a symlink entry itself (not its target) and fails on a
+        // sub-directory, so it can never escape; best-effort per entry.
+        let _ = unlinkat(&task_fd, name.as_c_str(), AtFlags::empty());
+    }
+    match unlinkat(&images_fd, task_dir.as_str(), AtFlags::REMOVEDIR) {
+        Ok(()) | Err(Errno::NOENT) | Err(Errno::NOTEMPTY) | Err(Errno::EXIST) => Ok(()),
+        Err(err) => Err(internal("rmdir task dir", err)),
+    }
 }
 
 #[cfg(test)]
@@ -235,5 +295,38 @@ mod tests {
         let root = temp_root();
         assert!(materialize_task_images(&root, Uuid::new_v4(), &[]).expect("noop").is_empty());
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn remove_reclaims_materialized_dir_and_is_idempotent() {
+        let root = temp_root();
+        let task_id = Uuid::new_v4();
+        materialize_task_images(&root, task_id, &[("a.png".to_string(), b"x".to_vec())]).expect("materialize");
+        let task_dir = root.join(".task-images").join(task_id.to_string());
+        assert!(task_dir.exists());
+
+        remove_task_images(&root, task_id).expect("remove");
+        assert!(!task_dir.exists(), "compensation removes the materialized dir");
+        // Idempotent: removing again (or an absent root) is success, not an error.
+        remove_task_images(&root, task_id).expect("remove missing is ok");
+        remove_task_images(&root.join("nope"), Uuid::new_v4()).expect("absent root is ok");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn remove_refuses_to_follow_a_symlinked_task_images() {
+        let root = temp_root();
+        let escape = std::env::temp_dir().join(format!("af-rm-escape-{}", Uuid::new_v4()));
+        let task_id = Uuid::new_v4();
+        std::fs::create_dir_all(escape.join(task_id.to_string())).expect("escape dir");
+        std::os::unix::fs::symlink(&escape, root.join(".task-images")).expect("plant symlink");
+
+        // A symlinked `.task-images` is refused (Ok, no-op); the escape target stays.
+        remove_task_images(&root, task_id).expect("refuse via no-op");
+        assert!(escape.join(task_id.to_string()).exists(), "must not delete through the symlink");
+
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_dir_all(&escape).ok();
     }
 }

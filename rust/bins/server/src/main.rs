@@ -24,7 +24,8 @@ use agentforge_jobs::{
     OrchestrationResultWorker, PARTICIPANT_DEFAULT_STALE_AFTER, PARTICIPANT_DEFAULT_STALE_SWEEP_INTERVAL,
     ParticipantLivenessWorker, PresenceBackend, SelfFixReviewReaperWorker, SqlxAgentOwnerLookup,
     SqlxCredentialHmacSecretLookup, SqlxDeadEventRecorder, SqlxHmacSecretLookup, SqlxNatsConnectPasswordLookup,
-    SqlxParticipantLookup, SqlxTaskWriter, StaleJobLockReaperWorker, blocked_task_reaper::BlockedTaskReaperWorker,
+    SqlxParticipantLookup, SqlxTaskWriter, StaleJobLockReaperWorker, TaskImagesCleanupWorker,
+    blocked_task_reaper::BlockedTaskReaperWorker,
 };
 use anyhow::{Result, anyhow};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -419,6 +420,21 @@ async fn main() -> Result<()> {
     // strictly to `waiting_agent`; other blocked_reasons are left alone.
     let blocked_task_reaper_handle = {
         let worker = BlockedTaskReaperWorker::new(pool.clone(), config.blocked_task_ttl_secs);
+        let worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move { worker.run(worker_shutdown).await })
+    };
+
+    // Task-images cleanup sweeper: reclaims `<workspace>/.task-images/<task_id>`
+    // for terminal image tasks older than `TASK_IMAGES_CLEANUP_TTL_SECS` (default
+    // 24h) so stale instruction images don't linger in reused workspaces or grow
+    // disk outside the attachment lifecycle. Symlink-safe; best-effort.
+    let task_images_cleanup_handle = {
+        // Fail fast on a malformed value (like the other `*_SECS` knobs) instead of
+        // silently retaining images for the 24h default when an operator fat-fingers
+        // a shorter retention.
+        let ttl_secs = env_secs("TASK_IMAGES_CLEANUP_TTL_SECS", 86_400)?;
+        let workspace_root = agentforge_api::services::agent_workspace::workspace_root_from_env();
+        let worker = TaskImagesCleanupWorker::new(pool.clone(), workspace_root, ttl_secs);
         let worker_shutdown = shutdown_rx.clone();
         tokio::spawn(async move { worker.run(worker_shutdown).await })
     };
@@ -831,6 +847,10 @@ async fn main() -> Result<()> {
     match stale_job_lock_reaper_handle.await {
         Ok(()) => {}
         Err(err) => tracing::warn!(error = %err, "stale job-lock reaper worker join failed"),
+    }
+    match task_images_cleanup_handle.await {
+        Ok(()) => {}
+        Err(err) => tracing::warn!(error = %err, "task images cleanup worker join failed"),
     }
     if let Some(handle) = agent_reconcile_handle {
         match handle.await {

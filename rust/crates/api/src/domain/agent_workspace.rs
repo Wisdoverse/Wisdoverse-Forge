@@ -66,12 +66,9 @@ pub fn host_path_for_container_cwd(host_projects_root: &FsPath, container_cwd: &
 }
 
 fn workspace_projects_root(workspace_root: &str, scope: WorkspaceMountScope) -> PathBuf {
-    FsPath::new(workspace_root.trim_end_matches('/'))
-        .join("orgs")
-        .join(scope.org_id.to_string())
-        .join("workspaces")
-        .join(scope.workspace_id.to_string())
-        .join("projects")
+    // Shared with the jobs image-cleanup sweeper via core so the write side and
+    // the remove side can never compute a different projects root.
+    agentforge_core::workspace::workspace_projects_root(workspace_root, scope.org_id, scope.workspace_id)
 }
 
 fn normalize_container_cwd(

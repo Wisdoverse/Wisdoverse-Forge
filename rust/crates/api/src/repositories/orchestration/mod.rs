@@ -666,6 +666,39 @@ impl OrchestrationTaskRepository {
         .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
 
+    /// Record the workspace an image task's images were materialized into (so the
+    /// cleanup sweeper can find them without the assigned-agent row) and clear any
+    /// prior cleanup mark so a re-materialized (retried) task's new images are
+    /// eligible again. Best-effort, called at dispatch when image_paths are set.
+    /// Persist the workspace a task's instruction images were materialized into
+    /// (so the cleanup sweeper finds them even after the assigned agent is
+    /// deleted) and clear any prior cleanup marker so a retried task's fresh images
+    /// are eligible again. Runs INSIDE the dispatch transaction: the caller already
+    /// holds this task's row lock via `assign_agent_in_tx`, so a separate-connection
+    /// UPDATE would self-deadlock against the open tx — and holding the lock here is
+    /// also what serialises this re-materialize against the sweeper's row-locked
+    /// removal. `$3` = workspace id.
+    pub async fn set_task_images_workspace_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: Uuid,
+        workspace_id: Uuid,
+    ) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE orchestration_tasks
+                SET task_images_workspace_id = $3,
+                    task_images_cleaned_at = NULL,
+                    task_images_retry_after = NULL
+              WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(workspace_id)
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
+
     /// Unblock children that were waiting on the given parent task. Children
     /// marked `blocked/waiting_dependency` for this parent transition to
     /// `queued` so the auto-dispatcher can claim them. Returns the affected

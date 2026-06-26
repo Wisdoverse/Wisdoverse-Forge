@@ -17,6 +17,7 @@ pub mod runtime_capability;
 pub mod self_fix_protocol;
 pub mod tenant;
 pub mod types;
+pub mod workspace;
 
 // Convenient re-exports
 pub use completion_verifier::{CompletionVerifier, ExpectedResult};

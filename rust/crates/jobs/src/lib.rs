@@ -44,6 +44,7 @@ pub mod presence_store;
 pub mod queue;
 pub mod self_fix_review_reaper;
 pub mod stale_job_lock_reaper;
+pub mod task_images_cleanup;
 pub mod worker;
 
 pub use auth_lookup::{AgentNatsIdentity, NatsConnectPasswordLookup, SqlxNatsConnectPasswordLookup};
@@ -94,6 +95,7 @@ pub use self_fix_review_reaper::{
     DEFAULT_INTERVAL as SELF_FIX_REVIEW_REAPER_DEFAULT_INTERVAL, SelfFixReviewReaperWorker,
 };
 pub use stale_job_lock_reaper::StaleJobLockReaperWorker;
+pub use task_images_cleanup::TaskImagesCleanupWorker;
 pub use worker::Worker;
 
 /// Crate version for health checks and diagnostics.
@@ -113,4 +115,5 @@ pub fn register_metrics() {
     presence_store::register_metrics();
     self_fix_review_reaper::register_metrics();
     stale_job_lock_reaper::register_metrics();
+    task_images_cleanup::register_metrics();
 }
