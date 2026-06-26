@@ -154,11 +154,15 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
 
     // DB is always required. NATS is required once configured because
     // orchestration/event delivery depend on it; deployments that do not use
-    // NATS can still omit NATS_URL and remain ready.
+    // NATS can still omit NATS_URL and remain ready. Redis is required when the
+    // deployment declares it needs external shared state (CN-7) — a degraded
+    // Redis then drops the replica from rotation instead of serving 500s.
     let nats_required = state.config.nats_url.is_some();
+    let redis_required = state.config.require_external_state;
     let readiness = HealthReadinessService::evaluate(
         HealthDependencyChecks { database: db_ok, redis: redis_ok, nats: nats_ok, docker: docker_ok },
         nats_required,
+        redis_required,
     );
     let http_status = if readiness.is_ready() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
 

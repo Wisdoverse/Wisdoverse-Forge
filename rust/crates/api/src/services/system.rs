@@ -5,7 +5,11 @@ use crate::domain::system::{HealthDependencyChecks, HealthReadiness};
 pub(crate) struct HealthReadinessService;
 
 impl HealthReadinessService {
-    pub(crate) fn evaluate(checks: HealthDependencyChecks, nats_required: bool) -> HealthReadiness {
-        HealthReadiness::evaluate(checks, nats_required)
+    pub(crate) fn evaluate(
+        checks: HealthDependencyChecks,
+        nats_required: bool,
+        redis_required: bool,
+    ) -> HealthReadiness {
+        HealthReadiness::evaluate(checks, nats_required, redis_required)
     }
 }

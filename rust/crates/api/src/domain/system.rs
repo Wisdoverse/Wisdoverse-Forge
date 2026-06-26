@@ -17,8 +17,13 @@ pub(crate) struct HealthReadiness {
 }
 
 impl HealthReadiness {
-    pub(crate) fn evaluate(checks: HealthDependencyChecks, nats_required: bool) -> Self {
-        Self { checks, ready: checks.database && (!nats_required || checks.nats) }
+    pub(crate) fn evaluate(checks: HealthDependencyChecks, nats_required: bool, redis_required: bool) -> Self {
+        // DB is always required. NATS is required once configured. Redis becomes
+        // required when the deployment declares it needs external (shared) state
+        // (CN-7, `REQUIRE_EXTERNAL_STATE`): a degraded Redis must then remove the
+        // replica from rotation (readiness 503) instead of letting the CLI auth
+        // proxy keep serving 500s on the Redis-backed state store.
+        Self { checks, ready: checks.database && (!nats_required || checks.nats) && (!redis_required || checks.redis) }
     }
 
     pub(crate) fn is_ready(self) -> bool {
@@ -91,14 +96,27 @@ mod tests {
     fn readiness_requires_database_and_configured_nats() {
         let checks = HealthDependencyChecks { database: true, redis: false, nats: false, docker: true };
 
-        assert!(HealthReadiness::evaluate(checks, false).is_ready());
-        assert!(!HealthReadiness::evaluate(checks, true).is_ready());
+        assert!(HealthReadiness::evaluate(checks, false, false).is_ready());
+        assert!(!HealthReadiness::evaluate(checks, true, false).is_ready());
+    }
+
+    #[test]
+    fn readiness_requires_redis_when_external_state_required() {
+        // CN-7: with REQUIRE_EXTERNAL_STATE (redis_required=true), a disconnected
+        // Redis must make the replica NOT ready so it drops out of rotation,
+        // rather than staying in and serving 500s from the Redis state store.
+        let down = HealthDependencyChecks { database: true, redis: false, nats: true, docker: true };
+        assert!(HealthReadiness::evaluate(down, false, false).is_ready(), "redis optional by default");
+        assert!(!HealthReadiness::evaluate(down, false, true).is_ready(), "redis required + down → not ready");
+
+        let up = HealthDependencyChecks { redis: true, ..down };
+        assert!(HealthReadiness::evaluate(up, false, true).is_ready(), "redis required + up → ready");
     }
 
     #[test]
     fn readiness_response_preserves_probe_details() {
         let checks = HealthDependencyChecks { database: false, redis: true, nats: false, docker: true };
-        let response = HealthReadiness::evaluate(checks, false).response();
+        let response = HealthReadiness::evaluate(checks, false, false).response();
 
         assert!(!response.ok);
         assert_eq!(response.status, "degraded");
