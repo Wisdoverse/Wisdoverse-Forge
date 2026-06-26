@@ -711,7 +711,6 @@ const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
     ("observability.rs", 1),
     ("orchestration.rs", 2),
     ("project_clone.rs", 1),
-    ("turn.rs", 1),
 ];
 
 #[test]
