@@ -792,19 +792,22 @@ impl AppConfig {
 
 /// CN-7 STARTUP readiness check, complementing the config-time URL-present guard
 /// in [`AppConfig::from_env`]. When a deployment declares it needs external
-/// (shared) state, Redis must actually be CONNECTED — not merely have a
-/// `REDIS_URL` — or the CLI auth proxy selects the Redis state store and then
+/// (shared) state, Redis must be USABLE for the state store — not merely have a
+/// `REDIS_URL`, not merely be connected, but actually accept the `SET`/`GETDEL`
+/// the CLI auth proxy performs — or the proxy selects the Redis store and then
 /// 500s on every read/write. Call this from the server binary AFTER the Redis
-/// client is created, passing `RedisClient::is_connected()`, so a malformed or
-/// unreachable `REDIS_URL` fails fast at boot instead of at runtime.
+/// client is created, passing the result of `RedisClient::probe_read_write()`, so
+/// a malformed, unreachable, OR read-only / ACL-restricted `REDIS_URL` fails fast
+/// at boot instead of at runtime.
 pub fn ensure_external_state_redis_ready(
     require_external_state: bool,
-    redis_connected: bool,
+    redis_usable: bool,
 ) -> Result<(), config::ConfigError> {
-    if require_external_state && !redis_connected {
+    if require_external_state && !redis_usable {
         return Err(config::ConfigError::Message(
-            "REQUIRE_EXTERNAL_STATE=true but Redis is not connected (check that REDIS_URL is valid and \
-             reachable); refusing to boot a multi-replica deployment without a usable shared state store"
+            "REQUIRE_EXTERNAL_STATE=true but Redis is not usable for the shared state store (check that \
+             REDIS_URL is valid, reachable, and accepts writes — not read-only or ACL-restricted); refusing \
+             to boot a multi-replica deployment without a usable shared state store"
                 .to_string(),
         ));
     }
@@ -1400,12 +1403,13 @@ mod tests {
     }
 
     #[test]
-    fn ensure_external_state_redis_ready_rejects_required_but_disconnected() {
-        // CN-7 connectivity guard: REQUIRE_EXTERNAL_STATE=true with a configured
-        // but UNREACHABLE Redis (is_connected=false) must fail fast at startup.
+    fn ensure_external_state_redis_ready_rejects_required_but_unusable() {
+        // CN-7 startup guard: REQUIRE_EXTERNAL_STATE=true with a Redis that is not
+        // usable for the state store (unreachable, or read-only / ACL-restricted →
+        // the read/write probe returns false) must fail fast at startup.
         let err = ensure_external_state_redis_ready(true, false).unwrap_err().to_string();
         assert!(err.contains("REQUIRE_EXTERNAL_STATE"), "error was: {err}");
-        assert!(err.contains("Redis is not connected"), "error was: {err}");
+        assert!(err.contains("Redis is not usable"), "error was: {err}");
     }
 
     #[test]

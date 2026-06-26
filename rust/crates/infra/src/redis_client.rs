@@ -69,6 +69,26 @@ impl RedisClient {
         };
         redis::cmd("PING").query_async::<String>(conn).await.is_ok()
     }
+
+    /// Probe the actual read/write path used by the OAuth/PKCE state store:
+    /// `SET` a short-TTL throwaway key, then `GETDEL` it (the exact operations
+    /// `cli_auth_proxy` performs). Unlike [`is_connected`](Self::is_connected)
+    /// (socket opened) or [`check_health`](Self::check_health) (PING only), this
+    /// verifies the connection can actually WRITE — so a reachable but read-only
+    /// or ACL-restricted Redis (connects, rejects `SET`) is detected. Returns
+    /// `false` if Redis is absent or any step fails.
+    pub async fn probe_read_write(&mut self) -> bool {
+        use redis::AsyncCommands;
+        let Some(conn) = &mut self.connection else {
+            return false;
+        };
+        let key = "agentforge:startup:rw-probe";
+        if conn.set_ex::<_, _, ()>(key, "1", 10).await.is_err() {
+            return false;
+        }
+        let got: redis::RedisResult<Option<String>> = redis::cmd("GETDEL").arg(key).query_async(conn).await;
+        matches!(got, Ok(Some(_)))
+    }
 }
 
 #[cfg(test)]
@@ -166,6 +186,14 @@ mod tests {
     async fn health_check_false_when_not_connected() {
         let mut client = RedisClient::new(&test_config(None)).await;
         assert!(!client.check_health().await);
+    }
+
+    #[tokio::test]
+    async fn probe_read_write_false_when_not_connected() {
+        // No connection → the CN-7 startup probe must report Redis unusable, so
+        // ensure_external_state_redis_ready fails fast under REQUIRE_EXTERNAL_STATE.
+        let mut client = RedisClient::new(&test_config(None)).await;
+        assert!(!client.probe_read_write().await);
     }
 
     #[tokio::test]
