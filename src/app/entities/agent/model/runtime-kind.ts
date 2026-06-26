@@ -25,8 +25,11 @@ export const modelSupportsImage = (
   provider: string | null | undefined,
   model: string | null | undefined
 ): boolean => {
-  const p = (provider ?? '').toLowerCase()
-  const m = model ?? ''
+  // Mirror the server gate's normalization exactly (`vision.rs` trims +
+  // lowercases BOTH): a model stored as `GPT-4O` or ` gpt-4o ` must match the
+  // allowlist, else the UI hides an upload the backend would accept.
+  const p = (provider ?? '').trim().toLowerCase()
+  const m = (model ?? '').trim().toLowerCase()
   switch (p) {
     case 'anthropic':
       return true
