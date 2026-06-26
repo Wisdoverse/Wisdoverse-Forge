@@ -123,25 +123,9 @@ pub(crate) fn admin_role_label(is_admin: bool) -> &'static str {
     if is_admin { "admin" } else { "member" }
 }
 
-impl From<agentforge_db::entities::User> for AdminUserProjection {
-    fn from(user: agentforge_db::entities::User) -> Self {
-        let display_name = match user.display_name.as_deref().map(str::trim) {
-            Some(name) if !name.is_empty() => name.to_string(),
-            // Fall back to the local part of the email so the admin table
-            // never renders a blank "Person" cell.
-            _ => user.email.split('@').next().unwrap_or(user.email.as_str()).to_string(),
-        };
-        Self {
-            id: user.id.as_uuid(),
-            display_name,
-            role: admin_role_label(user.is_admin).to_string(),
-            status: "active".to_string(),
-            created_at: user.created_at,
-            last_login_at: user.last_login_at,
-            email: user.email,
-        }
-    }
-}
+// The `User` row -> `AdminUserProjection` adapter (`From<User>`) lives in
+// `services::admin`, keeping this domain module free of `agentforge_db` (DDD-2).
+// `AdminUserProjection` above stays as the pure projection.
 
 /// Requested access-level change from the admin console role editor.
 ///
