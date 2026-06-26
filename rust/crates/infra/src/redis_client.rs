@@ -79,19 +79,29 @@ impl RedisClient {
     /// `false` if Redis is absent or any step fails.
     pub async fn probe_read_write(&mut self) -> bool {
         use redis::AsyncCommands;
+        use std::sync::OnceLock;
         use std::sync::atomic::{AtomicU64, Ordering};
 
         let Some(conn) = &mut self.connection else {
             return false;
         };
-        // Unique key per process + probe call: with REQUIRE_EXTERNAL_STATE the
-        // intended use is MANY replicas, all probing the shared Redis. A fixed key
-        // would let one replica's `GETDEL` remove another's just-`SET` key, so the
-        // loser sees `None` and falsely fails on a perfectly healthy Redis. PID +
-        // a monotonic counter makes every probe key distinct across replicas and
-        // across repeated (readiness) probes within a process.
+        // Probe the SAME keyspace the OAuth state store uses
+        // (`cli-auth-proxy:state:`), so a Redis ACL that restricts that key
+        // pattern is tested accurately — probing a different prefix could pass or
+        // fail independently of the path actually being guarded. A distinctive
+        // `__rw-probe__` marker keeps it from ever colliding with a real state key.
+        //
+        // The instance id is a per-PROCESS random UUID, NOT `process::id()`:
+        // containers commonly share pid 1, so pid + a per-process counter (which
+        // also starts at 0 everywhere) would NOT be unique across replicas, and one
+        // replica's `GETDEL` could consume another's key and falsely fail a healthy
+        // Redis. UUID + monotonic seq makes every probe key distinct across
+        // replicas and across repeated (readiness) probes within a process.
+        static INSTANCE: OnceLock<String> = OnceLock::new();
         static PROBE_SEQ: AtomicU64 = AtomicU64::new(0);
-        let key = format!("agentforge:rw-probe:{}:{}", std::process::id(), PROBE_SEQ.fetch_add(1, Ordering::Relaxed));
+        let instance = INSTANCE.get_or_init(|| uuid::Uuid::new_v4().to_string());
+        let key =
+            format!("cli-auth-proxy:state:__rw-probe__:{}:{}", instance, PROBE_SEQ.fetch_add(1, Ordering::Relaxed));
         if conn.set_ex::<_, _, ()>(&key, "1", 10).await.is_err() {
             return false;
         }
