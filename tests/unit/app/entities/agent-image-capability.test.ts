@@ -30,6 +30,19 @@ describe('modelSupportsImage (mirrors server agentforge_llm::vision)', () => {
     expect(modelSupportsImage('', '')).toBe(false)
     expect(modelSupportsImage(null, null)).toBe(false)
   })
+
+  it('normalizes case + surrounding whitespace on BOTH provider and model (server parity)', () => {
+    // Server does provider.trim().to_ascii_lowercase() and the same on model
+    // before the prefix match (agentforge_llm::vision). The UI must agree so it
+    // does not silently hide an upload the backend would accept for an
+    // unnormalized slug like "GPT-4o" or " openai ".
+    expect(modelSupportsImage('openai', 'GPT-4o')).toBe(true)
+    expect(modelSupportsImage('OpenAI', 'GPT-4O')).toBe(true)
+    expect(modelSupportsImage('openai', ' gpt-4o ')).toBe(true)
+    expect(modelSupportsImage(' openai ', 'gpt-4o')).toBe(true)
+    // ...and a normalized text-only model is still correctly false.
+    expect(modelSupportsImage('OPENAI', ' GPT-4 ')).toBe(false)
+  })
 })
 
 describe('isImageCapable (quick-message composer affordance)', () => {

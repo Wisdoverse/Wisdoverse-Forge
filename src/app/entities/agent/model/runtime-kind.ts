@@ -25,8 +25,12 @@ export const modelSupportsImage = (
   provider: string | null | undefined,
   model: string | null | undefined
 ): boolean => {
-  const p = (provider ?? '').toLowerCase()
-  const m = model ?? ''
+  // Mirror the server's `provider.trim().to_ascii_lowercase()` / same on model
+  // (agentforge_llm::vision) so an unnormalized slug like "GPT-4o" or " openai "
+  // is gated identically — otherwise the UI silently hides an upload the backend
+  // would accept.
+  const p = (provider ?? '').trim().toLowerCase()
+  const m = (model ?? '').trim().toLowerCase()
   switch (p) {
     case 'anthropic':
       return true
