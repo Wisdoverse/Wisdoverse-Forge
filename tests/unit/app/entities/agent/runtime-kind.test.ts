@@ -3,7 +3,9 @@ import {
   isApiAgent,
   isContainerAgent,
   isHostCliAgent,
+  isImageCapable,
   isTaskImageCapable,
+  modelSupportsImage,
   runtimeKindLabel,
   runtimeKindShortLabel,
 } from '@app/entities/agent'
@@ -72,6 +74,44 @@ describe('runtime-kind specifications', () => {
     // Missing runtime kind (older server) degrades safely to hidden.
     expect(cap(undefined, ['claude', 'image_input'])).toBe(false)
     expect(isTaskImageCapable(undefined)).toBe(false)
+  })
+
+  it('modelSupportsImage normalizes provider and model casing/whitespace like the server gate', () => {
+    // The server `agentforge_llm::vision::model_supports_image` trims + lowercases
+    // BOTH provider and model. The UI must match so a vision model stored with
+    // odd casing/whitespace (e.g. "GPT-4O", " gpt-4o ") is not wrongly hidden.
+    expect(modelSupportsImage('openai', 'GPT-4O')).toBe(true)
+    expect(modelSupportsImage('openai', '  gpt-4o ')).toBe(true)
+    expect(modelSupportsImage(' OpenAI ', 'gpt-4o')).toBe(true)
+    expect(modelSupportsImage('OPENAI', 'GPT-4.1-MINI')).toBe(true)
+    // Vision families and all-vision providers (mirrors vision.rs cases).
+    expect(modelSupportsImage('openai', 'gpt-4-turbo-2024-04-09')).toBe(true)
+    expect(modelSupportsImage('openai', 'gpt-5-2025-08-01')).toBe(true)
+    expect(modelSupportsImage('anthropic', 'Claude-Opus-4-8')).toBe(true)
+    expect(modelSupportsImage('google', 'gemini-2.5-pro')).toBe(true)
+    expect(modelSupportsImage('gemini', 'gemini-2.5-pro')).toBe(true) // defensive alias
+    // Text-only / unknown / non-vision provider conservatively fall through to false.
+    expect(modelSupportsImage('openai', 'gpt-3.5-turbo')).toBe(false)
+    expect(modelSupportsImage('openai', 'gpt-4')).toBe(false)
+    expect(modelSupportsImage('ollama', 'llava')).toBe(false)
+    expect(modelSupportsImage('', '')).toBe(false)
+    expect(modelSupportsImage(undefined, undefined)).toBe(false)
+  })
+
+  it('isImageCapable offers upload for a vision (provider, model) regardless of stored casing, hides it for CLI/text-only', () => {
+    // Stored casing must not hide the affordance the server would accept.
+    expect(isImageCapable({ cliTool: undefined, provider: 'openai', model: 'GPT-4O' })).toBe(true)
+    expect(
+      isImageCapable({ cliTool: undefined, provider: 'anthropic', model: 'claude-opus-4-8' })
+    ).toBe(true)
+    // Text-only model on a vision provider → hidden (server would reject the upload).
+    expect(isImageCapable({ cliTool: undefined, provider: 'openai', model: 'gpt-3.5-turbo' })).toBe(
+      false
+    )
+    // Container CLI agents never use the quick-message image path.
+    expect(
+      isImageCapable({ cliTool: 'claude', provider: 'anthropic', model: 'claude-opus-4-8' })
+    ).toBe(false)
   })
 
   it('does not expose unknown runtime kind slugs', () => {
