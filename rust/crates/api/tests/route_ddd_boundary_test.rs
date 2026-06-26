@@ -705,7 +705,6 @@ const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
     // services::admin — so all three have left the baseline entirely.
     ("context.rs", 5),
     ("credential.rs", 3),
-    ("observability.rs", 1),
 ];
 
 #[test]
