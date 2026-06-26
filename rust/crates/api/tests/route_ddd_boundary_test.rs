@@ -1,5 +1,39 @@
+use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+
+// ── DDD-4: the structural guards match a CLASS of boundary leak, not an
+// enumerated allowlist of known type names. These unit checks pin that
+// contract so the enumerated string-lists can be collapsed into regex class
+// matchers without losing coverage. ──────────────────────────────────────────
+
+#[test]
+fn repository_and_service_constructors_match_the_whole_class() {
+    // A brand-new repository/service that was never added to any enumerated
+    // list must still be caught — the guard matches the class, not known names.
+    assert!(contains_repository_constructor("    let r = WidgetCatalogRepository::new(pool);"));
+    assert!(contains_route_service_constructor("    let s = WidgetCatalogService::new(pool);"));
+    // Previously-enumerated names stay caught.
+    assert!(contains_repository_constructor("    AgentRepository::new(pool)"));
+    assert!(contains_route_service_constructor("    OrchestrationService::new(pool)"));
+    // Word-boundary precision: `::new_*` helpers are not constructors.
+    assert!(!contains_repository_constructor("    FooRepository::new_connection(x)"));
+}
+
+#[test]
+fn error_policy_ignores_unrelated_errorkind_enums() {
+    // `RefreshErrorKind` (a different crate's enum) and `std::io::ErrorKind`
+    // (std) are not the domain error contract — anchoring stops the substring
+    // false-match without a hand-maintained exclusion list.
+    assert!(!contains_route_error_policy("    let e = RefreshErrorKind::Expired;"));
+    assert!(!contains_route_error_policy("    map_err(|_| std::io::ErrorKind::NotFound)"));
+    // The real domain error contract is still caught, bare or namespaced, plus
+    // the `use` import form.
+    assert!(contains_route_error_policy("    return Err(ErrorKind::NotFound(x).into());"));
+    assert!(contains_route_error_policy("    Err(agentforge_core::ErrorKind::Validation(m))"));
+    assert!(contains_route_error_policy("use agentforge_core::ErrorKind;"));
+}
 
 #[test]
 fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
@@ -71,37 +105,13 @@ fn route_handlers_do_not_reintroduce_ddd_boundary_leaks() {
                 ));
             }
 
-            if contains_runtime_policy_config(trimmed) {
-                violations.push(format!(
-                    "{}:{} reads runtime policy config in production route code; move runtime wiring to service",
-                    route.display(),
-                    line_no + 1
-                ));
-            }
-
-            if contains_identity_repository_wiring(trimmed) {
-                violations.push(format!(
-                    "{}:{} constructs identity/credential repositories in production route code; move repository wiring to service",
-                    route.display(),
-                    line_no + 1
-                ));
-            }
-
-            if contains_agent_orchestration_repository_wiring(trimmed) {
-                violations.push(format!(
-                    "{}:{} constructs agent/orchestration repositories in production route code; move aggregate wiring to service",
-                    route.display(),
-                    line_no + 1
-                ));
-            }
-
-            if contains_runtime_service_factory_wiring(trimmed) {
-                violations.push(format!(
-                    "{}:{} constructs runtime-aware services in production route code; move runtime factories to service",
-                    route.display(),
-                    line_no + 1
-                ));
-            }
+            // DDD-4: the former enumerated identity/agent-repository,
+            // runtime-service-factory, and runtime-policy-config string-lists
+            // were entirely subsumed by the generic matchers above
+            // (`contains_repository_constructor`, `contains_route_service_constructor`,
+            // and `state.config` / `from_runtime(` in the runtime-wiring sets),
+            // so they are gone — a new repository/service name no longer needs
+            // to be added to a list to be caught.
 
             if contains_route_error_policy(trimmed) {
                 violations.push(format!(
@@ -469,16 +479,25 @@ fn contains_ad_hoc_service_wiring(line: &str) -> bool {
     line.contains("Repository::new(self.")
 }
 
-fn contains_service_error_policy(line: &str) -> bool {
-    if line.starts_with("///") || line.starts_with("//!") {
+/// DDD-4: one anchored matcher for "this line owns user-visible `ErrorKind`
+/// policy", shared by the route/service/repository/gateway/MCP/system guards.
+/// The domain error enum is caught as a `use` import or as an `ErrorKind::`
+/// usage; the leading-boundary anchor excludes `RefreshErrorKind` (llm crate)
+/// and `std::io::ErrorKind` (std) — neither a user-visible error contract — so
+/// no hand-maintained exclusion list is needed.
+fn owns_error_kind_policy(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("//") {
         return false;
     }
+    if trimmed.starts_with("use ") {
+        return trimmed.contains("agentforge_core") && trimmed.contains("ErrorKind");
+    }
+    ERROR_KIND_POLICY.is_match(line) && !line.contains("std::io::ErrorKind")
+}
 
-    line.contains("agentforge_core::ErrorKind")
-        || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
-        || (line.contains("ErrorKind::")
-            && !line.contains("std::io::ErrorKind")
-            && !line.contains("RefreshErrorKind::"))
+fn contains_service_error_policy(line: &str) -> bool {
+    owns_error_kind_policy(line)
 }
 
 fn contains_raw_sql(line: &str) -> bool {
@@ -494,8 +513,22 @@ fn contains_repository_namespace_import(line: &str) -> bool {
     line.starts_with("use crate::repositories::")
 }
 
+// DDD-4: regex CLASS matchers replace enumerated type-name allowlists. A
+// constructor is `<Ident>Repository::new` / `<Ident>Service::new` where `new`
+// is a standalone method (trailing word boundary), so any repository/service —
+// including ones never added to a hand-maintained list — is caught, while
+// `::new_connection`-style helpers are not. The error-policy matcher requires a
+// non-word char (or line start) before `ErrorKind::`, so `RefreshErrorKind` (a
+// different crate's enum) does not false-match without an exclusion list.
+static REPOSITORY_CONSTRUCTOR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b[A-Za-z0-9_]*Repository::new\b").expect("repository-constructor regex"));
+static SERVICE_CONSTRUCTOR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b[A-Za-z0-9_]*Service::new\b").expect("service-constructor regex"));
+static ERROR_KIND_POLICY: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:^|[^A-Za-z0-9_])ErrorKind::").expect("error-kind-policy regex"));
+
 fn contains_repository_constructor(line: &str) -> bool {
-    line.contains("Repository::new")
+    REPOSITORY_CONSTRUCTOR.is_match(line)
 }
 
 fn contains_runtime_state_wiring(line: &str) -> bool {
@@ -517,13 +550,20 @@ fn contains_runtime_state_wiring(line: &str) -> bool {
         "state.cli_auth_memory_store",
         "state.context_resolver",
         "state.context_features",
+        // free fn that reads the workspace root from the environment (not a
+        // `state.*` field); kept here as the lone non-constructor token from
+        // the removed agent-orchestration list.
+        "workspace_root_from_env",
     ]
     .iter()
     .any(|pattern| line.contains(pattern))
 }
 
 fn contains_route_service_constructor(line: &str) -> bool {
-    line.contains("Service::new(")
+    // `<Ident>Service::new` covers the whole runtime-service-constructor class
+    // (subsumes the former enumerated `*Service::new` list). The `from_*`
+    // factory methods are specific named constructors kept as an explicit set.
+    SERVICE_CONSTRUCTOR.is_match(line)
         || line.contains("::from_pool(")
         || line.contains("from_app_config(")
         || line.contains("from_pool_and_app_config(")
@@ -543,72 +583,8 @@ fn route_local_projection_name(line: &str) -> Option<&str> {
     }
 }
 
-fn contains_runtime_policy_config(line: &str) -> bool {
-    [
-        "state.config.redis_url",
-        "state.config.cli_auth_proxy_revoke_threshold",
-        "state.config.oauth_mount_dir",
-        "state.config.credential_sync_enabled",
-        "state.config.container_anthropic_api_key",
-        "state.config.container_google_api_key",
-        "state.config.container_openai_api_key",
-        "state.config.storage_max_file_size",
-        "state.config.storage_max_files_per_session",
-        "state.config.is_production",
-        "state.config.app_url",
-        "AgentContainerControlSettings::from_runtime",
-    ]
-    .iter()
-    .any(|pattern| line.contains(pattern))
-}
-
-fn contains_identity_repository_wiring(line: &str) -> bool {
-    [
-        "ApiKeyRepository::new",
-        "CliCredentialRepository::new",
-        "GitCredentialRepository::new",
-        "SshKeyRepository::new",
-        "UserRepository::new",
-    ]
-    .iter()
-    .any(|pattern| line.contains(pattern))
-}
-
-fn contains_agent_orchestration_repository_wiring(line: &str) -> bool {
-    [
-        "AgentRepository::new",
-        "MessageRepository::new",
-        "UserLlmConfigRepository::new",
-        "OrchestrationTaskRepository::new",
-        "ParticipantRepository::new",
-        "TaskContextRepository::new",
-        "ContextPreviewRepository::new",
-        "workspace_root_from_env",
-    ]
-    .iter()
-    .any(|pattern| line.contains(pattern))
-}
-
-fn contains_runtime_service_factory_wiring(line: &str) -> bool {
-    [
-        "AgentMessageService::new",
-        "AgentPromptService::new",
-        "AgentContainerLifecycleService::new",
-        "OrchestrationService::new",
-        "TaskContextService::new",
-        "ContextPreviewService::new",
-        "ContextEnvelopeService::new",
-        "ContextApprovalService::new",
-        "ContextFeatureService::new",
-    ]
-    .iter()
-    .any(|pattern| line.contains(pattern))
-}
-
 fn contains_route_error_policy(line: &str) -> bool {
-    line.contains("ErrorKind::")
-        || line.contains("agentforge_core::ErrorKind")
-        || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
+    owns_error_kind_policy(line)
 }
 
 fn contains_resource_slug_policy(line: &str) -> bool {
@@ -620,7 +596,7 @@ fn contains_cross_cutting_util_policy(line: &str) -> bool {
 }
 
 fn contains_repository_error_policy(line: &str) -> bool {
-    line.contains("ErrorKind::") || (line.starts_with("use agentforge_core::") && line.contains("ErrorKind"))
+    owns_error_kind_policy(line)
 }
 
 fn contains_system_response_contract_literal(line: &str) -> bool {
