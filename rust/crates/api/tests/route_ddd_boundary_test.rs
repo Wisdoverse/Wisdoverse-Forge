@@ -703,7 +703,6 @@ const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
     // AgentAggregate, inbox From<InboxNotificationRow> adapters moved out), then
     // admin.rs reached 0 in DDD-2 — its `From<User>` adapter moved to
     // services::admin — so all three have left the baseline entirely.
-    ("context.rs", 5),
     ("credential.rs", 3),
 ];
 

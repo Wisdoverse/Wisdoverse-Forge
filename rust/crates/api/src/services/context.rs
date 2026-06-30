@@ -3,15 +3,15 @@
 use std::sync::Arc;
 
 use agentforge_core::{AppResult, ScopedRead, ScopedWrite, TenantScope, WorkspaceId};
-use agentforge_db::entities::ContextCandidate;
+use agentforge_db::entities::{ContextApproval, ContextCandidate, ContextFeedback, MemoryItem, Skill};
 use agentforge_infra::NatsClient;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+pub use crate::domain::context::ContextCandidateSummary;
 pub(crate) use crate::domain::context::context_data_response;
-pub use crate::domain::context::{ContextApprovalOutcome, ContextCandidateSummary, ContextFeedbackOutcome};
 use crate::domain::context::{
     ContextApprovalProvenance, ContextCandidateApprovalAudit, ContextCandidateBroadcast,
     ContextCandidateBroadcastEvent, ContextCandidateCreatedAudit, ContextCandidateKind,
@@ -30,6 +30,26 @@ use crate::repositories::memory::{CreateMemoryRecord, MemoryRepository};
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::repositories::skill::{SkillRepository, SkillVersionRepository};
 use crate::services::context_governance::ContextGovernanceService;
+
+/// Approval outcome returned to the context approval queue UI. It embeds the raw
+/// `agentforge_db` rows on the wire, so it lives in the service layer (DDD-2)
+/// rather than the domain; the serialized shape is unchanged from when it lived
+/// in `domain::context`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ContextApprovalOutcome {
+    pub candidate: ContextCandidate,
+    pub approval: Option<ContextApproval>,
+    pub memory_item: Option<MemoryItem>,
+    pub skill: Option<Skill>,
+}
+
+/// Feedback outcome returned to the context approval queue UI; embeds the raw
+/// `ContextFeedback` row, so it also lives in the service layer (DDD-2).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ContextFeedbackOutcome {
+    pub feedback: ContextFeedback,
+    pub item_state_changed: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct CreateContextCandidateInput {
