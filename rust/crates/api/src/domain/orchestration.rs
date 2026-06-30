@@ -567,6 +567,10 @@ impl TaskAssignmentPolicy {
             // (participant_liveness) populates it inline on its hot path.
             runtime_kind: None,
             image_paths: Vec::new(),
+            // CN-4: populated once the OTLP tracing layer is installed and this
+            // path runs inside a recording span; None until then (and on the
+            // wire it is simply omitted, preserving the pre-CN-4 signed shape).
+            trace_context: None,
         })
     }
 }
