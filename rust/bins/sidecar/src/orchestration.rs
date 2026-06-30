@@ -897,6 +897,13 @@ fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_path
         CliToolKind::Gemini => {
             let mut c = Command::new("gemini");
             c.args(["-p", prompt]);
+            // Honor the configured model like the claude/codex arms; without this a
+            // Gemini agent silently runs the gemini CLI default model. (Images ride
+            // the shared inline `@<path>` prompt reference above, which gemini-cli
+            // headless `-p` expands into an inlineData image part.)
+            if let Some(model) = cli_model {
+                c.args(["--model", model]);
+            }
             c
         }
         CliToolKind::Opencode => {
@@ -1354,6 +1361,28 @@ mod tests {
         let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
         // Codex exec accepts real image files via -i <file>.
         assert!(args.windows(2).any(|w| w[0] == "-i" && w[1] == img), "codex must pass -i <path>, got {args:?}");
+    }
+
+    #[test]
+    fn gemini_command_references_images_inline_and_passes_model() {
+        let img = "/workspace/.task-images/t/a.png".to_string();
+        let cmd =
+            cli_command("gemini", Some("gemini-2.5-pro"), "look", std::slice::from_ref(&img)).expect("gemini command");
+        let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        // Gemini has no image flag; the path is referenced inline in the prompt (`@<path>`),
+        // which the CLI's @-mention handling reads from /workspace and attaches as an image part
+        // (verified against gemini-cli 0.46.0 headless `-p`: the request carries an inlineData
+        // image/png part for both relative and absolute @paths).
+        assert!(
+            args.iter().any(|a| a.contains(&format!("@{img}"))),
+            "gemini prompt must reference the workspace image path, got {args:?}"
+        );
+        // The configured model must be honored, mirroring the claude/codex arms; otherwise a
+        // Gemini agent silently runs the gemini CLI default model regardless of its config.
+        assert!(
+            args.windows(2).any(|w| w[0] == "--model" && w[1] == "gemini-2.5-pro"),
+            "gemini must pass --model <model>, got {args:?}"
+        );
     }
 
     #[tokio::test]
