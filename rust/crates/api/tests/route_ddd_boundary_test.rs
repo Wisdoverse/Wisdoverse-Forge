@@ -698,13 +698,14 @@ fn contains_mcp_live_service_wiring(line: &str) -> bool {
 ///   already-dirty file — the gap codex flagged with a whole-file allowlist);
 /// - a baselined file whose count DROPS fails too, forcing the entry to be
 ///   lowered (or removed at 0) so the ratchet tightens automatically.
-const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[
-    // admin.rs/agent.rs/inbox.rs tightened in #896 F054 (DeadEventRow,
-    // AgentAggregate, inbox From<InboxNotificationRow> adapters moved out), then
-    // admin.rs reached 0 in DDD-2 — its `From<User>` adapter moved to
-    // services::admin — so all three have left the baseline entirely.
-    ("credential.rs", 3),
-];
+// EMPTY: the DDD-2 cleanup is complete — every domain module is now
+// persistence-independent. admin/agent/inbox left in #896 F054 + DDD-2; turn,
+// context_preview, project_clone, orchestration, observability, context, and
+// finally credential (its `ApiKey`/`SshKey`/`GitCredential` response builders
+// now take non-secret view projections built in the owning services). The
+// ratchet is closed: any new `agentforge_db` dependency in a domain file fails
+// the build, with no allowlisted exceptions.
+const DOMAIN_PERSISTENCE_BASELINE: &[(&str, usize)] = &[];
 
 #[test]
 fn domain_layer_stays_persistence_independent() {
