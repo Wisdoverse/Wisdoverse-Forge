@@ -1115,6 +1115,7 @@ mod tests {
             context_envelope: None,
             runtime_kind: None,
             image_paths: Vec::new(),
+            trace_context: None,
         }
     }
 
