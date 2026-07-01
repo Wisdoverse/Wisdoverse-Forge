@@ -165,6 +165,30 @@ describe('dispatchWsMessage', () => {
     expect(item.detail).not.toContain('Review the request')
   })
 
+  it('surfaces permission_request events as attention items and shows the CLI tool', () => {
+    // `permission_request` is the real Rust event type (permission_prompt is a
+    // legacy alias); agentName should be the CLI tool, not the wire session id.
+    dispatchWsMessage({
+      type: 'event',
+      eventType: 'permission_request',
+      eventData: {
+        type: 'permission_request',
+        tool: 'Bash',
+        cliTool: 'claude',
+        timestamp: Date.now(),
+      },
+      agentId: 'cli-session-abc',
+      orgId: 'org-1',
+    })
+
+    const feed = useFeedStore.getState().feedItems[0]
+    expect(feed.taskTitle).toBe('Decision needed')
+    expect(feed.agentName).toBe('claude')
+    const attention = useFeedStore.getState().attentionItems
+    expect(attention).toHaveLength(1)
+    expect(attention[0].agentName).toBe('claude')
+  })
+
   it('ignores unknown message types', () => {
     expect(() => dispatchWsMessage({ type: 'pong' })).not.toThrow()
     expect(() => dispatchWsMessage({ type: 'unknown_thing' })).not.toThrow()
