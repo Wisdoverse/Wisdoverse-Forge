@@ -758,6 +758,11 @@ impl OrchestrationService {
             }
         };
         assignment.image_paths = image_paths;
+        // CN-4: stamp the dispatching request's trace onto the assignment so the
+        // sidecar continues the same trace across the NATS hop. Captured here (at
+        // enqueue) not in the outbox publisher, which runs later in a different
+        // span. `None` when tracing is disabled or no span is active.
+        assignment.trace_context = agentforge_telemetry::current_traceparent();
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             // Compensate BEFORE releasing the row lock (see the build-error arm).
@@ -1293,6 +1298,11 @@ impl OrchestrationService {
             }
         };
         assignment.image_paths = image_paths;
+        // CN-4: stamp the dispatching request's trace onto the assignment so the
+        // sidecar continues the same trace across the NATS hop. Captured here (at
+        // enqueue) not in the outbox publisher, which runs later in a different
+        // span. `None` when tracing is disabled or no span is active.
+        assignment.trace_context = agentforge_telemetry::current_traceparent();
         if let Err(err) = insert_assignment_outbox_in_tx(&mut tx, scope.org_id().as_uuid(), task.id, &assignment).await
         {
             // Compensate BEFORE releasing the row lock (see the build-error arm).

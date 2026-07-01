@@ -789,6 +789,10 @@ pub fn parse_heartbeat_agent_id(subject: &str) -> Option<Uuid> {
     }
 }
 
+// CN-4: span the auto-dispatch claim so the assignment it enqueues carries a
+// `trace_context` (this is a background job, so there is no request span to
+// inherit otherwise). No-op overhead when the OTLP layer is not installed.
+#[tracing::instrument(skip(pool), fields(agent_id = %agent_id))]
 async fn claim_next_task_for_participant(
     pool: &PgPool,
     agent_id: Uuid,
@@ -874,7 +878,9 @@ async fn claim_next_task_for_participant(
         context_envelope: None,
         runtime_kind,
         image_paths: Vec::new(),
-        trace_context: None,
+        // CN-4: stamp the auto-dispatch span's trace so the sidecar continues it
+        // across the NATS hop. `None` when the OTLP layer is not installed.
+        trace_context: agentforge_telemetry::current_traceparent(),
     };
     crate::insert_assignment_outbox_in_tx(&mut tx, participant.organization_id.as_uuid(), claimed_task.id, &assignment)
         .await?;
