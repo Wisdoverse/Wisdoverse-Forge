@@ -1,0 +1,18 @@
+{
+  "payload": {
+    "action": "clone.ready",
+    "cloneStatus": "ready",
+    "details": {
+      "attempt": 1,
+      "branch": "main",
+      "bytes": 1048576,
+      "clone_status": "ready",
+      "duration_ms": 4200,
+      "head_sha": "0000000000000000000000000000000000000abc",
+      "project_id": "00000000-0000-0000-0000-000000000003"
+    },
+    "eventId": "00000000-0000-0000-0000-0000000000ff",
+    "projectId": "00000000-0000-0000-0000-000000000003"
+  },
+  "type": "project_clone:status_update"
+}
