@@ -1002,16 +1002,21 @@ impl CloneEvent {
         project_id: uuid::Uuid,
         details: &serde_json::Value,
     ) -> serde_json::Value {
-        serde_json::json!({
-            "type": Self::WS_MESSAGE_TYPE,
-            "payload": {
-                "action": action,
-                "eventId": event_id,
-                "projectId": project_id,
-                "cloneStatus": clone_status,
-                "details": details,
-            }
-        })
+        // Built through the shared `ServerMessage` enum (MS-3 PR-B) so the wire
+        // contract has a single compiler-checked source of truth; the enum's
+        // `project_clone:status_update` rename is `Self::WS_MESSAGE_TYPE`.
+        // Serializing a fixed-shape payload cannot fail.
+        agentforge_core::ws_protocol::ServerMessage::ProjectCloneStatusUpdate(
+            agentforge_core::ws_protocol::ProjectCloneStatusPayload {
+                action: action.to_string(),
+                event_id,
+                project_id,
+                clone_status: clone_status.to_string(),
+                details: details.clone(),
+            },
+        )
+        .to_frame_value()
+        .expect("project_clone status frame serialization is infallible")
     }
 
     /// Serialize a frame built by [`ws_frame`](Self::ws_frame) into the bytes the
