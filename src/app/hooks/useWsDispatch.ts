@@ -75,16 +75,28 @@ export function dispatchWsMessage(msg: WsMessage) {
     // REST + the live 'orchestration:participant_update' frame instead.
 
     case 'event': {
-      const evt = recordField(payload)
-      if (evt) {
-        const eventType = stringField(evt.type) ?? 'event'
-        const agentName = stringField(evt.agentName) ?? ''
-        const tool = stringField(evt.tool)
-        const timestamp = numberField(evt.timestamp) ?? Date.now()
+      // The gateway relays events in the flat BroadcastMessage shape
+      // ({ type:'event', eventType, eventData, agentId, orgId }) — the event
+      // detail (tool, timestamp, …) lives in `eventData`, NOT a nested `payload`.
+      const data = recordField(msg.eventData)
+      if (data) {
+        const eventType = stringField(msg.eventType) ?? 'event'
+        // `agentId` is a session id / UUID on the wire, not a display name. Show
+        // the CLI tool the relay hook stamps into eventData when present, but the
+        // canonical Rust event frame (normalize_event_data / the event.json
+        // fixture) carries no cliTool — fall back to the repo's neutral actor
+        // label ('The agent', matching HistoryTab) so the feed/attention UI never
+        // renders a blank ` is waiting`.
+        const agentName = stringField(data.cliTool) ?? 'The agent'
+        const tool = stringField(data.tool)
+        const timestamp = numberField(data.timestamp) ?? Date.now()
 
-        // Issue #34: streaming LLM tokens are rendered in ChatView, not the feed.
-        // Excluding them here keeps the activity feed focused on real lifecycle.
-        if (eventType === 'text_stream') break
+        // Streaming LLM output is rendered in ChatView, not the feed. Both
+        // `text_stream` (issue #34) and `token_update` fire on every streamed
+        // token and are broadcast-but-not-persisted server-side
+        // (is_persistable() in event_consumer.rs), so surfacing them here would
+        // flood the activity feed. Drop them to keep the feed on real lifecycle.
+        if (eventType === 'text_stream' || eventType === 'token_update') break
 
         useFeedStore.getState().addFeedItem({
           id: `${eventType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -95,12 +107,16 @@ export function dispatchWsMessage(msg: WsMessage) {
           timestamp,
         })
 
-        if (eventType === 'permission_prompt' || eventType === 'blocked') {
+        // The live Rust event type is `permission_request` (the sidecar hook
+        // name); `permission_prompt` is the legacy projected alias — accept both.
+        const needsPermission =
+          eventType === 'permission_request' || eventType === 'permission_prompt'
+        if (needsPermission || eventType === 'blocked') {
           useFeedStore.getState().addAttentionItem({
             id: nextAttentionId(),
             taskTitle: tool ?? 'Task',
             agentName,
-            reason: eventType === 'permission_prompt' ? 'Permission required' : 'Blocked',
+            reason: needsPermission ? 'Permission required' : 'Blocked',
             timestamp: Date.now(),
           })
         }
@@ -267,6 +283,7 @@ function agentActivityTitle(eventType: string, tool?: string | null): string {
     case 'post_tool_use':
       return tool ? `Finished ${activityToolLabel(tool).toLowerCase()}` : 'Finished a work step'
     case 'permission_prompt':
+    case 'permission_request':
       return 'Decision needed'
     case 'blocked':
       return 'Needs help'
@@ -286,6 +303,7 @@ function agentActivityDetail(eventType: string, tool?: string | null): string {
         ? `Finished ${activityToolLabel(tool).toLowerCase()}.`
         : 'The agent finished a work step.'
     case 'permission_prompt':
+    case 'permission_request':
       return 'Check the request before the agent continues.'
     case 'blocked':
       return 'Open the task to see what is needed before work can continue.'

@@ -5,7 +5,6 @@
  */
 
 import type { TaskSummary, ParticipantSummary } from './agent.js'
-import type { ClaudeEvent } from './events.js'
 
 // ============================================================================
 // WebSocket Messages
@@ -18,7 +17,16 @@ import type { ClaudeEvent } from './events.js'
 // docs/architecture/ms3-ws-protocol-baseline.md. The wire baseline is pinned in
 // tests/fixtures/ws-protocol/ and guarded by scripts/check-protocol-contract.mjs.
 export type ServerMessage =
-  | { type: 'event'; payload: ClaudeEvent }
+  // Flat activity event relayed from the Rust gateway (BroadcastMessage). The
+  // event detail lives in `eventData` (a normalized superset of ClaudeEvent with
+  // injected `type`/`orgId`/`sessionId`/`timestamp`/`id`), NOT a nested payload.
+  | {
+      type: 'event'
+      eventType: string
+      eventData: Record<string, unknown>
+      agentId: string
+      orgId: string
+    }
   | { type: 'terminal_output'; payload: { agentId: string; data: string } }
   // Live gateway frame sent when a terminal attach/input fails. Mirrors
   // `terminal_error_frame` in rust/crates/api/src/domain/gateway.rs and the
