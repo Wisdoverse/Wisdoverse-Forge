@@ -88,13 +88,25 @@ async fn main() -> Result<()> {
     let config = AppConfig::from_env()?;
 
     // 2. Initialize tracing — JSON for production, pretty for development.
+    // CN-4: optional OTLP span export (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is
+    // unset). `_otel_guard` must live for the whole process so the batch exporter
+    // flushes on exit; the layer is moved into whichever branch runs.
+    let (otel_layer, _otel_guard) = match agentforge_telemetry::otel_layer::<tracing_subscriber::Registry>(
+        "agentforge-server",
+        agentforge_core::VERSION,
+    ) {
+        Some((layer, guard)) => (Some(layer), Some(guard)),
+        None => (None, None),
+    };
     if config.is_production() {
         tracing_subscriber::registry()
+            .with(otel_layer)
             .with(EnvFilter::new(&config.log_level))
             .with(tracing_subscriber::fmt::layer().json())
             .init();
     } else {
         tracing_subscriber::registry()
+            .with(otel_layer)
             .with(EnvFilter::new(&config.log_level))
             .with(tracing_subscriber::fmt::layer().pretty())
             .init();

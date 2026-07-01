@@ -351,6 +351,7 @@ name = "agentforge-orchestrator-bin"
 version = "0.1.0"
 dependencies = [
  "agentforge-orchestrator",
+ "agentforge-telemetry",
  "anyhow",
  "axum",
  "tokio",
@@ -394,6 +395,7 @@ dependencies = [
  "agentforge-jobs",
  "agentforge-llm",
  "agentforge-platform",
+ "agentforge-telemetry",
  "anyhow",
  "async-nats",
  "axum",
@@ -412,6 +414,7 @@ version = "0.1.0"
 dependencies = [
  "agentforge-core",
  "agentforge-infra",
+ "agentforge-telemetry",
  "anyhow",
  "async-nats",
  "chrono",
@@ -430,6 +433,18 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "agentforge-telemetry"
+version = "0.1.0"
+dependencies = [
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]
