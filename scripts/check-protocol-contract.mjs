@@ -29,23 +29,19 @@ const protocolTs = path.join(repoRoot, 'shared/types/protocol.ts')
 
 // The authoritative set of LIVE messages — every one has a real Rust producer
 // today (see the baseline doc for file:line). `fixture` is the golden file that
-// pins its current wire shape; `inTs` records whether protocol.ts already
-// declares it (false => Rust-only frame the TS union is missing, PR-A adds it).
-// `fixture: null` = deliberately deferred (task_update has two divergent
-// producers; its shape is reconciled in PR-E before it is pinned).
+// pins its current wire shape (`null` = deliberately deferred: task_update has
+// two divergent producers, reconciled in PR-E before it is pinned). Whether
+// protocol.ts already declares each type is DERIVED from the parsed TS union
+// below (never hard-coded), so the drift snapshot cannot silently go stale.
 const LIVE_SERVER = [
-  { type: 'event', fixture: 'event.json', inTs: true },
-  { type: 'turn_invalidate', fixture: 'turn_invalidate.json', inTs: true },
-  { type: 'terminal_output', fixture: 'terminal_output.json', inTs: true },
-  { type: 'terminal_error', fixture: 'terminal_error.json', inTs: false },
-  { type: 'cli_image.updated', fixture: 'cli_image.updated.json', inTs: false },
-  { type: 'project_clone:status_update', fixture: 'project_clone_status_update.json', inTs: false },
-  {
-    type: 'orchestration:participant_update',
-    fixture: 'orchestration_participant_update.json',
-    inTs: false,
-  },
-  { type: 'orchestration:task_update', fixture: null, inTs: false }, // deferred to PR-E
+  { type: 'event', fixture: 'event.json' },
+  { type: 'turn_invalidate', fixture: 'turn_invalidate.json' },
+  { type: 'terminal_output', fixture: 'terminal_output.json' },
+  { type: 'terminal_error', fixture: 'terminal_error.json' },
+  { type: 'cli_image.updated', fixture: 'cli_image.updated.json' },
+  { type: 'project_clone:status_update', fixture: 'project_clone_status_update.json' },
+  { type: 'orchestration:participant_update', fixture: 'orchestration_participant_update.json' },
+  { type: 'orchestration:task_update', fixture: null }, // deferred to PR-E
 ]
 
 // Out-of-band control frames the Rust WS handler emits that are NOT part of the
@@ -108,19 +104,21 @@ for (const entry of LIVE_SERVER) {
 
 // --- 4. Report the TS <-> Rust drift (informational until PR-A/PR-E) ---
 // Extract the `type: '...'` variants from the ServerMessage union in protocol.ts.
+// The character class MUST include `.` and `:` — live tags like
+// `cli_image.updated`, `project_clone:status_update`, and `orchestration:*` use
+// them, and omitting them would falsely report those existing types as missing.
 const tsSource = fs.readFileSync(protocolTs, 'utf8')
 const serverStart = tsSource.indexOf('export type ServerMessage')
 const clientStart = tsSource.indexOf('export type ClientMessage')
 const serverBlock = tsSource.slice(serverStart, clientStart >= 0 ? clientStart : undefined)
-const tsServerTypes = new Set([...serverBlock.matchAll(/type:\s*'([a-z_]+)'/g)].map((m) => m[1]))
+const tsServerTypes = new Set([...serverBlock.matchAll(/type:\s*'([a-z_.:]+)'/g)].map((m) => m[1]))
 
 const liveTypes = new Set(LIVE_SERVER.map((m) => m.type))
 // Dead: declared in TS but not a live Rust producer (legacy TS-server frames).
 const dead = [...tsServerTypes].filter((t) => !liveTypes.has(t)).sort()
-// Rust-only: a live producer the TS union does not declare (PR-A adds these).
-const rustOnly = LIVE_SERVER.filter((m) => !m.inTs)
-  .map((m) => m.type)
-  .sort()
+// Rust-only: a live producer the TS union does not declare — DERIVED from the
+// parsed union, so a type that already exists in TS is never mis-flagged.
+const rustOnly = [...liveTypes].filter((t) => !tsServerTypes.has(t)).sort()
 
 notes.push(
   `ServerMessage drift snapshot (retired PR by PR — see docs/architecture/ms3-ws-protocol-baseline.md):`
