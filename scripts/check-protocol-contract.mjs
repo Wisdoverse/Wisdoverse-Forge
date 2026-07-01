@@ -102,6 +102,45 @@ for (const entry of LIVE_SERVER) {
   }
 }
 
+// --- 3b. Partial producer anchor (catches a deleted/renamed literal producer) ---
+// We deliberately do NOT derive the full live set by scanning the Rust producers:
+// in today's SCATTERED form a `"type":"..."` literal scan is ambiguous and would
+// false-positive — event_consumer.rs emits nested *payload* types
+// ("pre_tool_use", "notification"), gateway.rs carries a CLIENT tag
+// ("terminal_attach"), and cli_image_updater/project_clone build the tag from a
+// `const`, not a literal. So the authoritative, producer-derived check is a PR-B
+// deliverable: once the Rust WS frames are unified behind a single serde
+// `ServerMessage` enum, its variants become the compiler-guaranteed source of
+// truth and a round-trip `#[test]` asserts each against these fixtures.
+// Until then we anchor the subset of live types that DO appear as stable literals,
+// so deleting/renaming one of those producers without updating this list fails.
+const LITERAL_ANCHORED = [
+  'orchestration:task_update',
+  'orchestration:participant_update',
+  'terminal_output',
+  'terminal_error',
+]
+const producerFiles = [
+  'rust/crates/jobs/src/event_consumer.rs',
+  'rust/crates/jobs/src/orchestration_realtime.rs',
+  'rust/crates/jobs/src/participant_liveness.rs',
+  'rust/crates/api/src/domain/orchestration.rs',
+  'rust/crates/api/src/domain/gateway.rs',
+]
+const producerBlob = producerFiles
+  .map((rel) => {
+    const abs = path.join(repoRoot, rel)
+    return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : ''
+  })
+  .join('\n')
+for (const type of LITERAL_ANCHORED) {
+  if (!producerBlob.includes(`"${type}"`)) {
+    errors.push(
+      `live type '${type}' is no longer emitted as a literal by any known Rust producer — update LIVE_SERVER/producerFiles or the producer moved (authoritative enum-derived check lands in PR-B)`
+    )
+  }
+}
+
 // --- 4. Report the TS <-> Rust drift (informational until PR-A/PR-E) ---
 // Extract the `type: '...'` variants from the ServerMessage union in protocol.ts.
 // The character class MUST include `.` and `:` — live tags like
