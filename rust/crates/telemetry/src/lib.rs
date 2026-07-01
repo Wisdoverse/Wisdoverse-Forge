@@ -89,6 +89,28 @@ pub fn context_from_traceparent(traceparent: &str) -> opentelemetry::Context {
     })
 }
 
+/// Make `span` a child of the trace described by `traceparent`, so a consumer's
+/// work span joins the producer's trace across a message hop.
+///
+/// A `None`/empty/malformed header is a no-op — the span stays a fresh root
+/// rather than being attached to an unrelated trace — so callers can pass an
+/// assignment's optional `trace_context` straight through. Intended to be
+/// called on a freshly created (not yet entered) span before instrumenting the
+/// work with it.
+pub fn set_remote_parent(span: &tracing::Span, traceparent: Option<&str>) {
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+    let Some(traceparent) = traceparent.filter(|value| !value.is_empty()) else {
+        return;
+    };
+    let context = context_from_traceparent(traceparent);
+    if context.span().span_context().is_valid() {
+        // Best-effort: a failure to set the parent just means the span roots its
+        // own trace, which must never break request/assignment handling.
+        let _ = span.set_parent(context);
+    }
+}
+
 /// Injects propagator output into a `HashMap` carrier.
 struct HashMapInjector<'a>(&'a mut HashMap<String, String>);
 
@@ -264,6 +286,37 @@ mod tests {
             assert!(context_from_traceparent(&traceparent).span().span_context().is_valid());
         });
 
+        let _ = provider.shutdown();
+    }
+
+    #[test]
+    fn set_remote_parent_joins_the_producer_trace() {
+        use tracing_subscriber::layer::SubscriberExt;
+
+        opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+        let provider = SdkTracerProvider::builder().build();
+        let tracer = provider.tracer("agentforge-telemetry-test");
+        let subscriber = tracing_subscriber::registry().with(tracing_opentelemetry::layer().with_tracer(tracer));
+
+        // A producer's trace id (the sidecar would read this from the assignment).
+        let producer = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("consumer-work");
+            set_remote_parent(&span, Some(producer));
+            let _entered = span.enter();
+            // The consumer span is now a child of the producer's trace, so the
+            // active traceparent carries the SAME trace id (a new span id under it).
+            let traceparent = current_traceparent().expect("a joined span yields a traceparent");
+            assert!(
+                traceparent.contains("0af7651916cd43dd8448eb211c80319c"),
+                "consumer must join the producer trace id: {traceparent}"
+            );
+
+            // None / garbage inputs are no-ops (no panic; span stays a fresh root).
+            let orphan = tracing::info_span!("orphan");
+            set_remote_parent(&orphan, None);
+            set_remote_parent(&orphan, Some("not-a-traceparent"));
+        });
         let _ = provider.shutdown();
     }
 
