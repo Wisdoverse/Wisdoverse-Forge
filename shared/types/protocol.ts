@@ -20,6 +20,10 @@ import type { ClaudeEvent } from './events.js'
 export type ServerMessage =
   | { type: 'event'; payload: ClaudeEvent }
   | { type: 'terminal_output'; payload: { agentId: string; data: string } }
+  // Live gateway frame sent when a terminal attach/input fails. Mirrors
+  // `terminal_error_frame` in rust/crates/api/src/domain/gateway.rs and the
+  // tests/fixtures/ws-protocol/terminal_error.json golden fixture.
+  | { type: 'terminal_error'; payload: { agentId: string; message: string } }
   | { type: 'turn_invalidate'; payload: { agentId: string; timestamp: number } }
   | {
       type: 'orchestration:task_update'
