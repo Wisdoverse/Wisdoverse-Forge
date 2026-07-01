@@ -17,6 +17,7 @@ agentforge-infra.workspace = true
 agentforge-llm.workspace = true
 agentforge-platform.workspace = true
 agentforge-jobs.workspace = true
+agentforge-telemetry.workspace = true
 async-nats.workspace = true
 axum.workspace = true
 tokio.workspace = true
