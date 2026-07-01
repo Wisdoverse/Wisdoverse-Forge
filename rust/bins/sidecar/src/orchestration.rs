@@ -31,6 +31,7 @@ use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
+use tracing::Instrument;
 
 const ASSIGNMENT_FETCH_TIMEOUT_MS: u64 = 500;
 const ASSIGNMENT_FETCH_BATCH_SIZE: usize = 1;
@@ -790,6 +791,21 @@ impl AssignmentHandler {
     }
 
     async fn execute_assignment(&self, assignment: TaskAssignment) -> Result<()> {
+        // CN-4: continue the producer's trace across the NATS hop. The work span
+        // is created here, inside the spawned task, and adopts the assignment's
+        // `traceparent` as its remote parent, so the CLI-execution spans nest
+        // under the API/auto-dispatch trace that enqueued this assignment. When
+        // tracing is disabled (no propagator/layer) this is inert.
+        let span = tracing::info_span!(
+            "sidecar.execute_assignment",
+            task_id = %assignment.task_id,
+            delivery_id = ?assignment.delivery_id,
+        );
+        agentforge_telemetry::set_remote_parent(&span, assignment.trace_context.as_deref());
+        self.execute_assignment_inner(assignment).instrument(span).await
+    }
+
+    async fn execute_assignment_inner(&self, assignment: TaskAssignment) -> Result<()> {
         tracing::info!(task_id = %assignment.task_id, delivery_id = ?assignment.delivery_id, "Running orchestration task");
 
         let outcome = run_cli(&self.cli_tool, self.cli_model.as_deref(), &assignment).await;
