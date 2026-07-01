@@ -75,12 +75,15 @@ export function dispatchWsMessage(msg: WsMessage) {
     // REST + the live 'orchestration:participant_update' frame instead.
 
     case 'event': {
-      const evt = recordField(payload)
-      if (evt) {
-        const eventType = stringField(evt.type) ?? 'event'
-        const agentName = stringField(evt.agentName) ?? ''
-        const tool = stringField(evt.tool)
-        const timestamp = numberField(evt.timestamp) ?? Date.now()
+      // The gateway relays events in the flat BroadcastMessage shape
+      // ({ type:'event', eventType, eventData, agentId, orgId }) — the event
+      // detail (tool, timestamp, …) lives in `eventData`, NOT a nested `payload`.
+      const data = recordField(msg.eventData)
+      if (data) {
+        const eventType = stringField(msg.eventType) ?? 'event'
+        const agentName = stringField(msg.agentId) ?? ''
+        const tool = stringField(data.tool)
+        const timestamp = numberField(data.timestamp) ?? Date.now()
 
         // Issue #34: streaming LLM tokens are rendered in ChatView, not the feed.
         // Excluding them here keeps the activity feed focused on real lifecycle.

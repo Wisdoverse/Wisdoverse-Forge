@@ -82,15 +82,15 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().agents).toHaveLength(before)
   })
 
-  it('dispatches event to feed items', () => {
+  it('dispatches the flat Rust event frame to feed items', () => {
+    // The gateway relays events in the flat BroadcastMessage shape
+    // ({type,eventType,eventData,agentId,orgId}) — NOT a nested `payload`.
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'pre_tool_use',
-        agentName: 'Claude',
-        tool: 'Read',
-        timestamp: Date.now(),
-      },
+      eventType: 'pre_tool_use',
+      eventData: { type: 'pre_tool_use', tool: 'Read', timestamp: Date.now() },
+      agentId: 'agent-1',
+      orgId: 'org-1',
     })
 
     expect(useFeedStore.getState().feedItems).toHaveLength(1)
@@ -104,7 +104,10 @@ describe('dispatchWsMessage', () => {
   it('gives same-millisecond attention items distinct ids (F072)', () => {
     const event = {
       type: 'event' as const,
-      payload: { type: 'permission_prompt', agentName: 'Claude', tool: 'Bash', timestamp: 1 },
+      eventType: 'permission_prompt',
+      eventData: { type: 'permission_prompt', tool: 'Bash', timestamp: 1 },
+      agentId: 'Claude',
+      orgId: 'org-1',
     }
     dispatchWsMessage(event)
     dispatchWsMessage(event)
@@ -119,12 +122,10 @@ describe('dispatchWsMessage', () => {
   it('turns command activity events into plain work steps', () => {
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'post_tool_use',
-        agentName: 'Codex',
-        tool: 'Bash',
-        timestamp: Date.now(),
-      },
+      eventType: 'post_tool_use',
+      eventData: { type: 'post_tool_use', tool: 'Bash', timestamp: Date.now() },
+      agentId: 'Codex',
+      orgId: 'org-1',
     })
 
     const item = useFeedStore.getState().feedItems[0]
@@ -137,11 +138,10 @@ describe('dispatchWsMessage', () => {
   it('uses plain wording for unknown activity events', () => {
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'future_event',
-        agentName: 'Codex',
-        timestamp: Date.now(),
-      },
+      eventType: 'future_event',
+      eventData: { type: 'future_event', timestamp: Date.now() },
+      agentId: 'Codex',
+      orgId: 'org-1',
     })
 
     const item = useFeedStore.getState().feedItems[0]
@@ -153,11 +153,10 @@ describe('dispatchWsMessage', () => {
   it('uses check-first wording for permission prompts', () => {
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'permission_prompt',
-        agentName: 'Codex',
-        timestamp: Date.now(),
-      },
+      eventType: 'permission_prompt',
+      eventData: { type: 'permission_prompt', timestamp: Date.now() },
+      agentId: 'Codex',
+      orgId: 'org-1',
     })
 
     const item = useFeedStore.getState().feedItems[0]
