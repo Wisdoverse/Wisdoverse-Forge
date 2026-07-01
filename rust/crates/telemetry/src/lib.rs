@@ -63,7 +63,15 @@ pub fn current_traceparent() -> Option<String> {
 pub fn context_from_traceparent(traceparent: &str) -> opentelemetry::Context {
     let mut carrier = HashMap::new();
     carrier.insert("traceparent".to_string(), traceparent.to_string());
-    opentelemetry::global::get_text_map_propagator(|propagator| propagator.extract(&HashMapExtractor(&carrier)))
+    // Extract against an EXPLICIT root context, not `Context::current()`: on a
+    // malformed/empty header the propagator returns its base context unchanged,
+    // so using the current context would silently attach the new work to an
+    // unrelated span that happens to be active on the caller's thread. A root
+    // base makes a bad header degrade to a fresh (invalid) context as promised.
+    let root = opentelemetry::Context::new();
+    opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.extract_with_context(&root, &HashMapExtractor(&carrier))
+    })
 }
 
 /// Injects propagator output into a `HashMap` carrier.
@@ -230,5 +238,38 @@ mod tests {
         opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
         let context = context_from_traceparent("this-is-not-a-valid-traceparent");
         assert!(!context.span().span_context().is_valid(), "garbage header must degrade to an invalid (fresh) context");
+    }
+
+    #[test]
+    fn malformed_traceparent_does_not_inherit_an_unrelated_active_trace() {
+        use opentelemetry::Context;
+        use opentelemetry::trace::{SpanContext, SpanId, TraceFlags, TraceId, TraceState};
+
+        opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+
+        // An UNRELATED trace is active on this thread when the consumer extracts...
+        let unrelated = SpanContext::new(
+            TraceId::from_hex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap(),
+            SpanId::from_hex("aaaaaaaaaaaaaaaa").unwrap(),
+            TraceFlags::SAMPLED,
+            true,
+            TraceState::default(),
+        );
+        let _guard = Context::new().with_remote_span_context(unrelated.clone()).attach();
+
+        // ...a bad/empty inbound header must degrade to a FRESH context, never
+        // silently attach the work to that unrelated active trace (codex P2).
+        for header in ["", "garbage", "00-not-hex-not-hex-00"] {
+            let extracted = context_from_traceparent(header);
+            assert!(
+                !extracted.span().span_context().is_valid(),
+                "bad header {header:?} must yield an invalid (fresh) context, not inherit current"
+            );
+            assert_ne!(
+                extracted.span().span_context().trace_id(),
+                unrelated.trace_id(),
+                "bad header {header:?} must not adopt the unrelated active trace id"
+            );
+        }
     }
 }
