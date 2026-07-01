@@ -99,6 +99,28 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().feedItems[0].detail).toBe('Started checking project files.')
     expect(useFeedStore.getState().feedItems[0].detail).not.toContain('Tool:')
     expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
+    // The canonical Rust event frame carries no `cliTool` (see the locked
+    // event.json fixture / normalize_event_data), so the actor must fall back to
+    // a human label — never a blank string that renders as ` is waiting`.
+    expect(useFeedStore.getState().feedItems[0].agentName).toBe('The agent')
+  })
+
+  it('surfaces a blocked event without cliTool as a named attention item', () => {
+    // `blocked` frames from the Rust gateway do not include cliTool. A blank
+    // agentName would render as ` is waiting: …` in AttentionZone, so the
+    // attention item must still carry a visible actor label.
+    dispatchWsMessage({
+      type: 'event',
+      eventType: 'blocked',
+      eventData: { type: 'blocked', tool: 'Bash', timestamp: Date.now() },
+      agentId: 'cli-session-xyz',
+      orgId: 'org-1',
+    })
+
+    const attention = useFeedStore.getState().attentionItems
+    expect(attention).toHaveLength(1)
+    expect(attention[0].agentName).toBe('The agent')
+    expect(attention[0].agentName).not.toBe('')
   })
 
   it('suppresses high-frequency streaming events from the feed', () => {

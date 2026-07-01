@@ -81,9 +81,13 @@ export function dispatchWsMessage(msg: WsMessage) {
       const data = recordField(msg.eventData)
       if (data) {
         const eventType = stringField(msg.eventType) ?? 'event'
-        // `agentId` is a session id / UUID on the wire, not a display name; show
-        // the CLI tool the relay hook stamps into eventData instead of an opaque id.
-        const agentName = stringField(data.cliTool) ?? ''
+        // `agentId` is a session id / UUID on the wire, not a display name. Show
+        // the CLI tool the relay hook stamps into eventData when present, but the
+        // canonical Rust event frame (normalize_event_data / the event.json
+        // fixture) carries no cliTool — fall back to the repo's neutral actor
+        // label ('The agent', matching HistoryTab) so the feed/attention UI never
+        // renders a blank ` is waiting`.
+        const agentName = stringField(data.cliTool) ?? 'The agent'
         const tool = stringField(data.tool)
         const timestamp = numberField(data.timestamp) ?? Date.now()
 
