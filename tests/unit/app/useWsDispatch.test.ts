@@ -67,27 +67,19 @@ describe('dispatchWsMessage', () => {
     expect(all).toHaveLength(0)
   })
 
-  it('dispatches agent_update to feed store', () => {
+  it('ignores the removed legacy agents / agent_update frames (MS-3 PR-A)', () => {
+    // These ServerMessage variants were deleted — the Rust backend never emits
+    // them — so the dispatcher must now leave the feed store untouched.
+    const before = useFeedStore.getState().agents.length
     dispatchWsMessage({
       type: 'agent_update',
       payload: { id: 'a1', name: 'Claude', status: 'working' },
     })
-
-    const agents = useFeedStore.getState().agents
-    expect(agents).toHaveLength(1)
-    expect(agents[0].name).toBe('Claude')
-  })
-
-  it('dispatches agents to feed store', () => {
     dispatchWsMessage({
       type: 'agents',
-      payload: [
-        { id: 'a1', name: 'Claude', status: 'idle' },
-        { id: 'a2', name: 'Codex', status: 'working' },
-      ],
+      payload: [{ id: 'a1', name: 'Claude', status: 'idle' }],
     })
-
-    expect(useFeedStore.getState().agents).toHaveLength(2)
+    expect(useFeedStore.getState().agents).toHaveLength(before)
   })
 
   it('dispatches event to feed items', () => {
