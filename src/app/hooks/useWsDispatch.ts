@@ -70,51 +70,9 @@ export function dispatchWsMessage(msg: WsMessage) {
       break
     }
 
-    case 'agents': {
-      if (Array.isArray(payload)) {
-        useFeedStore.getState().setAgents(
-          payload.flatMap((agent) => {
-            const agentRecord = recordField(agent)
-            if (!agentRecord) return []
-            return [
-              {
-                id: stringField(agentRecord.id) ?? '',
-                name: stringField(agentRecord.name) ?? '',
-                status: mapAgentStatus(agentRecord.status),
-              },
-            ]
-          })
-        )
-      }
-      break
-    }
-
-    case 'agent_update': {
-      const agent = recordField(payload)
-      if (agent) {
-        const current = useFeedStore.getState().agents
-        const agentId = stringField(agent.id) ?? ''
-        const agentName = stringField(agent.name) ?? ''
-        const exists = current.find((a) => a.id === agentId)
-        if (exists) {
-          useFeedStore
-            .getState()
-            .setAgents(
-              current.map((a) =>
-                a.id === agentId ? { ...a, status: mapAgentStatus(agent.status) } : a
-              )
-            )
-        } else {
-          useFeedStore
-            .getState()
-            .setAgents([
-              ...current,
-              { id: agentId, name: agentName, status: mapAgentStatus(agent.status) },
-            ])
-        }
-      }
-      break
-    }
+    // MS-3 PR-A: 'agents' / 'agent_update' cases removed — the Rust backend never
+    // emits those frames (legacy TypeScript-server types). Agent lists come from
+    // REST + the live 'orchestration:participant_update' frame instead.
 
     case 'event': {
       const evt = recordField(payload)

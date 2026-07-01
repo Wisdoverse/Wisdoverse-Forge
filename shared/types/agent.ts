@@ -219,47 +219,6 @@ export interface AgentListResponse {
 }
 
 // ============================================================================
-// Text Tiles (Grid Labels)
-// ============================================================================
-
-/** A text label tile on the hex grid */
-export interface TextTile {
-  /** Unique ID (UUID) */
-  id: string
-  /** The label text */
-  text: string
-  /** Hex grid position */
-  position: {
-    q: number
-    r: number
-  }
-  /** Optional color (hex string, default white) */
-  color?: string
-  /** Creation timestamp */
-  createdAt: number
-}
-
-/** Request to create a text tile */
-export interface CreateTextTileRequest {
-  text: string
-  position: {
-    q: number
-    r: number
-  }
-  color?: string
-}
-
-/** Request to update a text tile */
-export interface UpdateTextTileRequest {
-  text?: string
-  position?: {
-    q: number
-    r: number
-  }
-  color?: string
-}
-
-// ============================================================================
 // Agent Groups (Multi-Agent Orchestration)
 // ============================================================================
 
@@ -362,16 +321,6 @@ export interface GroupResponse {
 export interface GroupListResponse {
   ok: boolean
   groups: AgentGroup[]
-}
-
-/** Worker report message payload */
-export interface WorkerReportPayload {
-  groupId: string
-  workerId: string
-  workerName: string
-  content: string
-  /** true = triggered by stop event, false = manual <report> tag */
-  isAutoReport: boolean
 }
 
 // ============================================================================
