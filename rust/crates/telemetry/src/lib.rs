@@ -32,17 +32,32 @@ pub fn is_enabled() -> bool {
     std::env::var(OTLP_ENDPOINT_ENV).ok().is_some_and(|value| !value.trim().is_empty())
 }
 
-/// Serialize the currently-active OpenTelemetry span context as a W3C
-/// `traceparent` string, or `None` when there is no valid recording span.
+/// Serialize the currently-active span context as a W3C `traceparent` string,
+/// or `None` when there is no valid recording span.
 ///
 /// Producers (e.g. the orchestrator building a `TaskAssignment`) call this to
 /// stamp the current trace onto an outgoing message so the consumer can join it.
 /// Returns `None` — never an all-zero `00-000...-00` header — when nothing is
-/// being traced (tracing disabled, or no span on the current context), so the
-/// caller stores `None` rather than a meaningless placeholder. Uses the globally
-/// installed propagator, which is a no-op unless [`otel_layer`] activated it.
+/// being traced (tracing disabled, or no active span), so the caller stores
+/// `None` rather than a meaningless placeholder.
+///
+/// The context is resolved in two steps because server code spans via the
+/// `tracing` macros (tower-http request spans, `#[instrument]`), whose
+/// OpenTelemetry context lives on the *tracing* span — NOT on
+/// [`opentelemetry::Context::current`]. So this prefers the current tracing
+/// span's context (via the `tracing-opentelemetry` bridge) and only falls back
+/// to the raw OpenTelemetry current context (used by code that manages otel
+/// spans directly, e.g. the CLI). Uses the globally installed propagator, which
+/// is a no-op unless [`otel_layer`] activated it.
 pub fn current_traceparent() -> Option<String> {
-    let context = opentelemetry::Context::current();
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+    let tracing_context = tracing::Span::current().context();
+    let context = if tracing_context.span().span_context().is_valid() {
+        tracing_context
+    } else {
+        opentelemetry::Context::current()
+    };
     if !context.span().span_context().is_valid() {
         return None;
     }
@@ -224,6 +239,32 @@ mod tests {
         assert_eq!(extracted.span().span_context().trace_id(), span_context.trace_id());
         assert_eq!(extracted.span().span_context().span_id(), span_context.span_id());
         assert!(extracted.span().span_context().is_sampled());
+    }
+
+    #[test]
+    fn current_traceparent_captures_the_active_tracing_span() {
+        use tracing_subscriber::layer::SubscriberExt;
+
+        // This is the server case: work is spanned via the `tracing` macros, and
+        // the otel context lives on the tracing span (not opentelemetry::current).
+        // A provider with no exporter still mints valid, sampled span contexts,
+        // which is all the traceparent bridge needs.
+        opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+        let provider = SdkTracerProvider::builder().build();
+        let tracer = provider.tracer("agentforge-telemetry-test");
+        let subscriber = tracing_subscriber::registry().with(tracing_opentelemetry::layer().with_tracer(tracer));
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("dispatch");
+            let _entered = span.enter();
+            let traceparent =
+                current_traceparent().expect("an active instrumented tracing span must yield a traceparent");
+            assert!(traceparent.starts_with("00-"), "W3C traceparent version prefix: {traceparent}");
+            // The captured header round-trips back to a valid (joinable) context.
+            assert!(context_from_traceparent(&traceparent).span().span_context().is_valid());
+        });
+
+        let _ = provider.shutdown();
     }
 
     #[test]
