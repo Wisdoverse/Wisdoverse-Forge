@@ -87,9 +87,12 @@ export function dispatchWsMessage(msg: WsMessage) {
         const tool = stringField(data.tool)
         const timestamp = numberField(data.timestamp) ?? Date.now()
 
-        // Issue #34: streaming LLM tokens are rendered in ChatView, not the feed.
-        // Excluding them here keeps the activity feed focused on real lifecycle.
-        if (eventType === 'text_stream') break
+        // Streaming LLM output is rendered in ChatView, not the feed. Both
+        // `text_stream` (issue #34) and `token_update` fire on every streamed
+        // token and are broadcast-but-not-persisted server-side
+        // (is_persistable() in event_consumer.rs), so surfacing them here would
+        // flood the activity feed. Drop them to keep the feed on real lifecycle.
+        if (eventType === 'text_stream' || eventType === 'token_update') break
 
         useFeedStore.getState().addFeedItem({
           id: `${eventType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

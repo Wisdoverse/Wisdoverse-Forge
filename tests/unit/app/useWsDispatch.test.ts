@@ -101,6 +101,22 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
   })
 
+  it('suppresses high-frequency streaming events from the feed', () => {
+    // `token_update` is broadcast on every streamed LLM token but is NOT
+    // persisted server-side (is_persistable() in event_consumer.rs). Surfacing
+    // it as a feed item would flood the activity feed during streaming, so the
+    // dispatcher must drop it just like `text_stream`.
+    dispatchWsMessage({
+      type: 'event',
+      eventType: 'token_update',
+      eventData: { type: 'token_update', timestamp: Date.now() },
+      agentId: 'agent-1',
+      orgId: 'org-1',
+    })
+
+    expect(useFeedStore.getState().feedItems).toHaveLength(0)
+  })
+
   it('gives same-millisecond attention items distinct ids (F072)', () => {
     const event = {
       type: 'event' as const,
