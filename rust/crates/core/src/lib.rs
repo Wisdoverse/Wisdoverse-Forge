@@ -18,6 +18,7 @@ pub mod self_fix_protocol;
 pub mod tenant;
 pub mod types;
 pub mod workspace;
+pub mod ws_protocol;
 
 // Convenient re-exports
 pub use completion_verifier::{CompletionVerifier, ExpectedResult};

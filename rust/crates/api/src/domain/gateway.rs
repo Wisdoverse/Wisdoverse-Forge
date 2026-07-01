@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use agentforge_core::broadcast_protocol::ADMIN_CLI_IMAGE_SUBJECT;
+use agentforge_core::ws_protocol::{ServerMessage, TerminalErrorPayload, TerminalOutputPayload};
 use agentforge_core::{AppError, ErrorKind, TenantScope};
 
 #[derive(Debug, Deserialize)]
@@ -112,25 +113,18 @@ pub(crate) fn terminal_payload_dimension(payload: &Value, key: &str) -> Option<u
 }
 
 pub(crate) fn terminal_output_frame(agent_id: Uuid, output: &[u8]) -> String {
-    json!({
-        "type": "terminal_output",
-        "payload": {
-            "agentId": agent_id,
-            "data": BASE64.encode(output),
-        }
-    })
-    .to_string()
+    // Serializing a fixed-shape `{agentId, data}` payload cannot fail; a failure
+    // here would mean a corrupt build, so surface it loudly rather than emit a
+    // malformed frame the browser would fail to `JSON.parse`.
+    ServerMessage::TerminalOutput(TerminalOutputPayload { agent_id, data: BASE64.encode(output) })
+        .to_frame_string()
+        .expect("terminal_output frame serialization is infallible")
 }
 
 pub(crate) fn terminal_error_frame(agent_id: Uuid, message: impl Into<String>) -> String {
-    json!({
-        "type": "terminal_error",
-        "payload": {
-            "agentId": agent_id,
-            "message": message.into(),
-        }
-    })
-    .to_string()
+    ServerMessage::TerminalError(TerminalErrorPayload { agent_id, message: message.into() })
+        .to_frame_string()
+        .expect("terminal_error frame serialization is infallible")
 }
 
 pub(crate) fn docker_unavailable_message() -> &'static str {

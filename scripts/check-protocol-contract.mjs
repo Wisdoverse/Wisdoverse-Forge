@@ -14,10 +14,11 @@
 // refactor (see docs/architecture/ms3-ws-protocol-baseline.md) can retire it
 // PR by PR. It is wired into `npm run lint` next to `metrics:contract`.
 //
-// PR-0 (this) fails ONLY on a fixture problem (missing/extra/invalid fixture) —
-// it ships GREEN against today's shapes. The TS<->Rust drift is REPORTED, not
-// enforced, until PR-A truths-up the TS union and later PRs unify the Rust
-// serializers behind a single serde enum + a Rust round-trip test.
+// It fails on a fixture problem (missing/extra/invalid fixture) AND, since PR-B,
+// on any drift in the unified `ServerMessage` enum: a variant added, removed, or
+// renamed without a matching fixture + LIVE_SERVER entry (§3b). The TS<->Rust
+// union drift is REPORTED for the frames not yet folded into the enum (event,
+// turn_invalidate, orchestration:* — PR-D/PR-E), not yet enforced.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -102,24 +103,63 @@ for (const entry of LIVE_SERVER) {
   }
 }
 
-// --- 3b. Partial producer anchor (catches a deleted/renamed literal producer) ---
-// We deliberately do NOT derive the full live set by scanning the Rust producers:
-// in today's SCATTERED form a `"type":"..."` literal scan is ambiguous and would
-// false-positive — event_consumer.rs emits nested *payload* types
-// ("pre_tool_use", "notification"), gateway.rs carries a CLIENT tag
-// ("terminal_attach"), and cli_image_updater/project_clone build the tag from a
-// `const`, not a literal. So the authoritative, producer-derived check is a PR-B
-// deliverable: once the Rust WS frames are unified behind a single serde
-// `ServerMessage` enum, its variants become the compiler-guaranteed source of
-// truth and a round-trip `#[test]` asserts each against these fixtures.
-// Until then we anchor the subset of live types that DO appear as stable literals,
-// so deleting/renaming one of those producers without updating this list fails.
-const LITERAL_ANCHORED = [
-  'orchestration:task_update',
-  'orchestration:participant_update',
+// --- 3b. Enum-derived AUTHORITATIVE anchor for the unified ServerMessage frames ---
+// MS-3 PR-B unified the standalone builder-fn frames behind a single serde
+// `ServerMessage` enum in rust/crates/core/src/ws_protocol.rs. Its variant renames
+// are now the compiler-guaranteed source of truth for those `type` tags (a Rust
+// round-trip `#[test]` in that module pins each against these fixtures). We parse
+// the enum block and assert its tag set is EXACTLY the frames it is meant to own,
+// and that each is a registered LIVE_SERVER entry — so adding, removing, or
+// renaming a variant without updating the fixtures + LIVE_SERVER fails the gate.
+const ENUM_BACKED = new Set([
+  'cli_image.updated',
+  'project_clone:status_update',
   'terminal_output',
   'terminal_error',
-]
+])
+const wsProtocolRel = 'rust/crates/core/src/ws_protocol.rs'
+const wsProtocolAbs = path.join(repoRoot, wsProtocolRel)
+if (!fs.existsSync(wsProtocolAbs)) {
+  errors.push(`ServerMessage enum source ${wsProtocolRel} is missing (MS-3 PR-B)`)
+} else {
+  const enumSrc = fs.readFileSync(wsProtocolAbs, 'utf8')
+  const enumStart = enumSrc.indexOf('enum ServerMessage {')
+  // Slice ONLY the enum body (payload structs below carry field-level renames like
+  // `localDigest` that must not pollute the tag set).
+  const enumEnd = enumStart >= 0 ? enumSrc.indexOf('\n}', enumStart) : -1
+  const enumBody = enumStart >= 0 && enumEnd >= 0 ? enumSrc.slice(enumStart, enumEnd) : ''
+  const enumTags = new Set([...enumBody.matchAll(/rename\s*=\s*"([^"]+)"/g)].map((m) => m[1]))
+  if (enumTags.size === 0) {
+    errors.push(
+      `could not parse any ServerMessage variant tags from ${wsProtocolRel} (moved or reshaped?)`
+    )
+  }
+  for (const tag of enumTags) {
+    if (!ENUM_BACKED.has(tag)) {
+      errors.push(
+        `ServerMessage enum has variant '${tag}' not in ENUM_BACKED — register it in LIVE_SERVER + a golden fixture and add it here`
+      )
+    }
+    if (!LIVE_SERVER.some((m) => m.type === tag)) {
+      errors.push(`ServerMessage enum variant '${tag}' has no LIVE_SERVER entry/fixture`)
+    }
+  }
+  for (const tag of ENUM_BACKED) {
+    if (!enumTags.has(tag)) {
+      errors.push(
+        `live type '${tag}' is no longer a ServerMessage enum variant — a producer was removed/renamed; update the enum or ENUM_BACKED`
+      )
+    }
+  }
+}
+
+// --- 3c. Literal producer anchor for frames NOT yet folded into the enum ---
+// `event`/`turn_invalidate` (jobs BroadcastEnvelope, PR-D) and `orchestration:*`
+// (two scattered producers, PR-E) still emit their `type` as a string literal.
+// Anchor them so deleting/renaming a producer without updating this list fails.
+// A `"type":"..."` scan is ambiguous for the payload-typed producers, so we only
+// anchor the tags that DO appear as stable literals today.
+const LITERAL_ANCHORED = ['orchestration:task_update', 'orchestration:participant_update']
 const producerFiles = [
   'rust/crates/jobs/src/event_consumer.rs',
   'rust/crates/jobs/src/orchestration_realtime.rs',
@@ -136,7 +176,7 @@ const producerBlob = producerFiles
 for (const type of LITERAL_ANCHORED) {
   if (!producerBlob.includes(`"${type}"`)) {
     errors.push(
-      `live type '${type}' is no longer emitted as a literal by any known Rust producer — update LIVE_SERVER/producerFiles or the producer moved (authoritative enum-derived check lands in PR-B)`
+      `live type '${type}' is no longer emitted as a literal by any known Rust producer — update LIVE_SERVER/producerFiles or fold it into the ServerMessage enum`
     )
   }
 }
