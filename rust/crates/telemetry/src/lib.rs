@@ -9,8 +9,11 @@
 //! exported automatically, and sets the W3C `traceparent` propagator so the
 //! API -> NATS -> sidecar -> CLI hops (CN-4) share one trace.
 
+use std::collections::HashMap;
+
 use opentelemetry::KeyValue;
-use opentelemetry::trace::TracerProvider as _;
+use opentelemetry::propagation::{Extractor, Injector};
+use opentelemetry::trace::{TraceContextExt, TracerProvider as _};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::SdkTracerProvider;
@@ -27,6 +30,62 @@ pub const OTLP_ENDPOINT_ENV: &str = "OTEL_EXPORTER_OTLP_ENDPOINT";
 /// blank. Used to gate the exporter so an unconfigured deployment stays a no-op.
 pub fn is_enabled() -> bool {
     std::env::var(OTLP_ENDPOINT_ENV).ok().is_some_and(|value| !value.trim().is_empty())
+}
+
+/// Serialize the currently-active OpenTelemetry span context as a W3C
+/// `traceparent` string, or `None` when there is no valid recording span.
+///
+/// Producers (e.g. the orchestrator building a `TaskAssignment`) call this to
+/// stamp the current trace onto an outgoing message so the consumer can join it.
+/// Returns `None` — never an all-zero `00-000...-00` header — when nothing is
+/// being traced (tracing disabled, or no span on the current context), so the
+/// caller stores `None` rather than a meaningless placeholder. Uses the globally
+/// installed propagator, which is a no-op unless [`otel_layer`] activated it.
+pub fn current_traceparent() -> Option<String> {
+    let context = opentelemetry::Context::current();
+    if !context.span().span_context().is_valid() {
+        return None;
+    }
+    let mut carrier = HashMap::new();
+    opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.inject_context(&context, &mut HashMapInjector(&mut carrier));
+    });
+    carrier.remove("traceparent").filter(|value| !value.is_empty())
+}
+
+/// Reconstruct an OpenTelemetry [`Context`](opentelemetry::Context) from a W3C
+/// `traceparent` string so a consumer can continue the producer's trace.
+///
+/// A malformed/empty header extracts to the root context (a fresh trace) rather
+/// than panicking, so a bad or truncated value degrades gracefully to a new
+/// trace instead of dropping the work. Consumers typically attach the returned
+/// context (or use it as the parent of their work span) before processing.
+pub fn context_from_traceparent(traceparent: &str) -> opentelemetry::Context {
+    let mut carrier = HashMap::new();
+    carrier.insert("traceparent".to_string(), traceparent.to_string());
+    opentelemetry::global::get_text_map_propagator(|propagator| propagator.extract(&HashMapExtractor(&carrier)))
+}
+
+/// Injects propagator output into a `HashMap` carrier.
+struct HashMapInjector<'a>(&'a mut HashMap<String, String>);
+
+impl Injector for HashMapInjector<'_> {
+    fn set(&mut self, key: &str, value: String) {
+        self.0.insert(key.to_string(), value);
+    }
+}
+
+/// Reads propagator input from a `HashMap` carrier.
+struct HashMapExtractor<'a>(&'a HashMap<String, String>);
+
+impl Extractor for HashMapExtractor<'_> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).map(String::as_str)
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.0.keys().map(String::as_str).collect()
+    }
 }
 
 /// Build an OTLP tracing layer for `service_name`, or `None` when export is
@@ -121,5 +180,55 @@ mod tests {
             Some(value) => unsafe { std::env::set_var(OTLP_ENDPOINT_ENV, value) },
             None => unsafe { std::env::remove_var(OTLP_ENDPOINT_ENV) },
         }
+    }
+
+    #[test]
+    fn traceparent_round_trips_the_active_span_context() {
+        use opentelemetry::Context;
+        use opentelemetry::trace::{SpanContext, SpanId, TraceFlags, TraceId, TraceState};
+
+        // The propagation helpers rely on the globally installed propagator; in a
+        // real process `otel_layer` installs it, so install it here for the test.
+        opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+
+        let span_context = SpanContext::new(
+            TraceId::from_hex("0af7651916cd43dd8448eb211c80319c").unwrap(),
+            SpanId::from_hex("b7ad6b7169203331").unwrap(),
+            TraceFlags::SAMPLED,
+            true,
+            TraceState::default(),
+        );
+        let context = Context::new().with_remote_span_context(span_context.clone());
+
+        // With that context active, `current_traceparent` serializes it...
+        let traceparent = {
+            let _guard = context.attach();
+            current_traceparent().expect("a valid active span context yields a traceparent")
+        };
+        assert!(
+            traceparent.contains("0af7651916cd43dd8448eb211c80319c"),
+            "traceparent carries the trace id: {traceparent}"
+        );
+        assert!(traceparent.contains("b7ad6b7169203331"), "traceparent carries the span id: {traceparent}");
+
+        // ...and `context_from_traceparent` reconstructs the same identifiers.
+        let extracted = context_from_traceparent(&traceparent);
+        assert_eq!(extracted.span().span_context().trace_id(), span_context.trace_id());
+        assert_eq!(extracted.span().span_context().span_id(), span_context.span_id());
+        assert!(extracted.span().span_context().is_sampled());
+    }
+
+    #[test]
+    fn no_active_span_yields_no_traceparent() {
+        // The root context has no valid span, so there is nothing to propagate.
+        let _guard = opentelemetry::Context::new().attach();
+        assert!(current_traceparent().is_none(), "root context must not produce a traceparent");
+    }
+
+    #[test]
+    fn malformed_traceparent_extracts_to_a_fresh_context_without_panicking() {
+        opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+        let context = context_from_traceparent("this-is-not-a-valid-traceparent");
+        assert!(!context.span().span_context().is_valid(), "garbage header must degrade to an invalid (fresh) context");
     }
 }
