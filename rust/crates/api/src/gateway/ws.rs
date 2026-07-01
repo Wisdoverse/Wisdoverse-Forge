@@ -18,7 +18,6 @@ use axum::response::IntoResponse;
 use bollard::query_parameters::{AttachContainerOptions, ResizeContainerTTYOptions};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
-use serde_json::Value;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -28,10 +27,10 @@ use agentforge_core::{AppError, OrgId, ProjectId, TeamId, TenantScope, UserId, W
 use agentforge_platform::DockerClient;
 
 use crate::domain::gateway::{
-    GatewayTerminalAttachTarget, WebSocketOriginPolicy, WebSocketOriginRejection, admin_subscription_subjects,
-    docker_unavailable_message, parse_gateway_client_message, realtime_disconnected_frame, realtime_unavailable_frame,
-    subscription_subjects, terminal_error_frame, terminal_output_frame, terminal_payload_agent_id,
-    terminal_payload_dimension, websocket_unauthorized_error,
+    ClientMessage, GatewayTerminalAttachTarget, WebSocketOriginPolicy, WebSocketOriginRejection,
+    admin_subscription_subjects, docker_unavailable_message, parse_gateway_client_message, realtime_disconnected_frame,
+    realtime_unavailable_frame, subscription_subjects, terminal_error_frame, terminal_output_frame,
+    websocket_unauthorized_error,
 };
 use crate::health::AppState;
 
@@ -266,17 +265,22 @@ async fn handle_client_message(
     terminals: &mut HashMap<Uuid, TerminalSession>,
     text: &str,
 ) {
-    let Some(msg) = parse_gateway_client_message(text) else {
-        return;
-    };
-
-    match msg.kind.as_str() {
-        "terminal_attach" => attach_terminal(state, scope, outbound_tx, terminals, &msg.payload).await,
-        "terminal_data" => write_terminal_data(outbound_tx, terminals, &msg.payload),
-        "terminal_input" => write_terminal_keys(outbound_tx, terminals, &msg.payload),
-        "terminal_resize" => resize_terminal(state, outbound_tx, terminals, &msg.payload).await,
-        "terminal_detach" => detach_terminal(terminals, &msg.payload),
-        _ => {}
+    // An unparseable frame or an unknown tag yields `None` and is a silent no-op.
+    match parse_gateway_client_message(text) {
+        Some(ClientMessage::TerminalAttach { agent_id, cols, rows }) => {
+            attach_terminal(state, scope, outbound_tx, terminals, agent_id, cols, rows).await
+        }
+        Some(ClientMessage::TerminalData { agent_id, data }) => {
+            write_terminal_data(outbound_tx, terminals, agent_id, &data)
+        }
+        Some(ClientMessage::TerminalInput { agent_id, keys }) => {
+            write_terminal_keys(outbound_tx, terminals, agent_id, &keys)
+        }
+        Some(ClientMessage::TerminalResize { agent_id, cols, rows }) => {
+            resize_terminal(state, outbound_tx, terminals, agent_id, cols, rows).await
+        }
+        Some(ClientMessage::TerminalDetach { agent_id }) => detach_terminal_by_id(terminals, agent_id),
+        None => {}
     }
 }
 
@@ -285,11 +289,10 @@ async fn attach_terminal(
     scope: &TenantScope,
     outbound_tx: &OutboundTx,
     terminals: &mut HashMap<Uuid, TerminalSession>,
-    payload: &Value,
+    agent_id: Uuid,
+    cols: Option<u16>,
+    rows: Option<u16>,
 ) {
-    let Some(agent_id) = terminal_payload_agent_id(payload) else {
-        return;
-    };
     // Re-attaching the same agent detaches first (no net growth); a NEW distinct
     // agent is capped so one connection cannot open unbounded attach streams (F061).
     detach_terminal_by_id(terminals, agent_id);
@@ -318,8 +321,8 @@ async fn attach_terminal(
         }
     };
 
-    let cols = terminal_payload_dimension(payload, "cols").unwrap_or(80).max(1);
-    let rows = terminal_payload_dimension(payload, "rows").unwrap_or(24).max(1);
+    let cols = cols.unwrap_or(80).max(1);
+    let rows = rows.unwrap_or(24).max(1);
     let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(TERMINAL_INPUT_CHANNEL_CAP);
     let task = tokio::spawn(run_terminal_attach(
         docker,
@@ -334,24 +337,22 @@ async fn attach_terminal(
     terminals.insert(agent_id, TerminalSession { container_id, input_tx, task });
 }
 
-fn write_terminal_data(outbound_tx: &OutboundTx, terminals: &HashMap<Uuid, TerminalSession>, payload: &Value) {
-    let Some(agent_id) = terminal_payload_agent_id(payload) else {
-        return;
-    };
-    let Some(data) = payload.get("data").and_then(Value::as_str) else {
-        return;
-    };
+fn write_terminal_data(
+    outbound_tx: &OutboundTx,
+    terminals: &HashMap<Uuid, TerminalSession>,
+    agent_id: Uuid,
+    data: &str,
+) {
     write_terminal_bytes(outbound_tx, terminals, agent_id, data.as_bytes().to_vec());
 }
 
-fn write_terminal_keys(outbound_tx: &OutboundTx, terminals: &HashMap<Uuid, TerminalSession>, payload: &Value) {
-    let Some(agent_id) = terminal_payload_agent_id(payload) else {
-        return;
-    };
-    let Some(keys) = payload.get("keys").and_then(Value::as_array) else {
-        return;
-    };
-    let data = keys.iter().filter_map(Value::as_str).collect::<String>();
+fn write_terminal_keys(
+    outbound_tx: &OutboundTx,
+    terminals: &HashMap<Uuid, TerminalSession>,
+    agent_id: Uuid,
+    keys: &[String],
+) {
+    let data = keys.concat();
     if !data.is_empty() {
         write_terminal_bytes(outbound_tx, terminals, agent_id, data.into_bytes());
     }
@@ -385,11 +386,10 @@ async fn resize_terminal(
     state: &AppState,
     outbound_tx: &OutboundTx,
     terminals: &HashMap<Uuid, TerminalSession>,
-    payload: &Value,
+    agent_id: Uuid,
+    cols: Option<u16>,
+    rows: Option<u16>,
 ) {
-    let Some(agent_id) = terminal_payload_agent_id(payload) else {
-        return;
-    };
     let Some(session) = terminals.get(&agent_id) else {
         return;
     };
@@ -397,16 +397,10 @@ async fn resize_terminal(
         let _ = outbound_tx.send(terminal_error_frame(agent_id, docker_unavailable_message()));
         return;
     };
-    let cols = terminal_payload_dimension(payload, "cols").unwrap_or(80).max(1);
-    let rows = terminal_payload_dimension(payload, "rows").unwrap_or(24).max(1);
+    let cols = cols.unwrap_or(80).max(1);
+    let rows = rows.unwrap_or(24).max(1);
     if let Err(err) = resize_container_tty(&docker, &session.container_id, cols, rows).await {
         tracing::debug!(error = %err, agent_id = %agent_id, "failed to resize terminal");
-    }
-}
-
-fn detach_terminal(terminals: &mut HashMap<Uuid, TerminalSession>, payload: &Value) {
-    if let Some(agent_id) = terminal_payload_agent_id(payload) {
-        detach_terminal_by_id(terminals, agent_id);
     }
 }
 
