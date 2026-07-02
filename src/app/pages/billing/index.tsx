@@ -1,4 +1,4 @@
-import { BillingPage as BillingFeaturePage } from '@app/features/billing/BillingPage'
+import { BillingPage as BillingFeaturePage } from '@app/features/billing'
 
 export function BillingPage() {
   return (
