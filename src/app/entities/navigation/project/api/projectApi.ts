@@ -4,7 +4,7 @@ import {
   type AddResourceMemberInput,
   type ResourceMember,
   type UpdateResourceMemberInput,
-} from '@app/entities/member'
+} from '../../member'
 import type {
   CloneSummary,
   CreateProjectInput,

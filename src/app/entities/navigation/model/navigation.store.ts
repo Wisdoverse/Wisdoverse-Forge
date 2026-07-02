@@ -1,18 +1,14 @@
 import { create } from 'zustand'
-import {
-  agentGroupApi,
-  type CreateAgentGroupInput,
-  type NavAgentGroup,
-} from '@app/entities/agent-group'
-import { organizationApi, type NavOrg } from '@app/entities/organization'
+import { agentGroupApi, type CreateAgentGroupInput, type NavAgentGroup } from '../agent-group'
+import { organizationApi, type NavOrg } from '../organization'
 import {
   projectApi,
   type CloneStatus,
   type CloneSummary,
   type NavProject,
   type UpdateProjectInput,
-} from '@app/entities/project'
-import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/team'
+} from '../project'
+import { teamApi, type NavTeam, type UpdateTeamInput } from '../team'
 import { useBoardStore } from '@app/shared/model/board.store'
 
 /** A realtime clone-status change applied to one project in the tree. */

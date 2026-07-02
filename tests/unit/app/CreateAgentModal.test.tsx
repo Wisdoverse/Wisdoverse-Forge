@@ -4,10 +4,10 @@ import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import { agentGroupApi } from '@app/entities/agent-group'
+import { agentGroupApi } from '@app/entities/navigation/agent-group'
 
-vi.mock('@app/entities/agent-group', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@app/entities/agent-group')>()
+vi.mock('@app/entities/navigation/agent-group', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/entities/navigation/agent-group')>()
 
   return {
     ...actual,

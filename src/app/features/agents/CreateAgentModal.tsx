@@ -13,7 +13,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { waitingPlaceDisplayName } from '@app/entities/agent-group'
+import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { cn } from '@app/shared/lib/utils'
 import {
   LOCAL_AGENT_SETUP_APP_LABEL,

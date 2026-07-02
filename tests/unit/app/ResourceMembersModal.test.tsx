@@ -5,7 +5,7 @@ import type {
   AddResourceMemberInput,
   ResourceMember,
   UpdateResourceMemberInput,
-} from '@app/entities/member'
+} from '@app/entities/navigation/member'
 import type { OrgUser } from '@app/entities/user'
 
 afterEach(cleanup)

@@ -6,7 +6,7 @@ import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/shared/model/settings.store'
 
-vi.mock('@app/entities/agent-group', () => ({
+vi.mock('@app/entities/navigation/agent-group', () => ({
   agentGroupApi: { getGroups: vi.fn().mockResolvedValue([]) },
 }))
 

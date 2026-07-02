@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { organizationApi } from '@app/entities/organization'
-import { projectApi } from '@app/entities/project'
-import { agentGroupApi } from '@app/entities/agent-group'
-import { teamApi } from '@app/entities/team'
+import { organizationApi } from '@app/entities/navigation/organization'
+import { projectApi } from '@app/entities/navigation/project'
+import { agentGroupApi } from '@app/entities/navigation/agent-group'
+import { teamApi } from '@app/entities/navigation/team'
 import { userApi } from '@app/entities/user'
 
 // Save and override global fetch — avoid vi.stubGlobal which restoreMocks undoes

@@ -15155,7 +15155,7 @@ export function createAgentWorkLaneErrorMessage() {
   return 'Task queue was not created. Forge could not connect while creating the task queue. Check your connection, then try again.'
 }
 `,
-      'src/app/entities/agent-group/api/agentGroupApi.ts': `
+      'src/app/entities/navigation/agent-group/api/agentGroupApi.ts': `
 export function missingGroupMessage() {
   throw new Error(
     'Task queue was not created. Check the task queue name and project, then try again.'
@@ -15179,7 +15179,7 @@ export function missingGroupMessage() {
         }),
         expect.objectContaining({
           type: 'agent-task-queue-error-copy',
-          location: 'src/app/entities/agent-group/api/agentGroupApi.ts:4',
+          location: 'src/app/entities/navigation/agent-group/api/agentGroupApi.ts:4',
         }),
       ])
     )
@@ -15197,7 +15197,7 @@ export function createAgentWorkLaneErrorMessage() {
   return 'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
 }
 `,
-      'src/app/entities/agent-group/api/agentGroupApi.ts': `
+      'src/app/entities/navigation/agent-group/api/agentGroupApi.ts': `
 export function missingGroupMessage() {
   throw new Error(
     'Check the task queue name and project, then create the queue again. Task queue was not created.'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, CircleDashed, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { projectApi, type CloneStatus, type CloneSummary } from '@app/entities/project'
+import { projectApi, type CloneStatus, type CloneSummary } from '@app/entities/navigation/project'
 
 interface CloneStatusBadgeProps {
   projectId: string

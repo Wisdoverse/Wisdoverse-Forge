@@ -17,7 +17,7 @@ import type {
   ResourceMember,
   ResourceMemberRole,
   UpdateResourceMemberInput,
-} from '@app/entities/member'
+} from '@app/entities/navigation/member'
 import type { OrgUser } from '@app/entities/user'
 import { resourceMemberErrorMessage } from '../model/resourceMemberErrorMessages'
 
