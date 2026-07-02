@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { ActivityFeed } from '@app/features/feed/ActivityFeed'
-import { TaskDetailPanel } from '@app/features/detail/TaskDetailPanel'
+import { ActivityFeed } from '@app/features/feed'
+import { TaskDetailPanel } from '@app/features/detail'
 import { useBoardStore } from '@app/shared/model/board.store'
 
 interface RightPanelProps {

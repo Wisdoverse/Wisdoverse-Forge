@@ -1,5 +1,5 @@
 import { Navigate } from '@tanstack/react-router'
-import { AuditLogView } from '@app/features/governance/AuditLogView'
+import { AuditLogView } from '@app/features/governance'
 import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
 import { FeatureRouteLoadingState } from '@app/shared/ui/FeatureRouteLoadingState'
 

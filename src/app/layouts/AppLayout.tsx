@@ -9,9 +9,8 @@ import { useBoardStore } from '@app/shared/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useTheme } from '@app/shared/model/theme.context'
 import { useSettingsStore } from '@app/shared/model/settings.store'
-import { CommandPalette } from '@app/features/cmdk/CommandPalette'
-import { TaskFormModal, type TaskProjectOption } from '@app/features/board/TaskFormModal'
-import { AgentGroupSelector } from '@app/features/board/AgentGroupSelector'
+import { CommandPalette } from '@app/features/cmdk'
+import { AgentGroupSelector, TaskFormModal, type TaskProjectOption } from '@app/features/board'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 
 interface AppLayoutProps {

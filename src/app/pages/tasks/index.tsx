@@ -1,17 +1,11 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { BoardView } from '@app/features/board/BoardView'
-import { ListView } from '@app/features/list/ListView'
+import { BoardView } from '@app/features/board'
+import { ListView } from '@app/features/list'
 import { useBoardStore } from '@app/shared/model/board.store'
-
-const Workshop3DView = lazy(() =>
-  import('@app/widgets/views/Workshop3DView').then((module) => ({
-    default: module.Workshop3DView,
-  }))
-)
-const TimelineView = lazy(() =>
-  import('@app/widgets/views/TimelineView').then((module) => ({ default: module.TimelineView }))
-)
+// Lazy components — the widgets/views barrel owns the lazy() wrappers so both
+// stay separate dynamic chunks behind the Suspense boundaries below.
+import { TimelineView, Workshop3DView } from '@app/widgets/views'
 
 export function TaskViewLoadingFallback({ viewName }: { viewName: string }) {
   return (

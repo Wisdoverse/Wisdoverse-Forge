@@ -5,19 +5,16 @@ import { useAdminStore } from '@app/shared/model/admin.store'
 import { useBoardStore } from '@app/shared/model/board.store'
 import { useFeedStore } from '@app/shared/model/feed.store'
 import { useWebSocket } from '@app/shared/model/websocket.context'
-import {
-  handleContextWsMessage,
-  type ContextRealtimeMessage,
-} from '@app/features/context/model/contextRealtime'
+import { handleContextWsMessage, type ContextRealtimeMessage } from '@app/features/context'
 import {
   CLONE_STATUS_WS_TYPE,
   handleCloneStatusWsMessage,
   type CloneStatusWsMessage,
-} from '@app/features/manage-project/model/cloneRealtime'
+} from '@app/features/manage-project'
 import {
   handleOrchestrationWsMessage,
   type OrchestrationRealtimeMessage,
-} from '@app/features/orchestration/model/orchestrationRealtime'
+} from '@app/features/orchestration'
 
 // F072: monotonic counter so two attention items created in the same millisecond
 // get distinct ids. A bare `attention-${Date.now()}` collides under a burst, and
