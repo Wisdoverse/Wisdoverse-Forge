@@ -16,9 +16,9 @@
 //
 // It fails on a fixture problem (missing/extra/invalid fixture) AND, since PR-B,
 // on any drift in the unified `ServerMessage` enum: a variant added, removed, or
-// renamed without a matching fixture + LIVE_SERVER entry (§3b). The TS<->Rust
-// union drift is REPORTED for the frames not yet folded into the enum (event,
-// turn_invalidate, orchestration:* — PR-D/PR-E), not yet enforced.
+// renamed without a matching fixture + LIVE_SERVER entry (§3b). After PR-D the
+// enum owns every live server frame except `orchestration:*` (reconciled + folded
+// in PR-E); those two remain literal-anchored (§3c), REPORTED not enum-enforced.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -105,13 +105,16 @@ for (const entry of LIVE_SERVER) {
 
 // --- 3b. Enum-derived AUTHORITATIVE anchor for the unified ServerMessage frames ---
 // MS-3 PR-B unified the standalone builder-fn frames behind a single serde
-// `ServerMessage` enum in rust/crates/core/src/ws_protocol.rs. Its variant renames
-// are now the compiler-guaranteed source of truth for those `type` tags (a Rust
+// `ServerMessage` enum in rust/crates/core/src/ws_protocol.rs, and PR-D folded in
+// `event` + `turn_invalidate` (retiring jobs' BroadcastEnvelope). The enum's variant
+// renames are the compiler-guaranteed source of truth for those `type` tags (a Rust
 // round-trip `#[test]` in that module pins each against these fixtures). We parse
 // the enum block and assert its tag set is EXACTLY the frames it is meant to own,
 // and that each is a registered LIVE_SERVER entry — so adding, removing, or
 // renaming a variant without updating the fixtures + LIVE_SERVER fails the gate.
 const ENUM_BACKED = new Set([
+  'event',
+  'turn_invalidate',
   'cli_image.updated',
   'project_clone:status_update',
   'terminal_output',
@@ -128,7 +131,22 @@ if (!fs.existsSync(wsProtocolAbs)) {
   // `localDigest` that must not pollute the tag set).
   const enumEnd = enumStart >= 0 ? enumSrc.indexOf('\n}', enumStart) : -1
   const enumBody = enumStart >= 0 && enumEnd >= 0 ? enumSrc.slice(enumStart, enumEnd) : ''
-  const enumTags = new Set([...enumBody.matchAll(/rename\s*=\s*"([^"]+)"/g)].map((m) => m[1]))
+  // A rename is a VARIANT tag only when the next non-attribute/non-comment line
+  // declares a variant (an uppercase identifier). Since PR-D the flat `event`
+  // variant carries FIELD-level renames (`eventType`, `agentId`, …) inside the
+  // enum body too; those precede lowercase field names and must not be counted.
+  const enumLines = enumBody.split('\n')
+  const enumTags = new Set()
+  for (let i = 0; i < enumLines.length; i++) {
+    const m = enumLines[i].match(/#\[serde\(rename\s*=\s*"([^"]+)"\)\]/)
+    if (!m) continue
+    for (let j = i + 1; j < enumLines.length; j++) {
+      const next = enumLines[j].trim()
+      if (next === '' || next.startsWith('#[') || next.startsWith('//')) continue
+      if (/^[A-Z]/.test(next)) enumTags.add(m[1])
+      break
+    }
+  }
   if (enumTags.size === 0) {
     errors.push(
       `could not parse any ServerMessage variant tags from ${wsProtocolRel} (moved or reshaped?)`
@@ -154,11 +172,11 @@ if (!fs.existsSync(wsProtocolAbs)) {
 }
 
 // --- 3c. Literal producer anchor for frames NOT yet folded into the enum ---
-// `event`/`turn_invalidate` (jobs BroadcastEnvelope, PR-D) and `orchestration:*`
-// (two scattered producers, PR-E) still emit their `type` as a string literal.
-// Anchor them so deleting/renaming a producer without updating this list fails.
-// A `"type":"..."` scan is ambiguous for the payload-typed producers, so we only
-// anchor the tags that DO appear as stable literals today.
+// Only `orchestration:*` remains (two scattered producers with a known internal
+// divergence, reconciled in PR-E) — they still emit their `type` as a string
+// literal. Anchor them so deleting/renaming a producer without updating this list
+// fails. A `"type":"..."` scan is ambiguous for the payload-typed producers, so we
+// only anchor the tags that DO appear as stable literals today.
 const LITERAL_ANCHORED = ['orchestration:task_update', 'orchestration:participant_update']
 const producerFiles = [
   'rust/crates/jobs/src/event_consumer.rs',

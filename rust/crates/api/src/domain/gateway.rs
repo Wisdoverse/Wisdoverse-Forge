@@ -190,13 +190,13 @@ pub(crate) fn terminal_output_frame(agent_id: Uuid, output: &[u8]) -> String {
     // Serializing a fixed-shape `{agentId, data}` payload cannot fail; a failure
     // here would mean a corrupt build, so surface it loudly rather than emit a
     // malformed frame the browser would fail to `JSON.parse`.
-    ServerMessage::TerminalOutput(TerminalOutputPayload { agent_id, data: BASE64.encode(output) })
+    ServerMessage::TerminalOutput { payload: TerminalOutputPayload { agent_id, data: BASE64.encode(output) } }
         .to_frame_string()
         .expect("terminal_output frame serialization is infallible")
 }
 
 pub(crate) fn terminal_error_frame(agent_id: Uuid, message: impl Into<String>) -> String {
-    ServerMessage::TerminalError(TerminalErrorPayload { agent_id, message: message.into() })
+    ServerMessage::TerminalError { payload: TerminalErrorPayload { agent_id, message: message.into() } }
         .to_frame_string()
         .expect("terminal_error frame serialization is infallible")
 }
