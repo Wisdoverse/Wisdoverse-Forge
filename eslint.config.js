@@ -1,5 +1,6 @@
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
+import boundaries from 'eslint-plugin-boundaries'
 import importPlugin from 'eslint-plugin-import'
 import prettier from 'eslint-config-prettier'
 
@@ -178,6 +179,63 @@ export default tseslint.config(
         project: './vscode-extension/tsconfig.json',
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+  {
+    // FSD-5 backstop: eslint-plugin-boundaries mirrors the FSD layer order
+    // that scripts/check-fsd-boundaries.mjs enforces (that script stays the
+    // gate; slice-level rules such as public-api live there). Everything here
+    // is `warn` until the FSD-1/2/4 migrations land.
+    files: ['src/app/**/*.{ts,tsx}'],
+    plugins: {
+      boundaries,
+    },
+    settings: {
+      'boundaries/include': ['src/app/**/*'],
+      'boundaries/elements': [
+        {
+          type: 'app',
+          pattern: ['src/app/{routes,layouts,providers,hooks,i18n,styles}/**/*', 'src/app/*'],
+          mode: 'full',
+        },
+        { type: 'pages', pattern: 'src/app/pages/*' },
+        { type: 'widgets', pattern: 'src/app/widgets/*' },
+        { type: 'features', pattern: 'src/app/features/*' },
+        { type: 'entities', pattern: 'src/app/entities/*' },
+        { type: 'shared', pattern: 'src/app/shared' },
+      ],
+    },
+    rules: {
+      'boundaries/dependencies': [
+        'warn',
+        {
+          default: 'disallow',
+          rules: [
+            {
+              from: { type: 'app' },
+              allow: {
+                to: { type: ['app', 'pages', 'widgets', 'features', 'entities', 'shared'] },
+              },
+            },
+            {
+              from: { type: 'pages' },
+              allow: { to: { type: ['pages', 'widgets', 'features', 'entities', 'shared'] } },
+            },
+            {
+              from: { type: 'widgets' },
+              allow: { to: { type: ['widgets', 'features', 'entities', 'shared'] } },
+            },
+            {
+              from: { type: 'features' },
+              allow: { to: { type: ['features', 'entities', 'shared'] } },
+            },
+            { from: { type: 'entities' }, allow: { to: { type: ['entities', 'shared'] } } },
+            { from: { type: 'shared' }, allow: { to: { type: ['shared'] } } },
+          ],
+        },
+      ],
+      'boundaries/no-unknown': 'warn',
+      'boundaries/no-unknown-files': 'warn',
     },
   },
   {
