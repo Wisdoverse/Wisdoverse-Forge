@@ -1006,15 +1006,15 @@ impl CloneEvent {
         // contract has a single compiler-checked source of truth; the enum's
         // `project_clone:status_update` rename is `Self::WS_MESSAGE_TYPE`.
         // Serializing a fixed-shape payload cannot fail.
-        agentforge_core::ws_protocol::ServerMessage::ProjectCloneStatusUpdate(
-            agentforge_core::ws_protocol::ProjectCloneStatusPayload {
+        agentforge_core::ws_protocol::ServerMessage::ProjectCloneStatusUpdate {
+            payload: agentforge_core::ws_protocol::ProjectCloneStatusPayload {
                 action: action.to_string(),
                 event_id,
                 project_id,
                 clone_status: clone_status.to_string(),
                 details: details.clone(),
             },
-        )
+        }
         .to_frame_value()
         .expect("project_clone status frame serialization is infallible")
     }

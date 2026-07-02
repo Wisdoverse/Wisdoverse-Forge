@@ -1061,17 +1061,19 @@ fn build_cli_image_frame(tool: &str, state: &CliToolImageState, unix: i64) -> Op
     // Built through the shared `ServerMessage` enum (MS-3 PR-B) so the toast wire
     // shape has a single compiler-checked source of truth; the variant's rename
     // is `CLI_IMAGE_UPDATED_EVENT`. Serializing a fixed-shape payload cannot fail.
-    let frame = ServerMessage::CliImageUpdated(CliImageUpdatedPayload {
-        tool: tool.to_string(),
-        state: state.state.clone(),
-        local_digest: state.local_digest.clone(),
-        remote_digest: state.remote_digest.clone(),
-        local_version: state.local_version.clone(),
-        remote_version: state.remote_version.clone(),
-        last_error: state.last_error.clone(),
-        event_id,
-        unix,
-    })
+    let frame = ServerMessage::CliImageUpdated {
+        payload: CliImageUpdatedPayload {
+            tool: tool.to_string(),
+            state: state.state.clone(),
+            local_digest: state.local_digest.clone(),
+            remote_digest: state.remote_digest.clone(),
+            local_version: state.local_version.clone(),
+            remote_version: state.remote_version.clone(),
+            last_error: state.last_error.clone(),
+            event_id,
+            unix,
+        },
+    }
     .to_frame_string()
     .expect("cli_image.updated frame serialization is infallible");
     Some(frame)

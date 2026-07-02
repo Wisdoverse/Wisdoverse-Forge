@@ -11,10 +11,10 @@ use uuid::Uuid;
 
 use agentforge_core::AgentStatus;
 use agentforge_core::orchestration_protocol::SignedEnvelope;
+use agentforge_core::ws_protocol::ServerMessage;
 use agentforge_jobs::event_consumer::{
-    AgentDirectory, AgentRuntimePatch, AgentTarget, BroadcastBus, BroadcastEnvelope, ConsumeError, EventConsumer,
-    EventStore, HmacSecretLookup, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
-    TIMESTAMP_REPLAY_WINDOW_SECS,
+    AgentDirectory, AgentRuntimePatch, AgentTarget, BroadcastBus, ConsumeError, EventConsumer, EventStore,
+    HmacSecretLookup, PersistedEvent, SignedEventEnvelope, SignedEventPayload, TIMESTAMP_REPLAY_WINDOW_SECS,
 };
 
 /// Shared per-agent secret for the in-memory verification harness. The signed
@@ -98,18 +98,18 @@ impl AgentDirectory for MemoryAgentDirectory {
 
 #[derive(Clone, Default)]
 struct MemoryBroadcastBus {
-    published: Arc<Mutex<Vec<(String, BroadcastEnvelope)>>>,
+    published: Arc<Mutex<Vec<(String, ServerMessage)>>>,
 }
 
 impl MemoryBroadcastBus {
-    async fn published(&self) -> Vec<(String, BroadcastEnvelope)> {
+    async fn published(&self) -> Vec<(String, ServerMessage)> {
         self.published.lock().await.clone()
     }
 }
 
 #[async_trait]
 impl BroadcastBus for MemoryBroadcastBus {
-    async fn publish(&self, subject: String, message: BroadcastEnvelope) -> Result<()> {
+    async fn publish(&self, subject: String, message: ServerMessage) -> Result<()> {
         self.published.lock().await.push((subject, message));
         Ok(())
     }
@@ -179,21 +179,22 @@ async fn persistable_event_is_stored_and_rebroadcast() {
     let published = bus.published().await;
     assert_eq!(published.len(), 2);
     assert_eq!(published[0].0, format!("broadcast.{org_id}"));
-    let BroadcastEnvelope::Event(event_message) = &published[0].1 else {
+    let ServerMessage::Event { event_type, event_data, agent_id: event_agent, org_id: event_org } = &published[0].1
+    else {
         panic!("first broadcast must be event");
     };
-    assert_eq!(event_message.event_type, "pre_tool_use");
-    assert_eq!(event_message.agent_id, "cli-session-1");
-    assert_eq!(event_message.org_id, org_id.to_string());
-    assert_eq!(event_message.event_data["type"], "pre_tool_use");
-    assert_eq!(event_message.event_data["sessionId"], "cli-session-1");
+    assert_eq!(event_type, "pre_tool_use");
+    assert_eq!(event_agent, "cli-session-1");
+    assert_eq!(event_org, &org_id.to_string());
+    assert_eq!(event_data["type"], "pre_tool_use");
+    assert_eq!(event_data["sessionId"], "cli-session-1");
 
     assert_eq!(published[1].0, format!("broadcast.{org_id}"));
-    let BroadcastEnvelope::TurnInvalidate(invalidate) = &published[1].1 else {
+    let ServerMessage::TurnInvalidate { payload } = &published[1].1 else {
         panic!("second broadcast must invalidate turns");
     };
-    assert_eq!(invalidate.payload.agent_id, agent_id.to_string());
-    assert_eq!(invalidate.payload.timestamp, 1_700_000_000_000);
+    assert_eq!(payload.agent_id, agent_id.to_string());
+    assert_eq!(payload.timestamp, 1_700_000_000_000);
 }
 
 #[tokio::test]
@@ -218,10 +219,10 @@ async fn token_update_is_broadcast_without_persistence() {
     let published = bus.published().await;
     assert_eq!(published.len(), 1);
     assert_eq!(published[0].0, format!("broadcast.{org_id}"));
-    let BroadcastEnvelope::Event(event_message) = &published[0].1 else {
+    let ServerMessage::Event { event_type, .. } = &published[0].1 else {
         panic!("token updates should only emit event broadcasts");
     };
-    assert_eq!(event_message.event_type, "token_update");
+    assert_eq!(event_type, "token_update");
 }
 
 #[tokio::test]
