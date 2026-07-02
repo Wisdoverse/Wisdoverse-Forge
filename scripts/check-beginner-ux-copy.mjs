@@ -2747,7 +2747,7 @@ const USER_VISIBLE_ERROR_FILE_PATTERNS = [
   /\/model\/admin\.store\.ts$/,
   /\/model\/skills\.store\.ts$/,
   /\/model\/analytics\.store\.ts$/,
-  /\/entities\/agent-group\/api\/agentGroupApi\.ts$/,
+  /\/entities\/navigation\/agent-group\/api\/agentGroupApi\.ts$/,
   /\/shared\/lib\/taskFailureCopy\.ts$/,
   /\/shared\/lib\/workspaceResourceErrorMessage\.ts$/,
 ]
@@ -4693,7 +4693,7 @@ function hasAgentTaskQueueFailureFirstCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/agents/model/agentGroupErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/agents/model/createAgentWorkLaneErrorMessage.ts') &&
-    !relFile.endsWith('src/app/entities/agent-group/api/agentGroupApi.ts')
+    !relFile.endsWith('src/app/entities/navigation/agent-group/api/agentGroupApi.ts')
   ) {
     return false
   }

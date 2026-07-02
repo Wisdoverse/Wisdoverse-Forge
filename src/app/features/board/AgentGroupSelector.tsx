@@ -1,5 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
-import { waitingPlaceDisplayName, type NavAgentGroup } from '@app/entities/agent-group'
+import { waitingPlaceDisplayName, type NavAgentGroup } from '@app/entities/navigation/agent-group'
 
 interface AgentGroupSelectorProps {
   groups: NavAgentGroup[]

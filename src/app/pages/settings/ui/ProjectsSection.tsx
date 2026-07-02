@@ -14,8 +14,8 @@ import {
   type CloneSummary,
   type NavProject,
   type UpdateProjectInput,
-} from '@app/entities/project'
-import { teamApi, type NavTeam } from '@app/entities/team'
+} from '@app/entities/navigation/project'
+import { teamApi, type NavTeam } from '@app/entities/navigation/team'
 import { userApi } from '@app/entities/user'
 import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMessage'
 

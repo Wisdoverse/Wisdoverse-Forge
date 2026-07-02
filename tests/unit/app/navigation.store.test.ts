@@ -2,26 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { navigationActionErrorMessage, useNavigationStore } from '@app/entities/navigation'
 import { useBoardStore } from '@app/shared/model/board.store'
 
-vi.mock('@app/entities/organization', () => ({
+vi.mock('@app/entities/navigation/organization', () => ({
   organizationApi: { getOrgs: vi.fn(), updateOrg: vi.fn() },
 }))
 
-vi.mock('@app/entities/team', () => ({
+vi.mock('@app/entities/navigation/team', () => ({
   teamApi: { getTeams: vi.fn(), updateTeam: vi.fn(), deleteTeam: vi.fn() },
 }))
 
-vi.mock('@app/entities/project', () => ({
+vi.mock('@app/entities/navigation/project', () => ({
   projectApi: { getProjects: vi.fn(), updateProject: vi.fn(), deleteProject: vi.fn() },
 }))
 
-vi.mock('@app/entities/agent-group', () => ({
+vi.mock('@app/entities/navigation/agent-group', () => ({
   agentGroupApi: { getGroups: vi.fn(), createGroup: vi.fn() },
 }))
 
-import { organizationApi } from '@app/entities/organization'
-import { projectApi } from '@app/entities/project'
-import { agentGroupApi } from '@app/entities/agent-group'
-import { teamApi } from '@app/entities/team'
+import { organizationApi } from '@app/entities/navigation/organization'
+import { projectApi } from '@app/entities/navigation/project'
+import { agentGroupApi } from '@app/entities/navigation/agent-group'
+import { teamApi } from '@app/entities/navigation/team'
 
 function apiError(status: number, payload: Record<string, unknown> | string): Error {
   const body = typeof payload === 'string' ? payload : JSON.stringify(payload)

@@ -35,7 +35,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
   },
 }))
 
-vi.mock('@app/entities/agent-group', () => ({
+vi.mock('@app/entities/navigation/agent-group', () => ({
   agentGroupApi: {
     getGroups: (...args: unknown[]) => mockGetGroups(...args),
     createGroup: (...args: unknown[]) => mockCreateGroup(...args),
