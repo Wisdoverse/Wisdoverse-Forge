@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Cpu, HardDrive, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type { ResourceProfileOption } from '@app/entities/agent'
 

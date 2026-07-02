@@ -4,7 +4,7 @@ import { cleanup } from '@testing-library/react'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 vi.mock('@app/entities/navigation/agent-group', () => ({
   agentGroupApi: { getGroups: vi.fn().mockResolvedValue([]) },

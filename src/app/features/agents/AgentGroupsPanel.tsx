@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { useNavigationStore } from '@app/entities/navigation'

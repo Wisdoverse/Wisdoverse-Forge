@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import '@app/i18n'
 import { SidebarNav } from '@app/layouts/sidebar/SidebarNav'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
-import { useContextStore } from '@app/shared/model/context.store'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useContextStore } from '@app/features/context/model/context.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 const navigateMock = vi.fn()
 const logoutMock = vi.fn()

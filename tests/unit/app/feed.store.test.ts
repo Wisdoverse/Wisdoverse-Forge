@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useFeedStore } from '@app/entities/feed'
 
 beforeEach(() => useFeedStore.getState().reset())
 

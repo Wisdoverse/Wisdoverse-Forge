@@ -1,4 +1,4 @@
-import { attentionReasonPreview, type AttentionItem } from '@app/shared/model/feed.store'
+import { attentionReasonPreview, type AttentionItem } from '@app/entities/feed'
 
 interface AttentionZoneProps {
   items: AttentionItem[]

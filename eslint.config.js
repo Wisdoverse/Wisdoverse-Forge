@@ -182,10 +182,10 @@ export default tseslint.config(
     },
   },
   {
-    // FSD-5 backstop: eslint-plugin-boundaries mirrors the FSD layer order
+    // FSD backstop: eslint-plugin-boundaries mirrors the FSD layer order
     // that scripts/check-fsd-boundaries.mjs enforces (that script stays the
-    // gate; slice-level rules such as public-api live there). Everything here
-    // is `warn` until the FSD-1/2/4 migrations land.
+    // gate; slice-level rules such as public-api live there). Strict since
+    // FSD-2 closed the gate: everything here is `error`.
     files: ['src/app/**/*.{ts,tsx}'],
     plugins: {
       boundaries,
@@ -207,7 +207,7 @@ export default tseslint.config(
     },
     rules: {
       'boundaries/dependencies': [
-        'warn',
+        'error',
         {
           default: 'disallow',
           rules: [
@@ -234,8 +234,8 @@ export default tseslint.config(
           ],
         },
       ],
-      'boundaries/no-unknown': 'warn',
-      'boundaries/no-unknown-files': 'warn',
+      'boundaries/no-unknown': 'error',
+      'boundaries/no-unknown-files': 'error',
     },
   },
   {

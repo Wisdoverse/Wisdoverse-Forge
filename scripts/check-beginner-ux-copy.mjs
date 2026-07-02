@@ -3104,7 +3104,7 @@ function hasProviderSetupJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/settings/ProvidersSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/providerTestErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/settings/providerSettingsErrorMessage.ts') &&
-    !relFile.endsWith('src/app/shared/model/settings.store.ts') &&
+    !relFile.endsWith('src/app/entities/settings/model/settings.store.ts') &&
     !relFile.endsWith('src/app/features/agents/CreateAgentModal.tsx') &&
     !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx') &&
@@ -3177,7 +3177,7 @@ function hasAdminLoadErrorDeadEndCopy(relFile, line) {
 }
 
 function hasAdminStoreErrorFailureFirstCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/shared/model/admin.store.ts')) return false
+  if (!relFile.endsWith('src/app/entities/admin/model/admin.store.ts')) return false
   return ADMIN_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
@@ -3188,7 +3188,7 @@ function hasAdminSetupJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/admin/SystemHealth.tsx') &&
     !relFile.endsWith('src/app/features/admin/systemHealthErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/admin/OrganizationsPanel.tsx') &&
-    !relFile.endsWith('src/app/shared/model/admin.store.ts')
+    !relFile.endsWith('src/app/entities/admin/model/admin.store.ts')
   ) {
     return false
   }
@@ -3264,7 +3264,7 @@ function hasBillingReceiptLinkDeadEndCopy(relFile, line) {
 
 function hasBillingErrorFailureFirstCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
+    !relFile.endsWith('src/app/features/billing/model/billing.store.ts') &&
     !relFile.endsWith('src/app/features/billing/BillingPage.tsx') &&
     !relFile.endsWith('src/app/features/billing/InvoiceList.tsx')
   ) {
@@ -3281,7 +3281,7 @@ function hasAnalyticsChartDeadEndCopy(relFile, line) {
 }
 
 function hasAnalyticsErrorFailureFirstCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/shared/model/analytics.store.ts')) return false
+  if (!relFile.endsWith('src/app/features/analytics/model/analytics.store.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return ANALYTICS_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3637,11 +3637,11 @@ function hasNetworkFailureFirstCopy(relFile, line) {
     !relFile.endsWith('src/app/shared/api/legacy/AgentAPI.ts') &&
     !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/features/chat/useChatStream.ts') &&
-    !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
+    !relFile.endsWith('src/app/features/chat/model/chat.errors.ts') &&
     !relFile.endsWith('src/app/entities/context/model/feedbackErrorMessage.ts') &&
     !relFile.endsWith('src/app/layouts/sidebar/ProjectTree.tsx') &&
     !relFile.endsWith('src/app/pages/settings/model/workspaceSettingsErrorMessage.ts') &&
-    !relFile.endsWith('src/app/shared/model/settings.store.ts') &&
+    !relFile.endsWith('src/app/entities/settings/model/settings.store.ts') &&
     !relFile.endsWith('src/app/features/settings/providerSettingsErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/settings/platformKeyErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/settings/gitCredentialsErrorMessage.ts') &&
@@ -3669,13 +3669,13 @@ function hasFeedbackFailureFirstCopy(relFile, line) {
 }
 
 function hasChatErrorFailureFirstCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/shared/model/chat.errors.ts')) return false
+  if (!relFile.endsWith('src/app/features/chat/model/chat.errors.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return CHAT_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
 
 function hasSettingsStoreErrorFailureFirstCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/shared/model/settings.store.ts')) return false
+  if (!relFile.endsWith('src/app/entities/settings/model/settings.store.ts')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return SETTINGS_STORE_ERROR_FAILURE_FIRST_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -3686,7 +3686,7 @@ function hasRecoveryReviewCurrentCopy(relFile, line) {
     !relFile.endsWith('src/app/entities/navigation/model/navigation.store.ts') &&
     !relFile.endsWith('src/app/features/settings/accountErrorMessages.ts') &&
     !relFile.endsWith('src/app/features/settings/runtimeErrorMessages.ts') &&
-    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+    !relFile.endsWith('src/app/entities/settings/model/settings.store.ts')
   ) {
     return false
   }
@@ -4292,7 +4292,7 @@ function hasAdminNavTechnicalCopy(relFile, line) {
     !relFile.endsWith('src/app/features/admin/AdminLayout.tsx') &&
     !relFile.endsWith('src/app/features/admin/ControlPlanePanel.tsx') &&
     !relFile.endsWith('src/app/features/admin/controlPlaneErrorMessage.ts') &&
-    !relFile.endsWith('src/app/shared/model/admin.store.ts')
+    !relFile.endsWith('src/app/entities/admin/model/admin.store.ts')
   ) {
     return false
   }
@@ -4345,7 +4345,7 @@ function hasCodeAccessAddressJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/GitCredentialsSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/gitCredentialsErrorMessage.ts') &&
-    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+    !relFile.endsWith('src/app/entities/settings/model/settings.store.ts')
   ) {
     return false
   }
@@ -4757,7 +4757,7 @@ function hasSavedInstructionSourceLabelCopy(relFile, line) {
     !relFile.endsWith('src/app/features/skills/SkillCard.tsx') &&
     !relFile.endsWith('src/app/features/skills/SkillDetailModal.tsx') &&
     !relFile.endsWith('src/app/features/skills/model/savedInstructionLabels.ts') &&
-    !relFile.endsWith('src/app/shared/model/skills.store.ts') &&
+    !relFile.endsWith('src/app/entities/skill/model/skills.store.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&
     !relFile.endsWith('src/app/shared/i18n/locales/zh.ts')
   ) {
@@ -4841,7 +4841,7 @@ function hasSavedInstructionPrivateDetailJargonCopy(relFile, line) {
 function hasSavedInstructionsLoadDeadEndCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/skills/SkillsView.tsx') &&
-    !relFile.endsWith('src/app/shared/model/skills.store.ts')
+    !relFile.endsWith('src/app/entities/skill/model/skills.store.ts')
   ) {
     return false
   }
@@ -4852,7 +4852,7 @@ function hasSavedInstructionCreateFailureFirstCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/model/skillDraftErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/skills/model/createSkillErrorMessage.ts') &&
-    !relFile.endsWith('src/app/shared/model/skills.store.ts')
+    !relFile.endsWith('src/app/entities/skill/model/skills.store.ts')
   ) {
     return false
   }
@@ -4929,7 +4929,7 @@ function hasSshCodeAccessJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/settings/SshKeysSection.tsx') &&
     !relFile.endsWith('src/app/features/settings/sshKeysErrorMessage.ts') &&
-    !relFile.endsWith('src/app/shared/model/settings.store.ts')
+    !relFile.endsWith('src/app/entities/settings/model/settings.store.ts')
   ) {
     return false
   }
@@ -5016,9 +5016,9 @@ function hasWorkspaceSettingsFailureFirstCopy(relFile, line) {
 
 function hasLoadErrorTitleDeadEndCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/shared/model/chat.errors.ts') &&
+    !relFile.endsWith('src/app/features/chat/model/chat.errors.ts') &&
     !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
-    !relFile.endsWith('src/app/shared/model/billing.store.ts') &&
+    !relFile.endsWith('src/app/features/billing/model/billing.store.ts') &&
     !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
     !relFile.endsWith('src/app/features/agents/model/pluginErrorMessage.ts') &&
     !relFile.endsWith('src/app/features/agents/AgentPluginsTab.tsx') &&
@@ -5065,7 +5065,7 @@ function hasSettingsRuntimeSetupJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/agents/AgentControlPanel.tsx') &&
     !relFile.endsWith('src/app/entities/agent/model/agents.store.ts') &&
     !relFile.endsWith('src/app/shared/model/agents.store.ts') &&
-    !relFile.endsWith('src/app/shared/model/settings.store.ts') &&
+    !relFile.endsWith('src/app/entities/settings/model/settings.store.ts') &&
     !relFile.endsWith('src/app/features/inbox/InboxView.tsx') &&
     !relFile.endsWith('src/app/features/inbox/InboxItem.tsx') &&
     !relFile.endsWith('src/app/shared/i18n/locales/en.ts') &&

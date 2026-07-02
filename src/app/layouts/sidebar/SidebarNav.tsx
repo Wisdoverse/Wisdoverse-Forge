@@ -17,9 +17,9 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useAuth } from '@app/shared/model/auth.context'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
-import { useContextStore } from '@app/shared/model/context.store'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useContextStore } from '@app/features/context'
+import { useSettingsStore } from '@app/entities/settings'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>

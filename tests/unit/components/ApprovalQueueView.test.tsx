@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within, act } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
-import { useContextStore } from '@app/shared/model/context.store'
+import { useContextStore } from '@app/features/context/model/context.store'
 import type { ContextCandidateSummary } from '@shared/types/context'
 
 const {

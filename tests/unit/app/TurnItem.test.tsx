@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TurnItem } from '@app/features/chat/TurnItem'
-import type { Turn } from '@app/shared/model/chat.store'
+import type { Turn } from '@app/features/chat/model/chat.store'
 
 const baseTurn: Turn = {
   id: 'turn-1',

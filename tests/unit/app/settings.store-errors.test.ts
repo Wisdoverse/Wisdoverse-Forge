@@ -19,7 +19,7 @@ import {
   normalizeSettingsSection,
   settingsActionErrorMessage,
   useSettingsStore,
-} from '@app/shared/model/settings.store'
+} from '@app/entities/settings'
 
 function resetSettingsState() {
   useSettingsStore.setState({

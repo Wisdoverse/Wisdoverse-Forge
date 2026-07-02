@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BillingPage } from '@app/features/billing/BillingPage'
-import { useBillingStore } from '@app/shared/model/billing.store'
+import { useBillingStore } from '@app/features/billing/model/billing.store'
 import type {
   BillingInvoice,
   BillingPlan,

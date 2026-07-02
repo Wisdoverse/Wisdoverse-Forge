@@ -7,7 +7,7 @@ import {
   type CliImageRollReport,
   type CliImageTool,
   type CliImageToolState,
-} from '@app/shared/model/admin.store'
+} from '@app/entities/admin'
 import { CLI_IMAGE_RECOVERY, cliImageStatusErrorMessage } from './adminErrorCopy'
 
 const MIN_STATUS_REFRESH_MS = 60_000

@@ -1,4 +1,4 @@
-import type { SettingsSection } from '@app/shared/model/settings.store'
+import type { SettingsSection } from '@app/entities/settings'
 import { SettingsLayout } from './SettingsLayout'
 
 interface SettingsPageProps {

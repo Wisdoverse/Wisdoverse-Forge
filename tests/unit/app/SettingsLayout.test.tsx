@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { SettingsLayout } from '@app/pages/settings/ui/SettingsLayout'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 vi.mock('@app/features/settings', () => ({
   AboutSection: () => <div data-testid="settings-section-about">About settings</div>,

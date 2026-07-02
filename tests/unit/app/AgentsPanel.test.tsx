@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { AgentsPanel } from '@app/features/admin/AgentsPanel'
-import type { AdminAgent } from '@app/shared/model/admin.store'
-import { useAdminStore } from '@app/shared/model/admin.store'
+import type { AdminAgent } from '@app/entities/admin'
+import { useAdminStore } from '@app/entities/admin'
 
 const loadAgentsMock = vi.fn().mockResolvedValue(undefined)
 const setAgentRuntimeKindFilterMock = vi.fn().mockResolvedValue(undefined)

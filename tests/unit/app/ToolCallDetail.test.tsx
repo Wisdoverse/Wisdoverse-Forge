@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ToolCallDetail } from '@app/features/chat/ToolCallDetail'
-import type { ToolCall } from '@app/shared/model/chat.store'
+import type { ToolCall } from '@app/features/chat/model/chat.store'
 
 const baseCall: ToolCall = {
   toolUseId: 'tool-1',
@@ -351,7 +351,9 @@ describe('ToolCallDetail', () => {
       )
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Problem details: The work step problem details were saved.*before retrying/i)
+      screen.getByText(
+        /Problem details: The work step problem details were saved.*before retrying/i
+      )
     ).toBeInTheDocument()
     expect(screen.queryByText(/Command output/i)).toBeNull()
     expect(screen.queryByText(/What the command showed/i)).toBeNull()

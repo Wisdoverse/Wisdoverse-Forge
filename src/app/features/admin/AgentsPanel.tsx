@@ -7,7 +7,7 @@ import {
   type AdminAgent,
   type AdminAgentRuntimeKindFilter,
   useAdminStore,
-} from '@app/shared/model/admin.store'
+} from '@app/entities/admin'
 import {
   type AgentRuntimeKind,
   RUNTIME_KINDS,

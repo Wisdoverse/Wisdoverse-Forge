@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useAdminStore, type OrgControlPlaneSnapshot } from '@app/shared/model/admin.store'
+import { useAdminStore, type OrgControlPlaneSnapshot } from '@app/entities/admin'
 import { controlPlaneErrorMessage } from './controlPlaneErrorMessage'
 
 const CONTROL_PLANE_REFRESH_MS = 30_000

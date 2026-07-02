@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CliImagesPanel } from '@app/features/admin/CliImagesPanel'
-import {
-  useAdminStore,
-  type CliImageStatus,
-  type CliImageTool,
-} from '@app/shared/model/admin.store'
+import { useAdminStore, type CliImageStatus, type CliImageTool } from '@app/entities/admin'
 
 const originalAdminState = useAdminStore.getState()
 

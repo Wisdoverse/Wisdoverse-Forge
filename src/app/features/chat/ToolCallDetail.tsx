@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import type { ToolCall } from '@app/shared/model/chat.store'
+import type { ToolCall } from './model/chat.store'
 
 const MAX_OUTPUT_LINES = 12
 const HIDDEN_ACCESS_VALUE = 'Hidden for safety. Reconnect the required account access, then retry.'
