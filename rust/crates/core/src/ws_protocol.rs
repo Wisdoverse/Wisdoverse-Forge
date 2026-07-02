@@ -35,6 +35,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+/// Version of the platform → browser WebSocket protocol (the `ServerMessage` /
+/// client `terminal_*` contract). Bump on any breaking wire change; the drift
+/// gate asserts this stays equal to `PROTOCOL_VERSION` in
+/// `shared/types/protocol.ts`, and `/me` surfaces it as `protocolVersion` so a
+/// browser can detect a server it no longer speaks.
+pub const PROTOCOL_VERSION: u32 = 1;
+
 /// A platform → browser WebSocket frame, internally tagged on `type`. Each
 /// variant's serde rename is the exact `type` discriminator on the wire and in
 /// `shared/types/protocol.ts`.

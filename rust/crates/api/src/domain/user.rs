@@ -262,7 +262,16 @@ pub(crate) fn auth_ok_response() -> Value {
 /// platform-admin gate does (#881). The legacy snake_case `user_id`/`org_id`/
 /// `role` fields are preserved for the existing contract.
 pub(crate) fn auth_me_response(user_id: Uuid, org_id: Uuid, role: impl Serialize, is_admin: bool) -> Value {
-    json!({ "ok": true, "user_id": user_id, "org_id": org_id, "role": role, "isAdmin": is_admin })
+    json!({
+        "ok": true,
+        "user_id": user_id,
+        "org_id": org_id,
+        "role": role,
+        "isAdmin": is_admin,
+        // WS wire-contract version (MS-3). Lets the browser detect a server whose
+        // protocol it no longer speaks; the drift gate pins Rust/TS equality.
+        "protocolVersion": agentforge_core::ws_protocol::PROTOCOL_VERSION,
+    })
 }
 
 pub(crate) fn auth_providers_response() -> Value {
