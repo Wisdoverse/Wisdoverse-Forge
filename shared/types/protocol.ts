@@ -10,6 +10,14 @@ import type { TaskSummary, ParticipantSummary } from './agent.js'
 // WebSocket Messages
 // ============================================================================
 
+/**
+ * Version of the browser <-> platform WebSocket protocol. Mirrors
+ * `PROTOCOL_VERSION` in `rust/crates/core/src/ws_protocol.rs`; the
+ * `check-protocol-contract.mjs` gate fails if the two diverge. Served on
+ * `GET /me` as `protocolVersion`.
+ */
+export const PROTOCOL_VERSION = 1
+
 /** Server -> Client messages */
 // NOTE (MS-3): only variants with a live Rust producer remain. ~30 legacy
 // TypeScript-server frames (agents, groups, collaborator_*, voice_*, auth_*,
@@ -105,4 +113,6 @@ export interface MeResponse {
   org_id: string
   role: string
   isAdmin: boolean
+  /** WS wire-contract version (MS-3). Optional for one release cycle (rolling deploys). */
+  protocolVersion?: number
 }

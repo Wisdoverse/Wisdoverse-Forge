@@ -203,6 +203,20 @@ notes.push(
   `  Rust-only-missing-from-TS (${rustOnly.length}, PR-A adds): ${rustOnly.join(', ') || '(none — done)'}`
 )
 
+// --- 5. PROTOCOL_VERSION parity (Rust <-> TS) ---
+// Both sides declare the wire-contract version; a bump must land in the same PR.
+const rustVer = (fs
+  .readFileSync(wsProtocolAbs, 'utf8')
+  .match(/PROTOCOL_VERSION:\s*u32\s*=\s*(\d+)/) ?? [])[1]
+const tsVer = (tsSource.match(/export const PROTOCOL_VERSION\s*=\s*(\d+)/) ?? [])[1]
+if (!rustVer || !tsVer) {
+  errors.push('PROTOCOL_VERSION missing from ws_protocol.rs or protocol.ts (both must declare it)')
+} else if (rustVer !== tsVer) {
+  errors.push(`PROTOCOL_VERSION mismatch: Rust=${rustVer} TS=${tsVer} — bump both in the same PR`)
+} else {
+  notes.push(`  PROTOCOL_VERSION: ${rustVer} (Rust == TS)`)
+}
+
 // --- Output ---
 console.log('WS protocol contract gate (MS-3)')
 for (const n of notes) console.log(n)
