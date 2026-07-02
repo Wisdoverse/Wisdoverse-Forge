@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useAdminStore } from '@app/shared/model/admin.store'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useContextStore } from '@app/shared/model/context.store'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useAdminStore } from '@app/entities/admin'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useContextStore } from '@app/features/context/model/context.store'
+import { useFeedStore } from '@app/entities/feed'
 import { dispatchWsMessage } from '@app/hooks/useWsDispatch'
 import { resetContextHandlerDedupeForTests } from '@app/features/context/model/contextRealtime'
 

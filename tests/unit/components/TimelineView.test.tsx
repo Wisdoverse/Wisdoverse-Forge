@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TimelineView } from '@app/widgets/views/TimelineView'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 
 const canvasContext = {
   beginPath: vi.fn(),

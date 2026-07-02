@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-  SETTINGS_DEFAULT_SECTION,
-  normalizeSettingsSection,
-} from '@app/shared/model/settings.store'
+import { SETTINGS_DEFAULT_SECTION, normalizeSettingsSection } from '@app/entities/settings'
 
 describe('settings store routing helpers', () => {
   test('normalizes canonical settings sections', () => {

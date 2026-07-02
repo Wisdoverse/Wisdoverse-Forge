@@ -1,4 +1,4 @@
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useFeedStore } from '@app/entities/feed'
 import { useWorkflowStore } from '@app/features/orchestration/model/workflowStore'
 
 /**

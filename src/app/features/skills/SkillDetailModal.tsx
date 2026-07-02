@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import type { Skill } from '@app/shared/model/skills.store'
+import type { Skill } from '@app/entities/skill'
 import { knownWorkToolLabel, savedInstructionAudienceLabel } from './model/savedInstructionLabels'
 
 interface SkillDetailModalProps {

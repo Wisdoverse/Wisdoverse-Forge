@@ -2,9 +2,9 @@ import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { InboxView } from '@app/features/inbox/InboxView'
-import { useFeedStore } from '@app/shared/model/feed.store'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useFeedStore } from '@app/entities/feed'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 const { navigateMock, orchestrationApiMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),

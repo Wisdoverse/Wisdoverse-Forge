@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { navigationActionErrorMessage, useNavigationStore } from '@app/entities/navigation'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 
 vi.mock('@app/entities/navigation/organization', () => ({
   organizationApi: { getOrgs: vi.fn(), updateOrg: vi.fn() },

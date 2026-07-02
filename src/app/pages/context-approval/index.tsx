@@ -1,6 +1,6 @@
 import { Navigate } from '@tanstack/react-router'
 import { ApprovalQueueView } from '@app/features/context'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { FeatureRouteLoadingState } from '@app/shared/ui/FeatureRouteLoadingState'
 
 export function ContextApprovalPage() {

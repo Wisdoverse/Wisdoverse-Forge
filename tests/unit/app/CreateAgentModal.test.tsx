@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { agentGroupApi } from '@app/entities/navigation/agent-group'
 
 vi.mock('@app/entities/navigation/agent-group', async (importOriginal) => {

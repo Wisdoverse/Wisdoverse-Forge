@@ -13,7 +13,7 @@ import {
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { useWebSocket } from '@app/shared/model/websocket.context'
-import { useContextStore } from '@app/shared/model/context.store'
+import { useContextStore } from './model/context.store'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { approvalQueueErrorMessage } from './approvalQueueErrorMessages'
 import type {

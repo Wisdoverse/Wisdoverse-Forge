@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { SystemHealth } from '@app/features/admin/SystemHealth'
-import { useAdminStore } from '@app/shared/model/admin.store'
+import { useAdminStore } from '@app/entities/admin'
 
 const originalAdminState = useAdminStore.getState()
 
@@ -54,9 +54,7 @@ describe('SystemHealth', () => {
     expect(screen.getByText(/Shows progress from running agents in the browser/i)).toBeDefined()
     expect(screen.getByText('Project files for agents')).toBeDefined()
     expect(screen.getByText('Prepares files before agents edit them')).toBeDefined()
-    expect(
-      screen.getByText(/running agents may stop showing updates/i)
-    ).toBeDefined()
+    expect(screen.getByText(/running agents may stop showing updates/i)).toBeDefined()
     expect(
       screen.getByText(/check Project files in Admin before sending file-editing work/i)
     ).toBeDefined()

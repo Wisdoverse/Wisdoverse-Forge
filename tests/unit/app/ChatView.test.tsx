@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ChatView } from '@app/features/chat/ChatView'
 import { useAgentsStore, type AgentInfo } from '@app/entities/agent'
-import { type Turn, useChatStore } from '@app/shared/model/chat.store'
+import { type Turn, useChatStore } from '@app/features/chat/model/chat.store'
 import type { AgentMessageRow } from '@shared/types'
 
 const providerAgent: AgentInfo = {

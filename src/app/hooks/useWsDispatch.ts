@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
-import { useAdminStore } from '@app/shared/model/admin.store'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useAdminStore } from '@app/entities/admin'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useFeedStore } from '@app/entities/feed'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { handleContextWsMessage, type ContextRealtimeMessage } from '@app/features/context'
 import {

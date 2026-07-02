@@ -8,8 +8,8 @@ import {
   ListFilter,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useFeedStore } from '@app/entities/feed'
 import { AgentStatusBar } from './AgentStatusBar'
 import { AttentionZone } from './AttentionZone'
 import { FeedItem } from './FeedItem'

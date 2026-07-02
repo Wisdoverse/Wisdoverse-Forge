@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { SkillCard } from '@app/features/skills/SkillCard'
-import type { Skill } from '@app/shared/model/skills.store'
+import type { Skill } from '@app/entities/skill'
 
 afterEach(cleanup)
 

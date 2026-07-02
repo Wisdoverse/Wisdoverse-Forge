@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Sparkles, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSkillsStore, type Skill } from '@app/shared/model/skills.store'
+import { useSkillsStore, type Skill } from '@app/entities/skill'
 import { createSkillErrorMessage } from './model/createSkillErrorMessage'
 
 interface CreateSkillModalProps {

@@ -9,7 +9,7 @@ import {
   type UpdateProjectInput,
 } from '../project'
 import { teamApi, type NavTeam, type UpdateTeamInput } from '../team'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from './board.store'
 
 /** A realtime clone-status change applied to one project in the tree. */
 export interface CloneStatusUpdate {

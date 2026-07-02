@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type { GitCredential, GitProvider } from '@app/entities/agent'
 import { formatAccessDate } from './formatAccessDate'

@@ -10,7 +10,7 @@ vi.mock('@app/shared/api/legacy', () => ({
   getAgentApi: () => agentApiMock,
 }))
 
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 function resetPreferencesState() {
   useSettingsStore.setState({

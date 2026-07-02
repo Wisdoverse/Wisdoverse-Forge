@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { billingActionErrorMessage, billingErrorMessage } from '@app/shared/model/billing.store'
+import {
+  billingActionErrorMessage,
+  billingErrorMessage,
+} from '@app/features/billing/model/billing.store'
 
 describe('billingErrorMessage', () => {
   test('turns permission failures into a billing access next step', () => {

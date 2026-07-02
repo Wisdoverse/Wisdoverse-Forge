@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RightPanel } from '@app/layouts/RightPanel'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 
 afterEach(() => {
   cleanup()
@@ -18,7 +18,9 @@ describe('RightPanel', () => {
     )
 
     expect(screen.getByRole('heading', { name: /live task updates/i })).toBeDefined()
-    expect(screen.getByText(/agent progress, help needed, and finished task results/i)).toBeDefined()
+    expect(
+      screen.getByText(/agent progress, help needed, and finished task results/i)
+    ).toBeDefined()
     expect(screen.queryByText(/agent progress, help needed, and finished work/i)).toBeNull()
     expect(screen.queryByText(/blockers/i)).toBeNull()
     expect(screen.getByLabelText(/hide live task updates/i)).toBeDefined()
