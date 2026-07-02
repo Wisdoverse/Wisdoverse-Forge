@@ -129,15 +129,26 @@ function resolveSpecifier(appRoot, sourceFile, specifier) {
 
 const typeImportPrefix = /^(\s*)import\s+type(?=[\s{*])/gm
 const typeReExportPrefix = /^(\s*)export\s+type(?=\s*[{*])/gm
+// Named-specifier brace group of an import/export statement. The `[^'"()=]`
+// head guard keeps this off object/function bodies (`export const x = {`,
+// `export function f() {`), which always contain `=` or `(` first.
+const importExportClauseBraces = /(^|\n)(\s*(?:import|export)\s[^'"()=]*?\{)([^}]*)(\})/g
 
 function extractImports(sourceFile) {
   const raw = fs.readFileSync(sourceFile, 'utf8')
-  // Rewrite `import type` / `export type ... from` statements to their value
-  // form so `verbatimModuleSyntax` keeps them: boundary rules apply to
-  // type-only imports too.
+  // Rewrite `import type` / `export type ... from` statements AND inline
+  // `type X` specifiers to their value form so `verbatimModuleSyntax` keeps
+  // them: boundary rules (including the route page-entrypoint name gate)
+  // apply to type-only imports too, and transpilation would otherwise drop
+  // inline type specifiers before the statement is sliced (codex P2).
   const normalized = raw
     .replace(typeImportPrefix, '$1import')
     .replace(typeReExportPrefix, '$1export')
+    .replace(
+      importExportClauseBraces,
+      (_match, lead, head, names, close) =>
+        `${lead}${head}${names.replace(/\btype\s+/g, '')}${close}`
+    )
   const { outputText } = ts.transpileModule(normalized, {
     fileName: sourceFile,
     compilerOptions: {

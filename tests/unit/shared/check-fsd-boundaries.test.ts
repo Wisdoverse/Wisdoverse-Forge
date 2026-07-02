@@ -141,6 +141,34 @@ export function TasksPage() {
         expect.stringContaining('route files must import Page entrypoints from @app/pages/*'),
       ])
     })
+
+    it('flags inline type specifiers that are not page entrypoints (codex P2)', () => {
+      const cwd = fixture({
+        'src/app/routes/tasks.tsx': `
+import { TasksPage, type TaskViewLoadingFallback } from '@app/pages/tasks'
+
+export function TasksRoute(): TaskViewLoadingFallback {
+  return <TasksPage />
+}
+`,
+        'src/app/pages/tasks/index.tsx': `
+export type TaskViewLoadingFallback = unknown
+
+export function TasksPage() {
+  return null
+}
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          'imports TaskViewLoadingFallback from @app/pages/tasks; route files must import Page entrypoints from @app/pages/*'
+        ),
+      ])
+    })
   })
 
   describe('downward-layering (error)', () => {
