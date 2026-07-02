@@ -24,9 +24,9 @@ use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
     BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, OrchestrationTransactionPolicy,
     ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy,
-    QuotaBlockPolicy, TaskAssignmentPolicy, TaskAssignmentSnapshot, TaskCreationPolicy, TaskInstruction,
-    TaskLifecyclePolicy, TaskListPage, TaskParams, TaskPatchAction, TaskPatchPolicy, TaskPriority,
-    TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle,
+    QuotaBlockPolicy, TaskAssignmentPolicy, TaskAssignmentSnapshot, TaskCreationPolicy, TaskLifecyclePolicy,
+    TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy,
+    TaskTitle,
 };
 pub(crate) use crate::domain::orchestration::{
     CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
@@ -54,53 +54,14 @@ use crate::services::context_resolver::ContextResolverService;
 // (`TaskSummary`, `TaskRunSummary`, `TaskAssignmentSnapshot`) remain in the domain.
 
 /// Project a persisted `OrchestrationTask` row onto the kanban [`TaskSummary`].
+///
+/// Thin wrapper over the canonical adapter in
+/// `agentforge_jobs::orchestration_realtime::task_summary` (MS-3 PR-E) — the
+/// same code the jobs WS projector uses, so the REST responses and both
+/// `orchestration:task_update` producers can no longer drift. Kept owned-arg
+/// here to match the existing api call sites.
 pub fn task_summary(task: OrchestrationTask, agent_name: Option<String>) -> TaskSummary {
-    let blocked_hint = match task.status.as_str() {
-        "blocked" => {
-            task.blocked_reason.as_deref().map(|reason| BlockedTaskPolicy::hint(reason, task.blocked_metadata.as_ref()))
-        }
-        _ => None,
-    };
-
-    let (task_text, message) =
-        TaskInstruction::from_params(&task.title, task.description.as_deref(), task.params.as_ref()).into_parts();
-    let params = TaskParams { task: task_text, message };
-
-    let error = task
-        .error
-        .as_ref()
-        .map(|e| e.get("message").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| e.to_string()));
-
-    let is_completed = task.status == "completed";
-
-    TaskSummary {
-        id: task.id,
-        group_id: task.group_id,
-        state: task.status,
-        method: "tasks/send".into(),
-        params,
-        priority: task.priority,
-        progress: task.progress,
-        created_by: task.created_by.as_uuid(),
-        assigned_to: task.assigned_agent_id.map(|a| a.as_uuid()),
-        assigned_agent_name: agent_name,
-        error,
-        result: task.result,
-        blocked_reason: task.blocked_reason,
-        blocked_hint,
-        blocked_metadata: task.blocked_metadata,
-        created_at: task.created_at.to_rfc3339(),
-        updated_at: task.updated_at.to_rfc3339(),
-        completed_at: if is_completed { task.completed_at.map(|t| t.to_rfc3339()) } else { None },
-        self_fix: task.self_fix,
-        pr_number: task.pr_number,
-        pr_url: task.pr_url,
-        pr_head_sha: task.pr_head_sha,
-        review_status: task.review_status,
-        context_counts: TaskContextCounts::default(),
-        attempt: task.attempt,
-        lease_expires_at: task.lease_expires_at.map(|t| t.to_rfc3339()),
-    }
+    agentforge_jobs::orchestration_realtime::task_summary(&task, agent_name.as_deref())
 }
 
 /// Project a persisted `TaskRun` row onto [`TaskRunSummary`].
