@@ -366,6 +366,23 @@ export interface TaskSummary {
   attempt: number
   /** RFC3339 timestamp when the current worker lease expires (only set while working). */
   leaseExpiresAt?: string
+  // MS-3 PR-E: the jobs WS projector now emits the full Rust `TaskSummary`
+  // shape (same adapter as the REST responses), so `orchestration:task_update`
+  // frames carry the fields below too.
+  /** Task owner (user UUID). */
+  createdBy?: string
+  /** Completion result payload, when the task finished with one. */
+  result?: unknown
+  blockedReason?: string
+  /** Backend-rendered human hint for the blocked card. */
+  blockedHint?: string
+  blockedMetadata?: Record<string, unknown>
+  /** True when this is a self-fix task (drives the PR Review tab). */
+  selfFix?: boolean
+  prNumber?: number
+  prUrl?: string
+  prHeadSha?: string
+  reviewStatus?: string
 }
 
 /** Lightweight participant representation for WS broadcasts */

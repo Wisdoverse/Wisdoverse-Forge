@@ -37,7 +37,7 @@ pub mod dependency_reconcile;
 pub mod event_consumer;
 pub mod orchestration_metrics;
 pub mod orchestration_outbox_publisher;
-mod orchestration_realtime;
+pub mod orchestration_realtime;
 pub mod orchestration_result_consumer;
 pub mod participant_liveness;
 pub mod presence_store;

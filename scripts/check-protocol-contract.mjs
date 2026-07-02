@@ -16,9 +16,9 @@
 //
 // It fails on a fixture problem (missing/extra/invalid fixture) AND, since PR-B,
 // on any drift in the unified `ServerMessage` enum: a variant added, removed, or
-// renamed without a matching fixture + LIVE_SERVER entry (§3b). After PR-D the
-// enum owns every live server frame except `orchestration:*` (reconciled + folded
-// in PR-E); those two remain literal-anchored (§3c), REPORTED not enum-enforced.
+// renamed without a matching fixture + LIVE_SERVER entry (§3b). Since PR-E the
+// enum owns ALL live server frames — the two `orchestration:*` producers were
+// reconciled onto one adapter and folded in, retiring the literal anchor.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -30,10 +30,9 @@ const protocolTs = path.join(repoRoot, 'shared/types/protocol.ts')
 
 // The authoritative set of LIVE messages — every one has a real Rust producer
 // today (see the baseline doc for file:line). `fixture` is the golden file that
-// pins its current wire shape (`null` = deliberately deferred: task_update has
-// two divergent producers, reconciled in PR-E before it is pinned). Whether
-// protocol.ts already declares each type is DERIVED from the parsed TS union
-// below (never hard-coded), so the drift snapshot cannot silently go stale.
+// pins its current wire shape. Whether protocol.ts already declares each type
+// is DERIVED from the parsed TS union below (never hard-coded), so the drift
+// snapshot cannot silently go stale.
 const LIVE_SERVER = [
   { type: 'event', fixture: 'event.json' },
   { type: 'turn_invalidate', fixture: 'turn_invalidate.json' },
@@ -42,7 +41,7 @@ const LIVE_SERVER = [
   { type: 'cli_image.updated', fixture: 'cli_image.updated.json' },
   { type: 'project_clone:status_update', fixture: 'project_clone_status_update.json' },
   { type: 'orchestration:participant_update', fixture: 'orchestration_participant_update.json' },
-  { type: 'orchestration:task_update', fixture: null }, // deferred to PR-E
+  { type: 'orchestration:task_update', fixture: 'orchestration_task_update.json' },
 ]
 
 // Out-of-band control frames the Rust WS handler emits that are NOT part of the
@@ -119,6 +118,8 @@ const ENUM_BACKED = new Set([
   'project_clone:status_update',
   'terminal_output',
   'terminal_error',
+  'orchestration:task_update',
+  'orchestration:participant_update',
 ])
 const wsProtocolRel = 'rust/crates/core/src/ws_protocol.rs'
 const wsProtocolAbs = path.join(repoRoot, wsProtocolRel)
@@ -168,34 +169,6 @@ if (!fs.existsSync(wsProtocolAbs)) {
         `live type '${tag}' is no longer a ServerMessage enum variant — a producer was removed/renamed; update the enum or ENUM_BACKED`
       )
     }
-  }
-}
-
-// --- 3c. Literal producer anchor for frames NOT yet folded into the enum ---
-// Only `orchestration:*` remains (two scattered producers with a known internal
-// divergence, reconciled in PR-E) — they still emit their `type` as a string
-// literal. Anchor them so deleting/renaming a producer without updating this list
-// fails. A `"type":"..."` scan is ambiguous for the payload-typed producers, so we
-// only anchor the tags that DO appear as stable literals today.
-const LITERAL_ANCHORED = ['orchestration:task_update', 'orchestration:participant_update']
-const producerFiles = [
-  'rust/crates/jobs/src/event_consumer.rs',
-  'rust/crates/jobs/src/orchestration_realtime.rs',
-  'rust/crates/jobs/src/participant_liveness.rs',
-  'rust/crates/api/src/domain/orchestration.rs',
-  'rust/crates/api/src/domain/gateway.rs',
-]
-const producerBlob = producerFiles
-  .map((rel) => {
-    const abs = path.join(repoRoot, rel)
-    return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : ''
-  })
-  .join('\n')
-for (const type of LITERAL_ANCHORED) {
-  if (!producerBlob.includes(`"${type}"`)) {
-    errors.push(
-      `live type '${type}' is no longer emitted as a literal by any known Rust producer — update LIVE_SERVER/producerFiles or fold it into the ServerMessage enum`
-    )
   }
 }
 

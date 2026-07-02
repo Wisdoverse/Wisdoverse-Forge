@@ -18,9 +18,11 @@
 //! `scripts/check-protocol-contract.mjs` drift gate authoritative: the enum
 //! variants are the compiler-guaranteed source of truth for these `type` tags.
 //!
-//! Scope note (MS-3 phasing): `orchestration:task_update` /
-//! `orchestration:participant_update` still have scattered producers with a known
-//! internal divergence; they join this enum in PR-E once reconciled.
+//! Scope note (MS-3 phasing): PR-E reconciled the two divergent
+//! `orchestration:task_update` producers onto one adapter
+//! (`jobs::orchestration_realtime::task_summary`) and folded
+//! `orchestration:task_update` + `orchestration:participant_update` into this
+//! enum — it now owns EVERY live server frame.
 //!
 //! Byte note: internal tagging emits `type` first, then fields in declaration
 //! order; some legacy `json!` producers emitted `payload` first (a
@@ -36,6 +38,10 @@ use uuid::Uuid;
 /// A platform → browser WebSocket frame, internally tagged on `type`. Each
 /// variant's serde rename is the exact `type` discriminator on the wire and in
 /// `shared/types/protocol.ts`.
+// large_enum_variant: `TaskSummary` makes OrchestrationTaskUpdate ~600B, but
+// frames are transient (built → serialized → dropped, never collected), so
+// boxing would only add producer noise.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
@@ -76,6 +82,16 @@ pub enum ServerMessage {
     /// `domain::gateway`, written straight to the socket.
     #[serde(rename = "terminal_error")]
     TerminalError { payload: TerminalErrorPayload },
+    /// A kanban task changed (created/assigned/completed/…). Producers:
+    /// `api` `domain::orchestration::task_update_broadcast_payload` and
+    /// `jobs::orchestration_realtime::publish_task_update` — both build the
+    /// `task` through the same `jobs` row adapter since PR-E.
+    #[serde(rename = "orchestration:task_update")]
+    OrchestrationTaskUpdate { payload: OrchestrationTaskUpdatePayload },
+    /// A participant's liveness/claim status changed. Producer:
+    /// `jobs::participant_liveness::publish_participant_update`.
+    #[serde(rename = "orchestration:participant_update")]
+    OrchestrationParticipantUpdate { payload: OrchestrationParticipantUpdatePayload },
 }
 
 impl ServerMessage {
@@ -155,6 +171,114 @@ pub struct TerminalErrorPayload {
     pub message: String,
 }
 
+/// Payload of [`ServerMessage::OrchestrationTaskUpdate`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OrchestrationTaskUpdatePayload {
+    pub action: String,
+    #[serde(rename = "eventId")]
+    pub event_id: Uuid,
+    pub task: TaskSummary,
+}
+
+/// Payload of [`ServerMessage::OrchestrationParticipantUpdate`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OrchestrationParticipantUpdatePayload {
+    pub action: String,
+    #[serde(rename = "eventId")]
+    pub event_id: Uuid,
+    pub participant: OrchestrationParticipantBrief,
+}
+
+/// The participant snapshot inside [`OrchestrationParticipantUpdatePayload`].
+/// `status` is the WS vocabulary (`online`/`busy`/`offline`), NOT the
+/// `participants.status` column vocabulary (`available` maps to `online`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OrchestrationParticipantBrief {
+    pub id: Uuid,
+    #[serde(rename = "agentId")]
+    pub agent_id: Uuid,
+    pub name: String,
+    pub status: String,
+}
+
+/// Kanban task projection for `orchestration:task_update` frames and the REST
+/// task endpoints. Mirrors `TaskSummary` in `shared/types/agent.ts`. Timestamps
+/// are RFC3339 strings (the row → projection adapters format them; keeping
+/// them as strings keeps this crate's wire model chrono-free).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskSummary {
+    pub id: Uuid,
+    #[serde(rename = "groupId")]
+    pub group_id: Option<Uuid>,
+    pub state: String,
+    pub method: String,
+    pub params: TaskParams,
+    pub priority: String,
+    pub progress: i16,
+    #[serde(rename = "createdBy")]
+    pub created_by: Uuid,
+    #[serde(rename = "assignedTo", skip_serializing_if = "Option::is_none")]
+    pub assigned_to: Option<Uuid>,
+    #[serde(rename = "assignedAgentName", skip_serializing_if = "Option::is_none")]
+    pub assigned_agent_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+    #[serde(rename = "blockedReason", skip_serializing_if = "Option::is_none")]
+    pub blocked_reason: Option<String>,
+    #[serde(rename = "blockedHint", skip_serializing_if = "Option::is_none")]
+    pub blocked_hint: Option<String>,
+    #[serde(rename = "blockedMetadata", skip_serializing_if = "Option::is_none")]
+    pub blocked_metadata: Option<Value>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
+    #[serde(rename = "completedAt", skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    /// True when this is a self-fix task (drives the in-platform PR Review tab).
+    #[serde(rename = "selfFix")]
+    pub self_fix: bool,
+    #[serde(rename = "prNumber", skip_serializing_if = "Option::is_none")]
+    pub pr_number: Option<i32>,
+    #[serde(rename = "prUrl", skip_serializing_if = "Option::is_none")]
+    pub pr_url: Option<String>,
+    #[serde(rename = "prHeadSha", skip_serializing_if = "Option::is_none")]
+    pub pr_head_sha: Option<String>,
+    #[serde(rename = "reviewStatus", skip_serializing_if = "Option::is_none")]
+    pub review_status: Option<String>,
+    #[serde(rename = "contextCounts")]
+    pub context_counts: TaskContextCounts,
+    /// Current attempt number (1-based; incremented on each retry).
+    pub attempt: i32,
+    #[serde(rename = "leaseExpiresAt", skip_serializing_if = "Option::is_none")]
+    pub lease_expires_at: Option<String>,
+}
+
+/// Applied context-injection counts on a [`TaskSummary`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct TaskContextCounts {
+    #[serde(rename = "appliedMemories")]
+    pub applied_memories: i64,
+    #[serde(rename = "appliedSkills")]
+    pub applied_skills: i64,
+    pub total: i64,
+}
+
+impl TaskContextCounts {
+    pub fn new(applied_memories: i64, applied_skills: i64) -> Self {
+        Self { applied_memories, applied_skills, total: applied_memories + applied_skills }
+    }
+}
+
+/// `params.task` + `params.message` shape the legacy/A2A clients send.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskParams {
+    pub task: String,
+    pub message: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,7 +293,7 @@ mod tests {
     #[test]
     fn server_message_roundtrips_every_fixture() {
         // Paths are relative to THIS source file: src → core → crates → rust → repo root.
-        let fixtures: [(&str, &str); 6] = [
+        let fixtures: [(&str, &str); 8] = [
             ("event", include_str!("../../../../tests/fixtures/ws-protocol/event.json")),
             ("turn_invalidate", include_str!("../../../../tests/fixtures/ws-protocol/turn_invalidate.json")),
             ("cli_image.updated", include_str!("../../../../tests/fixtures/ws-protocol/cli_image.updated.json")),
@@ -179,6 +303,14 @@ mod tests {
             ),
             ("terminal_output", include_str!("../../../../tests/fixtures/ws-protocol/terminal_output.json")),
             ("terminal_error", include_str!("../../../../tests/fixtures/ws-protocol/terminal_error.json")),
+            (
+                "orchestration:task_update",
+                include_str!("../../../../tests/fixtures/ws-protocol/orchestration_task_update.json"),
+            ),
+            (
+                "orchestration:participant_update",
+                include_str!("../../../../tests/fixtures/ws-protocol/orchestration_participant_update.json"),
+            ),
         ];
 
         for (tag, raw) in fixtures {

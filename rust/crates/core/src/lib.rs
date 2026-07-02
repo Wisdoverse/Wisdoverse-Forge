@@ -13,6 +13,7 @@ pub mod crypto;
 pub mod error;
 pub mod event_protocol;
 pub mod orchestration_protocol;
+pub mod orchestration_view;
 pub mod runtime_capability;
 pub mod self_fix_protocol;
 pub mod tenant;
