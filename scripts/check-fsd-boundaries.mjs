@@ -9,24 +9,20 @@
 // visible to the lexer. Static imports, re-exports, and dynamic `import()`
 // calls with static string literals are all checked.
 //
-// Rule set and modes:
-//   ERROR (enforced — pre-FSD-5 behavior, unchanged):
+// Rule set (ALL rules are errors — the FSD-strict gate closed with FSD-2):
 //     downward-layering    imports may only point down the layer order
 //                          app → pages → widgets → features → entities → shared
-//                          (feature ↛ feature cross-slice was already enforced
-//                          here pre-FSD-5 and stays an error)
+//                          (feature ↛ feature cross-slice included)
 //     unknown-dir          F074: an unrecognized src/app dir may import only
 //                          shared and may be imported by nothing
-//     (plus the existing alias/unresolved/route-page-entrypoint errors)
-//   WARN (new in FSD-5 — printed, never affect the exit code; they flip to
-//   error after the FSD-1/2/4 migrations land):
 //     public-api           an import crossing INTO a features/widgets/pages
 //                          slice must target the slice root barrel, not a
 //                          deep file
 //     cross-entity         an entity slice must not import another entity slice
 //     same-layer-isolation widget ↛ widget, page ↛ page sibling-slice imports
-//     shared-purity        domain stores under shared/model/*.store.ts are
-//                          flagged for relocation in FSD-2
+//     shared-purity        domain stores must not live under
+//                          shared/model/*.store.ts
+//     (plus the existing alias/unresolved/route-page-entrypoint errors)
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -57,11 +53,9 @@ const appLayerDirs = new Set(['routes', 'layouts', 'providers', 'hooks', 'i18n',
 const slicedLayers = new Set(['features', 'widgets', 'pages'])
 
 // shared-purity: genuinely generic infra stores (theme/toast-style UI state)
-// may stay under shared/model. Reviewed 2026-07: every current
-// shared/model/*.store.ts is domain-specific (admin, analytics, billing,
-// board, chat, context, context-features, feed, settings, skills), so the
-// allowlist is empty. Add a file name here only when the store carries no
-// domain state.
+// may stay under shared/model. FSD-2 relocated all 10 domain stores to their
+// owning feature/entities slices, so the allowlist is empty. Add a file name
+// here only when the store carries no domain state.
 const genericSharedStores = new Set([])
 
 function walk(dir) {
@@ -234,7 +228,6 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
   const root = cwd
   const appRoot = path.join(root, 'src/app')
   const errors = []
-  const warnings = []
   const fileLayers = new Map()
   const violatingFiles = new Set()
 
@@ -242,9 +235,8 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
     errors.push(message)
     violatingFiles.add(file)
   }
-  const addWarning = (file, rule, target, reason) => {
-    warnings.push({ rule, file, target, reason })
-    violatingFiles.add(file)
+  const addRuleError = (file, rule, target, reason) => {
+    addError(file, `[${rule}] ${file}${target ? ` -> ${target}` : ''} (${reason})`)
   }
 
   for (const sourceFile of walk(appRoot)) {
@@ -337,13 +329,13 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         }
       }
 
-      // same-layer-isolation (WARN — new): widget ↛ widget, page ↛ page.
+      // same-layer-isolation (ERROR): widget ↛ widget, page ↛ page.
       if (
         (source.layer === 'widgets' || source.layer === 'pages') &&
         target.layer === source.layer &&
         source.slice !== target.slice
       ) {
-        addWarning(
+        addRuleError(
           relFile,
           'same-layer-isolation',
           specifier,
@@ -352,13 +344,13 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         continue
       }
 
-      // cross-entity (WARN — new): entity slices stay independent.
+      // cross-entity (ERROR): entity slices stay independent.
       if (
         source.layer === 'entities' &&
         target.layer === 'entities' &&
         source.slice !== target.slice
       ) {
-        addWarning(
+        addRuleError(
           relFile,
           'cross-entity',
           specifier,
@@ -367,14 +359,14 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         continue
       }
 
-      // public-api (WARN — new): imports crossing into a features/widgets/pages
+      // public-api (ERROR): imports crossing into a features/widgets/pages
       // slice must target the slice root barrel, not a deep file.
       if (
         slicedLayers.has(target.layer) &&
         (source.layer !== target.layer || source.slice !== target.slice) &&
         !isSliceBarrel(appRoot, resolved.file)
       ) {
-        addWarning(
+        addRuleError(
           relFile,
           'public-api',
           specifier,
@@ -384,14 +376,19 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
     }
   }
 
-  // shared-purity (WARN — new): domain stores parked under shared/model are
-  // FSD debt; they relocate to their owning slice in FSD-2.
+  // shared-purity (ERROR): domain stores must not be parked under shared/model;
+  // they live in their owning feature or entities slice (FSD-2).
   const sharedModelDir = path.join(appRoot, 'shared', 'model')
   if (fs.existsSync(sharedModelDir)) {
     for (const entry of fs.readdirSync(sharedModelDir).sort()) {
       if (!entry.endsWith('.store.ts') || genericSharedStores.has(entry)) continue
       const relFile = toPosix(root, path.join(sharedModelDir, entry))
-      addWarning(relFile, 'shared-purity', null, 'domain store in shared — relocate in FSD-2')
+      addRuleError(
+        relFile,
+        'shared-purity',
+        null,
+        'domain store in shared — move it to its owning feature or entities slice'
+      )
     }
   }
 
@@ -402,22 +399,10 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
     if (!violatingFiles.has(file)) layerStats[layer].clean += 1
   }
 
-  return { ok: errors.length === 0, errors, warnings, layerStats }
+  return { ok: errors.length === 0, errors, layerStats }
 }
 
 function printReport(result) {
-  for (const warning of result.warnings) {
-    const target = warning.target ? ` -> ${warning.target}` : ''
-    console.warn(`FSD WARN [${warning.rule}] ${warning.file}${target} (${warning.reason})`)
-  }
-
-  const counts = new Map()
-  for (const warning of result.warnings) {
-    counts.set(warning.rule, (counts.get(warning.rule) ?? 0) + 1)
-  }
-  const summary = [...counts.entries()].map(([rule, count]) => `${rule}=${count}`).join(' ')
-  console.warn(`FSD warn summary: ${summary || 'none'} (total ${result.warnings.length})`)
-
   const layerOrder = [...layerRank.keys()].reverse().concat('unknown')
   const conformance = layerOrder
     .filter((layer) => result.layerStats[layer])
@@ -443,6 +428,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
 
   printReport(result)
-  console.log(`FSD boundary check passed (${result.warnings.length} warnings).`)
+  console.log('FSD boundary check passed.')
   process.exit(0)
 }

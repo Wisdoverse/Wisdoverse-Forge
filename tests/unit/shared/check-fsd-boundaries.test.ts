@@ -82,7 +82,6 @@ export function BoardView() {
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
       expect(result.errors).toEqual([])
-      expect(result.warnings).toEqual([])
     })
 
     it('flags route files that import non-page exports from page entrypoints', () => {
@@ -213,7 +212,6 @@ export const helper = 1
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
       expect(result.errors).toEqual([])
-      expect(result.warnings).toEqual([])
     })
 
     it('tolerates ambient .d.ts files but still boundary-checks their references (codex round 2)', () => {
@@ -354,7 +352,7 @@ export const util = 1
     })
   })
 
-  describe('public-api (warn)', () => {
+  describe('public-api (error)', () => {
     it('warns when a page deep-imports into a feature slice instead of its barrel', () => {
       const cwd = fixture({
         'src/app/pages/tasks/index.tsx': `
@@ -371,15 +369,11 @@ export const helper = 1
 
       const result = checkFsdBoundaries({ cwd })
 
-      expect(result.ok).toBe(true)
-      expect(result.errors).toEqual([])
-      expect(result.warnings).toEqual([
-        {
-          rule: 'public-api',
-          file: 'src/app/pages/tasks/index.tsx',
-          target: '@app/features/board/model/helpers',
-          reason: expect.stringContaining('deep import into features/board'),
-        },
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[public-api] src/app/pages/tasks/index.tsx -> @app/features/board/model/helpers (deep import into features/board'
+        ),
       ])
     })
 
@@ -399,8 +393,8 @@ export const helper = 1
 
       const result = checkFsdBoundaries({ cwd })
 
-      expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([expect.objectContaining({ rule: 'public-api' })])
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([expect.stringContaining('[public-api]')])
     })
 
     it('accepts cross-slice imports that target the slice barrel', () => {
@@ -424,7 +418,7 @@ export function BoardView() {
 
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([])
+      expect(result.errors).toEqual([])
     })
 
     it('leaves same-slice deep imports alone', () => {
@@ -442,11 +436,11 @@ export const helper = 1
 
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([])
+      expect(result.errors).toEqual([])
     })
   })
 
-  describe('cross-entity (warn)', () => {
+  describe('cross-entity (error)', () => {
     it('warns when an entity slice imports a sibling entity slice', () => {
       const cwd = fixture({
         'src/app/entities/task/model/task.ts': `
@@ -460,14 +454,11 @@ export const agent = 1
 
       const result = checkFsdBoundaries({ cwd })
 
-      expect(result.ok).toBe(true)
-      expect(result.errors).toEqual([])
-      expect(result.warnings).toEqual([
-        expect.objectContaining({
-          rule: 'cross-entity',
-          file: 'src/app/entities/task/model/task.ts',
-          target: '@app/entities/agent/model/agent',
-        }),
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[cross-entity] src/app/entities/task/model/task.ts -> @app/entities/agent/model/agent'
+        ),
       ])
     })
 
@@ -488,11 +479,11 @@ export const helper = 1
 
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([])
+      expect(result.errors).toEqual([])
     })
   })
 
-  describe('same-layer-isolation (warn for widgets/pages, error for features)', () => {
+  describe('same-layer-isolation (error)', () => {
     it('warns when a widget imports a sibling widget slice', () => {
       const cwd = fixture({
         'src/app/widgets/agent-detail/AgentDetailView.tsx': `
@@ -510,15 +501,13 @@ export function TimelineView() {
 
       const result = checkFsdBoundaries({ cwd })
 
-      expect(result.ok).toBe(true)
-      expect(result.errors).toEqual([])
-      // Exactly one warning: sibling-slice isolation wins over public-api for
+      expect(result.ok).toBe(false)
+      // Exactly one error: sibling-slice isolation wins over public-api for
       // the same import.
-      expect(result.warnings).toEqual([
-        expect.objectContaining({
-          rule: 'same-layer-isolation',
-          file: 'src/app/widgets/agent-detail/AgentDetailView.tsx',
-        }),
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[same-layer-isolation] src/app/widgets/agent-detail/AgentDetailView.tsx'
+        ),
       ])
     })
 
@@ -539,8 +528,8 @@ export function TasksPage() {
 
       const result = checkFsdBoundaries({ cwd })
 
-      expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([expect.objectContaining({ rule: 'same-layer-isolation' })])
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([expect.stringContaining('[same-layer-isolation]')])
     })
 
     it('keeps cross-feature imports as an error (enforced pre-FSD-5)', () => {
@@ -566,7 +555,6 @@ export function ChatView() {
           '(features/board) imports @app/features/chat/ChatView (features/chat)'
         ),
       ])
-      expect(result.warnings).toEqual([])
     })
 
     it('allows a slice to import its own files freely', () => {
@@ -584,11 +572,11 @@ export const helper = 1
 
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([])
+      expect(result.errors).toEqual([])
     })
   })
 
-  describe('shared-purity (warn)', () => {
+  describe('shared-purity (error)', () => {
     it('flags domain stores parked under shared/model', () => {
       const cwd = fixture({
         'src/app/shared/model/feed.store.ts': `
@@ -598,14 +586,11 @@ export const useFeedStore = () => null
 
       const result = checkFsdBoundaries({ cwd })
 
-      expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([
-        {
-          rule: 'shared-purity',
-          file: 'src/app/shared/model/feed.store.ts',
-          target: null,
-          reason: 'domain store in shared — relocate in FSD-2',
-        },
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[shared-purity] src/app/shared/model/feed.store.ts (domain store in shared'
+        ),
       ])
     })
 
@@ -618,7 +603,7 @@ export type ColumnId = string
 
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
-      expect(result.warnings).toEqual([])
+      expect(result.errors).toEqual([])
     })
   })
 
