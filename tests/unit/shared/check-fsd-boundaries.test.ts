@@ -216,6 +216,63 @@ export const helper = 1
       expect(result.warnings).toEqual([])
     })
 
+    it('tolerates ambient .d.ts files but still boundary-checks their references (codex round 2)', () => {
+      const cwd = fixture({
+        'src/app/shared/types/global.d.ts': `
+declare global {
+  interface Window {
+    agentforge: import('@app/features/board/BoardView').BoardApi
+  }
+}
+
+export {}
+`,
+        'src/app/features/board/BoardView.tsx': `
+export interface BoardApi {
+  id: string
+}
+export function BoardView() {
+  return null
+}
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      // No parse crash — the only finding is the real boundary violation
+      // (shared -> features) referenced through the type-position import().
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '(shared/types) imports @app/features/board/BoardView (features/board)'
+        ),
+      ])
+    })
+
+    it('flags type-position import() references erased by transpilation (codex round 2)', () => {
+      const cwd = fixture({
+        'src/app/entities/task/model/types.ts': `
+export type BoardProps = import('@app/features/board/BoardView').BoardProps
+`,
+        'src/app/features/board/BoardView.tsx': `
+export interface BoardProps {
+  id: string
+}
+export function BoardView() {
+  return null
+}
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '(entities/task) imports @app/features/board/BoardView (features/board)'
+        ),
+      ])
+    })
+
     it('sees type-only imports (AST extraction keeps them)', () => {
       const cwd = fixture({
         'src/app/entities/task/model/types.ts': `

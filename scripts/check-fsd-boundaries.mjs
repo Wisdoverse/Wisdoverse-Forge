@@ -133,6 +133,8 @@ const typeReExportPrefix = /^(\s*)export\s+type(?=\s*[{*])/gm
 // head guard keeps this off object/function bodies (`export const x = {`,
 // `export function f() {`), which always contain `=` or `(` first.
 const importExportClauseBraces = /(^|\n)(\s*(?:import|export)\s[^'"()=]*?\{)([^}]*)(\})/g
+// String-literal import() call/type reference, matched against the RAW source.
+const dynamicImportLiteral = /\bimport\s*\(\s*(['"])([^'"]+)\1\s*\)/g
 
 function extractImports(sourceFile) {
   const raw = fs.readFileSync(sourceFile, 'utf8')
@@ -150,7 +152,11 @@ function extractImports(sourceFile) {
         `${lead}${head}${names.replace(/\btype\s+/g, '')}${close}`
     )
   const { outputText } = ts.transpileModule(normalized, {
-    fileName: sourceFile,
+    // transpileModule refuses to emit declaration files ("Debug Failure").
+    // The content of a .d.ts is valid in a plain .ts module (ambient
+    // `declare` blocks erase cleanly), so emit it under a .ts name instead of
+    // hard-erroring the file (codex round-2 P2).
+    fileName: sourceFile.replace(/\.d\.ts$/, '.ts'),
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ESNext,
@@ -159,7 +165,7 @@ function extractImports(sourceFile) {
     },
   })
   const [imports] = parse(outputText, sourceFile)
-  return imports
+  const entries = imports
     .filter((entry) => entry.n !== undefined && entry.d !== -2) // -2 = import.meta
     .map((entry) => ({
       specifier: entry.n,
@@ -167,6 +173,18 @@ function extractImports(sourceFile) {
       // records carry no clause.
       statement: entry.d === -1 ? outputText.slice(entry.ss, entry.se) : null,
     }))
+  // Type-position import() references (`type T = import('@app/x').Y`) are
+  // erased by the transpile before the lexer sees them; recover any
+  // string-literal import() specifier from the raw source that the lexer
+  // did not already report (codex round-2 P2).
+  const seen = new Set(entries.map((entry) => entry.specifier))
+  for (const match of raw.matchAll(dynamicImportLiteral)) {
+    if (!seen.has(match[2])) {
+      seen.add(match[2])
+      entries.push({ specifier: match[2], statement: null })
+    }
+  }
+  return entries
 }
 
 function shouldRouteUsePageEntrypoint(appRoot, sourceFile) {
