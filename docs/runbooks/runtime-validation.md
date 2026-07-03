@@ -149,6 +149,56 @@ Expected evidence:
 - The successful test returns `ok: true` with the provider and model.
 - Error payloads redact upstream provider bodies and never echo API keys.
 
+### Instruction Image To Model (staging, per Container CLI)
+
+This is the live half of the instruction-image pipeline. The hermetic half
+(upload → object store → vision gate → workspace materializer) is covered by
+unit and integration tests in CI; what CI cannot prove is that a running
+Container CLI actually delivers the image to a live model. Run this check
+**once per release train for each vision-capable Container CLI** (`claude`,
+`codex`, `gemini`). It is not a per-PR gate.
+
+Prerequisites:
+
+- A deployed staging stack (`make prod-ext` target, for example
+  `https://staging.example.com`) with at least one running agent per Container
+  CLI you are checking, each configured with a vision-capable model.
+- A login that can create tasks for those agents (use the standing
+  `dev@example.com` staging account).
+- A test image containing a nonce no model could guess. Generate one locally:
+
+```bash
+NONCE=$(uuidgen | cut -c1-8)
+echo "staging-image-check ${NONCE}" | convert -pointsize 32 label:@- /tmp/image-check.png
+echo "Nonce: ${NONCE}"
+```
+
+Steps, per Container CLI:
+
+1. Log in to staging and open the task composer for an agent running that CLI.
+2. Attach `/tmp/image-check.png` as an instruction image. The composer only
+   offers the attachment control when the agent's model is vision-capable — if
+   the control is missing, fix the agent's model first; that is the gate
+   working as designed.
+3. Dispatch a task whose instruction is exactly: "Reply with the text that
+   appears in the attached image."
+4. Watch the run output in the task detail view.
+
+Expected evidence:
+
+- The run output contains your nonce string. That proves the image crossed the
+  full path (browser upload → API → object store → materializer → container →
+  CLI → model) — a model cannot transcribe a nonce it never received.
+- If the output describes being unable to see an image, or invents different
+  text, the CLI-to-model delivery is broken for that Container CLI even though
+  the materialized file exists in `/workspace`. File it against the CLI overlay
+  (see the `docker/Dockerfile.agent` layer for that tool), not the server.
+
+Record the release version, date, per-CLI pass/fail, and the nonce in the
+release-train notes. The Gemini path was first verified this way manually
+(the provider request carried an `inlineData` image part); this check keeps
+that guarantee standing for every CLI on every train.
+
 ## Preview Boundaries
 
 These surfaces are intentionally outside the proofed runtime boundary until
