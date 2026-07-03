@@ -176,10 +176,12 @@ echo "Nonce: ${NONCE}"
 Steps, per Container CLI:
 
 1. Log in to staging and open the task composer for an agent running that CLI.
-2. Attach `/tmp/image-check.png` as an instruction image. The composer only
-   offers the attachment control when the agent's model is vision-capable — if
-   the control is missing, fix the agent's model first; that is the gate
-   working as designed.
+2. Attach `/tmp/image-check.png` as an instruction image. The task composer
+   only offers the attachment control for container agents whose Container CLI
+   reports image input capability (`claude`/`codex`/`gemini`) — if the control
+   is missing, check the agent's runtime kind and CLI first; that is the gate
+   working as designed. A vision-capable model remains your responsibility as
+   a prerequisite: the UI gate proves CLI capability, not the model.
 3. Dispatch a task whose instruction is exactly: "Reply with the text that
    appears in the attached image."
 4. Watch the run output in the task detail view.
