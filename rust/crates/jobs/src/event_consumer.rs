@@ -51,6 +51,7 @@ use uuid::Uuid;
 use agentforge_core::AgentStatus;
 use agentforge_core::event_protocol::parse_events_ingest_subject;
 use agentforge_core::orchestration_protocol::SignedEnvelope;
+use agentforge_core::ws_protocol::{ServerMessage, TurnInvalidatePayload};
 
 use crate::dead_events::{DeadEvent, DeadEventRecorder, SqlxDeadEventRecorder, payload_excerpt};
 
@@ -126,40 +127,11 @@ pub struct PersistedEvent {
     pub session_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BroadcastMessage {
-    #[serde(rename = "type")]
-    pub message_type: String,
-    #[serde(rename = "eventType")]
-    pub event_type: String,
-    #[serde(rename = "eventData")]
-    pub event_data: Value,
-    #[serde(rename = "agentId")]
-    pub agent_id: String,
-    #[serde(rename = "orgId")]
-    pub org_id: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TurnInvalidatePayload {
-    #[serde(rename = "agentId")]
-    pub agent_id: String,
-    pub timestamp: i64,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TurnInvalidateMessage {
-    #[serde(rename = "type")]
-    pub message_type: String,
-    pub payload: TurnInvalidatePayload,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BroadcastEnvelope {
-    Event(BroadcastMessage),
-    TurnInvalidate(TurnInvalidateMessage),
-}
+// The browser broadcast frames (`event` / `turn_invalidate`) are built as the
+// shared `agentforge_core::ws_protocol::ServerMessage` enum (MS-3 PR-D). The
+// local `BroadcastMessage`/`TurnInvalidateMessage`/`BroadcastEnvelope` trio it
+// replaced encoded the same wire bytes but duplicated the contract; the enum's
+// round-trip test against the golden fixtures now pins it in one place.
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsumeError {
@@ -274,14 +246,14 @@ pub trait AgentDirectory: Clone + Send + Sync + 'static {
 
 #[async_trait]
 pub trait BroadcastBus: Clone + Send + Sync + 'static {
-    async fn publish(&self, subject: String, message: BroadcastEnvelope) -> Result<()>;
+    async fn publish(&self, subject: String, message: ServerMessage) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
 struct DecodedEvent {
     persisted: PersistedEvent,
-    broadcast: BroadcastMessage,
-    turn_invalidate: Option<TurnInvalidateMessage>,
+    broadcast: ServerMessage,
+    turn_invalidate: Option<ServerMessage>,
     broadcast_subject: String,
     runtime_patch: AgentRuntimePatch,
     persistable: bool,
@@ -380,13 +352,13 @@ where
         }
 
         self.broadcast
-            .publish(decoded.broadcast_subject.clone(), BroadcastEnvelope::Event(decoded.broadcast))
+            .publish(decoded.broadcast_subject.clone(), decoded.broadcast)
             .await
             .map_err(ConsumeError::transient)?;
 
         if let Some(turn_invalidate) = decoded.turn_invalidate {
             self.broadcast
-                .publish(decoded.broadcast_subject, BroadcastEnvelope::TurnInvalidate(turn_invalidate))
+                .publish(decoded.broadcast_subject, turn_invalidate)
                 .await
                 .map_err(ConsumeError::transient)?;
         }
@@ -430,15 +402,13 @@ fn decode_event(target: AgentTarget, envelope: SignedEventEnvelope) -> std::resu
 
     Ok(DecodedEvent {
         broadcast_subject: format!("broadcast.{organization_id}"),
-        broadcast: BroadcastMessage {
-            message_type: "event".to_string(),
+        broadcast: ServerMessage::Event {
             event_type: event_type.clone(),
             event_data: event_data.clone(),
             agent_id: broadcast_agent_id,
             org_id: organization_id.to_string(),
         },
-        turn_invalidate: persistable.then(|| TurnInvalidateMessage {
-            message_type: "turn_invalidate".to_string(),
+        turn_invalidate: persistable.then(|| ServerMessage::TurnInvalidate {
             payload: TurnInvalidatePayload { agent_id: target.agent_id.to_string(), timestamp: event_timestamp_ms },
         }),
         persisted: PersistedEvent {
@@ -707,7 +677,7 @@ impl NatsBroadcastBus {
 
 #[async_trait]
 impl BroadcastBus for NatsBroadcastBus {
-    async fn publish(&self, subject: String, message: BroadcastEnvelope) -> Result<()> {
+    async fn publish(&self, subject: String, message: ServerMessage) -> Result<()> {
         let bytes = serde_json::to_vec(&message)?;
         self.client.publish(subject, bytes.into()).await?;
         Ok(())

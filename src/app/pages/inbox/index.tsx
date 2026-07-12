@@ -1,4 +1,4 @@
-import { InboxView } from '@app/features/inbox/InboxView'
+import { InboxView } from '@app/features/inbox'
 
 export function InboxPage() {
   return (

@@ -1,5 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
-import type { Turn } from '@app/shared/model/chat.store'
+import type { Turn } from './model/chat.store'
 import { ToolCallDetail } from './ToolCallDetail'
 
 function formatTimestamp(ts: number): string {

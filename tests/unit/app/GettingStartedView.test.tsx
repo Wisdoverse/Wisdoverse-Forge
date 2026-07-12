@@ -4,8 +4,8 @@ import '@app/i18n'
 import { GettingStartedView } from '@app/pages/getting-started'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useAgentsStore } from '@app/entities/agent'
-import { useSettingsStore } from '@app/shared/model/settings.store'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSettingsStore } from '@app/entities/settings'
+import { useSkillsStore } from '@app/entities/skill'
 
 const navigateMock = vi.hoisted(() => vi.fn())
 const getTasksMock = vi.hoisted(() => vi.fn())

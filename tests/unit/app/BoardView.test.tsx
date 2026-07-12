@@ -1,7 +1,7 @@
 import { describe, test, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, waitFor, act, fireEvent, within } from '@testing-library/react'
 import { BoardView } from '@app/features/board/BoardView'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 
 const boardSocketMocks = vi.hoisted(() => ({

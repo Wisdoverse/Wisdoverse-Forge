@@ -24,7 +24,7 @@ vi.mock('@app/shared/model/auth.context', () => ({
   }),
 }))
 
-vi.mock('@app/entities/team', () => ({
+vi.mock('@app/entities/navigation/team', () => ({
   teamApi: {
     getTeams: (...args: unknown[]) => mocks.getTeams(...args),
     createTeam: (...args: unknown[]) => mocks.createTeam(...args),
@@ -37,7 +37,7 @@ vi.mock('@app/entities/team', () => ({
   },
 }))
 
-vi.mock('@app/entities/project', () => ({
+vi.mock('@app/entities/navigation/project', () => ({
   projectApi: {
     getProjects: (...args: unknown[]) => mocks.getProjects(...args),
     createProject: (...args: unknown[]) => mocks.createProject(...args),

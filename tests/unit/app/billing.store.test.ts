@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { useBillingStore } from '@app/shared/model/billing.store'
+import { useBillingStore } from '@app/features/billing/model/billing.store'
 
 const billingApiMock = vi.hoisted(() => ({
   getSubscription: vi.fn(),

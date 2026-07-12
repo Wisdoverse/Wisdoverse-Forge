@@ -1,0 +1,48 @@
+{
+  "payload": {
+    "action": "task.assigned",
+    "eventId": "00000000-0000-0000-0000-0000000000aa",
+    "task": {
+      "assignedAgentName": "agent-00000000",
+      "assignedTo": "00000000-0000-0000-0000-000000000024",
+      "attempt": 2,
+      "blockedHint": "等待空闲 agent（2 个忙碌, 1 个离线）",
+      "blockedMetadata": {
+        "available": 0,
+        "busy": 2,
+        "offline": 1
+      },
+      "blockedReason": "waiting_agent",
+      "completedAt": "2025-01-01T12:00:00+00:00",
+      "contextCounts": {
+        "appliedMemories": 3,
+        "appliedSkills": 5,
+        "total": 8
+      },
+      "createdAt": "2025-01-01T12:00:00+00:00",
+      "createdBy": "00000000-0000-0000-0000-000000000023",
+      "error": "boom",
+      "groupId": "00000000-0000-0000-0000-000000000022",
+      "id": "00000000-0000-0000-0000-000000000021",
+      "leaseExpiresAt": "2025-01-01T12:00:00+00:00",
+      "method": "tasks/send",
+      "params": {
+        "message": "Ship the build",
+        "task": "Deploy staging"
+      },
+      "prHeadSha": "0000000000000000000000000000000000000000",
+      "prNumber": 627,
+      "prUrl": "https://github.com/example/repo/pull/627",
+      "priority": "high",
+      "progress": 42,
+      "result": {
+        "manual": true
+      },
+      "reviewStatus": "open",
+      "selfFix": true,
+      "state": "blocked",
+      "updatedAt": "2025-01-01T12:00:00+00:00"
+    }
+  },
+  "type": "orchestration:task_update"
+}

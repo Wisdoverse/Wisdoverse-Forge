@@ -5,7 +5,7 @@ import {
   SETTINGS_DEFAULT_SECTION,
   normalizeSettingsSection,
   type SettingsSection,
-} from '@app/shared/model/settings.store'
+} from '@app/entities/settings'
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,

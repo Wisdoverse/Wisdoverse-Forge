@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
 import { Sidebar } from '@app/layouts/sidebar'
-import { projectApi } from '@app/entities/project'
-import { teamApi } from '@app/entities/team'
+import { projectApi } from '@app/entities/navigation/project'
+import { teamApi } from '@app/entities/navigation/team'
 import { useNavigationStore } from '@app/entities/navigation'
 
-vi.mock('@app/entities/team', () => ({
+vi.mock('@app/entities/navigation/team', () => ({
   teamApi: {
     getTeams: vi.fn(),
     updateTeam: vi.fn().mockResolvedValue(undefined),
@@ -13,7 +13,7 @@ vi.mock('@app/entities/team', () => ({
   },
 }))
 
-vi.mock('@app/entities/project', () => ({
+vi.mock('@app/entities/navigation/project', () => ({
   projectApi: {
     getProjects: vi.fn(),
     updateProject: vi.fn().mockResolvedValue(undefined),
@@ -260,7 +260,9 @@ describe('Sidebar', () => {
 
     expect(menu).toHaveAttribute('role', 'menu')
     expect(menu).toHaveAttribute('aria-label', 'Project X project menu')
-    expect(menuScope.getByText('Team Alpha team · Project link preview: proj-x')).toBeInTheDocument()
+    expect(
+      menuScope.getByText('Team Alpha team · Project link preview: proj-x')
+    ).toBeInTheDocument()
     expect(menuScope.getByRole('menuitem', { name: /open project board/i })).toBeInTheDocument()
     expect(
       menuScope.getByRole('menuitem', { name: /new task for this project/i })
@@ -275,22 +277,24 @@ describe('Sidebar', () => {
     expect(
       menuScope.queryByRole('menuitem', { name: /copy project code/i })
     ).not.toBeInTheDocument()
-    expect(
-      menuScope.queryByRole('menuitem', { name: /copy project ID/i })
-    ).not.toBeInTheDocument()
+    expect(menuScope.queryByRole('menuitem', { name: /copy project ID/i })).not.toBeInTheDocument()
     expect(
       menuScope.queryByRole('menuitem', { name: /copy project reference/i })
     ).not.toBeInTheDocument()
     expect(
       menuScope.queryByRole('menuitem', { name: /copy support reference/i })
     ).not.toBeInTheDocument()
-    expect(menuScope.getByRole('menuitem', { name: /copy project link preview/i })).toBeInTheDocument()
+    expect(
+      menuScope.getByRole('menuitem', { name: /copy project link preview/i })
+    ).toBeInTheDocument()
     expect(
       menuScope.getByText(/another page or an owner or admin asks for this project help text/i)
     ).toBeInTheDocument()
     expect(menuScope.queryByText(/another page or support asks for this project code/i)).toBeNull()
     expect(menuScope.queryByText(/another page or support asks for this project ID/i)).toBeNull()
-    expect(menuScope.queryByText(/another page or an owner or admin asks for this project ID/i)).toBeNull()
+    expect(
+      menuScope.queryByText(/another page or an owner or admin asks for this project ID/i)
+    ).toBeNull()
     expect(menuScope.queryByText(/only share this if support asks/i)).not.toBeInTheDocument()
     expect(menuScope.queryByText('p1')).not.toBeInTheDocument()
     expect(menuScope.queryByText(/menu link preview/i)).not.toBeInTheDocument()
@@ -427,7 +431,9 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /copy project link preview/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('proj-x'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent('Project link preview copied')
+    expect(screen.getByTestId('project-copy-status')).toHaveTextContent(
+      'Project link preview copied'
+    )
     expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/Menu link preview/i)
   })
 
@@ -697,7 +703,9 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^delete team$/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Check your connection, then delete this team again from the left menu.')
+    expect(alert).toHaveTextContent(
+      'Check your connection, then delete this team again from the left menu.'
+    )
     expect(alert).not.toHaveTextContent(/Network error/i)
   })
 

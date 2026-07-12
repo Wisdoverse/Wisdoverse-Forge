@@ -11,6 +11,7 @@ members = [
     "crates/llm",
     "crates/orchestrator",
     "crates/cli",
+    "crates/telemetry",
     "bins/server",
     "bins/sidecar",
     "bins/orchestrator",
@@ -161,6 +162,7 @@ agentforge-api = { path = "crates/api" }
 agentforge-platform = { path = "crates/platform" }
 agentforge-jobs = { path = "crates/jobs" }
 agentforge-llm = { path = "crates/llm" }
+agentforge-telemetry = { path = "crates/telemetry" }
 
 # CLI deps
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }

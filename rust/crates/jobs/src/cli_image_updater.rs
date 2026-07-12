@@ -36,7 +36,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use agentforge_core::CliToolKind;
-use agentforge_core::broadcast_protocol::{ADMIN_CLI_IMAGE_SUBJECT, CLI_IMAGE_UPDATED_EVENT};
+use agentforge_core::broadcast_protocol::ADMIN_CLI_IMAGE_SUBJECT;
+use agentforge_core::ws_protocol::{CliImageUpdatedPayload, ServerMessage};
 use agentforge_platform::container::PlatformError;
 use agentforge_platform::{DockerClient, LocalImage, RemoveOutcome};
 use tokio::sync::{RwLock, watch};
@@ -1057,21 +1058,25 @@ fn build_cli_image_frame(tool: &str, state: &CliToolImageState, unix: i64) -> Op
         "failed" => format!("cli-image:{tool}:failed:{}", error_discriminator(state.last_error.as_deref())),
         _ => return None,
     };
-    let frame = serde_json::json!({
-        "type": CLI_IMAGE_UPDATED_EVENT,
-        "payload": {
-            "tool": tool,
-            "state": state.state,
-            "localDigest": state.local_digest,
-            "remoteDigest": state.remote_digest,
-            "localVersion": state.local_version,
-            "remoteVersion": state.remote_version,
-            "lastError": state.last_error,
-            "eventId": event_id,
-            "unix": unix,
-        }
-    });
-    Some(frame.to_string())
+    // Built through the shared `ServerMessage` enum (MS-3 PR-B) so the toast wire
+    // shape has a single compiler-checked source of truth; the variant's rename
+    // is `CLI_IMAGE_UPDATED_EVENT`. Serializing a fixed-shape payload cannot fail.
+    let frame = ServerMessage::CliImageUpdated {
+        payload: CliImageUpdatedPayload {
+            tool: tool.to_string(),
+            state: state.state.clone(),
+            local_digest: state.local_digest.clone(),
+            remote_digest: state.remote_digest.clone(),
+            local_version: state.local_version.clone(),
+            remote_version: state.remote_version.clone(),
+            last_error: state.last_error.clone(),
+            event_id,
+            unix,
+        },
+    }
+    .to_frame_string()
+    .expect("cli_image.updated frame serialization is infallible");
+    Some(frame)
 }
 
 fn non_empty_env(key: &str) -> Option<String> {
@@ -1090,6 +1095,9 @@ fn split_repo_tag(image_ref: &str) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Asserted against the enum-produced frame's `type`; the enum variant renames
+    // to this same const, so the two stay in lock-step.
+    use agentforge_core::broadcast_protocol::CLI_IMAGE_UPDATED_EVENT;
 
     #[test]
     fn poll_set_excludes_claude_only() {

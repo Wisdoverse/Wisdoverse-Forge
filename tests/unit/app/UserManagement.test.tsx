@@ -21,7 +21,7 @@ vi.mock('@app/shared/model/auth.context', () => ({
 }))
 
 import { UserManagement } from '@app/features/admin/UserManagement'
-import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
+import { useAdminStore, type AdminUser } from '@app/entities/admin'
 
 const originalAdminState = useAdminStore.getState()
 

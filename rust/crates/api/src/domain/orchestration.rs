@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use agentforge_core::context_envelope::ContextEnvelope;
 use agentforge_core::orchestration_protocol::TaskAssignment;
+use agentforge_core::ws_protocol::{OrchestrationTaskUpdatePayload, ServerMessage};
 use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, OrgId, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -16,18 +17,18 @@ use uuid::Uuid;
 
 use crate::domain::context_resolver::ResolvedContext;
 
+// MS-3 PR-E: the wire projection types (`TaskSummary`, `TaskContextCounts`,
+// `TaskParams`) and the pure policies feeding them (`BlockedTaskPolicy`,
+// `TaskInstruction`) moved to `agentforge_core` so the jobs WS projector builds
+// the same shapes instead of hand-rolled mirrors. Re-exported here so api
+// routes/services/tests keep their import paths.
+pub(crate) use agentforge_core::orchestration_view::{BlockedTaskPolicy, TaskInstruction};
+pub use agentforge_core::ws_protocol::{TaskContextCounts, TaskSummary};
+
 const VALID_TASK_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed", "failed", "canceled"];
 const KANBAN_DROP_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed"];
 const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent"];
 const VALID_PARTICIPANT_STATUSES: &[&str] = &["available", "busy", "offline"];
-const VALID_BLOCKED_REASONS: &[&str] = &[
-    "waiting_agent",
-    "waiting_dependency",
-    "waiting_input",
-    "waiting_approval",
-    "quota_exceeded",
-    "waiting_verification",
-];
 
 /// Validated pagination request for orchestration task lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -228,29 +229,6 @@ impl OrchestrationRepositoryPolicy {
     }
 }
 
-/// User-facing task instruction carried by summary responses and assignment
-/// delivery. Structured params win, with legacy title/description fallback.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TaskInstruction {
-    task: String,
-    message: String,
-}
-
-impl TaskInstruction {
-    pub(crate) fn from_params(title: &str, description: Option<&str>, params: Option<&serde_json::Value>) -> Self {
-        params
-            .map(|p| Self {
-                task: p.get("task").and_then(|v| v.as_str()).unwrap_or(title).to_string(),
-                message: p.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            })
-            .unwrap_or_else(|| Self { task: title.to_string(), message: description.unwrap_or_default().to_string() })
-    }
-
-    pub(crate) fn into_parts(self) -> (String, String) {
-        (self.task, self.message)
-    }
-}
-
 /// Capability profile recorded on each task run.
 pub(crate) struct TaskRunCapabilityProfile;
 
@@ -290,67 +268,6 @@ pub(crate) struct TaskAssignmentSnapshot<'a> {
     pub(crate) priority: &'a str,
 }
 
-/// JSON shape returned to the UI. Mirrors `TaskSummary` in `src/app/api/orchestration.ts`.
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskSummary {
-    pub id: Uuid,
-    #[serde(rename = "groupId")]
-    pub group_id: Option<Uuid>,
-    pub state: String,
-    pub method: String,
-    pub params: TaskParams,
-    pub priority: String,
-    pub progress: i16,
-    #[serde(rename = "createdBy")]
-    pub created_by: Uuid,
-    #[serde(rename = "assignedTo", skip_serializing_if = "Option::is_none")]
-    pub assigned_to: Option<Uuid>,
-    #[serde(rename = "assignedAgentName", skip_serializing_if = "Option::is_none")]
-    pub assigned_agent_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<serde_json::Value>,
-    #[serde(rename = "blockedReason", skip_serializing_if = "Option::is_none")]
-    pub blocked_reason: Option<String>,
-    #[serde(rename = "blockedHint", skip_serializing_if = "Option::is_none")]
-    pub blocked_hint: Option<String>,
-    #[serde(rename = "blockedMetadata", skip_serializing_if = "Option::is_none")]
-    pub blocked_metadata: Option<serde_json::Value>,
-    #[serde(rename = "createdAt")]
-    pub created_at: String,
-    #[serde(rename = "updatedAt")]
-    pub updated_at: String,
-    #[serde(rename = "completedAt", skip_serializing_if = "Option::is_none")]
-    pub completed_at: Option<String>,
-    /// True when this is a self-fix task (drives the in-platform PR Review tab).
-    #[serde(rename = "selfFix")]
-    pub self_fix: bool,
-    #[serde(rename = "prNumber", skip_serializing_if = "Option::is_none")]
-    pub pr_number: Option<i32>,
-    #[serde(rename = "prUrl", skip_serializing_if = "Option::is_none")]
-    pub pr_url: Option<String>,
-    #[serde(rename = "prHeadSha", skip_serializing_if = "Option::is_none")]
-    pub pr_head_sha: Option<String>,
-    #[serde(rename = "reviewStatus", skip_serializing_if = "Option::is_none")]
-    pub review_status: Option<String>,
-    #[serde(rename = "contextCounts")]
-    pub context_counts: TaskContextCounts,
-    /// Current attempt number (1-based; incremented on each retry).
-    pub attempt: i32,
-    #[serde(rename = "leaseExpiresAt", skip_serializing_if = "Option::is_none")]
-    pub lease_expires_at: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Default, Serialize)]
-pub struct TaskContextCounts {
-    #[serde(rename = "appliedMemories")]
-    pub applied_memories: i64,
-    #[serde(rename = "appliedSkills")]
-    pub applied_skills: i64,
-    pub total: i64,
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct TaskRunSummary {
     pub id: Uuid,
@@ -369,19 +286,6 @@ pub struct TaskRunSummary {
     pub provider_name: Option<String>,
     #[serde(rename = "maxContextTokens", skip_serializing_if = "Option::is_none")]
     pub max_context_tokens: Option<u64>,
-}
-
-impl TaskContextCounts {
-    pub fn new(applied_memories: i64, applied_skills: i64) -> Self {
-        Self { applied_memories, applied_skills, total: applied_memories + applied_skills }
-    }
-}
-
-/// `params.task` + `params.message` shape the legacy/A2A clients send.
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskParams {
-    pub task: String,
-    pub message: String,
 }
 
 /// Kanban-state count snapshot returned by the stats endpoint.
@@ -509,14 +413,18 @@ pub(crate) fn orchestration_delete_response() -> Value {
 }
 
 pub(crate) fn task_update_broadcast_payload(action: &str, task: &TaskSummary) -> Value {
-    json!({
-        "type": "orchestration:task_update",
-        "payload": {
-            "action": action,
-            "eventId": Uuid::now_v7(),
-            "task": task,
-        }
-    })
+    // Built through the shared `ServerMessage` enum (MS-3 PR-E) so the wire
+    // contract has a single compiler-checked source of truth. Serializing a
+    // fixed-shape payload cannot fail.
+    ServerMessage::OrchestrationTaskUpdate {
+        payload: OrchestrationTaskUpdatePayload {
+            action: action.to_owned(),
+            event_id: Uuid::now_v7(),
+            task: task.clone(),
+        },
+    }
+    .to_frame_value()
+    .expect("orchestration task_update frame serialization is infallible")
 }
 
 pub(crate) fn task_update_broadcast_subject(org_id: Uuid) -> String {
@@ -567,6 +475,10 @@ impl TaskAssignmentPolicy {
             // (participant_liveness) populates it inline on its hot path.
             runtime_kind: None,
             image_paths: Vec::new(),
+            // CN-4: populated once the OTLP tracing layer is installed and this
+            // path runs inside a recording span; None until then (and on the
+            // wire it is simply omitted, preserving the pre-CN-4 signed shape).
+            trace_context: None,
         })
     }
 }
@@ -601,13 +513,10 @@ impl TaskStatusPolicy {
         KANBAN_DROP_STATUSES.contains(&state) || matches!(state, "canceled" | "failed")
     }
 
-    /// Tasks dispatchable by the auto-pickup loop. `blocked` is included
-    /// because `waiting_agent` blocks should auto-clear when an agent returns.
-    /// `backlog` is intentionally excluded: it is the draft lane and must be
-    /// explicitly promoted before the dispatcher can claim it.
-    pub(crate) fn can_dispatch(status: &str) -> bool {
-        matches!(status, "queued" | "blocked")
-    }
+    // The auto-pickup dispatchable-status set (`queued` | `blocked`, `backlog`
+    // deliberately excluded) moved to core as
+    // `BlockedTaskPolicy::status_can_dispatch` (MS-3 PR-E) so the jobs projector
+    // and this domain share one owner.
 
     pub(crate) fn can_complete_or_fail(status: &str) -> bool {
         status == "working"
@@ -954,175 +863,6 @@ impl QuotaBlockPolicy {
     }
 }
 
-/// Blocked-task policy and blocked-card hint rendering.
-pub(crate) struct BlockedTaskPolicy;
-
-impl BlockedTaskPolicy {
-    pub(crate) fn waiting_agent_reason() -> &'static str {
-        "waiting_agent"
-    }
-
-    pub(crate) fn is_valid_reason(reason: &str) -> bool {
-        VALID_BLOCKED_REASONS.contains(&reason)
-    }
-
-    pub(crate) fn reason_allows_dispatch(reason: Option<&str>) -> bool {
-        reason.is_none() || reason == Some(Self::waiting_agent_reason())
-    }
-
-    pub(crate) fn can_enter_dispatch(status: &str, blocked_reason: Option<&str>) -> bool {
-        TaskStatusPolicy::can_dispatch(status) && Self::reason_allows_dispatch(blocked_reason)
-    }
-
-    pub(crate) fn ensure_can_enter_dispatch(status: &str, blocked_reason: Option<&str>) -> AppResult<()> {
-        if Self::can_enter_dispatch(status, blocked_reason) {
-            return Ok(());
-        }
-        Err(ErrorKind::Validation(format!(
-            "can only dispatch queued or waiting-agent tasks, current status: {status}, blocked reason: {}",
-            blocked_reason.unwrap_or("none")
-        ))
-        .into())
-    }
-
-    /// Guard for the EXPLICIT operator dispatch path (`POST /tasks/:id/dispatch`
-    /// and a kanban drag to "working"). Same as `ensure_can_enter_dispatch` plus a
-    /// #793/#875 carve-out: an operator may re-run a `waiting_verification` hold.
-    /// The auto-sweep deliberately does NOT use this — it keeps `can_enter_dispatch`
-    /// (and the `next_dispatchable` SQL filter), so a held task is never
-    /// auto-claimed and stays human-gated.
-    pub(crate) fn ensure_operator_can_dispatch(status: &str, blocked_reason: Option<&str>) -> AppResult<()> {
-        if status == "blocked" && blocked_reason == Some("waiting_verification") {
-            return Ok(());
-        }
-        Self::ensure_can_enter_dispatch(status, blocked_reason)
-    }
-
-    pub(crate) fn no_available_participants_error() -> ErrorKind {
-        ErrorKind::Validation("no available participants for dispatch".into())
-    }
-
-    pub(crate) fn waiting_agent_metadata(available: i64, busy: i64, offline: i64) -> serde_json::Value {
-        json!({
-            "available": available,
-            "busy": busy,
-            "offline": offline,
-        })
-    }
-
-    /// Child tasks with an unfinished parent start in
-    /// `blocked/waiting_dependency`. `failed` and `canceled` parents are also
-    /// kept blocked until an operator explicitly decides what to do.
-    pub(crate) fn needs_dependency_block(parent_status: Option<&str>) -> bool {
-        match parent_status {
-            None | Some("completed") => false,
-            Some(_) => true,
-        }
-    }
-
-    pub(crate) fn initial_state(
-        missing_inputs: &[String],
-        requires_approval: bool,
-        dependency_blocked: bool,
-    ) -> (Option<&'static str>, Option<serde_json::Value>) {
-        if !missing_inputs.is_empty() {
-            return (Some("waiting_input"), Some(json!({ "missing": missing_inputs })));
-        }
-        if requires_approval {
-            return (Some("waiting_approval"), Some(json!({ "approver": "管理员" })));
-        }
-        if dependency_blocked {
-            return (Some("waiting_dependency"), Some(json!({ "pending": 1 })));
-        }
-        (None, None)
-    }
-
-    pub(crate) fn approval_release_state(
-        parent_status: Option<&str>,
-    ) -> (&'static str, Option<&'static str>, Option<serde_json::Value>) {
-        if Self::needs_dependency_block(parent_status) {
-            return ("blocked", Some("waiting_dependency"), Some(json!({ "pending": 1 })));
-        }
-        ("queued", None, None)
-    }
-
-    pub(crate) fn should_auto_dispatch_after_approval(status: &str) -> bool {
-        status == "queued"
-    }
-
-    pub(crate) fn missing_required_inputs(params: Option<&serde_json::Value>) -> Vec<String> {
-        let Some(params) = params else {
-            return Vec::new();
-        };
-        let required = params
-            .get("requiredInputs")
-            .or_else(|| params.get("required_inputs"))
-            .and_then(|v| v.as_array())
-            .map(|fields| fields.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-            .unwrap_or_default();
-
-        required.into_iter().filter(|name| !input_value_present(params, name)).map(str::to_string).collect()
-    }
-
-    /// Render a human-readable hint describing what the task is waiting on.
-    pub(crate) fn hint(reason: &str, metadata: Option<&serde_json::Value>) -> String {
-        if !Self::is_valid_reason(reason) {
-            return format!("阻塞: {reason}");
-        }
-
-        match reason {
-            "waiting_agent" => {
-                let busy = metadata.and_then(|m| m.get("busy")).and_then(|v| v.as_i64()).unwrap_or(0);
-                let offline = metadata.and_then(|m| m.get("offline")).and_then(|v| v.as_i64()).unwrap_or(0);
-                if busy + offline == 0 {
-                    "等待 agent：当前组织内没有注册的 participant".into()
-                } else {
-                    format!("等待空闲 agent（{busy} 个忙碌, {offline} 个离线）")
-                }
-            }
-            "waiting_dependency" => {
-                let pending = metadata.and_then(|m| m.get("pending")).and_then(|v| v.as_i64()).unwrap_or(0);
-                format!("等待 {pending} 个上游任务完成")
-            }
-            "waiting_input" => {
-                let fields = metadata
-                    .and_then(|m| m.get("missing"))
-                    .and_then(|v| v.as_array())
-                    .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", "))
-                    .unwrap_or_default();
-                if fields.is_empty() { "等待补充输入".into() } else { format!("缺少输入: {fields}") }
-            }
-            "waiting_approval" => {
-                let approver = metadata.and_then(|m| m.get("approver")).and_then(|v| v.as_str()).unwrap_or("管理员");
-                format!("等待 {approver} 审批")
-            }
-            "quota_exceeded" => {
-                let used = metadata.and_then(|m| m.get("used")).and_then(|v| v.as_i64()).unwrap_or(0);
-                let limit = metadata.and_then(|m| m.get("limit")).and_then(|v| v.as_i64()).unwrap_or(0);
-                format!("配额超限（{used}/{limit}）")
-            }
-            "waiting_verification" => "完成结果未通过 expectedResult 校验，已暂留待人工复核".into(),
-            other => format!("阻塞: {other}"),
-        }
-    }
-}
-
-fn input_value_present(params: &serde_json::Value, name: &str) -> bool {
-    ["inputs", "env", "apiKeys", "api_keys"]
-        .iter()
-        .filter_map(|key| params.get(*key))
-        .any(|container| value_has_non_empty_field(container, name))
-        || value_has_non_empty_field(params, name)
-}
-
-fn value_has_non_empty_field(value: &serde_json::Value, name: &str) -> bool {
-    value.get(name).is_some_and(|v| match v {
-        serde_json::Value::String(s) => !s.trim().is_empty(),
-        serde_json::Value::Null => false,
-        _ => true,
-    })
-}
-
 fn json_string(value: &serde_json::Value, key: &str) -> Option<String> {
     value.get(key).and_then(|v| v.as_str()).map(str::to_string)
 }
@@ -1141,6 +881,8 @@ fn json_nested_i64(value: &serde_json::Value, parent: &str, key: &str) -> Option
 
 #[cfg(test)]
 mod tests {
+    use agentforge_core::ws_protocol::TaskParams;
+
     use super::*;
 
     fn validation_message(result: AppResult<()>) -> String {

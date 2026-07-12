@@ -3,7 +3,7 @@ import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
-import type { CloneSummary, NavProject, UpdateProjectInput } from '@app/entities/project'
+import type { CloneSummary, NavProject, UpdateProjectInput } from '@app/entities/navigation/project'
 import { CloneStatusBadge } from './CloneStatusBadge'
 
 const EMPTY_PROJECT_NAME_MESSAGE = 'Enter a project name, then save this project name again.'

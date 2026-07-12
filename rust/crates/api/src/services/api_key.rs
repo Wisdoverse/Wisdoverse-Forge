@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 pub use crate::domain::credential::CreateApiKeyResult;
 use crate::domain::credential::{
-    ApiKeyAuthenticationPolicy, ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, CredentialListPage,
+    ApiKeyAuthenticationPolicy, ApiKeyFormat, ApiKeyName, ApiKeyScopePolicy, ApiKeyView, CredentialListPage,
 };
 pub(crate) use crate::domain::credential::{
     api_key_create_response, api_key_list_response, credential_delete_response,
@@ -48,13 +48,14 @@ impl ApiKeyService {
 
         let key = self.repo.create(scope, name.value(), &key_hash, key_prefix, scopes, expires_at).await?;
 
-        Ok(CreateApiKeyResult { key, plaintext_key })
+        Ok(CreateApiKeyResult { key: api_key_view(&key), plaintext_key })
     }
 
-    /// List API keys (paginated, no plaintext).
-    pub async fn list_keys(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<ApiKey>> {
+    /// List API keys (paginated, no plaintext), projected to the non-secret view.
+    pub async fn list_keys(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<ApiKeyView>> {
         let page = CredentialListPage::new(limit, offset);
-        self.repo.list(scope, page.limit(), page.offset()).await
+        let keys = self.repo.list(scope, page.limit(), page.offset()).await?;
+        Ok(keys.iter().map(api_key_view).collect())
     }
 
     /// Revoke an API key by ID.
@@ -82,6 +83,25 @@ impl ApiKeyService {
     }
 }
 
+/// Project an `ApiKey` row into the non-secret [`ApiKeyView`] used for API
+/// responses. This is the single boundary where the persistence row becomes a
+/// response projection; `key_hash` is dropped here and is absent from the view
+/// type, so no response builder can leak it.
+fn api_key_view(key: &ApiKey) -> ApiKeyView {
+    ApiKeyView {
+        id: key.id,
+        organization_id: key.organization_id,
+        user_id: key.user_id,
+        name: key.name.clone(),
+        key_prefix: key.key_prefix.clone(),
+        scopes: key.scopes.clone(),
+        expires_at: key.expires_at,
+        last_used_at: key.last_used_at,
+        created_at: key.created_at,
+        revoked_at: key.revoked_at,
+    }
+}
+
 /// Generate a random API key: `af_` followed by 64 hex characters (32 random bytes).
 /// Returns (plaintext_key, hash, prefix).
 pub(crate) fn generate_api_key_parts() -> (String, String, String) {
@@ -103,4 +123,45 @@ pub(crate) fn hash_key(key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(key.as_bytes());
     hex::encode(hasher.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use agentforge_core::{OrgId, UserId};
+
+    fn row_with_secret_hash() -> ApiKey {
+        ApiKey {
+            id: Uuid::now_v7(),
+            organization_id: OrgId::new(),
+            user_id: UserId::new(),
+            name: "CI".to_string(),
+            key_hash: "super-secret-hash".to_string(),
+            key_prefix: "af_12345678".to_string(),
+            scopes: vec!["read".to_string()],
+            expires_at: None,
+            last_used_at: None,
+            created_at: Utc::now(),
+            revoked_at: None,
+        }
+    }
+
+    #[test]
+    fn api_key_view_projects_row_without_the_key_hash() {
+        let row = row_with_secret_hash();
+        let view = api_key_view(&row);
+
+        // The non-secret fields are carried through verbatim...
+        assert_eq!(view.id, row.id);
+        assert_eq!(view.key_prefix, "af_12345678");
+        assert_eq!(view.scopes, vec!["read".to_string()]);
+
+        // ...and the serialized projection cannot contain the secret hash, in
+        // any casing, because the view type has no such field.
+        let json = serde_json::to_value(&view).expect("serialize view");
+        assert!(json.get("key_hash").is_none());
+        assert!(json.get("keyHash").is_none());
+        let body = serde_json::to_string(&api_key_list_response(&[view])).expect("serialize body");
+        assert!(!body.contains("super-secret-hash"), "secret hash leaked into the response body");
+    }
 }

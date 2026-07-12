@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import { userEvent } from '@testing-library/user-event'
 import { ApprovalQueueView } from '@app/features/context/ApprovalQueueView'
 import { orchestrationApi } from '@app/shared/api/orchestration'
-import { useContextStore } from '@app/shared/model/context.store'
+import { useContextStore } from '@app/features/context/model/context.store'
 import type { ContextCandidateSummary } from '@shared/types/context'
 
 const subscribeMock = vi.hoisted(() => vi.fn(() => vi.fn()))

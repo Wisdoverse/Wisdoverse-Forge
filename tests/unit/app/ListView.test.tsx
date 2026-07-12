@@ -1,7 +1,7 @@
 import { describe, test, expect, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ListView } from '@app/features/list/ListView'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 
 afterEach(cleanup)
 beforeEach(() => useBoardStore.getState().reset())
