@@ -212,8 +212,7 @@ function mapProviderConfig(value: unknown, index = 0): LlmProviderConfig {
     isEnabled: boolField(data, true, 'isEnabled', 'is_enabled'),
     isDefault: boolField(data, false, 'isDefault', 'is_default'),
     lastTestStatus: stringField(data, 'lastTestStatus', 'last_test_status') as
-      | LlmProviderConfig['lastTestStatus']
-      | undefined,
+      LlmProviderConfig['lastTestStatus'] | undefined,
     lastTestErrorCode: stringField(data, 'lastTestErrorCode', 'last_test_error_code'),
     lastTestErrorMessage: stringField(data, 'lastTestErrorMessage', 'last_test_error_message'),
     lastTestedAt: stringField(data, 'lastTestedAt', 'last_tested_at'),
