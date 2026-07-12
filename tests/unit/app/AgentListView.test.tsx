@@ -2,7 +2,7 @@ import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { AgentListView } from '@app/features/agents/AgentListView'
 import { useAgentsStore } from '@app/entities/agent'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
 import type { AgentInfo } from '@app/entities/agent'
 
@@ -93,7 +93,10 @@ describe('AgentListView', () => {
   test('keeps task queue and local computer setup collapsed by default', () => {
     render(<AgentListView />)
 
-    expect(screen.getByRole('button', { name: /more agent setup/i })).toHaveAttribute(
+    const layout = screen.getByTestId('agent-list-layout')
+    expect(layout.className).not.toContain('xl:grid-cols')
+    const header = screen.getByTestId('agent-list-header')
+    expect(within(header).getByRole('button', { name: /more agent setup/i })).toHaveAttribute(
       'aria-expanded',
       'false'
     )
@@ -102,10 +105,12 @@ describe('AgentListView', () => {
 
     openMoreAgentSetup()
 
-    expect(screen.getByRole('button', { name: /hide more agent setup/i })).toHaveAttribute(
+    expect(within(header).getByRole('button', { name: /hide more agent setup/i })).toHaveAttribute(
       'aria-expanded',
       'true'
     )
+    expect(screen.getByTestId('more-agent-setup')).toHaveClass('space-y-4')
+    expect(screen.getByTestId('more-agent-setup').className).not.toContain('grid-cols')
     expect(screen.getByText('Task Queues')).toBeDefined()
     expect(screen.getByTestId('host-cli-enrollment-panel')).toBeDefined()
   })

@@ -21,10 +21,10 @@ import {
   type TaskSummary,
 } from '@app/shared/api/orchestration'
 import { agentAiServiceLabel, isHostCliAgent, useAgentsStore } from '@app/entities/agent'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useSettingsStore } from '@app/entities/settings'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSkillsStore } from '@app/entities/skill'
 import { cn } from '@app/shared/lib/utils'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>

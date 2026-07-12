@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CloneStatusBadge } from '@app/features/manage-project'
-import { projectApi, type CloneSummary } from '@app/entities/project'
+import { projectApi, type CloneSummary } from '@app/entities/navigation/project'
 
 afterEach(() => {
   cleanup()

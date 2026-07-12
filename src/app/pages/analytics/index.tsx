@@ -1,4 +1,4 @@
-import { AnalyticsDashboard } from '@app/features/analytics/AnalyticsDashboard'
+import { AnalyticsDashboard } from '@app/features/analytics'
 
 export function AnalyticsPage() {
   return (

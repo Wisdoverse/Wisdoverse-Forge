@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { AdminLayout } from '@app/features/admin/AdminLayout'
-import { useAdminStore } from '@app/shared/model/admin.store'
+import { useAdminStore } from '@app/entities/admin'
 
 vi.mock('@app/features/admin/UserManagement', () => ({
   UserManagement: () => <div>User access panel</div>,

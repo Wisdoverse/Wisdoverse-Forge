@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore, type SettingsSection } from '@app/shared/model/settings.store'
+import { useSettingsStore, type SettingsSection } from '@app/entities/settings'
 import {
   AboutSection,
   AccountSection,

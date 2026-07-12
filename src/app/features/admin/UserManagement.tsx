@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAuth } from '@app/shared/model/auth.context'
-import { useAdminStore, type AdminUser } from '@app/shared/model/admin.store'
+import { useAdminStore, type AdminUser } from '@app/entities/admin'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 

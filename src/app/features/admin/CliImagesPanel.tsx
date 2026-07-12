@@ -7,7 +7,7 @@ import {
   type CliImageRollReport,
   type CliImageTool,
   type CliImageToolState,
-} from '@app/shared/model/admin.store'
+} from '@app/entities/admin'
 import { CLI_IMAGE_RECOVERY, cliImageStatusErrorMessage } from './adminErrorCopy'
 
 const MIN_STATUS_REFRESH_MS = 60_000
@@ -190,6 +190,8 @@ function StateBadge({ state, label }: { state: CliImageToolState; label?: string
 interface RollControl {
   confirming: boolean
   rolling: boolean
+  /** Report of the last completed roll for THIS tool (null for other tools). */
+  lastResult: CliImageRollReport | null
   onRequest: () => void
   onConfirm: () => void
   onCancel: () => void
@@ -224,7 +226,8 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
           </p>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             These agents may briefly stop and reopen. Agents that are still working are left running
-            when the platform cannot restart them safely.
+            when the platform cannot restart them safely. The count is how many running agents a
+            restart touches — it does not mean they are out of date.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -247,13 +250,32 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
     )
   }
   return (
-    <button
-      type="button"
-      onClick={control.onRequest}
-      className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
-    >
-      Restart agents on latest tool
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={control.onRequest}
+        className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
+      >
+        Restart agents on latest tool
+      </button>
+      {/* Close the loop in the row itself: after a roll, nothing else on the
+          row changes (the agent count is blast radius, not staleness), so
+          without this line a successful restart reads as a no-op. */}
+      {control.lastResult && (
+        <span
+          role="status"
+          aria-live="polite"
+          className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark"
+        >
+          Restarted {control.lastResult.succeeded} of {control.lastResult.total}{' '}
+          {control.lastResult.total === 1 ? 'agent' : 'agents'}
+          {control.lastResult.skippedBusy > 0
+            ? ` · ${control.lastResult.skippedBusy} still working`
+            : ''}{' '}
+          — details below.
+        </span>
+      )}
+    </>
   )
 }
 
@@ -491,6 +513,7 @@ export function CliImagesPanel() {
   const rollControlFor = (tool: string): RollControl => ({
     confirming: confirmTool === tool,
     rolling: cliImageRollingTool === tool,
+    lastResult: cliImageRollResult?.tool === tool ? cliImageRollResult : null,
     onRequest: () => setConfirmTool(tool),
     onCancel: () => setConfirmTool(null),
     onConfirm: () => {

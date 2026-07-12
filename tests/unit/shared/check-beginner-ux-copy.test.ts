@@ -840,7 +840,7 @@ function providerSettingsErrorMessage() {
   return 'Keep the suggested model or choose a supported model, then save again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsValidationMessage() {
   return 'Choose the AI service, confirm the model, add the service access key if needed, then save again.'
 }
@@ -910,7 +910,7 @@ function settingsValidationMessage() {
         }),
         expect.objectContaining({
           type: 'provider-setup-copy',
-          location: 'src/app/shared/model/settings.store.ts:3',
+          location: 'src/app/entities/settings/model/settings.store.ts:3',
         }),
       ])
     )
@@ -969,7 +969,7 @@ function providerSettingsErrorMessage() {
   return 'Keep the suggested service choice or choose the choice name from your service guide, then save again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsValidationMessage() {
   return 'Choose the AI service, keep the suggested service choice, add the service access key if needed, then save again.'
 }
@@ -1369,7 +1369,7 @@ export function cliImageStatusErrorMessage(error) {
 
   it('flags admin store error copy that explains failure before the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/admin.store.ts': `
+      'src/app/entities/admin/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
   return \`Ask an owner or admin to give you Admin access, then reload Admin. You do not have access to the admin \${label}.\`
 }
@@ -1401,27 +1401,27 @@ function adminUserActionErrorMessage(action) {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'admin-store-error-copy',
-          location: 'src/app/shared/model/admin.store.ts:3',
+          location: 'src/app/entities/admin/model/admin.store.ts:3',
         }),
         expect.objectContaining({
           type: 'admin-store-error-copy',
-          location: 'src/app/shared/model/admin.store.ts:7',
+          location: 'src/app/entities/admin/model/admin.store.ts:7',
         }),
         expect.objectContaining({
           type: 'admin-store-error-copy',
-          location: 'src/app/shared/model/admin.store.ts:11',
+          location: 'src/app/entities/admin/model/admin.store.ts:11',
         }),
         expect.objectContaining({
           type: 'admin-store-error-copy',
-          location: 'src/app/shared/model/admin.store.ts:15',
+          location: 'src/app/entities/admin/model/admin.store.ts:15',
         }),
         expect.objectContaining({
           type: 'admin-store-error-copy',
-          location: 'src/app/shared/model/admin.store.ts:20',
+          location: 'src/app/entities/admin/model/admin.store.ts:20',
         }),
         expect.objectContaining({
           type: 'admin-store-error-copy',
-          location: 'src/app/shared/model/admin.store.ts:21',
+          location: 'src/app/entities/admin/model/admin.store.ts:21',
         }),
       ])
     )
@@ -1429,7 +1429,7 @@ function adminUserActionErrorMessage(action) {
 
   it('accepts admin store error copy that starts with the recovery step', () => {
     const cwd = fixture({
-      'src/app/shared/model/admin.store.ts': `
+      'src/app/entities/admin/model/admin.store.ts': `
 export function adminHttpErrorMessage(label) {
   return \`Ask an owner or admin to give you Admin access, then open Admin and choose User access. You do not have access to the admin \${label}.\`
 }
@@ -2327,12 +2327,12 @@ function workspaceSettingsErrorMessage(action) {
 
   it('flags load error titles that do not tell users which view to retry or refresh', () => {
     const cwd = fixture({
-      'src/app/shared/model/chat.errors.ts': `
+      'src/app/features/chat/model/chat.errors.ts': `
 function baseMessage(action) {
   return 'Conversation history could not be loaded.'
 }
 `,
-      'src/app/shared/model/billing.store.ts': `
+      'src/app/features/billing/model/billing.store.ts': `
 function billingErrorMessage(area) {
   return 'Invoices could not be loaded.'
 }
@@ -2391,11 +2391,11 @@ function ResourceProfilesError() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'load-error-title-copy',
-          location: 'src/app/shared/model/chat.errors.ts:3',
+          location: 'src/app/features/chat/model/chat.errors.ts:3',
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
-          location: 'src/app/shared/model/billing.store.ts:3',
+          location: 'src/app/features/billing/model/billing.store.ts:3',
         }),
         expect.objectContaining({
           type: 'load-error-title-copy',
@@ -2439,12 +2439,12 @@ function ResourceProfilesError() {
 
   it('accepts load error titles that tell users which view to retry or refresh', () => {
     const cwd = fixture({
-      'src/app/shared/model/chat.errors.ts': `
+      'src/app/features/chat/model/chat.errors.ts': `
 function baseMessage(action) {
   return 'Retry conversation to load conversation history.'
 }
 `,
-      'src/app/shared/model/billing.store.ts': `
+      'src/app/features/billing/model/billing.store.ts': `
 function billingErrorMessage(area) {
   return 'Choose Check billing again to load invoices.'
 }
@@ -3457,7 +3457,7 @@ export function InvoiceList() {
 
   it('flags billing errors that explain the failure before the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/billing.store.ts': `
+      'src/app/features/billing/model/billing.store.ts': `
 function billingErrorMessage() {
   return 'Refresh Billing to load usage. Forge could not connect while loading billing. Check your connection, then refresh Billing again.'
 }
@@ -3477,7 +3477,7 @@ function billingActionErrors() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'billing-error-copy',
-          location: 'src/app/shared/model/billing.store.ts:3',
+          location: 'src/app/features/billing/model/billing.store.ts:3',
         }),
         expect.objectContaining({
           type: 'billing-error-copy',
@@ -3493,7 +3493,7 @@ function billingActionErrors() {
 
   it('accepts billing errors that start with the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/billing.store.ts': `
+      'src/app/features/billing/model/billing.store.ts': `
 function billingErrorMessage() {
   return 'Check your connection, then choose Check billing again to load usage. Forge could not connect while loading billing.'
 }
@@ -3557,7 +3557,7 @@ export function AnalyticsDashboard() {
 
   it('flags analytics errors that start with the failure instead of the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/analytics.store.ts': `
+      'src/app/features/analytics/model/analytics.store.ts': `
 export function analyticsUnavailableMessage() {
   return 'Analytics could not load live activity. Refresh the dashboard.'
 }
@@ -3574,18 +3574,18 @@ export function analyticsNetworkErrorMessage() {
     expect(result.findings).toEqual([
       expect.objectContaining({
         type: 'analytics-error-copy',
-        location: 'src/app/shared/model/analytics.store.ts:3',
+        location: 'src/app/features/analytics/model/analytics.store.ts:3',
       }),
       expect.objectContaining({
         type: 'analytics-error-copy',
-        location: 'src/app/shared/model/analytics.store.ts:7',
+        location: 'src/app/features/analytics/model/analytics.store.ts:7',
       }),
     ])
   })
 
   it('accepts analytics errors that start with the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/analytics.store.ts': `
+      'src/app/features/analytics/model/analytics.store.ts': `
 export function analyticsUnavailableMessage() {
   return 'Open Analytics again. If this is a new workspace, run an agent task first.'
 }
@@ -7277,7 +7277,7 @@ export function agentServerMessage() {
 export const AGENT_CREATED_START_ERROR =
   'Agent was created, but its workspace was not started. Ask an owner or admin to check Agent work setup in Settings, then start this agent from the card.'
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
   return 'Choose an available work location and local tool, then save agent work settings again.'
 }
@@ -7341,7 +7341,7 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'settings-runtime-setup-copy',
-          location: 'src/app/shared/model/settings.store.ts:3',
+          location: 'src/app/entities/settings/model/settings.store.ts:3',
         }),
         expect.objectContaining({
           type: 'settings-runtime-setup-copy',
@@ -7400,7 +7400,7 @@ export function agentServerMessage() {
 export const AGENT_CREATED_START_ERROR =
   'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but file work is not ready yet.'
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
   return 'Choose where project files open and a work tool, then save Where agents work again.'
 }
@@ -9733,7 +9733,7 @@ function runtimeChangedMessage() {
   return 'Refresh Settings, review the current choices, then save again. The choices in Where agents work changed while you were working.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsChangedMessage() {
   return 'Refresh the list, review the current value, then try again.'
 }
@@ -9763,7 +9763,7 @@ function settingsChangedMessage() {
         }),
         expect.objectContaining({
           type: 'recovery-review-current-copy',
-          location: 'src/app/shared/model/settings.store.ts:3',
+          location: 'src/app/entities/settings/model/settings.store.ts:3',
         }),
       ])
     )
@@ -12162,7 +12162,7 @@ export function SkillDetailModal() {
   return 'Workspace saved instructions'
 }
 `,
-      'src/app/shared/model/skills.store.ts': `
+      'src/app/entities/skill/model/skills.store.ts': `
 function normalizeSkill() {
   return { plugin: 'Workspace skills' }
 }
@@ -12184,7 +12184,7 @@ function normalizeSkill() {
         }),
         expect.objectContaining({
           type: 'saved-instruction-source-label-copy',
-          location: 'src/app/shared/model/skills.store.ts:3',
+          location: 'src/app/entities/skill/model/skills.store.ts:3',
         }),
       ])
     )
@@ -12502,7 +12502,7 @@ function savedInstructionsLoadErrorMessage(error) {
   return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions could not load.' : error
 }
 `,
-      'src/app/shared/model/skills.store.ts': `
+      'src/app/entities/skill/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
     ? 'Check the required fields, then create the instruction again.'
@@ -12526,11 +12526,11 @@ function skillAccessErrorMessage() {
         }),
         expect.objectContaining({
           type: 'saved-instructions-load-copy',
-          location: 'src/app/shared/model/skills.store.ts:5',
+          location: 'src/app/entities/skill/model/skills.store.ts:5',
         }),
         expect.objectContaining({
           type: 'saved-instructions-load-copy',
-          location: 'src/app/shared/model/skills.store.ts:8',
+          location: 'src/app/entities/skill/model/skills.store.ts:8',
         }),
       ])
     )
@@ -12543,7 +12543,7 @@ function savedInstructionsLoadErrorMessage(error) {
   return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved instructions need a refresh.' : error
 }
 `,
-      'src/app/shared/model/skills.store.ts': `
+      'src/app/entities/skill/model/skills.store.ts': `
 function skillResponseErrorMessage(action) {
   return action === 'create'
     ? 'Check the required fields, then create the instruction again.'
@@ -12588,7 +12588,7 @@ function reviewFirst() {
   return 'Review the draft, then publish again. Instruction was not published.'
 }
 `,
-      'src/app/shared/model/skills.store.ts': `
+      'src/app/entities/skill/model/skills.store.ts': `
 function busy() {
   return 'Instruction setup is busy. Wait a moment, then create the instruction.'
 }
@@ -12640,15 +12640,15 @@ function fallback() {
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-copy',
-          location: 'src/app/shared/model/skills.store.ts:3',
+          location: 'src/app/entities/skill/model/skills.store.ts:3',
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-copy',
-          location: 'src/app/shared/model/skills.store.ts:6',
+          location: 'src/app/entities/skill/model/skills.store.ts:6',
         }),
         expect.objectContaining({
           type: 'saved-instruction-create-copy',
-          location: 'src/app/shared/model/skills.store.ts:9',
+          location: 'src/app/entities/skill/model/skills.store.ts:9',
         }),
       ])
     )
@@ -12678,7 +12678,7 @@ function service() {
   return 'Wait a few minutes, then publish again. Forge could not publish this instruction right now.'
 }
 `,
-      'src/app/shared/model/skills.store.ts': `
+      'src/app/entities/skill/model/skills.store.ts': `
 function fallback() {
   return 'Check the required fields, then create the instruction again.'
 }
@@ -12693,7 +12693,7 @@ function busy() {
 
   it('flags saved instruction creation recovery copy that starts with review', () => {
     const cwd = fixture({
-      'src/app/shared/model/skills.store.ts': `
+      'src/app/entities/skill/model/skills.store.ts': `
 const createConflictMessage =
   'Review the existing instructions, then change the name or matching words and create the instruction again.'
 const createDefaultMessage = 'Review the fields, then create the instruction again.'
@@ -12706,11 +12706,11 @@ const createDefaultMessage = 'Review the fields, then create the instruction aga
     expect(result.findings).toEqual([
       expect.objectContaining({
         type: 'saved-instruction-create-copy',
-        location: 'src/app/shared/model/skills.store.ts:3',
+        location: 'src/app/entities/skill/model/skills.store.ts:3',
       }),
       expect.objectContaining({
         type: 'saved-instruction-create-copy',
-        location: 'src/app/shared/model/skills.store.ts:4',
+        location: 'src/app/entities/skill/model/skills.store.ts:4',
       }),
     ])
   })
@@ -13042,7 +13042,7 @@ function validationGuidance() {
   return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsActionErrorMessage() {
   return 'Check the GitHub or GitLab address. Leave it blank for github.com or gitlab.com, then save again.'
 }
@@ -13088,7 +13088,7 @@ function settingsActionErrorMessage() {
         }),
         expect.objectContaining({
           type: 'code-access-address-copy',
-          location: 'src/app/shared/model/settings.store.ts:3',
+          location: 'src/app/entities/settings/model/settings.store.ts:3',
         }),
       ])
     )
@@ -13113,7 +13113,7 @@ function validationGuidance() {
   return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsActionErrorMessage() {
   return 'Check the code website address. Leave it blank for github.com or gitlab.com, then save again.'
 }
@@ -13236,7 +13236,7 @@ export function requiredMessage() {
   return 'Check the access name and shareable public key line, then try again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
   return 'Add a name for this access, paste the shareable public key line, then save again.'
 }
@@ -13359,7 +13359,7 @@ export function requiredMessage() {
   return 'Check the access name and safe public key line, then try again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 export function settingsActionErrorMessage() {
   return 'Add a name for this access, paste the safe public key line, then save again.'
 }
@@ -15155,7 +15155,7 @@ export function createAgentWorkLaneErrorMessage() {
   return 'Task queue was not created. Forge could not connect while creating the task queue. Check your connection, then try again.'
 }
 `,
-      'src/app/entities/agent-group/api/agentGroupApi.ts': `
+      'src/app/entities/navigation/agent-group/api/agentGroupApi.ts': `
 export function missingGroupMessage() {
   throw new Error(
     'Task queue was not created. Check the task queue name and project, then try again.'
@@ -15179,7 +15179,7 @@ export function missingGroupMessage() {
         }),
         expect.objectContaining({
           type: 'agent-task-queue-error-copy',
-          location: 'src/app/entities/agent-group/api/agentGroupApi.ts:4',
+          location: 'src/app/entities/navigation/agent-group/api/agentGroupApi.ts:4',
         }),
       ])
     )
@@ -15197,7 +15197,7 @@ export function createAgentWorkLaneErrorMessage() {
   return 'Check your connection, then try creating the task queue again. Forge could not connect while creating the task queue.'
 }
 `,
-      'src/app/entities/agent-group/api/agentGroupApi.ts': `
+      'src/app/entities/navigation/agent-group/api/agentGroupApi.ts': `
 export function missingGroupMessage() {
   throw new Error(
     'Check the task queue name and project, then create the queue again. Task queue was not created.'
@@ -17876,7 +17876,7 @@ function chatStreamRequestErrorMessage() {
   return 'Forge could not connect while sending this message. Check your connection, then resend it.'
 }
 `,
-      'src/app/shared/model/chat.errors.ts': `
+      'src/app/features/chat/model/chat.errors.ts': `
 function networkRecoveryMessage(action) {
   return action === 'load'
     ? 'Forge could not connect while loading this conversation. Check your connection, then try again.'
@@ -17898,7 +17898,7 @@ function connectionMessage() {
   return 'The project was not created. Forge could not connect while creating this project. Check your connection, then try again.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsConnectionMessage() {
   return 'Settings could not load AI service settings. Forge could not connect while loading Settings. Check your connection, then try again.'
 }
@@ -17972,11 +17972,11 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
-          location: 'src/app/shared/model/chat.errors.ts:4',
+          location: 'src/app/features/chat/model/chat.errors.ts:4',
         }),
         expect.objectContaining({
           type: 'network-copy',
-          location: 'src/app/shared/model/chat.errors.ts:5',
+          location: 'src/app/features/chat/model/chat.errors.ts:5',
         }),
         expect.objectContaining({
           type: 'network-copy',
@@ -17992,7 +17992,7 @@ export const zh = {
         }),
         expect.objectContaining({
           type: 'network-copy',
-          location: 'src/app/shared/model/settings.store.ts:3',
+          location: 'src/app/entities/settings/model/settings.store.ts:3',
         }),
         expect.objectContaining({
           type: 'network-copy',
@@ -18049,7 +18049,7 @@ function chatStreamRequestErrorMessage() {
   return 'Check your connection, then resend the message. Forge could not connect while sending this message.'
 }
 `,
-      'src/app/shared/model/chat.errors.ts': `
+      'src/app/features/chat/model/chat.errors.ts': `
 function networkRecoveryMessage(action) {
   return action === 'load'
     ? 'Check your connection, then choose Retry conversation again. Forge could not connect while loading this conversation.'
@@ -18071,7 +18071,7 @@ function connectionMessage() {
   return 'Check your connection, then create this project again. Forge could not connect while creating it.'
 }
 `,
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsConnectionMessage() {
   return 'Check your connection, then open Settings and AI services again. Forge could not connect while loading Settings.'
 }
@@ -18274,7 +18274,7 @@ function fallback() {
 
   it('flags chat errors that explain failure before the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/chat.errors.ts': `
+      'src/app/features/chat/model/chat.errors.ts': `
 function serviceRecoveryMessage(action) {
   return action === 'load'
     ? 'Forge could not load this conversation right now. Wait a few minutes, then try again.'
@@ -18306,31 +18306,31 @@ function rateLimit(base) {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:4',
+          location: 'src/app/features/chat/model/chat.errors.ts:4',
         }),
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:5',
+          location: 'src/app/features/chat/model/chat.errors.ts:5',
         }),
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:9',
+          location: 'src/app/features/chat/model/chat.errors.ts:9',
         }),
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:12',
+          location: 'src/app/features/chat/model/chat.errors.ts:12',
         }),
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:15',
+          location: 'src/app/features/chat/model/chat.errors.ts:15',
         }),
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:18',
+          location: 'src/app/features/chat/model/chat.errors.ts:18',
         }),
         expect.objectContaining({
           type: 'chat-error-copy',
-          location: 'src/app/shared/model/chat.errors.ts:21',
+          location: 'src/app/features/chat/model/chat.errors.ts:21',
         }),
       ])
     )
@@ -18338,7 +18338,7 @@ function rateLimit(base) {
 
   it('accepts chat errors that start with the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/chat.errors.ts': `
+      'src/app/features/chat/model/chat.errors.ts': `
 function serviceRecoveryMessage(action) {
   return action === 'load'
     ? 'Wait a few minutes, then choose Retry conversation again. Forge could not load this conversation right now.'
@@ -18359,7 +18359,7 @@ function changed(base) {
 
   it('flags Settings store errors that explain failure before the next step', () => {
     const cwd = fixture({
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsUnavailableMessage(operation, actionPhrase) {
   return \`Forge could not \${operation} right now. Refresh Settings, then try to \${actionPhrase} again.\`
 }
@@ -18389,23 +18389,23 @@ function oldSettingsBusyMessage(actionPhrase) {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'settings-store-error-copy',
-          location: 'src/app/shared/model/settings.store.ts:3',
+          location: 'src/app/entities/settings/model/settings.store.ts:3',
         }),
         expect.objectContaining({
           type: 'settings-store-error-copy',
-          location: 'src/app/shared/model/settings.store.ts:7',
+          location: 'src/app/entities/settings/model/settings.store.ts:7',
         }),
         expect.objectContaining({
           type: 'settings-store-error-copy',
-          location: 'src/app/shared/model/settings.store.ts:11',
+          location: 'src/app/entities/settings/model/settings.store.ts:11',
         }),
         expect.objectContaining({
           type: 'settings-store-error-copy',
-          location: 'src/app/shared/model/settings.store.ts:15',
+          location: 'src/app/entities/settings/model/settings.store.ts:15',
         }),
         expect.objectContaining({
           type: 'settings-store-error-copy',
-          location: 'src/app/shared/model/settings.store.ts:19',
+          location: 'src/app/entities/settings/model/settings.store.ts:19',
         }),
       ])
     )
@@ -18413,7 +18413,7 @@ function oldSettingsBusyMessage(actionPhrase) {
 
   it('accepts Settings store errors that start with the recovery step', () => {
     const cwd = fixture({
-      'src/app/shared/model/settings.store.ts': `
+      'src/app/entities/settings/model/settings.store.ts': `
 function settingsUnavailableMessage(operation, actionPhrase) {
   return \`Open Settings and AI services again. Forge could not \${operation} right now.\`
 }

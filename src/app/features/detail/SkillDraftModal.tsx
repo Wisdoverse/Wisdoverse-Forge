@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { ArrowRight, CheckCircle2, LibraryBig, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSkillsStore, type Skill } from '@app/shared/model/skills.store'
+import { useSkillsStore, type Skill } from '@app/entities/skill'
 import type { TaskResultArtifact, TaskSummary } from '@app/shared/api/orchestration'
 import { skillDraftErrorMessage } from './model/skillDraftErrorMessage'
 

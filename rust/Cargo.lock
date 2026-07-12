@@ -66,6 +66,7 @@ dependencies = [
  "agentforge-jobs",
  "agentforge-llm",
  "agentforge-platform",
+ "agentforge-telemetry",
  "anyhow",
  "async-nats",
  "async-stream",
@@ -268,6 +269,7 @@ dependencies = [
  "agentforge-db",
  "agentforge-infra",
  "agentforge-platform",
+ "agentforge-telemetry",
  "anyhow",
  "async-nats",
  "async-trait",
@@ -351,6 +353,7 @@ name = "agentforge-orchestrator-bin"
 version = "0.1.0"
 dependencies = [
  "agentforge-orchestrator",
+ "agentforge-telemetry",
  "anyhow",
  "axum",
  "tokio",
@@ -394,6 +397,7 @@ dependencies = [
  "agentforge-jobs",
  "agentforge-llm",
  "agentforge-platform",
+ "agentforge-telemetry",
  "anyhow",
  "async-nats",
  "axum",
@@ -412,6 +416,7 @@ version = "0.1.0"
 dependencies = [
  "agentforge-core",
  "agentforge-infra",
+ "agentforge-telemetry",
  "anyhow",
  "async-nats",
  "chrono",
@@ -430,6 +435,18 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "agentforge-telemetry"
+version = "0.1.0"
+dependencies = [
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1665,9 +1682,9 @@ dependencies = [
 
 [[package]]
 name = "cmov"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f88a43d011fc4a6876cb7344703e297c71dda42494fee094d5f7c76bf13f746"
+checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
 name = "color_quant"

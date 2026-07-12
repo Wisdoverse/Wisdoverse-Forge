@@ -2,8 +2,8 @@ import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { TaskDetailPanel } from '@app/features/detail/TaskDetailPanel'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 
 const orchestrationApiMock = vi.hoisted(() => ({
   updateTask: vi.fn(),

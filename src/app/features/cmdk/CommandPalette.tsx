@@ -3,8 +3,8 @@ import { Command } from 'cmdk'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@app/shared/lib/utils'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 
 interface CommandPaletteProps {

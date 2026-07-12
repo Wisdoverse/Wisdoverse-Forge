@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { resolveLandingPath } from '@app/routes/landing'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 

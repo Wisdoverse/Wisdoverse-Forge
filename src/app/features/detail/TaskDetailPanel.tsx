@@ -18,8 +18,8 @@ import {
   type ParticipantSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
 import type { ContextPreviewResponse } from '@shared/types/context'
 import { TaskMetadata } from './TaskMetadata'

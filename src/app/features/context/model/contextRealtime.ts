@@ -1,6 +1,6 @@
 import type { TaskContextCounts } from '@app/shared/api/orchestration'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useContextStore } from '@app/shared/model/context.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useContextStore } from './context.store'
 
 export type ContextRealtimeEventType =
   | 'context_candidate.created'

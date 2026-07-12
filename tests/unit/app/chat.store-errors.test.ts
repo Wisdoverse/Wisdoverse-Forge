@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { chatErrorMessage } from '@app/shared/model/chat.errors'
-import { useChatStore } from '@app/shared/model/chat.store'
+import { chatErrorMessage } from '@app/features/chat/model/chat.errors'
+import { useChatStore } from '@app/features/chat/model/chat.store'
 
 const agentApiMock = vi.hoisted(() => ({
   fetchMessages: vi.fn(),

@@ -13,7 +13,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { waitingPlaceDisplayName } from '@app/entities/agent-group'
+import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { cn } from '@app/shared/lib/utils'
 import {
   LOCAL_AGENT_SETUP_APP_LABEL,
@@ -21,7 +21,7 @@ import {
   useAgentsStore,
 } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import type { AgentCreateInitialKind, LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import type { CliTool } from '@shared/types'
