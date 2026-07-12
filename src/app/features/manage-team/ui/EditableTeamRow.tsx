@@ -3,7 +3,7 @@ import { Check, Pencil, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { workspaceResourceErrorMessage } from '@app/shared/lib/workspaceResourceErrorMessage'
-import type { NavTeam, UpdateTeamInput } from '@app/entities/team'
+import type { NavTeam, UpdateTeamInput } from '@app/entities/navigation/team'
 
 const EMPTY_TEAM_NAME_MESSAGE = 'Enter a team name, then save this team name again.'
 const TEAM_DELETE_CONFIRMATION_MESSAGE =

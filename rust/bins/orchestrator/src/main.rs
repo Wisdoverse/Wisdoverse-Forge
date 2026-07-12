@@ -5,7 +5,18 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 async fn main() -> anyhow::Result<()> {
     let config = Config::load()?;
 
+    // CN-4: optional OTLP span export (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is
+    // unset). `_otel_guard` must live for the whole process so the batch exporter
+    // flushes on exit; it is dropped when `main` returns.
+    let (otel_layer, _otel_guard) = match agentforge_telemetry::otel_layer::<tracing_subscriber::Registry>(
+        "agentforge-orchestrator",
+        env!("CARGO_PKG_VERSION"),
+    ) {
+        Some((layer, guard)) => (Some(layer), Some(guard)),
+        None => (None, None),
+    };
     tracing_subscriber::registry()
+        .with(otel_layer)
         .with(EnvFilter::new(&config.log_level))
         .with(tracing_subscriber::fmt::layer().json())
         .init();

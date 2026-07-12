@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SkillDraftModal } from '@app/features/detail/SkillDraftModal'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSkillsStore } from '@app/entities/skill'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
 const fetchMock = vi.fn()
@@ -135,7 +135,9 @@ describe('SkillDraftModal', () => {
       )
     ).toBeDefined()
     expect(
-      screen.queryByText('Find this instruction, then check the reusable steps before agents use them.')
+      screen.queryByText(
+        'Find this instruction, then check the reusable steps before agents use them.'
+      )
     ).toBeNull()
     expect(screen.queryByText(/review the reusable steps before agents use them/i)).toBeNull()
 

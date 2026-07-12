@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { AgentGroupsPanel } from '@app/features/agents/AgentGroupsPanel'
 import { useNavigationStore } from '@app/entities/navigation'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
 function makeTask(overrides: Partial<TaskSummary>): TaskSummary {

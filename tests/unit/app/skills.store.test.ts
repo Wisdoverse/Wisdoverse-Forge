@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { skillHttpErrorMessage, useSkillsStore } from '@app/shared/model/skills.store'
+import { skillHttpErrorMessage, useSkillsStore } from '@app/entities/skill'
 
 const fetchMock = vi.fn()
 

@@ -8,20 +8,10 @@ export type ContextCandidateKind = 'memory' | 'skill'
 export type ContextCandidateState = 'pending' | 'approved' | 'rejected' | 'superseded'
 export type ContextApprovalDecision = 'approved' | 'rejected'
 export type ContextRefKind =
-  | 'task'
-  | 'run'
-  | 'agent'
-  | 'user'
-  | 'team'
-  | 'project'
-  | 'source_message'
+  'task' | 'run' | 'agent' | 'user' | 'team' | 'project' | 'source_message'
 export type ContextLinkType = 'applied' | 'suggested' | 'source' | 'derived_from'
 export type ContextFeedbackLabel =
-  | 'useful'
-  | 'stale'
-  | 'wrong'
-  | 'too_sensitive'
-  | 'do_not_use_again'
+  'useful' | 'stale' | 'wrong' | 'too_sensitive' | 'do_not_use_again'
 
 export interface MemoryItem {
   id: string

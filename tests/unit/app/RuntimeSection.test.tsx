@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import '@app/i18n'
 import { RuntimeSection } from '@app/features/settings/RuntimeSection'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 const { agentApiMock, orchestrationApiMock } = vi.hoisted(() => ({
   agentApiMock: {

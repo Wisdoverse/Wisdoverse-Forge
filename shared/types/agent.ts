@@ -219,47 +219,6 @@ export interface AgentListResponse {
 }
 
 // ============================================================================
-// Text Tiles (Grid Labels)
-// ============================================================================
-
-/** A text label tile on the hex grid */
-export interface TextTile {
-  /** Unique ID (UUID) */
-  id: string
-  /** The label text */
-  text: string
-  /** Hex grid position */
-  position: {
-    q: number
-    r: number
-  }
-  /** Optional color (hex string, default white) */
-  color?: string
-  /** Creation timestamp */
-  createdAt: number
-}
-
-/** Request to create a text tile */
-export interface CreateTextTileRequest {
-  text: string
-  position: {
-    q: number
-    r: number
-  }
-  color?: string
-}
-
-/** Request to update a text tile */
-export interface UpdateTextTileRequest {
-  text?: string
-  position?: {
-    q: number
-    r: number
-  }
-  color?: string
-}
-
-// ============================================================================
 // Agent Groups (Multi-Agent Orchestration)
 // ============================================================================
 
@@ -364,29 +323,13 @@ export interface GroupListResponse {
   groups: AgentGroup[]
 }
 
-/** Worker report message payload */
-export interface WorkerReportPayload {
-  groupId: string
-  workerId: string
-  workerName: string
-  content: string
-  /** true = triggered by stop event, false = manual <report> tag */
-  isAutoReport: boolean
-}
-
 // ============================================================================
 // Orchestration Task & Participant Summaries (for WS + API)
 // ============================================================================
 
 /** Task state machine states */
 export type OrchTaskState =
-  | 'backlog'
-  | 'queued'
-  | 'working'
-  | 'blocked'
-  | 'completed'
-  | 'failed'
-  | 'canceled'
+  'backlog' | 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'canceled'
 
 /** Task priority levels */
 export type OrchTaskPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -417,6 +360,23 @@ export interface TaskSummary {
   attempt: number
   /** RFC3339 timestamp when the current worker lease expires (only set while working). */
   leaseExpiresAt?: string
+  // MS-3 PR-E: the jobs WS projector now emits the full Rust `TaskSummary`
+  // shape (same adapter as the REST responses), so `orchestration:task_update`
+  // frames carry the fields below too.
+  /** Task owner (user UUID). */
+  createdBy?: string
+  /** Completion result payload, when the task finished with one. */
+  result?: unknown
+  blockedReason?: string
+  /** Backend-rendered human hint for the blocked card. */
+  blockedHint?: string
+  blockedMetadata?: Record<string, unknown>
+  /** True when this is a self-fix task (drives the PR Review tab). */
+  selfFix?: boolean
+  prNumber?: number
+  prUrl?: string
+  prHeadSha?: string
+  reviewStatus?: string
 }
 
 /** Lightweight participant representation for WS broadcasts */

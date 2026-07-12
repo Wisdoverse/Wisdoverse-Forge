@@ -8,7 +8,7 @@ import {
 } from '@app/shared/api/orchestration'
 
 // The panel reads `upsertTask` off the board store; a no-op selector is enough.
-vi.mock('@app/shared/model/board.store', () => ({
+vi.mock('@app/entities/navigation/model/board.store', () => ({
   useBoardStore: (selector: (s: { upsertTask: () => void }) => unknown) =>
     selector({ upsertTask: () => {} }),
 }))

@@ -3,7 +3,7 @@ export {
   useNavigationStore,
   type CloneStatusUpdate,
 } from './model/navigation.store'
-export type { NavAgentGroup } from '@app/entities/agent-group'
-export type { NavOrg } from '@app/entities/organization'
-export type { NavProject } from '@app/entities/project'
-export type { NavTeam } from '@app/entities/team'
+export type { NavAgentGroup } from './agent-group'
+export type { NavOrg } from './organization'
+export type { NavProject } from './project'
+export type { NavTeam } from './team'

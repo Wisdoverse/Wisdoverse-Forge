@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { FeedItem } from '@app/features/feed/FeedItem'
-import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
+import type { FeedItem as FeedItemType } from '@app/entities/feed'
 
 const baseItem: FeedItemType = {
   id: 'feed-1',
@@ -41,7 +41,9 @@ describe('FeedItem', () => {
     expect(screen.getByText('Check retry steps')).toBeDefined()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(
-      screen.getByText('Open task details to read the recovery note, then retry or choose another agent.')
+      screen.getByText(
+        'Open task details to read the recovery note, then retry or choose another agent.'
+      )
     ).toBeDefined()
     expect(
       screen.getByText(/follow the recovery note, then retry or choose another agent/i)
@@ -56,7 +58,9 @@ describe('FeedItem', () => {
     render(<FeedItem item={{ ...baseItem, type: 'task.failed', detail: 'SSH key rejected' }} />)
 
     expect(
-      screen.getByText('Open task details to read the recovery note, then retry or choose another agent.')
+      screen.getByText(
+        'Open task details to read the recovery note, then retry or choose another agent.'
+      )
     ).toBeDefined()
     expect(screen.queryByText(/when ready/i)).toBeNull()
     expect(screen.queryByText(/reassign/i)).toBeNull()

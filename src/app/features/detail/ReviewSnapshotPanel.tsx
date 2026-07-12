@@ -16,7 +16,7 @@ import {
   type SelfFixReviewStatus,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { reviewSnapshotErrorMessage } from './model/reviewSnapshotErrorMessage'
 
 interface ReviewSnapshotPanelProps {
