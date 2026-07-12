@@ -93,7 +93,10 @@ describe('AgentListView', () => {
   test('keeps task queue and local computer setup collapsed by default', () => {
     render(<AgentListView />)
 
-    expect(screen.getByRole('button', { name: /more agent setup/i })).toHaveAttribute(
+    const layout = screen.getByTestId('agent-list-layout')
+    expect(layout.className).not.toContain('xl:grid-cols')
+    const header = screen.getByTestId('agent-list-header')
+    expect(within(header).getByRole('button', { name: /more agent setup/i })).toHaveAttribute(
       'aria-expanded',
       'false'
     )
@@ -102,10 +105,12 @@ describe('AgentListView', () => {
 
     openMoreAgentSetup()
 
-    expect(screen.getByRole('button', { name: /hide more agent setup/i })).toHaveAttribute(
+    expect(within(header).getByRole('button', { name: /hide more agent setup/i })).toHaveAttribute(
       'aria-expanded',
       'true'
     )
+    expect(screen.getByTestId('more-agent-setup')).toHaveClass('space-y-4')
+    expect(screen.getByTestId('more-agent-setup').className).not.toContain('grid-cols')
     expect(screen.getByText('Task Queues')).toBeDefined()
     expect(screen.getByTestId('host-cli-enrollment-panel')).toBeDefined()
   })
