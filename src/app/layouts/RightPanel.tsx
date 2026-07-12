@@ -36,12 +36,12 @@ export function RightPanel({
         variant === 'mobile'
           ? 'w-full h-full flex flex-col'
           : 'w-[280px] flex-shrink-0 flex flex-col',
-        'bg-surface-elevated backdrop-blur-[30px] rounded-panel',
+        'min-h-0 overflow-hidden bg-surface-elevated rounded-panel',
         'shadow-panel dark:bg-surface-dark-elevated dark:shadow-panel-dark'
       )}
     >
       {selectedTask ? (
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} />
         </div>
       ) : (
@@ -63,7 +63,7 @@ export function RightPanel({
               <X size={14} strokeWidth={2} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {children ?? <ActivityFeed onOpenBoard={onOpenBoard} />}
           </div>
         </>
