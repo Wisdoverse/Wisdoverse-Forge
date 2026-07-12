@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { AttentionZone } from '@app/features/feed/AttentionZone'
-import type { AttentionItem } from '@app/shared/model/feed.store'
+import type { AttentionItem } from '@app/entities/feed'
 
 const attentionItem: AttentionItem = {
   id: 'attention-1',

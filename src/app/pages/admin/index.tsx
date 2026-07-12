@@ -1,4 +1,4 @@
-import { AdminLayout } from '@app/features/admin/AdminLayout'
+import { AdminLayout } from '@app/features/admin'
 
 export function AdminPage() {
   return (

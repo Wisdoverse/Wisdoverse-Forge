@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ControlPlanePanel } from '@app/features/admin/ControlPlanePanel'
 import { controlPlaneErrorMessage } from '@app/features/admin/controlPlaneErrorMessage'
-import { useAdminStore } from '@app/shared/model/admin.store'
-import type { OrgControlPlaneSnapshot } from '@app/shared/model/admin.store'
+import { useAdminStore } from '@app/entities/admin'
+import type { OrgControlPlaneSnapshot } from '@app/entities/admin'
 
 const originalState = useAdminStore.getState()
 
@@ -54,8 +54,9 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText('2')).toBeDefined()
     expect(screen.getByText('0')).toBeDefined()
     expect(screen.getByText('4')).toBeDefined()
-    expect(screen.getByLabelText('Assignment updates waiting to send: 3, check this value'))
-      .toBeDefined()
+    expect(
+      screen.getByLabelText('Assignment updates waiting to send: 3, check this value')
+    ).toBeDefined()
     expect(screen.queryByLabelText(/needs attention/i)).toBeNull()
 
     // Check-in timing context is explained in operator-facing language.

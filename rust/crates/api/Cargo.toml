@@ -12,6 +12,7 @@ agentforge-infra.workspace = true
 agentforge-jobs.workspace = true
 agentforge-llm.workspace = true
 agentforge-platform.workspace = true
+agentforge-telemetry.workspace = true
 axum.workspace = true
 # `use_pem` adds RSA PEM parsing (GitHub App private keys ship as PEM). It pulls
 # only `pem` + `simple_asn1`, NOT the RustCrypto `rsa` crate the workspace base

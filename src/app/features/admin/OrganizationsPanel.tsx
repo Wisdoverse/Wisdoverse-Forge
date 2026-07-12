@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Building2, CalendarDays, Network, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { type AdminOrg, useAdminStore } from '@app/shared/model/admin.store'
+import { type AdminOrg, useAdminStore } from '@app/entities/admin'
 import { ADMIN_PANEL_RECOVERY, adminPanelLoadErrorMessage } from './adminErrorCopy'
 
 function formatDate(iso: string): string {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { KeysSection } from '@app/features/settings/KeysSection'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import type { ApiKeyRecord } from '@app/shared/api/legacy/settingsApi'
 
 const loadApiKeysMock = vi.fn().mockResolvedValue(undefined)
@@ -113,9 +113,7 @@ describe('KeysSection', () => {
     expect(createApiKeyMock).not.toHaveBeenCalled()
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(
-      /name the tool that will use this access key first/i
-    )
+    expect(alert).toHaveTextContent(/name the tool that will use this access key first/i)
     expect(input).toHaveFocus()
   })
 
@@ -325,9 +323,7 @@ describe('KeysSection', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Ask an owner or admin to let you create or remove tool access keys.'
     )
-    expect(screen.getByRole('alert')).not.toHaveTextContent(
-      'Tool access key could not be created.'
-    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Tool access key could not be created.')
     expect(screen.queryByText(/Details: Forbidden/i)).toBeNull()
   })
 })

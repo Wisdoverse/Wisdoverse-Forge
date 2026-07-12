@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { CreateProjectForm } from '@app/features/manage-project'
 import { CreateTeamForm } from '@app/features/manage-team'
-import type { NavTeam } from '@app/entities/team'
+import type { NavTeam } from '@app/entities/navigation/team'
 
 const team: NavTeam = {
   id: 'team-1',

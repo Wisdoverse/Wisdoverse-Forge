@@ -262,6 +262,7 @@ async fn assignment_outbox_publishes_only_after_commit(pool: PgPool) {
         context_envelope: None,
         runtime_kind: None,
         image_paths: Vec::new(),
+        trace_context: None,
     };
 
     let js = jetstream::new(client.clone());
@@ -334,6 +335,7 @@ async fn assignment_outbox_backlog_drains_after_publisher_restart(pool: PgPool) 
         context_envelope: None,
         runtime_kind: None,
         image_paths: Vec::new(),
+        trace_context: None,
     };
 
     let js = jetstream::new(client.clone());

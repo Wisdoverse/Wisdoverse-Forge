@@ -37,7 +37,7 @@ pub mod dependency_reconcile;
 pub mod event_consumer;
 pub mod orchestration_metrics;
 pub mod orchestration_outbox_publisher;
-mod orchestration_realtime;
+pub mod orchestration_realtime;
 pub mod orchestration_result_consumer;
 pub mod participant_liveness;
 pub mod presence_store;
@@ -65,8 +65,8 @@ pub use dead_events::{
 };
 pub use dependency_reconcile::{DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker};
 pub use event_consumer::{
-    AgentDirectory, AgentTarget, BroadcastBus, BroadcastEnvelope, BroadcastMessage, EVENTS_FILTER, EVENTS_STREAM,
-    EventConsumer, EventStore, EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
+    AgentDirectory, AgentTarget, BroadcastBus, EVENTS_FILTER, EVENTS_STREAM, EventConsumer, EventStore,
+    EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
 };
 pub use orchestration_metrics::{
     DEFAULT_CONTROL_PLANE_METRICS_INTERVAL, OrchestrationControlPlaneSnapshot, OrchestrationMetricsWorker,

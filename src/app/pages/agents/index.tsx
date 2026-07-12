@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useAgentsStore } from '@app/entities/agent'
-import { AgentListView } from '@app/features/agents/AgentListView'
-import { AgentDetailView } from '@app/widgets/agent-detail/AgentDetailView'
+import { AgentListView } from '@app/features/agents'
+import { AgentDetailView } from '@app/widgets/agent-detail'
 
 export function AgentsPage() {
   const { agents, selectedAgentId, selectAgent } = useAgentsStore()

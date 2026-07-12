@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { TeamsSection } from '@app/pages/settings/ui/TeamsSection'
-import { teamApi } from '@app/entities/team'
+import { teamApi } from '@app/entities/navigation/team'
 
 const authState = vi.hoisted(() => ({
   user: {
@@ -21,7 +21,7 @@ vi.mock('@app/entities/user', () => ({
   },
 }))
 
-vi.mock('@app/entities/team', () => ({
+vi.mock('@app/entities/navigation/team', () => ({
   teamApi: {
     getTeams: vi.fn(),
     createTeam: vi.fn(),
@@ -138,7 +138,9 @@ describe('TeamsSection', () => {
     fireEvent.change(screen.getByLabelText(/team name/i), { target: { value: 'Design' } })
     fireEvent.click(screen.getByRole('button', { name: /create team/i }))
 
-    expect(await screen.findByText(/Enter a team name, then choose Create team again/i)).toBeDefined()
+    expect(
+      await screen.findByText(/Enter a team name, then choose Create team again/i)
+    ).toBeDefined()
     expect(screen.queryByText(/then try again/i)).toBeNull()
     expect(screen.queryByText(/team name is required/i)).toBeNull()
   })

@@ -1,4 +1,4 @@
-import { SkillsView } from '@app/features/skills/SkillsView'
+import { SkillsView } from '@app/features/skills'
 
 export function SkillsPage() {
   return (

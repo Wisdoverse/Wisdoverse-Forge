@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import type { NavTeam } from '@app/entities/team'
+import type { NavTeam } from '@app/entities/navigation/team'
 import { slugifyName } from '@app/shared/lib/slugify'
 
 interface CreateProjectFormProps {

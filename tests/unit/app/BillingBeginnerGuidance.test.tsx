@@ -4,7 +4,7 @@ import { BillingPage } from '@app/features/billing/BillingPage'
 import { InvoiceList } from '@app/features/billing/InvoiceList'
 import { PlanCard } from '@app/features/billing/PlanCard'
 import { UsageMeter } from '@app/features/billing/UsageMeter'
-import { useBillingStore } from '@app/shared/model/billing.store'
+import { useBillingStore } from '@app/features/billing/model/billing.store'
 import type {
   BillingInvoice,
   BillingPlan,
@@ -140,7 +140,9 @@ describe('Billing beginner guidance', () => {
     render(<UsageMeter metrics={metrics} />)
 
     expect(screen.getByText('Agents')).toBeInTheDocument()
-    expect(screen.getByText(/Agents your team can use for tasks or simple chat/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Agents your team can use for tasks or simple chat/i)
+    ).toBeInTheDocument()
     expect(screen.queryByText(/Agents your team can use to handle tasks/i)).not.toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
     expect(screen.getByText(/Archive unused agents or upgrade/i)).toBeInTheDocument()
@@ -154,19 +156,27 @@ describe('Billing beginner guidance', () => {
     expect(screen.queryByText(/audit records/i)).not.toBeInTheDocument()
     expect(screen.getByText('AI message use')).toBeInTheDocument()
     expect(screen.getByText(/Messages and replies used by tasks and chats/i)).toBeInTheDocument()
-    expect(screen.queryByText(/Messages and replies processed while agents work/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Messages and replies processed while agents work/i)
+    ).not.toBeInTheDocument()
     expect(screen.getByText('No limit set')).toBeInTheDocument()
     expect(screen.getByText('1.2K used')).toBeInTheDocument()
     expect(screen.getByText('Custom Limit')).toBeInTheDocument()
-    expect(screen.getByText(/Check this limit before another task or chat reply/i)).toBeInTheDocument()
-    expect(screen.queryByText(/Check this limit before starting more work/i)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/Check this limit before another task or chat reply/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Check this limit before starting more work/i)
+    ).not.toBeInTheDocument()
     expect(screen.queryByText(/tokens/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/managed work actors/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Review this limit/i)).not.toBeInTheDocument()
   })
 
   test('explains high AI message use in task and chat terms', () => {
-    render(<UsageMeter metrics={[{ metric: 'tokens', current: 90, limit: 100, percentUsed: 90 }]} />)
+    render(
+      <UsageMeter metrics={[{ metric: 'tokens', current: 90, limit: 100, percentUsed: 90 }]} />
+    )
 
     expect(screen.getByText('AI message use')).toBeInTheDocument()
     expect(screen.getByText('Almost full')).toBeInTheDocument()
