@@ -111,12 +111,7 @@ export function normalizeSettingsSection(value: unknown): SettingsSection | null
 }
 
 type SettingsErrorArea =
-  | 'providers'
-  | 'apiKeys'
-  | 'gitCredentials'
-  | 'sshKeys'
-  | 'resourceProfiles'
-  | 'runtime'
+  'providers' | 'apiKeys' | 'gitCredentials' | 'sshKeys' | 'resourceProfiles' | 'runtime'
 
 type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
 

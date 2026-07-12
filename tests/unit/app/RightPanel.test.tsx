@@ -25,6 +25,9 @@ describe('RightPanel', () => {
     expect(screen.queryByText(/blockers/i)).toBeNull()
     expect(screen.getByLabelText(/hide live task updates/i)).toBeDefined()
     expect(screen.queryByLabelText(/panel/i)).toBeNull()
+    const panel = screen.getByTestId('right-panel')
+    expect(panel).toHaveClass('min-h-0', 'overflow-hidden')
+    expect(panel.className).not.toContain('backdrop-blur')
   })
 
   test('calls the toggle handler from the readable hide control', async () => {

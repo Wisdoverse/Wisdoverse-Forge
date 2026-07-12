@@ -16,13 +16,7 @@ import type {
 import { authFetch } from './authFetch'
 
 export type TaskState =
-  | 'backlog'
-  | 'queued'
-  | 'working'
-  | 'blocked'
-  | 'completed'
-  | 'failed'
-  | 'canceled'
+  'backlog' | 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'canceled'
 
 export type BlockedReason =
   | 'waiting_agent'
@@ -106,11 +100,7 @@ export interface TaskSummary {
 
 /** Self-fix review-status vocabulary — mirrors `domain::self_fix::review_status` (Rust). */
 export type SelfFixReviewStatus =
-  | 'in_review'
-  | 'approved'
-  | 'changes_requested'
-  | 'merged'
-  | 'sensitive_blocked'
+  'in_review' | 'approved' | 'changes_requested' | 'merged' | 'sensitive_blocked'
 
 /**
  * Read-side review snapshot for a self-fix task's draft PR. Mirrors the Rust
