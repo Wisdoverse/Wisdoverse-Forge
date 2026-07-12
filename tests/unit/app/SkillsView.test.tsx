@@ -8,7 +8,7 @@ const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
 
 import { SkillsView } from '@app/features/skills/SkillsView'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSkillsStore } from '@app/entities/skill'
 
 afterEach(cleanup)
 

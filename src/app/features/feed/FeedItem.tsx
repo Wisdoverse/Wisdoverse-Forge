@@ -11,7 +11,7 @@ import {
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { isRawTaskFailureDetail, taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
-import type { FeedItem as FeedItemType } from '@app/shared/model/feed.store'
+import type { FeedItem as FeedItemType } from '@app/entities/feed'
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
   'task.completed': CheckCircle2,

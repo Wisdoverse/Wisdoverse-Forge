@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import { type Turn, useChatStore } from '@app/shared/model/chat.store'
+import { type Turn, useChatStore } from './model/chat.store'
 import { agentAiServiceLabel, useAgentsStore } from '@app/entities/agent'
 import type { AgentMessageRow } from '@shared/types'
 import { TurnItem } from './TurnItem'

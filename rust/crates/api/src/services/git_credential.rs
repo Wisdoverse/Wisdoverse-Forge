@@ -8,7 +8,8 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use crate::domain::credential::{
-    CredentialListPage, GitCredentialDraft, GitCredentialEncryptionPolicy, GitCredentialToken, GitRemoteHost,
+    CredentialListPage, GitCredentialDraft, GitCredentialEncryptionPolicy, GitCredentialToken, GitCredentialView,
+    GitRemoteHost,
 };
 pub(crate) use crate::domain::credential::{
     credential_delete_response, git_credential_response, git_credentials_response,
@@ -147,18 +148,20 @@ impl GitCredentialService {
         &self,
         scope: &TenantScope,
         input: CreateGitCredentialInput,
-    ) -> AppResult<GitCredential> {
+    ) -> AppResult<GitCredentialView> {
         let token_encrypted = self.encrypt_git_token(input.token.as_deref())?;
-        self.upsert_for_provider(
-            scope,
-            &input.name,
-            &input.provider,
-            &input.credential_type,
-            trimmed_opt(input.remote_url.as_deref()),
-            token_encrypted.as_deref(),
-            None,
-        )
-        .await
+        let cred = self
+            .upsert_for_provider(
+                scope,
+                &input.name,
+                &input.provider,
+                &input.credential_type,
+                trimmed_opt(input.remote_url.as_deref()),
+                token_encrypted.as_deref(),
+                None,
+            )
+            .await?;
+        Ok(git_credential_view(&cred))
     }
 
     /// Upsert a provider-scoped git credential using legacy frontend defaults.
@@ -166,7 +169,7 @@ impl GitCredentialService {
         &self,
         scope: &TenantScope,
         input: UpsertGitCredentialInput,
-    ) -> AppResult<GitCredential> {
+    ) -> AppResult<GitCredentialView> {
         let provider = input.provider.trim().to_ascii_lowercase();
         let remote_url = trimmed_opt(input.host.as_deref());
         let credential_type = trimmed_opt(input.credential_type.as_deref()).unwrap_or("token");
@@ -174,14 +177,17 @@ impl GitCredentialService {
         let name = trimmed_opt(input.name.as_deref()).unwrap_or(default_name.as_str());
         let token_encrypted = self.encrypt_git_token(Some(input.token.as_str()))?;
 
-        self.upsert_for_provider(scope, name, &provider, credential_type, remote_url, token_encrypted.as_deref(), None)
-            .await
+        let cred = self
+            .upsert_for_provider(scope, name, &provider, credential_type, remote_url, token_encrypted.as_deref(), None)
+            .await?;
+        Ok(git_credential_view(&cred))
     }
 
-    /// List git credentials (paginated).
-    pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<GitCredential>> {
+    /// List git credentials (paginated), projected to the non-secret view.
+    pub async fn list(&self, scope: &TenantScope, limit: i64, offset: i64) -> AppResult<Vec<GitCredentialView>> {
         let page = CredentialListPage::new(limit, offset);
-        self.repo.list(scope, page.limit(), page.offset()).await
+        let creds = self.repo.list(scope, page.limit(), page.offset()).await?;
+        Ok(creds.iter().map(git_credential_view).collect())
     }
 
     /// Resolve saved GitHub/GitLab tokens into env vars consumed by `gh` and `glab`.
@@ -283,9 +289,10 @@ impl GitCredentialService {
         Ok(Some(ResolvedCredential { credential_id: cred.id, secret: SecretBytes::new(std::mem::take(&mut *bytes)) }))
     }
 
-    /// Get a git credential by ID.
-    pub async fn get(&self, scope: &TenantScope, id: Uuid) -> AppResult<GitCredential> {
-        self.repo.find_by_id(scope, id).await
+    /// Get a git credential by ID, projected to the non-secret view.
+    pub async fn get(&self, scope: &TenantScope, id: Uuid) -> AppResult<GitCredentialView> {
+        let cred = self.repo.find_by_id(scope, id).await?;
+        Ok(git_credential_view(&cred))
     }
 
     /// Delete a git credential by ID.
@@ -309,6 +316,25 @@ impl GitCredentialService {
 
 fn trimmed_opt(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+/// Project a `GitCredential` row into the non-secret [`GitCredentialView`] for
+/// responses. `token_encrypted` and `token_nonce` are dropped here and are
+/// absent from the view type, so neither the ciphertext nor the nonce can reach
+/// a response body. Decryption happens only on the CLI-injection /
+/// clone-resolution paths, never through this projection.
+fn git_credential_view(cred: &GitCredential) -> GitCredentialView {
+    GitCredentialView {
+        id: cred.id,
+        organization_id: cred.organization_id,
+        user_id: cred.user_id,
+        name: cred.name.clone(),
+        provider: cred.provider.clone(),
+        credential_type: cred.credential_type.clone(),
+        remote_url: cred.remote_url.clone(),
+        created_at: cred.created_at,
+        updated_at: cred.updated_at,
+    }
 }
 
 /// Normalized host of a credential's `remote_url`, or `None` when it has no
@@ -558,6 +584,41 @@ mod tests {
         assert_eq!(*clone_secret_bytes("gitlab", "glpat-xyz"), b"oauth2:glpat-xyz".to_vec());
         // Any other provider defaults to the x-access-token username.
         assert_eq!(*clone_secret_bytes("custom", "tok"), b"x-access-token:tok".to_vec());
+    }
+
+    #[test]
+    fn git_credential_view_projects_row_without_ciphertext_or_nonce() {
+        let row = GitCredential {
+            id: Uuid::now_v7(),
+            organization_id: agentforge_core::OrgId::new(),
+            user_id: agentforge_core::UserId::new(),
+            name: "GitHub".into(),
+            provider: "github".into(),
+            credential_type: "token".into(),
+            token_encrypted: Some(b"super-secret-ciphertext".to_vec()),
+            token_nonce: Some(b"super-secret-nonce".to_vec()),
+            remote_url: Some("https://github.com/Wisdoverse/Wisdoverse-Forge".into()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let view = git_credential_view(&row);
+        assert_eq!(view.id, row.id);
+        assert_eq!(view.provider, "github");
+
+        // The serialized response cannot carry either secret, in any casing,
+        // because the view type has no token field.
+        let body = serde_json::to_string(&git_credential_response(&view)).expect("serialize body");
+        for needle in [
+            "super-secret-ciphertext",
+            "super-secret-nonce",
+            "token_encrypted",
+            "tokenEncrypted",
+            "token_nonce",
+            "tokenNonce",
+        ] {
+            assert!(!body.contains(needle), "git credential response leaked `{needle}`: {body}");
+        }
     }
 
     #[test]

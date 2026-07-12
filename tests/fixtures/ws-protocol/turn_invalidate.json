@@ -1,0 +1,7 @@
+{
+  "type": "turn_invalidate",
+  "payload": {
+    "agentId": "00000000-0000-0000-0000-000000000001",
+    "timestamp": 1735732800000
+  }
+}

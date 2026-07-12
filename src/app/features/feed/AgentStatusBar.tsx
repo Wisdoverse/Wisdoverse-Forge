@@ -1,5 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
-import type { AgentStatus } from '@app/shared/model/feed.store'
+import type { AgentStatus } from '@app/entities/feed'
 
 const STATUS_COLORS: Record<string, string> = {
   working: 'bg-apple-green',

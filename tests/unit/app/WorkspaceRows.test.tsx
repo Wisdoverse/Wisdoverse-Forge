@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { EditableProjectRow } from '@app/features/manage-project/ui/EditableProjectRow'
 import { EditableTeamRow } from '@app/features/manage-team/ui/EditableTeamRow'
-import type { NavProject } from '@app/entities/project'
-import type { NavTeam } from '@app/entities/team'
+import type { NavProject } from '@app/entities/navigation/project'
+import type { NavTeam } from '@app/entities/navigation/team'
 
 const project: NavProject = {
   id: 'project-1',

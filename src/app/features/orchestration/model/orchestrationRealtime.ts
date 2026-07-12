@@ -1,4 +1,4 @@
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useFeedStore } from '@app/entities/feed'
 import { useWorkflowStore } from '@app/features/orchestration/model/workflowStore'
 
 /**
@@ -39,9 +39,7 @@ export interface ReviewEscalatedEvent {
 }
 
 export type OrchestrationRealtimeEventType =
-  | WorkflowStatusEvent['type']
-  | WorkflowNodeStatusEvent['type']
-  | ReviewEscalatedEvent['type']
+  WorkflowStatusEvent['type'] | WorkflowNodeStatusEvent['type'] | ReviewEscalatedEvent['type']
 
 export interface OrchestrationRealtimeMessage {
   type: OrchestrationRealtimeEventType

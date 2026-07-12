@@ -132,9 +132,15 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-1 content-start items-start gap-4 overflow-y-auto px-4 py-5 sm:px-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div
+        data-testid="agent-list-layout"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6"
+      >
         <section className="min-w-0">
-          <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+          <div
+            data-testid="agent-list-header"
+            className="mb-3 flex min-w-0 items-center justify-between gap-3"
+          >
             <div className="min-w-0">
               <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
                 Agents
@@ -143,7 +149,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 Choose by what the agent needs to use: chat, this computer, or project files.
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2">
               <p
                 role="status"
                 aria-live="polite"
@@ -155,6 +161,10 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                     : 'Add first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
               </p>
+              <MoreAgentSetupButton
+                open={moreSetupOpen}
+                onClick={() => setMoreSetupOpen((open) => !open)}
+              />
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
@@ -165,6 +175,17 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               </button>
             </div>
           </div>
+
+          {moreSetupOpen && (
+            <div data-testid="more-agent-setup" className="mb-4 space-y-4">
+              <AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />
+              <HostCliEnrollmentPanel
+                selectedProjectId={selectedProjectId}
+                selectedProjectName={selectedProjectName}
+                onOpenProjectsSetup={onOpenProjectsSetup}
+              />
+            </div>
+          )}
 
           {showAgentChoiceGuide &&
             (agents.length > 0 ? (
@@ -289,23 +310,6 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
             </div>
           )}
         </section>
-
-        <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
-          <MoreAgentSetupButton
-            open={moreSetupOpen}
-            onClick={() => setMoreSetupOpen((open) => !open)}
-          />
-          {moreSetupOpen && (
-            <>
-              <AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />
-              <HostCliEnrollmentPanel
-                selectedProjectId={selectedProjectId}
-                selectedProjectName={selectedProjectName}
-                onOpenProjectsSetup={onOpenProjectsSetup}
-              />
-            </>
-          )}
-        </aside>
       </div>
 
       <CreateAgentModal onOpenProjectsSetup={onOpenProjectsSetup} />
@@ -315,28 +319,19 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
 
 function MoreAgentSetupButton({ open, onClick }: { open: boolean; onClick: () => void }) {
   const Icon = open ? ChevronDown : ChevronRight
+  const label = open ? 'Hide more agent setup' : 'More agent setup'
 
   return (
     <button
       type="button"
       aria-expanded={open}
+      aria-label={label}
+      title="Task queues and this computer setup"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-3 rounded-card border border-black/[0.08] bg-white p-4 text-left transition-colors hover:border-apple-blue/25 hover:bg-apple-blue/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:hover:bg-white/[0.06]"
+      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-black/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:hover:border-white/[0.16]"
     >
-      <span className="min-w-0">
-        <span className="block text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-          {open ? 'Hide more agent setup' : 'More agent setup'}
-        </span>
-        <span className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark">
-          Task queues and this computer setup
-        </span>
-      </span>
-      <Icon
-        size={16}
-        strokeWidth={2.2}
-        className="shrink-0 text-secondary-light dark:text-secondary-dark"
-        aria-hidden="true"
-      />
+      <Icon size={14} strokeWidth={2.2} className="shrink-0" aria-hidden="true" />
+      <span className="hidden sm:inline">{label}</span>
     </button>
   )
 }

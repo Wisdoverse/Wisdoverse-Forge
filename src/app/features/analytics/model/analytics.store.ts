@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ContextUsageAnalytics } from '@app/shared/api/orchestration'
-import { useContextFeaturesStore } from './context-features.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 
 export type DateRange = 'today' | '7d' | '30d'
 

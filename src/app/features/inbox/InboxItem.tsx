@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { isRawTaskFailureDetail } from '@app/shared/lib/taskFailureCopy'
-import type { Notification } from '@app/shared/model/feed.store'
+import type { Notification } from '@app/entities/feed'
 
 const TYPE_CONFIG: Record<
   Notification['type'],

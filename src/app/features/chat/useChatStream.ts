@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useChatStore } from '@app/shared/model/chat.store'
+import { useChatStore } from './model/chat.store'
 import { getAgentApi } from '@app/shared/api/legacy'
 import {
   asRecord,

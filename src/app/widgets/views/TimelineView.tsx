@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 
 const TIMELINE_STEPS = [
   'Choose Open task board',

@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { AnalyticsDashboard } from '@app/features/analytics/AnalyticsDashboard'
-import { useAnalyticsStore } from '@app/shared/model/analytics.store'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useAnalyticsStore } from '@app/features/analytics/model/analytics.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 
 // The dashboard kicks off a `load()` on mount. Stub it so we render
 // synchronously with a curated slice of state.

@@ -91,8 +91,19 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // CN-4: optional OTLP span export (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is
+    // unset). `_otel_guard` must live for the whole process so the batch exporter
+    // flushes on exit; it is dropped when `main` returns.
+    let (otel_layer, _otel_guard) = match agentforge_telemetry::otel_layer::<tracing_subscriber::Registry>(
+        "agentforge-sidecar",
+        agentforge_core::VERSION,
+    ) {
+        Some((layer, guard)) => (Some(layer), Some(guard)),
+        None => (None, None),
+    };
     // Structured JSON logging with env-controlled filter.
     tracing_subscriber::registry()
+        .with(otel_layer)
         .with(EnvFilter::from_default_env().add_directive("info".parse().expect("valid tracing directive")))
         .with(tracing_subscriber::fmt::layer().json())
         .init();

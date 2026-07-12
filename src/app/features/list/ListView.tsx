@@ -9,7 +9,7 @@ import {
   ListChecks,
   Search,
 } from 'lucide-react'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime as formatDate } from '@app/shared/lib/time'

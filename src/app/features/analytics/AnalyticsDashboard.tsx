@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
-import { useAnalyticsStore, type DateRange } from '@app/shared/model/analytics.store'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+import { useAnalyticsStore, type DateRange } from './model/analytics.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { ContextUsageDashboard } from './ContextUsageDashboard'
 import { StatCard, type BarPoint } from './StatCard'
 

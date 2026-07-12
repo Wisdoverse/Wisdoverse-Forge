@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { AgentGroupSelector } from '@app/features/board/AgentGroupSelector'
-import type { NavAgentGroup } from '@app/entities/agent-group'
+import type { NavAgentGroup } from '@app/entities/navigation/agent-group'
 
 afterEach(() => {
   cleanup()
