@@ -124,7 +124,7 @@
     "eslint-plugin-boundaries": "6.0.2",
     "eslint-plugin-import": "^2.32.0",
     "jsdom": "^29.1.1",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.4",
     "tailwindcss": "^4.3.0",
     "ts-proto": "^2.11.8",
     "typescript": "^6.0.3",
