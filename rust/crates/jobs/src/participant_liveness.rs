@@ -13,19 +13,20 @@ use std::time::Duration;
 
 use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{DEFAULT_ASSIGNMENT_LEASE_SECS, TaskAssignment};
+use agentforge_core::orchestration_view::TaskInstruction;
+use agentforge_core::ws_protocol::{
+    OrchestrationParticipantBrief, OrchestrationParticipantUpdatePayload, ServerMessage,
+};
 use agentforge_db::entities::{OrchestrationTask, Participant};
 use anyhow::{Context, Result, anyhow};
 use async_nats::Client;
 use futures::StreamExt;
 use serde::Deserialize;
-use serde_json::json;
 use sqlx::PgPool;
 use tokio::sync::watch;
 use uuid::Uuid;
 
-use crate::orchestration_realtime::{
-    publish_broadcast, publish_task_update, realtime_projector_enabled, task_instruction,
-};
+use crate::orchestration_realtime::{publish_broadcast, publish_task_update, realtime_projector_enabled};
 use crate::presence_store::{PresenceBackend, RedisRecord};
 
 pub const HEARTBEAT_SUBJECT_PREFIX: &str = "sidecar";
@@ -789,6 +790,10 @@ pub fn parse_heartbeat_agent_id(subject: &str) -> Option<Uuid> {
     }
 }
 
+// CN-4: span the auto-dispatch claim so the assignment it enqueues carries a
+// `trace_context` (this is a background job, so there is no request span to
+// inherit otherwise). No-op overhead when the OTLP layer is not installed.
+#[tracing::instrument(skip(pool), fields(agent_id = %agent_id))]
 async fn claim_next_task_for_participant(
     pool: &PgPool,
     agent_id: Uuid,
@@ -860,7 +865,12 @@ async fn claim_next_task_for_participant(
         .await?;
     let runtime_kind = runtime_kind.and_then(|raw| RuntimeKind::parse_legacy(&raw).ok());
 
-    let (task_text, message) = task_instruction(&claimed_task);
+    let (task_text, message) = TaskInstruction::from_params(
+        &claimed_task.title,
+        claimed_task.description.as_deref(),
+        claimed_task.params.as_ref(),
+    )
+    .into_parts();
     let assignment = TaskAssignment {
         delivery_id: claimed_task.last_assignment_id,
         attempt: Some(claimed_task.attempt),
@@ -874,6 +884,9 @@ async fn claim_next_task_for_participant(
         context_envelope: None,
         runtime_kind,
         image_paths: Vec::new(),
+        // CN-4: stamp the auto-dispatch span's trace so the sidecar continues it
+        // across the NATS hop. `None` when the OTLP layer is not installed.
+        trace_context: agentforge_telemetry::current_traceparent(),
     };
     crate::insert_assignment_outbox_in_tx(&mut tx, participant.organization_id.as_uuid(), claimed_task.id, &assignment)
         .await?;
@@ -931,24 +944,21 @@ async fn publish_participant_update(client: &Client, participant: &Participant, 
         return Ok(());
     }
 
-    publish_broadcast(
-        client,
-        participant.organization_id,
-        json!({
-            "type": "orchestration:participant_update",
-            "payload": {
-                "action": action,
-                "eventId": Uuid::now_v7(),
-                "participant": {
-                    "id": participant.id,
-                    "agentId": participant.agent_id.as_uuid(),
-                    "name": participant.name,
-                    "status": participant_status_for_ws(&participant.status),
-                }
-            }
-        }),
-    )
-    .await
+    // Built through the shared `ServerMessage` enum (MS-3 PR-E) so the wire
+    // contract has a single compiler-checked source of truth.
+    let frame = ServerMessage::OrchestrationParticipantUpdate {
+        payload: OrchestrationParticipantUpdatePayload {
+            action: action.to_owned(),
+            event_id: Uuid::now_v7(),
+            participant: OrchestrationParticipantBrief {
+                id: participant.id,
+                agent_id: participant.agent_id.as_uuid(),
+                name: participant.name.clone(),
+                status: participant_status_for_ws(&participant.status).to_owned(),
+            },
+        },
+    };
+    publish_broadcast(client, participant.organization_id, &frame).await
 }
 
 fn participant_status_for_ws(status: &str) -> &str {

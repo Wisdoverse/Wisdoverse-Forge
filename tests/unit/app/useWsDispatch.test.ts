@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useAdminStore } from '@app/shared/model/admin.store'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useContextStore } from '@app/shared/model/context.store'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useAdminStore } from '@app/entities/admin'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useContextStore } from '@app/features/context/model/context.store'
+import { useFeedStore } from '@app/entities/feed'
 import { dispatchWsMessage } from '@app/hooks/useWsDispatch'
 import { resetContextHandlerDedupeForTests } from '@app/features/context/model/contextRealtime'
 
@@ -67,38 +67,30 @@ describe('dispatchWsMessage', () => {
     expect(all).toHaveLength(0)
   })
 
-  it('dispatches agent_update to feed store', () => {
+  it('ignores the removed legacy agents / agent_update frames (MS-3 PR-A)', () => {
+    // These ServerMessage variants were deleted — the Rust backend never emits
+    // them — so the dispatcher must now leave the feed store untouched.
+    const before = useFeedStore.getState().agents.length
     dispatchWsMessage({
       type: 'agent_update',
       payload: { id: 'a1', name: 'Claude', status: 'working' },
     })
-
-    const agents = useFeedStore.getState().agents
-    expect(agents).toHaveLength(1)
-    expect(agents[0].name).toBe('Claude')
-  })
-
-  it('dispatches agents to feed store', () => {
     dispatchWsMessage({
       type: 'agents',
-      payload: [
-        { id: 'a1', name: 'Claude', status: 'idle' },
-        { id: 'a2', name: 'Codex', status: 'working' },
-      ],
+      payload: [{ id: 'a1', name: 'Claude', status: 'idle' }],
     })
-
-    expect(useFeedStore.getState().agents).toHaveLength(2)
+    expect(useFeedStore.getState().agents).toHaveLength(before)
   })
 
-  it('dispatches event to feed items', () => {
+  it('dispatches the flat Rust event frame to feed items', () => {
+    // The gateway relays events in the flat BroadcastMessage shape
+    // ({type,eventType,eventData,agentId,orgId}) — NOT a nested `payload`.
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'pre_tool_use',
-        agentName: 'Claude',
-        tool: 'Read',
-        timestamp: Date.now(),
-      },
+      eventType: 'pre_tool_use',
+      eventData: { type: 'pre_tool_use', tool: 'Read', timestamp: Date.now() },
+      agentId: 'agent-1',
+      orgId: 'org-1',
     })
 
     expect(useFeedStore.getState().feedItems).toHaveLength(1)
@@ -107,12 +99,53 @@ describe('dispatchWsMessage', () => {
     expect(useFeedStore.getState().feedItems[0].detail).toBe('Started checking project files.')
     expect(useFeedStore.getState().feedItems[0].detail).not.toContain('Tool:')
     expect(useFeedStore.getState().feedItems[0].taskTitle).not.toBe('Read')
+    // The canonical Rust event frame carries no `cliTool` (see the locked
+    // event.json fixture / normalize_event_data), so the actor must fall back to
+    // a human label — never a blank string that renders as ` is waiting`.
+    expect(useFeedStore.getState().feedItems[0].agentName).toBe('The agent')
+  })
+
+  it('surfaces a blocked event without cliTool as a named attention item', () => {
+    // `blocked` frames from the Rust gateway do not include cliTool. A blank
+    // agentName would render as ` is waiting: …` in AttentionZone, so the
+    // attention item must still carry a visible actor label.
+    dispatchWsMessage({
+      type: 'event',
+      eventType: 'blocked',
+      eventData: { type: 'blocked', tool: 'Bash', timestamp: Date.now() },
+      agentId: 'cli-session-xyz',
+      orgId: 'org-1',
+    })
+
+    const attention = useFeedStore.getState().attentionItems
+    expect(attention).toHaveLength(1)
+    expect(attention[0].agentName).toBe('The agent')
+    expect(attention[0].agentName).not.toBe('')
+  })
+
+  it('suppresses high-frequency streaming events from the feed', () => {
+    // `token_update` is broadcast on every streamed LLM token but is NOT
+    // persisted server-side (is_persistable() in event_consumer.rs). Surfacing
+    // it as a feed item would flood the activity feed during streaming, so the
+    // dispatcher must drop it just like `text_stream`.
+    dispatchWsMessage({
+      type: 'event',
+      eventType: 'token_update',
+      eventData: { type: 'token_update', timestamp: Date.now() },
+      agentId: 'agent-1',
+      orgId: 'org-1',
+    })
+
+    expect(useFeedStore.getState().feedItems).toHaveLength(0)
   })
 
   it('gives same-millisecond attention items distinct ids (F072)', () => {
     const event = {
       type: 'event' as const,
-      payload: { type: 'permission_prompt', agentName: 'Claude', tool: 'Bash', timestamp: 1 },
+      eventType: 'permission_prompt',
+      eventData: { type: 'permission_prompt', tool: 'Bash', timestamp: 1 },
+      agentId: 'Claude',
+      orgId: 'org-1',
     }
     dispatchWsMessage(event)
     dispatchWsMessage(event)
@@ -127,12 +160,10 @@ describe('dispatchWsMessage', () => {
   it('turns command activity events into plain work steps', () => {
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'post_tool_use',
-        agentName: 'Codex',
-        tool: 'Bash',
-        timestamp: Date.now(),
-      },
+      eventType: 'post_tool_use',
+      eventData: { type: 'post_tool_use', tool: 'Bash', timestamp: Date.now() },
+      agentId: 'Codex',
+      orgId: 'org-1',
     })
 
     const item = useFeedStore.getState().feedItems[0]
@@ -145,11 +176,10 @@ describe('dispatchWsMessage', () => {
   it('uses plain wording for unknown activity events', () => {
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'future_event',
-        agentName: 'Codex',
-        timestamp: Date.now(),
-      },
+      eventType: 'future_event',
+      eventData: { type: 'future_event', timestamp: Date.now() },
+      agentId: 'Codex',
+      orgId: 'org-1',
     })
 
     const item = useFeedStore.getState().feedItems[0]
@@ -161,17 +191,40 @@ describe('dispatchWsMessage', () => {
   it('uses check-first wording for permission prompts', () => {
     dispatchWsMessage({
       type: 'event',
-      payload: {
-        type: 'permission_prompt',
-        agentName: 'Codex',
-        timestamp: Date.now(),
-      },
+      eventType: 'permission_prompt',
+      eventData: { type: 'permission_prompt', timestamp: Date.now() },
+      agentId: 'Codex',
+      orgId: 'org-1',
     })
 
     const item = useFeedStore.getState().feedItems[0]
     expect(item.taskTitle).toBe('Decision needed')
     expect(item.detail).toBe('Check the request before the agent continues.')
     expect(item.detail).not.toContain('Review the request')
+  })
+
+  it('surfaces permission_request events as attention items and shows the CLI tool', () => {
+    // `permission_request` is the real Rust event type (permission_prompt is a
+    // legacy alias); agentName should be the CLI tool, not the wire session id.
+    dispatchWsMessage({
+      type: 'event',
+      eventType: 'permission_request',
+      eventData: {
+        type: 'permission_request',
+        tool: 'Bash',
+        cliTool: 'claude',
+        timestamp: Date.now(),
+      },
+      agentId: 'cli-session-abc',
+      orgId: 'org-1',
+    })
+
+    const feed = useFeedStore.getState().feedItems[0]
+    expect(feed.taskTitle).toBe('Decision needed')
+    expect(feed.agentName).toBe('claude')
+    const attention = useFeedStore.getState().attentionItems
+    expect(attention).toHaveLength(1)
+    expect(attention[0].agentName).toBe('claude')
   })
 
   it('ignores unknown message types', () => {

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { BillingPage } from '@app/features/billing/BillingPage'
 import { InvoiceList } from '@app/features/billing/InvoiceList'
 import { PlanCard } from '@app/features/billing/PlanCard'
-import { useBillingStore } from '@app/shared/model/billing.store'
+import { useBillingStore } from '@app/features/billing/model/billing.store'
 import type {
   BillingInvoice,
   BillingPlan,

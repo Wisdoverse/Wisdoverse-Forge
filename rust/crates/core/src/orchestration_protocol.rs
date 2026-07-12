@@ -240,6 +240,16 @@ pub struct TaskAssignment {
     /// and for old wire payloads. Signed with the rest of the envelope.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub image_paths: Vec<String>,
+    /// W3C `traceparent` of the span that enqueued/dispatched this assignment
+    /// (CN-4 distributed tracing). Carried so the sidecar can continue the same
+    /// trace across the API → NATS → sidecar → CLI hops instead of starting a
+    /// disconnected one. Lives INSIDE the assignment payload (not as a
+    /// `SignedEnvelope` sibling) so it is covered by the envelope HMAC and cannot
+    /// be tampered in transit. `None`/absent on old wire payloads and until the
+    /// OTLP layer is installed, so it is wire-compatible: when `None` the field
+    /// is omitted and the signed bytes are byte-identical to the pre-CN-4 shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trace_context: Option<String>,
 }
 
 /// Outcome emitted by the sidecar once the wrapped CLI exits.
@@ -464,9 +474,52 @@ mod tests {
             context_envelope: None,
             runtime_kind: Some(RuntimeKind::Cli),
             image_paths: Vec::new(),
+            trace_context: None,
         };
         let round: TaskAssignment = serde_json::from_str(&serde_json::to_string(&msg).unwrap()).unwrap();
         assert_eq!(round, msg);
+    }
+
+    #[test]
+    fn trace_context_is_wire_compatible_and_hmac_covered() {
+        let mut msg = TaskAssignment {
+            delivery_id: Some(Uuid::now_v7()),
+            attempt: Some(1),
+            lease_expires_at: Some(Utc::now()),
+            task_id: Uuid::now_v7(),
+            agent_id: Uuid::now_v7(),
+            title: "x".into(),
+            task: "y".into(),
+            message: String::new(),
+            priority: "normal".into(),
+            context_envelope: None,
+            runtime_kind: None,
+            image_paths: Vec::new(),
+            trace_context: None,
+        };
+
+        // None → omitted on the wire, so the signed bytes are byte-identical to a
+        // pre-CN-4 assignment and old sidecars are unaffected.
+        let json_none = serde_json::to_value(&msg).unwrap();
+        assert!(json_none.get("trace_context").is_none(), "None trace_context must be omitted on the wire");
+
+        // Some → present and round-trips losslessly.
+        let traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+        msg.trace_context = Some(traceparent.to_string());
+        let json_some = serde_json::to_value(&msg).unwrap();
+        assert_eq!(json_some["trace_context"], traceparent);
+        let round: TaskAssignment = serde_json::from_value(json_some).unwrap();
+        assert_eq!(round, msg);
+
+        // The field lives INSIDE the signed payload, so tampering with it after
+        // signing breaks verification — it is HMAC-covered, not a free sibling.
+        let key = b"shared-secret";
+        let env = SignedEnvelope::sign(key, &msg.agent_id.to_string(), 7, &msg).unwrap();
+        assert!(env.verify(key));
+        let mut tampered = env.clone();
+        tampered.payload["trace_context"] =
+            serde_json::json!("00-ffffffffffffffffffffffffffffffff-ffffffffffffffff-01");
+        assert!(!tampered.verify(key), "trace_context must be covered by the envelope HMAC");
     }
 
     #[test]
@@ -515,6 +568,7 @@ mod tests {
             context_envelope: None,
             runtime_kind: None,
             image_paths: Vec::new(),
+            trace_context: None,
         };
         let key = b"shared-secret";
         let env = SignedEnvelope::sign(key, &assignment.agent_id.to_string(), 123, &assignment).unwrap();

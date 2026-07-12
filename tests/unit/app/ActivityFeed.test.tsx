@@ -1,8 +1,8 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ActivityFeed } from '@app/features/feed/ActivityFeed'
-import { useBoardStore } from '@app/shared/model/board.store'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useFeedStore } from '@app/entities/feed'
 
 afterEach(cleanup)
 beforeEach(() => {
@@ -282,7 +282,9 @@ describe('ActivityFeed', () => {
     const emptyState = screen.getByTestId('feed-filter-empty')
     expect(within(emptyState).getByText('You are caught up on urgent updates')).toBeDefined()
     expect(within(emptyState).getByText(/urgent updates are clear/i)).toBeDefined()
-    expect(within(emptyState).getByText(/use all to check tasks that are still moving/i)).toBeDefined()
+    expect(
+      within(emptyState).getByText(/use all to check tasks that are still moving/i)
+    ).toBeDefined()
     expect(within(emptyState).getByText(/before starting another task/i)).toBeDefined()
     expect(within(emptyState).getByRole('button', { name: /show all updates/i })).toBeDefined()
     expect(emptyState.textContent).not.toContain('Nothing is asking for your help')

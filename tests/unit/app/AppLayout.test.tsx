@@ -1,9 +1,9 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { i18n } from '@app/i18n'
-import { useBoardStore } from '@app/shared/model/board.store'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 const mockGetParticipants = vi.fn()
 const mockCreateTask = vi.fn()
@@ -35,7 +35,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
   },
 }))
 
-vi.mock('@app/entities/agent-group', () => ({
+vi.mock('@app/entities/navigation/agent-group', () => ({
   agentGroupApi: {
     getGroups: (...args: unknown[]) => mockGetGroups(...args),
     createGroup: (...args: unknown[]) => mockCreateGroup(...args),

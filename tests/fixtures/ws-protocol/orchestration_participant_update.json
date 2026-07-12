@@ -1,0 +1,13 @@
+{
+  "payload": {
+    "action": "participant.heartbeat",
+    "eventId": "00000000-0000-0000-0000-0000000000bb",
+    "participant": {
+      "agentId": "00000000-0000-0000-0000-000000000014",
+      "id": "00000000-0000-0000-0000-000000000015",
+      "name": "agent-00000000",
+      "status": "online"
+    }
+  },
+  "type": "orchestration:participant_update"
+}

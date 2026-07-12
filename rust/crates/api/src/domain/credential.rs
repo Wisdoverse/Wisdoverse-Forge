@@ -5,22 +5,75 @@
 //! handlers, and filesystem mount materialization.
 
 use crate::domain::resource::ensure_provider_base_url_allowed;
-use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
-use agentforge_db::entities::{ApiKey, GitCredential, SshKey};
+use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind, OrgId, UserId};
 use agentforge_llm::{LlmError, Usage, normalize_provider_key, provider_spec, supported_provider_specs};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use url::Url;
 use uuid::Uuid;
 
+/// Non-secret projection of an `api_keys` row for API responses.
+///
+/// Deliberately omits `key_hash`: by carrying only the fields that may be
+/// exposed, the secret hash is **unrepresentable** on the wire, so no response
+/// builder can leak it. The owning service converts the persistence row into
+/// this view (DDD: the domain builds responses from views, never from rows).
+#[derive(Debug, Clone, Serialize)]
+pub struct ApiKeyView {
+    pub(crate) id: Uuid,
+    pub(crate) organization_id: OrgId,
+    pub(crate) user_id: UserId,
+    pub(crate) name: String,
+    pub(crate) key_prefix: String,
+    pub(crate) scopes: Vec<String>,
+    pub(crate) expires_at: Option<DateTime<Utc>>,
+    pub(crate) last_used_at: Option<DateTime<Utc>>,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) revoked_at: Option<DateTime<Utc>>,
+}
+
+/// Non-secret projection of an `ssh_keys` row. SSH keys store only the public
+/// half, so every field is exposable; the view exists so the domain response
+/// builders do not import the persistence entity.
+#[derive(Debug, Clone, Serialize)]
+pub struct SshKeyView {
+    pub(crate) id: Uuid,
+    pub(crate) organization_id: OrgId,
+    pub(crate) user_id: UserId,
+    pub(crate) name: String,
+    pub(crate) public_key: String,
+    pub(crate) fingerprint: String,
+    pub(crate) key_type: String,
+    pub(crate) created_at: DateTime<Utc>,
+}
+
+/// Non-secret projection of a `git_credentials` row.
+///
+/// Deliberately omits `token_encrypted` and `token_nonce` so neither the
+/// ciphertext nor the nonce can reach a response. The owning service decrypts
+/// secrets only on the CLI-injection / clone-resolution paths, never here.
+#[derive(Debug, Clone, Serialize)]
+pub struct GitCredentialView {
+    pub(crate) id: Uuid,
+    pub(crate) organization_id: OrgId,
+    pub(crate) user_id: UserId,
+    pub(crate) name: String,
+    pub(crate) provider: String,
+    pub(crate) credential_type: String,
+    pub(crate) remote_url: Option<String>,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) updated_at: DateTime<Utc>,
+}
+
 /// Result of creating an API key — includes the plaintext key (shown once).
 #[derive(Debug, Serialize)]
 pub struct CreateApiKeyResult {
-    pub key: ApiKey,
+    pub key: ApiKeyView,
     /// The plaintext API key — only returned at creation time.
     pub plaintext_key: String,
 }
 
-pub(crate) fn api_key_list_response(keys: &[ApiKey]) -> serde_json::Value {
+pub(crate) fn api_key_list_response(keys: &[ApiKeyView]) -> serde_json::Value {
     let api_keys: Vec<_> = keys.iter().map(api_key_payload).collect();
     serde_json::json!({
         "ok": true,
@@ -70,7 +123,7 @@ impl CredentialRepositoryPolicy {
     }
 }
 
-pub(crate) fn ssh_key_list_response(keys: &[SshKey]) -> serde_json::Value {
+pub(crate) fn ssh_key_list_response(keys: &[SshKeyView]) -> serde_json::Value {
     let keys: Vec<_> = keys.iter().map(ssh_key_payload).collect();
     serde_json::json!({
         "ok": true,
@@ -95,7 +148,7 @@ pub(crate) fn container_cli_oauth_file_map_plaintext(files: &serde_json::Value) 
     serde_json::to_string(files).map_err(|err| ContainerCliCredentialPolicy::serialize_files_failed(err).into())
 }
 
-pub(crate) fn ssh_key_create_response(key: SshKey) -> serde_json::Value {
+pub(crate) fn ssh_key_create_response(key: SshKeyView) -> serde_json::Value {
     let key = ssh_key_payload(&key);
     serde_json::json!({
         "ok": true,
@@ -104,7 +157,7 @@ pub(crate) fn ssh_key_create_response(key: SshKey) -> serde_json::Value {
     })
 }
 
-pub(crate) fn git_credential_response(cred: &GitCredential) -> serde_json::Value {
+pub(crate) fn git_credential_response(cred: &GitCredentialView) -> serde_json::Value {
     let credential = git_credential_payload(cred);
     serde_json::json!({
         "ok": true,
@@ -113,7 +166,7 @@ pub(crate) fn git_credential_response(cred: &GitCredential) -> serde_json::Value
     })
 }
 
-pub(crate) fn git_credentials_response(creds: &[GitCredential]) -> serde_json::Value {
+pub(crate) fn git_credentials_response(creds: &[GitCredentialView]) -> serde_json::Value {
     let credentials: Vec<_> = creds.iter().map(git_credential_payload).collect();
     serde_json::json!({
         "ok": true,
@@ -379,7 +432,7 @@ pub(crate) fn llm_provider_test_error_parts(error: &LlmError) -> (&'static str, 
     }
 }
 
-fn api_key_payload(key: &ApiKey) -> serde_json::Value {
+fn api_key_payload(key: &ApiKeyView) -> serde_json::Value {
     serde_json::json!({
         "id": key.id,
         "orgId": key.organization_id,
@@ -395,7 +448,7 @@ fn api_key_payload(key: &ApiKey) -> serde_json::Value {
     })
 }
 
-fn ssh_key_payload(key: &SshKey) -> serde_json::Value {
+fn ssh_key_payload(key: &SshKeyView) -> serde_json::Value {
     serde_json::json!({
         "id": key.id,
         "orgId": key.organization_id,
@@ -409,7 +462,7 @@ fn ssh_key_payload(key: &SshKey) -> serde_json::Value {
     })
 }
 
-fn git_credential_payload(cred: &GitCredential) -> serde_json::Value {
+fn git_credential_payload(cred: &GitCredentialView) -> serde_json::Value {
     serde_json::json!({
         "id": cred.id,
         "orgId": cred.organization_id,
@@ -1030,13 +1083,12 @@ mod tests {
         chrono::Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap()
     }
 
-    fn sample_api_key() -> ApiKey {
-        ApiKey {
+    fn sample_api_key() -> ApiKeyView {
+        ApiKeyView {
             id: Uuid::from_u128(0x33333333333343338333333333333333),
             organization_id: sample_org_id(),
             user_id: sample_user_id(),
             name: "CI".to_string(),
-            key_hash: "secret-hash".to_string(),
             key_prefix: "af_12345678".to_string(),
             scopes: vec!["read".to_string()],
             expires_at: None,
@@ -1046,8 +1098,8 @@ mod tests {
         }
     }
 
-    fn sample_ssh_key() -> SshKey {
-        SshKey {
+    fn sample_ssh_key() -> SshKeyView {
+        SshKeyView {
             id: Uuid::from_u128(0x44444444444444448444444444444444),
             organization_id: sample_org_id(),
             user_id: sample_user_id(),
@@ -1059,16 +1111,14 @@ mod tests {
         }
     }
 
-    fn sample_git_credential() -> GitCredential {
-        GitCredential {
+    fn sample_git_credential() -> GitCredentialView {
+        GitCredentialView {
             id: Uuid::from_u128(0x55555555555545558555555555555555),
             organization_id: sample_org_id(),
             user_id: sample_user_id(),
             name: "GitHub".to_string(),
             provider: "github".to_string(),
             credential_type: "token".to_string(),
-            token_encrypted: Some(b"secret-ciphertext".to_vec()),
-            token_nonce: Some(b"secret-nonce".to_vec()),
             remote_url: Some("https://github.com/Wisdoverse/Wisdoverse-Forge".to_string()),
             created_at: sample_time(),
             updated_at: sample_time(),

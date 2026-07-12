@@ -1,6 +1,6 @@
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useAdminStore, type AdminSection } from '@app/shared/model/admin.store'
+import { useAdminStore, type AdminSection } from '@app/entities/admin'
 import { UserManagement } from './UserManagement'
 import { OrganizationsPanel } from './OrganizationsPanel'
 import { AgentsPanel } from './AgentsPanel'

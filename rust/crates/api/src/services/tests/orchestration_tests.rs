@@ -100,13 +100,14 @@ fn test_participant_name_too_long() {
 fn test_can_dispatch_kanban_states() {
     // Auto-dispatcher claims tasks only after explicit promotion into the
     // runnable lanes. `backlog` is the draft lane and must not auto-start.
-    assert!(!TaskStatusPolicy::can_dispatch("backlog"));
-    assert!(TaskStatusPolicy::can_dispatch("queued"));
-    assert!(TaskStatusPolicy::can_dispatch("blocked"));
-    assert!(!TaskStatusPolicy::can_dispatch("working"));
-    assert!(!TaskStatusPolicy::can_dispatch("completed"));
-    assert!(!TaskStatusPolicy::can_dispatch("failed"));
-    assert!(!TaskStatusPolicy::can_dispatch("canceled"));
+    // The status set lives in core since MS-3 PR-E (one owner for api + jobs).
+    assert!(!BlockedTaskPolicy::status_can_dispatch("backlog"));
+    assert!(BlockedTaskPolicy::status_can_dispatch("queued"));
+    assert!(BlockedTaskPolicy::status_can_dispatch("blocked"));
+    assert!(!BlockedTaskPolicy::status_can_dispatch("working"));
+    assert!(!BlockedTaskPolicy::status_can_dispatch("completed"));
+    assert!(!BlockedTaskPolicy::status_can_dispatch("failed"));
+    assert!(!BlockedTaskPolicy::status_can_dispatch("canceled"));
 }
 
 #[test]

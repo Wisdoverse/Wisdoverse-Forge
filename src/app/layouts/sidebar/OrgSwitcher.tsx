@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronsUpDown, Check } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
-import type { NavOrg } from '@app/entities/organization'
+import type { NavOrg } from '@app/entities/navigation/organization'
 
 interface OrgSwitcherProps {
   orgs: NavOrg[]

@@ -11,7 +11,7 @@ import {
   adminUserActionErrorMessage,
   useAdminStore,
   type AdminUser,
-} from '@app/shared/model/admin.store'
+} from '@app/entities/admin'
 
 function response(status: number, body: unknown): Response {
   return {

@@ -4,7 +4,7 @@ import { Activity, AlertTriangle, ArrowRight, CheckCircle2, RefreshCw } from 'lu
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 import type { CliAuthProxyProvider, CliAuthProxyStatusEntry } from '@app/entities/agent'

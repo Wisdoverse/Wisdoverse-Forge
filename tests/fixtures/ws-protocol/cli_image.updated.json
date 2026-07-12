@@ -1,0 +1,14 @@
+{
+  "payload": {
+    "eventId": "cli-image:codex:updated:sha256:00000000000000000000000000000000000000000000000000000000000000ab",
+    "lastError": null,
+    "localDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "localVersion": "1.2.2",
+    "remoteDigest": "sha256:00000000000000000000000000000000000000000000000000000000000000ab",
+    "remoteVersion": "1.2.3",
+    "state": "updated",
+    "tool": "codex",
+    "unix": 1735732800
+  },
+  "type": "cli_image.updated"
+}

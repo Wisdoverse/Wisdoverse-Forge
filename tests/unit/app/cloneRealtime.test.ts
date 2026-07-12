@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { dispatchWsMessage } from '@app/hooks/useWsDispatch'
 import { parseCloneStatusUpdate } from '@app/features/manage-project/model/cloneRealtime'
 import { useNavigationStore } from '@app/entities/navigation'
-import type { NavProject } from '@app/entities/project'
+import type { NavProject } from '@app/entities/navigation/project'
 
 function project(overrides: Partial<NavProject> = {}): NavProject {
   return {

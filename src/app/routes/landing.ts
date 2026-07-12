@@ -1,4 +1,4 @@
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useSettingsStore } from '@app/entities/settings'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 
 export type LandingPath = '/start' | '/tasks'

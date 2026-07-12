@@ -1,8 +1,21 @@
+//! Realtime WS projector for orchestration task/participant changes.
+//!
+//! MS-3 PR-E: this module used to hand-roll its `orchestration:task_update`
+//! frame with a `json!` mirror of the api projection (which had drifted — no
+//! `selfFix`/`pr*`/`contextCounts`/`attempt`/`leaseExpiresAt`, null-emitting
+//! options, a duplicated Chinese blocked-hint renderer). It now hosts the ONE
+//! canonical `OrchestrationTask` row → [`TaskSummary`] adapter (the api service
+//! re-exports it) and publishes through the shared
+//! [`agentforge_core::ws_protocol::ServerMessage`] enum.
+
 use agentforge_core::OrgId;
+use agentforge_core::orchestration_view::{BlockedTaskPolicy, TaskInstruction};
+use agentforge_core::ws_protocol::{
+    OrchestrationTaskUpdatePayload, ServerMessage, TaskContextCounts, TaskParams, TaskSummary,
+};
 use agentforge_db::entities::OrchestrationTask;
 use anyhow::{Context, Result};
 use async_nats::Client;
-use serde_json::{Value, json};
 use uuid::Uuid;
 
 pub(crate) async fn publish_task_update(
@@ -16,23 +29,18 @@ pub(crate) async fn publish_task_update(
         return Ok(());
     }
 
-    publish_broadcast(
-        client,
-        task.organization_id,
-        json!({
-            "type": "orchestration:task_update",
-            "payload": {
-                "action": action,
-                "eventId": Uuid::now_v7(),
-                "task": summarize_task_for_ws(task, assigned_agent_name),
-            }
-        }),
-    )
-    .await
+    let frame = ServerMessage::OrchestrationTaskUpdate {
+        payload: OrchestrationTaskUpdatePayload {
+            action: action.to_owned(),
+            event_id: Uuid::now_v7(),
+            task: task_summary(task, assigned_agent_name),
+        },
+    };
+    publish_broadcast(client, task.organization_id, &frame).await
 }
 
-pub(crate) async fn publish_broadcast(client: &Client, organization_id: OrgId, message: Value) -> Result<()> {
-    let payload = serde_json::to_vec(&message).with_context(|| "serialize broadcast payload")?;
+pub(crate) async fn publish_broadcast(client: &Client, organization_id: OrgId, message: &ServerMessage) -> Result<()> {
+    let payload = serde_json::to_vec(message).with_context(|| "serialize broadcast payload")?;
     client
         .publish(format!("broadcast.{}", organization_id.as_uuid()), payload.into())
         .await
@@ -40,100 +48,64 @@ pub(crate) async fn publish_broadcast(client: &Client, organization_id: OrgId, m
     Ok(())
 }
 
-pub(crate) fn summarize_task_for_ws(task: &OrchestrationTask, assigned_agent_name: Option<&str>) -> Value {
-    let (task_text, message) = task_instruction(task);
-    let error = task.error.as_ref().map(error_message);
+/// Project a persisted `OrchestrationTask` row onto the kanban [`TaskSummary`].
+///
+/// The canonical adapter for BOTH `orchestration:task_update` producers: the
+/// jobs projector calls it directly; the api service's `task_summary` is a thin
+/// wrapper over it (the REST/context-injection path then overwrites
+/// `context_counts` with real counts — this projector keeps the zero default,
+/// as counting per broadcast would add a query to a hot path).
+pub fn task_summary(task: &OrchestrationTask, assigned_agent_name: Option<&str>) -> TaskSummary {
     let blocked_hint = match task.status.as_str() {
-        "blocked" => task.blocked_reason.as_deref().map(|reason| blocked_hint(reason, task.blocked_metadata.as_ref())),
+        "blocked" => {
+            task.blocked_reason.as_deref().map(|reason| BlockedTaskPolicy::hint(reason, task.blocked_metadata.as_ref()))
+        }
         _ => None,
     };
 
-    json!({
-        "id": task.id,
-        "groupId": task.group_id.map(|id| id.to_string()).unwrap_or_default(),
-        "state": task.status,
-        "method": "tasks/send",
-        "createdBy": task.created_by.as_uuid(),
-        "assignedTo": task.assigned_agent_id.map(|agent_id| agent_id.as_uuid()),
-        "assignedAgentName": assigned_agent_name,
-        "progress": task.progress,
-        "priority": task.priority,
-        "params": {
-            "task": task_text,
-            "message": message,
-        },
-        "error": error,
-        "result": task.result,
-        "blockedReason": task.blocked_reason,
-        "blockedHint": blocked_hint,
-        "blockedMetadata": task.blocked_metadata,
-        "createdAt": task.created_at.to_rfc3339(),
-        "updatedAt": task.updated_at.to_rfc3339(),
-        "completedAt": task.completed_at.map(|t| t.to_rfc3339()),
-    })
-}
+    let (task_text, message) =
+        TaskInstruction::from_params(&task.title, task.description.as_deref(), task.params.as_ref()).into_parts();
+    let params = TaskParams { task: task_text, message };
 
-pub(crate) fn task_instruction(task: &OrchestrationTask) -> (String, String) {
-    task.params
+    let error = task
+        .error
         .as_ref()
-        .map(|params| {
-            (
-                params.get("task").and_then(|v| v.as_str()).unwrap_or(&task.title).to_string(),
-                params
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_else(|| task.description.as_deref().unwrap_or_default())
-                    .to_string(),
-            )
-        })
-        .unwrap_or_else(|| (task.title.clone(), task.description.clone().unwrap_or_default()))
+        .map(|e| e.get("message").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| e.to_string()));
+
+    let is_completed = task.status == "completed";
+
+    TaskSummary {
+        id: task.id,
+        group_id: task.group_id,
+        state: task.status.clone(),
+        method: "tasks/send".into(),
+        params,
+        priority: task.priority.clone(),
+        progress: task.progress,
+        created_by: task.created_by.as_uuid(),
+        assigned_to: task.assigned_agent_id.map(|a| a.as_uuid()),
+        assigned_agent_name: assigned_agent_name.map(str::to_owned),
+        error,
+        result: task.result.clone(),
+        blocked_reason: task.blocked_reason.clone(),
+        blocked_hint,
+        blocked_metadata: task.blocked_metadata.clone(),
+        created_at: task.created_at.to_rfc3339(),
+        updated_at: task.updated_at.to_rfc3339(),
+        completed_at: if is_completed { task.completed_at.map(|t| t.to_rfc3339()) } else { None },
+        self_fix: task.self_fix,
+        pr_number: task.pr_number,
+        pr_url: task.pr_url.clone(),
+        pr_head_sha: task.pr_head_sha.clone(),
+        review_status: task.review_status.clone(),
+        context_counts: TaskContextCounts::default(),
+        attempt: task.attempt,
+        lease_expires_at: task.lease_expires_at.map(|t| t.to_rfc3339()),
+    }
 }
 
 pub(crate) fn realtime_projector_enabled() -> bool {
     env_flag("ORCHESTRATION_WS_PROJECTOR_ENABLED", true)
-}
-
-fn error_message(error: &Value) -> String {
-    error.get("message").and_then(|v| v.as_str()).map(str::to_string).unwrap_or_else(|| error.to_string())
-}
-
-fn blocked_hint(reason: &str, metadata: Option<&Value>) -> String {
-    match reason {
-        "waiting_agent" => {
-            let busy = metadata.and_then(|m| m.get("busy")).and_then(|v| v.as_i64()).unwrap_or(0);
-            let offline = metadata.and_then(|m| m.get("offline")).and_then(|v| v.as_i64()).unwrap_or(0);
-            if busy + offline == 0 {
-                "等待 agent：当前组织内没有注册的 participant".into()
-            } else {
-                format!("等待空闲 agent（{busy} 个忙碌, {offline} 个离线）")
-            }
-        }
-        "waiting_dependency" => {
-            let pending = metadata.and_then(|m| m.get("pending")).and_then(|v| v.as_i64()).unwrap_or(0);
-            format!("等待 {pending} 个上游任务完成")
-        }
-        "waiting_input" => {
-            let fields = metadata
-                .and_then(|m| m.get("missing"))
-                .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", "))
-                .unwrap_or_default();
-            if fields.is_empty() { "等待补充输入".into() } else { format!("缺少输入: {fields}") }
-        }
-        "waiting_approval" => {
-            let approver = metadata.and_then(|m| m.get("approver")).and_then(|v| v.as_str()).unwrap_or("管理员");
-            format!("等待 {approver} 审批")
-        }
-        "quota_exceeded" => {
-            let used = metadata.and_then(|m| m.get("used")).and_then(|v| v.as_i64()).unwrap_or(0);
-            let limit = metadata.and_then(|m| m.get("limit")).and_then(|v| v.as_i64()).unwrap_or(0);
-            format!("配额超限（{used}/{limit}）")
-        }
-        // Mirrors the api-domain `BlockedTaskPolicy::hint` arm so the held task card
-        // renders the same copy whether the hint is computed in the api or the WS projector.
-        "waiting_verification" => "完成结果未通过 expectedResult 校验，已暂留待人工复核".into(),
-        other => format!("阻塞: {other}"),
-    }
 }
 
 fn env_flag(name: &str, default: bool) -> bool {
@@ -152,6 +124,7 @@ mod tests {
     use super::*;
     use agentforge_core::{AgentId, OrgId, UserId};
     use chrono::Utc;
+    use serde_json::json;
 
     fn task_with(status: &str) -> OrchestrationTask {
         let now = Utc::now();
@@ -201,10 +174,14 @@ mod tests {
         let task = task_with("failed");
         let owner = task.created_by.as_uuid();
 
-        let summary = summarize_task_for_ws(&task, Some("Codex"));
+        let summary = task_summary(&task, Some("Codex"));
 
-        assert_eq!(summary["createdBy"], json!(owner));
-        assert_eq!(summary["assignedAgentName"], "Codex");
+        assert_eq!(summary.created_by, owner);
+        assert_eq!(summary.assigned_agent_name.as_deref(), Some("Codex"));
+        // The serialized frame carries the camelCase wire names.
+        let value = serde_json::to_value(&summary).expect("summary serializes");
+        assert_eq!(value["createdBy"], json!(owner));
+        assert_eq!(value["assignedAgentName"], "Codex");
     }
 
     #[test]
@@ -213,8 +190,8 @@ mod tests {
         task.blocked_reason = Some("waiting_agent".to_string());
         task.blocked_metadata = Some(json!({ "busy": 2, "offline": 1 }));
 
-        let summary = summarize_task_for_ws(&task, None);
+        let summary = task_summary(&task, None);
 
-        assert_eq!(summary["blockedHint"], "等待空闲 agent（2 个忙碌, 1 个离线）");
+        assert_eq!(summary.blocked_hint.as_deref(), Some("等待空闲 agent（2 个忙碌, 1 个离线）"));
     }
 }
