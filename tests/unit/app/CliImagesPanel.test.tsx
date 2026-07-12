@@ -498,7 +498,8 @@ describe('CliImagesPanel', () => {
     render(<CliImagesPanel />)
     expect(screen.getByText('Last restart: Codex')).toBeDefined()
     expect(screen.getByText(/1 of 5 agents restarted/)).toBeDefined()
-    expect(screen.getByText(/1 still working/)).toBeDefined()
+    // Appears in the report block AND the new inline row status.
+    expect(screen.getAllByText(/1 still working/).length).toBeGreaterThan(0)
     expect(screen.getByText(/3 need a retry/)).toBeDefined()
     expect(screen.getByText(/Restart again once they show Ready/i)).toBeDefined()
     expect(screen.getByText(/Agents still working were left running/i)).toBeDefined()
@@ -518,6 +519,33 @@ describe('CliImagesPanel', () => {
     expect(screen.queryByText(/respawn failed/i)).toBeNull()
     expect(screen.queryByText(/stop failed/i)).toBeNull()
     expect(screen.queryByText(/Reported detail/i)).toBeNull()
+  })
+
+  test('shows the restart outcome inline in the rolled tool row', () => {
+    // Regression: nothing else on the row changes after a successful roll (the
+    // agent count is blast radius, not staleness), so without an inline status
+    // a successful restart read as a no-op and operators re-clicked.
+    useAdminStore.setState({
+      ...originalAdminState,
+      cliImages: sampleStatus(),
+      cliImagesLoading: false,
+      cliImagesError: null,
+      loadCliImages: vi.fn(),
+      cliImageRollResult: {
+        tool: 'codex',
+        total: 1,
+        succeeded: 1,
+        failed: 0,
+        skippedBusy: 0,
+        results: [{ agentId: 'a1', ok: true, stopped: false, outcome: 'respawned' }],
+      },
+    })
+
+    render(<CliImagesPanel />)
+    const inline = screen.getByRole('status')
+    expect(inline.textContent).toMatch(/Restarted 1 of 1 agent/)
+    // Only the rolled tool's row may claim the restart.
+    expect(screen.getAllByRole('status')).toHaveLength(1)
   })
 
   test('surfaces a roll error', () => {
