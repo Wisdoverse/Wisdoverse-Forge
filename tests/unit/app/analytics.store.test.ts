@@ -25,8 +25,8 @@ import {
   analyticsServiceErrorMessage,
   analyticsUnavailableMessage,
   useAnalyticsStore,
-} from '@app/shared/model/analytics.store'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
+} from '@app/features/analytics/model/analytics.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 
 function resetAnalyticsStore() {
   useAnalyticsStore.setState({

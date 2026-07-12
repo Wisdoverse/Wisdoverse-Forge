@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { OrganizationsPanel } from '@app/features/admin/OrganizationsPanel'
-import type { AdminOrg } from '@app/shared/model/admin.store'
-import { useAdminStore } from '@app/shared/model/admin.store'
+import type { AdminOrg } from '@app/entities/admin'
+import { useAdminStore } from '@app/entities/admin'
 
 const loadOrgsMock = vi.fn().mockResolvedValue(undefined)
 const originalLoadOrgs = useAdminStore.getState().loadOrgs

@@ -1,6 +1,6 @@
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import type { Skill } from '@app/shared/model/skills.store'
+import type { Skill } from '@app/entities/skill'
 import { savedInstructionAudienceLabel } from './model/savedInstructionLabels'
 
 interface SkillCardProps {

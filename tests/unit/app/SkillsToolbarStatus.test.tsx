@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { SkillsView } from '@app/features/skills/SkillsView'
-import { useSkillsStore } from '@app/shared/model/skills.store'
+import { useSkillsStore } from '@app/entities/skill'
 
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)

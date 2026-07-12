@@ -1,11 +1,7 @@
 import { useEffect } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import {
-  useAdminStore,
-  type ComponentHealth,
-  type SystemHealth,
-} from '@app/shared/model/admin.store'
+import { useAdminStore, type ComponentHealth, type SystemHealth } from '@app/entities/admin'
 import { systemHealthErrorMessage } from './systemHealthErrorMessage'
 
 const SYSTEM_HEALTH_REFRESH_MS = 30_000

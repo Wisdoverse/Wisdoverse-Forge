@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import {
@@ -11,19 +11,19 @@ import {
   useAgentsStore,
   type AgentInfo,
 } from '@app/entities/agent'
-import { AgentConfigTab } from '@app/features/agents/AgentConfigTab'
-import { AgentControlPanel } from '@app/features/agents/AgentControlPanel'
-import { AgentKindBadge } from '@app/features/agents/AgentKindBadge'
-import { AgentPluginsTab } from '@app/features/agents/AgentPluginsTab'
-import { AgentTasksTab } from '@app/features/agents/AgentTasksTab'
-import { ChatView } from '@app/features/chat/ChatView'
+import {
+  AgentConfigTab,
+  AgentControlPanel,
+  AgentKindBadge,
+  AgentPluginsTab,
+  AgentTasksTab,
+  // Lazy component (wrapped in the barrel) — keeps xterm out of the agents
+  // route's initial chunk; rendered behind the Suspense boundary below.
+  AgentTerminalTab,
+} from '@app/features/agents'
+import { ChatView } from '@app/features/chat'
 import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
-
-// Lazy — keeps xterm out of the agents route's initial chunk
-const AgentTerminalTab = lazy(() =>
-  import('@app/features/agents/AgentTerminalTab').then((m) => ({ default: m.AgentTerminalTab }))
-)
 
 const STATUS_COLORS: Record<string, string> = {
   working: 'bg-[#1d1d1f] dark:bg-white',

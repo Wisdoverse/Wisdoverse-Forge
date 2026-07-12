@@ -1,0 +1,15 @@
+{
+  "type": "event",
+  "eventType": "pre_tool_use",
+  "eventData": {
+    "cwd": "/workspace/demo",
+    "id": "00000000-0000-0000-0000-0000000000ee",
+    "orgId": "00000000-0000-0000-0000-000000000002",
+    "sessionId": "cli-session-abc",
+    "timestamp": 1735732800000,
+    "tool": "Edit",
+    "type": "pre_tool_use"
+  },
+  "agentId": "cli-session-abc",
+  "orgId": "00000000-0000-0000-0000-000000000002"
+}

@@ -2,8 +2,8 @@ import { describe, test, expect, afterEach, vi } from 'vitest'
 import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react'
 import { CommandPalette } from '@app/features/cmdk/CommandPalette'
 import { i18n } from '@app/i18n'
-import { useContextFeaturesStore } from '@app/shared/model/context-features.store'
-import { useSettingsStore } from '@app/shared/model/settings.store'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useSettingsStore } from '@app/entities/settings'
 
 afterEach(async () => {
   cleanup()

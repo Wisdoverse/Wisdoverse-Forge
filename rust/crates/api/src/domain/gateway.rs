@@ -1,17 +1,96 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
 use agentforge_core::broadcast_protocol::ADMIN_CLI_IMAGE_SUBJECT;
+use agentforge_core::ws_protocol::{ServerMessage, TerminalErrorPayload, TerminalOutputPayload};
 use agentforge_core::{AppError, ErrorKind, TenantScope};
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct GatewayClientMessage {
-    #[serde(rename = "type")]
-    pub(crate) kind: String,
-    #[serde(default)]
-    pub(crate) payload: Value,
+/// A browser → gateway control message (MS-3 PR-C). The five `terminal_*` tags are
+/// the only client messages the WS handler acts on; every other tag deserializes to
+/// nothing and is a silent no-op (the handler's `None` arm), preserving the historic
+/// lenient parse. The wire shape is `{ "type": <tag>, "payload": { … } }` (adjacent
+/// tagging), mirroring `ClientMessage` in `shared/types/protocol.ts`.
+///
+/// Field-level leniency is preserved from the previous dynamic-getter parse so a
+/// malformed field degrades gracefully instead of dropping the whole message where
+/// it used to be tolerated: `cols`/`rows` fall back to their default on any
+/// non-`u16` value (see [`lenient_opt_u16`]) and `keys` silently drops non-string
+/// entries (see [`lenient_string_vec`]). A missing/invalid `agentId`, however, makes
+/// the whole message a no-op — exactly as the old `terminal_payload_agent_id` guard did.
+///
+/// Lives in the `api` crate (not `core::ws_protocol` with `ServerMessage`) because the
+/// browser → Rust direction is consumed only here; `jobs` never parses it.
+// The shared `Terminal` prefix is intentional: every current client message is a
+// terminal-control frame whose wire tag is `terminal_*`, and a future non-terminal
+// client message would not share it, so the prefix is meaningful, not redundant.
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "type", content = "payload")]
+pub(crate) enum ClientMessage {
+    #[serde(rename = "terminal_attach")]
+    TerminalAttach {
+        #[serde(rename = "agentId")]
+        agent_id: Uuid,
+        #[serde(default, deserialize_with = "lenient_opt_u16")]
+        cols: Option<u16>,
+        #[serde(default, deserialize_with = "lenient_opt_u16")]
+        rows: Option<u16>,
+    },
+    #[serde(rename = "terminal_data")]
+    TerminalData {
+        #[serde(rename = "agentId")]
+        agent_id: Uuid,
+        data: String,
+    },
+    #[serde(rename = "terminal_input")]
+    TerminalInput {
+        #[serde(rename = "agentId")]
+        agent_id: Uuid,
+        #[serde(default, deserialize_with = "lenient_string_vec")]
+        keys: Vec<String>,
+    },
+    #[serde(rename = "terminal_resize")]
+    TerminalResize {
+        #[serde(rename = "agentId")]
+        agent_id: Uuid,
+        #[serde(default, deserialize_with = "lenient_opt_u16")]
+        cols: Option<u16>,
+        #[serde(default, deserialize_with = "lenient_opt_u16")]
+        rows: Option<u16>,
+    },
+    #[serde(rename = "terminal_detach")]
+    TerminalDetach {
+        #[serde(rename = "agentId")]
+        agent_id: Uuid,
+    },
+}
+
+/// Deserialize a terminal dimension leniently: any value that is not a `u16`-range
+/// unsigned integer (a string, float, negative, oversize, null, …) yields `None` so
+/// the caller applies its default (80 cols / 24 rows), never failing the whole
+/// message. Mirrors the old `terminal_payload_dimension` getter.
+fn lenient_opt_u16<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    Ok(value.as_u64().and_then(|n| u16::try_from(n).ok()))
+}
+
+/// Deserialize terminal key chords, dropping any non-string entry (and treating a
+/// non-array value as empty) rather than failing the message. Mirrors the old
+/// `keys.iter().filter_map(Value::as_str)` extraction.
+fn lenient_string_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    Ok(value
+        .as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
+        .unwrap_or_default())
 }
 
 pub(crate) enum WebSocketOriginRejection {
@@ -99,38 +178,27 @@ pub(crate) fn admin_subscription_subjects(role: &str) -> Vec<String> {
     if role == "owner" || role == "admin" { vec![ADMIN_CLI_IMAGE_SUBJECT.to_string()] } else { Vec::new() }
 }
 
-pub(crate) fn parse_gateway_client_message(text: &str) -> Option<GatewayClientMessage> {
+/// Parse a browser control frame into a typed [`ClientMessage`], or `None` for an
+/// unparseable / unknown-tag frame (the handler treats `None` as a silent no-op, the
+/// historic D7 behaviour). A frame with a known tag but a missing/invalid `agentId`
+/// also fails to `None` here, matching the old per-handler `agentId` guard.
+pub(crate) fn parse_gateway_client_message(text: &str) -> Option<ClientMessage> {
     serde_json::from_str(text).ok()
 }
 
-pub(crate) fn terminal_payload_agent_id(payload: &Value) -> Option<Uuid> {
-    payload.get("agentId").and_then(Value::as_str).and_then(|id| Uuid::parse_str(id).ok())
-}
-
-pub(crate) fn terminal_payload_dimension(payload: &Value, key: &str) -> Option<u16> {
-    payload.get(key).and_then(Value::as_u64).and_then(|value| u16::try_from(value).ok())
-}
-
 pub(crate) fn terminal_output_frame(agent_id: Uuid, output: &[u8]) -> String {
-    json!({
-        "type": "terminal_output",
-        "payload": {
-            "agentId": agent_id,
-            "data": BASE64.encode(output),
-        }
-    })
-    .to_string()
+    // Serializing a fixed-shape `{agentId, data}` payload cannot fail; a failure
+    // here would mean a corrupt build, so surface it loudly rather than emit a
+    // malformed frame the browser would fail to `JSON.parse`.
+    ServerMessage::TerminalOutput { payload: TerminalOutputPayload { agent_id, data: BASE64.encode(output) } }
+        .to_frame_string()
+        .expect("terminal_output frame serialization is infallible")
 }
 
 pub(crate) fn terminal_error_frame(agent_id: Uuid, message: impl Into<String>) -> String {
-    json!({
-        "type": "terminal_error",
-        "payload": {
-            "agentId": agent_id,
-            "message": message.into(),
-        }
-    })
-    .to_string()
+    ServerMessage::TerminalError { payload: TerminalErrorPayload { agent_id, message: message.into() } }
+        .to_frame_string()
+        .expect("terminal_error frame serialization is infallible")
 }
 
 pub(crate) fn docker_unavailable_message() -> &'static str {
@@ -199,26 +267,83 @@ mod tests {
     }
 
     #[test]
-    fn terminal_payload_helpers_parse_browser_shape() {
+    fn client_message_parses_every_terminal_variant() {
         let agent_id = Uuid::now_v7();
-        let payload = json!({ "agentId": agent_id.to_string(), "cols": 120_u16, "rows": 33_u16 });
+        let id = agent_id.to_string();
 
-        assert_eq!(terminal_payload_agent_id(&payload), Some(agent_id));
-        assert_eq!(terminal_payload_dimension(&payload, "cols"), Some(120));
-        assert_eq!(terminal_payload_dimension(&payload, "rows"), Some(33));
+        assert_eq!(
+            parse_gateway_client_message(&format!(
+                r#"{{"type":"terminal_attach","payload":{{"agentId":"{id}","cols":120,"rows":33}}}}"#
+            )),
+            Some(ClientMessage::TerminalAttach { agent_id, cols: Some(120), rows: Some(33) })
+        );
+        assert_eq!(
+            parse_gateway_client_message(&format!(
+                r#"{{"type":"terminal_data","payload":{{"agentId":"{id}","data":"ls\n"}}}}"#
+            )),
+            Some(ClientMessage::TerminalData { agent_id, data: "ls\n".to_string() })
+        );
+        assert_eq!(
+            parse_gateway_client_message(&format!(
+                r#"{{"type":"terminal_input","payload":{{"agentId":"{id}","keys":["a","b"]}}}}"#
+            )),
+            Some(ClientMessage::TerminalInput { agent_id, keys: vec!["a".to_string(), "b".to_string()] })
+        );
+        assert_eq!(
+            parse_gateway_client_message(&format!(
+                r#"{{"type":"terminal_resize","payload":{{"agentId":"{id}","cols":90,"rows":20}}}}"#
+            )),
+            Some(ClientMessage::TerminalResize { agent_id, cols: Some(90), rows: Some(20) })
+        );
+        assert_eq!(
+            parse_gateway_client_message(&format!(r#"{{"type":"terminal_detach","payload":{{"agentId":"{id}"}}}}"#)),
+            Some(ClientMessage::TerminalDetach { agent_id })
+        );
     }
 
     #[test]
-    fn client_message_parser_accepts_terminal_payloads() {
+    fn client_message_preserves_field_level_leniency() {
         let agent_id = Uuid::now_v7();
-        let message = parse_gateway_client_message(&format!(
-            r#"{{"type":"terminal_attach","payload":{{"agentId":"{agent_id}","cols":80}}}}"#
-        ))
-        .expect("client message");
+        let id = agent_id.to_string();
 
-        assert_eq!(message.kind, "terminal_attach");
-        assert_eq!(terminal_payload_agent_id(&message.payload), Some(agent_id));
-        assert_eq!(terminal_payload_dimension(&message.payload, "cols"), Some(80));
+        // Missing cols/rows → None so the handler applies its 80/24 default.
+        assert_eq!(
+            parse_gateway_client_message(&format!(r#"{{"type":"terminal_attach","payload":{{"agentId":"{id}"}}}}"#)),
+            Some(ClientMessage::TerminalAttach { agent_id, cols: None, rows: None })
+        );
+        // A non-u16 cols (string / float / oversize) degrades to None, never fails
+        // the whole message.
+        assert_eq!(
+            parse_gateway_client_message(&format!(
+                r#"{{"type":"terminal_resize","payload":{{"agentId":"{id}","cols":"80","rows":99999999}}}}"#
+            )),
+            Some(ClientMessage::TerminalResize { agent_id, cols: None, rows: None })
+        );
+        // Non-string entries in `keys` are dropped, not fatal.
+        assert_eq!(
+            parse_gateway_client_message(&format!(
+                r#"{{"type":"terminal_input","payload":{{"agentId":"{id}","keys":["a",1,null,"b"]}}}}"#
+            )),
+            Some(ClientMessage::TerminalInput { agent_id, keys: vec!["a".to_string(), "b".to_string()] })
+        );
+    }
+
+    #[test]
+    fn client_message_is_none_for_unhandled_or_malformed_frames() {
+        let id = Uuid::now_v7().to_string();
+        // Unknown tag → no-op.
+        assert_eq!(parse_gateway_client_message(r#"{"type":"subscribe","payload":{}}"#), None);
+        // Missing `type` → no-op.
+        assert_eq!(parse_gateway_client_message(r#"{"payload":{"agentId":"x"}}"#), None);
+        // Invalid JSON → no-op.
+        assert_eq!(parse_gateway_client_message("not json"), None);
+        // Known tag but a missing/invalid agentId makes the whole message a no-op.
+        assert_eq!(parse_gateway_client_message(r#"{"type":"terminal_detach","payload":{}}"#), None);
+        assert_eq!(
+            parse_gateway_client_message(&format!(r#"{{"type":"terminal_data","payload":{{"agentId":"{id}"}}}}"#)),
+            None,
+            "terminal_data without required `data` is a no-op"
+        );
     }
 
     #[test]

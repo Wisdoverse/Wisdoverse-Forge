@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { waitingPlaceDisplayName } from '@app/entities/agent-group'
+import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 
 describe('waitingPlaceDisplayName', () => {
   it('turns queue-era names into beginner-facing task-queue names', () => {

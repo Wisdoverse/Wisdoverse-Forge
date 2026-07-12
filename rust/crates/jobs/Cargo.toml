@@ -9,6 +9,7 @@ agentforge-core.workspace = true
 agentforge-db.workspace = true
 agentforge-platform.workspace = true
 agentforge-infra.workspace = true
+agentforge-telemetry.workspace = true
 redis.workspace = true
 async-trait.workspace = true
 async-nats.workspace = true

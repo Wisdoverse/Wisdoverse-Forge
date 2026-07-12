@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CreateProjectForm } from '@app/features/manage-project/ui/CreateProjectForm'
 import { CreateTeamForm } from '@app/features/manage-team/ui/CreateTeamForm'
-import type { NavTeam } from '@app/entities/team'
+import type { NavTeam } from '@app/entities/navigation/team'
 
 const teams: NavTeam[] = [
   {

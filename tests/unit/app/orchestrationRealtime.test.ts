@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dispatchWsMessage } from '@app/hooks/useWsDispatch'
 import { handleOrchestrationWsMessage } from '@app/features/orchestration/model/orchestrationRealtime'
-import { useFeedStore } from '@app/shared/model/feed.store'
+import { useFeedStore } from '@app/entities/feed'
 import { useWorkflowStore } from '@app/features/orchestration/model/workflowStore'
 
 beforeEach(() => {
@@ -107,7 +107,10 @@ describe('handleOrchestrationWsMessage', () => {
 
     // dev:false forces the production logging path. review.escalated is the
     // highest-value alert, so a missing reviewId must still warn (not be DEV-only).
-    handleOrchestrationWsMessage({ type: 'review.escalated', payload: { taskId: 'task-1' } }, { dev: false })
+    handleOrchestrationWsMessage(
+      { type: 'review.escalated', payload: { taskId: 'task-1' } },
+      { dev: false }
+    )
 
     expect(useFeedStore.getState().notifications).toHaveLength(0)
     expect(warnSpy).toHaveBeenCalledTimes(1)
@@ -120,7 +123,10 @@ describe('handleOrchestrationWsMessage', () => {
 
     // node_status is high-frequency and non-critical: its breadcrumb stays
     // DEV-only to avoid console spam in production.
-    handleOrchestrationWsMessage({ type: 'workflow:node_status', payload: { status: 'running' } }, { dev: false })
+    handleOrchestrationWsMessage(
+      { type: 'workflow:node_status', payload: { status: 'running' } },
+      { dev: false }
+    )
 
     expect(errorSpy).not.toHaveBeenCalled()
     expect(warnSpy).not.toHaveBeenCalled()
