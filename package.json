@@ -82,7 +82,7 @@
     "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "i18next": "^26.3.3",
+    "i18next": "^26.3.6",
     "lucide-react": "^1.18.0",
     "@nats-io/transport-node": "^3.4.0",
     "pg": "^8.21.0",
