@@ -78,7 +78,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 hmac = "0.13"
 sha2 = "0.11"
 hex = "0.4"
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 libc = "0.2"
 
 # Symlink-safe filesystem ops (openat/mkdirat + O_NOFOLLOW) for materializing

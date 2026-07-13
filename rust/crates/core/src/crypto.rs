@@ -6,9 +6,8 @@
 //! encrypted by the legacy TS stack (e.g. `user_cli_credentials.encrypted_credentials`,
 //! `user_llm_configs.encrypted_api_key`) must decrypt round-trip here.
 
-use aes_gcm::aead::rand_core::RngCore;
-use aes_gcm::aead::{Aead, KeyInit, OsRng};
-use aes_gcm::{Aes256Gcm, Nonce};
+use aes_gcm::Aes256Gcm;
+use aes_gcm::aead::{Aead, Generate, KeyInit, Nonce};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 
@@ -37,16 +36,14 @@ pub fn decode_key_hex(s: &str) -> Result<[u8; 32], CryptoError> {
 /// Matches the legacy TS `encryptAesGcm` layout — a blob produced here
 /// decrypts round-trip with the TS `decryptAesGcm` helper and vice versa.
 pub fn encrypt_base64(key: &[u8; 32], plaintext: &str) -> Result<String, CryptoError> {
-    let mut iv_bytes = [0u8; IV_LEN];
-    OsRng.fill_bytes(&mut iv_bytes);
+    let nonce = Nonce::<Aes256Gcm>::generate();
     let cipher = Aes256Gcm::new(key.into());
     // aes-gcm returns `ct || tag`; we need to re-order to `iv || tag || ct`
     // so the legacy TS reader decrypts it correctly.
-    let ct_with_tag =
-        cipher.encrypt(Nonce::from_slice(&iv_bytes), plaintext.as_bytes()).map_err(|_| CryptoError::Aead)?;
+    let ct_with_tag = cipher.encrypt(&nonce, plaintext.as_bytes()).map_err(|_| CryptoError::Aead)?;
     let (ct, tag) = ct_with_tag.split_at(ct_with_tag.len() - TAG_LEN);
     let mut framed = Vec::with_capacity(IV_LEN + TAG_LEN + ct.len());
-    framed.extend_from_slice(&iv_bytes);
+    framed.extend_from_slice(&nonce);
     framed.extend_from_slice(tag);
     framed.extend_from_slice(ct);
     Ok(BASE64.encode(framed))
@@ -67,21 +64,22 @@ pub fn decrypt_base64(key: &[u8; 32], b64: &str) -> Result<String, CryptoError> 
     ct_with_tag.extend_from_slice(tag);
 
     let cipher = Aes256Gcm::new(key.into());
-    let plaintext = cipher.decrypt(Nonce::from_slice(iv), ct_with_tag.as_slice()).map_err(|_| CryptoError::Aead)?;
+    let nonce = Nonce::<Aes256Gcm>::try_from(iv).map_err(|_| CryptoError::Aead)?;
+    let plaintext = cipher.decrypt(&nonce, ct_with_tag.as_slice()).map_err(|_| CryptoError::Aead)?;
     String::from_utf8(plaintext).map_err(|_| CryptoError::Aead)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aes_gcm::aead::AeadCore;
+    use aes_gcm::aead::Key;
 
     fn test_key() -> [u8; 32] {
-        Aes256Gcm::generate_key(&mut OsRng).into()
+        Key::<Aes256Gcm>::generate().into()
     }
 
     fn test_iv() -> [u8; 12] {
-        Aes256Gcm::generate_nonce(&mut OsRng).into()
+        Nonce::<Aes256Gcm>::generate().into()
     }
 
     // Manual framing helper — we deliberately don't use `encrypt_base64` to
@@ -91,7 +89,8 @@ mod tests {
     // `createCipheriv('aes-256-gcm', ...)` decrypts here and vice versa.
     fn encrypt_legacy_layout(key: &[u8; 32], iv: &[u8; 12], plaintext: &str) -> String {
         let cipher = Aes256Gcm::new(key.into());
-        let out = cipher.encrypt(Nonce::from_slice(iv), plaintext.as_bytes()).unwrap();
+        let nonce = Nonce::<Aes256Gcm>::try_from(iv.as_slice()).unwrap();
+        let out = cipher.encrypt(&nonce, plaintext.as_bytes()).unwrap();
         // aes-gcm outputs ct || tag; TS layout is iv || tag || ct.
         let (ct, tag) = out.split_at(out.len() - TAG_LEN);
         let mut framed = Vec::with_capacity(IV_LEN + TAG_LEN + ct.len());
