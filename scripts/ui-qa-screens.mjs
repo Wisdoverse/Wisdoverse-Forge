@@ -17,7 +17,7 @@ const ROUTES = arg(
   '/,/tasks,/agents,/inbox,/context,/context/audit,/skills,/analytics,/billing,/settings,/admin,/start,/login'
 ).split(',')
 
-const email = 'dev@example.com'
+const email = process.env.AF_QA_EMAIL ?? 'dev@example.com'
 const password = process.env.AF_QA_PASSWORD
 if (!password) throw new Error('AF_QA_PASSWORD not set')
 
@@ -30,17 +30,20 @@ if (!res.ok) throw new Error(`login failed: ${res.status}`)
 const body = await res.json()
 const token = body.access_token ?? body.data?.access_token
 if (!token) throw new Error('no access_token in login response')
+const user = JSON.stringify(body.user ?? body.data?.user ?? null)
 
 mkdirSync(OUT, { recursive: true })
 const browser = await chromium.launch()
 for (const theme of ['light', 'dark']) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   await ctx.addInitScript(
-    ([t, tk]) => {
+    ([t, tk, u]) => {
       localStorage.setItem('agentforge-theme', t)
       localStorage.setItem('af:auth:access', tk)
+      localStorage.setItem('af:auth:user', u)
+      localStorage.setItem('af:auth:rememberMe', 'true')
     },
-    [theme, token]
+    [theme, token, user]
   )
   const page = await ctx.newPage()
   for (const route of ROUTES) {

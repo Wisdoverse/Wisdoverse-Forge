@@ -18,15 +18,15 @@ export const uiStyles = {
   select:
     'h-8 rounded-button border border-black/[0.08] bg-white px-2.5 text-ui-body text-foreground-light outline-none transition-colors focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
   primaryButton:
-    'inline-flex h-8 items-center justify-center gap-1.5 rounded-button bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60',
+    'inline-flex h-8 items-center whitespace-nowrap justify-center gap-1.5 rounded-button bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60',
   secondaryButton:
-    'inline-flex h-8 items-center justify-center gap-1.5 rounded-button border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]',
+    'inline-flex h-8 items-center whitespace-nowrap justify-center gap-1.5 rounded-button border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]',
   subtleButton:
-    'inline-flex h-8 items-center justify-center gap-1.5 rounded-button px-2.5 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
+    'inline-flex h-8 items-center whitespace-nowrap justify-center gap-1.5 rounded-button px-2.5 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
   dangerButton:
-    'inline-flex h-8 items-center justify-center rounded-button px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-60',
+    'inline-flex h-8 items-center whitespace-nowrap justify-center rounded-button px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-60',
   dangerConfirmButton:
-    'inline-flex h-8 items-center justify-center rounded-button bg-apple-red px-2.5 text-ui-button font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-60',
+    'inline-flex h-8 items-center whitespace-nowrap justify-center rounded-button bg-apple-red px-2.5 text-ui-button font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-60',
   badge:
     'inline-flex items-center rounded-button border border-black/[0.08] px-1.5 py-0.5 text-ui-caption font-medium text-secondary-light dark:border-white/[0.1] dark:text-secondary-dark',
   activeBadge:
