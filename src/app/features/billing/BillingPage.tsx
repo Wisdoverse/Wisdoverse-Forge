@@ -26,7 +26,7 @@ function BillingNotConfigured() {
         'flex flex-col items-center justify-center gap-3 text-center'
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
+      <div className="flex h-12 w-12 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
         <CreditCard size={20} strokeWidth={2} aria-hidden="true" />
       </div>
       <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -83,10 +83,7 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
   ]
 
   return (
-    <section
-      aria-label="Billing checkpoint"
-      className="rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-    >
+    <section aria-label="Billing checkpoint" className={uiStyles.cardPadded}>
       <div className="flex flex-col gap-1">
         <h2 className={uiStyles.sectionTitle}>Billing checkpoint</h2>
         <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -97,7 +94,7 @@ function BillingCheckpoint({ hasSubscription, usageCount, invoicesCount }: Billi
         {checkpoints.map((checkpoint) => (
           <div
             key={checkpoint.label}
-            className="rounded-md bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]"
+            className="rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]"
           >
             <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               {checkpoint.label}

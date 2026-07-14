@@ -1,4 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 
 export interface BarPoint {
   label: string
@@ -14,14 +15,6 @@ interface StatCardProps {
   bars?: BarPoint[]
   accent?: 'blue' | 'green' | 'orange' | 'red' | 'purple'
   loading?: boolean
-}
-
-const ACCENT_CLASSES: Record<NonNullable<StatCardProps['accent']>, string> = {
-  blue: 'text-apple-blue',
-  green: 'text-foreground-light dark:text-foreground-dark',
-  orange: 'text-foreground-light dark:text-foreground-dark',
-  red: 'text-apple-red',
-  purple: 'text-foreground-light dark:text-foreground-dark',
 }
 
 const BAR_CLASSES: Record<NonNullable<StatCardProps['accent']>, string> = {
@@ -85,14 +78,10 @@ export function StatCard({
   accent = 'blue',
   loading = false,
 }: StatCardProps) {
-  const accentClass = ACCENT_CLASSES[accent]
-
   return (
     <div
       aria-busy={loading || undefined}
-      className={cn(
-        'flex flex-col gap-3 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]'
-      )}
+      className={cn(uiStyles.cardPadded, 'flex flex-col gap-3')}
     >
       <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
         {title}
@@ -110,7 +99,7 @@ export function StatCard({
         </div>
       ) : (
         <div className="flex items-baseline gap-2">
-          <span className={cn('text-ui-metric font-semibold tabular-nums', accentClass)}>
+          <span className="text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
             {value}
           </span>
           {trend && trend !== 'neutral' && <TrendArrow trend={trend} label={trendLabel} />}

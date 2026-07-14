@@ -138,7 +138,7 @@ export function InboxItem({
     >
       <div
         className={cn(
-          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-card',
           config.color,
           'bg-black/[0.035] dark:bg-white/[0.05]'
         )}
@@ -147,13 +147,8 @@ export function InboxItem({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              'shrink-0 rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-              config.color,
-              'border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-white/[0.04]'
-            )}
-          >
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            <span className={cn('h-1.5 w-1.5 rounded-full', config.dot)} />
             {config.label}
           </span>
           <span className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">

@@ -67,13 +67,19 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
         {/* Body */}
         <div className="flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={cn(skill.installed ? uiStyles.activeBadge : uiStyles.badge)}>
+            <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  skill.installed ? 'bg-apple-blue' : 'bg-gray-400'
+                )}
+              />
               {skill.installed
                 ? t('skills.detail.statusReady')
                 : t('skills.detail.statusNeedsInstall')}
             </span>
             <span
-              className={uiStyles.badge}
+              className={uiStyles.chip}
               title={
                 skill.cliTool
                   ? toolLabel

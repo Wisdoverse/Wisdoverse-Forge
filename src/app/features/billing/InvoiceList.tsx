@@ -25,38 +25,38 @@ function formatDate(iso: string): string {
 function statusConfig(status: InvoiceStatus): {
   label: string
   description: string
-  color: string
+  dot: string
 } {
   switch (status) {
     case 'paid':
       return {
         label: 'Paid',
         description: 'No action needed.',
-        color: 'bg-apple-blue/10 text-apple-blue',
+        dot: 'bg-apple-blue',
       }
     case 'open':
       return {
         label: 'Payment due',
         description: 'Pay this invoice to keep your plan active.',
-        color: 'bg-apple-blue/10 text-apple-blue',
+        dot: 'bg-apple-blue',
       }
     case 'void':
       return {
         label: 'Canceled',
         description: 'This invoice was voided and no payment is needed.',
-        color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
+        dot: 'bg-gray-400',
       }
     case 'draft':
       return {
         label: 'Preparing',
         description: 'This invoice is still being prepared.',
-        color: 'text-secondary-light bg-black/5 dark:bg-white/5 dark:text-secondary-dark',
+        dot: 'bg-gray-400',
       }
     case 'uncollectible':
       return {
         label: 'Payment failed',
         description: 'Update your payment method to resolve this invoice.',
-        color: 'bg-apple-red/10 text-apple-red',
+        dot: 'bg-apple-red',
       }
   }
 }
@@ -142,9 +142,9 @@ export function InvoiceList({ invoices, loading, error, retrying, onRetry }: Inv
                 <th className={cn(uiStyles.tableHeaderCell, 'text-right')}>Receipt</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[rgb(var(--border))]">
+            <tbody>
               {invoices.map((inv) => {
-                const { label, description, color } = statusConfig(inv.status)
+                const { label, description, dot } = statusConfig(inv.status)
                 return (
                   <tr
                     key={inv.id}
@@ -158,22 +158,13 @@ export function InvoiceList({ invoices, loading, error, retrying, onRetry }: Inv
                     >
                       {formatDate(inv.createdAt)}
                     </td>
-                    <td
-                      className={cn(
-                        uiStyles.tableCell,
-                        'font-mono text-ui-caption text-secondary-light dark:text-secondary-dark'
-                      )}
-                    >
-                      {inv.number ?? inv.id.slice(0, 12)}
+                    <td className={uiStyles.tableCell}>
+                      <span className={uiStyles.chip}>{inv.number ?? inv.id.slice(0, 12)}</span>
                     </td>
                     <td className={uiStyles.tableCell}>
                       <div className="flex flex-col gap-1">
-                        <span
-                          className={cn(
-                            'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-                            color
-                          )}
-                        >
+                        <span className="inline-flex w-fit items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', dot)} />
                           {label}
                         </span>
                         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">

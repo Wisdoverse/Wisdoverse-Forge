@@ -29,38 +29,38 @@ function formatDate(iso: string): string {
 function statusBadge(status: SubscriptionStatus): {
   label: string
   description: string
-  color: string
+  dot: string
 } {
   switch (status) {
     case 'active':
       return {
         label: 'Plan active',
         description: 'Your team can keep using the capacity included with this plan.',
-        color: 'bg-apple-blue/10 text-apple-blue',
+        dot: 'bg-apple-blue',
       }
     case 'trialing':
       return {
         label: 'Trial active',
         description: 'Review usage before the trial ends so there are no surprises.',
-        color: 'bg-apple-blue/10 text-apple-blue',
+        dot: 'bg-apple-blue',
       }
     case 'past_due':
       return {
         label: 'Payment due',
         description: 'Update your payment method to keep the plan active.',
-        color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+        dot: 'bg-[#86868b]',
       }
     case 'canceled':
       return {
         label: 'Plan canceled',
         description: 'Upgrade again when the team needs paid capacity.',
-        color: 'bg-apple-red/10 text-apple-red',
+        dot: 'bg-apple-red',
       }
     case 'unpaid':
       return {
         label: 'Payment needed',
         description: 'Resolve the outstanding balance to restore access.',
-        color: 'bg-apple-red/10 text-apple-red',
+        dot: 'bg-apple-red',
       }
   }
 }
@@ -133,16 +133,12 @@ export function PlanCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1 min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <h3 className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+            <h3 className="text-ui-doc-title font-semibold text-foreground-light dark:text-foreground-dark">
               {plan?.name ?? 'Free Plan'}
             </h3>
             {badge && (
-              <span
-                className={cn(
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-                  badge.color
-                )}
-              >
+              <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                <span className={cn('h-1.5 w-1.5 rounded-full', badge.dot)} />
                 {badge.label}
               </span>
             )}

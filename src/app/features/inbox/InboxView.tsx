@@ -7,6 +7,7 @@ import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
 import { useAdminStore } from '@app/entities/admin'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { InboxItem } from './InboxItem'
 
 type InboxFilter = 'all' | 'unread' | 'needs-action' | 'credentials'
@@ -45,18 +46,16 @@ function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () =>
     <div
       role="alert"
       aria-live="polite"
-      className="flex flex-col gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red sm:flex-row sm:items-center sm:justify-between"
+      className={cn(
+        uiStyles.error,
+        'mb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'
+      )}
     >
       <span>
         Check your connection, then choose Check updates again. Saved updates could not be loaded,
         but new live updates will still appear here.
       </span>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={loading}
-        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 disabled:cursor-not-allowed disabled:opacity-70"
-      >
+      <button type="button" onClick={onRetry} disabled={loading} className={uiStyles.dangerButton}>
         <RefreshCw size={14} className={cn(loading && 'animate-spin')} aria-hidden="true" />
         {loading ? 'Checking updates...' : 'Check updates again'}
       </button>
@@ -189,7 +188,7 @@ export function InboxView() {
   if (notifications.length === 0) {
     return (
       <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
+        <div className="flex h-14 w-14 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
           <InboxIcon size={26} strokeWidth={1.75} aria-hidden="true" />
         </div>
         {loadError && (
@@ -198,11 +197,7 @@ export function InboxView() {
           </div>
         )}
         {!loadError && loadingSavedNotifications && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-secondary-dark"
-          >
+          <div role="status" aria-live="polite" className={cn(uiStyles.badge, 'gap-2')}>
             <RefreshCw size={13} className="animate-spin" aria-hidden="true" />
             Checking for saved updates...
           </div>
@@ -270,7 +265,7 @@ export function InboxView() {
               <button
                 type="button"
                 onClick={() => handleOpenNotification(nextStepNotification)}
-                className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                className={uiStyles.primaryButton}
               >
                 {nextStepActionLabel(nextStepNotification)}
               </button>
@@ -283,11 +278,7 @@ export function InboxView() {
           </div>
         )}
         {readError && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="mb-3 rounded-card border border-apple-orange/25 bg-apple-orange/10 px-3 py-2 text-ui-body text-secondary-light dark:text-secondary-dark"
-          >
+          <div role="alert" aria-live="polite" className={cn(uiStyles.note, 'mb-3')}>
             {readError}
           </div>
         )}
@@ -298,11 +289,7 @@ export function InboxView() {
               {notifications.length === 1 ? 'update' : 'updates'}
             </p>
             {loadingSavedNotifications && !loadError && (
-              <span
-                role="status"
-                aria-live="polite"
-                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-secondary-dark"
-              >
+              <span role="status" aria-live="polite" className={cn(uiStyles.badge, 'gap-1.5')}>
                 <RefreshCw size={12} className="animate-spin" aria-hidden="true" />
                 Checking older saved updates...
               </span>
@@ -310,24 +297,21 @@ export function InboxView() {
             {unreadCount > 0 && (
               <span
                 data-testid="unread-count"
-                className="rounded-full bg-apple-blue px-2 py-0.5 text-ui-caption font-medium text-white"
+                className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
               >
+                <span className="h-1.5 w-1.5 rounded-full bg-apple-blue" />
                 {unreadCount} new
               </span>
             )}
           </div>
           {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllRead}
-              className="rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-            >
+            <button type="button" onClick={handleMarkAllRead} className={uiStyles.subtleButton}>
               Mark all as read
             </button>
           )}
         </div>
         <div
-          className="mt-3 flex flex-wrap gap-1 rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
+          className="mt-3 flex flex-wrap gap-1 rounded-button bg-black/[0.035] p-1 dark:bg-white/[0.05]"
           role="group"
           aria-label="Inbox filters"
         >
@@ -342,22 +326,17 @@ export function InboxView() {
                 aria-label={`${filter.ariaLabel}, ${matchingUpdatesLabel(filterCounts[filter.id])}`}
                 onClick={() => setActiveFilter(filter.id)}
                 className={cn(
-                  'flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                  'flex h-8 items-center gap-1.5 rounded-button px-2.5 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
                   selected
-                    ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-                    : 'text-secondary-light hover:bg-white/70 hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
+                    ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                    : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
                 )}
               >
                 <span>{filter.label}</span>
                 <span
                   data-testid={`inbox-filter-count-${filter.id}`}
                   aria-hidden="true"
-                  className={cn(
-                    'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-                    selected
-                      ? 'bg-apple-blue/10 text-apple-blue'
-                      : 'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
-                  )}
+                  className="text-ui-caption font-medium tabular-nums text-secondary-light dark:text-secondary-dark"
                 >
                   {filterCounts[filter.id]}
                 </span>
@@ -388,7 +367,7 @@ export function InboxView() {
                 type="button"
                 aria-label="Show all updates"
                 onClick={() => setActiveFilter('all')}
-                className="mt-2 rounded-full px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                className={cn(uiStyles.subtleButton, 'mt-2')}
               >
                 Show all updates
               </button>
@@ -535,7 +514,7 @@ function InboxActionPath({ compact = false }: { compact?: boolean }) {
         'text-left text-ui-caption text-secondary-light dark:text-secondary-dark',
         compact
           ? 'max-w-sm'
-          : 'mt-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]'
+          : 'mt-3 rounded-card border border-black/[0.06] bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]'
       )}
     >
       <p className="font-semibold text-foreground-light dark:text-foreground-dark">

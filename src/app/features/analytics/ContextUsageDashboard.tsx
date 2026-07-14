@@ -1,5 +1,6 @@
 import { AlertTriangle, Brain, CheckCircle2, Clock3, ShieldAlert, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { ContextUsageAnalytics, ContextUsageItem } from '@app/shared/api/orchestration'
 import { StatCard } from './StatCard'
 
@@ -102,7 +103,10 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         {data?.isStale && (
           <div
             data-testid="context-usage-stale-banner"
-            className="inline-flex max-w-xl items-center gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+            className={cn(
+              uiStyles.error,
+              'mb-0 inline-flex max-w-xl items-center gap-2 text-ui-caption'
+            )}
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
             <span>
@@ -207,10 +211,7 @@ function UsageList({
   const Icon = icon === 'useful' ? CheckCircle2 : icon === 'review' ? ShieldAlert : Clock3
 
   return (
-    <div
-      data-testid={testId}
-      className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
-    >
+    <div data-testid={testId} className={uiStyles.cardPadded}>
       <div className="mb-3 flex items-start gap-2">
         <Icon
           size={15}
@@ -267,10 +268,7 @@ function UsageItem({ item, nextStep }: { item: ContextUsageItem; nextStep: strin
   const negative = item.feedbackNegativeCount > 0
 
   return (
-    <div
-      data-testid="context-usage-item"
-      className="rounded-card border border-black/[0.08] px-3 py-2 dark:border-white/[0.08]"
-    >
+    <div data-testid="context-usage-item" className={cn(uiStyles.card, 'px-3 py-2')}>
       <div className="flex min-w-0 items-start gap-2">
         <Icon
           size={14}
@@ -288,9 +286,7 @@ function UsageItem({ item, nextStep }: { item: ContextUsageItem; nextStep: strin
             <p className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
               {item.itemTitle}
             </p>
-            <span className="shrink-0 rounded-full bg-black/[0.04] px-1.5 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-              {itemKindLabel}
-            </span>
+            <span className={cn(uiStyles.badge, 'shrink-0')}>{itemKindLabel}</span>
           </div>
           <p className="mt-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
             {item.agentName} · {runtimeLabel(item.runtime)} · {taskKindLabel(item.taskKind)}
