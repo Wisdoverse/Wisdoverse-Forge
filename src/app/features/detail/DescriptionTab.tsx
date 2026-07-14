@@ -195,9 +195,7 @@ export function DescriptionTab({
           )}
           <p>
             {contextTotal > 0
-              ? `${contextTotal} saved ${
-                  contextTotal === 1 ? 'note or instruction' : 'notes or instructions'
-                } helped this task.`
+              ? `${contextTotal} saved item${contextTotal === 1 ? '' : 's'} helped this task.`
               : 'Saved notes, work history, and ideas to reuse next time appear here while the task is active.'}
           </p>
           {onOpenContext && (
@@ -238,7 +236,7 @@ export function DescriptionTab({
                   onClick={onDraftSkill}
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
                 >
-                  <span>Draft saved instruction</span>
+                  <span>Draft saved guidance</span>
                   <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               )}
@@ -399,7 +397,7 @@ function nextActionForTask(
         : {
             title: 'Assign an agent',
             detail:
-              'Choose a ready agent, check the suggested saved notes and instructions, then send the task.',
+              'Choose an agent, check the suggested saved notes and guidance, then send the task.',
             tone: 'warn',
           }
     case 'queued':
@@ -411,7 +409,7 @@ function nextActionForTask(
             tone: 'default',
           }
         : {
-            title: 'Waiting for a ready agent',
+            title: 'Waiting for an agent',
             detail:
               'If this stays here, choose or start an agent so the task has someone to begin the work.',
             tone: 'warn',

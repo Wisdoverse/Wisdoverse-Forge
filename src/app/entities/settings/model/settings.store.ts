@@ -111,12 +111,17 @@ export function normalizeSettingsSection(value: unknown): SettingsSection | null
 }
 
 type SettingsErrorArea =
-  'providers' | 'apiKeys' | 'gitCredentials' | 'sshKeys' | 'resourceProfiles' | 'runtime'
+  | 'providers'
+  | 'apiKeys'
+  | 'gitCredentials'
+  | 'sshKeys'
+  | 'resourceProfiles'
+  | 'runtime'
 
 type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
-  providers: 'AI service settings',
+  providers: 'AI services',
   apiKeys: 'tool access keys',
   gitCredentials: 'code access',
   sshKeys: 'SSH code access',

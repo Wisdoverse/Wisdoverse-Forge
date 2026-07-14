@@ -108,10 +108,10 @@ export function ContextTab({
       <BeginnerLoadingState
         compact
         framed={false}
-        title="Checking saved notes and instructions"
-        detail="Forge is checking which saved notes and saved instructions helped this task."
+        title="Checking saved notes and guidance"
+        detail="Forge is checking which saved notes and saved guidance helped this task."
         nextStep="If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access."
-        success="Success looks like saved notes used, instructions used, or a start-the-task step."
+        success="Success looks like saved notes used, guidance used, or a start-the-task step."
       />
     )
   }
@@ -136,7 +136,7 @@ export function ContextTab({
         <section className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] p-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent checked saved notes and instructions
+              Agent checked saved notes and guidance
             </h3>
             <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
               {context.runs.length} check{context.runs.length === 1 ? '' : 's'}
@@ -172,14 +172,14 @@ export function ContextTab({
         candidates={context.suggestedMemoryUpdates}
       />
       <ContextAppliedList
-        title="Instructions used"
+        title="Guidance used"
         kind="skill"
         items={grouped.skills}
         onReadMemoryContent={readMemoryContent}
         onRecordFeedback={(item, label) => recordFeedback(item, label)}
       />
       <ContextCandidatesList
-        title="Suggested instructions to check"
+        title="Suggested guidance to check"
         kind="skill"
         candidates={context.skillCandidates}
       />
@@ -187,7 +187,7 @@ export function ContextTab({
       {context.provenance.length > 0 && (
         <section className="space-y-2" data-testid="context-provenance">
           <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
-            Where saved notes or instructions came from
+            Where saved notes or guidance came from
           </h3>
           <div className="space-y-1.5">
             {context.provenance.map((item) => (
@@ -261,8 +261,8 @@ function ContextEmptyState() {
               Start the task to build work history
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              This page fills in after an agent uses saved notes, saved instructions, or work
-              history for this task. If nothing appears yet, make sure the task has an agent and has
+              This page fills in after an agent uses saved notes, saved guidance, or work history
+              for this task. If nothing appears yet, make sure the task has an agent and has
               started.
             </p>
           </div>

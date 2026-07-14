@@ -24,7 +24,7 @@ const SECTIONS: SectionItem[] = [
   { id: 'agents', label: 'Agents', group: 'Management' },
   { id: 'health', label: 'App health', group: 'App checks' },
   { id: 'cli-images', label: 'Agent tool updates', group: 'App checks' },
-  { id: 'control-plane', label: 'Agent coordination', group: 'App checks' },
+  { id: 'control-plane', label: 'Agent work checks', group: 'App checks' },
 ]
 
 const GROUPS = ['Management', 'App checks']

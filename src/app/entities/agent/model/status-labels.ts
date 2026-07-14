@@ -8,8 +8,8 @@ const AGENT_STATUS_LABELS: Record<string, string> = {
 
 export function agentStatusLabel(status: AgentStatus | string | null | undefined): string {
   const normalized = agentStatusKey(status)
-  if (!normalized) return 'Check agent status'
-  return AGENT_STATUS_LABELS[normalized] ?? 'Check agent status'
+  if (!normalized) return 'Check if ready'
+  return AGENT_STATUS_LABELS[normalized] ?? 'Check if ready'
 }
 
 export function agentStatusKey(status: AgentStatus | string | null | undefined): string {

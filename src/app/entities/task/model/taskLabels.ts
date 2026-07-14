@@ -6,7 +6,7 @@ const TASK_STATE_LABELS: Record<string, string> = {
   working: 'Working',
   blocked: 'Needs help',
   completed: 'Completed',
-  failed: 'Check retry steps',
+  failed: 'Needs another try',
   canceled: 'Canceled',
 }
 
@@ -26,17 +26,17 @@ export function taskStateLabel(
   options: TaskStateLabelOptions = {}
 ): string {
   const normalized = normalizedMachineValue(state)
-  if (!normalized) return 'Open task details to check status'
+  if (!normalized) return 'Open task details to see the latest status'
   if (normalized === 'completed' && options.completedLabel) return options.completedLabel
-  return TASK_STATE_LABELS[normalized] ?? 'Check task status'
+  return TASK_STATE_LABELS[normalized] ?? 'Open task details to read this status'
 }
 
 export function taskPriorityLabel(
   priority: TaskSummary['priority'] | string | null | undefined
 ): string {
   const normalized = normalizedMachineValue(priority)
-  if (!normalized) return 'Open task details to check priority'
-  return TASK_PRIORITY_LABELS[normalized] ?? 'Check task priority'
+  if (!normalized) return 'Open task details to see the latest priority'
+  return TASK_PRIORITY_LABELS[normalized] ?? 'Open task details to read this priority'
 }
 
 export function taskMachineKey(value: string | null | undefined): string {

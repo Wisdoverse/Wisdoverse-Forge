@@ -12,7 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'tasks', Icon: ClipboardList, label: 'Task board', path: '/tasks' },
   { id: 'inbox', Icon: Inbox, label: 'Updates inbox', path: '/inbox' },
   { id: 'agents', Icon: Bot, label: 'Agents and chat services', path: '/agents' },
-  { id: 'skills', Icon: Brain, label: 'Saved instructions', path: '/skills' },
+  { id: 'skills', Icon: Brain, label: 'Saved guidance', path: '/skills' },
 ]
 
 const BOTTOM_ITEMS: NavItem[] = [

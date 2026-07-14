@@ -65,14 +65,14 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'all',
     label: 'All saved item changes',
-    description: 'See every saved note and saved instruction change.',
+    description: 'See every saved note and saved guidance change.',
     Icon: Search,
     filters: {},
   },
   {
     id: 'skill-decisions',
-    label: 'Saved instruction decisions',
-    description: 'Check who saved or updated saved instructions.',
+    label: 'Saved guidance decisions',
+    description: 'Check who saved or updated saved guidance.',
     Icon: ClipboardCheck,
     filters: {
       eventPrefix: 'governance.context.skill.',
@@ -94,7 +94,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
 const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
   { value: 'all', label: 'All items' },
   { value: 'memory', label: 'Saved note' },
-  { value: 'skill', label: 'Saved instruction' },
+  { value: 'skill', label: 'Saved guidance' },
 ]
 
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
@@ -314,7 +314,7 @@ export function AuditLogView() {
               className="inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Search size={15} aria-hidden="true" />
-              Apply filters
+              Show changes
             </button>
             <button
               type="button"
@@ -435,7 +435,7 @@ export function AuditLogView() {
                   <th className="px-4 py-3 font-semibold">Changed item</th>
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Changed by</th>
-                  <th className="px-4 py-3 font-semibold">Verification</th>
+                  <th className="px-4 py-3 font-semibold">Change check</th>
                   <th className="px-4 py-3 font-semibold">Change notes</th>
                 </tr>
               </thead>
@@ -446,7 +446,7 @@ export function AuditLogView() {
                       <BeginnerLoadingState
                         framed={false}
                         title="Checking change history"
-                        detail="Forge is checking saved note and saved instruction changes for this team space."
+                        detail="Forge is checking saved note and saved guidance changes for this team space."
                         nextStep="If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access."
                         success="Success looks like history rows or a Show all change history step."
                       />
@@ -622,18 +622,18 @@ function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
     valid: {
       Icon: ShieldCheck,
       className: 'bg-apple-blue/10 text-apple-blue',
-      label: 'Verified',
+      label: 'Checked',
     },
     invalid: {
       Icon: ShieldAlert,
       className: 'bg-apple-red/10 text-apple-red',
-      label: 'Check verification',
+      label: 'Check this change',
     },
     not_configured: {
       Icon: ShieldQuestion,
       className:
         'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-      label: 'Set up verification',
+      label: 'Change check not set up',
     },
   }[status]
   return (
@@ -762,8 +762,8 @@ function formatDate(value: string): string {
 function auditEventLabel(eventType: string): string {
   const labels: Record<string, string> = {
     'governance.context.feedback.recorded': 'Feedback saved',
-    'governance.context.skill.approved': 'Saved instruction saved for reuse',
-    'governance.context.skill.reviewed': 'Saved instruction checked',
+    'governance.context.skill.approved': 'Saved guidance saved for reuse',
+    'governance.context.skill.reviewed': 'Saved guidance checked',
     'governance.context.memory.updated': 'Saved note updated',
     'governance.context.memory.rejected': 'Saved note not saved',
   }
@@ -777,7 +777,7 @@ function auditEventLabel(eventType: string): string {
 
 function auditViewMetricLabel(eventPrefix: string | undefined): string {
   if (!eventPrefix || eventPrefix === 'governance.context.') return 'All saved item changes'
-  if (eventPrefix === 'governance.context.skill.') return 'Saved instruction changes'
+  if (eventPrefix === 'governance.context.skill.') return 'Saved guidance changes'
   if (eventPrefix === 'governance.context.memory.') return 'Saved note changes'
   return 'Custom change view'
 }
@@ -788,7 +788,7 @@ function shortEventType(eventType: string): string {
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
   if (kind === 'memory') return 'Saved note'
-  if (kind === 'skill') return 'Saved instruction'
+  if (kind === 'skill') return 'Saved guidance'
   return 'Item hidden for safety'
 }
 
@@ -797,7 +797,7 @@ function resourceTypeLabel(value: string): string {
   if (normalized === 'memory' || normalized === 'memories' || normalized === 'memory_item') {
     return 'Saved note details'
   }
-  if (normalized === 'skill' || normalized === 'skills') return 'Instruction details'
+  if (normalized === 'skill' || normalized === 'skills') return 'Guidance details'
   return readableCodeLabel(value, { fallback: 'Check item type' })
 }
 

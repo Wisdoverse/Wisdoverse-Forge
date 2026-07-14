@@ -236,14 +236,14 @@ export function ProjectsSection() {
                   Project "{createdProjectName}" is ready
                 </p>
                 <p className="mt-1 text-ui-caption">
-                  Next: set up a task queue in Agents, then create the first task in Tasks.
+                  Next: set up a place for new tasks in Agents, then create the first task in Tasks.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <a href="/agents" className={uiStyles.secondaryButton}>
                 <Bot size={14} strokeWidth={2} aria-hidden="true" />
-                <span>Set up task queue</span>
+                <span>Set up place</span>
               </a>
               <a href="/tasks" className={uiStyles.primaryButton}>
                 <CheckSquare size={14} strokeWidth={2} aria-hidden="true" />
@@ -254,7 +254,7 @@ export function ProjectsSection() {
         </div>
       )}
 
-      <div className={cn(uiStyles.card)}>
+      <div className="border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
         {loading && projectsWithTeam.length === 0 ? (
           <BeginnerLoadingState
             framed={false}

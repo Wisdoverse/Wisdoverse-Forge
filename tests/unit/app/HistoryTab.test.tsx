@@ -85,7 +85,7 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('Choose an agent to start this task')).toBeInTheDocument()
-    expect(screen.getByText('Choose a ready agent before this task can start.')).toBeDefined()
+    expect(screen.getByText('Choose an agent before this task can start.')).toBeDefined()
     expect(screen.getByText('Choose an agent first, then start the task.')).toBeDefined()
     expect(screen.queryByText('No agent assigned yet')).toBeNull()
   })
@@ -321,7 +321,8 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findByText('Check retry steps')).toBeInTheDocument()
+    expect(await screen.findByText('Needs another try')).toBeInTheDocument()
+    expect(screen.queryByText('Check retry steps')).toBeNull()
     expect(screen.getByText('This agent tried the task.')).toBeInTheDocument()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.queryByText('This agent will handle the next step.')).toBeNull()
@@ -370,7 +371,7 @@ describe('HistoryTab', () => {
       />
     )
 
-    expect(await screen.findByText('Waiting for a ready agent')).toBeInTheDocument()
+    expect(await screen.findByText('Waiting for an agent')).toBeInTheDocument()
     expect(screen.getByText('Needs agent')).toBeInTheDocument()
     expect(screen.getByText(/Choose or start an agent so this task/i)).toBeInTheDocument()
     expect(
@@ -395,7 +396,8 @@ describe('HistoryTab', () => {
     )
 
     expect(await screen.findByText('The chosen agent is waiting to start')).toBeInTheDocument()
-    expect(screen.getByText('Agent name loading')).toBeInTheDocument()
+    expect(screen.getByText('Loading agent name')).toBeInTheDocument()
+    expect(screen.queryByText('Agent name loading')).toBeNull()
     expect(screen.queryByText('Agent details loading')).toBeNull()
     expect(screen.queryByText('Needs agent')).toBeNull()
   })
@@ -482,7 +484,8 @@ describe('HistoryTab', () => {
 
     render(<HistoryTab task={makeTask({ state: 'waiting_for_agent' as never })} />)
 
-    expect(await screen.findByText('Check task status')).toBeInTheDocument()
+    expect(await screen.findByText('Open task details to read this status')).toBeInTheDocument()
+    expect(screen.queryByText('Check task status')).toBeNull()
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
   })

@@ -58,7 +58,7 @@ const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
 const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
   { value: 'all', label: 'All items' },
   { value: 'memory', label: 'Saved notes' },
-  { value: 'skill', label: 'Saved instructions' },
+  { value: 'skill', label: 'Saved guidance' },
 ]
 
 const SCOPE_FILTERS: Array<{ value: ScopeFilter; label: string }> = [
@@ -128,7 +128,7 @@ function approvalQueueEmptyState({
     return {
       title: 'Check the first saved item to start history',
       detail:
-        'Saved and not-saved notes or instructions appear here after someone checks the first suggestion.',
+        'Saved and not-saved notes or guidance appear here after someone checks the first suggestion.',
       nextStep:
         'Next: switch back to Needs your check when you only want items waiting for a decision.',
       actionLabel: 'Show items to check',
@@ -138,7 +138,7 @@ function approvalQueueEmptyState({
   return {
     title: 'No saved items need checking',
     detail:
-      'When an agent suggests a saved note or saved instruction, it will appear here before anyone can reuse it.',
+      'When an agent suggests a saved note or saved guidance, it will appear here before anyone can reuse it.',
     nextStep: 'Next: open Tasks and finish work that should teach future agents what helped.',
     actionLabel: 'Open task list',
     actionHref: '/tasks',
@@ -308,8 +308,7 @@ export function ApprovalQueueView() {
                 Check steps
               </p>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Decide which saved notes or instructions are useful and safe to save for future
-                work.
+                Decide which saved notes or guidance are useful and safe to save for future work.
               </p>
             </div>
             <ol className="list-decimal space-y-1 pl-4 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -361,8 +360,8 @@ export function ApprovalQueueView() {
         <section className="min-h-[360px]">
           {loading && candidates.length === 0 ? (
             <BeginnerLoadingState
-              title="Checking saved notes and instructions"
-              detail="Forge is checking which saved notes or instructions need your decision before agents can reuse them."
+              title="Checking saved notes and guidance"
+              detail="Forge is checking which saved notes or guidance need your decision before agents can reuse them."
               nextStep="If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access."
               success="Success looks like saved items to check or a no-items-to-review message."
               testId="context-approval-loading"
@@ -999,7 +998,7 @@ function candidateTitle(candidate: ContextCandidateSummary): string {
 }
 
 function contextItemKindLabel(value: ContextCandidateKind): string {
-  return value === 'skill' ? 'Saved instruction' : 'Saved note'
+  return value === 'skill' ? 'Saved guidance' : 'Saved note'
 }
 
 function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {

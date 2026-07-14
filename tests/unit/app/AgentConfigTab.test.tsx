@@ -147,18 +147,22 @@ describe('AgentConfigTab', () => {
     expect(within(summary).getByText('1')).toBeDefined()
     expect(within(summary).getByText('Characters')).toBeDefined()
     expect(screen.getByText('Has instructions')).toBeDefined()
-    expect(screen.getByText('Agent instructions')).toBeDefined()
+    expect(screen.getByText('How this agent answers')).toBeDefined()
+    expect(screen.queryByText('Agent instructions')).toBeNull()
     expect(screen.queryByText('Prompt profile')).toBeNull()
   })
 
   it('Save button disabled until user edits the value', () => {
     render(<AgentConfigTab agentId="a1" />)
-    const save = screen.getByRole('button', { name: /save/i })
+    const save = screen.getByRole('button', { name: /save answer guidance/i })
     expect(save).toBeDisabled()
+    expect(save).toHaveAttribute('title', 'Change the answer guidance before save is available.')
+    expect(screen.queryByRole('button', { name: /save instructions/i })).toBeNull()
     fireEvent.change(screen.getByLabelText(/instructions for this agent/i), {
       target: { value: 'new prompt' },
     })
     expect(save).not.toBeDisabled()
+    expect(save).toHaveAttribute('title', 'Save this answer guidance for future work.')
   })
 
   it('explains instruction editing in beginner language', () => {
@@ -169,9 +173,8 @@ describe('AgentConfigTab', () => {
       screen.getByText(/start from a template or write everyday instructions/i)
     ).toBeInTheDocument()
     expect(instructions).toHaveAccessibleDescription(/tell this agent the outcome/i)
-    expect(screen.getByRole('status')).toHaveTextContent(
-      /this agent already has saved instructions/i
-    )
+    expect(screen.getByRole('status')).toHaveTextContent(/this agent already has saved guidance/i)
+    expect(screen.queryByText(/this agent already has saved instructions/i)).toBeNull()
     expect(screen.queryByText(/system prompt/i)).toBeNull()
   })
 
@@ -219,20 +222,30 @@ describe('AgentConfigTab', () => {
     expect(screen.queryByRole('button', { name: /^review$/i })).toBeNull()
     expect(screen.getByText('Unsaved')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
+    expect(screen.getByRole('button', { name: /reset/i })).toHaveAttribute(
+      'title',
+      'Reset to the last saved guidance.'
+    )
+    expect(screen.getByRole('button', { name: /reset/i })).not.toHaveAttribute(
+      'title',
+      'Reset to the last saved instructions.'
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
     expect(screen.getByLabelText(/instructions for this agent/i)).toHaveValue('old prompt')
   })
 
-  it('uses plain-language delivery template instructions', () => {
+  it('uses plain-language finish-work template instructions', () => {
     render(<AgentConfigTab agentId="a1" />)
-    const deliveryTemplate = screen.getByRole('button', { name: /delivery/i })
+    const deliveryTemplate = screen.getByRole('button', { name: /finish work/i })
+    expect(screen.queryByRole('button', { name: /^delivery$/i })).toBeNull()
     fireEvent.click(deliveryTemplate)
 
     const instructions = screen.getByLabelText(/instructions for this agent/i)
     expect(instructions).toHaveValue(
-      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.'
+      'You help finish assigned work. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.'
     )
+    expect(instructions).not.toHaveValue(expect.stringMatching(/delivery-focused/i))
     for (const phrase of oldDeliveryTemplatePhrases) {
       expect(instructions).not.toHaveValue(expect.stringMatching(phrase))
     }
@@ -286,6 +299,8 @@ describe('AgentConfigTab', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(updateAgentSystemPrompt).toHaveBeenCalledWith('a1', 'new prompt'))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/answer guidance saved/i))
+    expect(screen.getByRole('status')).not.toHaveTextContent(/agent instructions saved/i)
   })
 
   it('shows a plain-language save failure message', async () => {
@@ -298,7 +313,7 @@ describe('AgentConfigTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/answer guidance was not saved/i)
     )
     expect(screen.getByRole('alert')).toHaveTextContent(/^open agents/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/choose this simple chat agent again/i)
@@ -319,7 +334,7 @@ describe('AgentConfigTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/agent instructions were not saved/i)
+      expect(screen.getByRole('alert')).toHaveTextContent(/answer guidance was not saved/i)
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(/HTTP 500/i)
     expect(screen.getByRole('alert')).not.toHaveTextContent(/database unavailable/i)

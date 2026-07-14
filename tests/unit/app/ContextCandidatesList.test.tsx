@@ -71,7 +71,7 @@ describe('ContextCandidatesList', () => {
   test('explains instruction suggestions as check-only before agents can follow them', () => {
     render(
       <ContextCandidatesList
-        title="Suggested instructions to check"
+        title="Suggested guidance to check"
         kind="skill"
         candidates={[
           candidate({
@@ -87,12 +87,14 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Suggested instructions to check')).toBeInTheDocument()
+    expect(screen.getByText('Suggested guidance to check')).toBeInTheDocument()
+    expect(screen.queryByText('Suggested instructions to check')).toBeNull()
     expect(
-      screen.getByText(/suggested instructions from this task.*before agents can follow it/i)
+      screen.getByText(/suggested guidance from this task.*before agents can follow it/i)
     ).toBeInTheDocument()
     expect(screen.getByText('Release operator')).toBeInTheDocument()
-    expect(screen.getByText('Suggested instruction')).toBeInTheDocument()
+    expect(screen.getByText('Suggested guidance')).toBeInTheDocument()
+    expect(screen.queryByText('Suggested instruction')).toBeNull()
     expect(screen.getByText('Saved')).toBeInTheDocument()
     expect(screen.queryByText('Approved')).toBeNull()
     expect(
@@ -101,7 +103,7 @@ describe('ContextCandidatesList', () => {
     expect(screen.queryByText(/No preview yet/i)).toBeNull()
     expect(screen.queryByText(/inspect the full suggestion/i)).toBeNull()
     expect(
-      screen.getByText(/open Saved items.*check this instruction before agents can follow it/i)
+      screen.getByText(/open Saved items.*check this guidance before agents can follow it/i)
     ).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: /open saved items for release operator/i })
@@ -115,7 +117,7 @@ describe('ContextCandidatesList', () => {
   test('uses saved-instruction wording when an instruction suggestion has no title', () => {
     render(
       <ContextCandidatesList
-        title="Suggested instructions to check"
+        title="Suggested guidance to check"
         kind="skill"
         candidates={[
           candidate({
@@ -129,8 +131,10 @@ describe('ContextCandidatesList', () => {
       />
     )
 
-    expect(screen.getByText('Untitled suggested instruction')).toBeInTheDocument()
-    expect(screen.getByText('Suggested instruction')).toBeInTheDocument()
+    expect(screen.getByText('Untitled suggested guidance')).toBeInTheDocument()
+    expect(screen.getByText('Suggested guidance')).toBeInTheDocument()
+    expect(screen.queryByText('Untitled suggested instruction')).toBeNull()
+    expect(screen.queryByText('Suggested instruction')).toBeNull()
     expect(screen.queryByText('Suggested saved instruction')).toBeNull()
     expect(screen.queryByText(new RegExp(['Suggested', 'skill'].join('\\s+')))).toBeNull()
     expect(screen.queryByText(previousUntitledInstructionIdea)).toBeNull()

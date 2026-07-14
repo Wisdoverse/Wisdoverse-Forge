@@ -21,7 +21,7 @@ interface DraftForm {
 }
 
 const SKILL_REVIEW_POINTS = [
-  { label: 'Saved instruction', value: 'Keep only instructions future work should repeat.' },
+  { label: 'Reusable guidance', value: 'Keep only steps future work should repeat.' },
   {
     label: 'Keep private details out',
     value:
@@ -56,7 +56,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     const name = form.name.trim()
     const content = form.content.trim()
     if (!name) {
-      setError('Name this instruction before saving it.')
+      setError('Name this guidance before saving it.')
       setFieldError('name')
       nameInputRef.current?.focus()
       return
@@ -113,11 +113,11 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="skill-draft-title" className={uiStyles.sectionTitle}>
-              Draft saved instruction
+              Draft reusable guidance
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Turn this completed task into reusable instructions. Check what should repeat before
-              saving it for your team space.
+              Turn this completed task into guidance your team can reuse. Check what should repeat
+              before saving it for your team space.
             </p>
           </div>
           <button
@@ -142,13 +142,12 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue">
               Check 3 things before saving: the name is recognizable, the matching words are words
-              teammates would type in a task, and the instructions can stand alone without this task
-              open.
+              teammates would type in a task, and the steps can stand alone without this task open.
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="skill-draft-name" className={uiStyles.label}>
-                  Instruction name
+                  Guidance name
                 </label>
                 <input
                   id="skill-draft-name"
@@ -169,8 +168,8 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   id="skill-draft-name-help"
                   className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  This name appears in Saved instructions and when choosing instructions for a task.
-                  Use words a teammate would recognize.
+                  This name appears when choosing guidance for a task. Use words a teammate would
+                  recognize.
                 </p>
               </div>
               <div>
@@ -181,7 +180,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   id="skill-draft-trigger-intro"
                   className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Type words teammates would put in a task when this instruction should help.
+                  Type words teammates would put in a task when this guidance should help.
                 </p>
                 <input
                   id="skill-draft-trigger"
@@ -196,7 +195,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                   id="skill-draft-trigger-help"
                   className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
-                  Optional. Leave blank if teammates should choose this instruction manually.
+                  Optional. Leave blank if teammates should choose this guidance manually.
                 </p>
               </div>
             </div>
@@ -218,7 +217,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 id="skill-draft-description-help"
                 className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
               >
-                Optional. Say what this reusable instruction helps people do.
+                Optional. Say what this guidance helps people do.
               </p>
             </div>
 
@@ -245,7 +244,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
 
             <div>
               <label htmlFor="skill-draft-content" className={uiStyles.label}>
-                Reusable instructions
+                Reusable guidance
               </label>
               <textarea
                 id="skill-draft-content"
@@ -266,7 +265,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 id="skill-draft-content-help"
                 className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
               >
-                Required. Remove task-specific details and keep only reusable instructions.
+                Required. Remove task-specific details and keep only reusable steps.
               </p>
             </div>
 
@@ -275,7 +274,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 Close without saving
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Saving instruction...' : 'Save instruction'}
+                {submitting ? 'Saving guidance...' : 'Save guidance'}
               </button>
             </div>
           </form>
@@ -292,7 +291,7 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
         <div className="flex items-start gap-3">
           <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden="true" className="mt-0.5" />
           <div className="min-w-0">
-            <p className="text-ui-section font-semibold">Saved instruction is ready</p>
+            <p className="text-ui-section font-semibold">Reusable guidance is ready</p>
             <p className="mt-1 break-words text-ui-body text-foreground-light dark:text-foreground-dark">
               {skill.name}
             </p>
@@ -304,14 +303,14 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
         <NextReuseLink
           href="/skills"
           Icon={LibraryBig}
-          title="Open saved instructions"
-          detail="Find this saved instruction, then check the reusable steps before agents use them."
+          title="Open saved guidance"
+          detail="Find this saved guidance, then check the reusable steps before agents use them."
         />
         <NextReuseLink
           href="/agents"
           Icon={Users}
           title="Choose agent"
-          detail="Pick who should follow this instruction."
+          detail="Pick who should follow this guidance."
         />
       </div>
 
@@ -370,15 +369,15 @@ function buildSkillDraft(task: TaskSummary, artifacts: TaskResultArtifact[]): Dr
   const source = artifactContent || task.params.message.trim() || title
 
   return {
-    name: slugify(title) || 'completed-task-instructions',
-    description: `Reusable instructions extracted from completed task: ${title}`,
+    name: slugify(title) || 'completed-task-guidance',
+    description: `Reusable guidance extracted from completed task: ${title}`,
     triggerPattern: title.toLowerCase().slice(0, 80),
-    content: `# Instruction: ${title}
+    content: `# Guidance: ${title}
 
 ## When to use
-Use this instruction when a future task needs the same judgment, steps, or way of working.
+Use this guidance when a future task needs the same judgment, steps, or way of working.
 
-## Reusable instructions
+## Reusable guidance
 ${source}`,
   }
 }
@@ -390,7 +389,7 @@ function draftTitle(task: TaskSummary): string {
   const messageTitle = task.params.message.trim().split(/\r?\n/)[0]?.trim()
   if (messageTitle) return messageTitle
 
-  return 'Completed task instructions'
+  return 'Completed task guidance'
 }
 
 function slugify(value: string): string {

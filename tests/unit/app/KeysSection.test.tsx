@@ -203,7 +203,12 @@ describe('KeysSection', () => {
 
     render(<KeysSection />)
 
-    expect(await screen.findByRole('table', { name: /tool access keys/i })).toBeDefined()
+    const table = await screen.findByRole('table', { name: /tool access keys/i })
+    expect(table).toBeDefined()
+    const tableFrame = table.parentElement
+    expect(tableFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(tableFrame?.className).not.toContain('rounded-card')
+    expect(tableFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(screen.getByText('Saved access starts with')).toBeDefined()
     expect(screen.queryByText('Saved key starts with')).toBeNull()
     expect(screen.getByText('Use this access key from a trusted tool first')).toBeDefined()

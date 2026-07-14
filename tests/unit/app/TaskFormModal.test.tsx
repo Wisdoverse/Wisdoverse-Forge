@@ -88,7 +88,7 @@ describe('TaskFormModal', () => {
     ).toBeDefined()
     expect(screen.getByText('Start with a task template')).toBeDefined()
     expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
-    expect(screen.getByText(/project, a task queue, and enough detail/i)).toBeDefined()
+    expect(screen.getByText(/project, a place, and enough detail/i)).toBeDefined()
     expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
     expect(screen.getByText('A clear task has three plain-language parts')).toBeDefined()
     expect(screen.getByText('Goal')).toBeDefined()
@@ -118,7 +118,7 @@ describe('TaskFormModal', () => {
     )
     expect(screen.getByText('Start with a task template')).toBeDefined()
     expect(screen.getByText('Fills in a safe first draft')).toBeDefined()
-    expect(screen.getByText(/project, a task queue, and enough detail/i)).toBeDefined()
+    expect(screen.getByText(/project, a place, and enough detail/i)).toBeDefined()
     expect(screen.getByRole('group', { name: /task templates/i })).toBeDefined()
     expect(screen.getByText('A clear task has three plain-language parts')).toBeDefined()
     expect(screen.getByText('Goal')).toBeDefined()
@@ -277,7 +277,7 @@ describe('TaskFormModal', () => {
     )
     expect(screen.getByTestId('task-submit-preview')).toHaveTextContent('What happens after this')
     expect(screen.getByTestId('task-submit-preview')).toHaveTextContent(
-      'After you create it, the next ready agent can start it from this project.'
+      'After you create it, the next agent can start it from this project.'
     )
     expect(screen.getByTestId('task-submit-preview')).not.toHaveTextContent('pick it up')
     expect(screen.getByTestId('task-brief-cue-goal')).toHaveTextContent('Add')
@@ -314,14 +314,14 @@ describe('TaskFormModal', () => {
     expect(screen.queryByLabelText(/^priority$/i)).toBeNull()
     expect(screen.queryByLabelText(/who should start it/i)).toBeNull()
     expect(screen.getByText(/normal priority/i)).toBeDefined()
-    expect(screen.getByText(/next ready agent starts it/i)).toBeDefined()
+    expect(screen.getByText(/next agent starts it/i)).toBeDefined()
     expect(screen.queryByText(/automatic agent selection/i)).toBeNull()
 
     openTaskOptions()
 
     expect(screen.getByLabelText(/^priority$/i)).toBeDefined()
     expect(screen.getByLabelText(/who should start it/i)).toBeDefined()
-    expect(screen.getByRole('option', { name: /let the next ready agent start it/i })).toBeDefined()
+    expect(screen.getByRole('option', { name: /let the next agent start it/i })).toBeDefined()
   })
 
   test('routes no-agent setup without dispatch language', () => {
@@ -366,7 +366,7 @@ describe('TaskFormModal', () => {
     expect(screen.getByText('Connect an agent before this task can start')).toBeDefined()
     expect(
       screen.getByText(
-        'Create a project and set up a task queue first. Then this task can wait here until an agent is ready. To fix agent setup now, open Agents.'
+        'Create a project and set up a place first. Then this task can wait here until an agent is ready. To fix agent setup now, open Agents.'
       )
     ).toBeDefined()
     expect(screen.queryByText(/Save the task now/i)).toBeNull()
@@ -442,7 +442,7 @@ describe('TaskFormModal', () => {
     openTaskOptions()
     expect(screen.getByText(/This task will wait here until an agent is ready/i)).toBeDefined()
     expect(screen.queryByText('No agents are available right now')).toBeNull()
-    expect(screen.getByRole('option', { name: /let the next ready agent start it/i })).toBeDefined()
+    expect(screen.getByRole('option', { name: /let the next agent start it/i })).toBeDefined()
     expect(screen.queryByText(/any available agent can do the work/i)).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
     expect(screen.getByText(/people are waiting on it now/i)).toBeDefined()
@@ -463,17 +463,18 @@ describe('TaskFormModal', () => {
       onOpenAgentSetup,
     })
 
-    expect(screen.getByText('Create a task-ready agent before this task can start')).toBeDefined()
+    expect(screen.getByText('Create an agent for tasks before this task can start')).toBeDefined()
     expect(
       screen.getByText(
-        'Simple chat agents answer questions in Chat. For Tasks, open Agents and create or start a Project files or This computer agent.'
+        'Simple chat agents answer questions in Chat. For Tasks, open Agents and create or start an agent with Project files or This computer.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/create or start a Project files or This computer agent/i)).toBeNull()
     openTaskOptions()
     expect(screen.getByText(/0 ready/i)).toBeDefined()
     expect(
       screen.getByRole('option', {
-        name: 'Chat Helper (chat only - cannot take Tasks)',
+        name: 'Chat Helper (questions only - use Chat)',
       })
     ).toBeDisabled()
     expect(screen.getByRole('button', { name: /open agents/i })).toBeDefined()
@@ -488,12 +489,12 @@ describe('TaskFormModal', () => {
     renderModal()
 
     expect(screen.getByTestId('task-work-lane-readiness').textContent).toContain(
-      'New tasks will wait in Starter task queue until a ready agent starts them.'
+      'New tasks will wait in Starter place until an agent starts them.'
     )
     openTaskOptions()
     expect(screen.getByText(/1 ready/i)).toBeDefined()
     expect(
-      screen.getByText(/Use the next ready agent when any ready agent can do the work/i)
+      screen.getByText(/Use the next agent when any agent can do the work/i)
     ).toBeDefined()
     expect(screen.queryByText(/automatic selection/i)).toBeNull()
     expect(screen.queryByText(/Keep this choice when any available agent/i)).toBeNull()
@@ -505,7 +506,7 @@ describe('TaskFormModal', () => {
     expect(screen.queryByText(/Leave this unassigned/i)).toBeNull()
   })
 
-  test('explains the task queue needed before creating work', async () => {
+  test('explains the place for new tasks needed before creating work', async () => {
     const openTaskRouting = vi.fn()
     const { onSubmit } = renderModal(vi.fn(), {
       selectedTaskGroupId: null,
@@ -514,14 +515,14 @@ describe('TaskFormModal', () => {
     })
 
     expect(screen.getByTestId('task-work-lane-readiness')).toHaveTextContent(
-      /Set up a task queue before creating this task/i
+      /Set up a place for new tasks before creating this task/i
     )
     expect(screen.getByText(/Create one place for new tasks to wait/i)).toBeDefined()
     expect(screen.queryByText(/Create one place for new work to wait/i)).toBeNull()
     const readiness = screen.getByTestId('task-work-lane-readiness')
     expect(readiness).toHaveTextContent('Open Agents.')
     expect(readiness).toHaveTextContent('Choose this project: Starter Project.')
-    expect(readiness).toHaveTextContent('Create one task queue for new tasks.')
+    expect(readiness).toHaveTextContent('Set up one place for new tasks.')
     expect(readiness).toHaveTextContent(
       'Come back here. Success looks like this card saying Task can be created.'
     )
@@ -531,8 +532,9 @@ describe('TaskFormModal', () => {
     expect(screen.getByTestId('task-work-lane-readiness')).not.toHaveTextContent(
       /Open task queues before creating this task/i
     )
+    expect(readiness.textContent).not.toContain('task queue')
 
-    fireEvent.click(screen.getByRole('button', { name: /set up task queue/i }))
+    fireEvent.click(screen.getByRole('button', { name: /set up place/i }))
 
     expect(openTaskRouting).toHaveBeenCalled()
 
@@ -543,8 +545,11 @@ describe('TaskFormModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Set up a task queue before saving this task.')
-    fireEvent.click(screen.getAllByRole('button', { name: /set up task queue/i }).at(-1)!)
+    expect(alert).toHaveTextContent(
+      'Set up a place for new tasks before saving this task.'
+    )
+    expect(alert.textContent).not.toContain('task queue')
+    fireEvent.click(screen.getAllByRole('button', { name: /set up place/i }).at(-1)!)
 
     expect(openTaskRouting).toHaveBeenCalledTimes(2)
     expect(onSubmit).not.toHaveBeenCalled()
@@ -567,12 +572,13 @@ describe('TaskFormModal', () => {
       name: 'Starting Agent (not ready)',
     }) as HTMLOptionElement
     const missingStatusOption = screen.getByRole('option', {
-      name: 'Missing Status Agent (check agent status)',
+      name: 'Missing Status Agent (check if ready)',
     }) as HTMLOptionElement
 
     expect(readyOption.disabled).toBe(false)
     expect(unknownOption.disabled).toBe(true)
     expect(missingStatusOption.disabled).toBe(true)
+    expect(screen.queryByText(/check agent status/i)).toBeNull()
     expect(screen.queryByText(/starting_up/i)).toBeNull()
     expect(screen.queryByText(/status not reported/i)).toBeNull()
     expect(screen.queryByText(/Unknown/i)).toBeNull()
@@ -603,7 +609,7 @@ describe('TaskFormModal', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Choose a ready agent, or leave this set to Let the next ready agent start it.'
+      'Choose an agent, or leave this set to Let the next agent start it.'
     )
     await waitFor(() => expect(screen.getByLabelText(/who should start it/i)).toHaveFocus())
     expect(onSubmit).not.toHaveBeenCalled()
@@ -857,11 +863,12 @@ describe('TaskFormModal', () => {
     await waitFor(() => expect(onProjectChange).toHaveBeenCalledWith(otherProject.id))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Select the project again to find the task queue. If it still does not load, open the Tasks page again or ask an owner to check the task queue in this project.'
+        'Select the project again to find the place for new tasks. If it still does not load, open the Tasks page again or ask an owner to check this project.'
       )
     )
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
+    expect(alert.textContent).not.toContain('task queue')
     expect(alert).not.toHaveTextContent('task routing setup')
     expect(alert).not.toHaveTextContent(/task queues could not load/i)
     expect(alert).not.toHaveTextContent(/load task queues/i)
@@ -881,8 +888,9 @@ describe('TaskFormModal', () => {
     const readiness = screen.getByTestId('task-work-lane-readiness')
     expect(readiness).toHaveTextContent('Checking where new tasks will wait')
     expect(readiness).toHaveTextContent(
-      'Wait a moment while Forge finds the task queue for this project.'
+      'Wait a moment while Forge finds the place for new tasks in this project.'
     )
+    expect(readiness.textContent).not.toContain('task queue')
     expect(readiness).not.toHaveTextContent('Create a Task Queue First')
     expect(readiness).not.toHaveTextContent('Loading this project')
     expect(readiness).not.toHaveTextContent('Preparing This Project')

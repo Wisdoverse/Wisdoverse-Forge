@@ -120,9 +120,7 @@ function ResourceProfileGuide({ profiles }: { profiles: ResourceProfileOption[] 
   return (
     <section
       data-testid="resource-profile-guide"
-      className={cn(
-        'mb-4 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]'
-      )}
+      className="mb-4 border-y border-black/[0.06] bg-transparent py-4 dark:border-white/[0.08]"
     >
       <div className="mb-3">
         <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -253,7 +251,7 @@ export function ResourcesSection() {
       <ResourceProfileGuide profiles={resourceProfiles} />
 
       {/* Table */}
-      <div className={cn(uiStyles.card, 'overflow-x-auto')}>
+      <div className="overflow-x-auto border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
         {resourceProfilesLoading && resourceProfiles.length === 0 ? (
           <BeginnerLoadingState
             framed={false}

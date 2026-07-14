@@ -48,9 +48,9 @@ function feedFilteredEmptyCopy(filter: FeedFilter): FeedFilteredEmptyCopy {
 
   if (filter === 'progress') {
     return {
-      title: 'Progress updates will appear here',
-      detail: 'Chosen agents add updates here after work starts.',
-      nextStep: 'Next: use All to check completed work or items that need help.',
+      title: 'Only moving work shows here',
+      detail: 'Completed or urgent updates may still be in All.',
+      nextStep: 'Next: show all updates before deciding nothing changed.',
     }
   }
 

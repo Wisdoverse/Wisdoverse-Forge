@@ -97,7 +97,8 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
         <p>
           This agent answers in chat through an AI service. It can answer questions, write, and
           check text or results, but it cannot take Tasks, change code, use computer apps, or open
-          project files on its own. For Tasks and code changes, use Project files or This computer.
+          project files on its own. For Tasks and code changes, use an agent with Project files or
+          This computer.
         </p>
       )}
     </div>
@@ -106,7 +107,7 @@ function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
 
 function agentFolderLabel(agent: AgentInfo): string {
   if (!agent.cliTool) {
-    return 'No project files. Use Project files or This computer for Tasks and code changes.'
+    return 'No project files. Use an agent with Project files or This computer for Tasks and code changes.'
   }
   if (!agent.cwd || agent.cwd === '/workspace') {
     return isHostCliAgent(agent)
@@ -144,7 +145,7 @@ function agentAvailabilityLabel(agent: AgentInfo): string {
   if (agent.status === 'working') return 'Already working'
   if (isHostCliAgent(agent)) return 'Open Agents and connect this computer again'
   if (agent.cliTool) return 'Open Live work and start project files'
-  return 'Open AI service settings and choose Check connection'
+  return 'Open AI services in Settings and choose Check connection'
 }
 
 interface AgentDetailViewProps {
@@ -431,11 +432,11 @@ function agentNextStep(
     return {
       title: 'Check the AI service before sending a message',
       detail:
-        'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.',
+        'Open AI services in Settings, choose Check connection for this service, then return to Agents and choose this agent again before sending a message.',
       success: 'The agent returns to Ready and can answer in chat.',
       ready: false,
       targetHref: '/settings/providers',
-      actionLabel: 'Open AI service settings',
+      actionLabel: 'Open AI services',
     }
   }
 
@@ -479,7 +480,7 @@ function agentNextStep(
       title: 'Send a small first task',
       detail: hostCli
         ? 'Use Tasks to send a small, low-risk task. The work window stays on this computer while Forge tracks results.'
-        : 'Use Tasks to send a small, low-risk task. Choose this agent directly, or choose a task queue that includes this agent.',
+        : 'Use Tasks to send a small, low-risk task. Choose this agent directly, or let another agent take it.',
       success: 'A task appears as Waiting to start or Working for this agent.',
       ready: true,
       targetTab: 'tasks',
@@ -616,7 +617,7 @@ function AssignmentFitCard({
   const chatOnly = !agent.cliTool && !hostCli
   const runtime = agentRuntimeLabel(agent)
   let credential =
-    'Open AI service settings to confirm this simple chat agent can answer. It cannot take Tasks, change code, or use computer apps.'
+    'Open AI services in Settings to confirm this simple chat agent can answer. It cannot take Tasks, change code, or use computer apps.'
   if (hostCli) {
     credential = 'Uses the tool accounts and project files available on this computer.'
   } else if (agent.cliTool === 'codex') {
@@ -680,10 +681,10 @@ function AssignmentFitCard({
         />
         <ProfileSummaryRow label="Where it works" value={runtime} />
         <ProfileSummaryRow
-          label="Saved instructions"
+          label="Saved guidance"
           value={
             appliedSkillCount > 0
-              ? `${appliedSkillCount} saved instruction${appliedSkillCount === 1 ? '' : 's'} used in recent ${chatOnly ? 'replies' : 'work'}`
+              ? `${appliedSkillCount} saved guidance item${appliedSkillCount === 1 ? '' : 's'} used in recent ${chatOnly ? 'replies' : 'work'}`
               : chatOnly
                 ? 'Save useful chat notes after a reply.'
                 : 'Finish a task, then save useful steps.'

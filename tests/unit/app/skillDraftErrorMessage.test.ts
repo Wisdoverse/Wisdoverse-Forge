@@ -4,7 +4,7 @@ import { skillDraftErrorMessage } from '@app/features/detail/model/skillDraftErr
 describe('skillDraftErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expect(skillDraftErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
+      'Ask an owner or admin to let you save reusable guidance, then save again. Reusable guidance was not saved.'
     )
   })
 
@@ -16,7 +16,19 @@ describe('skillDraftErrorMessage', () => {
         )
       )
     ).toBe(
-      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
+      'Ask an owner or admin to let you save reusable guidance, then save again. Reusable guidance was not saved.'
+    )
+  })
+
+  test('keeps current store permission guidance when the modal remaps save errors', () => {
+    expect(
+      skillDraftErrorMessage(
+        new Error(
+          'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
+        )
+      )
+    ).toBe(
+      'Ask an owner or admin to let you save reusable guidance, then save again. Reusable guidance was not saved.'
     )
   })
 
@@ -28,7 +40,7 @@ describe('skillDraftErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
+      'Ask an owner or admin to let you save reusable guidance, then save again. Reusable guidance was not saved.'
     )
     expect(message).not.toContain('workspace instructions')
   })
@@ -37,14 +49,14 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage('owner role required')
 
     expect(message).toBe(
-      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
+      'Ask an owner or admin to let you save reusable guidance, then save again. Reusable guidance was not saved.'
     )
     expect(message).not.toContain('owner role required')
   })
 
   test('explains duplicate names without leaking raw API text', () => {
     expect(skillDraftErrorMessage(new Error('API 409: duplicate name'))).toBe(
-      'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
+      'Rename it, then save again. Reusable guidance with this name may already exist. Reusable guidance was not saved.'
     )
   })
 
@@ -52,7 +64,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('HTTP 404'))
 
     expect(message).toBe(
-      'Open this task again, then save the instruction again. Saved instruction was not saved. Saved instruction access may have changed.'
+      'Open this task again, then save the guidance again. Reusable guidance was not saved. Guidance access may have changed.'
     )
     expect(message).not.toContain('Refresh the task')
   })
@@ -64,7 +76,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
+      'Rename it, then save again. Reusable guidance with this name may already exist. Reusable guidance was not saved.'
     )
     expect(message).not.toContain('An instruction with this name')
     expect(message).not.toContain('duplicate saved instruction name')
@@ -79,7 +91,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Rename it, then save again. A saved instruction with this name may already exist. Saved instruction was not saved.'
+      'Rename it, then save again. Reusable guidance with this name may already exist. Reusable guidance was not saved.'
     )
     expect(message).not.toContain('duplicate saved instruction name')
   })
@@ -91,7 +103,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Check the name, matching words, and reusable instructions, then save again. Saved instruction was not saved.'
+      'Check the name, matching words, and reusable guidance, then save again. Reusable guidance was not saved.'
     )
     expect(message).not.toContain('trigger words empty')
     expect(message).not.toContain('trigger words')
@@ -104,7 +116,7 @@ describe('skillDraftErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Wait a minute, then save again. Too many instruction changes are happening right now. Saved instruction was not saved.'
+      'Wait a minute, then save again. Too many guidance changes are happening right now. Reusable guidance was not saved.'
     )
     expect(message).not.toContain('too many publish attempts')
   })
@@ -113,7 +125,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then save again. Forge could not connect while saving this instruction.'
+      'Check your connection, then save again. Forge could not connect while saving this guidance.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -122,7 +134,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('HTTP 500'))
 
     expect(message).toBe(
-      'Wait a few minutes, then save again. Forge could not save this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
+      'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')
@@ -134,7 +146,7 @@ describe('skillDraftErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Wait a few minutes, then save again. Forge could not save this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
+      'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('Check the name')
@@ -144,7 +156,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('unexpected failure'))
 
     expect(message).toBe(
-      'Check the draft, then save again. Saved instruction was not saved. If it still fails, ask an owner or admin to check Saved instructions access.'
+      'Check the draft, then save again. Reusable guidance was not saved. If it still fails, ask an owner or admin to check saved guidance access.'
     )
     expect(message).not.toContain('Review the draft')
     expect(message).not.toContain('unexpected failure')

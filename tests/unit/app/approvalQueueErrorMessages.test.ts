@@ -19,7 +19,7 @@ describe('approvalQueueErrorMessage', () => {
     const message = approvalQueueErrorMessage('loadQueue', new TypeError('Failed to fetch'))
 
     expect(message).toContain('Check your connection, then choose Check saved items again')
-    expect(message).toContain('Forge could not connect while loading saved notes and instructions')
+    expect(message).toContain('Forge could not connect while loading saved notes and guidance')
     expect(message).not.toContain('refresh Saved items')
     expect(message).not.toContain('API')
     expect(message).not.toContain('Failed to fetch')
@@ -84,7 +84,7 @@ describe('approvalQueueErrorMessage', () => {
     const message = approvalQueueErrorMessage('rejectCandidate', new Error('403 Forbidden'))
 
     expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('save or skip saved notes and instructions')
+    expect(message).toContain('save or skip saved notes and guidance')
     expect(message).toContain('then choose Do not save again')
     expect(message).not.toContain('403 Forbidden')
     expect(message).not.toContain(['saved', 'memories'].join(' '))
@@ -95,7 +95,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to let you save or skip saved notes and instructions, then choose Save item again. You do not have permission right now.'
+      'Ask an owner or admin to let you save or skip saved notes and guidance, then choose Save item again. You do not have permission right now.'
     )
     expect(message).not.toContain('owner role required')
   })

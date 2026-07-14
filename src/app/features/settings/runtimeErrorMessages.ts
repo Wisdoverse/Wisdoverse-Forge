@@ -7,9 +7,9 @@ const ACTION_FALLBACKS: Record<RuntimeErrorAction, string> = {
   loadAgentSignals:
     'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.',
   loadCliSignIn:
-    'Open Settings, then Codex sign-in again before starting agents that use file-change tools. File-change tool sign-in could not be checked.',
+    'Open Settings, then Codex sign-in again before starting agents that use code tools. Code tool sign-in could not be checked.',
   startCliSignIn:
-    'Open Settings, then Codex sign-in again, then reconnect the account. File-change tool sign-in did not start.',
+    'Open Settings, then Codex sign-in again, then reconnect the account. Code tool sign-in did not start.',
 }
 
 const ACTION_RECOVERY: Record<
@@ -136,7 +136,7 @@ export function runtimeSettingsErrorMessage(err: unknown): string {
   if (status === 409) {
     return isSaveAction
       ? 'Open Settings and Where agents work again, check the current choices, then save again. The choices in Where agents work changed while you were working.'
-      : 'Open Settings and Where agents work again, check the current choices, then open Settings and Where agents work again. The choices in Where agents work changed while you were working.'
+      : 'Open Settings and Where agents work again, then check the current choices. The choices in Where agents work changed while you were working.'
   }
 
   if (status === 422) {
@@ -235,16 +235,16 @@ function runtimeValidationMessage(action: RuntimeErrorAction, detail: string): s
 
   if (action === 'startCliSignIn') {
     if (normalized.includes('provider') || normalized.includes('configured')) {
-      return 'Choose and save an AI service first, then reconnect the file-change tool sign-in.'
+      return 'Choose and save an AI service first, then reconnect the code tool sign-in.'
     }
     if (normalized.includes('tool') || normalized.includes('cli')) {
-      return 'Choose an available file-change tool, then reconnect the file-change tool sign-in.'
+      return 'Choose an available code tool, then reconnect the code tool sign-in.'
     }
-    return 'Check the connected AI service and selected file-change tool, then reconnect the file-change tool sign-in.'
+    return 'Check the connected AI service and selected code tool, then reconnect the code tool sign-in.'
   }
 
   if (action === 'loadCliSignIn') {
-    return 'Open Settings, then Codex sign-in again, then reconnect the file-change tool sign-in. File-change tool sign-in could not be checked.'
+    return 'Open Settings, then Codex sign-in again, then reconnect the code tool sign-in. Code tool sign-in could not be checked.'
   }
 
   return 'Open Agents and make sure one agent shows Ready, then open Settings and Where agents work again. Agent connection status could not load.'

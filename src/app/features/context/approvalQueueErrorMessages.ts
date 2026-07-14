@@ -33,7 +33,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 403) {
-    return `Ask an owner or admin to let you save or skip saved notes and instructions, then ${ACTION_RETRY_STEPS[action]}. You do not have permission right now.`
+    return `Ask an owner or admin to let you save or skip saved notes and guidance, then ${ACTION_RETRY_STEPS[action]}. You do not have permission right now.`
   }
 
   if (status === 404) {
@@ -61,7 +61,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Check your connection, then choose Check saved items again. Forge could not connect while loading saved notes and instructions.'
+    return 'Check your connection, then choose Check saved items again. Forge could not connect while loading saved notes and guidance.'
   }
   return `Check your connection, then ${ACTION_RETRY_STEPS[action]}. Forge could not connect while saving your choice.`
 }

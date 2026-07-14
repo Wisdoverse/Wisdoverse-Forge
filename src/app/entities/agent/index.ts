@@ -14,6 +14,7 @@ export {
   isApiAgent,
   runtimeKindLabel,
   runtimeKindShortLabel,
+  runtimeKindDescription,
   RUNTIME_KINDS,
   RUNTIME_KIND_LABELS,
   RUNTIME_KIND_SHORT_LABELS,

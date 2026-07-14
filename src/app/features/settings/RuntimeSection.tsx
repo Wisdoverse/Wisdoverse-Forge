@@ -160,8 +160,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const checklistReadyCount = checklistItems.filter((item) => item.ready).length
   const setupReady = checklistItems.length > 0 && checklistReadyCount === checklistItems.length
   const nextChecklistItem = checklistItems.find((item) => !item.ready) ?? null
-  const sectionTitle =
-    focus === 'sign-ins' ? 'File-change tool sign-in' : t('settings.runtime.title')
+  const sectionTitle = focus === 'sign-ins' ? 'Sign in to code tools' : t('settings.runtime.title')
   const sectionDescription =
     focus === 'sign-ins'
       ? 'Sign in to Codex or another tool before agents work on project files.'
@@ -243,10 +242,10 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
           className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            File-change tool sign-in starts here
+            Start here when Codex asks you to sign in
           </h3>
           <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this page when Codex or another file-change tool asks you to sign in.{' '}
+            Use this page when Codex or another code tool asks you to sign in.{' '}
             {codexSignInInstruction}
           </p>
           <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -258,7 +257,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
 
       <section
         data-testid="runtime-readiness"
-        className="mb-4 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+        className="mb-4 border-y border-black/[0.06] bg-transparent py-4 dark:border-white/[0.08]"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -328,7 +327,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
             ready={Boolean(latestHeartbeat)}
           />
           <RuntimeReadinessMetric
-            label="File-change tool sign-ins"
+            label="Code tool sign-ins"
             value={
               cliStatuses.length > 0
                 ? `${connectedCredentialCount}/${cliStatuses.length} signed in`
@@ -450,7 +449,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
       </section>
 
       {/* Settings card */}
-      <div className={uiStyles.card}>
+      <div className="border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
         {runtimeLoading && !runtimeSettings ? (
           <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
             {t('settings.runtime.loading')}
@@ -858,14 +857,14 @@ function runtimeLaunchChecklistItems(
   const credentialReady = !cliStatusError && (!disconnectedCredential || cliStatuses.length === 0)
   items.push({
     id: 'credentials',
-    title: 'File-change tool sign-ins',
+    title: 'Code tool sign-ins',
     detail: cliStatusError
       ? 'Choose Check again to check Codex sign-in. If it still cannot be checked, ask an owner or admin to check Codex sign-in in Settings.'
       : cliStatuses.length === 0
-        ? 'No file-change tool sign-ins are required.'
+        ? 'No code tool sign-ins are required.'
         : disconnectedCredential
-          ? `${connectedCredentialCount}/${cliStatuses.length} file-change tool sign-ins ready. Sign in to ${disconnectedCredential.displayName} before starting agents that use this tool.`
-          : `${connectedCredentialCount}/${cliStatuses.length} file-change tool sign-ins ready.`,
+          ? `${connectedCredentialCount}/${cliStatuses.length} code tool sign-ins ready. Sign in to ${disconnectedCredential.displayName} before starting agents that use this tool.`
+          : `${connectedCredentialCount}/${cliStatuses.length} code tool sign-ins ready.`,
     ready: credentialReady,
     action: cliStatusError ? 'refresh' : disconnectedCredential ? 'connect' : undefined,
     actionLabel: cliStatusError
@@ -914,7 +913,7 @@ function runtimeReadinessSummary(
     credentialStatusCount === 0
       ? 'No extra tool sign-ins are needed'
       : connectedCredentialCount === 0
-        ? 'Sign in to a file-change tool before starting agents that need to change project files'
+        ? 'Sign in to a code tool before starting agents that need to change project files'
         : `${countPhrase(connectedCredentialCount, 'tool sign-in')} ${
             connectedCredentialCount === 1 ? 'is' : 'are'
           } connected`

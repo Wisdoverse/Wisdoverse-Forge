@@ -60,7 +60,7 @@ const SECTIONS: SectionItem[] = [
   },
   {
     id: 'work-tool-sign-ins',
-    label: 'File-change tool sign-in',
+    label: 'Sign in to code tools',
     description: 'Sign in before agents edit project files with Codex or another tool.',
     group: 'Start here',
     Icon: LogIn,
@@ -269,8 +269,8 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
         />
         <SettingsDisclosureButton
           open={advancedOpen}
-          openLabel="Hide advanced setup"
-          closedLabel="Show advanced setup"
+          openLabel="Hide more setup"
+          closedLabel="Show more setup"
           onClick={() => setAdvancedOpen((open) => !open)}
           className="mt-2"
         />
@@ -311,8 +311,8 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
           ))}
         <SettingsDisclosureButton
           open={advancedOpen}
-          openLabel="Hide advanced setup"
-          closedLabel="Show advanced setup"
+          openLabel="Hide more setup"
+          closedLabel="Show more setup"
           onClick={() => setAdvancedOpen((open) => !open)}
           className="mx-2 mb-4"
         />

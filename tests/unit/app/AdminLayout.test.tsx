@@ -35,7 +35,7 @@ describe('AdminLayout', () => {
     expect(screen.getByText('App checks')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'App health' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Agent tool updates' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Agent coordination' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Agent work checks' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Organizations' })).toBeNull()
     expect(screen.queryByText(['System', 'status'].join(' '))).toBeNull()
     expect(screen.queryByRole('button', { name: ['Service', 'health'].join(' ') })).toBeNull()
@@ -43,6 +43,7 @@ describe('AdminLayout', () => {
     expect(screen.queryByText(['Agent work', '-tool images'].join(''))).toBeNull()
     expect(screen.queryByText('App setup')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Control Plane' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Agent coordination' })).toBeNull()
   })
 
   test('switches to the selected admin area', () => {

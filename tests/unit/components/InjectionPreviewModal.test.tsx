@@ -93,9 +93,8 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByRole('dialog', { name: 'Check saved items before sending' })).toBeDefined()
-    expect(
-      screen.getByText(/saved notes and saved instructions the agent will see next/i)
-    ).toBeDefined()
+    expect(screen.getByText(/saved notes and guidance the agent will see next/i)).toBeDefined()
+    expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
     expect(screen.getByText('2 items selected · Enough room for a few saved notes')).toBeDefined()
     expect(screen.getByText('Agent will use')).toBeDefined()
     expect(screen.getByText('Claude')).toBeDefined()

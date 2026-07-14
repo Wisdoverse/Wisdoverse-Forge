@@ -523,7 +523,7 @@ export function AccountSection() {
       {/* Profile info */}
       <div>
         <h3 className={uiStyles.groupLabel}>Profile</h3>
-        <div className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
+        <div className="divide-y divide-[rgb(var(--border))] border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-ui-body text-secondary-light dark:text-secondary-dark">
               Username
@@ -552,7 +552,7 @@ export function AccountSection() {
       {/* Team Space */}
       <div>
         <h3 className={uiStyles.groupLabel}>Team space</h3>
-        <div className={uiStyles.cardPadded}>
+        <div className="border-y border-black/[0.06] bg-transparent px-4 py-3 dark:border-white/[0.08]">
           <OrgRenameForm />
         </div>
       </div>
@@ -560,7 +560,7 @@ export function AccountSection() {
       {/* Appearance */}
       <div>
         <h3 className={uiStyles.groupLabel}>Appearance</h3>
-        <div className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
+        <div className="divide-y divide-[rgb(var(--border))] border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-ui-body text-foreground-light dark:text-foreground-dark">
               Theme
@@ -596,7 +596,7 @@ export function AccountSection() {
       {/* Setup checklist */}
       <div>
         <h3 className={uiStyles.groupLabel}>Setup checklist</h3>
-        <div className={uiStyles.card}>
+        <div className="border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           <GettingStartedGuideRow />
         </div>
       </div>

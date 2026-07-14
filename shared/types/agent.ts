@@ -329,7 +329,13 @@ export interface GroupListResponse {
 
 /** Task state machine states */
 export type OrchTaskState =
-  'backlog' | 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'canceled'
+  | 'backlog'
+  | 'queued'
+  | 'working'
+  | 'blocked'
+  | 'completed'
+  | 'failed'
+  | 'canceled'
 
 /** Task priority levels */
 export type OrchTaskPriority = 'low' | 'normal' | 'high' | 'urgent'

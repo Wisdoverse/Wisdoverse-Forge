@@ -473,7 +473,7 @@ export function GitCredentialsSection() {
       )}
 
       {/* Table */}
-      <div className={cn(uiStyles.card, 'overflow-x-auto')}>
+      <div className="overflow-x-auto border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
         {gitCredentialsLoading && gitCredentials.length === 0 ? (
           <BeginnerLoadingState
             title="Checking code access for HTTPS links"

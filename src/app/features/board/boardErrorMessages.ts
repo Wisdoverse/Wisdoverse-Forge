@@ -9,12 +9,12 @@ export type BoardErrorAction =
 
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
-    'Check the project, task queue, and the result, then create the task again. The task was not created.',
+    'Add the task result, choose a project and a place for new tasks, then create the task again. The task was not created.',
   loadReadiness: 'Choose Check agent status before sending work.',
   loadTasks: 'Choose Check tasks again to load tasks.',
   moveTask:
     'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved.',
-  previewContext: 'Choose a ready agent, then check saved items again.',
+  previewContext: 'Choose an agent, then check saved items again.',
   publishTask:
     'Check the saved notes, then send the task with selected saved notes again. The task was not sent.',
   selectProject: 'Choose the project again, then create the task. The project was not selected.',
@@ -39,7 +39,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No ready agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+    return 'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
   }
 
   if (isNetworkError(normalized)) {
@@ -177,16 +177,16 @@ function validationRecovery(action: BoardErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
 
   if (normalized.includes('title') || normalized.includes('name')) {
-    return 'Add a task result, choose the project and task queue, then create the task again.'
+    return 'Add the task result, choose a project and a place for new tasks, then create the task again.'
   }
   if (normalized.includes('project')) {
     return `Choose a project you can access, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('lane') || normalized.includes('group')) {
-    return `Choose a task queue for this project, then ${ACTION_RETRY_STEPS[action]}.`
+    return `Choose a place for new tasks in this project, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('agent')) {
-    return `Choose a ready agent, then ${ACTION_RETRY_STEPS[action]}.`
+    return `Choose an agent, then ${ACTION_RETRY_STEPS[action]}.`
   }
 
   return ACTION_FALLBACKS[action]

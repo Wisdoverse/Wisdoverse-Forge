@@ -68,18 +68,16 @@ describe('SshKeysSection', () => {
     render(<SshKeysSection />)
 
     const loading = screen.getByRole('status', {
-      name: /checking code access for SSH links/i,
+      name: /checking private git@ code links/i,
     })
-    expect(loading).toHaveTextContent('Checking code access for SSH links')
+    expect(loading).toHaveTextContent('Checking private git@ code links')
     expect(loading).toHaveTextContent(
-      'Forge is checking which saved public key lines can open git@ private code links.'
+      'Forge is checking whether saved access can open code links that start with git@.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Settings again or ask an owner or admin to check code access.'
     )
-    expect(loading).toHaveTextContent(
-      'Success looks like saved access for SSH links or a step to add one.'
-    )
+    expect(loading).toHaveTextContent('Success looks like saved access or a clear step to add it.')
     expect(loading).not.toHaveTextContent('Loading SSH code access')
   })
 
@@ -190,15 +188,22 @@ describe('SshKeysSection', () => {
 
   test('explains the impact before removing code access for SSH links', async () => {
     const user = userEvent.setup()
-    useSettingsStore.setState({ sshKeys: [sshKey()] })
+    useSettingsStore.setState({
+      sshKeys: [sshKey(), sshKey({ id: 'ssh-key-2', label: 'Build runner', keyType: 'ssh-rsa' })],
+    })
 
     render(<SshKeysSection />)
 
     await waitFor(() => expect(loadSshKeysMock).toHaveBeenCalledTimes(1))
-    expect(screen.getByText('Saved key check text')).toBeDefined()
+    expect(screen.getByText('How to recognize it')).toBeDefined()
+    expect(screen.queryByText('Saved key check text')).toBeNull()
     expect(screen.queryByText('Saved key check code')).toBeNull()
-    expect(screen.getByText('Accepted by Forge')).toBeDefined()
-    expect(screen.getByText('Recommended for new access')).toBeDefined()
+    expect(screen.getByText('Can Forge use it?')).toBeDefined()
+    expect(screen.queryByText('Accepted by Forge')).toBeNull()
+    expect(screen.getByText('Best for new access')).toBeDefined()
+    expect(screen.getByText('Older, still works')).toBeDefined()
+    expect(screen.queryByText('Recommended for new access')).toBeNull()
+    expect(screen.queryByText('Works, but older')).toBeNull()
     expect(screen.queryByText('Safety check')).toBeNull()
     expect(screen.queryByText('Key type')).toBeNull()
     expect(screen.queryByText('Modern key type')).toBeNull()
@@ -287,7 +292,14 @@ describe('SshKeysSection', () => {
 
     render(<SshKeysSection />)
 
-    expect(await screen.findByRole('table', { name: /code access for SSH links/i })).toBeDefined()
+    const table = await screen.findByRole('table', { name: /code access for SSH links/i })
+    expect(table).toBeDefined()
+    const tableFrame = table.parentElement
+    expect(tableFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(tableFrame?.className).not.toContain('rounded-card')
+    expect(tableFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
+    expect(screen.getByRole('columnheader', { name: 'How to recognize it' })).toBeDefined()
+    expect(screen.queryByText('Saved key check text')).toBeNull()
     expect(
       screen.getByText('Open code access for SSH links again to load added date')
     ).toBeDefined()

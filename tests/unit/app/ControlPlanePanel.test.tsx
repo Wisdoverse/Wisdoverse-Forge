@@ -40,8 +40,8 @@ describe('ControlPlanePanel', () => {
     render(<ControlPlanePanel />)
 
     // Six wedge-signal labels
-    expect(screen.getByText('Assignment updates waiting to send')).toBeDefined()
-    expect(screen.getByText('Oldest waiting assignment update (s)')).toBeDefined()
+    expect(screen.getByText('Work updates waiting to send')).toBeDefined()
+    expect(screen.getByText('Oldest work update waiting (s)')).toBeDefined()
     expect(screen.getByText('Agents not checking in')).toBeDefined()
     expect(screen.getByText('Work check-ins overdue')).toBeDefined()
     expect(screen.getByText('Busy agents without work')).toBeDefined()
@@ -54,23 +54,34 @@ describe('ControlPlanePanel', () => {
     expect(screen.getByText('2')).toBeDefined()
     expect(screen.getByText('0')).toBeDefined()
     expect(screen.getByText('4')).toBeDefined()
-    expect(
-      screen.getByLabelText('Assignment updates waiting to send: 3, check this value')
-    ).toBeDefined()
+    expect(screen.getByLabelText('Work updates waiting to send: 3, check this value')).toBeDefined()
     expect(screen.queryByLabelText(/needs attention/i)).toBeNull()
+    expect(screen.queryByText(/assignment updates/i)).toBeNull()
+
+    expect(
+      screen.getByText(/shows whether agents are getting work, checking in, and finishing tasks/i)
+    ).toBeDefined()
+    expect(screen.getByText(/forge checks this when admin opens, then every 30 seconds/i)).toBeDefined()
+    expect(screen.getByText(/if any number below is above 0/i)).toBeDefined()
+    expect(screen.queryByText(/this checks/i)).toBeNull()
+    expect(screen.queryByText(/handoffs/i)).toBeNull()
+    expect(screen.queryByText(/non-zero/i)).toBeNull()
 
     // Check-in timing context is explained in operator-facing language.
-    expect(screen.getByText(/check-in rule/i)).toBeDefined()
-    expect(screen.getByText(/90s/)).toBeDefined()
+    expect(screen.getByText(/if an agent sends no update for 90s/i)).toBeDefined()
+    expect(screen.queryByText(/check-in rule/i)).toBeNull()
 
-    // Platform-wide background backlog note is present without raw table names.
-    expect(screen.getByText(/background task backlog/i)).toBeDefined()
-    expect(screen.getByText(/\/metrics/)).toBeDefined()
+    // Whole-app background work note is present without raw table names.
+    expect(screen.getByText(/background tasks waiting across the platform/i)).toBeDefined()
+    expect(screen.getByText(/check platform-wide numbers in their monitoring tools/i)).toBeDefined()
+    expect(screen.queryByText(/\/metrics/)).toBeNull()
+    expect(screen.queryByText(/background task backlog/i)).toBeNull()
     expect(screen.queryByText(/job_queue|platform-global|orchestration|wedged|lease/i)).toBeNull()
-    expect(screen.getByText('Agent coordination check')).toBeDefined()
+    expect(screen.getByText('Agent work checks')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Check again' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
     expect(screen.queryByText(/Control Plane/i)).toBeNull()
+    expect(screen.queryByText(/Agent coordination/i)).toBeNull()
   })
 
   test('renders the error string when controlPlaneError is set', () => {
@@ -78,26 +89,28 @@ describe('ControlPlanePanel', () => {
       controlPlane: null,
       controlPlaneLoading: false,
       controlPlaneError:
-        'Open Admin and choose Agent coordination, then try again. Forge could not load agent coordination status.',
+        'Open Admin and choose Agent work checks, then try again. Forge could not load agent work check status.',
     })
 
     render(<ControlPlanePanel />)
 
     const alert = screen.getByRole('alert')
     expect(alert).toBeDefined()
-    expect(alert.textContent).toContain('Open Admin and choose Agent coordination')
+    expect(alert.textContent).toContain('Open Admin and choose Agent work checks')
     expect(alert.textContent).not.toContain('HTTP')
     expect(alert.textContent).not.toContain('stack')
     expect(alert.textContent).not.toContain('Control Plane')
+    expect(alert.textContent).not.toContain('Agent coordination')
   })
 
-  test('explains agent coordination loading as checking status', () => {
+  test('explains agent work checks loading as checking status', () => {
     useAdminStore.setState({ controlPlane: null, controlPlaneLoading: true })
 
     render(<ControlPlanePanel />)
 
-    expect(screen.getByText('Checking agent coordination')).toBeDefined()
+    expect(screen.getByText('Checking agent work')).toBeDefined()
     expect(screen.queryByText('Loading Control Plane status')).toBeNull()
+    expect(screen.queryByText('Checking agent coordination')).toBeNull()
   })
 
   test('a malformed or partial payload does not crash: zeros via numeric coercion', () => {
@@ -118,8 +131,8 @@ describe('ControlPlanePanel', () => {
     expect(() => render(<ControlPlanePanel />)).not.toThrow()
 
     // All six rows render their labels
-    expect(screen.getByText('Assignment updates waiting to send')).toBeDefined()
-    expect(screen.getByText('Oldest waiting assignment update (s)')).toBeDefined()
+    expect(screen.getByText('Work updates waiting to send')).toBeDefined()
+    expect(screen.getByText('Oldest work update waiting (s)')).toBeDefined()
     expect(screen.getByText('Agents not checking in')).toBeDefined()
     expect(screen.getByText('Work check-ins overdue')).toBeDefined()
     expect(screen.getByText('Busy agents without work')).toBeDefined()
@@ -130,18 +143,20 @@ describe('ControlPlanePanel', () => {
     const message = controlPlaneErrorMessage({ status: 403, message: 'owner role required' })
 
     expect(message).toBe(
-      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent coordination before choosing Check again. You do not have access to agent coordination status.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent work checks before choosing Check again. You do not have access to agent work check status.'
     )
     expect(message).not.toContain('role')
     expect(message).not.toContain('Control Plane')
+    expect(message).not.toContain('Agent coordination')
   })
 
   test('maps plain role-required access errors to the same recovery step', () => {
     const message = controlPlaneErrorMessage('owner role required')
 
     expect(message).toBe(
-      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent coordination before choosing Check again. You do not have access to agent coordination status.'
+      'Ask an owner or admin to give you Admin access, then open Admin and choose Agent work checks before choosing Check again. You do not have access to agent work check status.'
     )
     expect(message).not.toContain('owner role required')
+    expect(message).not.toContain('Agent coordination')
   })
 })

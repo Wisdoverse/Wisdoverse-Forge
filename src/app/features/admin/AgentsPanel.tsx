@@ -11,6 +11,7 @@ import {
 import {
   type AgentRuntimeKind,
   RUNTIME_KINDS,
+  runtimeKindDescription,
   runtimeKindLabel,
   runtimeKindShortLabel,
 } from '@app/entities/agent'
@@ -101,7 +102,7 @@ function AgentKindBadge({ kind }: { kind: AgentRuntimeKind }) {
   return (
     <span
       data-testid={`agent-kind-badge-${kind}`}
-      title={runtimeKindLabel(kind)}
+      title={runtimeKindDescription(kind)}
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
         RUNTIME_KIND_BADGE_STYLES[kind] ?? uiStyles.badge

@@ -218,7 +218,7 @@ export function TeamsSection() {
         </div>
       )}
 
-      <div className={cn(uiStyles.card)}>
+      <div className="border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
         {loading && teams.length === 0 ? (
           <BeginnerLoadingState
             framed={false}

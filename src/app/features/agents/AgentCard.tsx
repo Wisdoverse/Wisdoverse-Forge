@@ -50,7 +50,7 @@ export function agentCardStatusHelp(
   }
   if (statusKey === 'working' && agent && !agent.cliTool) return 'Answering a message now'
   if (statusKey === 'idle' && agent && !agent.cliTool) {
-    return 'Ready for direct chat. Use Project files or This computer for Tasks and code changes.'
+    return 'Ready for direct chat. Use an agent with Project files or This computer for Tasks and code changes.'
   }
   return (
     STATUS_HELP[statusKey] ??

@@ -53,7 +53,7 @@ const WORKSPACE_AGENT_EMPTY_COPY = {
   title: 'Send this agent a task to start updates',
   detail: 'This history fills in after the agent receives work or reports progress.',
   steps: [
-    'Create a task from Tasks. Choose this agent directly, or choose a task queue that includes this agent.',
+    'Create a task from Tasks. Choose this agent directly, or choose a place for new tasks. New tasks wait there until this agent can start.',
     'Check Attention once work starts to see what needs help.',
     'Open Agents, confirm this agent shows Ready, then return here.',
   ],
@@ -81,7 +81,7 @@ function conversationFilterEmptyCopy(
 
   if (hasSearch && filter !== 'all') {
     return {
-      title: 'Search and filter are hiding updates',
+      title: 'Search and selected view are hiding updates',
       detail:
         'The search is only looking inside the selected view, so useful updates may be hidden.',
       nextStep: 'Next: show all updates, then search again with one short word.',
@@ -108,7 +108,7 @@ function conversationFilterEmptyCopy(
   if (filter === 'operator') {
     return {
       title: 'Send a message to see your requests here',
-      detail: 'The You filter only shows requests you sent.',
+      detail: 'This view only shows requests you sent.',
       nextStep: 'Next: use All to check every update, or send a message below to add a request.',
     }
   }
@@ -116,7 +116,7 @@ function conversationFilterEmptyCopy(
   if (filter === 'agent') {
     return {
       title: 'Wait for the agent reply, or use All',
-      detail: 'The Agent filter only shows answers or progress notes from the agent.',
+      detail: 'This view only shows answers or progress notes from the agent.',
       nextStep: 'Next: use All to see the full history, or wait for the agent to report progress.',
     }
   }
@@ -135,7 +135,7 @@ function conversationFilterEmptyCopy(
     return {
       title: 'Send a Task that changes project files to see work steps',
       detail:
-        'Work steps appear when a Project files or This computer agent shows what changed, what it checked, or what needs help.',
+        'Work steps appear when an agent with Project files or This computer shows what changed, what it checked, or what needs help.',
       nextStep:
         'Next: use All to see chat updates, or create a Task that needs project files or code changes.',
     }
@@ -165,7 +165,7 @@ export function ChatView({ agentId }: ChatViewProps) {
   const isProviderAgent = agent != null && !agent.cliTool
   const offline = agent?.status === 'offline'
   const offlineRecoveryDetail = isProviderAgent
-    ? 'This simple chat agent is not ready because its AI service needs a check. Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
+    ? 'This simple chat agent is not ready because its AI service needs a check. Open AI services in Settings, choose Check connection, then come back to this chat when the service shows Ready.'
     : 'This agent is not ready. Open Agents, start or reconnect it, then return here when it shows Ready.'
   const emptyAction: ConversationEmptyAction | undefined = isProviderAgent
     ? offline
@@ -176,7 +176,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       : { label: 'Create a task', href: '/tasks' }
   const composerDisabledReason = offline
     ? isProviderAgent
-      ? 'Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
+      ? 'Open AI services in Settings, choose Check connection, then come back to this chat when the service shows Ready.'
       : 'Open Agents, start or reconnect this agent, then return here when it shows Ready.'
     : messagesLoading
       ? 'Wait for earlier messages to finish loading, then send your message from this chat.'
@@ -315,7 +315,8 @@ export function ChatView({ agentId }: ChatViewProps) {
       <span className="font-medium">Simple chat agent</span>
       <span className="text-apple-blue/80">
         Messages use {modelServiceName}. This agent can answer in chat, but it does not take Tasks,
-        change files, or use computer apps. Use Project files or This computer for code changes.
+        change files, or use computer apps. Use an agent with Project files or This computer for
+        code changes.
       </span>
     </div>
   ) : null
@@ -413,12 +414,12 @@ export function ChatView({ agentId }: ChatViewProps) {
           id={conversationSearchHelpId}
           className="text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Search only filters the updates shown below. Use Show all updates to return to the full
+          Search only narrows the updates shown below. Use Show all updates to return to the full
           conversation.
         </p>
         <div
           role="group"
-          aria-label="Conversation filter"
+          aria-label="Conversation view choices"
           data-testid="conversation-filter-group"
           className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
         >
@@ -525,7 +526,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           disabled={offline || messagesLoading || streaming}
           disabledReason={composerDisabledReason}
           disabledPlaceholder={composerDisabledPlaceholder}
-          helperText="Use this chat for direct questions, short summaries, and result checks. For Tasks or code changes, use Project files or This computer."
+          helperText="Use this chat for direct questions, short summaries, and result checks. For Tasks or code changes, use an agent with Project files or This computer."
         />
       )}
     </div>

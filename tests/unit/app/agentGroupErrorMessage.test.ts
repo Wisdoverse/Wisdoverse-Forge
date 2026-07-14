@@ -4,7 +4,7 @@ import { agentGroupErrorMessage } from '@app/features/agents/model/agentGroupErr
 describe('agentGroupErrorMessage', () => {
   test('turns permission failures into an owner or admin next step', () => {
     expect(agentGroupErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
   })
 
@@ -15,7 +15,7 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
     expect(message).not.toContain('owner role required')
   })
@@ -24,7 +24,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage('owner role required')
 
     expect(message).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
     expect(message).not.toContain('owner role required')
   })
@@ -35,14 +35,14 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
     expect(message).not.toContain('owner role required')
   })
 
   test('explains naming conflicts without leaking raw API wording', () => {
     expect(agentGroupErrorMessage(new Error('API 409 lane conflict'))).toBe(
-      'Use a different name, then create the task queue again. A task queue with this name may already exist.'
+      'Use a different name, then create the place again. A place with this name may already exist.'
     )
   })
 
@@ -53,7 +53,7 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Use a different name, then create the task queue again. A task queue with this name may already exist.'
+      'Use a different name, then create the place again. A place with this name may already exist.'
     )
     expect(message).not.toContain('lane conflict')
   })
@@ -62,7 +62,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage({ status: 404 })
 
     expect(message).toBe(
-      'Open Agents, choose the project again, then set up the task queue. The task queue was not created because the selected project may have changed or been removed.'
+      'Open Agents, choose the project again, then set up the place for new tasks. The place was not created because the selected project may have changed or been removed.'
     )
     expect(message).not.toContain('Refresh this page')
   })
@@ -71,7 +71,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then create the task queue again. Forge could not connect while setting up the task queue.'
+      'Check your connection, then create the place again. Forge could not connect while setting up the place.'
     )
     expect(message).not.toContain('Failed to fetch')
   })
@@ -80,7 +80,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new Error('Server error 503: database unavailable'))
 
     expect(message).toBe(
-      'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+      'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
     )
     expect(message).not.toContain('Server error')
     expect(message).not.toContain('platform')
@@ -90,7 +90,7 @@ describe('agentGroupErrorMessage', () => {
     const message = agentGroupErrorMessage(new Error('database unavailable while creating group'))
 
     expect(message).toBe(
-      'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+      'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('Create the task queue again')
@@ -103,7 +103,7 @@ describe('agentGroupErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+      'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')
@@ -111,13 +111,13 @@ describe('agentGroupErrorMessage', () => {
 
   test('uses direct retry actions for sign-in, busy, and fallback cases', () => {
     expect(agentGroupErrorMessage(new Error('HTTP 401'))).toBe(
-      'Sign in again, choose the project, and set up the task queue again. The task queue was not created.'
+      'Sign in again, choose the project, and set up the place for new tasks again. The place was not created.'
     )
     expect(agentGroupErrorMessage(new Error('API 429'))).toBe(
-      'Wait a minute, then create the task queue again. Too many task queue changes are happening right now.'
+      'Wait a minute, then create the place again. Too many place changes are happening right now.'
     )
     expect(agentGroupErrorMessage('unexpected lane parser detail')).toBe(
-      'Create the task queue again. If it still fails, ask an owner or admin to check the task queue in this project. The task queue was not created.'
+      'Create the place again. If it still fails, ask an owner or admin to check places in this project. The place was not created.'
     )
   })
 })

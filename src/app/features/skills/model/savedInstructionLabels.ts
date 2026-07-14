@@ -3,7 +3,7 @@ const RAW_INTERNAL_LABEL_PATTERN = /[/\\@]|(?:^|\s)[a-z0-9]+[._-][a-z0-9._-]*(?:
 export function savedInstructionSourceLabel(source: string, fallback: string): string {
   const label = source
     .replace(/\bworkspace\b/gi, (match) => (match[0] === 'W' ? 'Team space' : 'team space'))
-    .replace(/\bskills\b/gi, 'saved instructions')
+    .replace(/\bskills\b/gi, 'saved guidance')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -15,12 +15,16 @@ export function savedInstructionAudienceLabel(source: string, fallback: string):
   const label = savedInstructionSourceLabel(source, fallback)
   const normalized = label.toLowerCase()
 
-  if (normalized === 'team space saved instructions') return 'Saved for this team space'
-  if (normalized === 'project saved instructions') return 'Saved for this project'
-  if (normalized === 'global saved instructions') return 'Saved for everyone'
-  if (normalized === 'saved instructions') return 'Saved as a saved instruction'
+  if (normalized === 'team space saved instructions' || normalized === 'team space saved guidance')
+    return 'This team space'
+  if (normalized === 'project saved instructions' || normalized === 'project saved guidance')
+    return 'This project'
+  if (normalized === 'global saved instructions' || normalized === 'global saved guidance')
+    return 'Everyone'
+  if (normalized === 'saved instructions' || normalized === 'saved guidance')
+    return 'Saved guidance'
 
-  return `Saved in ${label}`
+  return label
 }
 
 export function knownWorkToolLabel(tool: string): string | null {

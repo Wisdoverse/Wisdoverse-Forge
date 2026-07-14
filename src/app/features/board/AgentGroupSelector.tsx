@@ -15,19 +15,19 @@ export function AgentGroupSelector({
   onSelectGroup,
 }: AgentGroupSelectorProps) {
   const disabledHelp = !selectedProjectId
-    ? 'Choose a project before choosing a task queue.'
+    ? 'Choose a project before choosing where new tasks wait.'
     : groups.length === 0
-      ? 'Set up a task queue, then come back here.'
+      ? 'Set up a place where new tasks wait, then come back here.'
       : null
-  const selectTitle = disabledHelp ?? 'Choose a task queue for new tasks.'
+  const selectTitle = disabledHelp ?? 'Choose where new tasks wait.'
 
   return (
     <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-        Task queue
+        Place for new tasks
       </span>
       <select
-        aria-label="Task queue for new tasks"
+        aria-label="Place for new tasks"
         title={selectTitle}
         value={selectedGroupId ?? ''}
         onChange={(event) => {
@@ -41,9 +41,7 @@ export function AgentGroupSelector({
         )}
       >
         {!selectedProjectId && <option value="">Choose a project first</option>}
-        {selectedProjectId && groups.length === 0 && (
-          <option value="">Set up a task queue first</option>
-        )}
+        {selectedProjectId && groups.length === 0 && <option value="">Set up a place first</option>}
         {groups.map((group) => (
           <option key={group.id} value={group.id}>
             {waitingPlaceDisplayName(group.name)}

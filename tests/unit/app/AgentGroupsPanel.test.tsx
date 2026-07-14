@@ -54,18 +54,26 @@ describe('AgentGroupsPanel', () => {
   const previousBlockedLabel = ['Block', 'ed'].join('')
   const previousBlockingCopy = new RegExp(['what', 'is', 'blocking'].join('\\s+'), 'i')
 
-  test('routes users to project settings before setting up where tasks wait', () => {
+  test('routes users to project settings before setting up places for new tasks', () => {
     const onOpenProjectsSetup = vi.fn()
 
     render(<AgentGroupsPanel onOpenProjectsSetup={onOpenProjectsSetup} />)
 
     const panel = screen.getByTestId('agent-groups-panel')
-    expect(panel).toHaveTextContent(/task queues/i)
-    expect(panel).toHaveTextContent(/shared task queues tell agents where to start/i)
+    expect(within(panel).getByRole('heading', { name: 'Places for new tasks' })).toBeDefined()
+    expect(within(panel).queryByRole('heading', { name: 'Task routing' })).toBeNull()
+    expect(within(panel).queryByRole('heading', { name: 'Task Queues' })).toBeNull()
+    expect(panel).toHaveTextContent(/choose a place for new tasks before an agent starts them/i)
+    expect(panel).not.toHaveTextContent(/shared task queues tell agents/i)
     expect(panel).not.toHaveTextContent(/waiting places/i)
     expect(panel).not.toHaveTextContent(/agents check for tasks/i)
     expect(panel).not.toHaveTextContent(/pick up/i)
-    expect(panel).toHaveTextContent(/open project settings to create a project/i)
+    expect(panel).toHaveTextContent(/choose a project first/i)
+    expect(panel).toHaveTextContent(/if you do not have one, open project settings to create it/i)
+    expect(panel).toHaveTextContent(/projects keep related tasks, agents, and places together/i)
+    expect(panel).not.toHaveTextContent(/task routing/i)
+    expect(panel).not.toHaveTextContent(/project list/i)
+    expect(panel).not.toHaveTextContent(/each project keeps its own task queues/i)
     expect(panel).not.toHaveTextContent(/select a project from the sidebar/i)
 
     fireEvent.click(within(panel).getByRole('button', { name: /open project settings/i }))
@@ -123,7 +131,7 @@ describe('AgentGroupsPanel', () => {
 
     expect(screen.getByTestId('task-routing-workload')).toBeInTheDocument()
     expect(screen.getByText('Tasks waiting here')).toBeInTheDocument()
-    expect(screen.getAllByText('Delivery task queue').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Delivery place').length).toBeGreaterThan(0)
     expect(screen.queryByText('Delivery Queue')).toBeNull()
     expect(screen.getByText('6 tasks here')).toBeInTheDocument()
     expect(within(screen.getByTestId('routing-metric-active')).getByText('2')).toBeInTheDocument()
@@ -170,9 +178,34 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/rate limit exceeded/i)).toBeNull()
     expect(screen.queryByText(/from provider/i)).toBeNull()
     expect(screen.queryByText('Other group work')).toBeNull()
-    expect(screen.getByLabelText('Search tasks in this task queue')).toHaveAccessibleDescription(
-      'Search only filters tasks in this task queue. Use Show all tasks here to return to the full task queue.'
+    expect(screen.getByLabelText('Search tasks waiting here')).toHaveAccessibleDescription(
+      'Search only looks inside this place. Use Show all tasks here to return to every task waiting here.'
     )
+  })
+
+  test('explains why the first waiting place is needed', () => {
+    useNavigationStore.setState({
+      selectedProjectId: 'project-1',
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Platform',
+            slug: 'platform',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      agentGroups: [],
+    } as never)
+
+    render(<AgentGroupsPanel />)
+
+    const panel = screen.getByTestId('agent-groups-panel')
+    expect(panel).toHaveTextContent('Set up the first place so new tasks have somewhere to wait.')
+    expect(panel).not.toHaveTextContent('so agents know where to start tasks')
   })
 
   test('describes completed task result checks without handoff wording', () => {
@@ -232,7 +265,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/git provider/i)).toBeNull()
   })
 
-  test('filters the task queue by search', () => {
+  test('filters the waiting place by search', () => {
     seedRoutingState([
       makeTask({
         id: 'auth-1',
@@ -249,9 +282,9 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    const search = screen.getByLabelText('Search tasks in this task queue')
+    const search = screen.getByLabelText('Search tasks waiting here')
     expect(search).toHaveAccessibleDescription(
-      'Search only filters tasks in this task queue. Use Show all tasks here to return to the full task queue.'
+      'Search only looks inside this place. Use Show all tasks here to return to every task waiting here.'
     )
 
     fireEvent.change(search, {
@@ -269,10 +302,10 @@ describe('AgentGroupsPanel', () => {
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(
-      within(emptyState).getByText('Search is hiding tasks in this task queue')
+      within(emptyState).getByText('Search is hiding tasks here')
     ).toBeInTheDocument()
-    expect(within(emptyState).getByText(/this task queue still has tasks/i)).toBeInTheDocument()
-    expect(within(emptyState).getByText(/before assuming this queue is empty/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/this place still has tasks/i)).toBeInTheDocument()
+    expect(within(emptyState).getByText(/before assuming this place is empty/i)).toBeInTheDocument()
     expect(emptyState.textContent).not.toContain('No tasks in this task queue match this search.')
     expect(within(emptyState).queryByRole('button', { name: /^clear$/i })).toBeNull()
 
@@ -281,7 +314,7 @@ describe('AgentGroupsPanel', () => {
     expect(screen.getByText('Build settings page')).toBeInTheDocument()
   })
 
-  test('does not match hidden agent ids in task queue search', () => {
+  test('does not match hidden agent ids in waiting-place search', () => {
     seedRoutingState([
       makeTask({
         id: 'hidden-agent-task',
@@ -295,16 +328,16 @@ describe('AgentGroupsPanel', () => {
 
     expect(screen.getByText('Prepare customer handoff')).toBeInTheDocument()
     expect(screen.getByText(/chosen agent .* waiting for an available agent/i)).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Search tasks in this task queue'), {
+    fireEvent.change(screen.getByLabelText('Search tasks waiting here'), {
       target: { value: 'agent-hidden-42' },
     })
 
     const emptyState = screen.getByTestId('task-routing-filter-empty')
-    expect(emptyState).toHaveTextContent('Search is hiding tasks in this task queue')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks here')
     expect(screen.queryByText('Prepare customer handoff')).toBeNull()
   })
 
-  test('does not match hidden blocked details in task queue search', () => {
+  test('does not match hidden blocked details in waiting-place search', () => {
     seedRoutingState([
       makeTask({
         id: 'blocked-credentials',
@@ -321,38 +354,49 @@ describe('AgentGroupsPanel', () => {
     expect(screen.queryByText(/SSH key/i)).toBeNull()
     expect(screen.queryByText(/git provider/i)).toBeNull()
 
-    fireEvent.change(screen.getByLabelText('Search tasks in this task queue'), {
+    fireEvent.change(screen.getByLabelText('Search tasks waiting here'), {
       target: { value: 'SSH key' },
     })
 
     const emptyState = screen.getByTestId('task-routing-filter-empty')
-    expect(emptyState).toHaveTextContent('Search is hiding tasks in this task queue')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks here')
     expect(screen.queryByText('Reconnect account access')).toBeNull()
   })
 
-  test('explains the next step when a task queue has no routed tasks', () => {
+  test('explains the next step when a waiting place has no tasks', () => {
     seedRoutingState([])
 
     render(<AgentGroupsPanel />)
 
     const emptyState = screen.getByTestId('task-routing-empty')
-    expect(emptyState).toHaveTextContent('Create the first task for this task queue')
-    expect(emptyState).toHaveTextContent('then choose it')
+    expect(emptyState).toHaveTextContent(
+      'Create the first task for this place, then choose this place so the task waits here.'
+    )
     expect(emptyState).toHaveTextContent(
       'Success looks like a task showing Waiting to start or Working here.'
     )
+    expect(emptyState).not.toHaveTextContent('so agents know where to start the task')
     expect(emptyState).not.toHaveTextContent('No tasks are in this task queue yet')
   })
 
-  test('guides blank task queue names with examples', () => {
+  test('guides blank waiting-place names with examples', () => {
     seedRoutingState([])
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^set up task queue$/i }))
-    expect(screen.getByRole('group', { name: /task queue templates/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^set up place$/i }))
+    expect(
+      screen.getByText(
+        'Choose an example below, or type your own place name. New tasks can wait there after you create it.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /place examples/i })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /task queue templates/i })).toBeNull()
+    expect(screen.queryByText(/queue is ready/i)).toBeNull()
+    expect(screen.getByPlaceholderText('What work should wait here?')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/agents use this queue/i)).toBeNull()
     fireEvent.click(screen.getByText('Build and verify').closest('button')!)
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/place description/i)).toHaveValue(
       'Build the requested changes, keep work moving, and run checks before sharing results.'
     )
     expect(screen.queryByDisplayValue(/scoped changes/i)).toBeNull()
@@ -361,8 +405,8 @@ describe('AgentGroupsPanel', () => {
     const triageSummary = screen.getByText('Clarify and send')
     fireEvent.click(triageSummary.closest('button')!)
     expect(screen.getByRole('button', { name: /sort work/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Intake Tasks')
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/place name/i)).toHaveValue('Intake Tasks')
+    expect(screen.getByLabelText(/place description/i)).toHaveValue(
       'Clarify incoming work, find what is missing, and send tasks to the right agent.'
     )
     expect(screen.queryByDisplayValue(/queue/i)).toBeNull()
@@ -371,25 +415,25 @@ describe('AgentGroupsPanel', () => {
     fireEvent.click(resultCheckSummary.closest('button')!)
     expect(resultCheckSummary).toBeInTheDocument()
     expect(screen.queryByText(['Risk', 'and', 'readiness'].join(' '))).toBeNull()
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Result Check Tasks')
+    expect(screen.getByLabelText(/place name/i)).toHaveValue('Result Check Tasks')
     fireEvent.click(resultCheckSummary.closest('button')!)
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(screen.getByLabelText(/place description/i)).toHaveValue(
       'Check finished work for confusing behavior, missing checks, and anything that could make it unsafe to use.'
     )
     expect(screen.queryByDisplayValue(/missing tests/i)).toBeNull()
     expect(screen.queryByDisplayValue(/Review completed work/i)).toBeNull()
     expect(screen.queryByDisplayValue(/block release/i)).toBeNull()
-    fireEvent.change(screen.getByLabelText(/task queue name/i), { target: { value: '' } })
-    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
+    fireEvent.change(screen.getByLabelText(/place name/i), { target: { value: '' } })
+    fireEvent.submit(screen.getByRole('button', { name: /create place/i }).closest('form')!)
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Name this task queue before creating it. Examples: Intake, Result Check, or Delivery.'
+      'Name this place before creating it. Examples: Intake, Result Check, or Delivery.'
     )
-    expect(screen.getByLabelText(/task queue name/i)).toHaveFocus()
+    expect(screen.getByLabelText(/place name/i)).toHaveFocus()
 
-    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+    fireEvent.change(screen.getByLabelText(/place name/i), {
       target: { value: 'Intake Tasks' },
     })
     expect(screen.queryByRole('alert')).toBeNull()
@@ -402,24 +446,25 @@ describe('AgentGroupsPanel', () => {
 
     render(<AgentGroupsPanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^set up task queue$/i }))
-    expect(screen.getByRole('button', { name: 'Create task queue' })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /^set up place$/i }))
+    expect(screen.getByRole('button', { name: 'Create place' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Create Task Queue' })).toBeNull()
-    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+    fireEvent.change(screen.getByLabelText(/place name/i), {
       target: { value: 'Delivery Tasks' },
     })
-    fireEvent.change(screen.getByLabelText(/task queue description/i), {
+    fireEvent.change(screen.getByLabelText(/place description/i), {
       target: { value: 'Keep delivery tasks moving.' },
     })
-    fireEvent.submit(screen.getByRole('button', { name: /create task queue/i }).closest('form')!)
+    fireEvent.submit(screen.getByRole('button', { name: /create place/i }).closest('form')!)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Delivery Tasks')
-    expect(screen.getByLabelText(/task queue description/i)).toHaveValue(
+    expect(alert).not.toHaveTextContent('task queue')
+    expect(screen.getByLabelText(/place name/i)).toHaveValue('Delivery Tasks')
+    expect(screen.getByLabelText(/place description/i)).toHaveValue(
       'Keep delivery tasks moving.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()

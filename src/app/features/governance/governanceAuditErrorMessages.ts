@@ -2,7 +2,7 @@ export type GovernanceAuditErrorAction = 'exportAudit' | 'loadAudit'
 
 const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
   exportAudit: 'Keep secrets hidden, choose Check change history again, then export again.',
-  loadAudit: 'Choose Check change history again, then apply the filters again.',
+  loadAudit: 'Choose Check change history again, then show changes again.',
 }
 
 const ACTION_RETRY_STEPS: Record<GovernanceAuditErrorAction, string> = {
@@ -150,16 +150,16 @@ function networkRecoveryMessage(action: GovernanceAuditErrorAction): string {
 function validationMessage(action: GovernanceAuditErrorAction, detail: string): string {
   const normalized = detail.toLowerCase()
   if (normalized.includes('time')) {
-    return 'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
+    return 'Choose a valid time range. Make sure From is before To, then show changes again.'
   }
   if (normalized.includes('limit')) {
-    return 'Enter a row limit from 1 to 200, then apply the change filters again.'
+    return 'Enter a row limit from 1 to 200, then show changes again.'
   }
   if (normalized.includes('event')) {
-    return 'Choose a common change view or paste a specific change name, then apply the change filters again.'
+    return 'Choose a common change view or paste a specific change name, then show changes again.'
   }
   if (normalized.includes('id')) {
-    return 'Check the selected team space, work area, person, or task help text, then apply the change filters again.'
+    return 'Check the selected team space, work area, person, or task help text, then show changes again.'
   }
   return ACTION_FALLBACKS[action]
 }

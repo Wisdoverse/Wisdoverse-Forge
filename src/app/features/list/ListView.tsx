@@ -49,7 +49,7 @@ interface EmptyStateCopy {
 }
 
 const LIST_SEARCH_HELP =
-  'Search only filters the task list. Use Show all tasks to return to the full list.'
+  'Search only narrows the task list. Use Show all tasks to return to the full list.'
 
 const LIST_FILTERS: { value: ListTaskFilter; label: string; ariaLabel: string }[] = [
   { value: 'all', label: 'All', ariaLabel: 'Show all tasks' },
@@ -207,7 +207,7 @@ export function ListView() {
 
             <div
               role="group"
-              aria-label="List task filter"
+              aria-label="List task view choices"
               data-testid="list-task-filter"
               className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
             >
@@ -534,7 +534,7 @@ function listFilterEmptyState(filter: ListTaskFilter, query: string): EmptyState
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Search and filter are hiding tasks',
+      title: 'Search and selected view are hiding tasks',
       detail: 'Use Show all tasks before assuming there is no matching task.',
     }
   }
@@ -547,7 +547,7 @@ function listFilterEmptyState(filter: ListTaskFilter, query: string): EmptyState
   }
 
   return {
-    title: 'Filter is hiding tasks',
+    title: 'Selected view is hiding tasks',
     detail: 'Use Show all tasks to return to the full list.',
   }
 }

@@ -326,9 +326,10 @@ describe('TaskDetailPanel', () => {
       'Try the task again when the request is still useful'
     )
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'puts the task back in the task queue'
+      'Forge sends the task back so an agent can try it again.'
     )
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent('try it again')
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('task queue')
     expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('where tasks wait')
     expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('attempt')
     await userEvent.setup().click(screen.getByRole('button', { name: /retry task/i }))
@@ -401,8 +402,9 @@ describe('TaskDetailPanel', () => {
       'Let the task continue when it has what it needs'
     )
     expect(screen.getByTestId('task-recovery-guidance')).toHaveTextContent(
-      'put the task back in the task queue'
+      'choose Allow and continue so an agent can continue'
     )
+    expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('task queue')
     expect(screen.getByTestId('task-recovery-guidance')).not.toHaveTextContent('where tasks wait')
     await userEvent.setup().click(screen.getByRole('button', { name: /allow and continue/i }))
 
@@ -492,7 +494,8 @@ describe('TaskDetailPanel', () => {
     expect(screen.queryByText(previousResultReuseCopy)).toBeNull()
     expect(screen.getByText(/use this result to decide whether the task is done/i)).toBeDefined()
     expect(screen.getByText(/if it does not answer the brief/i)).toBeDefined()
-    expect(screen.getByText(/check saved notes and instructions/i)).toBeDefined()
+    expect(screen.getByText(/check saved notes and guidance/i)).toBeDefined()
+    expect(screen.queryByText(/check saved notes and instructions/i)).toBeNull()
     expect(screen.queryByText(/use this result as evidence/i)).toBeNull()
     expect(screen.queryByText(/check the evidence/i)).toBeNull()
     expect(screen.queryByText(previousAddContextCopy)).toBeNull()

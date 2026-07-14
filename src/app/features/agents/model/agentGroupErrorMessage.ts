@@ -77,29 +77,29 @@ export function agentGroupErrorMessage(err: unknown): string {
   const text = errorText(err).toLowerCase()
 
   if (code === 401 || text.includes('unauthorized')) {
-    return 'Sign in again, choose the project, and set up the task queue again. The task queue was not created.'
+    return 'Sign in again, choose the project, and set up the place for new tasks again. The place was not created.'
   }
   if (code === 403 || text.includes('forbidden') || text.includes('role required')) {
-    return 'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+    return 'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
   }
   if (code === 404) {
-    return 'Open Agents, choose the project again, then set up the task queue. The task queue was not created because the selected project may have changed or been removed.'
+    return 'Open Agents, choose the project again, then set up the place for new tasks. The place was not created because the selected project may have changed or been removed.'
   }
   if (code === 409) {
-    return 'Use a different name, then create the task queue again. A task queue with this name may already exist.'
+    return 'Use a different name, then create the place again. A place with this name may already exist.'
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return 'Wait a minute, then create the task queue again. Too many task queue changes are happening right now.'
+    return 'Wait a minute, then create the place again. Too many place changes are happening right now.'
   }
   if (RAW_SERVICE_DETAIL.test(text)) {
-    return 'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+    return 'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+    return 'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
   }
   if (isNetworkError(err)) {
-    return 'Check your connection, then create the task queue again. Forge could not connect while setting up the task queue.'
+    return 'Check your connection, then create the place again. Forge could not connect while setting up the place.'
   }
 
-  return 'Create the task queue again. If it still fails, ask an owner or admin to check the task queue in this project. The task queue was not created.'
+  return 'Create the place again. If it still fails, ask an owner or admin to check places in this project. The place was not created.'
 }

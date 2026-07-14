@@ -85,7 +85,7 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     return `Check that the saved service access key can use the saved service choice for ${providerLabel}, then save and choose Check connection again.`
   }
   if (RAW_SERVICE_DETAIL.test(text)) {
-    return `Try checking ${providerLabel} again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.`
+    return `Try checking ${providerLabel} again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI services. Forge could not check this AI service right now.`
   }
   if (
     code === 400 ||
@@ -103,11 +103,11 @@ export function providerTestErrorMessage(error: unknown, providerName = 'AI serv
     return `Wait a minute, then check ${providerLabel} again. This AI service is receiving too many checks right now.`
   }
   if (code != null && code >= 500) {
-    return `Try checking ${providerLabel} again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.`
+    return `Try checking ${providerLabel} again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI services. Forge could not check this AI service right now.`
   }
   if (isNetworkError(error)) {
     return `Check the service address and your connection, then check ${providerLabel} again. Forge could not connect to this AI service.`
   }
 
-  return `Check the saved AI service settings, then choose Check connection for ${providerLabel} again. If it still cannot be checked, ask an owner or admin to check AI service settings.`
+  return `Check the saved AI service details, then choose Check connection for ${providerLabel} again. If it still cannot be checked, ask an owner or admin to check AI services.`
 }

@@ -67,7 +67,7 @@ describe('BoardToolbar', () => {
       screen.getByPlaceholderText('Search task names, agents, or help needed...')
     ).toBeDefined()
     expect(screen.getByRole('searchbox', { name: /search tasks/i })).toHaveAccessibleDescription(
-      /use show all tasks to return to the full board/i
+      'Search only narrows tasks shown below. Use Show all tasks to return to the full board.'
     )
     expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /^filters$/i }))

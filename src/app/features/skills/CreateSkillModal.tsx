@@ -128,7 +128,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
     const content = form.content.trim()
 
     if (!name) {
-      setError('Name this saved instruction before saving it.')
+      setError('Name this guidance before saving it.')
       setErrorAttempt((current) => current + 1)
       setFieldError('name')
       nameInputRef.current?.focus()
@@ -188,11 +188,11 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="create-skill-title" className={uiStyles.sectionTitle}>
-              Save a reusable instruction
+              Save reusable guidance
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Save instructions your agents can reuse on future tasks. Keep it general and safe
-              enough for this team space.
+              Save guidance your agents can reuse on future tasks. Keep it general and safe enough
+              for this team space.
             </p>
           </div>
           <button
@@ -206,7 +206,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
         </div>
 
         <p className="mb-4 text-ui-body text-secondary-light dark:text-secondary-dark">
-          Start with a clear name, matching words, and the steps the agent should follow.
+          Start with a clear name, matching words, and the reusable steps the agent should follow.
         </p>
 
         {error && (
@@ -237,11 +237,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
                 Common starting points
               </h3>
             </div>
-            <div
-              role="group"
-              aria-label="Instruction templates"
-              className="grid gap-2 sm:grid-cols-2"
-            >
+            <div role="group" aria-label="Guidance templates" className="grid gap-2 sm:grid-cols-2">
               {skillTemplates.map((template) => (
                 <button
                   key={template.id}
@@ -268,7 +264,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
 
           <div>
             <label htmlFor="skill-name" className={uiStyles.label}>
-              Instruction name
+              Guidance name
             </label>
             <input
               id="skill-name"
@@ -282,8 +278,8 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               autoFocus
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              This name appears in Saved instructions and when choosing instructions for a task. Use
-              words a teammate would recognize.
+              This name appears when choosing guidance for a task. Use words a teammate would
+              recognize.
             </p>
           </div>
 
@@ -296,7 +292,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               value={form.description}
               onChange={(event) => updateField('description', event.target.value)}
               className={uiStyles.input}
-              placeholder="Short summary shown in the saved instruction list"
+              placeholder="Short summary shown in the saved guidance list"
             />
             <p
               id="skill-description-help"
@@ -314,7 +310,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               id="skill-trigger-help"
               className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
             >
-              Type the words people usually write when this saved instruction should be suggested.
+              Type the words people usually write when this guidance should be suggested.
             </p>
             <input
               id="skill-trigger"
@@ -324,7 +320,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               placeholder="release review, incident notes"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Leave blank if people should choose this instruction manually.
+              Leave blank if people should choose this guidance manually.
             </p>
           </div>
 
@@ -375,7 +371,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               Close without saving
             </button>
             <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Saving instruction...' : 'Save instruction'}
+              {submitting ? 'Saving guidance...' : 'Save guidance'}
             </button>
           </div>
         </form>

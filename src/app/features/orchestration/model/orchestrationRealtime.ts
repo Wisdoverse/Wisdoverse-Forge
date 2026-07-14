@@ -39,7 +39,9 @@ export interface ReviewEscalatedEvent {
 }
 
 export type OrchestrationRealtimeEventType =
-  WorkflowStatusEvent['type'] | WorkflowNodeStatusEvent['type'] | ReviewEscalatedEvent['type']
+  | WorkflowStatusEvent['type']
+  | WorkflowNodeStatusEvent['type']
+  | ReviewEscalatedEvent['type']
 
 export interface OrchestrationRealtimeMessage {
   type: OrchestrationRealtimeEventType
@@ -84,7 +86,7 @@ function applyWorkflowStatus(
     id: `workflow-status:${workflowId}:${status}:${Date.now()}`,
     type: 'workflow_status',
     agentName: '',
-    taskTitle: `Workflow ${shortId(workflowId)} ${workflowStatusLabel(status)}`,
+    taskTitle: `Background work ${shortId(workflowId)} ${workflowStatusLabel(status)}`,
     detail: workflowStatusDetail(status),
     timestamp: Date.now(),
   })
@@ -167,15 +169,15 @@ function workflowStatusDetail(status: string): string {
   switch (status.toLowerCase()) {
     case 'completed':
     case 'succeeded':
-      return 'The workflow finished. Open the related tasks to review the result.'
+      return 'The background work finished. Open the related tasks to review the result.'
     case 'failed':
     case 'error':
-      return 'The workflow stopped before finishing. Open the related tasks to see what is needed.'
+      return 'The background work stopped before finishing. Open the related tasks to see what is needed.'
     case 'canceled':
     case 'cancelled':
-      return 'The workflow was canceled before finishing.'
+      return 'The background work was canceled before finishing.'
     default:
-      return 'The workflow shared a status update.'
+      return 'The background work shared a status update.'
   }
 }
 

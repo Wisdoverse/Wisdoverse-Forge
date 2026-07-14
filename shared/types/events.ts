@@ -139,7 +139,11 @@ export interface NotificationEvent extends BaseEvent {
   type: 'notification'
   message: string
   notificationType?:
-    'permission_prompt' | 'idle_prompt' | 'auth_success' | 'elicitation_dialog' | string
+    | 'permission_prompt'
+    | 'idle_prompt'
+    | 'auth_success'
+    | 'elicitation_dialog'
+    | string
 }
 
 // ============================================================================

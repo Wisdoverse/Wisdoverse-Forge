@@ -370,7 +370,7 @@ export function KeysSection() {
 
       {/* Table */}
       {(keysLoading || apiKeys.length > 0 || !showForm) && (
-        <div className={cn(uiStyles.card, 'mt-3 overflow-x-auto')}>
+        <div className="mt-3 overflow-x-auto border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           {keysLoading && apiKeys.length === 0 ? (
             <div className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
               Checking tool access keys…

@@ -111,7 +111,7 @@ describe('ChatView', () => {
       )
     ).toBeInTheDocument()
     expect(
-      within(banner).getByText(/Use Project files or This computer for code changes/i)
+      within(banner).getByText(/Use an agent with Project files or This computer for code changes/i)
     ).toBeInTheDocument()
     expect(banner).not.toHaveTextContent(/run commands/i)
     expect(banner).not.toHaveTextContent(/workspace files/i)
@@ -132,7 +132,9 @@ describe('ChatView', () => {
 
     expect(
       screen.getByRole('textbox', { name: /message this agent/i })
-    ).toHaveAccessibleDescription(/for Tasks or code changes, use Project files or This computer/i)
+    ).toHaveAccessibleDescription(
+      /for Tasks or code changes, use an agent with Project files or This computer/i
+    )
   })
 
   test('does not expose raw AI service slugs in the chat-only banner', () => {
@@ -190,8 +192,9 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-empty-state')
     expect(emptyState).toHaveTextContent(
-      'This simple chat agent is not ready because its AI service needs a check. Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
+      'This simple chat agent is not ready because its AI service needs a check. Open AI services in Settings, choose Check connection, then come back to this chat when the service shows Ready.'
     )
+    expect(emptyState).not.toHaveTextContent('Open AI service settings')
     expect(emptyState).not.toHaveTextContent('Settings > AI services')
     expect(emptyState).not.toHaveTextContent('refresh the list')
     expect(emptyState).not.toHaveTextContent('return to Agents')
@@ -205,9 +208,10 @@ describe('ChatView', () => {
     )
     expect(
       screen.getByText(
-        'Open AI service settings, choose Check connection, then come back to this chat when the service shows Ready.'
+        'Open AI services in Settings, choose Check connection, then come back to this chat when the service shows Ready.'
       )
     ).toBeVisible()
+    expect(screen.queryByText(/Open AI service settings/i)).toBeNull()
     const action = screen.getByRole('link', { name: /open ai services/i })
     expect(action).toHaveAttribute('href', '/settings/providers')
     expect(
@@ -257,10 +261,14 @@ describe('ChatView', () => {
     expect(screen.getByText('Send work to create the first update.')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Create a task from Tasks. Choose this agent directly, or choose a task queue that includes this agent.'
+        'Create a task from Tasks. Choose this agent directly, or choose a place for new tasks. New tasks wait there until this agent can start.'
       )
     ).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('task queue')
     expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent('where tasks wait')
+    expect(screen.getByTestId('conversation-empty-state')).not.toHaveTextContent(
+      'task queue that includes this agent'
+    )
     expect(screen.queryByText(/assign it to this agent/i)).toBeNull()
     expect(
       screen.getByText('Check Attention once work starts to see what needs help.')
@@ -429,7 +437,9 @@ describe('ChatView', () => {
     expect(emptyState).toBeInTheDocument()
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
-    expect(within(emptyState).getByText('Search and filter are hiding updates')).toBeInTheDocument()
+    expect(
+      within(emptyState).getByText('Search and selected view are hiding updates')
+    ).toBeInTheDocument()
     expect(within(emptyState).getByText(/useful updates may be hidden/i)).toBeInTheDocument()
     expect(
       within(emptyState).getByText('Next: show all updates, then search again with one short word.')
@@ -474,7 +484,7 @@ describe('ChatView', () => {
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Send a Task that changes project files to see work steps')
     expect(emptyState).toHaveTextContent(
-      'Work steps appear when a Project files or This computer agent shows what changed, what it checked, or what needs help.'
+      'Work steps appear when an agent with Project files or This computer shows what changed, what it checked, or what needs help.'
     )
     expect(emptyState).toHaveTextContent(
       'Next: use All to see chat updates, or create a Task that needs project files or code changes.'
@@ -608,9 +618,39 @@ describe('ChatView', () => {
 
     const emptyState = screen.getByTestId('conversation-filter-empty')
     expect(emptyState).toHaveTextContent('Send a message to see your requests here')
-    expect(emptyState).toHaveTextContent('The You filter only shows requests you sent.')
+    expect(emptyState).toHaveTextContent('This view only shows requests you sent.')
     expect(emptyState).not.toHaveTextContent('No messages from you in this view yet')
+    expect(emptyState).not.toHaveTextContent('You filter')
     expect(emptyState).not.toHaveTextContent('operator')
+  })
+
+  test('explains an empty Agent view without filter jargon', () => {
+    useAgentsStore.setState({ agents: [providerAgent] })
+    seedChatState({
+      messages: [
+        message('Please check the setup', {
+          id: 'user-only',
+          role: 'user',
+          content: 'Please check the setup',
+        }),
+      ],
+    })
+
+    render(<ChatView agentId={providerAgent.id} />)
+
+    const filters = screen.getByTestId('conversation-filter-group')
+    fireEvent.click(
+      within(filters).getByRole('button', { name: /show agent replies, 0 matching updates/i })
+    )
+
+    const emptyState = screen.getByTestId('conversation-filter-empty')
+    expect(emptyState).toHaveTextContent('Wait for the agent reply, or use All')
+    expect(emptyState).toHaveTextContent(
+      'This view only shows answers or progress notes from the agent.'
+    )
+    expect(emptyState).toHaveTextContent('use All to see the full history')
+    expect(emptyState).not.toHaveTextContent('Agent filter')
+    expect(emptyState).not.toHaveTextContent('No updates in Agent yet')
   })
 
   test('explains an empty Attention filter with the next place to check', () => {

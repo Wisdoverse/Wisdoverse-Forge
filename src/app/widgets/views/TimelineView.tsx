@@ -4,7 +4,7 @@ import { useBoardStore } from '@app/entities/navigation/model/board.store'
 const TIMELINE_STEPS = [
   'Choose Open task board',
   'Create a small task or open one that is already running',
-  'Return to Timeline to see waiting, working, help needed, and finished updates',
+  'Return to Timeline to see how the work is going',
 ]
 
 function drawTimeline(canvas: HTMLCanvasElement): void {
@@ -90,7 +90,7 @@ export function TimelineView() {
         aria-label="Timeline status"
         className="pointer-events-none absolute inset-0 flex items-center justify-center p-4"
       >
-        <div className="pointer-events-auto max-w-lg rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
+        <div className="pointer-events-auto max-w-lg rounded-md border border-white/10 bg-black/30 px-4 py-3 text-white backdrop-blur">
           <p className="text-ui-body font-semibold">Open the task board to start the timeline</p>
           <p className="mt-1 text-ui-caption leading-relaxed text-white/68">
             Create a task or open one that is already running. Timeline updates appear here after
@@ -107,7 +107,7 @@ export function TimelineView() {
           <button
             type="button"
             onClick={() => setViewMode('board')}
-            className="mt-3 inline-flex h-8 items-center justify-center rounded-full bg-white px-3 text-ui-button font-medium text-[#0b1020] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-white/15 bg-transparent px-3 text-ui-button font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
           >
             Open task board
           </button>

@@ -29,7 +29,7 @@ describe('SkillCard', () => {
       })
     ).toBeInTheDocument()
     expect(screen.getByText('Ready to reuse')).toBeInTheDocument()
-    expect(screen.getByText(/saved for this team space by platform team/i)).toBeInTheDocument()
+    expect(screen.getByText('This team space by Platform team')).toBeInTheDocument()
     expect(screen.queryByText(/saved in team space saved instructions/i)).toBeNull()
     expect(screen.queryByText(/workspace skills/i)).toBeNull()
     expect(screen.queryByText(/workspace saved instructions/i)).toBeNull()
@@ -38,7 +38,7 @@ describe('SkillCard', () => {
     expect(screen.queryByText(/Use when task says/i)).toBeNull()
   })
 
-  test('marks unavailable saved instructions as needing a check before use', () => {
+  test('marks unavailable saved guidance as needing a check before use', () => {
     render(<SkillCard skill={{ ...baseSkill, installed: false }} onClick={() => {}} />)
 
     expect(screen.getByText('Check before use')).toBeInTheDocument()
@@ -56,13 +56,11 @@ describe('SkillCard', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /release-review\. ready to reuse\. open details to check the reusable steps before using this saved instruction/i,
+        name: /release-review\. ready to reuse\. open details to check the reusable steps before using this saved guidance/i,
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText(
-        'Open details to check the reusable steps before using this saved instruction.'
-      )
+      screen.getByText('Open details to check the reusable steps before using this saved guidance.')
     ).toBeDefined()
     expect(
       screen.queryByText(
@@ -77,12 +75,13 @@ describe('SkillCard', () => {
       <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
-    expect(screen.getByText('Saved as a saved instruction')).toBeInTheDocument()
+    expect(screen.getByText('Saved guidance')).toBeInTheDocument()
+    expect(screen.queryByText('Saved as a saved instruction')).toBeNull()
     expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
     expect(screen.queryByText(/by\s*$/)).toBeNull()
   })
 
-  test('shows project-scoped saved instructions as saved for this project', () => {
+  test('shows project-scoped saved guidance as saved for this project', () => {
     render(
       <SkillCard
         skill={{ ...baseSkill, plugin: 'Project saved instructions' }}
@@ -90,7 +89,7 @@ describe('SkillCard', () => {
       />
     )
 
-    expect(screen.getByText(/saved for this project by platform team/i)).toBeInTheDocument()
+    expect(screen.getByText('This project by Platform team')).toBeInTheDocument()
     expect(screen.queryByText(/saved in project saved instructions/i)).toBeNull()
   })
 
