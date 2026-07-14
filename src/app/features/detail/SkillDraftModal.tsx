@@ -124,7 +124,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
+            className={cn(uiStyles.subtleButton, 'w-8 shrink-0 px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -221,7 +221,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               </p>
             </div>
 
-            <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <div className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
               <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 Check before saving
               </div>
@@ -231,7 +231,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                     key={point.label}
                     className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
                   >
-                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                    <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                       {point.label}
                     </span>
                     <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
@@ -259,7 +259,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                     ? 'skill-draft-content-help skill-draft-error'
                     : 'skill-draft-content-help'
                 }
-                className="min-h-64 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70"
+                className={cn(uiStyles.input, 'h-auto min-h-64 resize-y py-2 font-mono')}
               />
               <p
                 id="skill-draft-content-help"
@@ -339,7 +339,7 @@ function NextReuseLink({
       href={href}
       className="group flex min-w-0 items-start gap-3 rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-3 transition-colors hover:border-apple-blue/35 hover:bg-apple-blue/10 dark:border-white/[0.1] dark:bg-white/[0.035] dark:hover:bg-apple-blue/15"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue dark:bg-white/[0.08]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-white text-apple-blue dark:bg-white/[0.08]">
         <Icon size={16} strokeWidth={2.25} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">

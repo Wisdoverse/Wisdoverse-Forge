@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import {
@@ -180,21 +181,14 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
-          {taskReferenceLabel(task.id)}
-        </span>
+      <div className="mb-1 flex items-center justify-between">
+        <span className={uiStyles.chip}>{taskReferenceLabel(task.id)}</span>
         <button
           data-testid="detail-close"
           onClick={onClose}
-          className={cn(
-            'w-8 h-8 flex items-center justify-center rounded-lg',
-            'text-secondary-light dark:text-secondary-dark',
-            'hover:bg-black/[0.06] dark:hover:bg-white/[0.06]',
-            'transition-colors'
-          )}
+          className={cn(uiStyles.subtleButton, 'w-8 px-0')}
           aria-label="Close task details"
         >
           <X size={15} strokeWidth={2} />
@@ -202,7 +196,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       </div>
 
       {/* Title */}
-      <h2 className="text-sm font-semibold text-foreground-light dark:text-foreground-dark leading-snug">
+      <h2 className="text-ui-title font-medium leading-snug text-foreground-light dark:text-foreground-dark">
         {task.params.task}
       </h2>
 
@@ -212,16 +206,16 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 pt-3 pb-0 border-b border-black/[0.04] dark:border-white/[0.04]">
+      <div className="flex gap-1 border-b border-black/[0.04] py-2 dark:border-white/[0.04]">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'text-xs px-3 py-1.5 rounded-t font-medium transition-colors',
+              'rounded-button px-2.5 py-1 text-ui-caption font-medium transition-colors',
               activeTab === tab.id
-                ? 'text-apple-blue border-b-2 border-apple-blue -mb-px'
-                : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark'
+                ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
             )}
           >
             {tab.label}
@@ -233,7 +227,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       {failurePreview && (
         <div
           data-testid="task-detail-failure-preview"
-          className="mt-2 px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs"
+          className="mt-2 rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
         >
           {failurePreview}
         </div>
@@ -257,22 +251,22 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             {resultArtifacts.map((artifact, i) => (
               <div
                 key={i}
-                className="rounded-lg border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04]"
+                className="rounded-card border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-surface-dark"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-foreground-light dark:text-foreground-dark">
+                  <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
                     {artifact.name}
                   </span>
-                  <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
+                  <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                     {resultFileKindLabel(artifact.mimeType)}
                   </span>
                 </div>
-                <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+                <p className="mb-2 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Use this result to decide whether the task is done. If it does not answer the
                   brief, go back to Work and decide whether to retry, check saved notes and
                   guidance, or create a follow-up task.
                 </p>
-                <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
+                <pre className="max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words font-mono text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
                   {artifact.data}
                 </pre>
               </div>
@@ -287,10 +281,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       {canAssign && (
         <div className="space-y-2 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+            <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               Available agents
             </span>
-            <span className="text-[10px] tabular-nums text-secondary-light dark:text-secondary-dark">
+            <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
               {participants.length} ready
             </span>
           </div>
@@ -306,7 +300,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs dark:border-white/[0.12]">
+            <div className="rounded-card border border-dashed border-black/[0.1] px-3 py-2 text-ui-body dark:border-white/[0.12]">
               <p className="font-medium text-foreground-light dark:text-foreground-dark">
                 No agent can take this task right now
               </p>
@@ -314,10 +308,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 Open Agents to start or connect an agent, then open this task again from the Tasks
                 page.
               </p>
-              <a
-                href="/agents"
-                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-              >
+              <a href="/agents" className={cn(uiStyles.secondaryButton, 'mt-2 text-apple-blue')}>
                 <span>Open Agents</span>
                 <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
               </a>
@@ -328,11 +319,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               type="button"
               onClick={() => void openContextPreview(selectedAgentId)}
               disabled={!selectedAgentId}
-              className={cn(
-                'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium',
-                'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
+              className={uiStyles.primaryButton}
               aria-label={
                 selectedAgentId
                   ? 'Preview and send task'
@@ -359,7 +346,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           {recoveryGuidance && (
             <div
               data-testid="task-recovery-guidance"
-              className="rounded-lg bg-apple-blue/10 px-3 py-2 text-xs text-foreground-light dark:text-foreground-dark"
+              className="rounded-card bg-apple-blue/10 px-3 py-2 text-ui-body text-foreground-light dark:text-foreground-dark"
             >
               <p className="font-semibold">{recoveryGuidance.title}</p>
               <p className="mt-0.5 leading-relaxed text-secondary-light dark:text-secondary-dark">
@@ -371,7 +358,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             <div
               role="alert"
               aria-live="polite"
-              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+              className="rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
             >
               {recoveryError}
             </div>
@@ -382,11 +369,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 type="button"
                 onClick={() => void handleRecovery('retry')}
                 disabled={recoveryAction !== null}
-                className={cn(
-                  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-button py-1.5 text-xs font-medium',
-                  'bg-apple-blue/10 text-apple-blue transition-colors hover:bg-apple-blue/15',
-                  'disabled:cursor-not-allowed disabled:opacity-50'
-                )}
+                className={cn(uiStyles.secondaryButton, 'flex-1 text-apple-blue')}
               >
                 <RotateCcw size={13} strokeWidth={2.25} aria-hidden="true" />
                 <span>{recoveryAction === 'retry' ? 'Retrying…' : 'Retry task'}</span>
@@ -397,11 +380,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 type="button"
                 onClick={() => void handleRecovery('approve')}
                 disabled={recoveryAction !== null}
-                className={cn(
-                  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-button py-1.5 text-xs font-medium',
-                  'bg-apple-green/10 text-apple-green transition-colors hover:bg-apple-green/15',
-                  'disabled:cursor-not-allowed disabled:opacity-50'
-                )}
+                className={cn(uiStyles.primaryButton, 'flex-1')}
               >
                 <CheckCircle2 size={13} strokeWidth={2.25} aria-hidden="true" />
                 <span>{recoveryAction === 'approve' ? 'Allowing…' : 'Allow and continue'}</span>
@@ -416,7 +395,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           {liveActionGuidance && (
             <div
               data-testid="task-live-action-guidance"
-              className="rounded-lg bg-apple-orange/10 px-3 py-2 text-xs text-foreground-light dark:text-foreground-dark"
+              className="rounded-card bg-apple-orange/10 px-3 py-2 text-ui-body text-foreground-light dark:text-foreground-dark"
             >
               <p className="font-semibold">{liveActionGuidance.title}</p>
               <p className="mt-0.5 leading-relaxed text-secondary-light dark:text-secondary-dark">
@@ -428,13 +407,13 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             <div
               role="alert"
               aria-live="polite"
-              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+              className="rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
             >
               {taskActionError}
             </div>
           )}
           {confirmCancelTask ? (
-            <div className="space-y-2 rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-xs text-apple-red">
+            <div className="space-y-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red">
               <div className="flex gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <p>
@@ -447,11 +426,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   type="button"
                   onClick={() => void handleTaskAction('cancel')}
                   disabled={taskAction !== null}
-                  className={cn(
-                    'flex-1 rounded-button bg-apple-red px-2 py-1.5 font-medium text-white',
-                    'transition-colors hover:bg-apple-red/90',
-                    'disabled:cursor-not-allowed disabled:opacity-50'
-                  )}
+                  className={cn(uiStyles.dangerConfirmButton, 'flex-1')}
                 >
                   {taskAction === 'cancel' ? 'Canceling…' : 'Cancel task'}
                 </button>
@@ -459,11 +434,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   type="button"
                   onClick={() => setConfirmCancelTask(false)}
                   disabled={taskAction !== null}
-                  className={cn(
-                    'flex-1 rounded-button bg-white/70 px-2 py-1.5 font-medium text-foreground-light',
-                    'transition-colors hover:bg-white',
-                    'disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/20 dark:text-foreground-dark dark:hover:bg-black/30'
-                  )}
+                  className={cn(uiStyles.secondaryButton, 'flex-1')}
                 >
                   Keep running
                 </button>
@@ -476,10 +447,8 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 onClick={() => void handleTaskAction('block')}
                 disabled={taskAction !== null}
                 className={cn(
-                  'flex-1 text-xs font-medium py-1.5 rounded-button',
-                  'bg-apple-orange/10 text-apple-orange',
-                  'hover:bg-apple-orange/20 transition-colors',
-                  'disabled:cursor-not-allowed disabled:opacity-50'
+                  uiStyles.secondaryButton,
+                  'flex-1 text-apple-orange dark:text-apple-orange'
                 )}
               >
                 {taskAction === 'block' ? 'Marking…' : 'Needs help'}
@@ -488,12 +457,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 type="button"
                 onClick={() => setConfirmCancelTask(true)}
                 disabled={taskAction !== null}
-                className={cn(
-                  'flex-1 text-xs font-medium py-1.5 rounded-button',
-                  'bg-apple-red/10 text-apple-red',
-                  'hover:bg-apple-red/20 transition-colors',
-                  'disabled:cursor-not-allowed disabled:opacity-50'
-                )}
+                className={cn(uiStyles.dangerButton, 'flex-1')}
               >
                 Cancel
               </button>
@@ -584,17 +548,17 @@ function ResultReviewGuide({ task, artifactCount }: { task: TaskSummary; artifac
   return (
     <section
       data-testid="task-result-review-guide"
-      className="rounded-lg border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+      className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-surface-dark"
     >
       <div className="mb-3 flex items-start gap-2">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-card bg-apple-blue/10 text-apple-blue">
           <ListChecks size={15} strokeWidth={2.2} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+          <h3 className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             Check the result before closing
           </h3>
-          <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          <p className="mt-1 text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
             {completed
               ? 'The task is marked done. Confirm the result matches the brief before you rely on it.'
               : 'A result is attached, but the task is not fully done yet. Check it before deciding the next step.'}
@@ -637,14 +601,14 @@ function ResultReviewStep({
 }) {
   return (
     <div className="flex gap-2 border-t border-black/[0.06] py-2 first:border-t-0 first:pt-0 last:pb-0 dark:border-white/[0.08]">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-[10px] font-semibold text-apple-blue dark:bg-white/[0.06]">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
         {number}
       </span>
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-foreground-light dark:text-foreground-dark">
+        <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           {title}
         </p>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        <p className="mt-0.5 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
           {detail}
         </p>
       </div>
@@ -667,40 +631,40 @@ function AgentChoice({
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        'flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
+        'flex min-w-0 items-center gap-2 rounded-card border px-2.5 py-2 text-left transition-colors',
         selected
-          ? 'border-apple-blue/35 bg-apple-blue/10'
-          : 'border-black/[0.08] bg-black/[0.02] hover:border-apple-blue/25 dark:border-white/[0.1] dark:bg-white/[0.035]'
+          ? 'border-black/[0.08] bg-black/[0.06] dark:border-white/[0.1] dark:bg-white/[0.08]'
+          : 'border-black/[0.08] bg-black/[0.02] hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.035] dark:hover:bg-white/[0.06]'
       )}
     >
       <span
         className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-button',
           selected
-            ? 'bg-apple-blue text-white'
+            ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
             : 'bg-white text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark'
         )}
       >
         <Bot size={15} strokeWidth={2.25} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+        <span className="block truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           {participant.name}
         </span>
-        <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
+        <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
           {participant.capabilities.length > 0
             ? agentCapabilitySummary(participant.capabilities)
             : 'Ready to take this task'}
         </span>
       </span>
-      <span
-        className={cn(
-          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
-          selected
-            ? 'bg-apple-blue text-white'
-            : 'bg-apple-green/10 text-apple-green dark:bg-apple-green/15'
-        )}
-      >
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'h-1.5 w-1.5 rounded-full',
+            selected ? 'bg-apple-gray-1 dark:bg-apple-gray-4' : 'bg-apple-green'
+          )}
+        />
         {selected ? 'Selected' : 'Ready'}
       </span>
     </button>

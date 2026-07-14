@@ -23,10 +23,10 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
   return (
     <section className="space-y-2" data-testid="context-evidence">
       <div>
-        <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+        <h3 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           What helped produce this result
         </h3>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        <p className="mt-0.5 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
           These details show the answers, steps, and files used or saved so you can understand the
           result before taking the next step.
         </p>
@@ -35,17 +35,17 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
         {revokedItems.map((item) => (
           <article
             key={`revoked-${item.injectionId}`}
-            className="rounded-lg border border-apple-red/25 bg-apple-red/[0.04] p-3"
+            className="rounded-card border border-apple-red/25 bg-apple-red/[0.04] p-3"
           >
             <div className="flex items-start gap-2">
               <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white text-apple-red dark:bg-white/[0.06]">
                 <ShieldAlert size={14} strokeWidth={2} aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+                <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                   {item.title}
                 </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-apple-red">
+                <p className="mt-1 text-ui-caption leading-relaxed text-apple-red">
                   No longer used for future work. It stays here because this task already used it,
                   so you can still understand the past result.
                 </p>
@@ -56,7 +56,7 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
         {evidence.map((item) => (
           <article
             key={`${item.sourceType}-${item.sourceId}`}
-            className="rounded-lg border border-black/[0.05] dark:border-white/[0.06] bg-apple-gray-6/70 dark:bg-white/[0.035] p-3"
+            className="rounded-card border border-black/[0.05] bg-apple-gray-6/70 p-3 dark:border-white/[0.06] dark:bg-white/[0.035]"
           >
             <div className="flex items-start gap-2">
               <div className="mt-0.5 w-6 h-6 rounded-md bg-white dark:bg-white/[0.06] flex items-center justify-center text-apple-blue shrink-0">
@@ -64,24 +64,24 @@ export function ContextEvidenceList({ evidence, revokedItems }: ContextEvidenceL
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+                  <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     {evidenceTitle(item)}
                   </p>
-                  <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
+                  <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                     Saved {formatRelativeTime(item.createdAt)}
                   </span>
                 </div>
-                <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+                <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
                   {evidenceDescription(item)}
                 </p>
-                <p className="mt-1 text-[10px] font-medium text-apple-blue">
+                <p className="mt-1 text-ui-caption font-medium text-apple-blue">
                   {payloadSummary(item.payload)}
                 </p>
-                <p className="mt-1 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+                <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Most users can rely on the summary above. Open saved details only when checking an
                   unexpected result or sharing details with an owner or admin.
                 </p>
-                <details className="mt-2 text-[10px] text-secondary-light dark:text-secondary-dark">
+                <details className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   <summary className="cursor-pointer select-none font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
                     Show saved details
                   </summary>

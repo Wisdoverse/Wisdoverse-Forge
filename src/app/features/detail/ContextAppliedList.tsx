@@ -4,6 +4,7 @@ import { Brain, Workflow } from 'lucide-react'
 import { FeedbackControls } from '@app/entities/context/ui/FeedbackControls'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import type {
   AppliedContextItem,
   ContextCandidateKind,
@@ -35,10 +36,10 @@ export function ContextAppliedList({
   return (
     <section className="space-y-2" data-testid={`context-applied-${kind}`}>
       <div>
-        <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+        <h3 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           {title}
         </h3>
-        <p className="mt-0.5 text-[11px] text-secondary-light dark:text-secondary-dark">
+        <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {appliedContextDescription(kind)}
         </p>
       </div>
@@ -103,7 +104,7 @@ function AppliedContextCard({
   return (
     <article
       className={cn(
-        'rounded-lg border border-black/[0.05] dark:border-white/[0.06]',
+        'rounded-card border border-black/[0.05] dark:border-white/[0.06]',
         'bg-apple-gray-6/70 dark:bg-white/[0.035] p-3 space-y-2',
         item.revoked && 'border-apple-red/30 bg-apple-red/[0.04]'
       )}
@@ -114,14 +115,16 @@ function AppliedContextCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h4 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark break-words">
+            <h4 className="break-words text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
               {item.title}
             </h4>
-            {item.revoked && <Badge tone="red">Revoked</Badge>}
-            {item.scopeKind && <Badge>{scopeKindLabel(item.scopeKind)}</Badge>}
+            {item.revoked && <StatusLabel tone="red">Revoked</StatusLabel>}
+            {item.scopeKind && (
+              <span className={uiStyles.chip}>{scopeKindLabel(item.scopeKind)}</span>
+            )}
             {item.sensitivity && <Badge tone="orange">{sensitivityLabel(item.sensitivity)}</Badge>}
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark whitespace-pre-wrap break-words">
+          <p className="mt-1 whitespace-pre-wrap break-words text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
             {content}
           </p>
           {item.contentTruncated && expandedContent === null && (
@@ -135,20 +138,20 @@ function AppliedContextCard({
                   ? 'Opening the complete saved note text.'
                   : 'Open the complete saved note text.'
               }
-              className="mt-1 text-[10px] font-medium text-apple-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60"
+              className="mt-1 text-ui-caption font-medium text-apple-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60"
             >
               {showMoreLabel}
             </button>
           )}
           {contentError && (
-            <p role="alert" aria-live="polite" className="mt-1 text-[10px] text-apple-red">
+            <p role="alert" aria-live="polite" className="mt-1 text-ui-caption text-apple-red">
               {contentError}
             </p>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-[10px] text-secondary-light dark:text-secondary-dark">
+      <div className="grid grid-cols-2 gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
         <span>Used {formatRelativeTime(item.appliedAt)}</span>
         <span>Last used {formatRelativeTime(item.lastUsedAt ?? item.appliedAt)}</span>
         {item.sourceTaskId && <span className="truncate">Saved from an earlier task</span>}
@@ -156,7 +159,7 @@ function AppliedContextCard({
       </div>
 
       {item.degradationReason && (
-        <p className="text-[10px] text-apple-orange">
+        <p className="text-ui-caption text-apple-orange">
           This saved item was shortened before the agent used it. Check the full item before relying
           on it.
         </p>
@@ -207,13 +210,23 @@ function Badge({
   return (
     <span
       className={cn(
-        'text-[10px] font-medium px-1.5 py-0.5 rounded-badge',
-        tone === 'orange' && 'bg-apple-orange/10 text-apple-orange',
-        tone === 'red' && 'bg-apple-red/10 text-apple-red',
-        tone === 'gray' &&
-          'bg-white dark:bg-white/[0.06] text-secondary-light dark:text-secondary-dark'
+        uiStyles.badge,
+        tone === 'orange' && 'text-apple-orange dark:text-apple-orange',
+        tone === 'red' && 'text-apple-red dark:text-apple-red'
       )}
     >
+      {children}
+    </span>
+  )
+}
+
+function StatusLabel({ children, tone }: { children: ReactNode; tone: 'red' }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+      <span
+        aria-hidden="true"
+        className={cn('h-1.5 w-1.5 rounded-full', tone === 'red' && 'bg-apple-red')}
+      />
       {children}
     </span>
   )

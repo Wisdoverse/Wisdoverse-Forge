@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { taskStateLabel } from '@app/entities/task'
@@ -60,34 +61,32 @@ export function HistoryTab({ task }: HistoryTabProps) {
 
         <section
           data-testid="task-updates-guide"
-          className="rounded-lg border border-apple-blue/15 bg-apple-blue/[0.055] px-3 py-2.5 dark:border-apple-blue/25 dark:bg-apple-blue/[0.09]"
+          className="rounded-card border border-apple-blue/15 bg-apple-blue/[0.055] px-3 py-2.5 dark:border-apple-blue/25 dark:bg-apple-blue/[0.09]"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-apple-blue">
-            What to check now
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          <p className="text-ui-caption font-medium text-apple-blue">What to check now</p>
+          <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
             {taskUpdateGuide(task)}
           </p>
         </section>
 
         <section className="space-y-2">
-          <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+          <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             Task story
           </p>
           {events.map((event) => (
             <div
               key={event.id}
-              className="flex gap-2 rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]"
+              className="flex gap-2 rounded-card bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]"
             >
               <span
                 className="mt-1 h-2 w-2 shrink-0 rounded-full bg-apple-blue"
                 aria-hidden="true"
               />
               <div className="min-w-0">
-                <p className="text-xs font-medium text-foreground-light dark:text-foreground-dark">
+                <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
                   {event.title}
                 </p>
-                <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+                <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {event.detail}
                 </p>
               </div>
@@ -97,7 +96,7 @@ export function HistoryTab({ task }: HistoryTabProps) {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+            <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               Agent work history
             </p>
           </div>
@@ -115,13 +114,13 @@ export function HistoryTab({ task }: HistoryTabProps) {
             <div
               role="alert"
               aria-live="polite"
-              className="rounded-lg bg-apple-red/10 px-3 py-2 text-xs text-apple-red"
+              className="rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
             >
               {error}
             </div>
           )}
           {!loading && !error && runs.length === 0 && (
-            <div className="rounded-lg border border-dashed border-black/[0.1] px-3 py-2 text-xs text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
+            <div className="rounded-card border border-dashed border-black/[0.1] px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
               Work history appears after an agent starts. If this stays empty, check that an agent
               is chosen and the task has been started.
             </div>
@@ -143,7 +142,7 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
     <section
       data-testid="task-agent-check-in"
       className={cn(
-        'rounded-lg border p-3',
+        'rounded-card border p-3',
         checkIn.tone === 'warn'
           ? 'border-apple-orange/25 bg-apple-orange/[0.06]'
           : checkIn.tone === 'success'
@@ -156,7 +155,7 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
       <div className="mb-3 flex items-start gap-2">
         <span
           className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-card',
             checkIn.tone === 'warn'
               ? 'bg-apple-orange/12 text-apple-orange'
               : checkIn.tone === 'success'
@@ -169,13 +168,13 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
           <Icon size={16} strokeWidth={2.2} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+          <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             Current status
           </p>
-          <p className="mt-0.5 text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+          <p className="mt-0.5 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
             {checkIn.title}
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+          <p className="mt-1 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
             {checkIn.detail}
           </p>
         </div>
@@ -197,11 +196,11 @@ function AgentCheckIn({ task }: { task: TaskSummary }) {
 
 function CheckInMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg bg-black/[0.035] px-2 py-1.5 dark:bg-white/[0.045]">
-      <p className="truncate text-[9px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+    <div className="min-w-0 rounded-card bg-black/[0.035] px-2 py-1.5 dark:bg-white/[0.045]">
+      <p className="truncate text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
         {label}
       </p>
-      <p className="mt-0.5 truncate text-[10px] font-semibold text-foreground-light dark:text-foreground-dark">
+      <p className="mt-0.5 truncate text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
         {value}
       </p>
     </div>
@@ -215,22 +214,27 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
   const showWorkAttemptReference = runSourceNeedsCheck(runSource)
 
   return (
-    <div className="rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
+    <div className="rounded-card bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
+          <p className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
             Agent work: {readableRunStatus(run.status)}
           </p>
-          <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
-            Started {formatRelativeTime(run.startedAt)} · {finished} · Used {runSource}
+          <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Started {formatRelativeTime(run.startedAt)} · {finished} ·{' '}
+            <span className={uiStyles.chip}>{`Used ${runSource}`}</span>
           </p>
           {showWorkAttemptReference && (
-            <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+            <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {workAttemptReferenceLabel(run.id)}
             </p>
           )}
         </div>
-        <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+          <span
+            aria-hidden="true"
+            className={cn('h-1.5 w-1.5 rounded-full', runStatusDot(run.status))}
+          />
           {status}
         </span>
       </div>
@@ -544,4 +548,25 @@ function readableRunStatus(status: string): string {
 
 function normalizeRunStatus(status: string): string {
   return status.trim().toLowerCase()
+}
+
+function runStatusDot(status: string): string {
+  switch (normalizeRunStatus(status)) {
+    case 'completed':
+    case 'succeeded':
+    case 'success':
+      return 'bg-apple-green'
+    case 'running':
+    case 'working':
+    case 'in_progress':
+      return 'bg-apple-blue'
+    case 'failed':
+    case 'error':
+      return 'bg-apple-red'
+    case 'queued':
+    case 'pending':
+      return 'bg-apple-orange'
+    default:
+      return 'bg-apple-gray-3'
+  }
 }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { useContextStore } from './model/context.store'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
@@ -277,7 +278,7 @@ export function ApprovalQueueView() {
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
               <span>Saved items</span>
             </div>
-            <h1 className="mt-1 text-ui-title font-semibold">Check what agents can save</h1>
+            <h1 className="mt-1 text-ui-doc-title font-medium">Check what agents can save</h1>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {totalLabel}
             </p>
@@ -285,7 +286,7 @@ export function ApprovalQueueView() {
           <button
             type="button"
             onClick={() => void loadCandidates()}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
+            className={uiStyles.secondaryButton}
             title="Check saved items again"
           >
             <RefreshCw
@@ -388,17 +389,14 @@ export function ApprovalQueueView() {
               </p>
               {emptyState.actionLabel &&
                 (emptyState.actionHref ? (
-                  <a
-                    href={emptyState.actionHref}
-                    className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-                  >
+                  <a href={emptyState.actionHref} className={cn(uiStyles.primaryButton, 'mt-3')}>
                     {emptyState.actionLabel}
                   </a>
                 ) : (
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                    className={cn(uiStyles.primaryButton, 'mt-3')}
                   >
                     {emptyState.actionLabel}
                   </button>
@@ -456,27 +454,18 @@ function CandidateRow({
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              'inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-ui-caption font-semibold',
-              candidate.item_kind === 'skill'
-                ? 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-                : 'bg-apple-blue/10 text-apple-blue'
-            )}
-          >
+          <span className={cn(uiStyles.badge, 'h-6 gap-1.5')}>
             <Icon size={13} strokeWidth={2} aria-hidden="true" />
             {itemKindLabel}
           </span>
           <StatusPill state={candidate.state} />
-          <span className="inline-flex h-6 items-center rounded-full bg-black/[0.05] px-2 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark">
-            {reuseLabel}
-          </span>
+          <span className={uiStyles.chip}>{reuseLabel}</span>
           {unavailable && (
             <span
               data-testid={`context-source-unavailable-${candidate.id}`}
-              className="inline-flex h-6 items-center gap-1 rounded-full bg-apple-red/10 px-2 text-ui-caption font-semibold text-apple-red"
+              className="inline-flex h-6 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark"
             >
-              <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
+              <span className="h-1.5 w-1.5 rounded-full bg-apple-red" aria-hidden="true" />
               {SOURCE_MISSING_LABEL}
             </span>
           )}
@@ -508,7 +497,7 @@ function CandidateRow({
               data-testid={`context-approve-${candidate.id}`}
               onClick={onApprove}
               disabled={!candidate.source_available}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35"
+              className={uiStyles.primaryButton}
               title={
                 candidate.source_available
                   ? 'Save this item for future work'
@@ -522,14 +511,15 @@ function CandidateRow({
               type="button"
               data-testid={`context-reject-${candidate.id}`}
               onClick={onReject}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-semibold text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
+              className={uiStyles.secondaryButton}
             >
               <XCircle size={15} strokeWidth={2} aria-hidden="true" />
               <span>Do not save</span>
             </button>
           </>
         ) : (
-          <span className="inline-flex h-9 items-center rounded-full bg-black/[0.04] px-3 text-ui-body font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          <span className="inline-flex h-8 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+            <span className="h-1.5 w-1.5 rounded-full bg-apple-gray-3" aria-hidden="true" />
             Decision saved
           </span>
         )}
@@ -597,7 +587,7 @@ function DecisionPanel({
         role="dialog"
         aria-modal="true"
         aria-label={approving ? `Save ${title}` : `Do not save ${title}`}
-        className="flex h-full w-full max-w-md flex-col border-l border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#111417]"
+        className="flex h-full w-full max-w-md flex-col border-l border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-surface-dark"
       >
         <div className="border-b border-black/[0.06] px-4 py-4 dark:border-white/[0.06]">
           <div className="flex items-center justify-between gap-3">
@@ -610,7 +600,7 @@ function DecisionPanel({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
+              className={cn(uiStyles.subtleButton, 'w-8 flex-shrink-0 px-0')}
               title="Close"
             >
               <XCircle size={18} strokeWidth={2} aria-hidden="true" />
@@ -758,11 +748,7 @@ function DecisionPanel({
               </p>
             )}
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-9 items-center justify-center rounded-full px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.08]"
-              >
+              <button type="button" onClick={onClose} className={uiStyles.subtleButton}>
                 Check later
               </button>
               <button
@@ -771,10 +757,8 @@ function DecisionPanel({
                 aria-describedby={approving ? approvalStatusId : undefined}
                 data-testid={approving ? 'context-approval-submit' : 'context-reject-submit'}
                 className={cn(
-                  'inline-flex h-9 items-center justify-center gap-2 rounded-full px-3 text-ui-button font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:bg-black/20 disabled:text-black/45 dark:disabled:bg-white/10 dark:disabled:text-white/35',
-                  approving
-                    ? 'bg-apple-blue hover:bg-apple-blue-focus'
-                    : 'bg-apple-red hover:bg-apple-red/90'
+                  approving ? uiStyles.primaryButton : uiStyles.dangerConfirmButton,
+                  'gap-2'
                 )}
               >
                 {loading ? (
@@ -841,20 +825,18 @@ function SegmentedFilter<T extends string>({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
-        {label}
-      </label>
-      <div className="inline-flex rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
+      <label className={uiStyles.label}>{label}</label>
+      <div className="inline-flex rounded-button border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
         {options.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
             className={cn(
-              'h-8 rounded-full px-3 text-ui-caption font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+              'h-8 rounded-button px-3 text-ui-caption font-medium transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
               option.value === value
-                ? 'bg-apple-blue text-white'
-                : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
+                ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
             )}
           >
             {option.label}
@@ -878,13 +860,11 @@ function SelectFilter<T extends string>({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
-        {label}
-      </span>
+      <span className={uiStyles.label}>{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
-        className="h-9 min-w-36 rounded-full border border-black/[0.08] bg-white px-3 text-ui-body text-foreground-light outline-none transition-colors focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+        className={cn(uiStyles.select, 'min-w-36')}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -899,9 +879,7 @@ function SelectFilter<T extends string>({
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
-        {label}
-      </span>
+      <span className={uiStyles.label}>{label}</span>
       {children}
     </label>
   )
@@ -930,12 +908,11 @@ function Checkbox({
 }
 
 function StatusPill({ state }: { state: ContextCandidateState }) {
-  const styles: Record<ContextCandidateState, string> = {
-    pending: 'bg-apple-blue/10 text-apple-blue',
-    approved: 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-    rejected: 'bg-apple-red/10 text-apple-red',
-    superseded:
-      'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark',
+  const dots: Record<ContextCandidateState, string> = {
+    pending: 'bg-apple-orange',
+    approved: 'bg-apple-green',
+    rejected: 'bg-apple-red',
+    superseded: 'bg-apple-gray-3',
   }
   const labels: Record<ContextCandidateState, string> = {
     pending: 'Needs your check',
@@ -944,12 +921,8 @@ function StatusPill({ state }: { state: ContextCandidateState }) {
     superseded: 'Replaced',
   }
   return (
-    <span
-      className={cn(
-        'inline-flex h-6 items-center rounded-full px-2 text-ui-caption font-semibold',
-        styles[state]
-      )}
-    >
+    <span className="inline-flex h-6 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+      <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', dots[state])} />
       {labels[state]}
     </span>
   )
@@ -1062,5 +1035,4 @@ function toIsoDateTime(value: string): string | null {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null
 }
 
-const fieldClassName =
-  'w-full rounded-card border border-black/[0.08] bg-white px-3 py-2 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark'
+const fieldClassName = uiStyles.input

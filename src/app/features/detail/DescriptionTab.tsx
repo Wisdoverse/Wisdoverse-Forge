@@ -13,6 +13,7 @@ import { taskStateLabel } from '@app/entities/task'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { TASK_AGENT_NAME_LOADING_LABEL } from './model/taskAgentLabels'
 
 interface DescriptionTabProps {
@@ -59,22 +60,22 @@ export function DescriptionTab({
     <div className="space-y-3 py-3" data-testid="task-work-review">
       <ReviewSection title="Brief" Icon={FileText}>
         {hasBrief ? (
-          <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground-light dark:text-foreground-dark">
+          <p className="whitespace-pre-wrap text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
             {task.params.message}
           </p>
         ) : (
-          <p className="text-xs italic text-secondary-light dark:text-secondary-dark">
+          <p className="text-ui-body italic text-secondary-light dark:text-secondary-dark">
             {missingBriefCopy(task)}
           </p>
         )}
       </ReviewSection>
 
       <ReviewSection title="Next action" Icon={ListChecks}>
-        <div className="space-y-1.5 text-xs">
+        <div className="space-y-1.5 text-ui-body">
           <div
             data-testid="task-next-action"
             className={cn(
-              'rounded-lg px-2 py-1.5',
+              'rounded-card px-2 py-1.5',
               nextAction.tone === 'warn'
                 ? 'bg-apple-orange/10 text-apple-orange'
                 : nextAction.tone === 'success'
@@ -90,13 +91,16 @@ export function DescriptionTab({
 
       {task.state === 'completed' && (
         <ReviewSection title="Handoff checklist" Icon={CheckCircle2}>
-          <div data-testid="task-handoff-checklist" className="grid gap-1.5 text-xs sm:grid-cols-3">
+          <div
+            data-testid="task-handoff-checklist"
+            className="grid gap-1.5 text-ui-body sm:grid-cols-3"
+          >
             {HANDOFF_REVIEW_POINTS.map((point) => (
               <div
                 key={point.label}
-                className="min-w-0 rounded-lg bg-white px-2 py-1.5 dark:bg-black/20"
+                className="min-w-0 rounded-card bg-white px-2 py-1.5 dark:bg-black/20"
               >
-                <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                   {point.label}
                 </span>
                 <span className="mt-0.5 block leading-relaxed text-foreground-light dark:text-foreground-dark">
@@ -109,13 +113,13 @@ export function DescriptionTab({
       )}
 
       <ReviewSection title="Assignment" Icon={MessageSquare}>
-        <div className="space-y-1.5 text-xs">
+        <div className="space-y-1.5 text-ui-body">
           <ReviewRow label="Agent" value={assignment.label} muted={!assignment.hasAgent} />
           <ReviewRow label="State" value={taskStateLabel(task.state)} />
           <p
             data-testid="task-assignment-guidance"
             className={cn(
-              'rounded-lg px-2 py-1.5 leading-relaxed',
+              'rounded-card px-2 py-1.5 leading-relaxed',
               assignment.hasAgent
                 ? 'bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
                 : 'bg-apple-orange/10 text-apple-orange'
@@ -124,10 +128,7 @@ export function DescriptionTab({
             {assignment.detail}
           </p>
           {!assignment.hasAgent && showAssignmentAction && (
-            <a
-              href="/agents"
-              className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-            >
+            <a href="/agents" className={cn(uiStyles.secondaryButton, 'w-fit text-apple-blue')}>
               <span>Open Agents</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </a>
@@ -135,7 +136,7 @@ export function DescriptionTab({
           {blockedPreview && (
             <p
               data-testid="task-assignment-blocked-guidance"
-              className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red"
+              className="rounded-card bg-apple-red/10 px-2 py-1.5 text-apple-red"
             >
               {blockedPreview}
             </p>
@@ -144,7 +145,7 @@ export function DescriptionTab({
       </ReviewSection>
 
       <ReviewSection title="Task progress" Icon={Clock3}>
-        <div className="space-y-1.5 text-xs">
+        <div className="space-y-1.5 text-ui-body">
           <ReviewRow label="Created" value={formatRelativeTime(task.createdAt)} />
           <ReviewRow label="Updated" value={formatRelativeTime(task.updatedAt)} />
           {task.completedAt && (
@@ -167,7 +168,7 @@ export function DescriptionTab({
             </div>
           )}
           {failurePreview && (
-            <p className="rounded-lg bg-apple-red/10 px-2 py-1.5 text-apple-red">
+            <p className="rounded-card bg-apple-red/10 px-2 py-1.5 text-apple-red">
               {failurePreview}
             </p>
           )}
@@ -175,7 +176,7 @@ export function DescriptionTab({
       </ReviewSection>
 
       <ReviewSection title="Result files" Icon={CheckCircle2}>
-        <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
+        <div className="space-y-2 text-ui-body text-secondary-light dark:text-secondary-dark">
           <p>
             {resultArtifacts.length > 0
               ? `${resultArtifacts.length} result file${resultArtifacts.length === 1 ? '' : 's'} ready to check.`
@@ -187,7 +188,7 @@ export function DescriptionTab({
             <button
               type="button"
               onClick={onOpenResult}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15"
+              className={cn(uiStyles.secondaryButton, 'text-apple-blue')}
             >
               <span>Open result files</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -199,11 +200,7 @@ export function DescriptionTab({
               : 'Saved notes, work history, and ideas to reuse next time appear here while the task is active.'}
           </p>
           {onOpenContext && (
-            <button
-              type="button"
-              onClick={onOpenContext}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
-            >
+            <button type="button" onClick={onOpenContext} className={uiStyles.secondaryButton}>
               <span>Check what was used</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </button>
@@ -212,7 +209,7 @@ export function DescriptionTab({
       </ReviewSection>
 
       <ReviewSection title="Reuse what worked" Icon={WandSparkles}>
-        <div className="space-y-2 text-xs text-secondary-light dark:text-secondary-dark">
+        <div className="space-y-2 text-ui-body text-secondary-light dark:text-secondary-dark">
           <p>
             {task.state === 'completed'
               ? 'After checking the result, save the repeatable steps if future tasks should reuse them.'
@@ -221,21 +218,13 @@ export function DescriptionTab({
           {task.state === 'completed' && (
             <div className="flex flex-wrap gap-2">
               {onOpenContext && (
-                <button
-                  type="button"
-                  onClick={onOpenContext}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus"
-                >
+                <button type="button" onClick={onOpenContext} className={uiStyles.primaryButton}>
                   <WandSparkles size={13} strokeWidth={2.25} aria-hidden="true" />
                   <span>Check ideas to reuse</span>
                 </button>
               )}
               {onDraftSkill && (
-                <button
-                  type="button"
-                  onClick={onDraftSkill}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.08] dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]"
-                >
+                <button type="button" onClick={onDraftSkill} className={uiStyles.secondaryButton}>
                   <span>Draft saved guidance</span>
                   <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                 </button>
@@ -258,10 +247,10 @@ function ReviewSection({
   children: ReactNode
 }) {
   return (
-    <section className="rounded-lg bg-apple-gray-6/70 p-3 dark:bg-white/[0.035]">
+    <section className="rounded-card bg-apple-gray-6/70 p-3 dark:bg-white/[0.035]">
       <div className="mb-2 flex items-center gap-2">
         <Icon size={14} strokeWidth={2.25} className="text-apple-blue" aria-hidden="true" />
-        <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+        <h3 className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           {title}
         </h3>
       </div>
