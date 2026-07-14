@@ -39,9 +39,7 @@ export interface ReviewEscalatedEvent {
 }
 
 export type OrchestrationRealtimeEventType =
-  | WorkflowStatusEvent['type']
-  | WorkflowNodeStatusEvent['type']
-  | ReviewEscalatedEvent['type']
+  WorkflowStatusEvent['type'] | WorkflowNodeStatusEvent['type'] | ReviewEscalatedEvent['type']
 
 export interface OrchestrationRealtimeMessage {
   type: OrchestrationRealtimeEventType

@@ -6,12 +6,7 @@ import { getAuthFetch } from '@app/shared/api/legacy'
 // ============================================================================
 
 export type AdminSection =
-  | 'users'
-  | 'organizations'
-  | 'agents'
-  | 'health'
-  | 'cli-images'
-  | 'control-plane'
+  'users' | 'organizations' | 'agents' | 'health' | 'cli-images' | 'control-plane'
 
 /**
  * Canonical runtime-kind discriminator. Mirrors `AgentRuntimeKind` from
@@ -321,12 +316,7 @@ interface AdminState {
 }
 
 type AdminResource =
-  | 'users'
-  | 'organizations'
-  | 'agents'
-  | 'health'
-  | 'cli-images'
-  | 'control-plane'
+  'users' | 'organizations' | 'agents' | 'health' | 'cli-images' | 'control-plane'
 
 class AdminUserFacingError extends Error {}
 
