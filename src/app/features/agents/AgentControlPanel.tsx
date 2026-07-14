@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { isHostCliAgent, isImageCapable, useAgentsStore, type AgentInfo } from '@app/entities/agent'
 
 const LOCAL_AGENT_CONTROL_FAILURE = {
@@ -252,7 +253,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
         <div
           role="status"
           aria-live="polite"
-          className="flex gap-3 rounded-lg bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
+          className="flex gap-3 rounded-card bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
         >
           <CheckCircle2 size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <span>{localActionStatus}</span>
@@ -263,7 +264,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
         <div
           role="alert"
           aria-live="polite"
-          className="flex gap-3 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+          className="flex gap-3 rounded-card bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="flex flex-col gap-1">
@@ -274,12 +275,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
         </div>
       )}
 
-      <div
-        className={cn(
-          'rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]',
-          'flex flex-col gap-3'
-        )}
-      >
+      <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-3 p-6')}>
         {!chatOnlyAgent && (
           <button
             type="button"
@@ -349,7 +345,8 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                 promptError ? ` ${promptErrorId}` : ''
               }`}
               className={cn(
-                'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
+                uiStyles.input,
+                'h-auto resize-none px-4 py-3',
                 !messageAvailability.canSend && 'cursor-not-allowed opacity-60'
               )}
               placeholder={messageAvailability.placeholder}
@@ -395,7 +392,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={!messageAvailability.canSend || uploadingImage}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption text-secondary-light hover:bg-black/[0.03] disabled:opacity-50 dark:border-white/[0.1] dark:text-secondary-dark"
+                    className={cn(uiStyles.secondaryButton, 'h-8 text-ui-caption')}
                   >
                     <ImagePlus className="size-4" aria-hidden />
                     {uploadingImage ? 'Uploading…' : 'Attach image'}
@@ -437,10 +434,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                 type="button"
                 onClick={handleSendPrompt}
                 disabled={messageDisabled}
-                className={cn(
-                  'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 sm:w-auto',
-                  messageDisabled && 'opacity-50 cursor-not-allowed'
-                )}
+                className={cn(uiStyles.primaryButton, 'w-full px-4 sm:w-auto')}
               >
                 {sending ? 'Sending message...' : 'Send message'}
               </button>
@@ -485,11 +479,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                     type="button"
                     onClick={handleStart}
                     disabled={starting}
-                    className={cn(
-                      'w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white sm:w-auto',
-                      'transition-transform hover:bg-apple-blue-focus active:scale-95',
-                      starting && 'opacity-50 cursor-not-allowed'
-                    )}
+                    className={cn(uiStyles.primaryButton, 'w-full px-4 sm:w-auto')}
                   >
                     {starting ? 'Starting project files...' : 'Start project files'}
                   </button>
@@ -514,11 +504,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
                   <button
                     type="button"
                     onClick={() => setConfirmRestart(true)}
-                    className={cn(
-                      'rounded-full border border-black/[0.08] px-4 py-2 text-ui-button font-medium',
-                      'text-apple-blue transition-transform hover:bg-apple-blue/5 active:scale-95',
-                      'dark:border-white/[0.1]'
-                    )}
+                    className={cn(uiStyles.secondaryButton, 'px-4')}
                   >
                     Restart agent
                   </button>
@@ -547,10 +533,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className={cn(
-                  'rounded-full border border-black/[0.08] px-4 py-2 text-ui-button font-medium',
-                  'text-apple-red transition-colors hover:bg-apple-red/5 dark:border-white/[0.1]'
-                )}
+                className={cn(uiStyles.dangerButton, 'px-4')}
               >
                 Remove agent
               </button>
@@ -761,7 +744,7 @@ interface ActionCardProps {
 
 function ActionCard({ icon: Icon, title, detail, children }: ActionCardProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+    <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-3')}>
       <div className="flex items-start gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
           <Icon size={16} strokeWidth={2} aria-hidden="true" />
@@ -788,7 +771,7 @@ interface ActionInfoProps {
 
 function ActionInfo({ icon: Icon, title, detail }: ActionInfoProps) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+    <div className={cn(uiStyles.cardPadded, 'flex items-start gap-3')}>
       <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-apple-green/10 text-apple-green">
         <Icon size={16} strokeWidth={2} aria-hidden="true" />
       </span>
@@ -884,7 +867,7 @@ function ConfirmAction({
   onCancel,
 }: ConfirmActionProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+    <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-3')}>
       <div className="flex items-start gap-3">
         <span
           className={cn(
@@ -907,7 +890,7 @@ function ConfirmAction({
         <button
           type="button"
           onClick={onCancel}
-          className="w-full rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark sm:w-auto"
+          className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto')}
         >
           {cancelLabel}
         </button>
@@ -915,10 +898,8 @@ function ConfirmAction({
           type="button"
           onClick={() => void onConfirm()}
           className={cn(
-            'w-full rounded-full px-3 py-1.5 text-ui-button font-medium text-white sm:w-auto',
-            tone === 'red'
-              ? 'bg-apple-red hover:bg-apple-red/90'
-              : 'bg-apple-blue hover:bg-apple-blue-focus'
+            tone === 'red' ? uiStyles.dangerConfirmButton : uiStyles.primaryButton,
+            'w-full sm:w-auto'
           )}
         >
           {confirmLabel}

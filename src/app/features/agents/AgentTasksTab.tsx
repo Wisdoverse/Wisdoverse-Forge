@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { orchestrationApi, type TaskState, type TaskSummary } from '@app/shared/api/orchestration'
@@ -158,10 +159,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
         success="Success looks like tasks in progress, completed tasks, or a create-a-task step."
         testId="agent-tasks-loading"
         framed={false}
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-          'border border-black/[0.08] dark:border-white/[0.1]'
-        )}
+        className={cn(uiStyles.cardPadded, 'px-4 py-6')}
       />
     )
   }
@@ -172,11 +170,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
         role="alert"
         aria-live="polite"
         data-testid="agent-tasks-error"
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-          'border border-black/[0.08] dark:border-white/[0.1]',
-          'text-center text-ui-body text-apple-red'
-        )}
+        className={cn(uiStyles.cardPadded, 'px-4 py-6 text-center text-ui-body text-apple-red')}
       >
         <p className="font-medium">Open Agents and choose this agent again.</p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -186,10 +180,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           <button
             type="button"
             onClick={onBackToAgents}
-            className={cn(
-              'mt-4 rounded-full px-4 py-2 text-ui-button font-medium',
-              'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90'
-            )}
+            className={cn(uiStyles.primaryButton, 'mt-4 px-4')}
           >
             Back to Agents
           </button>
@@ -204,10 +195,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
 
   return (
     <div data-testid="agent-tasks" className="flex flex-col gap-4">
-      <section
-        data-testid="agent-task-workload"
-        className="rounded-xl border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
-      >
+      <section data-testid="agent-task-workload" className={uiStyles.cardPadded}>
         <div className="mb-3 flex items-start gap-2">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
             <ListFilter size={16} strokeWidth={2.15} aria-hidden="true" />
@@ -272,11 +260,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by task name, problem, or result"
-            className={cn(
-              'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
-              'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
-              'focus:ring-2 focus:ring-apple-blue-focus'
-            )}
+            className={cn(uiStyles.input, 'h-9 pl-8 pr-3')}
           />
         </label>
         <p
@@ -290,7 +274,7 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           role="group"
           aria-label="Agent task view choices"
           data-testid="agent-task-filter-group"
-          className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
+          className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-button bg-black/[0.035] p-1 dark:bg-white/[0.05]"
         >
           {filterCounts.map((item) => (
             <TaskFilterButton
@@ -347,8 +331,8 @@ function AgentTasksEmptyState() {
     <section
       data-testid="agent-tasks-empty"
       className={cn(
-        'rounded-xl border border-black/[0.08] bg-white px-4 py-5 dark:border-white/[0.1] dark:bg-[#2c2c2e]',
-        'text-foreground-light dark:text-foreground-dark'
+        uiStyles.cardPadded,
+        'px-4 py-5 text-foreground-light dark:text-foreground-dark'
       )}
     >
       <div className="mb-4 flex items-start gap-3">
@@ -365,7 +349,7 @@ function AgentTasksEmptyState() {
       </div>
       <ol className="grid gap-2 sm:grid-cols-3">
         {AGENT_TASK_EMPTY_STEPS.map(({ title, description, Icon }) => (
-          <li key={title} className="rounded-lg bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+          <li key={title} className="rounded-card bg-black/[0.03] p-3 dark:bg-white/[0.04]">
             <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
               <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
               <p className="text-ui-caption font-semibold">{title}</p>
@@ -379,10 +363,7 @@ function AgentTasksEmptyState() {
       <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
         Success looks like a task showing Waiting to start or Doing now in this list.
       </p>
-      <a
-        href="/tasks"
-        className="mt-3 inline-flex h-9 items-center justify-center rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-      >
+      <a href="/tasks" className={cn(uiStyles.primaryButton, 'mt-3 h-9')}>
         Open task list
       </a>
     </section>
@@ -401,21 +382,14 @@ function AgentTasksFilterEmptyState({
       role="status"
       aria-live="polite"
       data-testid="agent-tasks-filter-empty"
-      className={cn(
-        'rounded-xl border border-dashed border-black/[0.1] bg-white px-4 py-5',
-        'text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-[#2c2c2e] dark:text-secondary-dark'
-      )}
+      className="rounded-card border border-dashed border-black/[0.1] bg-white px-4 py-5 text-center text-ui-body text-secondary-light dark:border-white/[0.12] dark:bg-surface-dark dark:text-secondary-dark"
     >
       <p className="font-medium text-foreground-light dark:text-foreground-dark">{copy.title}</p>
       <p className="mt-1 text-ui-caption">{copy.detail}</p>
       <button
         type="button"
         onClick={onReset}
-        className={cn(
-          'mt-3 inline-flex h-8 items-center justify-center rounded-lg px-3 text-ui-caption font-medium',
-          'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
-        )}
+        className={cn(uiStyles.secondaryButton, 'mt-3 text-ui-caption')}
       >
         Show all agent tasks
       </button>
@@ -463,7 +437,7 @@ function WorkloadMetric({
   return (
     <div
       data-testid={testId}
-      className="min-w-0 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]"
+      className="min-w-0 rounded-card bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]"
     >
       <div className="mb-1 flex items-center gap-1.5 text-secondary-light dark:text-secondary-dark">
         <Icon
@@ -476,7 +450,7 @@ function WorkloadMetric({
           })}
           aria-hidden="true"
         />
-        <span className="truncate text-[10px] font-medium">{label}</span>
+        <span className="truncate text-ui-caption font-medium">{label}</span>
       </div>
       <p className="text-ui-section font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
         {value}
@@ -507,10 +481,10 @@ function TaskFilterButton({
       aria-label={`${ariaLabel}, ${countLabel}`}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+        'inline-flex h-7 shrink-0 items-center gap-1 rounded-button px-2 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
         active
-          ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-          : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
+          ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+          : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
     >
       <span>{label}</span>
@@ -541,7 +515,7 @@ function AgentTaskRow({ task }: { task: TaskSummary }) {
     <li
       data-testid={`agent-task-row-${task.id}`}
       className={cn(
-        'bg-white dark:bg-[#2c2c2e] rounded-card px-3 py-2.5',
+        'rounded-card bg-white px-3 py-2.5 dark:bg-surface-dark',
         'border border-black/[0.08] dark:border-white/[0.1]',
         'flex flex-col gap-1.5'
       )}

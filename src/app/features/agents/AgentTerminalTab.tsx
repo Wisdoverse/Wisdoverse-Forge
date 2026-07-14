@@ -5,6 +5,7 @@ import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { agentStatusLabel, agentToolLabel } from '@app/entities/agent'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useWebSocket } from '@app/shared/model/websocket.context'
 import { NAV_KEYS, NUM_KEYS, UTIL_KEYS, type KeyDef } from './lib/terminalKeys'
 import type { CliTool } from '@shared/types'
@@ -197,30 +198,39 @@ export function AgentTerminalTab({
     return (
       <div
         data-testid="agent-terminal-unavailable"
-        className={cn(
-          'flex flex-col gap-3 rounded-xl px-4 py-5',
-          'shadow-card dark:shadow-card-dark bg-[#1a1a2e] text-white'
-        )}
+        className="flex flex-col gap-3 rounded-card border border-white/[0.1] bg-[#1a1a2e] px-4 py-5 text-white"
       >
-        <div className="flex items-center gap-2 text-[11px] font-medium text-white/50">
+        <div className="flex items-center gap-2 text-ui-caption font-medium text-white/50">
           <span className="text-white/70">Live work panel</span>
           <span className="truncate">{agentName ?? agentId}</span>
-          <span className="rounded bg-white/10 px-1.5 py-0.5 uppercase tracking-wide">
+          <span
+            className={cn(
+              uiStyles.chip,
+              'bg-white/10 text-white/70 uppercase tracking-wide dark:bg-white/10 dark:text-white/70'
+            )}
+          >
             {toolLabel}
           </span>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Live work is still starting</h3>
-          <p className="mt-1 text-xs leading-relaxed text-white/60">
+          <h3 className="text-ui-body font-semibold text-white">Live work is still starting</h3>
+          <p className="mt-1 text-ui-caption leading-relaxed text-white/60">
             Wait until this agent shows Ready. If it still shows Not connected, open Overview, use
             Controls, and start or restart this agent before using Live work.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-[11px] text-white/55">
+        <div className="grid grid-cols-2 gap-2 text-ui-caption text-white/55">
           <span>Agent status</span>
           <span className="text-white/80">{liveWorkStatusLabel(agentStatus)}</span>
           <span>Work tool</span>
-          <span className="text-white/80">{toolLabel}</span>
+          <span
+            className={cn(
+              uiStyles.chip,
+              'w-fit bg-white/10 text-white/70 dark:bg-white/10 dark:text-white/70'
+            )}
+          >
+            {toolLabel}
+          </span>
           <span>Agent startup</span>
           <span className="text-white/80">Waiting for this agent</span>
         </div>
@@ -231,33 +241,22 @@ export function AgentTerminalTab({
   return (
     <div
       data-testid="agent-terminal-tab"
-      className={cn(
-        'flex flex-col h-[60vh] min-h-[400px] rounded-xl overflow-hidden',
-        'shadow-card dark:shadow-card-dark bg-[#1a1a2e]'
-      )}
+      className="flex h-[60vh] min-h-[400px] flex-col overflow-hidden rounded-card border border-white/[0.1] bg-[#1a1a2e]"
     >
       {/* Header */}
       <div
         className={cn(
           'flex items-center gap-2 px-3 h-9 border-b border-white/5',
-          'text-[11px] text-white/60 font-medium select-none bg-[#161629]'
+          'select-none bg-[#161629] text-ui-caption font-medium text-white/60'
         )}
       >
         <span className="text-white/70">Live work panel</span>
         <span className="truncate text-white/40">{(agentName ?? agentId).slice(0, 24)}</span>
         <span className="truncate text-white/25">Ready for live work</span>
         <span className="flex-1" />
-        <span
-          className={cn(
-            'flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold',
-            isLive ? 'text-green-400 bg-green-400/10' : 'text-white/30'
-          )}
-        >
+        <span className="flex items-center gap-1.5 text-ui-caption font-medium text-white/55">
           <span
-            className={cn(
-              'w-1.5 h-1.5 rounded-full',
-              isLive ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.4)]' : 'bg-white/20'
-            )}
+            className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-green-400' : 'bg-white/20')}
           />
           {connectionCopy.label}
         </span>
@@ -267,7 +266,7 @@ export function AgentTerminalTab({
         <div
           role="status"
           aria-live="polite"
-          className="border-b border-white/5 bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-white/55"
+          className="border-b border-white/5 bg-white/[0.03] px-3 py-2 text-ui-caption leading-relaxed text-white/55"
         >
           {connectionCopy.guidance}
         </div>
@@ -305,7 +304,7 @@ function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         className={cn(
-          'h-7 min-w-[92px] flex items-center justify-center gap-1.5 rounded px-2 shrink-0',
+          'flex h-7 min-w-[92px] shrink-0 items-center justify-center gap-1.5 rounded-button px-2',
           'text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors'
         )}
         aria-label={toggleLabel}
@@ -316,12 +315,12 @@ function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
           aria-hidden="true"
           className={cn('transition-transform', collapsed && 'rotate-180')}
         />
-        <span className="text-[11px] font-medium">Keyboard</span>
+        <span className="text-ui-caption font-medium">Keyboard</span>
       </button>
 
       {!collapsed && (
         <>
-          <span className="hidden shrink-0 text-[10px] text-white/35 lg:inline">
+          <span className="hidden shrink-0 text-ui-caption text-white/35 lg:inline">
             {keyboardHint}
           </span>
           <div className="flex items-center gap-1 overflow-x-auto flex-1">
@@ -338,7 +337,7 @@ function KeyToolbar({ onKeys, disabled }: KeyToolbarProps) {
                       onClick={() => onKeys(key.keys)}
                       title={key.label}
                       className={cn(
-                        'h-[26px] px-1.5 rounded border font-mono text-[11px]',
+                        'h-[26px] rounded-button border px-1.5 font-mono text-ui-caption',
                         'whitespace-nowrap transition-colors select-none',
                         wide ? 'min-w-[52px]' : 'min-w-[32px]',
                         danger

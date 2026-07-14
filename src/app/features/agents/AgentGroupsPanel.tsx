@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
@@ -37,14 +38,14 @@ const TASK_STATE_LABELS: Record<TaskSummary['state'], string> = {
   canceled: 'Canceled',
 }
 
-const TASK_STATE_TONE: Record<TaskSummary['state'], string> = {
-  backlog: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark',
-  queued: 'bg-apple-blue/10 text-apple-blue',
-  working: 'bg-apple-green/10 text-apple-green',
-  blocked: 'bg-apple-orange/10 text-apple-orange',
-  completed: 'bg-apple-green/10 text-apple-green',
-  failed: 'bg-apple-red/10 text-apple-red',
-  canceled: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.07] dark:text-secondary-dark',
+const TASK_STATE_DOT: Record<TaskSummary['state'], string> = {
+  backlog: 'bg-apple-gray-2',
+  queued: 'bg-apple-blue',
+  working: 'bg-apple-green',
+  blocked: 'bg-apple-orange',
+  completed: 'bg-apple-green',
+  failed: 'bg-apple-red',
+  canceled: 'bg-apple-gray-2',
 }
 
 const STATE_SORT_WEIGHT: Record<TaskSummary['state'], number> = {
@@ -217,10 +218,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
   }
 
   return (
-    <section
-      data-testid="agent-groups-panel"
-      className="rounded-card border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-    >
+    <section data-testid="agent-groups-panel" className={cn(uiStyles.cardPadded, 'p-6')}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -252,11 +250,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
               setFormOpen(true)
               setError(null)
             }}
-            className={cn(
-              'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-ui-button font-medium transition-colors',
-              'rounded-full bg-apple-blue text-white hover:bg-apple-blue-focus',
-              'transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus'
-            )}
+            className={cn(uiStyles.primaryButton, 'shrink-0')}
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
             Set up place
@@ -265,7 +259,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
       </div>
 
       {!selectedProjectId ? (
-        <div className="mt-3 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
+        <div className="mt-3 rounded-card border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
           <p>
             Choose a project first. If you do not have one, open project settings to create it.
             Projects keep related tasks, agents, and places together.
@@ -274,7 +268,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
             <button
               type="button"
               onClick={onOpenProjectsSetup}
-              className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+              className={cn(uiStyles.secondaryButton, 'mt-3')}
             >
               <span>Open project settings</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -294,10 +288,10 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     aria-pressed={isSelected}
                     onClick={() => setSelectedGroupId(group.id)}
                     className={cn(
-                      'inline-flex h-9 max-w-full items-center gap-1.5 rounded-full border px-4 text-ui-button font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                      'inline-flex h-9 max-w-full items-center gap-1.5 rounded-button border px-4 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
                       isSelected
-                        ? 'border-apple-blue-focus bg-white text-foreground-light shadow-[inset_0_0_0_1px_#0071e3] dark:bg-white/[0.04] dark:text-foreground-dark'
-                        : 'border-black/[0.08] bg-white text-foreground-light hover:border-black/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:border-white/20'
+                        ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+                        : 'border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
                     )}
                   >
                     {isSelected && <Check size={13} strokeWidth={2.25} aria-hidden="true" />}
@@ -306,7 +300,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                 )
               })
             ) : (
-              <div className="rounded-lg border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
+              <div className="rounded-card border border-dashed border-black/10 px-3 py-2 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark">
                 Set up the first place so new tasks have somewhere to wait.
               </div>
             )}
@@ -315,7 +309,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
           {agentGroups.length > 0 && (
             <section
               data-testid="task-routing-workload"
-              className="rounded-xl border border-black/[0.08] bg-black/[0.02] p-3 dark:border-white/[0.1] dark:bg-white/[0.04]"
+              className="rounded-card border border-black/[0.08] bg-black/[0.02] p-3 dark:border-white/[0.1] dark:bg-white/[0.04]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -326,7 +320,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     {selectedGroup ? waitingPlaceDisplayName(selectedGroup.name) : 'Select a place'}
                   </h3>
                 </div>
-                <span className="shrink-0 rounded-full bg-white px-2 py-1 text-ui-caption font-medium text-secondary-light shadow-sm dark:bg-black/20 dark:text-secondary-dark">
+                <span className={cn(uiStyles.badge, 'shrink-0 bg-white dark:bg-black/20')}>
                   {workload.total} {workload.total === 1 ? 'task here' : 'tasks here'}
                 </span>
               </div>
@@ -375,7 +369,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   type="search"
                   value={routingSearch}
                   onChange={(event) => setRoutingSearch(event.target.value)}
-                  className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
+                  className={cn(uiStyles.input, 'h-9 pl-8 pr-3')}
                   placeholder="Search tasks, agents, or problems..."
                   aria-describedby={routingSearchHelpId}
                 />
@@ -391,7 +385,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                 {groupTasks.length === 0 ? (
                   <p
                     data-testid="task-routing-empty"
-                    className="rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
+                    className="rounded-card border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
                     Create the first task for this place, then choose this place so the task waits
                     here.
@@ -410,7 +404,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     data-testid="task-routing-filter-empty"
                     role="status"
                     aria-live="polite"
-                    className="flex flex-col gap-2 rounded-lg border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
+                    className="flex flex-col gap-2 rounded-card border border-dashed border-black/10 px-3 py-3 text-ui-caption text-secondary-light dark:border-white/10 dark:text-secondary-dark"
                   >
                     <div className="space-y-1">
                       <p className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -423,7 +417,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                       <button
                         type="button"
                         onClick={() => setRoutingSearch('')}
-                        className="self-start rounded-full bg-white px-2.5 py-1 text-ui-button font-medium text-apple-blue shadow-sm transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:bg-black/20"
+                        className={cn(uiStyles.secondaryButton, 'self-start')}
                       >
                         Show all tasks here
                       </button>
@@ -448,13 +442,13 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     onClick={() => applyTemplate(template)}
                     aria-pressed={selectedTemplateId === template.id}
                     className={cn(
-                      'flex min-h-16 min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                      'flex min-h-16 min-w-0 items-center gap-2 rounded-card border px-2.5 py-2 text-left transition-colors',
                       selectedTemplateId === template.id
-                        ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                        ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
                         : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
                     )}
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-card bg-white text-apple-blue dark:bg-black/20">
                       <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
                     </span>
                     <span className="min-w-0">
@@ -480,7 +474,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                   setName(event.target.value)
                   if (error) setError(null)
                 }}
-                className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                className={cn(uiStyles.input, 'h-10 px-4')}
                 placeholder="Place name..."
                 disabled={saving}
               />
@@ -490,7 +484,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                 autoComplete="off"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className="h-10 rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                className={cn(uiStyles.input, 'h-10 px-4')}
                 placeholder="What work should wait here?"
                 disabled={saving}
               />
@@ -498,11 +492,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                 <button
                   type="submit"
                   disabled={saving}
-                  className={cn(
-                    'inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-ui-button font-medium text-white transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
-                    'bg-apple-blue hover:bg-apple-blue-focus active:scale-95',
-                    saving && 'cursor-not-allowed opacity-60'
-                  )}
+                  className={cn(uiStyles.primaryButton, 'h-10 px-4')}
                 >
                   <Check size={14} strokeWidth={2.25} aria-hidden="true" />
                   {saving ? 'Creating...' : 'Create place'}
@@ -516,7 +506,7 @@ export function AgentGroupsPanel({ onOpenProjectsSetup }: AgentGroupsPanelProps 
                     }}
                     disabled={saving}
                     aria-label="Cancel place creation"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ui-button text-secondary-light transition-transform hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+                    className={cn(uiStyles.subtleButton, 'h-10 w-10 px-0')}
                   >
                     <X size={14} strokeWidth={2.25} aria-hidden="true" />
                   </button>
@@ -561,10 +551,10 @@ function RoutingMetric({
   return (
     <div
       data-testid={testId}
-      className="flex min-h-16 items-center gap-2 rounded-lg bg-white px-2.5 py-2 shadow-sm dark:bg-black/20"
+      className="flex min-h-16 items-center gap-2 rounded-card border border-black/[0.06] bg-white px-2.5 py-2 dark:border-white/[0.08] dark:bg-black/20"
     >
       <span
-        className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', toneClass)}
+        className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-card', toneClass)}
       >
         <Icon size={15} strokeWidth={2.2} aria-hidden="true" />
       </span>
@@ -588,16 +578,12 @@ function RoutedTaskRow({ task }: { task: TaskSummary }) {
   return (
     <li
       data-testid="task-routing-row"
-      className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 shadow-sm dark:bg-black/20"
+      className="flex items-center justify-between gap-3 rounded-card border border-black/[0.06] bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-black/20"
     >
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-              TASK_STATE_TONE[task.state]
-            )}
-          >
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium uppercase text-secondary-light dark:text-secondary-dark">
+            <span className={cn('h-1.5 w-1.5 rounded-full', TASK_STATE_DOT[task.state])} />
             {TASK_STATE_LABELS[task.state]}
           </span>
           <p className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileText, RotateCcw, Save, Scissors, ShieldCheck, Sparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   agentAiServiceLabel,
   isHostCliAgent,
@@ -141,11 +142,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-4 rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-      )}
-    >
+    <div className={cn(uiStyles.cardPadded, 'flex flex-col gap-4 p-5')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -158,18 +155,19 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             {agentAiServiceLabel(agent.provider)}. {modelLabel(agent.model)}
           </p>
         </div>
-        <span
-          className={cn(
-            'inline-flex h-7 w-fit items-center rounded-full px-2.5 text-ui-caption font-medium',
-            dirty
-              ? 'bg-apple-orange/10 text-apple-orange'
-              : savedAt != null
-                ? 'bg-apple-blue/10 text-apple-blue'
-                : hasPrompt
-                  ? 'bg-apple-green/10 text-apple-green'
-                  : 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
-          )}
-        >
+        <span className="inline-flex h-7 w-fit items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full',
+              dirty
+                ? 'bg-apple-orange'
+                : savedAt != null
+                  ? 'bg-apple-blue'
+                  : hasPrompt
+                    ? 'bg-apple-green'
+                    : 'bg-apple-gray-2'
+            )}
+          />
           {dirty
             ? 'Unsaved'
             : savedAt != null
@@ -196,10 +194,10 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
               aria-pressed={selected}
               onClick={() => updatePromptValue(template.value)}
               className={cn(
-                'inline-flex h-8 items-center gap-2 rounded-lg border px-3 text-ui-caption font-medium transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                'inline-flex h-8 items-center gap-2 rounded-button border px-3 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
                 selected
-                  ? 'border-apple-blue/50 bg-apple-blue/10 text-apple-blue dark:border-apple-blue/60 dark:bg-apple-blue/15'
-                  : 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark'
+                  ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+                  : 'border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
               )}
             >
               <FileText size={13} strokeWidth={2} aria-hidden="true" />
@@ -233,12 +231,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
         onChange={(e) => updatePromptValue(e.target.value)}
         aria-describedby={`${promptHelpId} ${promptStatusId}`}
         placeholder="Example: Report progress in plain language, protect existing work, and list checks run…"
-        className={cn(
-          'w-full resize-none rounded-lg px-3 py-2 text-ui-body outline-none',
-          'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-white/[0.04]',
-          'text-foreground-light dark:text-foreground-dark',
-          'focus:ring-2 focus:ring-apple-blue-focus'
-        )}
+        className={cn(uiStyles.input, 'h-auto resize-none px-3 py-2')}
       />
       <p
         id={promptStatusId}
@@ -262,10 +255,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
                 ? 'Reset to the last saved guidance.'
                 : 'Make an edit before reset is available.'
             }
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
-              !dirty && 'cursor-not-allowed opacity-50'
-            )}
+            className={cn(uiStyles.secondaryButton, 'h-9 gap-2')}
           >
             <RotateCcw size={14} strokeWidth={2} aria-hidden="true" />
             Reset
@@ -279,10 +269,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
                 ? 'Clear the instruction text.'
                 : 'Add instructions before clear is available.'
             }
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-red/35 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark',
-              !hasPrompt && 'cursor-not-allowed opacity-50'
-            )}
+            className={cn(uiStyles.dangerButton, 'h-9 gap-2')}
           >
             <Scissors size={14} strokeWidth={2} aria-hidden="true" />
             Clear
@@ -297,10 +284,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
               ? 'Save this answer guidance for future work.'
               : 'Change the answer guidance before save is available.'
           }
-          className={cn(
-            'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus active:scale-95',
-            (saving || !dirty) && 'cursor-not-allowed opacity-50'
-          )}
+          className={cn(uiStyles.primaryButton, 'h-9 gap-2 px-4')}
         >
           <Save size={14} strokeWidth={2} aria-hidden="true" />
           {saving ? 'Saving…' : 'Save answer guidance'}
@@ -312,8 +296,8 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
 
 function ConfigMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
-      <p className="text-[10px] font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
+    <div className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+      <p className="text-ui-caption font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
         {label}
       </p>
       <p className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -346,9 +330,7 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
   return (
     <div
       data-testid="agent-cli-config-summary"
-      className={cn(
-        'flex flex-col gap-4 rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-      )}
+      className={cn(uiStyles.cardPadded, 'flex flex-col gap-4 p-5')}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -368,13 +350,11 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
             files before sending Tasks or code changes.
           </p>
         </div>
-        <span className="inline-flex h-7 w-fit items-center rounded-full bg-apple-blue/10 px-2.5 text-ui-caption font-medium text-apple-blue">
-          {hostCli ? 'This computer' : 'Project files'}
-        </span>
+        <span className={uiStyles.chip}>{hostCli ? 'This computer' : 'Project files'}</span>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <RuntimeRow label="Saved tool" value={cliToolLabel(agent.cliTool)} />
+        <RuntimeRow label="Saved tool" value={cliToolLabel(agent.cliTool)} chip />
         <RuntimeRow
           label="Connection"
           value={
@@ -398,11 +378,24 @@ function CliRuntimeConfig({ agent }: { agent: AgentInfo }) {
   )
 }
 
-function RuntimeRow({ label, value }: { label: string; value: string }) {
+function RuntimeRow({
+  label,
+  value,
+  chip = false,
+}: {
+  label: string
+  value: string
+  chip?: boolean
+}) {
   return (
-    <div className="min-w-0 rounded-lg bg-black/[0.03] px-3 py-2 text-ui-caption dark:bg-white/[0.04]">
+    <div className="min-w-0 rounded-card bg-black/[0.03] px-3 py-2 text-ui-caption dark:bg-white/[0.04]">
       <span className="block text-secondary-light dark:text-secondary-dark">{label}</span>
-      <span className="mt-0.5 block truncate font-medium text-foreground-light dark:text-foreground-dark">
+      <span
+        className={cn(
+          'mt-0.5 truncate font-medium text-foreground-light dark:text-foreground-dark',
+          chip ? uiStyles.chip : 'block'
+        )}
+      >
         {value}
       </span>
     </div>

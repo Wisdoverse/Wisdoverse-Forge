@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   LOCAL_AGENT_SETUP_APP_LABEL,
   localAgentSetupPasteHint,
@@ -670,7 +671,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
         aria-labelledby="create-agent-title"
         className={cn(
           'relative mx-4 max-h-[86vh] w-full max-w-[520px] overflow-y-auto',
-          'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
+          'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-surface-dark'
         )}
       >
         <div className="flex items-center justify-between mb-4">
@@ -692,7 +693,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             type="button"
             onClick={handleClose}
             aria-label="Close dialog"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
+            className={cn(uiStyles.subtleButton, 'h-8 w-8 shrink-0 px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -703,7 +704,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
             ref={errorBannerRef}
             role="alert"
             aria-live="polite"
-            className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+            className="mb-4 rounded-card bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">{displayedError}</span>
@@ -711,7 +712,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 displayedError === SELECTED_AI_SERVICE_NOT_READY_ERROR) && (
                 <a
                   href="/settings/providers"
-                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                  className={cn(
+                    uiStyles.dangerButton,
+                    'h-7 shrink-0 gap-1 border border-apple-red/20 bg-white/70 dark:bg-white/[0.08]'
+                  )}
                 >
                   <span>Open AI services</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
@@ -721,7 +725,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <button
                   type="button"
                   onClick={handleOpenProjectsSetup}
-                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                  className={cn(
+                    uiStyles.dangerButton,
+                    'h-7 shrink-0 gap-1 border border-apple-red/20 bg-white/70 dark:bg-white/[0.08]'
+                  )}
                 >
                   <span>Open project settings</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
@@ -730,7 +737,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               {displayedError.includes('Where agents work in Settings') && (
                 <a
                   href="/settings/runtime"
-                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                  className={cn(
+                    uiStyles.dangerButton,
+                    'h-7 shrink-0 gap-1 border border-apple-red/20 bg-white/70 dark:bg-white/[0.08]'
+                  )}
                 >
                   <span>Open Where agents work</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
@@ -742,7 +752,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
 
         {localEnrollment ? (
           <div className="flex flex-col gap-4">
-            <div className="rounded-lg border border-black/[0.08] bg-surface-pearl p-4 dark:border-white/[0.1] dark:bg-white/[0.04]">
+            <div className="rounded-card border border-black/[0.08] bg-surface-pearl p-4 dark:border-white/[0.1] dark:bg-white/[0.04]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -752,9 +762,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     {localEnrollment.agent?.name ?? 'This computer agent'}
                   </div>
                 </div>
-                <span className="rounded-full border border-apple-green/20 bg-white px-2.5 py-1 text-ui-caption text-apple-green dark:bg-white/[0.04]">
-                  This computer
-                </span>
+                <span className={uiStyles.chip}>This computer</span>
               </div>
               <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 {localEnrollment.enrollment?.joinCommand
@@ -785,10 +793,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                           setCopiedJoin(false)
                         }}
                         className={cn(
-                          'rounded-full px-3 py-1 text-ui-caption font-medium transition-colors',
+                          'rounded-button border px-3 py-1 text-ui-caption font-medium transition-colors',
                           joinOs === option.value
-                            ? 'bg-apple-blue text-white'
-                            : 'border border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                            ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+                            : 'border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
                         )}
                       >
                         {option.label}
@@ -803,12 +811,15 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     readOnly
                     value={selectedJoinCommand}
                     rows={3}
-                    className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                    className={cn(
+                      uiStyles.input,
+                      'h-auto resize-none px-4 py-3 font-mono text-ui-caption'
+                    )}
                   />
                 ) : (
                   <div
                     role="note"
-                    className="rounded-[18px] border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                    className="rounded-card border border-apple-orange/30 bg-apple-orange/10 px-4 py-3 text-ui-caption text-secondary-light dark:text-secondary-dark"
                   >
                     Windows setup needs backup setup text. Copy the backup setup text below, paste
                     it into the setup app for Windows, and keep that window open.
@@ -826,7 +837,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     ? localAgentSetupPasteHint(joinOs)
                     : 'Use the backup setup text below for Windows.'}
                 </p>
-                <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
+                <div className="mt-2 grid gap-1.5 rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy the setup text.</p>
                   <p>2. Paste it into that window on the computer that will do the work.</p>
                   <p>
@@ -866,13 +877,16 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         readOnly
                         value={localEnrollment.enrollment?.shellExports ?? ''}
                         rows={6}
-                        className="mt-2 w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                        className={cn(
+                          uiStyles.input,
+                          'mt-2 h-auto resize-none px-4 py-3 font-mono text-ui-caption'
+                        )}
                       />
                       <div className="mt-2 flex justify-end">
                         <button
                           type="button"
                           onClick={() => void handleCopyCommand()}
-                          className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption font-medium text-foreground-light dark:border-white/[0.1] dark:text-foreground-dark"
+                          className={cn(uiStyles.secondaryButton, 'gap-2 text-ui-caption')}
                         >
                           {copiedCommand ? (
                             <Check size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -899,9 +913,12 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   readOnly
                   value={localEnrollment.enrollment?.shellExports ?? ''}
                   rows={8}
-                  className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 font-mono text-ui-caption text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  className={cn(
+                    uiStyles.input,
+                    'h-auto resize-none px-4 py-3 font-mono text-ui-caption'
+                  )}
                 />
-                <div className="mt-2 grid gap-1.5 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
+                <div className="mt-2 grid gap-1.5 rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-secondary-dark">
                   <p>1. Copy the setup text.</p>
                   <p>
                     2. Paste it into {LOCAL_AGENT_SETUP_APP_LABEL} on the computer that will do the
@@ -932,7 +949,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <button
                 type="button"
                 onClick={handleCreateAnother}
-                className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+                className={cn(uiStyles.secondaryButton, 'px-4')}
               >
                 Add another agent
               </button>
@@ -943,10 +960,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     if (selectedJoinCommandReady) void handleCopyJoinCommand(selectedJoinCommand)
                   }}
                   disabled={!selectedJoinCommandReady}
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95',
-                    !selectedJoinCommandReady && 'cursor-not-allowed opacity-60'
-                  )}
+                  className={cn(uiStyles.primaryButton, 'gap-2 px-4')}
                 >
                   {copiedJoin ? (
                     <Check size={14} strokeWidth={2.25} aria-hidden="true" />
@@ -963,7 +977,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <button
                   type="button"
                   onClick={() => void handleCopyCommand()}
-                  className="inline-flex items-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+                  className={cn(uiStyles.primaryButton, 'gap-2 px-4')}
                 >
                   {copiedCommand ? (
                     <Check size={14} strokeWidth={2.25} aria-hidden="true" />
@@ -976,7 +990,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded-full bg-apple-gray-5 px-4 py-2 text-ui-button font-medium text-foreground-light transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+                className={cn(uiStyles.secondaryButton, 'px-4')}
               >
                 Close and watch Agents
               </button>
@@ -999,9 +1013,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     <label
                       key={option.value}
                       className={cn(
-                        'min-h-[96px] cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors',
+                        'min-h-[96px] cursor-pointer rounded-card border px-3 py-2.5 text-left transition-colors',
                         selected
-                          ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                          ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
                           : 'border-black/[0.08] bg-white text-foreground-light hover:bg-black/[0.03] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
                       )}
                     >
@@ -1013,16 +1027,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       />
                       <span className="flex items-start justify-between gap-2">
                         <span className="text-ui-button font-semibold">{option.label}</span>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                            selected
-                              ? 'bg-apple-blue text-white'
-                              : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
-                          )}
-                        >
-                          {option.badge}
-                        </span>
+                        <span className={cn(uiStyles.badge, 'shrink-0')}>{option.badge}</span>
                       </span>
                       <span className="mt-2 block text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
                         {option.summary}
@@ -1050,7 +1055,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 aria-expanded={runtimeDetailsOpen}
                 aria-controls="agent-runtime-fit"
                 onClick={() => setRuntimeDetailsOpen((open) => !open)}
-                className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.07]"
+                className={cn(uiStyles.secondaryButton, 'min-h-8 w-fit')}
               >
                 <ChevronDown
                   size={14}
@@ -1065,7 +1070,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <section
                   id="agent-runtime-fit"
                   data-testid="agent-runtime-fit"
-                  className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+                  className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1076,7 +1081,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         {runtimeFit.title}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue">
+                    <span className={cn(uiStyles.chip, 'shrink-0')}>
                       {kind === 'cli'
                         ? 'Can edit files'
                         : kind === 'local-cli'
@@ -1091,9 +1096,9 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     {runtimeFit.items.map((item) => (
                       <div
                         key={item.label}
-                        className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                        className="min-w-0 rounded-card bg-white px-2 py-1.5 dark:bg-black/20"
                       >
-                        <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                        <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                           {item.label}
                         </span>
                         <span className="mt-0.5 block truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
@@ -1113,7 +1118,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 aria-expanded={starterTemplatesOpen}
                 aria-controls="agent-starter-templates"
                 onClick={() => setStarterTemplatesOpen((open) => !open)}
-                className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.07]"
+                className={cn(uiStyles.secondaryButton, 'min-h-8 w-fit')}
               >
                 <ChevronDown
                   size={14}
@@ -1129,7 +1134,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               {starterTemplatesOpen ? (
                 <section
                   id="agent-starter-templates"
-                  className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
+                  className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -1151,13 +1156,13 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                         onClick={() => applyStarterTemplate(template)}
                         aria-pressed={selectedTemplateId === template.id}
                         className={cn(
-                          'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                          'flex min-h-16 items-center gap-3 rounded-card border px-3 py-2 text-left transition-colors',
                           selectedTemplateId === template.id
-                            ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                            ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
                             : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]'
                         )}
                       >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-card bg-white text-apple-blue dark:bg-black/20">
                           <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
                         </span>
                         <span className="min-w-0">
@@ -1193,7 +1198,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <input
                 id="agent-name"
                 {...register('name')}
-                className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                className={cn(uiStyles.input, 'h-10 px-4')}
                 placeholder="e.g. Result checker"
                 autoFocus
               />
@@ -1203,7 +1208,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <div className="mb-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 {kind === 'provider' ? 'Where to use it' : 'Project for new tasks'}
               </div>
-              <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
+              <div className="w-full rounded-card border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
                 {kind === 'provider'
                   ? 'Open this agent from Chat. It does not need a project or a place for new tasks.'
                   : (selectedProject?.name ?? 'Choose a project later')}
@@ -1223,7 +1228,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <button
                   type="button"
                   onClick={handleOpenProjectsSetup}
-                  className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+                  className={cn(uiStyles.secondaryButton, 'mt-2')}
                 >
                   <span>Open project settings</span>
                   <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -1244,7 +1249,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <select
                   id="agent-cli-tool"
                   {...register('cliTool')}
-                  className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  className={cn(uiStyles.select, 'h-10 w-full px-4')}
                 >
                   {CLI_TOOLS.map((tool) => (
                     <option key={tool.value} value={tool.value}>
@@ -1263,7 +1268,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <>
                 <div
                   data-testid="simple-chat-limits"
-                  className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  className="rounded-card border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
                   <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                     Simple chat answers questions only
@@ -1289,7 +1294,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       <select
                         id="agent-provider"
                         {...register('providerId')}
-                        className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                        className={cn(uiStyles.select, 'h-10 w-full px-4')}
                       >
                         {providerOptions.map((option) => (
                           <option key={option.id} value={option.id}>
@@ -1307,7 +1312,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       <div className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                         Answer setting from Settings
                       </div>
-                      <div className="w-full rounded-[18px] border border-black/[0.08] bg-black/[0.025] px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
+                      <div className="w-full rounded-card border border-black/[0.08] bg-black/[0.025] px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
                         {selectedProviderReady ? 'Ready' : 'Check connection first'}
                       </div>
                       <p
@@ -1323,7 +1328,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 ) : (
                   <div
                     data-testid="provider-empty-hint"
-                    className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5"
+                    className="rounded-card border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5"
                   >
                     <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                       Add and check an AI service first
@@ -1332,10 +1337,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       Open AI services in Settings, add a service, paste the key from that service,
                       save it, then choose Check connection. Come back when the service shows Ready.
                     </p>
-                    <a
-                      href="/settings/providers"
-                      className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
-                    >
+                    <a href="/settings/providers" className={cn(uiStyles.secondaryButton, 'mt-2')}>
                       <span>Open AI services</span>
                       <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                     </a>
@@ -1353,7 +1355,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     {...register('systemPrompt')}
                     rows={4}
                     placeholder="e.g. Help check task results, explain risks in plain language, and list the next step."
-                    className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                    className={cn(uiStyles.input, 'h-auto resize-none px-4 py-3')}
                   />
                 </div>
               </>
@@ -1370,7 +1372,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 <input
                   id="agent-cwd"
                   {...register('cwd')}
-                  className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                  className={cn(uiStyles.input, 'h-10 px-4')}
                   placeholder={kind === 'local-cli' ? '/Users/me/projects/app' : DEFAULT_AGENT_CWD}
                 />
                 <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -1381,7 +1383,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 {kind === 'local-cli' && (
                   <div
                     data-testid="local-agent-before-create"
-                    className="mt-2 rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                    className={cn(uiStyles.note, 'mt-2')}
                   >
                     <p className="font-semibold text-foreground-light dark:text-foreground-dark">
                       Before you create this computer agent
@@ -1415,7 +1417,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     <select
                       id="agent-group"
                       {...register('groupId')}
-                      className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                      className={cn(uiStyles.select, 'h-10 w-full px-4')}
                     >
                       <option value="">Set this later</option>
                       {groups.map((g) => (
@@ -1434,12 +1436,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       type="button"
                       onClick={handleCreateDefaultGroup}
                       disabled={creatingGroup}
-                      className={cn(
-                        'flex h-10 w-full items-center justify-center gap-2 rounded-full px-4 text-ui-button font-medium transition-transform active:scale-95',
-                        'border border-black/[0.08] bg-white text-apple-blue hover:bg-apple-blue/5',
-                        'dark:bg-white/[0.06] dark:text-foreground-dark dark:hover:bg-white/[0.1]',
-                        creatingGroup && 'cursor-not-allowed opacity-60'
-                      )}
+                      className={cn(uiStyles.secondaryButton, 'h-10 w-full px-4')}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
                       {creatingGroup ? 'Creating…' : 'Set up place'}
@@ -1453,18 +1450,17 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
             )}
 
-            <section
-              data-testid="agent-create-review"
-              className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2.5"
-            >
-              <p className="text-ui-caption font-semibold text-apple-blue">Before you create</p>
+            <section data-testid="agent-create-review" className={cn(uiStyles.note, 'px-3 py-2.5')}>
+              <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                Before you create
+              </p>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                 {reviewItems.map((item) => (
                   <div
                     key={item.label}
-                    className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                    className="min-w-0 rounded-card bg-white px-2 py-1.5 dark:bg-black/20"
                   >
-                    <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                    <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                       {item.label}
                     </span>
                     <span className="mt-0.5 block text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
@@ -1479,7 +1475,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark"
+                className={cn(uiStyles.secondaryButton, 'px-4')}
               >
                 Cancel
               </button>
@@ -1487,11 +1483,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                 type={projectRequiredBeforeCreate ? 'button' : 'submit'}
                 onClick={projectRequiredBeforeCreate ? handleOpenProjectsSetup : undefined}
                 disabled={loading}
-                className={cn(
-                  'rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white',
-                  'transition-transform hover:bg-apple-blue-focus active:scale-95',
-                  loading && 'opacity-50 cursor-not-allowed'
-                )}
+                className={cn(uiStyles.primaryButton, 'px-4')}
               >
                 {projectRequiredBeforeCreate
                   ? 'Open project settings'
