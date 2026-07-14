@@ -262,7 +262,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     // Switching to "Simple chat agent" reveals the system-prompt textarea.
     await kindGroup.getByText('Simple chat agent', { exact: true }).click()
     await expect(page.locator('textarea#systemPrompt')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByRole('textbox', { name: 'Agent instructions' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Tell this agent how to answer' })).toBeVisible()
     await expect(page.getByPlaceholder(/Help check task results.*explain risks/i)).toBeVisible()
   })
 
