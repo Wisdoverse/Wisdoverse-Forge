@@ -750,12 +750,12 @@ export function ProjectTree({
               onClick={() => onToggleTeam(team.id)}
               onContextMenu={(event) => handleTeamContextMenu(event, team)}
               className={cn(
-                'w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-ui-caption',
+                'flex w-full items-center gap-1.5 rounded-button px-2 py-1 text-ui-body',
                 'text-secondary-light dark:text-secondary-dark',
-                'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors'
+                'transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
               )}
             >
-              <span className="w-3 text-ui-caption">{expanded ? '▾' : '▸'}</span>
+              <span className="w-4 text-ui-caption">{expanded ? '▾' : '▸'}</span>
               <span className="font-medium truncate">{team.name}</span>
             </button>
 
@@ -778,7 +778,7 @@ export function ProjectTree({
                       onClick={() => onSelectProject(project.id)}
                       onContextMenu={(event) => handleProjectContextMenu(event, team, project)}
                       className={cn(
-                        'w-full flex items-center gap-2 px-2 py-1 rounded-md text-ui-caption text-left transition-colors',
+                        'flex w-full items-center gap-2 rounded-button px-2 py-1 text-left text-ui-body transition-colors',
                         selectedProjectId === project.id
                           ? 'bg-apple-blue/10 text-apple-blue font-medium'
                           : 'text-foreground-light dark:text-foreground-dark hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'

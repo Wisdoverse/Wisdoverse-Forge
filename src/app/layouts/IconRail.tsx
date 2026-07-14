@@ -29,12 +29,11 @@ export function IconRail({ activePath, onNavigate }: IconRailProps) {
     <nav
       data-testid="icon-rail"
       className={cn(
-        'flex flex-col items-center w-[52px] py-3 gap-2',
-        'bg-surface backdrop-blur-xl rounded-panel',
-        'shadow-card dark:bg-surface-dark dark:shadow-card-dark'
+        'flex w-[52px] flex-col items-center gap-2 border-r border-black/[0.08] bg-background-light py-3',
+        'dark:border-white/[0.1] dark:bg-background-dark'
       )}
     >
-      <div className="w-8 h-8 rounded-lg bg-apple-blue flex items-center justify-center text-white text-sm font-bold mb-2">
+      <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-button bg-apple-blue text-ui-body font-bold text-white">
         <Zap size={16} strokeWidth={2.2} aria-hidden="true" />
       </div>
 
@@ -79,16 +78,16 @@ function IconRailButton({
       data-testid={`nav-${item.id}`}
       onClick={() => onNavigate(item.path)}
       className={cn(
-        'w-9 h-9 rounded-lg flex items-center justify-center transition-colors',
+        'flex h-9 w-9 items-center justify-center rounded-button transition-colors',
         active
-          ? 'bg-apple-blue/10 text-apple-blue shadow-[inset_0_0_0_1.5px_rgba(0,122,255,0.3)]'
-          : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark hover:bg-black/[0.08] hover:text-foreground-light dark:hover:bg-white/[0.1] dark:hover:text-foreground-dark'
+          ? 'rounded-button bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+          : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
       title={item.label}
       aria-label={item.label}
       aria-current={active ? 'page' : undefined}
     >
-      <Icon size={17} strokeWidth={2.1} aria-hidden="true" />
+      <Icon size={16} strokeWidth={2.1} aria-hidden="true" />
     </button>
   )
 }

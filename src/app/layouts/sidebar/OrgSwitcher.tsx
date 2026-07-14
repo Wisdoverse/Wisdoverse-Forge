@@ -44,8 +44,8 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
         aria-label={`Team space selector: ${selectedName}`}
         title="Choose team space"
         className={cn(
-          'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-ui-body',
-          'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors'
+          'flex w-full items-center gap-2 rounded-button px-2 py-1.5 text-ui-body transition-colors',
+          'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
         )}
       >
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-apple-blue text-ui-caption font-semibold text-white">

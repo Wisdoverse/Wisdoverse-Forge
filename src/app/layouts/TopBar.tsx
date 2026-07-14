@@ -49,9 +49,8 @@ export function TopBar({
     <div
       data-testid="top-bar"
       className={cn(
-        'flex min-h-[52px] items-center justify-between gap-4 px-4 py-2.5',
-        'rounded-panel border border-black/[0.08] bg-surface backdrop-blur-[20px] backdrop-saturate-[180%]',
-        'dark:border-white/[0.1] dark:bg-surface-dark'
+        'flex min-h-[52px] items-center justify-between gap-4 border-b border-black/[0.08] bg-background-light px-4 py-1',
+        'dark:border-white/[0.1] dark:bg-background-dark'
       )}
     >
       <div className="flex items-center gap-3 min-w-0">
@@ -60,13 +59,13 @@ export function TopBar({
             type="button"
             onClick={onMenuClick}
             aria-label={t('appLayout.topBar.openNavigation')}
-            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-secondary-light dark:text-secondary-dark hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-foreground-light dark:hover:text-foreground-dark transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-button text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark md:hidden"
           >
             <Menu size={18} strokeWidth={2} aria-hidden="true" />
           </button>
         )}
         <div className="min-w-0">
-          <h1 className="truncate text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+          <h1 className="truncate text-ui-title font-medium text-foreground-light dark:text-foreground-dark">
             {title}
           </h1>
           {subtitle && (
@@ -76,17 +75,17 @@ export function TopBar({
           )}
         </div>
         {showTaskControls && (
-          <div className="ml-2 hidden gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
+          <div className="ml-2 hidden gap-0.5 rounded-button border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.04] md:flex">
             {VIEW_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => onViewChange(opt.id)}
                 className={cn(
-                  'rounded-full px-3 py-1 text-ui-caption transition-transform active:scale-95',
+                  'rounded-[4px] px-2.5 py-1 text-ui-caption transition-colors',
                   viewMode === opt.id
-                    ? 'bg-apple-blue text-white'
-                    : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark'
+                    ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                    : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
                 )}
               >
                 {t(opt.labelKey)}
@@ -103,7 +102,7 @@ export function TopBar({
           type="button"
           onClick={toggleTheme}
           aria-label={themeLabel}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+          className="flex h-11 w-11 items-center justify-center rounded-button text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           title={themeLabel}
         >
           {theme === 'dark' ? (
@@ -118,7 +117,7 @@ export function TopBar({
             data-testid="top-bar-command-search"
             onClick={onCmdK}
             aria-label={t('appLayout.topBar.searchLabel')}
-            className="hidden items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light active:scale-95 dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:text-foreground-dark sm:flex"
+            className="hidden h-8 items-center gap-1.5 whitespace-nowrap rounded-button border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.03] hover:text-foreground-light active:scale-95 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark sm:flex"
             title={t('appLayout.topBar.searchLabel')}
           >
             <Search size={14} strokeWidth={2} aria-hidden="true" />
@@ -132,7 +131,7 @@ export function TopBar({
             onClick={onCreateTask}
             aria-label={taskLabel}
             title={taskTitle}
-            className="inline-flex items-center gap-1.5 rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+            className="inline-flex h-8 items-center gap-1.5 rounded-button bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus active:scale-95"
           >
             <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
             <span>{taskLabel}</span>

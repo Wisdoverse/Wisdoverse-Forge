@@ -26,7 +26,7 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           aria-label="Expand left menu"
           title="Expand left menu"
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-lg bg-apple-blue',
+            'flex h-8 w-8 items-center justify-center rounded-button bg-apple-blue',
             'text-sm font-bold text-white transition-transform active:scale-95',
             'cursor-pointer hover:bg-apple-blue-focus'
           )}
@@ -42,13 +42,13 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           aria-label="Collapse left menu"
           title="Collapse left menu"
           className={cn(
-            'w-7 h-7 flex items-center justify-center rounded-md',
+            'flex h-8 w-8 items-center justify-center rounded-button',
             'text-secondary-light dark:text-secondary-dark',
-            'hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-foreground-light dark:hover:text-foreground-dark',
+            'hover:bg-black/[0.04] hover:text-foreground-light dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
             'transition-colors'
           )}
         >
-          <PanelLeftClose size={15} strokeWidth={2} aria-hidden="true" />
+          <PanelLeftClose size={16} strokeWidth={2} aria-hidden="true" />
         </button>
       )}
     </div>
@@ -58,7 +58,7 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
 function LogoMark() {
   return (
     <span
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-apple-blue text-sm font-bold text-white"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-button bg-apple-blue text-ui-body font-bold text-white"
       aria-hidden="true"
     >
       <LogoIcon />
