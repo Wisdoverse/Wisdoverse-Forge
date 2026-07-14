@@ -67,34 +67,14 @@ function formatDate(iso: string | null, missingLabel: string, invalidLabel: stri
 
 function RoleBadge({ role }: { role: string }) {
   const knownRole = normalizeRole(role)
-  const colors: Record<Role, string> = {
-    admin: 'bg-apple-blue/10 text-apple-blue',
-    member: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-  }
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        colors[knownRole]
-      )}
-    >
-      {ROLE_DETAILS[knownRole].label}
-    </span>
-  )
+  return <span className={uiStyles.badge}>{ROLE_DETAILS[knownRole].label}</span>
 }
 
 function StatusBadge({ status }: { status: AdminUser['status'] }) {
   const active = status === 'active'
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-ui-caption font-medium',
-        active
-          ? 'bg-apple-blue/10 text-apple-blue'
-          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-      )}
-    >
-      <span className={cn('w-1.5 h-1.5 rounded-full', active ? 'bg-apple-blue' : 'bg-gray-400')} />
+    <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+      <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-apple-blue' : 'bg-gray-400')} />
       {active ? 'Can sign in' : 'Access paused'}
     </span>
   )
@@ -195,7 +175,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                   type="button"
                   onClick={() => void handleSaveRole()}
                   disabled={saving}
-                  className={cn(uiStyles.primaryButton, 'h-8 px-3 text-ui-caption')}
+                  className={uiStyles.primaryButton}
                 >
                   {saving ? 'Saving…' : 'Save access'}
                 </button>
@@ -203,7 +183,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                   type="button"
                   onClick={cancelEdit}
                   disabled={saving}
-                  className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
+                  className={uiStyles.secondaryButton}
                 >
                   Cancel
                 </button>
@@ -218,7 +198,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                     type="button"
                     onClick={startEdit}
                     title="Change what this user can do"
-                    className={cn(uiStyles.subtleButton, 'h-7 px-2 text-ui-caption')}
+                    className={uiStyles.subtleButton}
                   >
                     Change access
                   </button>
@@ -272,7 +252,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                   type="button"
                   onClick={() => void handleRemove()}
                   disabled={removing}
-                  className={uiStyles.dangerConfirmButton}
+                  className={uiStyles.dangerButton}
                 >
                   {removing ? 'Removing…' : 'Remove account'}
                 </button>
@@ -280,7 +260,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                   type="button"
                   onClick={() => setConfirmingRemove(false)}
                   disabled={removing}
-                  className={cn(uiStyles.secondaryButton, 'h-8 px-3 text-ui-caption')}
+                  className={uiStyles.secondaryButton}
                 >
                   Keep account
                 </button>
