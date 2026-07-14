@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useId, useRef, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 
 export interface ChatComposerProps {
   onSend: (content: string) => void
@@ -74,12 +75,7 @@ export function ChatComposer({
   const sendDisabled = disabled || streaming
 
   return (
-    <div
-      className={cn(
-        'bg-white dark:bg-[#2c2c2e] rounded-xl p-3 flex flex-col gap-2',
-        'shadow-card dark:shadow-card-dark'
-      )}
-    >
+    <div className={cn(uiStyles.card, 'flex flex-col gap-2 p-3')}>
       <div className="flex items-end gap-2">
         <label htmlFor={inputId} className="sr-only">
           Message this agent
@@ -88,7 +84,8 @@ export function ChatComposer({
           id={inputId}
           ref={textareaRef}
           className={cn(
-            'max-h-40 flex-1 resize-none bg-transparent text-sm outline-none',
+            uiStyles.input,
+            'h-auto min-h-16 max-h-40 flex-1 resize-none py-2',
             (disabled || streaming) && 'cursor-not-allowed opacity-50'
           )}
           placeholder={placeholderText}
@@ -104,11 +101,7 @@ export function ChatComposer({
           onKeyDown={handleKeyDown}
         />
         {streaming ? (
-          <button
-            type="button"
-            onClick={onAbort}
-            className={cn('rounded-lg bg-apple-red px-3 py-2 text-xs font-medium text-white')}
-          >
+          <button type="button" onClick={onAbort} className={uiStyles.dangerConfirmButton}>
             Stop
           </button>
         ) : (
@@ -116,11 +109,7 @@ export function ChatComposer({
             type="button"
             disabled={sendDisabled}
             onClick={handleClickSend}
-            className={cn(
-              'rounded-lg px-3 py-2 text-xs font-medium text-white',
-              'bg-apple-blue',
-              sendDisabled && 'cursor-not-allowed opacity-50'
-            )}
+            className={uiStyles.primaryButton}
           >
             Send
           </button>

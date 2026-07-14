@@ -58,6 +58,15 @@ const TYPE_COLORS: Record<string, string> = {
   'task.progress': 'bg-apple-blue/12 text-apple-blue',
 }
 
+const TYPE_DOT_COLORS: Record<string, string> = {
+  'task.completed': 'bg-apple-green',
+  'task.queued': 'bg-apple-orange',
+  'task.working': 'bg-apple-blue',
+  'task.blocked': 'bg-apple-red',
+  'task.failed': 'bg-apple-red',
+  'task.progress': 'bg-apple-blue',
+}
+
 const NEXT_ACTION_COPY: Record<string, { text: string; className: string }> = {
   'task.queued': {
     text: 'Next step: keep this task open. If it stays waiting, start an available agent or choose another one.',
@@ -89,37 +98,44 @@ export function FeedItem({ item }: { item: FeedItemType }) {
     >
       <div
         className={cn(
-          'w-5 h-5 rounded-md flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5',
+          'mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-ui-caption',
           TYPE_COLORS[item.type] ?? 'bg-apple-gray-5 text-apple-gray-1'
         )}
       >
         <Icon size={12} strokeWidth={2.1} aria-hidden="true" />
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1.5 text-ui-caption">
           <span className="font-medium">{item.agentName}</span>
           <span className="text-secondary-light dark:text-secondary-dark"> · </span>
           <span className="min-w-0 flex-1 truncate font-medium">{item.taskTitle}</span>
-          <span className="shrink-0 rounded-full bg-black/[0.04] px-1.5 py-0.5 text-[9px] font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                TYPE_DOT_COLORS[item.type] ?? 'bg-apple-gray-2'
+              )}
+              aria-hidden="true"
+            />
             {typeCopy.label}
           </span>
         </div>
         {detail && (
-          <div className="text-[10px] text-secondary-light dark:text-secondary-dark mt-0.5">
+          <div className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {detail}
           </div>
         )}
         {nextAction && (
           <div
             className={cn(
-              'mt-1 rounded-md px-2 py-1 text-[10px] leading-relaxed',
+              'mt-1 rounded-card px-2 py-1 text-ui-caption leading-relaxed',
               nextAction.className
             )}
           >
             {nextAction.text}
           </div>
         )}
-        <div className="text-[9px] text-secondary-light dark:text-secondary-dark mt-0.5">
+        <div className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {formatTime(item.timestamp)}
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { type Turn, useChatStore } from './model/chat.store'
 import { agentAiServiceLabel, useAgentsStore } from '@app/entities/agent'
 import type { AgentMessageRow } from '@shared/types'
@@ -255,14 +256,8 @@ export function ChatView({ agentId }: ChatViewProps) {
 
   if (currentLoading && (isProviderAgent ? messages.length === 0 : turns.length === 0)) {
     return (
-      <div
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-8',
-          'shadow-card dark:shadow-card-dark',
-          'flex items-center justify-center'
-        )}
-      >
-        <div className="flex items-center gap-2 text-sm text-secondary-light dark:text-secondary-dark">
+      <div className={cn(uiStyles.card, 'flex items-center justify-center px-4 py-8')}>
+        <div className="flex items-center gap-2 text-ui-body text-secondary-light dark:text-secondary-dark">
           <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
             <circle
               className="opacity-25"
@@ -308,7 +303,7 @@ export function ChatView({ agentId }: ChatViewProps) {
     <div
       data-testid="provider-agent-chat-banner"
       className={cn(
-        'rounded-xl px-4 py-3 text-xs flex flex-col gap-1',
+        'flex flex-col gap-1 rounded-card px-4 py-3 text-ui-caption',
         'bg-apple-blue/10 text-apple-blue border border-apple-blue/20'
       )}
     >
@@ -325,10 +320,7 @@ export function ChatView({ agentId }: ChatViewProps) {
     <div className="flex flex-col gap-3">
       {banner}
       {providerAgentBanner}
-      <section
-        data-testid="conversation-handoff-summary"
-        className="rounded-xl border border-black/[0.08] bg-white p-4 shadow-card dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:shadow-card-dark"
-      >
+      <section data-testid="conversation-handoff-summary" className={uiStyles.cardPadded}>
         <div className="flex items-start gap-2">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
             <MessageCircle size={16} strokeWidth={2.15} aria-hidden="true" />
@@ -403,11 +395,7 @@ export function ChatView({ agentId }: ChatViewProps) {
                 ? 'Search chat updates or help requests...'
                 : 'Search updates, help requests, work steps...'
             }
-            className={cn(
-              'h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-8 pr-3 text-ui-body outline-none',
-              'text-foreground-light placeholder:text-secondary-light dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark',
-              'focus:ring-2 focus:ring-apple-blue-focus'
-            )}
+            className={cn(uiStyles.input, 'pl-8 pr-3')}
           />
         </label>
         <p
@@ -421,7 +409,7 @@ export function ChatView({ agentId }: ChatViewProps) {
           role="group"
           aria-label="Conversation view choices"
           data-testid="conversation-filter-group"
-          className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
+          className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-button bg-black/[0.035] p-1 dark:bg-white/[0.05]"
         >
           {filterCounts.map((item) => (
             <ConversationFilterButton
@@ -444,13 +432,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         </p>
       </div>
 
-      <div
-        className={cn(
-          'bg-white dark:bg-[#2c2c2e] rounded-xl',
-          'shadow-card dark:shadow-card-dark',
-          'max-h-[60vh] overflow-y-auto'
-        )}
-      >
+      <div className={cn(uiStyles.card, 'max-h-[60vh] overflow-y-auto')}>
         <div className="flex flex-col gap-4 p-4">
           {isProviderAgent ? (
             messages.length === 0 ? (
@@ -479,15 +461,15 @@ export function ChatView({ agentId }: ChatViewProps) {
                       role === 'user' ? 'items-end' : 'items-start'
                     )}
                   >
-                    <span className="text-[10px] text-secondary-light">
+                    <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
                       {messageRoleLabel(m.role)}
                     </span>
                     <div
                       className={cn(
-                        'rounded-xl px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap',
+                        'max-w-[80%] whitespace-pre-wrap rounded-card border px-3 py-2 text-ui-body',
                         role === 'user'
-                          ? 'bg-apple-blue/10 text-apple-blue'
-                          : 'bg-apple-gray-6 dark:bg-white/[0.06]'
+                          ? 'border-black/[0.08] bg-black/[0.025] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark'
+                          : 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-surface-dark dark:text-foreground-dark'
                       )}
                     >
                       {m.content ||
@@ -550,18 +532,14 @@ function ConversationFilterEmptyState({
       data-testid="conversation-filter-empty"
       role="status"
       aria-live="polite"
-      className="flex flex-col items-center gap-2 text-center text-sm text-secondary-light"
+      className="flex flex-col items-center gap-2 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
     >
       <span className="font-medium text-foreground-light dark:text-foreground-dark">
         {copy.title}
       </span>
       <span>{copy.detail}</span>
       <span className="text-ui-caption">{copy.nextStep}</span>
-      <button
-        type="button"
-        onClick={onClear}
-        className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-      >
+      <button type="button" onClick={onClear} className={uiStyles.secondaryButton}>
         Show all updates
       </button>
     </div>
@@ -582,7 +560,7 @@ function ChatErrorNotice({
       role="alert"
       aria-live="polite"
       className={cn(
-        'rounded-xl border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-left text-apple-red',
+        'rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-left text-apple-red',
         'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'
       )}
     >
@@ -599,11 +577,7 @@ function ChatErrorNotice({
         </span>
       </span>
       {actionLabel && onAction && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="shrink-0 rounded-full bg-white/70 px-3 py-1.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-black/20 dark:hover:bg-black/30"
-        >
+        <button type="button" onClick={onAction} className={cn(uiStyles.dangerButton, 'shrink-0')}>
           {actionLabel}
         </button>
       )}
@@ -643,7 +617,7 @@ function ConversationEmptyState({
         {copy.steps.map((step) => (
           <div
             key={step}
-            className="flex min-h-16 items-start gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+            className="flex min-h-16 items-start gap-2 rounded-card border border-black/[0.08] bg-black/[0.025] px-3 py-2 dark:border-white/[0.1] dark:bg-white/[0.05]"
           >
             <CheckCircle2
               size={14}
@@ -658,7 +632,7 @@ function ConversationEmptyState({
         ))}
       </div>
       {offline && (
-        <p className="rounded-lg bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+        <p className="rounded-card bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
           {offlineDetail}
         </p>
       )}
@@ -666,7 +640,7 @@ function ConversationEmptyState({
         <a
           data-testid="conversation-empty-action"
           href={action.href}
-          className="inline-flex h-9 w-fit items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+          className={cn(uiStyles.primaryButton, 'w-fit')}
         >
           <span>{action.label}</span>
           <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -701,7 +675,7 @@ function ConversationMetric({
   return (
     <div
       data-testid={testId}
-      className="flex min-h-16 items-center gap-2 rounded-lg bg-black/[0.025] px-2.5 py-2 dark:bg-white/[0.05]"
+      className="flex min-h-16 items-center gap-2 rounded-card border border-black/[0.08] bg-black/[0.025] px-2.5 py-2 dark:border-white/[0.1] dark:bg-white/[0.05]"
     >
       <span
         className={cn(
@@ -744,11 +718,11 @@ function ConversationFilterButton({
       aria-label={`${conversationFilterActionLabel(value)}, ${countLabel}`}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 text-ui-button font-medium transition-colors',
+        'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-button px-2.5 text-ui-button font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
         active
-          ? 'bg-white text-foreground-light shadow-sm dark:bg-black/30 dark:text-foreground-dark'
-          : 'text-secondary-light hover:bg-white/70 hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-black/20 dark:hover:text-foreground-dark'
+          ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+          : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
     >
       <span>{label}</span>
