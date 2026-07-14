@@ -82,7 +82,7 @@ describe('AuditLogView', () => {
     const loading = await screen.findByRole('status', { name: /checking change history/i })
     expect(loading).toHaveTextContent('Checking change history')
     expect(loading).toHaveTextContent(
-      'Forge is checking saved note and saved instruction changes for this team space.'
+      'Forge is checking saved note and saved guidance changes for this team space.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access.'
@@ -98,7 +98,10 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
-    expect(screen.getByText('See every saved note and saved instruction change.')).toBeDefined()
+    expect(screen.getByText('See every saved note and saved guidance change.')).toBeDefined()
+    expect(screen.queryByText('See every saved note and saved instruction change.')).toBeNull()
+    expect(screen.getByText('Check who saved or updated saved guidance.')).toBeDefined()
+    expect(screen.queryByText('Check who saved or updated saved instructions.')).toBeNull()
     expect(screen.getByText('Protected saved items')).toBeDefined()
     expect(screen.queryByText('Hidden item codes')).toBeNull()
     expect(screen.queryByText('Hidden item IDs')).toBeNull()
@@ -108,13 +111,16 @@ describe('AuditLogView', () => {
     const quickViews = screen.getByRole('group', { name: /common change views/i })
     expect(screen.queryByRole('group', { name: /common audit views/i })).toBeNull()
     fireEvent.click(
-      within(quickViews).getByRole('button', { name: /saved instruction decisions/i })
+      within(quickViews).getByRole('button', { name: /saved guidance decisions/i })
     )
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
     expect(
-      within(quickViews).getByRole('button', { name: /saved instruction decisions/i })
+      within(quickViews).getByRole('button', { name: /saved guidance decisions/i })
     ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      within(quickViews).queryByRole('button', { name: /saved instruction decisions/i })
+    ).toBeNull()
     expect(within(quickViews).queryByRole('button', { name: /skill decisions/i })).toBeNull()
     expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -138,6 +144,8 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Hidden review-note rows')).toBeNull()
     expect(screen.queryByText('Hidden detail rows')).toBeNull()
     expect(screen.queryByText('Hidden support-note rows')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Show changes' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Apply filters' })).toBeNull()
     expect(screen.getByLabelText('Check change history again')).toBeDefined()
     expect(screen.queryByLabelText('Refresh audit history')).toBeNull()
     expect(screen.getByLabelText('Export change history')).toBeDefined()
@@ -198,7 +206,8 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Feedback recorded')).toBeNull()
     expect(screen.queryByTitle('governance.context.feedback.recorded')).toBeNull()
     expect(screen.queryByTitle('governance.context.skill.approved')).toBeNull()
-    expect(screen.getByText('Saved instruction saved for reuse')).toBeDefined()
+    expect(screen.getByText('Saved guidance saved for reuse')).toBeDefined()
+    expect(screen.queryByText('Saved instruction saved for reuse')).toBeNull()
     expect(screen.queryByText('Saved instruction approved for reuse')).toBeNull()
     expect(screen.queryByText('Saved instruction saved')).toBeNull()
     expect(screen.queryByText('Skill approved')).toBeNull()
@@ -212,7 +221,8 @@ describe('AuditLogView', () => {
         new RegExp(['Saved note', ['Memory', 'item'].join('\\s+')].join('.*'), 'i')
       )
     ).toBeNull()
-    expect(screen.getByText('Saved instruction · Instruction details')).toBeDefined()
+    expect(screen.getByText('Saved guidance · Guidance details')).toBeDefined()
+    expect(screen.queryByText('Saved instruction · Instruction details')).toBeNull()
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
     expect(screen.getByText('Changed by')).toBeDefined()
@@ -222,7 +232,8 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Person code user-1')).toBeNull()
     expect(screen.queryByText('Person ID user-1')).toBeNull()
     expect(screen.queryByText('user-1')).toBeNull()
-    expect(screen.getByText('Verification')).toBeDefined()
+    expect(screen.getByText('Change check')).toBeDefined()
+    expect(screen.queryByText('Verification')).toBeNull()
     expect(screen.getByText('Change notes')).toBeDefined()
     expect(screen.queryByText('Review notes')).toBeNull()
     expect(screen.getAllByText('Show change notes').length).toBeGreaterThan(0)
@@ -262,9 +273,11 @@ describe('AuditLogView', () => {
       'Change notes hidden'
     )
     expect(screen.queryByText('Protected')).toBeNull()
-    expect(screen.getByText('Set up verification')).toBeDefined()
+    expect(screen.getByText('Change check not set up')).toBeDefined()
+    expect(screen.queryByText('Set up verification')).toBeNull()
     expect(screen.queryByText('Check proof setup')).toBeNull()
-    expect(screen.getByText('Verified')).toBeDefined()
+    expect(screen.getByText('Checked')).toBeDefined()
+    expect(screen.queryByText('Verified')).toBeNull()
 
     fireEvent.change(screen.getByTestId('governance-audit-filter-event-type'), {
       target: { value: 'governance.context.skill.approved' },
@@ -272,7 +285,7 @@ describe('AuditLogView', () => {
     fireEvent.change(screen.getByTestId('governance-audit-filter-item-kind'), {
       target: { value: 'skill' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show changes' }))
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
     expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
@@ -334,7 +347,8 @@ describe('AuditLogView', () => {
 
     render(<AuditLogView />)
 
-    expect(await screen.findByText('Check verification')).toBeDefined()
+    expect(await screen.findByText('Check this change')).toBeDefined()
+    expect(screen.queryByText('Check verification')).toBeNull()
     expect(screen.queryByText('Review proof')).toBeNull()
     expect(screen.queryByText('Needs review')).toBeNull()
   })
@@ -437,7 +451,7 @@ describe('AuditLogView', () => {
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('aria-live', 'polite')
     expect(error.textContent).toContain(
-      'Choose Check change history again, then apply the filters again.'
+      'Choose Check change history again, then show changes again.'
     )
     expect(error.textContent).not.toContain('audit view')
     expect(error.textContent).toContain(

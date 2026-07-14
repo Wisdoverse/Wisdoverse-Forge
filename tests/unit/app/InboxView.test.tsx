@@ -86,7 +86,8 @@ describe('InboxView', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Checking for saved updates...')
     expect(screen.getByText('Checking for saved updates')).toBeDefined()
-    expect(screen.getByText(/older notifications/i)).toBeDefined()
+    expect(screen.getByText(/older updates/i)).toBeDefined()
+    expect(screen.queryByText(/older notifications/i)).toBeNull()
 
     request.resolve([])
     expect(await screen.findByText('No updates yet')).toBeDefined()
@@ -109,7 +110,8 @@ describe('InboxView', () => {
 
     expect(screen.getByText('Finished setup check')).toBeDefined()
     expect(screen.getByRole('status')).toHaveTextContent('Checking older saved updates...')
-    expect(screen.getByText(/1 of 1 notification/i)).toBeDefined()
+    expect(screen.getByText(/1 of 1 update/i)).toBeDefined()
+    expect(screen.queryByText(/1 of 1 notification/i)).toBeNull()
     expect(screen.queryByText(/Forge is checking older notifications/i)).toBeNull()
 
     request.resolve([])

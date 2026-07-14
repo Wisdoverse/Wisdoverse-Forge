@@ -108,7 +108,7 @@ function agentPluginFilterEmptyState(filter: PluginFilter, query: string): Empty
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Search and filter are hiding tools',
+      title: 'Search and selected view are hiding tools',
       detail: 'Use Show all tools before assuming this agent has no matching tool.',
     }
   }
@@ -121,7 +121,7 @@ function agentPluginFilterEmptyState(filter: PluginFilter, query: string): Empty
   }
 
   return {
-    title: 'Filter is hiding tools',
+    title: 'Selected view is hiding tools',
     detail: 'Use Show all tools to return to the full list.',
   }
 }
@@ -427,14 +427,14 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
             id={searchHelpId}
             className="text-ui-caption text-secondary-light dark:text-secondary-dark lg:max-w-[16rem]"
           >
-            Search only filters this agent&apos;s tools. Use Show all tools to return to the full
+            Search only narrows this agent&apos;s tools. Use Show all tools to return to the full
             list.
           </p>
 
           <div
             data-testid="agent-plugin-filter"
             role="group"
-            aria-label="Tool filter"
+            aria-label="Tool view choices"
             className="inline-flex h-9 items-center gap-1 rounded-lg border border-black/[0.08] bg-black/[0.025] p-1 dark:border-white/[0.1] dark:bg-white/[0.04]"
           >
             {PLUGIN_FILTERS.map((option) => (

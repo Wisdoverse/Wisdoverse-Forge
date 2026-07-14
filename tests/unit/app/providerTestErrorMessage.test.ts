@@ -65,8 +65,9 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.'
+      'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI services. Forge could not check this AI service right now.'
     )
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('needs attention')
     expect(message).not.toContain('gateway')
     expect(message).not.toContain('temporarily unavailable')
@@ -80,8 +81,9 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI service settings. Forge could not check this AI service right now.'
+      'Try checking OpenAI Production again in a few minutes. If it still cannot be checked, ask an owner or admin to check AI services. Forge could not check this AI service right now.'
     )
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('service access key')
   })
@@ -98,8 +100,9 @@ describe('providerTestErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the saved AI service settings, then choose Check connection for this AI service again. If it still cannot be checked, ask an owner or admin to check AI service settings.'
+      'Check the saved AI service details, then choose Check connection for this AI service again. If it still cannot be checked, ask an owner or admin to check AI services.'
     )
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('needs attention')
     expect(message).not.toContain('gateway')
     expect(message).not.toContain('Review the AI service settings')

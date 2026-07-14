@@ -45,11 +45,11 @@ describe('ContextUsageDashboard', () => {
     expect(screen.getByText('Saved item reuse')).toBeDefined()
     expect(
       screen.getByText(
-        'Use this view to keep saved notes and instructions that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
+        'Use this view to keep saved notes and guidance that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
       )
     ).toBeDefined()
     expect(
-      screen.getByText('Times saved notes or instructions were added to agent work.')
+      screen.getByText('Times saved notes or guidance were added to agent work.')
     ).toBeDefined()
     expect(screen.getByText('Completed work after saved items were used.')).toBeDefined()
     expect(screen.getByText('Times users marked saved items helpful.')).toBeDefined()
@@ -69,7 +69,7 @@ describe('ContextUsageDashboard', () => {
 
     expect(
       screen.getByText(
-        'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.'
+        'After a task uses a saved note or guidance, choose Useful in the task result to place it in this list.'
       )
     ).toBeDefined()
     expect(
@@ -90,7 +90,7 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Saved notes and saved instructions appear here when they are old enough to check again.'
+        'Saved notes and saved guidance appear here when they are old enough to check again.'
       )
     ).toBeDefined()
     expect(
@@ -137,15 +137,41 @@ describe('ContextUsageDashboard', () => {
               lastUsedAt: '2026-05-25T11:45:00Z',
               lastFeedbackAt: '2026-05-25T11:50:00Z',
             },
+            {
+              itemId: '29e73145-5f70-4835-8d1f-2c0a3f862204',
+              itemKind: 'skill',
+              itemTitle: 'Release helper',
+              scopeKind: 'workspace',
+              scopeId: '22c49f3c-6485-4d47-a263-343e0449b496',
+              itemState: 'active',
+              sensitivity: 'internal',
+              lastVerifiedAt: null,
+              taskKind: 'review',
+              runtime: 'provider',
+              agentId: 'a2d0b101-b64e-4b0e-a93a-0a9d02f1c55c',
+              agentName: 'Planner Agent',
+              appliedCount: 2,
+              completedCount: 2,
+              successRate: 1,
+              feedbackTotalCount: 1,
+              feedbackUsefulCount: 1,
+              feedbackNegativeCount: 0,
+              negativeFeedbackRate: 0,
+              lastUsedAt: '2026-05-25T11:40:00Z',
+              lastFeedbackAt: '2026-05-25T11:41:00Z',
+            },
           ],
         }}
       />
     )
 
     expect(screen.getByText('Saved note')).toBeDefined()
+    expect(screen.getByText('Saved guidance')).toBeDefined()
     expect(screen.getByText('Planner Agent · Project files · Code change')).toBeDefined()
-    expect(screen.getByText('Next: keep this available for similar tasks.')).toBeDefined()
-    expect(screen.getByText('check')).toBeDefined()
+    expect(screen.getByText('Planner Agent · Simple chat agent · Result check task')).toBeDefined()
+    expect(screen.getAllByText('Next: keep this available for similar tasks.')).toHaveLength(2)
+    expect(screen.getAllByText('check')).toHaveLength(2)
+    expect(screen.queryByText('Saved instruction')).toBeNull()
     expect(screen.queryByText(/Saved\s+memory/)).toBeNull()
     expect(screen.queryByText('memory')).toBeNull()
     expect(screen.queryByText('Planner Agent · Managed workspace · Code change')).toBeNull()

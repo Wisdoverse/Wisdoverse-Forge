@@ -78,10 +78,11 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('没有匹配的页面或选项')
+      expect(screen.getByRole('status')).toHaveTextContent('搜索正在隐藏页面和操作')
     })
+    expect(screen.queryByText('没有匹配的页面或选项')).toBeNull()
     expect(
-      screen.getByText(/可以试试设置清单、任务、收件箱、智能体、保存的指令或设置/)
+      screen.getByText(/可以试试设置清单、任务、收件箱、智能体、保存的指引或设置/)
     ).toBeDefined()
     expect(screen.getByRole('button', { name: '打开任务' })).toBeDefined()
     expect(screen.getByRole('button', { name: '打开智能体' })).toBeDefined()
@@ -104,14 +105,19 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Inbox')).toBeDefined()
     expect(screen.getByText('Saved items')).toBeDefined()
     expect(
-      screen.getByText('Check saved notes and instructions before agents reuse them.')
+      screen.getByText('Check saved notes and guidance before agents reuse them.')
     ).toBeDefined()
+    expect(
+      screen.queryByText('Check saved notes and instructions before agents reuse them.')
+    ).toBeNull()
     expect(screen.getByText('Setup checklist')).toBeDefined()
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.getByText('Create or check agents for tasks or chat.')).toBeDefined()
     expect(screen.queryByText('Create or check agents that handle work.')).toBeNull()
-    expect(screen.getByText('Saved instructions')).toBeDefined()
-    expect(screen.getByText('Reuse instructions for repeated work.')).toBeDefined()
+    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(screen.getByText('Reuse guidance for repeated work.')).toBeDefined()
+    expect(screen.queryByText('Saved instructions')).toBeNull()
+    expect(screen.queryByText('Reuse instructions for repeated work.')).toBeNull()
     expect(screen.getByText('Connect tools, account access, teams, and projects.')).toBeDefined()
     expect(screen.queryByText(/workers doing tasks/i)).toBeNull()
     expect(screen.queryByText(previousSavedItemsLabel)).toBeNull()
@@ -183,6 +189,7 @@ describe('CommandPalette', () => {
     expect(screen.getByText('More setup actions')).toBeDefined()
     expect(screen.getByText('Show sign-ins, projects, teams, and other setup pages.')).toBeDefined()
     expect(screen.queryByText('File-change tool sign-in')).toBeNull()
+    expect(screen.queryByText('Code tool sign-in')).toBeNull()
     expect(screen.queryByText('Work tool sign-in')).toBeNull()
     expect(screen.queryByText('Codex and work tool sign-in')).toBeNull()
     expect(screen.queryByText('Codex sign-in')).toBeNull()
@@ -193,7 +200,9 @@ describe('CommandPalette', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /more setup actions/i }))
 
-    expect(screen.getByText('File-change tool sign-in')).toBeDefined()
+    expect(screen.getByText('Sign in to code tools')).toBeDefined()
+    expect(screen.queryByText('Code tool sign-in')).toBeNull()
+    expect(screen.queryByText('File-change tool sign-in')).toBeNull()
     expect(
       screen.getByText('Sign in before agents edit project files with Codex or another tool.')
     ).toBeDefined()
@@ -259,8 +268,9 @@ describe('CommandPalette', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('File-change tool sign-in')).toBeDefined()
+      expect(screen.getByText('Sign in to code tools')).toBeDefined()
     })
+    expect(screen.queryByText('Code tool sign-in')).toBeNull()
     expect(
       screen.getByText('Sign in before agents edit project files with Codex or another tool.')
     ).toBeDefined()
@@ -365,17 +375,17 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzzzz' } })
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('No page or option matches that search')
+      expect(screen.getByRole('status')).toHaveTextContent('Search is hiding pages and actions')
     })
     expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
     expect(
       screen.getByText(
-        /try setup checklist, tasks, inbox, agents, saved instructions, or settings/i
+        /try setup checklist, tasks, inbox, agents, saved guidance, or settings/i
       )
     ).toBeDefined()
     expect(
       screen.queryByText(
-        /try setup checklist, tasks, inbox, saved items, agents, saved instructions, or settings/i
+        /try setup checklist, tasks, inbox, saved items, agents, saved guidance, or settings/i
       )
     ).toBeNull()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
@@ -388,6 +398,7 @@ describe('CommandPalette', () => {
       expect(screen.getByText('Tasks')).toBeDefined()
     })
     expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
     expect(screen.queryByText('No page or action matches that search')).toBeNull()
     expect(screen.queryByText(/common workflow/i)).toBeNull()
     expect(screen.queryByText(previousEmptyTitle)).toBeNull()
@@ -404,8 +415,9 @@ describe('CommandPalette', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('No page or option matches that search')
+      expect(screen.getByRole('status')).toHaveTextContent('Search is hiding pages and actions')
     })
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /open agents/i }))
 
     expect(onSelect).toHaveBeenCalledWith('nav:agents')
@@ -419,16 +431,17 @@ describe('CommandPalette', () => {
       target: { value: 'missing workflow' },
     })
 
-    expect(screen.getByText('No page or option matches that search')).toBeDefined()
+    expect(screen.getByText('Search is hiding pages and actions')).toBeDefined()
+    expect(screen.queryByText('No page or option matches that search')).toBeNull()
     expect(
       screen.getByText(
-        /try setup checklist, tasks, inbox, agents, saved instructions, or settings/i
+        /try setup checklist, tasks, inbox, agents, saved guidance, or settings/i
       )
     ).toBeDefined()
     expect(screen.getByText(/open a page people use often/i)).toBeDefined()
     expect(
       screen.queryByText(
-        /try setup checklist, tasks, inbox, saved items, agents, saved instructions, or settings/i
+        /try setup checklist, tasks, inbox, saved items, agents, saved guidance, or settings/i
       )
     ).toBeNull()
     expect(screen.getByRole('button', { name: /open tasks/i })).toBeDefined()
@@ -451,7 +464,7 @@ describe('CommandPalette', () => {
 
     expect(
       screen.getByText(
-        /try setup checklist, tasks, inbox, saved items, agents, saved instructions, or settings/i
+        /try setup checklist, tasks, inbox, saved items, agents, saved guidance, or settings/i
       )
     ).toBeDefined()
   })

@@ -306,7 +306,7 @@ describe('ListView', () => {
 
     const search = screen.getByRole('searchbox', { name: /search task list/i })
     expect(search).toHaveAccessibleDescription(
-      'Search only filters the task list. Use Show all tasks to return to the full list.'
+      'Search only narrows the task list. Use Show all tasks to return to the full list.'
     )
 
     fireEvent.click(
@@ -324,7 +324,9 @@ describe('ListView', () => {
     const combinedEmpty = screen.getByTestId('list-filter-empty')
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(combinedEmpty).getByText('Search and filter are hiding tasks')).toBeDefined()
+    expect(
+      within(combinedEmpty).getByText('Search and selected view are hiding tasks')
+    ).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
       'Use Show all tasks before assuming there is no matching task.'
     )
@@ -419,7 +421,7 @@ describe('ListView', () => {
 
     const search = screen.getByRole('searchbox', { name: /search task list/i })
     expect(search).toHaveAccessibleDescription(
-      'Search only filters the task list. Use Show all tasks to return to the full list.'
+      'Search only narrows the task list. Use Show all tasks to return to the full list.'
     )
 
     fireEvent.change(search, {
@@ -443,7 +445,7 @@ describe('ListView', () => {
     const filterEmpty = screen.getByTestId('list-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText('Filter is hiding tasks')).toBeDefined()
+    expect(within(filterEmpty).getByText('Selected view is hiding tasks')).toBeDefined()
     expect(filterEmpty.textContent).toContain('Use Show all tasks to return to the full list.')
     expect(filterEmpty.textContent).not.toContain('No tasks match this view')
   })
@@ -516,8 +518,8 @@ describe('ListView', () => {
 
     render(<ListView />)
 
-    expect(screen.getByText('Check task status')).toBeDefined()
-    expect(screen.getByText('Check task priority')).toBeDefined()
+    expect(screen.getByText('Open task details to read this status')).toBeDefined()
+    expect(screen.getByText('Open task details to read this priority')).toBeDefined()
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
     expect(screen.queryByText(/future_priority/i)).toBeNull()

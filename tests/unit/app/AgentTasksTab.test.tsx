@@ -70,15 +70,18 @@ describe('AgentTasksTab', () => {
     const taskLink = within(emptyState).getByRole('link', { name: 'Open task list' })
     expect(taskLink).toHaveAttribute('href', '/tasks')
     expect(within(emptyState).getByText('Create a task')).toBeDefined()
-    expect(within(emptyState).getByText('Check the task queue')).toBeDefined()
+    expect(within(emptyState).getByText('Check the place for new tasks')).toBeDefined()
     expect(
-      within(emptyState).getByText('Open the task queue, then make sure this agent is included.')
+      within(emptyState).getByText(
+        'Open the place for new tasks, then make sure this agent can take tasks from it.'
+      )
     ).toBeDefined()
     expect(
       within(emptyState).getByText(
-        'Choose this agent directly, or choose a task queue that includes this agent.'
+        'Choose this agent directly, or choose a place for new tasks. New tasks wait there until this agent can start.'
       )
     ).toBeDefined()
+    expect(emptyState).not.toHaveTextContent('task queue')
     expect(within(emptyState).getByText('Use Needs help after tasks arrive')).toBeDefined()
     expect(
       within(emptyState).getByText(
@@ -150,7 +153,7 @@ describe('AgentTasksTab', () => {
     expect(within(summary).queryByText('Agent work list')).toBeNull()
     const search = screen.getByRole('searchbox', { name: "Search this agent's task list" })
     expect(search).toHaveAccessibleDescription(
-      "Search only filters this agent's task list. Use Show all agent tasks to return to the full list."
+      "Search only narrows this agent's task list. Use Show all agent tasks to return to the full list."
     )
     expect(screen.getByPlaceholderText('Search by task name, problem, or result')).toBe(search)
     expect(screen.queryByPlaceholderText(/blocker/i)).toBeNull()
@@ -318,7 +321,7 @@ describe('AgentTasksTab', () => {
     const filterEmpty = screen.getByTestId('agent-tasks-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText("Filter is hiding this agent's tasks")).toBeDefined()
+    expect(within(filterEmpty).getByText("Selected view is hiding this agent's tasks")).toBeDefined()
     expect(filterEmpty.textContent).toContain(
       'Use Show all agent tasks to return to the full list.'
     )
@@ -370,7 +373,7 @@ describe('AgentTasksTab', () => {
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
     expect(
-      within(combinedEmpty).getByText('Search and filter are hiding these tasks')
+      within(combinedEmpty).getByText('Search and selected view are hiding these tasks')
     ).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
       'Use Show all agent tasks before assuming this agent has no matching task.'

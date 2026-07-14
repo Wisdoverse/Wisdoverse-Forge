@@ -34,7 +34,7 @@ afterEach(() => {
 })
 
 describe('SettingsLayout', () => {
-  test('keeps advanced settings collapsed by default for beginner setup navigation', () => {
+  test('keeps more setup collapsed by default for beginner setup navigation', () => {
     const onSectionChange = vi.fn()
 
     render(<SettingsLayout routeSection="providers" onSectionChange={onSectionChange} />)
@@ -51,8 +51,11 @@ describe('SettingsLayout', () => {
       within(desktopNav).getByRole('button', { name: /Show team and project setup/i })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', { name: /Show advanced setup/i })
+      within(desktopNav).getByRole('button', { name: /Show more setup/i })
     ).toBeInTheDocument()
+    expect(
+      within(desktopNav).queryByRole('button', { name: /Show advanced setup/i })
+    ).not.toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
         name: /AI services: Start here when agents need a chat service for answers and result checks/i,
@@ -95,9 +98,10 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('link', {
-        name: /File-change tool sign-in: Sign in before agents edit project files with Codex or another tool/i,
+        name: /Sign in to code tools: Sign in before agents edit project files with Codex or another tool/i,
       })
     ).toBeInTheDocument()
+    expect(within(desktopNav).queryByText('Code tool sign-in')).toBeNull()
     expect(within(desktopNav).queryByText('Team members')).not.toBeInTheDocument()
     expect(screen.queryByText(/Start guide reset/i)).toBeNull()
 
@@ -121,7 +125,11 @@ describe('SettingsLayout', () => {
     expect(screen.queryByRole('option', { name: 'SSH code access' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Agent size limits' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Where agents work' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'File-change tool sign-in' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Sign in to code tools' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Code tool sign-in' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('option', { name: 'File-change tool sign-in' })
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Work tool sign-in' })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('option', { name: 'Codex and work tool sign-in' })
@@ -133,8 +141,11 @@ describe('SettingsLayout', () => {
       'Start here when agents need a chat service for answers and result checks.'
     )
     expect(
-      within(mobileNav).getByRole('button', { name: /Show advanced setup/i })
+      within(mobileNav).getByRole('button', { name: /Show more setup/i })
     ).toBeInTheDocument()
+    expect(
+      within(mobileNav).queryByRole('button', { name: /Show advanced setup/i })
+    ).not.toBeInTheDocument()
 
     fireEvent.click(
       within(desktopNav).getByRole('link', {
@@ -146,7 +157,7 @@ describe('SettingsLayout', () => {
 
     fireEvent.click(
       within(desktopNav).getByRole('link', {
-        name: /File-change tool sign-in: Sign in before agents edit project files with Codex or another tool/i,
+        name: /Sign in to code tools: Sign in before agents edit project files with Codex or another tool/i,
       })
     )
 
@@ -198,12 +209,12 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
   })
 
-  test('reveals advanced Settings pages only after the user asks for them', () => {
+  test('reveals more Settings pages only after the user asks for them', () => {
     render(<SettingsLayout routeSection="providers" onSectionChange={vi.fn()} />)
 
     const desktopNav = screen.getByTestId('settings-desktop-nav')
 
-    fireEvent.click(within(desktopNav).getByRole('button', { name: /Show advanced setup/i }))
+    fireEvent.click(within(desktopNav).getByRole('button', { name: /Show more setup/i }))
 
     expect(within(desktopNav).getByText('Access and limits')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Product info')).toBeInTheDocument()
@@ -218,11 +229,14 @@ describe('SettingsLayout', () => {
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', { name: /Hide advanced setup/i })
+      within(desktopNav).getByRole('button', { name: /Hide more setup/i })
     ).toBeInTheDocument()
+    expect(
+      within(desktopNav).queryByRole('button', { name: /Hide advanced setup/i })
+    ).not.toBeInTheDocument()
   })
 
-  test('keeps advanced navigation open when the active route is an advanced page', () => {
+  test('keeps more setup navigation open when the active route is in that group', () => {
     render(<SettingsLayout routeSection="ssh-keys" onSectionChange={vi.fn()} />)
 
     const desktopNav = screen.getByTestId('settings-desktop-nav')
@@ -234,8 +248,11 @@ describe('SettingsLayout', () => {
       })
     ).toBeInTheDocument()
     expect(
-      within(desktopNav).getByRole('button', { name: /Hide advanced setup/i })
+      within(desktopNav).getByRole('button', { name: /Hide more setup/i })
     ).toBeInTheDocument()
+    expect(
+      within(desktopNav).queryByRole('button', { name: /Hide advanced setup/i })
+    ).not.toBeInTheDocument()
   })
 
   test('desktop section navigation exposes direct links to each Settings page', () => {

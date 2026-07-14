@@ -285,9 +285,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   }
 
   if (!selectedGroupId) {
-    const actionLabel = selectedProjectId
-      ? 'Open Agents to set up a task queue'
-      : 'Open project settings'
+    const actionLabel = selectedProjectId ? 'Set up place' : 'Open project settings'
     const action = selectedProjectId ? onOpenTaskQueues : onOpenProjectsSetup
 
     return (
@@ -301,13 +299,13 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         <div className="space-y-1">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             {selectedProjectId
-              ? 'Set up a task queue before sending work'
+              ? 'Set up a place for new tasks before sending work'
               : 'Create or choose a project before creating tasks'}
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {selectedProjectId
-              ? 'New tasks need a queue before an agent starts them. Open Agents, create a task queue, then come back here.'
-              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and task queues together.'}
+              ? 'New tasks need a place before an agent starts them. Open Agents, set up one place, then come back here.'
+              : 'Open project settings to create a project, or choose an existing project from the project list. A project keeps tasks, agents, and places together.'}
           </p>
         </div>
         {action ? (
@@ -329,7 +327,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
       <BeginnerLoadingState
         title="Checking tasks"
         detail="Forge is checking which tasks are waiting, working, need help, or finished in this project."
-        nextStep="If this takes more than a moment, open Tasks again or ask an owner or admin to check the task queue."
+        nextStep="If this takes more than a moment, open Tasks again or ask an owner or admin to check the place for new tasks."
         success="Success looks like task columns or an add-the-first-task step."
         testId="board-loading"
         framed={false}
@@ -462,32 +460,32 @@ function boardFilterEmptyCopy(filters: BoardFilters): BoardFilterEmptyCopy {
 
   if (hasSearch && !hasPriority && !hasAssignee) {
     return {
-      title: 'Search is hiding every task',
-      detail: 'Tasks may still exist, but none match the words you typed.',
-      nextStep: 'Next: show all tasks before assuming the board is empty.',
+      title: 'Search is hiding tasks',
+      detail: 'Tasks may still exist. Show all tasks, then search with fewer words.',
+      nextStep: 'Next: show all tasks before deciding the board is empty.',
     }
   }
 
   if (!hasSearch && hasPriority && !hasAssignee) {
     return {
-      title: 'This priority filter hides every task',
-      detail: 'Tasks may still exist at another priority level.',
-      nextStep: 'Next: show all tasks to review the full board.',
+      title: 'Priority choice is hiding tasks',
+      detail: 'Tasks may still exist. Show all tasks, then choose one priority at a time.',
+      nextStep: 'Next: show all tasks before deciding this priority is empty.',
     }
   }
 
   if (!hasSearch && !hasPriority && hasAssignee) {
     return {
-      title: 'This agent filter hides every task',
-      detail: 'Tasks may still exist with a different agent status.',
+      title: 'Agent choice is hiding tasks',
+      detail: 'Tasks may still exist. Show all tasks, then choose one agent option at a time.',
       nextStep: 'Next: show all tasks before deciding nothing is waiting.',
     }
   }
 
   return {
-    title: 'Filters are hiding every task',
-    detail: 'The board still has tasks, but the current search and filters hide all of them.',
-    nextStep: 'Next: show all tasks, then narrow the board one filter at a time.',
+    title: 'Search and choices are hiding tasks',
+    detail: 'The board still has tasks. Show all tasks, then narrow one choice at a time.',
+    nextStep: 'Next: show all tasks, then narrow the board one choice at a time.',
   }
 }
 

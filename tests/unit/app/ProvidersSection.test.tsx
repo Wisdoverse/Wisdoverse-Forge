@@ -153,7 +153,8 @@ describe('ProvidersSection', () => {
         /AI services answer questions and check results for simple chat agents\. They cannot take Tasks or change code/i
       )
     ).toBeDefined()
-    expect(screen.getByText(/Where agents work and File-change tool sign-in/i)).toBeDefined()
+    expect(screen.getByText(/Where agents work and Sign in to code tools/i)).toBeDefined()
+    expect(screen.queryByText(/Where agents work and Code tool sign-in/i)).toBeNull()
     expect(screen.queryByText(/Work tool sign-in/i)).toBeNull()
     expect(screen.queryByText(/simple chat agents use to answer questions\.$/i)).toBeNull()
     expect(screen.queryByText('AI Services')).toBeNull()
@@ -222,7 +223,7 @@ describe('ProvidersSection', () => {
 
     const search = await screen.findByRole('searchbox', { name: /search AI services/i })
     expect(search).toHaveAccessibleDescription(
-      'Search only filters AI services. Use Show all AI services to see every AI service again.'
+      'Search only narrows AI services. Use Show all AI services to see every AI service again.'
     )
 
     fireEvent.change(search, {
@@ -300,10 +301,10 @@ describe('ProvidersSection', () => {
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
     expect(
-      within(combinedEmpty).getByText('Search and filter are hiding AI services')
+      within(combinedEmpty).getByText('Search and selected status are hiding AI services')
     ).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
-      'Your AI services exist, but the current search and filter hide them. Use Show all AI services before assuming a service is missing.'
+      'Your AI services exist, but the current search and selected status hide them. Use Show all AI services before assuming a service is missing.'
     )
     expect(combinedEmpty.textContent).not.toContain('Clear search')
     expect(combinedEmpty.textContent).not.toContain('No AI services match this view')
@@ -358,6 +359,9 @@ describe('ProvidersSection', () => {
     fireEvent.click(within(serviceChoices).getByRole('button', { name: /anthropic/i }))
 
     expect(screen.getByLabelText(/^service choice$/i)).toHaveValue('claude-sonnet-4-20250514')
+    expect(screen.getByLabelText(/^service choice$/i).getAttribute('placeholder')).toBe(
+      'Suggested service choice'
+    )
     expect(screen.getByTestId('provider-form-status')).toHaveTextContent(
       /next: paste the service access key/i
     )
@@ -451,8 +455,11 @@ describe('ProvidersSection', () => {
       })
     ).toBeDefined()
     expect(
-      within(providerSelect).getByRole('option', { name: 'LiteLLM shared AI service' })
+      within(providerSelect).getByRole('option', { name: 'Shared team AI service' })
     ).toBeDefined()
+    expect(
+      within(providerSelect).queryByRole('option', { name: 'LiteLLM shared AI service' })
+    ).toBeNull()
     expect(within(providerSelect).getByRole('option', { name: 'OpenRouter' })).toBeDefined()
     expect(within(providerSelect).queryByRole('option', { name: 'OpenAI-Compatible' })).toBeNull()
     expect(
@@ -462,9 +469,14 @@ describe('ProvidersSection', () => {
     expect(within(providerSelect).queryByRole('option', { name: 'Anthropic' })).toBeNull()
     expect(within(providerSelect).queryByRole('option', { name: 'Zhipu GLM' })).toBeNull()
     fireEvent.change(providerSelect, { target: { value: 'litellm' } })
+    expect(screen.getByLabelText(/^service choice$/i).getAttribute('placeholder')).toBe(
+      'Suggested service choice'
+    )
+    const suggestedChoice = screen.getByRole('button', { name: /^suggested service choice$/i })
+    expect(suggestedChoice).toHaveAttribute('title', 'gpt-4o-mini')
     expect(
-      screen.getByRole('button', { name: /suggested service choice: gpt-4o-mini/i })
-    ).toBeDefined()
+      screen.queryByRole('button', { name: /suggested service choice: gpt-4o-mini/i })
+    ).toBeNull()
     expect(screen.queryByText(/gateway alias/i)).toBeNull()
     expect(screen.getByLabelText(/service address/i)).toBeDefined()
     expect(screen.queryByLabelText(/^private key/i)).toBeNull()
@@ -596,7 +608,7 @@ describe('ProvidersSection', () => {
 
     expect(screen.getByLabelText(/^service choice$/i)).toHaveValue('glm-4.7')
     expect(screen.getByRole('group', { name: /^service plan$/i })).toBeDefined()
-    expect(screen.getByRole('group', { name: /^service website region$/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^service location$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^standard$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^coding plan$/i })).toBeDefined()
     expect(screen.getByRole('button', { name: /^china$/i })).toBeDefined()
@@ -712,7 +724,7 @@ describe('ProvidersSection', () => {
     ).toBeDefined()
   })
 
-  test('Region=Global switches a vendor to its global endpoint on save', async () => {
+  test('Global service location switches a vendor to its global endpoint on save', async () => {
     useSettingsStore.setState({ providers: [] })
 
     render(<ProvidersSection />)
@@ -730,7 +742,7 @@ describe('ProvidersSection', () => {
       })
     )
     fireEvent.click(
-      within(screen.getByRole('group', { name: /^service website region$/i })).getByRole('button', {
+      within(screen.getByRole('group', { name: /^service location$/i })).getByRole('button', {
         name: /global/i,
       })
     )
@@ -837,7 +849,8 @@ describe('ProvidersSection', () => {
     )
 
     const alert = await screen.findByText(/Try checking Anthropic Review again in a few minutes/i)
-    expect(alert).toHaveTextContent('ask an owner or admin to check AI service settings')
+    expect(alert).toHaveTextContent('ask an owner or admin to check AI services')
+    expect(alert).not.toHaveTextContent('AI service settings')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('provider gateway stack trace')
   })

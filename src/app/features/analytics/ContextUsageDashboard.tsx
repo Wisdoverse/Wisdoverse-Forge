@@ -30,7 +30,7 @@ const TASK_KIND_LABELS: Record<string, string> = {
 const EMPTY_TOP_USEFUL = {
   title: 'Mark useful saved items to rank them here',
   detail:
-    'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.',
+    'After a task uses a saved note or guidance, choose Useful in the task result to place it in this list.',
   nextStep:
     'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.',
 }
@@ -44,7 +44,7 @@ const EMPTY_NEEDS_REVIEW = {
 
 const EMPTY_STALE = {
   title: 'No saved items look outdated',
-  detail: 'Saved notes and saved instructions appear here when they are old enough to check again.',
+  detail: 'Saved notes and saved guidance appear here when they are old enough to check again.',
   nextStep:
     'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.',
 }
@@ -75,7 +75,7 @@ function contextItemKindLabel(itemKind: string): string {
     case 'memory':
       return 'Saved note'
     case 'skill':
-      return 'Saved instruction'
+      return 'Saved guidance'
     default:
       return 'Saved item'
   }
@@ -92,11 +92,11 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {data
               ? updatedAtLabel(data.lastRefreshedAt)
-              : 'Appears after agents reuse saved notes or instructions'}
+              : 'Appears after agents reuse saved notes or guidance'}
           </p>
           <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this view to keep saved notes and instructions that help work finish, and check
-            items that may be outdated, incorrect, or too sensitive before agents reuse them.
+            Use this view to keep saved notes and guidance that help work finish, and check items
+            that may be outdated, incorrect, or too sensitive before agents reuse them.
           </p>
         </div>
         {data?.isStale && (
@@ -106,7 +106,8 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
           >
             <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
             <span>
-              These numbers are more than {data.staleAfterHours}h old. Choose Check analytics again
+              These numbers are more than {data.staleAfterHours}{' '}
+              {data.staleAfterHours === 1 ? 'hour' : 'hours'} old. Choose Check analytics again
               before making decisions from them.
             </span>
           </div>
@@ -117,7 +118,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <StatCard
           title="Applied"
           value={data?.summary.appliedCount ?? 0}
-          subtitle="Times saved notes or instructions were added to agent work."
+          subtitle="Times saved notes or guidance were added to agent work."
           loading={loading}
           accent="blue"
         />

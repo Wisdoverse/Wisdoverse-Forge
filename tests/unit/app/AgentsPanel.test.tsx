@@ -154,9 +154,26 @@ describe('AgentsPanel', () => {
   test('shows a runtime-kind badge for each agent row', async () => {
     render(<AgentsPanel />)
 
-    expect(await screen.findAllByTestId('agent-kind-badge-container')).toHaveLength(2)
-    expect(screen.getAllByTestId('agent-kind-badge-cli')).toHaveLength(1)
-    expect(screen.getAllByTestId('agent-kind-badge-api')).toHaveLength(2)
+    const projectFileBadges = await screen.findAllByTestId('agent-kind-badge-container')
+    const thisComputerBadges = screen.getAllByTestId('agent-kind-badge-cli')
+    const questionOnlyBadges = screen.getAllByTestId('agent-kind-badge-api')
+
+    expect(projectFileBadges).toHaveLength(2)
+    expect(thisComputerBadges).toHaveLength(1)
+    expect(questionOnlyBadges).toHaveLength(2)
+    expect(projectFileBadges[0]).toHaveAttribute(
+      'title',
+      'Works with shared project files. It can change files, run checks, and save what it checked.'
+    )
+    expect(thisComputerBadges[0]).toHaveAttribute(
+      'title',
+      'Uses files and tools on this connected computer. Use it when work should stay there.'
+    )
+    expect(questionOnlyBadges[0]).toHaveAttribute(
+      'title',
+      'Answers in chat through a connected AI service. It cannot take Tasks, change code, use computer apps, or open project files on its own.'
+    )
+    expect(projectFileBadges[0]).not.toHaveAttribute('title', 'Project files')
 
     expect(screen.getAllByText('Project files').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('This computer').length).toBeGreaterThan(0)

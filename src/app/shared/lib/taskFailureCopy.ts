@@ -5,7 +5,7 @@ export function taskFailurePreview(error?: string | null): string {
 
   const lowerMessage = message.toLowerCase()
   if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
-    return 'Stopped because the AI service is busy. Wait a minute, then open the task details and retry.'
+    return 'Stopped because the AI service is busy. Wait a minute, then open the task details and try again.'
   }
   if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
     return 'Stopped because the task took too long. Open the task details, check the latest update, then retry when ready.'
@@ -92,7 +92,7 @@ function beginnerBlockedHint(hint: string): string {
     /\b(api\s*)?(credential|credentials|key|keys|token|tokens|secret|secrets)\b/i.test(hint) ||
     /\b(?:authorization|bearer)\b/i.test(hint)
   ) {
-    return 'Waiting for account access. Add or reconnect the required service access, then retry.'
+    return 'Waiting for account access. Add or reconnect the account access this task needs, then try again.'
   }
   if (/\bapproval\b/i.test(hint)) {
     return 'Open the task details to see what needs confirmation, then choose Allow and continue when it is ready.'

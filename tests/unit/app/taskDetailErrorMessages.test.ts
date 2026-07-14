@@ -73,14 +73,14 @@ describe('taskDetailErrorMessage', () => {
 
   test('gives a clear next step when no agent can take the task', () => {
     expect(taskDetailErrorMessage('loadAgents', new Error('No available agent'))).toBe(
-      'No ready agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
+      'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
     )
   })
 
   test('uses saved items wording when the saved item check cannot load', () => {
     const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose a ready agent, then check saved items again.')
+    expect(message).toContain('Choose an agent, then check saved items again.')
     expect(message).not.toContain('available agent')
     expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
   })
@@ -177,7 +177,7 @@ describe('taskDetailErrorMessage', () => {
   test('turns agent and saved-note validation details into task-detail recovery steps', () => {
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('agent required')),
-      'Choose a ready agent, then send the task again.'
+      'Choose an agent, then send the task again.'
     )
     expectBeginnerMessage(
       taskDetailErrorMessage('publishTask', new Error('context selection changed')),

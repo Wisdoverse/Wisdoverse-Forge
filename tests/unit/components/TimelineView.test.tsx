@@ -53,11 +53,12 @@ describe('TimelineView', () => {
     expect(
       screen.getByText('Create a small task or open one that is already running')
     ).toBeDefined()
+    expect(screen.getByText('Return to Timeline to see how the work is going')).toBeDefined()
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Return to Timeline to see waiting, working, help needed, and finished updates'
       )
-    ).toBeDefined()
+    ).toBeNull()
     expect(screen.getByRole('button', { name: 'Open task board' })).toBeDefined()
     expect(screen.queryByText('Start a task to build the timeline')).toBeNull()
     expect(screen.queryByText(/something that needs attention/i)).toBeNull()

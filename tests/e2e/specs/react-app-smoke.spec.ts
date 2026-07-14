@@ -132,7 +132,7 @@ async function openBoardFilters(page: Page) {
 
 async function openSettingsGroup(
   page: Page,
-  group: 'team and project setup' | 'advanced setup'
+  group: 'team and project setup' | 'more setup'
 ): Promise<void> {
   const nav = page.getByTestId('settings-desktop-nav')
   await nav.waitFor({ state: 'visible', timeout: 15000 })
@@ -247,9 +247,9 @@ test.describe('React App Smoke Tests', () => {
     test('clicking Skills navigates to /skills', async ({ page }) => {
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
-      await expect(page.getByRole('heading', { name: 'Saved instructions', level: 1 })).toBeVisible(
-        { timeout: 5000 }
-      )
+      await expect(page.getByRole('heading', { name: 'Saved guidance', level: 1 })).toBeVisible({
+        timeout: 5000,
+      })
       await screenshot(page, '07-nav-skills')
     })
 
@@ -602,7 +602,7 @@ test.describe('React App Smoke Tests', () => {
       const settingsNav = page.getByTestId('settings-desktop-nav')
       await expect(settingsNav).toBeVisible({ timeout: 30000 })
       await openSettingsGroup(page, 'team and project setup')
-      await openSettingsGroup(page, 'advanced setup')
+      await openSettingsGroup(page, 'more setup')
       await expect(settingsNav.getByText('Start here', { exact: true })).toBeVisible()
       await expect(settingsNav.getByText('People and projects', { exact: true })).toBeVisible()
       await expect(settingsNav.getByText('Access and limits', { exact: true })).toBeVisible()
@@ -615,9 +615,7 @@ test.describe('React App Smoke Tests', () => {
         settingsNav.getByRole('link', { name: /^Code access for SSH links:/ })
       ).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Where agents work:/ })).toBeVisible()
-      await expect(
-        settingsNav.getByRole('link', { name: /^File-change tool sign-in:/ })
-      ).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Sign in to code tools:/ })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Account:/ })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })
@@ -680,15 +678,13 @@ test.describe('React App Smoke Tests', () => {
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
 
-      await expect(page.getByRole('searchbox', { name: /Search saved instructions/ })).toBeVisible({
+      await expect(page.getByRole('searchbox', { name: /Search saved guidance/ })).toBeVisible({
         timeout: 5000,
       })
-      // Loading store may still be fetching real saved instructions; accept the
-      // empty-state copy, a filter/clear hint, or the loading indicator.
+      // The store may still be fetching saved guidance; accept the current
+      // empty-state copy or the loading indicator.
       const emptyOrLoading = page
-        .getByText(
-          /Create your first saved instruction|Choose Save instruction to start|Clear search|Change filter|Loading/i
-        )
+        .getByText(/Create your first saved guidance|Checking saved guidance/i)
         .first()
       await expect(emptyOrLoading).toBeVisible()
       await screenshot(page, '25-skills-page')
@@ -1276,9 +1272,9 @@ test.describe('React App Smoke Tests', () => {
 
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
-      await expect(page.getByRole('heading', { name: 'Saved instructions', level: 1 })).toBeVisible(
-        { timeout: 5000 }
-      )
+      await expect(page.getByRole('heading', { name: 'Saved guidance', level: 1 })).toBeVisible({
+        timeout: 5000,
+      })
 
       // Go back to tasks — kanban should still be there
       await page.locator('[data-testid="sidebar-nav-tasks"]').click()
@@ -1449,7 +1445,7 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForURL('**/settings')
 
       // About is its own section in SettingsLayout; click into it first.
-      await openSettingsGroup(page, 'advanced setup')
+      await openSettingsGroup(page, 'more setup')
       await page
         .locator('[data-testid="settings-desktop-nav"]')
         .getByRole('link', { name: /^About:/ })

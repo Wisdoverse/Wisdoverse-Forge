@@ -15670,6 +15670,8 @@ export function SkillsView() {
     <SkillStat label="Available" />
     <SkillStat label="Needs setup" />
     <span>Choose Save instruction or refresh this page.</span>
+    <span>Search and filter are hiding saved instructions</span>
+    <span>Filter is hiding saved instructions</span>
   </>
 }
 `,
@@ -15729,6 +15731,14 @@ export function CreateSkillModal() {
         }),
         expect.objectContaining({
           type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:12',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
+          location: 'src/app/features/skills/SkillsView.tsx:13',
+        }),
+        expect.objectContaining({
+          type: 'saved-instruction-list-status-copy',
           location: 'src/app/features/skills/SkillCard.tsx:3',
         }),
         expect.objectContaining({
@@ -15771,6 +15781,8 @@ export function SkillsView() {
     <SkillStat label="Ready to use" />
     <SkillStat label="Check before use" />
     <span>Save instruction</span>
+    <span>Search and selected view are hiding saved instructions</span>
+    <span>Selected view is hiding saved instructions</span>
   </>
 }
 `,
@@ -15983,7 +15995,7 @@ function permission() {
       'src/app/features/governance/governanceAuditErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   exportAudit: 'Keep secrets hidden, choose Refresh change history, then export again.',
-  loadAudit: 'Choose Refresh change history, then apply the filters again.',
+  loadAudit: 'Choose Refresh change history, then show changes again.',
 }
 function notFound() {
   return 'Open Admin change history again, then retry.'
@@ -15995,7 +16007,7 @@ function rateLimit() {
   return 'Wait a moment, then try again. Change history is handling too many requests right now.'
 }
 function service() {
-  return 'Choose Refresh change history, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+  return 'Choose Refresh change history, then show changes again. If it still fails, ask an owner or admin to check change history access.'
 }
 function permission() {
   return 'Ask an owner or admin to update your team space access, then retry this change-history action. You do not have permission to view or export change history.'
@@ -16060,6 +16072,7 @@ function AuditLogView() {
     <input placeholder="Paste an event category only when needed" />
     <input placeholder="Paste the exact team space, project workspace, team, or project reference" />
     <option>Project area</option>
+    <button>Apply filters</button>
     <button aria-label="Refresh audit history">Refresh</button>
     <button>Show event details</button>
     <button>Show change details</button>
@@ -16117,6 +16130,10 @@ function message() {
         }),
         expect.objectContaining({
           type: 'governance-audit-jargon-copy',
+          sample: '<button>Apply filters</button>',
+        }),
+        expect.objectContaining({
+          type: 'governance-audit-jargon-copy',
           location: 'src/app/features/governance/governanceAuditErrorMessages.ts:3',
         }),
         expect.objectContaining({
@@ -16148,6 +16165,7 @@ function AuditLogView() {
     <label>Specific change name</label>
     <input placeholder="Paste a team space, work area, team, or project reference only when an owner or admin gives you one" />
     <button aria-label="Refresh change history">Refresh</button>
+    <button>Show changes</button>
     <button>Show saved change name</button>
     <Metric label="Protected saved items" />
     <SubjectLine label="Visible saved item" />

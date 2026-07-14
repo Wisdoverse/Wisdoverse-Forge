@@ -55,12 +55,12 @@ interface SignalDef {
 const SIGNAL_DEFS: readonly SignalDef[] = [
   {
     key: 'assignmentOutboxBacklog',
-    label: 'Assignment updates waiting to send',
+    label: 'Work updates waiting to send',
     warnNonZero: true,
   },
   {
     key: 'assignmentOutboxOldestAgeSeconds',
-    label: 'Oldest waiting assignment update (s)',
+    label: 'Oldest work update waiting (s)',
     warnNonZero: true,
     unit: 's',
   },
@@ -106,11 +106,11 @@ export function ControlPlanePanel() {
     <div>
       <div className={uiStyles.sectionHeader}>
         <div>
-          <h2 className={uiStyles.sectionTitle}>Agent coordination check</h2>
+          <h2 className={uiStyles.sectionTitle}>Agent work checks</h2>
           <p className={uiStyles.sectionDescription}>
-            Checks whether agents are receiving work, checking in, and finishing handoffs. This
-            checks when opened, then every 30 seconds while Admin is open. Any non-zero value below
-            may need an owner to check stuck work.
+            Shows whether agents are getting work, checking in, and finishing tasks. Forge checks
+            this when Admin opens, then every 30 seconds. If any number below is above 0, an owner
+            may need to check stuck work.
           </p>
         </div>
         <button
@@ -134,7 +134,7 @@ export function ControlPlanePanel() {
       {controlPlaneLoading && !controlPlane && (
         <div className="flex items-center justify-center py-12">
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            Checking agent coordination
+            Checking agent work
           </p>
         </div>
       )}
@@ -155,13 +155,13 @@ export function ControlPlanePanel() {
           </div>
 
           <p className="mt-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Check-in rule: no agent update for {controlPlane.staleAfterSeconds}s counts as not
+            If an agent sends no update for {controlPlane.staleAfterSeconds}s, it appears as not
             checking in.
           </p>
 
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Background task backlog is not shown in this team view. Owners can open{' '}
-            <span className="font-mono">/metrics</span> when they need platform-wide numbers.
+            Background tasks waiting across the platform are not shown in this team view. Owners can
+            check platform-wide numbers in their monitoring tools.
           </p>
         </>
       )}

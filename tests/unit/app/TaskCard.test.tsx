@@ -74,8 +74,8 @@ describe('TaskCard', () => {
       />
     )
 
-    expect(screen.getByText('Check task priority')).toBeDefined()
-    expect(screen.getByText('Check task status')).toBeDefined()
+    expect(screen.getByText('Open task details to read this priority')).toBeDefined()
+    expect(screen.getByText('Open task details to read this status')).toBeDefined()
     expect(screen.getByTestId('task-next-step').textContent).toBe(
       'Open task details to check the current status before taking action.'
     )
@@ -99,7 +99,10 @@ describe('TaskCard', () => {
     expect(badge).toBeDefined()
     expect(badge.textContent).toContain('2')
     expect(badge.textContent).toContain('1')
-    expect(badge.getAttribute('aria-label')).toBe('2 saved notes added, 1 saved instruction added')
+    expect(badge.getAttribute('aria-label')).toBe(
+      '2 saved notes added, 1 saved guidance item added'
+    )
+    expect(badge.getAttribute('aria-label')).not.toContain('saved instruction')
   })
 
   test('hides context badge when no context has been applied', () => {
@@ -235,7 +238,7 @@ describe('TaskCard', () => {
     )
 
     expect(screen.getByTestId('task-next-step').textContent).toBe(
-      'Waiting for a ready agent to start. If it stays here, choose or start an agent.'
+      'Waiting for an agent to start. If it stays here, choose or start an agent.'
     )
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('pick this up')
   })
@@ -318,14 +321,14 @@ describe('TaskCard', () => {
     const preview = screen.getByTestId('task-error-preview')
     expect(preview).toBeDefined()
     expect(preview.textContent).toContain('AI service is busy')
-    expect(preview.textContent).toContain('Wait a minute, then open the task details and retry')
+    expect(preview.textContent).toContain('Wait a minute, then open the task details and try again')
     expect(preview.textContent).not.toContain('when ready')
     expect(preview.textContent).not.toContain('429')
     expect(preview.textContent).not.toContain('provider')
     expect(preview.textContent).not.toContain('model service is busy')
     expect(preview.getAttribute('title')).toContain('AI service is busy')
     expect(preview.getAttribute('title')).toContain(
-      'Wait a minute, then open the task details and retry'
+      'Wait a minute, then open the task details and try again'
     )
     expect(preview.getAttribute('title')).not.toContain('when ready')
     expect(preview.getAttribute('title')).not.toContain('429')

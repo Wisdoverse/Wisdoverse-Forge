@@ -2,6 +2,7 @@ import { describe, test, expect, afterEach, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { AgentInfo } from '@app/entities/agent'
 import {
+  Workshop3DUnavailableNotice,
   Workshop3DEmptyState,
   Workshop3DInteractionHint,
   Workshop3DStatusSummary,
@@ -65,6 +66,16 @@ describe('Workshop3DInteractionHint', () => {
     expect(hint.textContent).not.toContain('Middle-click')
     expect(hint.textContent).not.toContain('Right-click')
     expect(hint.textContent).not.toContain('Scroll to zoom')
+  })
+})
+
+describe('Workshop3DUnavailableNotice', () => {
+  test('explains the fallback without exposing WebGL jargon', () => {
+    render(<Workshop3DUnavailableNotice />)
+
+    expect(screen.getByText('3D map is not available here')).toBeDefined()
+    expect(screen.getByText(/your agents are still listed here/i)).toBeDefined()
+    expect(screen.queryByText(/WebGL/i)).toBeNull()
   })
 })
 

@@ -43,7 +43,7 @@ describe('governanceAuditErrorMessage', () => {
   test('explains load network failures without exposing only a transport error', () => {
     const message = governanceAuditErrorMessage('loadAudit', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Choose Check change history again, then apply the filters again.')
+    expect(message).toContain('Choose Check change history again, then show changes again.')
     expect(message).toContain('If it still does not load, check your connection')
     expect(message).toContain('choose Check change history again')
     expect(message).not.toContain('refresh the page')
@@ -81,7 +81,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Check change history again, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+      'Choose Check change history again, then show changes again. If it still fails, ask an owner or admin to check change history access.'
     )
     expect(message).not.toContain('backend')
     expect(message).not.toContain('temporarily unavailable')
@@ -96,7 +96,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Check change history again, then apply the filters again. If it still fails, ask an owner or admin to check change history access.'
+      'Choose Check change history again, then show changes again. If it still fails, ask an owner or admin to check change history access.'
     )
     expect(message).not.toContain('database unavailable')
   })
@@ -125,7 +125,7 @@ describe('governanceAuditErrorMessage', () => {
       governanceAuditErrorMessage('loadAudit', {
         error: 'Invalid time range',
       }),
-      'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
+      'Choose a valid time range. Make sure From is before To, then show changes again.'
     )
   })
 
@@ -136,7 +136,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose a valid time range. Make sure From is before To, then apply the change filters again.'
+      'Choose a valid time range. Make sure From is before To, then show changes again.'
     )
     expect(message).not.toContain('Invalid time range')
   })
@@ -146,7 +146,7 @@ describe('governanceAuditErrorMessage', () => {
       governanceAuditErrorMessage('loadAudit', {
         error: 'limit must be less than or equal to 200',
       }),
-      'Enter a row limit from 1 to 200, then apply the change filters again.'
+      'Enter a row limit from 1 to 200, then show changes again.'
     )
   })
 
@@ -157,7 +157,7 @@ describe('governanceAuditErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the selected team space, work area, person, or task help text, then apply the change filters again.'
+      'Check the selected team space, work area, person, or task help text, then show changes again.'
     )
     expect(message).not.toContain('task ID')
     expect(message).not.toContain('task code')

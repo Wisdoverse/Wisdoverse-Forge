@@ -19,7 +19,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
   loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
   loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
-  previewContext: 'Choose a ready agent, then check saved items again.',
+  previewContext: 'Choose an agent, then check saved items again.',
   publishTask:
     'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
   retryTask:
@@ -35,7 +35,7 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No ready agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
+    return 'No agent can take this task right now. Open Agents to start or connect an agent, then open this task again from the Tasks page.'
   }
 
   if (isNetworkError(normalized)) {
@@ -194,7 +194,7 @@ function validationMessage(action: TaskDetailErrorAction, detail: string): strin
   }
   if (normalized.includes('agent')) {
     if (action === 'publishTask') {
-      return 'Choose a ready agent, then send the task again.'
+      return 'Choose an agent, then send the task again.'
     }
     return ACTION_FALLBACKS[action]
   }

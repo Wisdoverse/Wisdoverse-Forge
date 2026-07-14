@@ -198,7 +198,7 @@ export function AppLayout({
               buttonLabel: t('commandPalette.taskSetup.noWaitingPlace.buttonLabel'),
               description: t('commandPalette.taskSetup.noWaitingPlace.description'),
               searchText:
-                'new task create task first task agent task queue setup 创建任务 新任务 智能体 任务队列 设置',
+                'new task create task first task agent place setup 创建任务 新任务 智能体 任务位置 设置',
             }
           : {
               label: t('commandPalette.taskSetup.ready.label'),
@@ -447,12 +447,12 @@ export function AppLayout({
           }
           if (!groupId && !lanesLoaded) {
             throw new Error(
-              'Forge could not load the task queue for this project. Select the project again, then create the task.'
+              'Forge could not load the place for new tasks in this project. Select the project again, then create the task.'
             )
           }
           if (!groupId) {
             throw new Error(
-              'Set up a task queue before creating a task. This gives new work a queue before an agent starts it. Open Agents to set it up, then come back here.'
+              'Set up a place for new tasks before creating a task. This gives new work somewhere to wait before an agent starts it. Open Agents to set it up, then come back here.'
             )
           }
           const response = await orchestrationApi.createTask({

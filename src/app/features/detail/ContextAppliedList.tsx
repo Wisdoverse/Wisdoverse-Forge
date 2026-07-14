@@ -58,7 +58,7 @@ export function ContextAppliedList({
 
 function appliedContextDescription(kind: ContextCandidateKind): string {
   if (kind === 'skill') {
-    return 'These saved instructions helped the agent before it worked on this task.'
+    return 'This saved guidance helped the agent before it worked on this task.'
   }
   return 'These saved notes helped the agent before it worked on this task.'
 }

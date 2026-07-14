@@ -1,5 +1,4 @@
 import { useTheme } from '@app/shared/model/theme.context'
-import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 
 export function SettingsView() {
@@ -11,16 +10,16 @@ export function SettingsView() {
         Settings
       </h1>
 
-      {/* Appearance section */}
+      {/* Display section */}
       <section className="mb-6">
-        <h2 className={uiStyles.groupLabel}>Appearance</h2>
-        <div className={cn(uiStyles.card)}>
+        <h2 className={uiStyles.groupLabel}>Display</h2>
+        <div className="border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-ui-body text-foreground-light dark:text-foreground-dark">
               Theme
             </span>
             <button type="button" onClick={toggleTheme} className={uiStyles.secondaryButton}>
-              {theme === 'light' ? 'Switch to Dark' : 'Switch to Light'}
+              {theme === 'light' ? 'Switch to dark' : 'Switch to light'}
             </button>
           </div>
         </div>
@@ -29,10 +28,10 @@ export function SettingsView() {
       {/* About section */}
       <section>
         <h2 className={uiStyles.groupLabel}>About</h2>
-        <div className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
+        <div className="divide-y divide-[rgb(var(--border))] border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-ui-body text-foreground-light dark:text-foreground-dark">
-              Application
+              App
             </span>
             <span className="text-ui-body text-secondary-light dark:text-secondary-dark">
               Wisdoverse Forge

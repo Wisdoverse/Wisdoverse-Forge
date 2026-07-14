@@ -48,6 +48,12 @@ describe('TimelineView', () => {
 
     const timeline = screen.getByTestId('timeline-view')
     expect(timeline).toHaveAccessibleName('Timeline view')
+    const introPanel = within(timeline)
+      .getByText('Open the task board to start the timeline')
+      .closest('div')
+    expect(introPanel).toHaveClass('rounded-md')
+    expect(introPanel?.className).not.toContain('shadow-lg')
+    expect(introPanel?.className).not.toContain('rounded-lg')
     expect(within(timeline).getByText('Open the task board to start the timeline')).toBeDefined()
     expect(
       within(timeline).getByText(
@@ -59,13 +65,22 @@ describe('TimelineView', () => {
       within(timeline).getByText('Create a small task or open one that is already running')
     ).toBeDefined()
     expect(
-      within(timeline).getByText(
+      within(timeline).getByText('Return to Timeline to see how the work is going')
+    ).toBeDefined()
+    expect(
+      within(timeline).queryByText(
         'Return to Timeline to see waiting, working, help needed, and finished updates'
       )
-    ).toBeDefined()
+    ).toBeNull()
     expect(timeline.textContent).not.toMatch(/refresh|event stream|queue/i)
 
-    fireEvent.click(within(timeline).getByRole('button', { name: /open task board/i }))
+    const openTaskBoardButton = within(timeline).getByRole('button', { name: /open task board/i })
+    expect(openTaskBoardButton).toHaveClass('rounded-md')
+    expect(openTaskBoardButton.className).toContain('border-white/15')
+    expect(openTaskBoardButton.className).toContain('bg-transparent')
+    expect(openTaskBoardButton.className).not.toContain('rounded-full')
+
+    fireEvent.click(openTaskBoardButton)
 
     expect(useBoardStore.getState().viewMode).toBe('board')
   })

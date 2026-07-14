@@ -215,7 +215,7 @@ export function InboxView() {
           </p>
           <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
             {loadingSavedNotifications && !loadError
-              ? 'Forge is checking older notifications. New live updates will still appear here.'
+              ? 'Forge is checking older updates. New live updates will still appear here.'
               : 'Inbox updates appear after agents start work, finish work, need help, or ask you to reconnect account access.'}
           </p>
           {!loadingSavedNotifications && !loadError && (
@@ -295,7 +295,7 @@ export function InboxView() {
           <div className="flex items-center gap-2">
             <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
               {filteredNotifications.length} of {notifications.length}{' '}
-              {notifications.length === 1 ? 'notification' : 'notifications'}
+              {notifications.length === 1 ? 'update' : 'updates'}
             </p>
             {loadingSavedNotifications && !loadError && (
               <span

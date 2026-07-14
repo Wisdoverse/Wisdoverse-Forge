@@ -40,10 +40,22 @@ describe('taskFailureCopy', () => {
     })
 
     expect(message).toBe(
-      'Waiting for account access. Add or reconnect the required service access, then retry.'
+      'Waiting for account access. Add or reconnect the account access this task needs, then try again.'
     )
+    expect(message).not.toContain('required service access')
     expect(message).not.toContain('token')
     expect(message).not.toContain('secret')
+  })
+
+  test('turns rate-limit failures into a plain try-again step', () => {
+    const message = taskFailurePreview('Rate limit exceeded: 429 from provider')
+
+    expect(message).toBe(
+      'Stopped because the AI service is busy. Wait a minute, then open the task details and try again.'
+    )
+    expect(message).not.toContain('retry')
+    expect(message).not.toContain('429')
+    expect(message).not.toContain('provider')
   })
 
   test('turns sign-in failures into a direct reconnect step', () => {
@@ -70,8 +82,9 @@ describe('taskFailureCopy', () => {
     })
 
     expect(message).toBe(
-      'Waiting for account access. Add or reconnect the required service access, then retry.'
+      'Waiting for account access. Add or reconnect the account access this task needs, then try again.'
     )
+    expect(message).not.toContain('required service access')
     expect(message).not.toContain('Authorization')
     expect(message).not.toContain('Bearer')
     expect(message).not.toContain('live-access-123')

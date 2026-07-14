@@ -16,7 +16,7 @@ const QUICK_TASK_EXAMPLES = [
   'Summarize the latest result with next actions',
 ]
 const QUICK_CREATE_SAVE_ERROR =
-  'The task was not saved. Check the project, task queue, and your connection, then choose Save for later again.'
+  'Choose Save for later again. If it still fails, check the project, place for new tasks, and your connection.'
 const QUICK_CREATE_SAVED_MESSAGE =
   'Task idea saved. Open the new card to add where to work, done when, and who should start it.'
 

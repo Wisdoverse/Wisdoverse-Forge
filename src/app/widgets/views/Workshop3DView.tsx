@@ -625,6 +625,18 @@ export function Workshop3DInteractionHint() {
   )
 }
 
+export function Workshop3DUnavailableNotice() {
+  return (
+    <div className="max-w-sm rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
+      <div className="text-sm font-medium">3D map is not available here</div>
+      <p className="mt-1 text-[12px] leading-snug text-white/65">
+        This browser or device can&apos;t open a 3D view. Your agents are still listed here — use
+        the list to select one, or switch to Board or List view.
+      </p>
+    </div>
+  )
+}
+
 export function Workshop3DView() {
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -904,13 +916,7 @@ export function Workshop3DView() {
           data-testid="workshop-3d-webgl-unavailable"
           className="absolute inset-0 z-0 flex items-center justify-center p-6 text-center"
         >
-          <div className="max-w-sm rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
-            <div className="text-sm font-medium">3D map needs WebGL</div>
-            <p className="mt-1 text-[12px] leading-snug text-white/65">
-              This browser or device can&apos;t open a 3D view. Your agents are still listed here —
-              use the list to select one, or switch to Board or List view.
-            </p>
-          </div>
+          <Workshop3DUnavailableNotice />
         </div>
       )}
 

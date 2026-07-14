@@ -351,7 +351,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
     case 'queued':
       return options.hasAssignee
         ? 'Waiting for the chosen agent to start. If it stays here, open task details or choose another agent.'
-        : 'Waiting for a ready agent to start. If it stays here, choose or start an agent.'
+        : 'Waiting for an agent to start. If it stays here, choose or start an agent.'
     case 'working':
       return 'Open task details to watch live output and recent updates.'
     case 'blocked':
@@ -386,7 +386,7 @@ function formatContextCountsLabel(counts: TaskContextCounts): string {
   }
   if (counts.appliedSkills > 0) {
     parts.push(
-      `${counts.appliedSkills} saved ${counts.appliedSkills === 1 ? 'instruction' : 'instructions'} added`
+      `${counts.appliedSkills} saved guidance ${counts.appliedSkills === 1 ? 'item' : 'items'} added`
     )
   }
   return parts.join(', ')

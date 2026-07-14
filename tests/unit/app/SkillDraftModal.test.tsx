@@ -32,7 +32,7 @@ afterEach(() => {
 })
 
 describe('SkillDraftModal', () => {
-  test('uses explicit close wording before saving a saved instruction', async () => {
+  test('uses explicit close wording before saving reusable guidance', async () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
 
@@ -46,9 +46,11 @@ describe('SkillDraftModal', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Close without saving' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Draft reusable guidance' })).toBeDefined()
     expect(
       screen.getByText(/Check what should repeat before saving it for your team space/i)
     ).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Draft saved instruction' })).toBeNull()
     expect(
       screen.queryByText(/Review what should repeat before saving it for your team space/i)
     ).toBeNull()
@@ -61,7 +63,7 @@ describe('SkillDraftModal', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  test('keeps the user in flow after saving a saved instruction', async () => {
+  test('keeps the user in flow after saving reusable guidance', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -96,7 +98,7 @@ describe('SkillDraftModal', () => {
     expect(screen.queryByLabelText(/^use when$/i)).toBeNull()
     expect(
       screen.getByText(
-        'This name appears in Saved instructions and when choosing instructions for a task. Use words a teammate would recognize.'
+        'This name appears when choosing guidance for a task. Use words a teammate would recognize.'
       )
     ).toBeDefined()
     expect(
@@ -110,28 +112,28 @@ describe('SkillDraftModal', () => {
     expect(screen.getByText(/choose the agents that should follow it/i)).toBeDefined()
     expect(screen.queryByText(/publishing/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /publish instruction/i })).toBeNull()
-    const reusableInstructions = screen.getByLabelText(
-      /^reusable instructions$/i
-    ) as HTMLTextAreaElement
-    expect(reusableInstructions.value).toContain(
-      'Use this instruction when a future task needs the same judgment, steps, or way of working.'
+    expect(screen.queryByRole('button', { name: /save instruction/i })).toBeNull()
+    const reusableGuidance = screen.getByLabelText(/^reusable guidance$/i) as HTMLTextAreaElement
+    expect(reusableGuidance.value).toContain(
+      'Use this guidance when a future task needs the same judgment, steps, or way of working.'
     )
-    expect(reusableInstructions.value).not.toContain('implementation pattern')
-    expect(reusableInstructions.value).not.toContain('workflow')
+    expect(reusableGuidance.value).not.toContain('implementation pattern')
+    expect(reusableGuidance.value).not.toContain('workflow')
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /save guidance/i }))
 
     expect(await screen.findByTestId('skill-published-state')).toBeDefined()
-    expect(screen.getByText('Saved instruction is ready')).toBeDefined()
+    expect(screen.getByText('Reusable guidance is ready')).toBeDefined()
     expect(screen.getByText('refactor-database-migration')).toBeDefined()
 
-    const openSkills = screen.getByRole('link', { name: /open saved instructions/i })
+    const openSkills = screen.getByRole('link', { name: /open saved guidance/i })
     const chooseAgent = screen.getByRole('link', { name: /choose agent/i })
     expect(openSkills.getAttribute('href')).toBe('/skills')
     expect(chooseAgent.getAttribute('href')).toBe('/agents')
+    expect(screen.queryByRole('link', { name: /open saved instructions/i })).toBeNull()
     expect(
       screen.getByText(
-        'Find this saved instruction, then check the reusable steps before agents use them.'
+        'Find this saved guidance, then check the reusable steps before agents use them.'
       )
     ).toBeDefined()
     expect(
@@ -169,9 +171,9 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /save instruction/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /save guidance/i }))
 
-    expect(screen.getByRole('button', { name: /saving instruction/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /saving guidance/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
 
     finishSave(
@@ -219,29 +221,29 @@ describe('SkillDraftModal', () => {
       'skill-draft-trigger-intro skill-draft-trigger-help'
     )
 
-    await user.clear(screen.getByLabelText(/^instruction name$/i))
-    await user.click(screen.getByRole('button', { name: /save instruction/i }))
+    await user.clear(screen.getByLabelText(/^guidance name$/i))
+    await user.click(screen.getByRole('button', { name: /save guidance/i }))
 
     const nameAlert = screen.getByRole('alert')
-    expect(nameAlert).toHaveTextContent('Name this instruction before saving it.')
+    expect(nameAlert).toHaveTextContent('Name this guidance before saving it.')
     expect(nameAlert).toHaveAttribute('aria-live', 'polite')
-    expect(screen.getByLabelText(/^instruction name$/i)).toHaveFocus()
-    expect(screen.getByLabelText(/^instruction name$/i)).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText(/^guidance name$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^guidance name$/i)).toHaveAttribute('aria-invalid', 'true')
 
-    await user.type(screen.getByLabelText(/^instruction name$/i), 'migration-review')
+    await user.type(screen.getByLabelText(/^guidance name$/i), 'migration-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(screen.getByLabelText(/^instruction name$/i)).not.toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText(/^guidance name$/i)).not.toHaveAttribute('aria-invalid', 'true')
 
-    await user.clear(screen.getByLabelText(/^reusable instructions$/i))
-    await user.click(screen.getByRole('button', { name: /save instruction/i }))
+    await user.clear(screen.getByLabelText(/^reusable guidance$/i))
+    await user.click(screen.getByRole('button', { name: /save guidance/i }))
 
     const stepsAlert = screen.getByRole('alert')
     expect(stepsAlert).toHaveTextContent(
       'Add the repeatable steps, or keep the suggested steps, before saving.'
     )
     expect(stepsAlert).toHaveAttribute('aria-live', 'polite')
-    expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveFocus()
-    expect(screen.getByLabelText(/^reusable instructions$/i)).toHaveAttribute(
+    expect(screen.getByLabelText(/^reusable guidance$/i)).toHaveFocus()
+    expect(screen.getByLabelText(/^reusable guidance$/i)).toHaveAttribute(
       'aria-invalid',
       'true'
     )
@@ -265,15 +267,15 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    expect(screen.getByLabelText(/^instruction name$/i)).toHaveValue(
+    expect(screen.getByLabelText(/^guidance name$/i)).toHaveValue(
       'check-release-readiness-before-launch'
     )
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toHaveValue(
       'check release readiness before launch'
     )
     expect(
-      (screen.getByLabelText(/^reusable instructions$/i) as HTMLTextAreaElement).value
-    ).toContain('# Instruction: Check release readiness before launch')
+      (screen.getByLabelText(/^reusable guidance$/i) as HTMLTextAreaElement).value
+    ).toContain('# Guidance: Check release readiness before launch')
     expect(screen.queryByDisplayValue(/task-1234567890/i)).toBeNull()
   })
 
@@ -294,10 +296,10 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: /save instruction/i }))
+    await user.click(screen.getByRole('button', { name: /save guidance/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ask an owner or admin to let you create saved instructions, then save again. Saved instruction was not saved.'
+      'Ask an owner or admin to let you save reusable guidance, then save again. Reusable guidance was not saved.'
     )
     expect(screen.queryByText(/HTTP 403/i)).toBeNull()
   })

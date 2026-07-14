@@ -292,6 +292,33 @@ describe('ActivityFeed', () => {
     expect(emptyState.textContent).not.toContain('starting more work')
   })
 
+  test('explains when the progress filter is hiding finished work', () => {
+    useFeedStore.getState().addFeedItem({
+      id: '1',
+      type: 'task.completed',
+      agentName: 'Agent One',
+      taskTitle: 'Fix auth',
+      detail: 'Merged cleanly',
+      timestamp: Date.now(),
+    })
+
+    render(<ActivityFeed />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /show updates for work in progress, 0 matching updates/i })
+    )
+    const emptyState = screen.getByTestId('feed-filter-empty')
+    expect(within(emptyState).getByText('Only moving work shows here')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/completed or urgent updates may still be in all/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/before deciding nothing changed/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('Progress updates will appear here')
+    expect(emptyState.textContent).not.toContain(
+      'Chosen agents add updates here after work starts.'
+    )
+  })
+
   test('shows empty state when no feed items', () => {
     render(<ActivityFeed />)
     expect(screen.getByText(/quiet so far/i)).toBeDefined()

@@ -60,10 +60,11 @@ beforeEach(() => {
   useNavigationStore.setState({ selectedProjectId: null, projects: {} })
 })
 
-describe('CreateAgentModal agent instructions', () => {
+describe('CreateAgentModal simple chat guidance', () => {
   it('hides instruction textarea in CLI branch', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /project files/i }))
+    expect(screen.queryByLabelText(/tell this agent how to answer/i)).toBeNull()
     expect(screen.queryByLabelText(/agent instructions/i)).toBeNull()
   })
 
@@ -92,7 +93,8 @@ describe('CreateAgentModal agent instructions', () => {
   it('shows instruction textarea when simple chat agent selected', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    expect(screen.getByLabelText(/agent instructions/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/tell this agent how to answer/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/agent instructions/i)).toBeNull()
     expect(screen.queryByText(/system prompt/i)).toBeNull()
     expect(screen.queryByText(/prompt work/i)).toBeNull()
   })
@@ -106,7 +108,7 @@ describe('CreateAgentModal agent instructions', () => {
       target: { value: 'Test' },
     })
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
-    fireEvent.change(screen.getByLabelText(/agent instructions/i), {
+    fireEvent.change(screen.getByLabelText(/tell this agent how to answer/i), {
       target: { value: 'you are terse' },
     })
     fireEvent.click(screen.getByRole('button', { name: /add agent/i }))

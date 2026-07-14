@@ -125,6 +125,9 @@ describe('RuntimeSection', () => {
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     const readiness = screen.getByTestId('runtime-readiness')
     const nextStep = screen.getByTestId('runtime-next-step')
+    expect(readiness).toHaveClass('border-y', 'bg-transparent')
+    expect(readiness.className).not.toContain('rounded-lg')
+    expect(readiness.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(nextStep).toHaveTextContent('Next step')
     expect(nextStep).toHaveTextContent('Work tools ready')
     expect(nextStep).toHaveTextContent('What success looks like: This item changes to Ready.')
@@ -154,10 +157,22 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/commands, or live work access/i)).toBeNull()
     expect(
       screen.getByText(
-        'Choose Project files for the simplest shared project changes. Choose This computer only when this machine should join as an agent that Forge can manage here.'
+        'Choose Project files for the simplest shared project changes. Choose This computer only when work needs files and tools on this computer.'
       )
     ).toBeDefined()
+    const runtimeSettingsFrame = screen
+      .getByText(
+        'Choose Project files for the simplest shared project changes. Choose This computer only when work needs files and tools on this computer.'
+      )
+      .closest('div')?.parentElement?.parentElement
+    expect(runtimeSettingsFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(runtimeSettingsFrame?.className).not.toContain('rounded-card')
+    expect(runtimeSettingsFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
+    expect(screen.queryByText(/machine should join as an agent/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['unless', 'owner', 'tells'].join('.*'), 'i'))).toBeNull()
+    expect(screen.getByText('Available file locations')).toBeDefined()
+    expect(screen.getByText('Choices shown for where project files open')).toBeDefined()
+    expect(screen.queryByText('Places that can open project files')).toBeNull()
     expect(screen.getAllByText(/Work tools/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/tool install status/i)).toBeNull()
     expect(screen.getAllByText('Project files').length).toBeGreaterThan(0)
@@ -186,8 +201,8 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('Check setup')).toBeNull()
     expect(screen.queryByText('check tool')).toBeNull()
     expect(screen.getByText('Installed and ready')).toBeDefined()
-    expect(screen.getAllByText(/file-change tool sign-ins/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/1\/2 file-change tool sign-ins ready/i)).toBeDefined()
+    expect(screen.getAllByText(/code tool sign-ins/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/1\/2 code tool sign-ins ready/i)).toBeDefined()
     expect(screen.getByText(/Choose Sign in to GitHub/i)).toBeDefined()
     expect(screen.queryByText(/No work tool sign-in saved/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /Sign in to GitHub/i }).length).toBeGreaterThan(0)
@@ -267,7 +282,7 @@ describe('RuntimeSection', () => {
     expect(screen.getByTestId('runtime-next-step')).not.toHaveTextContent('Success:')
     expect(screen.queryByRole('button', { name: /Sign in to GitHub/i })).toBeNull()
     expect(screen.getByText(/1\/1 work tools are ready/i)).toBeDefined()
-    expect(screen.getByText(/1\/1 file-change tool sign-ins ready/i)).toBeDefined()
+    expect(screen.getByText(/1\/1 code tool sign-ins ready/i)).toBeDefined()
     expect(screen.getAllByText(/agent online status/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/agent tools are checked/i)).toBeNull()
     expect(screen.queryByText(/agent check-ins/i)).toBeNull()
@@ -319,7 +334,7 @@ describe('RuntimeSection', () => {
     expect(document.body.innerHTML).not.toContain('agentforge-agent:')
   })
 
-  test('tells users to sign in before starting agents when no file-change tool sign-ins are connected', async () => {
+  test('tells users to sign in before starting agents when no code tool sign-ins are connected', async () => {
     agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
       ok: true,
       statuses: [
@@ -337,7 +352,7 @@ describe('RuntimeSection', () => {
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     expect(
       screen.getByText(
-        /Sign in to a file-change tool before starting agents that need to change project files/i
+        /Sign in to a code tool before starting agents that need to change project files/i
       )
     ).toBeDefined()
     expect(screen.queryByText(/No work tool sign-ins are connected yet/i)).toBeNull()
@@ -347,7 +362,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByRole('button', { name: /^Sign in$/i })).toBeNull()
   })
 
-  test('keeps the file-change tool sign-in entry visible when status rows have not been created yet', async () => {
+  test('keeps the code tool sign-in entry visible when status rows have not been created yet', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     agentApiMock.getCliAuthProxyStatus.mockResolvedValueOnce({
       ok: true,
@@ -360,15 +375,19 @@ describe('RuntimeSection', () => {
 
     render(<RuntimeSection focus="sign-ins" />)
 
-    expect(await screen.findByRole('heading', { name: 'File-change tool sign-in' })).toBeDefined()
+    expect(await screen.findByRole('heading', { name: 'Sign in to code tools' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Code tool sign-in' })).toBeNull()
     expect(
       screen.getByText('Sign in to Codex or another tool before agents work on project files.')
     ).toBeDefined()
     expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'File-change tool sign-in starts here'
+      'Start here when Codex asks you to sign in'
+    )
+    expect(screen.getByTestId('runtime-sign-in-entry')).not.toHaveTextContent(
+      'Code tool sign-in starts here'
     )
     expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Use this page when Codex or another file-change tool asks you to sign in.'
+      'Use this page when Codex or another code tool asks you to sign in.'
     )
     expect(screen.getByTestId('runtime-sign-in-entry')).toHaveTextContent(
       'For Codex, choose Sign in to OpenAI (Codex)'
@@ -492,7 +511,7 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText(/wake an agent/i)).toBeNull()
     expect(
       screen.queryByText(
-        /Sign in to a file-change tool before starting agents that need to change project files/i
+        /Sign in to a code tool before starting agents that need to change project files/i
       )
     ).toBeNull()
     expect(screen.queryByText('No work tool status yet')).toBeNull()
@@ -530,20 +549,20 @@ describe('RuntimeSection', () => {
     expect(screen.queryByText('Unknown')).toBeNull()
   })
 
-  test('shows beginner guidance when file-change tool sign-in status cannot load', async () => {
+  test('shows beginner guidance when code tool sign-in status cannot load', async () => {
     agentApiMock.getCliAuthProxyStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
     render(<RuntimeSection />)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(/file-change tool sign-in could not be checked/i)
+    expect(alert).toHaveTextContent(/code tool sign-in could not be checked/i)
     expect(alert).toHaveTextContent(
       /Forge could not connect while checking the Codex sign-in page/i
     )
     expect(screen.getByText(/Choose Check again to check Codex sign-in/i)).toBeDefined()
     expect(screen.queryByText(/check work tool sign-ins/i)).toBeNull()
-    expect(screen.queryByText(/^File-change tool sign-ins could not be checked/i)).toBeNull()
+    expect(screen.queryByText(/^Code tool sign-ins could not be checked/i)).toBeNull()
     expect(screen.queryByText(/failed to fetch/i)).toBeNull()
     expect(screen.queryByText(/app could not reach/i)).toBeNull()
     expect(screen.queryByText(/service is healthy/i)).toBeNull()

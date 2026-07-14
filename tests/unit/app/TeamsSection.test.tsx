@@ -68,6 +68,11 @@ describe('TeamsSection', () => {
     expect(screen.queryByText(/access groups/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'New team' })).toBeDefined()
     expect(screen.getByText('Create a team first')).toBeDefined()
+    const teamsFrame = screen.getByText('Create a team first').closest('div')!.parentElement!
+      .parentElement!
+    expect(teamsFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(teamsFrame.className).not.toContain('rounded-card')
+    expect(teamsFrame.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(screen.getByText(/Teams keep projects and access together/i)).toBeDefined()
     expect(screen.queryByText(/teams group projects/i)).toBeNull()
     expect(screen.getByRole('button', { name: 'Create first team' })).toBeDefined()

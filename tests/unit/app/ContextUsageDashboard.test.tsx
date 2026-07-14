@@ -38,9 +38,8 @@ describe('ContextUsageDashboard', () => {
   test('tells first-time users how saved item reuse starts', () => {
     render(<ContextUsageDashboard data={null} />)
 
-    expect(
-      screen.getByText('Appears after agents reuse saved notes or instructions')
-    ).toBeDefined()
+    expect(screen.getByText('Appears after agents reuse saved notes or guidance')).toBeDefined()
+    expect(screen.queryByText('Appears after agents reuse saved notes or instructions')).toBeNull()
     expect(screen.queryByText('Updated when data is available')).toBeNull()
   })
 
@@ -51,8 +50,19 @@ describe('ContextUsageDashboard', () => {
 
     expect(screen.getByText('No saved items look outdated')).toBeDefined()
     expect(
-      screen.getByText(/saved notes and saved instructions appear here when they are old enough/i)
+      screen.getByText(/keep saved notes and guidance that help work finish/i)
     ).toBeDefined()
+    expect(
+      screen.getByText('Times saved notes or guidance were added to agent work.')
+    ).toBeDefined()
+    expect(screen.queryByText(/keep saved notes and instructions that help work finish/i)).toBeNull()
+    expect(
+      screen.queryByText('Times saved notes or instructions were added to agent work.')
+    ).toBeNull()
+    expect(
+      screen.getByText(/saved notes and saved guidance appear here when they are old enough/i)
+    ).toBeDefined()
+    expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
     expect(screen.getByText('Mark useful saved items to rank them here')).toBeDefined()
     expect(screen.getByText(/choose Useful in the task result/i)).toBeDefined()
     expect(
@@ -85,9 +95,18 @@ describe('ContextUsageDashboard', () => {
     render(<ContextUsageDashboard data={analytics({ isStale: true, staleAfterHours: 12 })} />)
 
     const banner = screen.getByTestId('context-usage-stale-banner')
-    expect(banner).toHaveTextContent('These numbers are more than 12h old')
+    expect(banner).toHaveTextContent('These numbers are more than 12 hours old')
     expect(banner).toHaveTextContent('Choose Check analytics again before making decisions')
+    expect(banner).not.toHaveTextContent('12h old')
     expect(banner).not.toHaveTextContent('Snapshot')
+  })
+
+  test('uses a singular hour label for one-hour-old analytics', () => {
+    render(<ContextUsageDashboard data={analytics({ isStale: true, staleAfterHours: 1 })} />)
+
+    const banner = screen.getByTestId('context-usage-stale-banner')
+    expect(banner).toHaveTextContent('These numbers are more than 1 hour old')
+    expect(banner).not.toHaveTextContent('1 hours old')
   })
 
   test('uses clear fallback text when analytics labels are missing', () => {

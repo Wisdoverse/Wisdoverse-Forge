@@ -62,6 +62,9 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const guide = await screen.findByTestId('resource-profile-guide')
+    expect(guide).toHaveClass('border-y', 'bg-transparent')
+    expect(guide.className).not.toContain('rounded-card')
+    expect(guide.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(within(guide).getByText('Pick the smallest size that can finish the work')).toBeDefined()
     expect(guide.textContent).toContain('Small is the smallest size')
     expect(within(guide).getByText('Before choosing a size')).toBeDefined()
@@ -80,6 +83,10 @@ describe('ResourcesSection', () => {
     expect(screen.getByRole('columnheader', { name: 'Power and memory' })).toBeDefined()
     expect(screen.queryByRole('columnheader', { name: 'Profile' })).toBeNull()
     expect(screen.queryByRole('columnheader', { name: 'CPU' })).toBeNull()
+    const tableFrame = screen.getByRole('table').parentElement
+    expect(tableFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(tableFrame?.className).not.toContain('rounded-card')
+    expect(tableFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(screen.getByText('Small')).toBeDefined()
     expect(screen.getByText(/1 processing core · 1 GB memory/i)).toBeDefined()
     expect(screen.getByText('Light reviews, docs, and short commands')).toBeDefined()

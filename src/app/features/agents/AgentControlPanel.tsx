@@ -23,7 +23,7 @@ const LOCAL_AGENT_CONTROL_FAILURE = {
 } as const
 
 const CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL =
-  'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again when it shows Ready.'
+  'Open AI services in Settings, choose Check connection for this service, then return to Agents and choose this agent again when it shows Ready.'
 
 interface AgentControlPanelProps {
   agent: AgentInfo
@@ -710,7 +710,7 @@ function getMessageAvailability(
     canSend: false,
     detail: CHAT_ONLY_AI_SERVICE_RECOVERY_DETAIL,
     placeholder: 'Check this AI service before sending a message.',
-    help: 'Open AI service settings, choose Check connection for this service, then return to Agents and choose this agent again.',
+    help: 'Open AI services in Settings, choose Check connection for this service, then return to Agents and choose this agent again.',
   }
 }
 

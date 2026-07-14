@@ -68,7 +68,7 @@ export const en = {
     inbox: 'Inbox',
     context: 'Saved items',
     agents: 'Agents',
-    skills: 'Saved instructions',
+    skills: 'Saved guidance',
     analytics: 'Analytics',
     billing: 'Billing',
     settings: 'Settings',
@@ -137,14 +137,14 @@ export const en = {
       provider: {
         title: 'Give agents a way to work',
         empty:
-          'Choose one way to let agents work: add an AI service for chat answers, or open file-change tool sign-in for Codex or another tool before Tasks need project files.',
+          'Choose one way to let agents work: add an AI service for chat answers, or open Sign in to code tools before creating tasks that need project files.',
         needsTest: 'Check the AI service before giving agents work.',
         cliReady: '{{name}} is ready to run work from {{location}}.',
-        why: 'Agents need one ready option: a checked AI service for chat answers, or a signed-in file-change tool plus an agent that can change project files.',
+        why: 'Agents need one ready option: a checked AI service for chat answers, or a signed-in code tool plus an agent that can change project files.',
         success:
           'One ready option exists: a checked AI service or an agent that can change project files.',
         create: 'Add AI service',
-        signInTool: 'Open file-change tool sign-in',
+        signInTool: 'Open Sign in to code tools',
         test: 'Check AI service',
         reviewProviders: 'Check AI services',
         reviewAgents: 'Open agents',
@@ -158,21 +158,21 @@ export const en = {
         review: 'Open agents',
       },
       routing: {
-        title: 'Task queue',
-        emptyWithProject: 'Set up a task queue for this project.',
-        emptyWithoutProject: 'Select a project, then set up a task queue.',
-        why: 'This gives new work a place to wait until the next available agent starts it.',
-        success: 'A task queue exists for the selected project.',
-        create: 'Set up task queue',
-        review: 'Check task queues',
+        title: 'Place for new tasks',
+        emptyWithProject: 'Set up where new tasks wait for this project.',
+        emptyWithoutProject: 'Select a project, then set up where new tasks wait.',
+        why: 'New tasks wait here until an agent starts them.',
+        success: 'The selected project has a place where new tasks can wait.',
+        create: 'Set up place for tasks',
+        review: 'Check places for tasks',
       },
       task: {
         title: 'First task',
         emptyWithRouting:
-          'Write one small task. Forge puts it in the task queue until the next available agent starts it.',
-        emptyWithoutRouting: 'Set up a task queue before the first task.',
+          'Write one small task. Forge puts it where new tasks wait until an agent starts it.',
+        emptyWithoutRouting: 'Set up where new tasks wait before the first task.',
         emptyWithoutProject:
-          'Create or choose a project, then set up a task queue before the first task.',
+          'Create or choose a project, then set up where new tasks wait before the first task.',
         ready: '{{count}} task on the board.',
         why: 'A small first task proves the setup works before you depend on it for real work.',
         success: 'The task appears on the board, either waiting for an agent or already has one.',
@@ -223,7 +223,7 @@ export const en = {
       description: 'Show sign-ins, projects, teams, and other setup pages.',
     },
     empty: {
-      title: 'No page or option matches that search',
+      title: 'Search is hiding pages and actions',
       listSeparator: ', ',
       tryShorter: 'Try a shorter search, or open Settings to browse setup.',
       tryOne: 'Try {{label}} to open a page people use often.',
@@ -248,15 +248,15 @@ export const en = {
         },
         context: {
           label: 'Saved items',
-          description: 'Check saved notes and instructions before agents reuse them.',
+          description: 'Check saved notes and guidance before agents reuse them.',
         },
         agents: {
           label: 'Agents',
           description: 'Create or check agents for tasks or chat.',
         },
         skills: {
-          label: 'Saved instructions',
-          description: 'Reuse instructions for repeated work.',
+          label: 'Saved guidance',
+          description: 'Reuse guidance for repeated work.',
         },
         settings: {
           label: 'Settings',
@@ -269,7 +269,7 @@ export const en = {
           description: 'Tell an agent the result you want and how to check it.',
         },
         workToolSignIns: {
-          label: 'File-change tool sign-in',
+          label: 'Sign in to code tools',
           description: 'Sign in before agents edit project files with Codex or another tool.',
         },
         keys: {
@@ -351,9 +351,9 @@ export const en = {
         description: 'Pick a project first, then write the task for an agent.',
       },
       noWaitingPlace: {
-        label: 'Set up task queue',
-        buttonLabel: 'Set up task queue',
-        description: 'Open Agents to add a task queue before creating a task.',
+        label: 'Set up place for new tasks',
+        buttonLabel: 'Set up place',
+        description: 'Open Agents to set up a place where new tasks wait.',
       },
       ready: {
         label: 'New task',
@@ -385,7 +385,7 @@ export const en = {
         subtitle: 'See what was checked or reused',
       },
       savedItems: {
-        title: 'Saved notes and instructions',
+        title: 'Saved items',
         subtitle: 'Check what agents may reuse later',
       },
       agents: {
@@ -393,8 +393,8 @@ export const en = {
         subtitle: 'Create agents for tasks or simple chat',
       },
       skills: {
-        title: 'Saved instructions',
-        subtitle: 'Instructions agents can follow again',
+        title: 'Saved guidance',
+        subtitle: 'Guidance agents can follow again',
       },
       analytics: {
         title: 'Analytics',
@@ -533,26 +533,26 @@ export const en = {
   },
 
   // =========================================================================
-  // Task queues
+  // Places for new tasks
   // =========================================================================
   groups: {
-    title: 'Task queue',
-    newGroup: 'New task queue',
-    createGroup: 'Create task queue',
-    editGroup: 'Edit task queue',
-    deleteGroup: 'Delete task queue',
-    noGroups: 'Create a task queue so new tasks have a place to wait for agents.',
-    groupName: 'Task queue name',
-    groupColor: 'Task queue color',
-    addToGroup: 'Add to task queue',
-    removeFromGroup: 'Remove from task queue',
-    moveToGroup: 'Move to task queue',
-    ungrouped: 'Choose a task queue before sending',
+    title: 'Places for new tasks',
+    newGroup: 'New place',
+    createGroup: 'Create place',
+    editGroup: 'Edit place',
+    deleteGroup: 'Delete place',
+    noGroups: 'Set up a place so new tasks can wait for agents.',
+    groupName: 'Place name',
+    groupColor: 'Place color',
+    addToGroup: 'Add to place',
+    removeFromGroup: 'Remove from place',
+    moveToGroup: 'Move to place',
+    ungrouped: 'Choose a place before sending',
     confirmDelete:
-      'Delete this task queue? Agents stay available, but tasks need another task queue before they can be sent.',
-    groupCreated: 'Task queue created',
-    groupDeleted: 'Task queue deleted',
-    groupUpdated: 'Task queue updated',
+      'Delete this place? Agents stay available, but tasks need another place before they can be sent.',
+    groupCreated: 'Place created',
+    groupDeleted: 'Place deleted',
+    groupUpdated: 'Place updated',
   },
 
   // =========================================================================
@@ -687,12 +687,12 @@ export const en = {
         'Open Settings, then open Where agents work. If it still does not load, ask an owner or admin to check Where agents work in Settings.',
       defaultRuntimeLabel: 'Where project files open',
       defaultRuntimeDescription:
-        'Choose Project files for the simplest shared project changes. Choose This computer only when this machine should join as an agent that Forge can manage here.',
+        'Choose Project files for the simplest shared project changes. Choose This computer only when work needs files and tools on this computer.',
       defaultContainerCliLabel: 'Default tool for project work',
       defaultContainerCliDescription:
         'Claude Code, Codex, Gemini, or OpenCode when an agent changes project files or runs checks',
-      availableRuntimesLabel: 'Places that can open project files',
-      availableRuntimesDescription: 'Places where agents can open project files',
+      availableRuntimesLabel: 'Available file locations',
+      availableRuntimesDescription: 'Choices shown for where project files open',
       availableContainerClisLabel: 'Work tools agents can use',
       availableContainerClisDescription:
         'Installed tools for changing project files, running checks, and showing live progress',
@@ -717,38 +717,39 @@ export const en = {
     detail: {
       closeAria: 'Close',
       close: 'Done',
-      subtitle: 'Reusable instructions agents can apply during task work.',
+      subtitle: 'Saved guidance the team can reuse.',
       statusReady: 'Ready to use',
       statusNeedsInstall: 'Check before use',
-      cliFit: 'Best with {{tool}}',
-      unknownToolFit: 'Check work tool in Settings',
-      allAgentsFit: 'Works with any agent',
-      allAgentsTooltip: 'No specific work tool is required.',
-      containerCliTooltip: 'Work tool: {{tool}}',
-      unknownToolTooltip: 'Open Settings, check the work tool, then use this saved instruction.',
+      cliFit: 'Best with file-editing app: {{tool}}',
+      unknownToolFit: 'Check the file-editing app in Settings',
+      allAgentsFit: 'No specific tool needed',
+      allAgentsTooltip: 'This saved guidance does not require a specific file editing tool.',
+      containerCliTooltip: 'File editing tool: {{tool}}',
+      unknownToolTooltip:
+        'Open Settings, check the file-editing app, then use this saved guidance.',
       nextStepHeading: 'What to do next',
       nextStepReady:
-        'Use this saved instruction when creating a task, or rely on its matching words to suggest it for similar work.',
+        'Use this saved guidance when creating a task, or let matching words suggest it for similar work.',
       nextStepNeedsInstall:
-        'Ask an owner or admin to finish setup, then use this saved instruction in a task.',
-      sourceLabel: 'Where it came from',
+        'Ask an owner or admin to finish setup, then use this saved guidance in a task.',
+      sourceLabel: 'Saved in',
       authorLabel: 'Updated by',
-      availabilityLabel: 'Available to',
+      availabilityLabel: 'Who can use it',
       descriptionHeading: 'What this helps with',
-      noDescription: 'Check the reusable instructions below before using this saved instruction.',
+      noDescription: 'Check the reusable guidance below before using this saved guidance.',
       triggerHeading: 'When this helps',
-      triggerHelper: 'Use this saved instruction for tasks that include words like these.',
-      detailsHeading: 'Reusable instructions',
-      detailsHelper: 'Read these reusable steps before using this saved instruction.',
+      triggerHelper: 'Use this saved guidance for tasks that include words like these.',
+      detailsHeading: 'Reusable guidance',
+      detailsHelper: 'Read these reusable steps before using this saved guidance.',
       noContent:
-        'No reusable steps are saved yet. Add the steps agents should follow before using this saved instruction.',
-      unknownAuthor: 'Open Saved instructions again to show who keeps this updated',
-      unknownSource: 'Saved instructions',
+        'No reusable steps are saved yet. Add the steps agents should follow before using this saved guidance.',
+      unknownAuthor: 'Open Saved guidance again to show who keeps this updated',
+      unknownSource: 'Saved guidance',
       availabilityWorkspace: 'This team space',
-      availabilityGlobal: 'Saved instructions',
+      availabilityGlobal: 'Everyone',
       availabilityProject: 'This project',
       availabilityLatest: 'Latest saved copy',
-      availabilityNeedsReview: 'Check saved instruction access',
+      availabilityNeedsReview: 'Check who can use this',
     },
   },
 

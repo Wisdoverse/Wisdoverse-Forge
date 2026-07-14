@@ -81,12 +81,13 @@ const TASK_FILTERS: { value: AgentTaskFilter; label: string; ariaLabel: string }
 const AGENT_TASK_EMPTY_STEPS: { title: string; description: string; Icon: LucideIcon }[] = [
   {
     title: 'Create a task',
-    description: 'Choose this agent directly, or choose a task queue that includes this agent.',
+    description:
+      'Choose this agent directly, or choose a place for new tasks. New tasks wait there until this agent can start.',
     Icon: ListFilter,
   },
   {
-    title: 'Check the task queue',
-    description: 'Open the task queue, then make sure this agent is included.',
+    title: 'Check the place for new tasks',
+    description: 'Open the place for new tasks, then make sure this agent can take tasks from it.',
     Icon: CircleDot,
   },
   {
@@ -282,12 +283,12 @@ export function AgentTasksTab({ agentId, onBackToAgents }: AgentTasksTabProps) {
           id={searchHelpId}
           className="px-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
-          Search only filters this agent&apos;s task list. Use Show all agent tasks to return to the
+          Search only narrows this agent&apos;s task list. Use Show all agent tasks to return to the
           full list.
         </p>
         <div
           role="group"
-          aria-label="Agent task filter"
+          aria-label="Agent task view choices"
           data-testid="agent-task-filter-group"
           className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
         >
@@ -428,7 +429,7 @@ function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): Emp
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Search and filter are hiding these tasks',
+      title: 'Search and selected view are hiding these tasks',
       detail: 'Use Show all agent tasks before assuming this agent has no matching task.',
     }
   }
@@ -441,7 +442,7 @@ function agentTasksFilterEmptyState(filter: AgentTaskFilter, query: string): Emp
   }
 
   return {
-    title: "Filter is hiding this agent's tasks",
+    title: "Selected view is hiding this agent's tasks",
     detail: 'Use Show all agent tasks to return to the full list.',
   }
 }

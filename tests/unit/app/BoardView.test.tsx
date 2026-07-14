@@ -59,7 +59,7 @@ describe('BoardView', () => {
       'Forge is checking which tasks are waiting, working, need help, or finished in this project.'
     )
     expect(loading).toHaveTextContent(
-      'If this takes more than a moment, open Tasks again or ask an owner or admin to check the task queue.'
+      'If this takes more than a moment, open Tasks again or ask an owner or admin to check the place for new tasks.'
     )
     expect(loading).toHaveTextContent(
       'Success looks like task columns or an add-the-first-task step.'
@@ -80,17 +80,18 @@ describe('BoardView', () => {
     expect(onOpenProjectsSetup).toHaveBeenCalledTimes(1)
   })
 
-  test('explains missing task queue when a project is selected', () => {
+  test('explains missing place for new tasks when a project is selected', () => {
     useNavigationStore.setState({ selectedProjectId: 'p1' })
     const onOpenTaskQueues = vi.fn()
 
     render(<BoardView onOpenTaskQueues={onOpenTaskQueues} />)
 
-    expect(screen.getByText(/set up a task queue before sending work/i)).toBeDefined()
-    expect(screen.getByText(/new tasks need a queue/i)).toBeDefined()
+    expect(screen.getByText(/set up a place for new tasks before sending work/i)).toBeDefined()
+    expect(screen.getByText(/new tasks need a place before an agent starts them/i)).toBeDefined()
     expect(screen.queryByText(/set up where tasks wait before sending work/i)).toBeNull()
     expect(screen.queryByText(/open task queues to create one/i)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /set up a task queue/i }))
+    expect(screen.queryByText(/task queue/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /set up place/i }))
     expect(onOpenTaskQueues).toHaveBeenCalledTimes(1)
   })
 
@@ -359,9 +360,12 @@ describe('BoardView', () => {
     const emptyState = screen.getByTestId('board-filter-empty')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
-    expect(within(emptyState).getByText('Search is hiding every task')).toBeDefined()
-    expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
-    expect(within(emptyState).getByText(/before assuming the board is empty/i)).toBeDefined()
+    expect(within(emptyState).getByText('Search is hiding tasks')).toBeDefined()
+    expect(
+      within(emptyState).getByText(/show all tasks, then search with fewer words/i)
+    ).toBeDefined()
+    expect(within(emptyState).getByText(/before deciding the board is empty/i)).toBeDefined()
+    expect(emptyState.textContent).not.toContain('No tasks match your search')
     expect(emptyState.textContent).not.toContain('No Tasks Match This Board View')
     expect(emptyState.textContent).not.toContain('full workflow')
 
@@ -391,7 +395,7 @@ describe('BoardView', () => {
     })
 
     const emptyState = screen.getByTestId('board-filter-empty')
-    expect(emptyState).toHaveTextContent('Search is hiding every task')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks')
     expect(screen.queryByText('Write customer handoff note')).toBeNull()
   })
 
@@ -420,8 +424,68 @@ describe('BoardView', () => {
     })
 
     const emptyState = screen.getByTestId('board-filter-empty')
-    expect(emptyState).toHaveTextContent('Search is hiding every task')
+    expect(emptyState).toHaveTextContent('Search is hiding tasks')
     expect(screen.queryByText('Prepare customer summary')).toBeNull()
+  })
+
+  test('explains empty board choices without filter jargon', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'assigned-1',
+        state: 'queued',
+        params: { task: 'Review launch note', message: '' },
+        assignedTo: 'agent-1',
+        assignedAgentName: 'Reviewer',
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(await screen.findByText('Review launch note')).toBeDefined()
+    const toolbar = screen.getByTestId('board-toolbar')
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters$/i }))
+
+    fireEvent.click(
+      within(toolbar).getByRole('button', { name: /show high priority tasks, 0 matching tasks/i })
+    )
+    const priorityEmpty = screen.getByTestId('board-filter-empty')
+    expect(priorityEmpty).toHaveTextContent('Priority choice is hiding tasks')
+    expect(priorityEmpty).toHaveTextContent(
+      'Tasks may still exist. Show all tasks, then choose one priority at a time.'
+    )
+    expect(priorityEmpty).toHaveTextContent(
+      'Next: show all tasks before deciding this priority is empty.'
+    )
+    expect(priorityEmpty).not.toHaveTextContent('No tasks match this priority')
+    expect(priorityEmpty).not.toHaveTextContent('priority filter')
+
+    fireEvent.click(within(priorityEmpty).getByRole('button', { name: /show all tasks/i }))
+    fireEvent.click(
+      within(toolbar).getByRole('button', {
+        name: /show tasks that still need an agent, 0 matching tasks/i,
+      })
+    )
+    const agentEmpty = screen.getByTestId('board-filter-empty')
+    expect(agentEmpty).toHaveTextContent('Agent choice is hiding tasks')
+    expect(agentEmpty).toHaveTextContent(
+      'Tasks may still exist. Show all tasks, then choose one agent option at a time.'
+    )
+    expect(agentEmpty).toHaveTextContent('Next: show all tasks before deciding nothing is waiting.')
+    expect(agentEmpty).not.toHaveTextContent('No tasks match this agent choice')
+    expect(agentEmpty).not.toHaveTextContent('agent filter')
+
+    fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'missing' } })
+    const combinedEmpty = screen.getByTestId('board-filter-empty')
+    expect(combinedEmpty).toHaveTextContent('Search and choices are hiding tasks')
+    expect(combinedEmpty).toHaveTextContent(
+      'The board still has tasks. Show all tasks, then narrow one choice at a time.'
+    )
+    expect(combinedEmpty).not.toHaveTextContent('No tasks match this view')
+    expect(combinedEmpty).not.toHaveTextContent('Filters are hiding every task')
   })
 
   test('filters board cards by priority and assignee state', async () => {
@@ -487,11 +551,12 @@ describe('BoardView', () => {
     const alert = await screen.findByTestId('board-action-error')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Check the project, task queue, and the result, then create the task again. The task was not created.'
+      'Add the task result, choose a project and a place for new tasks, then create the task again. The task was not created.'
     )
     expect(screen.getByLabelText(/task goal/i)).toHaveAccessibleDescription(
-      /check the project, task queue, and the result, then create the task again/i
+      /add the task result, choose a project and a place for new tasks, then create the task again/i
     )
+    expect(alert.textContent).not.toContain('task queue')
     expect(alert.textContent).not.toContain('API')
   })
 

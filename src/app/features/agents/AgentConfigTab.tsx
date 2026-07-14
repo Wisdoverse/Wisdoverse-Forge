@@ -21,9 +21,9 @@ interface PromptStats {
 const PROMPT_TEMPLATES = [
   {
     id: 'delivery',
-    label: 'Delivery',
+    label: 'Finish work',
     value:
-      'You are a delivery-focused agent. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.',
+      'You help finish assigned work. Ask early for missing information, keep changes scoped to the task you receive, preserve existing conventions, and report what you checked before sharing results.',
   },
   {
     id: 'result-check',
@@ -49,7 +49,7 @@ function promptStats(value: string): PromptStats {
 }
 
 function promptProfileSaveErrorMessage(): string {
-  return 'Open Agents, choose this simple chat agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Agent instructions were not saved.'
+  return 'Open Agents, choose this simple chat agent again, then save again. If it keeps failing, ask an owner or admin to check your agent access. Answer guidance was not saved.'
 }
 
 function isMissingModelLabel(label: string): boolean {
@@ -124,16 +124,17 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
   const promptStatus = saveError
     ? saveError
     : saving
-      ? 'Saving agent instructions…'
-      : dirty
-        ? 'Unsaved changes. Save to use these instructions on future work.'
-        : savedAt != null
-          ? 'Agent instructions saved.'
+      ? 'Saving answer guidance…'
+      : savedAt != null
+        ? 'Answer guidance saved.'
+        : dirty
+          ? 'Unsaved changes. Save to use these instructions on future work.'
           : hasPrompt
-            ? 'This agent already has saved instructions.'
+            ? 'This agent already has saved guidance.'
             : 'Choose a template or write instructions before saving.'
   const updatePromptValue = (nextValue: string) => {
     setValue(nextValue)
+    setSavedAt(null)
     if (saveError) {
       setSaveError(null)
     }
@@ -150,7 +151,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           <div className="flex items-center gap-2">
             <Sparkles size={16} strokeWidth={2} className="text-apple-blue" aria-hidden="true" />
             <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              Agent instructions
+              How this agent answers
             </h2>
           </div>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -258,7 +259,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             disabled={!dirty}
             title={
               dirty
-                ? 'Reset to the last saved instructions.'
+                ? 'Reset to the last saved guidance.'
                 : 'Make an edit before reset is available.'
             }
             className={cn(
@@ -293,8 +294,8 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           disabled={saving || !dirty}
           title={
             dirty
-              ? 'Save these instructions for future work.'
-              : 'Change the instructions before save is available.'
+              ? 'Save this answer guidance for future work.'
+              : 'Change the answer guidance before save is available.'
           }
           className={cn(
             'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus active:scale-95',
@@ -302,7 +303,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
           )}
         >
           <Save size={14} strokeWidth={2} aria-hidden="true" />
-          {saving ? 'Saving…' : 'Save Instructions'}
+          {saving ? 'Saving…' : 'Save answer guidance'}
         </button>
       </div>
     </div>

@@ -65,7 +65,7 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
 ]
 
 const AGENT_SEARCH_HELP =
-  'Search only filters this list. Use Show all agents to see every agent and work location again.'
+  'Search only narrows this list. Use Show all agents to see every agent and work location again.'
 const MIN_AGENT_COUNT_FOR_FLEET_CONTROLS = 3
 
 const HOST_CLI_PLATFORMS: {
@@ -326,7 +326,7 @@ function MoreAgentSetupButton({ open, onClick }: { open: boolean; onClick: () =>
       type="button"
       aria-expanded={open}
       aria-label={label}
-      title="Task queues and this computer setup"
+      title="Places and this computer setup"
       onClick={onClick}
       className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-black/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:hover:border-white/[0.16]"
     >
@@ -382,7 +382,7 @@ function agentFilterEmptyCopy({
 
   if (hasSearch && !hasStatus && !hasRuntime) {
     return {
-      title: 'Search is hiding every agent',
+      title: 'Nothing matches your agent search',
       detail: 'Agents may still exist, but none match the words you typed.',
       nextStep: 'Next: show all agents before creating another one.',
     }
@@ -390,7 +390,7 @@ function agentFilterEmptyCopy({
 
   if (!hasSearch && hasStatus && !hasRuntime) {
     return {
-      title: 'This status filter hides every agent',
+      title: 'Nothing matches this agent status',
       detail:
         'Agents may still exist in another status, such as Working now, Ready, or Not connected.',
       nextStep: 'Next: show all agents before deciding nobody is available.',
@@ -399,7 +399,7 @@ function agentFilterEmptyCopy({
 
   if (!hasSearch && !hasStatus && hasRuntime) {
     return {
-      title: 'This work location hides every agent',
+      title: 'Nothing matches this work location',
       detail:
         'Agents may still exist in another place, such as this computer or the project files option.',
       nextStep: 'Next: show all agents before deciding one is missing.',
@@ -407,8 +407,8 @@ function agentFilterEmptyCopy({
   }
 
   return {
-    title: 'Search and filters are hiding agents',
-    detail: 'Agents may still exist, but the current search and filters hide all of them.',
+    title: 'Nothing matches this agent view',
+    detail: 'Agents may still exist, but none fit the current search and choices.',
     nextStep: 'Next: show all agents, then narrow the list one choice at a time.',
   }
 }

@@ -67,7 +67,8 @@ const NAV_COMMANDS = [
     id: 'nav:skills',
     labelKey: 'commandPalette.commands.nav.skills.label',
     descriptionKey: 'commandPalette.commands.nav.skills.description',
-    searchText: 'saved instructions skills reusable steps 保存指令 技能 复用步骤',
+    searchText:
+      'saved guidance saved instructions skills reusable steps 保存指引 保存指令 技能 复用步骤',
   },
   {
     id: 'nav:settings',

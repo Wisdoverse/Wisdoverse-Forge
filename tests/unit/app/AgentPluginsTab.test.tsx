@@ -84,7 +84,7 @@ describe('AgentPluginsTab', () => {
     expect(
       within(readiness).getByText("Saved changes apply to this agent's next task.")
     ).toBeDefined()
-    expect(screen.getByRole('group', { name: /tool filter/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /tool view choices/i })).toBeDefined()
     expect(
       within(screen.getByTestId('agent-plugin-metric-enabled')).getByText('Can use now')
     ).toBeDefined()
@@ -107,7 +107,7 @@ describe('AgentPluginsTab', () => {
     expect(screen.queryByText(/normally available for agents/i)).toBeNull()
     expect(screen.queryByText(/normally off for agents/i)).toBeNull()
     expect(screen.getByLabelText("Search this agent's tools")).toHaveAccessibleDescription(
-      "Search only filters this agent's tools. Use Show all tools to return to the full list."
+      "Search only narrows this agent's tools. Use Show all tools to return to the full list."
     )
     expect(screen.queryByText(new RegExp(['workspace', 'default'].join(' '), 'i'))).toBeNull()
     expect(screen.queryByText(new RegExp(['workspace', 'setting'].join(' '), 'i'))).toBeNull()
@@ -179,7 +179,9 @@ describe('AgentPluginsTab', () => {
     const combinedEmpty = screen.getByTestId('agent-plugin-filter-empty')
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(combinedEmpty).getByText('Search and filter are hiding tools')).toBeDefined()
+    expect(
+      within(combinedEmpty).getByText('Search and selected view are hiding tools')
+    ).toBeDefined()
     expect(combinedEmpty.textContent).toContain(
       'Use Show all tools before assuming this agent has no matching tool.'
     )
@@ -290,7 +292,7 @@ describe('AgentPluginsTab', () => {
     const filterEmpty = screen.getByTestId('agent-plugin-filter-empty')
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
-    expect(within(filterEmpty).getByText('Filter is hiding tools')).toBeDefined()
+    expect(within(filterEmpty).getByText('Selected view is hiding tools')).toBeDefined()
     expect(filterEmpty.textContent).toContain('Use Show all tools to return to the full list.')
     expect(filterEmpty.textContent).not.toContain('No tools match this view')
 

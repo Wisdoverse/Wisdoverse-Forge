@@ -75,7 +75,7 @@ export function ContextCandidatesList({ title, kind, candidates }: ContextCandid
 
 function sectionDescription(kind: ContextCandidateKind): string {
   return kind === 'skill'
-    ? 'These are suggested instructions from this task. Check one before agents can follow it.'
+    ? 'This is suggested guidance from this task. Check it before agents can follow it.'
     : 'These are suggested notes from this task. Check one before saving it for future tasks.'
 }
 
@@ -89,7 +89,7 @@ function candidateTitle(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Untitled suggested note'
     case 'skill':
-      return 'Untitled suggested instruction'
+      return 'Untitled suggested guidance'
     default:
       return 'Check suggested item'
   }
@@ -107,7 +107,7 @@ function candidateKindLabel(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Suggested note'
     case 'skill':
-      return 'Suggested instruction'
+      return 'Suggested guidance'
     default:
       return 'Check suggested item'
   }
@@ -125,7 +125,7 @@ function candidateNextStep(candidate: TaskContextCandidate): string {
     case 'memory':
       return 'Next step: open Saved items, then check the wording before saving it for future tasks.'
     case 'skill':
-      return 'Next step: open Saved items, then check this instruction before agents can follow it.'
+      return 'Next step: open Saved items, then check this guidance before agents can follow it.'
     default:
       return 'Next step: open Saved items, then check this suggestion before agents can reuse it.'
   }

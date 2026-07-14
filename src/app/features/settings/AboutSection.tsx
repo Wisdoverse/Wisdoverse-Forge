@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 
 const REPO_URL = 'https://github.com/Wisdoverse/wisdoverse-forge'
@@ -10,19 +9,11 @@ export function AboutSection() {
     <div className="space-y-6" data-testid="settings-about">
       <div>
         <h2 className={uiStyles.sectionTitle}>About Wisdoverse Forge</h2>
-        <p className={uiStyles.sectionDescription}>
-          Check what you are using before asking for help or reporting an issue.
-        </p>
       </div>
 
       <div>
-        <h3 className={uiStyles.groupLabel}>Install details</h3>
-        <dl className={cn(uiStyles.card, 'divide-y divide-[rgb(var(--border))]')}>
-          <Row
-            label="Product name"
-            description="Use this name when sharing screenshots or asking an owner or admin for help."
-            value="Wisdoverse Forge"
-          />
+        <h3 className={uiStyles.groupLabel}>App details</h3>
+        <dl className="divide-y divide-[rgb(var(--border))] border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
           <Row
             label="Version"
             description="Share this number when something looks wrong after an update."
@@ -31,13 +22,13 @@ export function AboutSection() {
           />
           <Row
             label="Project page"
-            description="Open the public page for releases, issues, and contribution details."
+            description="Open the public page for updates, fixes, and project details."
             value={
               <a
                 href={REPO_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="text-apple-blue hover:underline"
+                className="underline-offset-2 hover:underline"
               >
                 Open project page
               </a>

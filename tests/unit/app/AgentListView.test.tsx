@@ -90,16 +90,19 @@ describe('AgentListView', () => {
     expect(screen.queryByRole('button', { name: /^create agent$/i })).toBeNull()
   })
 
-  test('keeps task queue and local computer setup collapsed by default', () => {
+  test('keeps place and computer setup collapsed by default', () => {
     render(<AgentListView />)
 
     const layout = screen.getByTestId('agent-list-layout')
     expect(layout.className).not.toContain('xl:grid-cols')
     const header = screen.getByTestId('agent-list-header')
-    expect(within(header).getByRole('button', { name: /more agent setup/i })).toHaveAttribute(
+    const moreSetupButton = within(header).getByRole('button', { name: /more agent setup/i })
+    expect(moreSetupButton).toHaveAttribute(
       'aria-expanded',
       'false'
     )
+    expect(moreSetupButton).toHaveAttribute('title', 'Places and this computer setup')
+    expect(screen.queryByText('Task queues and this computer setup')).toBeNull()
     expect(screen.queryByText('Task Queues')).toBeNull()
     expect(screen.queryByTestId('host-cli-enrollment-panel')).toBeNull()
 
@@ -111,7 +114,8 @@ describe('AgentListView', () => {
     )
     expect(screen.getByTestId('more-agent-setup')).toHaveClass('space-y-4')
     expect(screen.getByTestId('more-agent-setup').className).not.toContain('grid-cols')
-    expect(screen.getByText('Task Queues')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Places for new tasks' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Task Queues' })).toBeNull()
     expect(screen.getByTestId('host-cli-enrollment-panel')).toBeDefined()
   })
 
@@ -518,7 +522,9 @@ describe('AgentListView', () => {
       'agent-search-help'
     )
     expect(
-      screen.getByText(/use show all agents to see every agent and work location again/i)
+      screen.getByText(
+        'Search only narrows this list. Use Show all agents to see every agent and work location again.'
+      )
     ).toBeDefined()
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'review' } })
@@ -586,7 +592,7 @@ describe('AgentListView', () => {
     const emptyState = screen.getByTestId('agent-filter-empty')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
-    expect(within(emptyState).getByText('Search is hiding every agent')).toBeDefined()
+    expect(within(emptyState).getByText('Nothing matches your agent search')).toBeDefined()
     expect(within(emptyState).getByText(/none match the words you typed/i)).toBeDefined()
     expect(within(emptyState).getByText(/before creating another one/i)).toBeDefined()
     expect(emptyState.textContent).not.toContain('No Agents Match This View')
@@ -597,7 +603,7 @@ describe('AgentListView', () => {
     expect(screen.getByText('Build Runner')).toBeDefined()
   })
 
-  test('explains when a status filter hides every agent', () => {
+  test('explains selected views without filter jargon when no agents match', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
         id: 'cli-agent',
@@ -632,17 +638,36 @@ describe('AgentListView', () => {
     const emptyState = screen.getByTestId('agent-filter-empty')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
-    expect(within(emptyState).getByText('This status filter hides every agent')).toBeDefined()
+    expect(within(emptyState).getByText('Nothing matches this agent status')).toBeDefined()
     expect(
       within(emptyState).getByText(/another status, such as Working now, Ready, or Not connected/i)
     ).toBeDefined()
     expect(within(emptyState).getByText(/before deciding nobody is available/i)).toBeDefined()
     expect(emptyState.textContent).not.toContain('No Agents Match This View')
+    expect(emptyState.textContent).not.toContain('status filter')
     expect(emptyState.textContent).not.toContain('idle')
     expect(emptyState.textContent).not.toContain('offline')
 
     fireEvent.click(within(emptyState).getByRole('button', { name: /show all agents/i }))
     expect(screen.getByText('Build Runner')).toBeDefined()
+
+    const workLocationFilters = screen.getByRole('group', { name: /work location filter/i })
+    fireEvent.click(
+      within(workLocationFilters).getByRole('button', { name: /simple chat agent\s*0/i })
+    )
+    const locationEmpty = screen.getByTestId('agent-filter-empty')
+    expect(within(locationEmpty).getByText('Nothing matches this work location')).toBeDefined()
+    expect(locationEmpty).toHaveTextContent(
+      'Agents may still exist in another place, such as this computer or the project files option.'
+    )
+
+    fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'missing' } })
+    const combinedEmpty = screen.getByTestId('agent-filter-empty')
+    expect(within(combinedEmpty).getByText('Nothing matches this agent view')).toBeDefined()
+    expect(combinedEmpty).toHaveTextContent(
+      'Agents may still exist, but none fit the current search and choices.'
+    )
+    expect(combinedEmpty).not.toHaveTextContent('filters are hiding')
   })
 
   test('shows New agent buttons', () => {
@@ -652,7 +677,7 @@ describe('AgentListView', () => {
     expect(screen.queryByText(/^Create Agent$/i)).toBeNull()
   })
 
-  test('creates a task queue from the selected project context', async () => {
+  test('creates a place from the selected project context', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-new', name: input.name, projectId }
@@ -682,16 +707,18 @@ describe('AgentListView', () => {
     render(<AgentListView />)
     openMoreAgentSetup()
 
-    expect(screen.getByText('Task Queues')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Places for new tasks' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Task Queues' })).toBeNull()
     expect(
-      screen.getByText(/shared task queues tell agents where to start new work/i)
+      screen.getByText(/choose a place for new tasks before an agent starts them/i)
     ).toBeDefined()
+    expect(screen.queryByText(/shared task queues tell agents/i)).toBeNull()
     expect(screen.queryByText(/agents check for tasks/i)).toBeNull()
     expect(screen.queryByText(/waiting places/i)).toBeNull()
-    fireEvent.change(screen.getByLabelText(/task queue name/i), {
+    fireEvent.change(screen.getByLabelText(/place name/i), {
       target: { value: 'Frontend Delivery' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create place$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(
@@ -709,7 +736,7 @@ describe('AgentListView', () => {
     )
   })
 
-  test('applies a task queue template before creating where tasks wait', async () => {
+  test('applies a place example before creating where tasks wait', async () => {
     const createAgentGroup = vi.fn(
       async (projectId: string, input: { name: string; description?: string }) => {
         const group = { id: 'g-review', name: input.name, projectId }
@@ -739,21 +766,21 @@ describe('AgentListView', () => {
     render(<AgentListView />)
     openMoreAgentSetup()
 
-    const templates = screen.getByRole('group', { name: /task queue templates/i })
+    const templates = screen.getByRole('group', { name: /place examples/i })
     fireEvent.click(within(templates).getByRole('button', { name: /check results/i }))
 
-    expect(screen.getByLabelText(/task queue name/i)).toHaveValue('Result Check Tasks')
-    expect((screen.getByLabelText(/task queue description/i) as HTMLInputElement).value).toContain(
+    expect(screen.getByLabelText(/place name/i)).toHaveValue('Result Check Tasks')
+    expect((screen.getByLabelText(/place description/i) as HTMLInputElement).value).toContain(
       'unsafe to use'
     )
     expect(
-      (screen.getByLabelText(/task queue description/i) as HTMLInputElement).value
+      (screen.getByLabelText(/place description/i) as HTMLInputElement).value
     ).not.toContain('Review completed work')
     expect(
-      (screen.getByLabelText(/task queue description/i) as HTMLInputElement).value
+      (screen.getByLabelText(/place description/i) as HTMLInputElement).value
     ).not.toContain('block release')
 
-    fireEvent.click(screen.getByRole('button', { name: /^create task queue$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create place$/i }))
 
     await waitFor(() =>
       expect(createAgentGroup).toHaveBeenCalledWith(

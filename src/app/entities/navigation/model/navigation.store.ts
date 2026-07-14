@@ -58,7 +58,7 @@ interface NavigationState {
    * because the project list fetch already carries `cloneStatus`/`clone`.
    */
   applyCloneStatusUpdate: (update: CloneStatusUpdate) => void
-  /** Resolves `false` when the project was selected but its task queues
+  /** Resolves `false` when the project was selected but its places for new tasks
    * failed to load; callers that need them show a retry
    * message instead of wrongly telling the user to create a new one. */
   selectProject: (projectId: string) => Promise<boolean>
@@ -82,20 +82,20 @@ type NavigationErrorAction = 'load' | 'create'
 const NAVIGATION_AREA_LABELS: Record<NavigationErrorArea, string> = {
   organizations: 'team spaces',
   teamProjects: 'teams and projects',
-  workLanes: 'task queues',
-  workLane: 'task queue',
+  workLanes: 'places for new tasks',
+  workLane: 'place for new tasks',
 }
 
 function navigationAreaNotReadyMessage(area: NavigationErrorArea): string {
   switch (area) {
     case 'workLane':
-      return 'The task queue is not ready yet.'
+      return 'The place for new tasks is not ready yet.'
     case 'organizations':
       return 'Team spaces are not ready yet.'
     case 'teamProjects':
       return 'Teams and projects are not ready yet.'
     case 'workLanes':
-      return 'Task queues are not ready yet.'
+      return 'Places for new tasks are not ready yet.'
   }
 }
 
@@ -272,14 +272,14 @@ function navigationValidationMessage(
 
   if (area === 'workLane' || area === 'workLanes') {
     if (normalized.includes('name') || normalized.includes('title')) {
-      return 'Name this task queue, choose its project, then create it again.'
+      return 'Name this place for new tasks, choose its project, then create it again.'
     }
     if (normalized.includes('project')) {
-      return 'Choose the project for this task queue, then create it again.'
+      return 'Choose the project for this place, then create it again.'
     }
     return action === 'create'
-      ? 'Check the task queue name and project, then create it again.'
-      : 'Open the left menu, choose the selected project, then load task queues again.'
+      ? 'Check the place name and project, then create it again.'
+      : 'Open the left menu, choose the selected project, then load places for new tasks again.'
   }
 
   if (area === 'teamProjects') {

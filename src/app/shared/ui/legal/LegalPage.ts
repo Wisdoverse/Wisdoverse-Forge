@@ -245,7 +245,7 @@ export class LegalPage {
         <ul class="legal-list">
           <li>Agent controls for creating, starting, stopping, and reviewing agents that handle team tasks</li>
           <li>Task boards and work history so teams can track what each agent is doing</li>
-          <li>Saved results, saved notes, and saved instructions that help you understand agent results</li>
+          <li>Saved results, saved notes, and saved guidance that help you understand agent results</li>
           <li>Team and project controls for keeping each organization&apos;s work separated</li>
           <li>Connections to supported AI services and work tools chosen by your organization</li>
           <li>Live activity updates and notifications for important task and agent changes</li>

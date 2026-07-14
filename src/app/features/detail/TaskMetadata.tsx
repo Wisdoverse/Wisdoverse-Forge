@@ -1,26 +1,12 @@
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { TaskSummary } from '@app/shared/api/orchestration'
-import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
+import { taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { TASK_AGENT_NAME_LOADING_LABEL } from './model/taskAgentLabels'
 
-const STATE_COLORS: Record<string, string> = {
-  backlog: 'bg-apple-gray-1 text-white',
-  queued: 'bg-apple-orange text-white',
-  working: 'bg-apple-green text-white',
-  blocked: 'bg-apple-red text-white',
-  completed: 'bg-apple-gray-2 text-white',
-  failed: 'bg-apple-red text-white',
-  canceled: 'bg-apple-gray-3 text-white',
-}
-
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'bg-apple-red/10 text-apple-red',
-  high: 'bg-apple-orange/10 text-apple-orange',
-  normal: 'bg-apple-gray-5 text-apple-gray-1',
-  low: 'bg-apple-gray-5 text-apple-gray-2',
-}
+const METADATA_BADGE_TONE =
+  'border border-black/[0.08] bg-transparent text-secondary-light dark:border-white/[0.1] dark:text-secondary-dark'
 
 interface TaskMetadataProps {
   task: TaskSummary
@@ -29,8 +15,6 @@ interface TaskMetadataProps {
 export function TaskMetadata({ task }: TaskMetadataProps) {
   const hasAssignee = Boolean(task.assignedAgentName || task.assignedTo)
   const guidance = taskMetadataGuidance(task, hasAssignee)
-  const stateKey = taskMachineKey(task.state)
-  const priorityKey = taskMachineKey(task.priority)
   const attemptLabel = taskAttemptLabel(task.attempt)
 
   return (
@@ -38,23 +22,22 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       {/* Badges row */}
       <div className="flex items-center gap-2 flex-wrap">
         <span
-          className={cn(
-            'text-[10px] font-semibold px-2 py-0.5 rounded-badge',
-            STATE_COLORS[stateKey] ?? 'bg-apple-gray-5 text-apple-gray-1'
-          )}
+          className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-badge', METADATA_BADGE_TONE)}
         >
           {taskStateLabel(task.state)}
         </span>
         <span
-          className={cn(
-            'text-[10px] font-medium px-1.5 py-0.5 rounded-badge',
-            PRIORITY_COLORS[priorityKey] ?? 'bg-apple-gray-5 text-apple-gray-1'
-          )}
+          className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-badge', METADATA_BADGE_TONE)}
         >
           {taskPriorityLabel(task.priority)}
         </span>
         {attemptLabel && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-badge bg-apple-gray-5 text-apple-gray-2 tabular-nums">
+          <span
+            className={cn(
+              'text-[10px] font-medium px-1.5 py-0.5 rounded-badge tabular-nums',
+              METADATA_BADGE_TONE
+            )}
+          >
             {attemptLabel}
           </span>
         )}
@@ -63,7 +46,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       {/* Agent check-in countdown while work is active. */}
       {task.state === 'working' && task.leaseExpiresAt != null && (
         <p className="text-[10px] text-secondary-light dark:text-secondary-dark">
-          Agent check-in due {formatRelativeTime(task.leaseExpiresAt)}
+          Agent should report back {formatRelativeTime(task.leaseExpiresAt)}
         </p>
       )}
 
@@ -71,7 +54,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       <div className="flex items-center justify-between text-xs">
         <span className="text-secondary-light dark:text-secondary-dark">Agent</span>
         {hasAssignee ? (
-          <span className="font-medium text-apple-purple">
+          <span className="font-medium text-foreground-light dark:text-foreground-dark">
             {task.assignedAgentName ?? TASK_AGENT_NAME_LOADING_LABEL}
           </span>
         ) : (
@@ -81,7 +64,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
       <div
         data-testid="task-metadata-guidance"
-        className="space-y-1 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
+        className="space-y-1 border-y border-black/[0.06] bg-transparent py-2 dark:border-white/[0.08]"
       >
         <p className="text-[10px] font-semibold uppercase tracking-wide text-secondary-light dark:text-secondary-dark">
           What this status means
@@ -102,7 +85,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
           </div>
           <div className="h-1.5 bg-apple-gray-5 dark:bg-white/10 rounded-full overflow-hidden">
             <div
-              className="h-full bg-apple-green rounded-full transition-all"
+              className="h-full rounded-full bg-secondary-light transition-all dark:bg-secondary-dark"
               style={{ width: `${task.progress}%` }}
             />
           </div>
@@ -133,7 +116,7 @@ function taskMetadataGuidance(task: TaskSummary, hasAssignee: boolean): string {
     case 'queued':
       return hasAssignee
         ? 'The task is waiting for the chosen agent to start. If it stays here, open Updates or choose another agent.'
-        : 'The task is waiting for a ready agent to start. If it stays here, choose or start an agent.'
+        : 'The task is waiting for an agent to start. If it stays here, choose or start an agent.'
     case 'working':
       return 'An agent is working now. Watch progress here and check Updates for recent activity.'
     case 'blocked':

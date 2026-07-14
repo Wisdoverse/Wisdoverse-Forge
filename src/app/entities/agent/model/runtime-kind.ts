@@ -103,6 +103,14 @@ export const RUNTIME_KIND_SHORT_LABELS: Record<AgentRuntimeKind, string> = {
   api: 'Questions only',
 }
 
+/** Plain-language descriptions for tooltips and compact help. */
+const RUNTIME_KIND_DESCRIPTIONS: Record<AgentRuntimeKind, string> = {
+  container:
+    'Works with shared project files. It can change files, run checks, and save what it checked.',
+  cli: 'Uses files and tools on this connected computer. Use it when work should stay there.',
+  api: 'Answers in chat through a connected AI service. It cannot take Tasks, change code, use computer apps, or open project files on its own.',
+}
+
 /** Canonical runtime kinds in display order. */
 export const RUNTIME_KINDS: readonly AgentRuntimeKind[] = ['container', 'cli', 'api'] as const
 
@@ -140,5 +148,19 @@ export function runtimeKindShortLabel(kind: AgentRuntimeKind | string | undefine
       return 'Check location'
     default:
       return 'Check location'
+  }
+}
+
+/** Return a plain-language description for a runtime kind. */
+export function runtimeKindDescription(kind: AgentRuntimeKind | string | undefined): string {
+  switch (kind?.trim().toLowerCase()) {
+    case 'container':
+      return RUNTIME_KIND_DESCRIPTIONS.container
+    case 'cli':
+      return RUNTIME_KIND_DESCRIPTIONS.cli
+    case 'api':
+      return RUNTIME_KIND_DESCRIPTIONS.api
+    default:
+      return 'Check this agent before sending work.'
   }
 }

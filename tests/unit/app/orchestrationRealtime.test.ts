@@ -25,6 +25,10 @@ describe('handleOrchestrationWsMessage', () => {
     expect(items[0]?.type).toBe('workflow_status')
     expect(items[0]?.taskTitle).toContain('wf-12345')
     expect(items[0]?.taskTitle).toContain('completed')
+    expect(items[0]?.taskTitle).toContain('Background work')
+    expect(items[0]?.taskTitle).not.toContain('Workflow')
+    expect(items[0]?.detail).toContain('The background work finished')
+    expect(items[0]?.detail).not.toContain('workflow')
   })
 
   it('review.escalated surfaces a notification on the existing inbox path', () => {

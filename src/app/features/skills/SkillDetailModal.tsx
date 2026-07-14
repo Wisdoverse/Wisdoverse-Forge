@@ -39,7 +39,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
       <div
         className={cn(
           'w-full max-w-md max-h-[80vh] overflow-y-auto',
-          'rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]',
+          'rounded-md border border-black/[0.08] bg-transparent dark:border-white/[0.1]',
           'flex flex-col'
         )}
       >
@@ -58,7 +58,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
             type="button"
             onClick={onClose}
             aria-label={t('skills.detail.closeAria')}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-secondary-light transition-colors hover:text-foreground-light focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:text-foreground-dark"
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -86,7 +86,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
             </span>
           </div>
 
-          <section className="rounded-card border border-apple-blue/20 bg-apple-blue/[0.06] px-3 py-2">
+          <section className="rounded-md border border-black/[0.08] bg-transparent px-3 py-2 dark:border-white/[0.08]">
             <h3 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
               {t('skills.detail.nextStepHeading')}
             </h3>
@@ -113,14 +113,14 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
           </section>
 
           {skill.triggerPattern && (
-            <section className="flex flex-col gap-1 rounded-card border border-black/[0.08] px-3 py-2 dark:border-white/[0.08]">
+            <section className="flex flex-col gap-1 rounded-md border border-black/[0.08] px-3 py-2 dark:border-white/[0.08]">
               <h3 className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
                 {t('skills.detail.triggerHeading')}
               </h3>
               <p className="text-ui-body text-foreground-light dark:text-foreground-dark">
                 {t('skills.detail.triggerHelper')}
               </p>
-              <span className="mt-1 w-fit max-w-full rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+              <span className="mt-1 w-fit max-w-full rounded-md border border-black/[0.08] bg-transparent px-2 py-0.5 text-ui-caption text-secondary-light dark:border-white/[0.1] dark:text-secondary-dark">
                 {skill.triggerPattern}
               </span>
             </section>
@@ -138,14 +138,16 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
                 className={cn(
                   'whitespace-pre-wrap font-mono text-ui-caption',
                   'text-foreground-light dark:text-foreground-dark',
-                  'rounded-card bg-black/[0.04] p-3 dark:bg-white/[0.04]',
+                  'rounded-md border border-black/[0.08] bg-transparent p-3 dark:border-white/[0.08]',
                   'max-h-40 overflow-y-auto'
                 )}
               >
                 {skill.content}
               </pre>
             ) : (
-              <div className={uiStyles.note}>{t('skills.detail.noContent')}</div>
+              <div className="rounded-md border border-black/[0.08] bg-transparent px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.08] dark:text-secondary-dark">
+                {t('skills.detail.noContent')}
+              </div>
             )}
           </section>
         </div>
@@ -163,7 +165,7 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
 
 function SkillMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+    <div className="rounded-md border border-black/[0.08] bg-transparent px-3 py-2 dark:border-white/[0.08]">
       <div className="text-ui-caption text-secondary-light dark:text-secondary-dark">{label}</div>
       <div className="mt-1 truncate text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
         {value}

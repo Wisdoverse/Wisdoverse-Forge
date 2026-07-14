@@ -15,7 +15,7 @@ export function agentCanTakeTask(agent: AgentTaskReadinessInput): boolean {
 }
 
 export function agentTaskStatusLabel(agent: AgentTaskReadinessInput): string {
-  if (!agentHasTaskCapability(agent)) return 'chat only - cannot take Tasks'
+  if (!agentHasTaskCapability(agent)) return 'questions only - use Chat'
 
   const normalized = normalizeAgentStatus(agent.status)
   switch (normalized) {
@@ -28,7 +28,7 @@ export function agentTaskStatusLabel(agent: AgentTaskReadinessInput): string {
     case 'offline':
       return 'not connected'
     default:
-      return normalized ? 'not ready' : 'check agent status'
+      return normalized ? 'not ready' : 'check if ready'
   }
 }
 
