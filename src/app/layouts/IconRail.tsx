@@ -34,7 +34,7 @@ export function IconRail({ activePath, onNavigate }: IconRailProps) {
         'shadow-card dark:bg-surface-dark dark:shadow-card-dark'
       )}
     >
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-apple-blue to-apple-purple flex items-center justify-center text-white text-sm font-bold mb-2">
+      <div className="w-8 h-8 rounded-lg bg-apple-blue flex items-center justify-center text-white text-sm font-bold mb-2">
         <Zap size={16} strokeWidth={2.2} aria-hidden="true" />
       </div>
 
