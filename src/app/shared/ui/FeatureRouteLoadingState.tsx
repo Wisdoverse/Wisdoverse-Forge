@@ -20,7 +20,7 @@ export function FeatureRouteLoadingState({
         <p className="m-0 text-base font-semibold text-primary-light dark:text-primary-dark">
           {title}
         </p>
-        <p className="mt-2 text-sm leading-6 text-secondary-light dark:text-secondary-dark">
+        <p className="mt-2 text-ui-body leading-6 text-secondary-light dark:text-secondary-dark">
           {detail}
         </p>
       </div>

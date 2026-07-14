@@ -3,6 +3,7 @@ import { Command } from 'cmdk'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { useSettingsStore } from '@app/entities/settings'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
@@ -276,7 +277,7 @@ export function CommandPalette({
         className={cn(
           'w-full max-w-lg mx-4',
           'bg-surface dark:bg-surface-dark',
-          'rounded-[10px] shadow-panel',
+          'rounded-card border border-black/[0.08] shadow-panel dark:border-white/[0.1]',
           'overflow-hidden'
         )}
       >
@@ -303,14 +304,14 @@ export function CommandPalette({
             onValueChange={setSearch}
             placeholder={t('commandPalette.placeholder')}
             className={cn(
-              'w-full px-4 py-3 text-sm outline-none',
+              'w-full px-4 py-3 text-ui-body outline-none',
               'bg-transparent border-b border-black/[0.08] dark:border-white/[0.08]',
               'text-foreground-light dark:text-foreground-dark',
               'placeholder:text-secondary-light dark:placeholder:text-secondary-dark'
             )}
           />
           <Command.List className="max-h-80 overflow-y-auto py-2">
-            <Command.Empty className="px-4 py-6 text-center text-sm text-secondary-light dark:text-secondary-dark">
+            <Command.Empty className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
               <div role="status" aria-live="polite">
                 <p className="font-medium text-foreground-light dark:text-foreground-dark">
                   {t('commandPalette.empty.title')}
@@ -327,7 +328,7 @@ export function CommandPalette({
                       key={command.id}
                       type="button"
                       onClick={() => handleSelect(command.id)}
-                      className="inline-flex h-8 items-center justify-center rounded-full border border-apple-blue/30 bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-apple-blue/40 dark:bg-apple-blue/15 dark:text-apple-blue-light dark:hover:bg-apple-blue/25"
+                      className={uiStyles.secondaryButton}
                     >
                       {t('commandPalette.empty.openPage', { label: command.label })}
                     </button>
@@ -340,7 +341,7 @@ export function CommandPalette({
                   setSearch('')
                   setShowSecondaryActions(true)
                 }}
-                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]"
+                className={cn(uiStyles.secondaryButton, 'mt-3')}
               >
                 {t('commandPalette.empty.showAll')}
               </button>
@@ -348,7 +349,7 @@ export function CommandPalette({
 
             <Command.Group
               heading={t('commandPalette.groups.navigation')}
-              className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
+              className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-ui-caption [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
             >
               {navCommands.map((cmd) => (
                 <Command.Item
@@ -356,7 +357,7 @@ export function CommandPalette({
                   value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}
                   onSelect={() => handleSelect(cmd.id)}
                   className={cn(
-                    'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-sm',
+                    'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-ui-body',
                     'text-foreground-light dark:text-foreground-dark',
                     'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]',
                     'aria-selected:bg-black/[0.06] dark:aria-selected:bg-white/[0.08]'
@@ -374,7 +375,7 @@ export function CommandPalette({
                   aria-expanded={showSecondaryActions}
                   onClick={() => setShowSecondaryActions((value) => !value)}
                   className={cn(
-                    'mx-3 my-1 flex w-[calc(100%-1.5rem)] flex-col gap-0.5 rounded-md px-3 py-2 text-left text-sm',
+                    'mx-3 my-1 flex w-[calc(100%-1.5rem)] flex-col gap-0.5 rounded-button px-3 py-2 text-left text-ui-body',
                     'border border-black/[0.08] bg-black/[0.02] text-foreground-light',
                     'transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
                     'dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
@@ -396,7 +397,7 @@ export function CommandPalette({
 
             <Command.Group
               heading={t('commandPalette.groups.actions')}
-              className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
+              className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-ui-caption [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
             >
               {actionCommands.map((cmd) => (
                 <Command.Item
@@ -404,7 +405,7 @@ export function CommandPalette({
                   value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}
                   onSelect={() => handleSelect(cmd.id)}
                   className={cn(
-                    'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-sm',
+                    'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-ui-body',
                     'text-foreground-light dark:text-foreground-dark',
                     'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]',
                     'aria-selected:bg-black/[0.06] dark:aria-selected:bg-white/[0.08]'
@@ -420,7 +421,7 @@ export function CommandPalette({
 
             <Command.Group
               heading={t('commandPalette.groups.views')}
-              className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
+              className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-ui-caption [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary-light dark:[&_[cmdk-group-heading]]:text-secondary-dark"
             >
               {viewCommands.map((cmd) => (
                 <Command.Item
@@ -428,7 +429,7 @@ export function CommandPalette({
                   value={`${cmd.label} ${cmd.description} ${cmd.searchText ?? ''}`}
                   onSelect={() => handleSelect(cmd.id)}
                   className={cn(
-                    'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-sm',
+                    'flex cursor-pointer flex-col gap-0.5 px-4 py-2 text-ui-body',
                     'text-foreground-light dark:text-foreground-dark',
                     'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]',
                     'aria-selected:bg-black/[0.06] dark:aria-selected:bg-white/[0.08]'

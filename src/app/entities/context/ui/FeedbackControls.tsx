@@ -96,7 +96,7 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
             onClick={() => record(option.label)}
             title={option.description}
             className={cn(
-              'rounded-button px-2 py-1 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+              'h-8 rounded-button px-2.5 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
               selected === option.label
                 ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
                 : 'bg-apple-gray-6 text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:bg-white/[0.05] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
