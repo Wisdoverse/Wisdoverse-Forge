@@ -351,11 +351,11 @@ function adminResourceLabel(resource: AdminResource): string {
     case 'agents':
       return 'agent list'
     case 'health':
-      return 'system health'
+      return 'App health'
     case 'cli-images':
       return 'agent tool updates'
     case 'control-plane':
-      return 'agent coordination status'
+      return 'agent work checks'
   }
 }
 
@@ -372,7 +372,7 @@ function adminResourceSectionLabel(resource: AdminResource): string {
     case 'cli-images':
       return 'Agent tool updates'
     case 'control-plane':
-      return 'Agent coordination'
+      return 'Agent work checks'
   }
 }
 
@@ -409,34 +409,38 @@ export function adminHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const label = adminResourceLabel(resource)
+  const adminSubjectLabel = resource === 'health' ? label : `The admin ${label}`
+  const adminObjectLabel = resource === 'health' ? label : `the admin ${label}`
   void data
 
   if (status === 401) {
     return `Your sign-in expired. Sign in again, then ${openAdminResourceStep(resource)}.`
   }
   if (status === 403) {
-    return `Ask an owner or admin to give you Admin access, then ${openAdminResourceStep(resource)}. You do not have access to the admin ${label}.`
+    return `Ask an owner or admin to give you Admin access, then ${openAdminResourceStep(resource)}. You do not have access to ${adminObjectLabel}.`
   }
   if (status === 404) {
-    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. The admin ${label} is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.`
+    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. ${adminSubjectLabel} is not available from this Admin view. If it still fails, ask an owner or admin to check this Admin page.`
   }
   if (status === 409) {
     return resource === 'cli-images'
       ? 'Wait for the current update to finish, then open Admin and choose Agent tool updates before trying again. An agent tool update is already in progress.'
-      : `Open Admin and choose ${adminResourceSectionLabel(resource)}, review the latest state, then try again. The admin ${label} changed while you were working.`
+      : `Open Admin and choose ${adminResourceSectionLabel(resource)}, review the latest state, then try again. ${adminSubjectLabel} changed while you were working.`
   }
   if (status === 429) {
     return `Wait a moment, then ${openAdminResourceStep(resource)} before trying again. Forge is receiving too many Admin requests right now.`
   }
   if (status >= 500) {
-    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then ${adminResourceRetryStep(resource)}. Forge could not load the admin ${label} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
+    return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then ${adminResourceRetryStep(resource)}. Forge could not load ${adminObjectLabel} right now. If it still fails, ask an owner or admin to check ${label} in Admin.`
   }
 
-  return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. The admin ${label} could not load. If it still fails, ask an owner or admin to check ${label} in Admin.`
+  return `Open Admin and choose ${adminResourceSectionLabel(resource)}, then try again. ${adminSubjectLabel} could not load. If it still fails, ask an owner or admin to check ${label} in Admin.`
 }
 
 function adminNetworkErrorMessage(resource: AdminResource): string {
-  return `Check your connection, then ${openAdminResourceStep(resource)}. Forge could not connect while loading the admin ${adminResourceLabel(resource)}.`
+  const label = adminResourceLabel(resource)
+  const adminObjectLabel = resource === 'health' ? label : `the admin ${label}`
+  return `Check your connection, then ${openAdminResourceStep(resource)}. Forge could not connect while loading ${adminObjectLabel}.`
 }
 
 function adminErrorMessage(err: unknown, resource: AdminResource): string {

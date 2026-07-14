@@ -8,8 +8,8 @@ import { formatAccessDate } from './formatAccessDate'
 import { sshKeysErrorMessage } from './sshKeysErrorMessage'
 
 function describeKeyType(keyType: string): string {
-  if (keyType === 'ssh-ed25519') return 'Recommended for new access'
-  if (keyType === 'ssh-rsa') return 'Works, but older'
+  if (keyType === 'ssh-ed25519') return 'Best for new access'
+  if (keyType === 'ssh-rsa') return 'Older, still works'
   return 'Ask an admin to check this saved key'
 }
 
@@ -333,8 +333,8 @@ export function SshKeysSection() {
 
   const tableHeaders: { label: string; className?: string }[] = [
     { label: 'Key name' },
-    { label: 'Saved key check text' },
-    { label: 'Accepted by Forge' },
+    { label: 'How to recognize it' },
+    { label: 'Can Forge use it?' },
     { label: 'Added on' },
     { label: '', className: 'w-20' },
   ]
@@ -383,13 +383,13 @@ export function SshKeysSection() {
       )}
 
       {/* Table */}
-      <div className={cn(uiStyles.card, 'overflow-x-auto')}>
+      <div className="overflow-x-auto border-y border-black/[0.06] bg-transparent dark:border-white/[0.08]">
         {sshKeysLoading && sshKeys.length === 0 ? (
           <BeginnerLoadingState
-            title="Checking code access for SSH links"
-            detail="Forge is checking which saved public key lines can open git@ private code links."
+            title="Checking private git@ code links"
+            detail="Forge is checking whether saved access can open code links that start with git@."
             nextStep="If this takes more than a moment, open Settings again or ask an owner or admin to check code access."
-            success="Success looks like saved access for SSH links or a step to add one."
+            success="Success looks like saved access or a clear step to add it."
             testId="ssh-access-loading-state"
             framed={false}
             compact

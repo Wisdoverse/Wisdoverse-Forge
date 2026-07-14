@@ -87,10 +87,11 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check your connection, then open Settings and AI services again. Forge could not connect while opening AI service settings.'
+      'Check your connection, then open Settings and AI services again. Forge could not connect while opening AI services.'
     )
     expect(message).not.toContain('the service')
     expect(message).not.toContain('Failed to fetch')
+    expect(message).not.toContain('AI service settings')
   })
 
   test('starts save network failures with the recovery step', () => {
@@ -115,14 +116,15 @@ describe('providerSettingsErrorMessage', () => {
     expect(message).not.toContain('opening AI service settings')
   })
 
-  test('turns temporary failures into a model service settings recovery step', () => {
+  test('turns temporary failures into an AI services recovery step', () => {
     const message = providerSettingsErrorMessage('HTTP 500')
 
     expectBeginnerMessage(
       message,
-      'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI services.'
     )
     expect(message).not.toContain('settings page')
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('temporarily unavailable')
   })
 
@@ -133,9 +135,10 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and AI services again, then save this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Open Settings and AI services again, then save this AI service again. If it still fails, ask an owner or admin to check AI services.'
     )
     expect(message).not.toContain('database unavailable')
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('Paste the service access key')
   })
 
@@ -151,8 +154,9 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI services.'
     )
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('parser')
   })
 
@@ -161,8 +165,9 @@ describe('providerSettingsErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Save this AI service again. If it still fails, ask an owner or admin to check AI service settings.'
+      'Save this AI service again. If it still fails, ask an owner or admin to check AI services.'
     )
+    expect(message).not.toContain('AI service settings')
     expect(message).not.toContain('Try to')
     expect(message).not.toContain('parser')
   })

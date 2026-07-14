@@ -16,7 +16,7 @@ export function FeatureRouteLoadingState({
       data-testid={testId}
       className="flex h-full min-h-[320px] items-center justify-center px-6 py-10 text-left"
     >
-      <div className="w-full max-w-md rounded-lg border border-surface-border-light bg-white p-6 shadow-sm dark:border-surface-border-dark dark:bg-surface-dark">
+      <div className="w-full max-w-md rounded-md border border-surface-border-light bg-transparent p-6 dark:border-surface-border-dark">
         <p className="m-0 text-base font-semibold text-primary-light dark:text-primary-dark">
           {title}
         </p>

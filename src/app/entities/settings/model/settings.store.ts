@@ -116,7 +116,7 @@ type SettingsErrorArea =
 type SettingsErrorAction = 'load' | 'save' | 'delete' | 'create' | 'revoke' | 'update'
 
 const SETTINGS_AREA_LABELS: Record<SettingsErrorArea, string> = {
-  providers: 'AI service settings',
+  providers: 'AI services',
   apiKeys: 'tool access keys',
   gitCredentials: 'code access',
   sshKeys: 'SSH code access',

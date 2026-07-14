@@ -1225,6 +1225,8 @@ const SAVED_INSTRUCTION_LIST_STATUS_JARGON_PATTERNS = [
   /\bstatusNeedsInstall:\s*['"`]需要先完成设置['"`]/,
   /\bNeeds setup\b/i,
   /\bChoose Save instruction or refresh this page\./i,
+  /\bSearch and filter are hiding saved instructions\b/i,
+  /\bFilter is hiding saved instructions\b/i,
 ]
 
 const SAVED_INSTRUCTION_CREATE_FIELD_JARGON_PATTERNS = [
@@ -1945,6 +1947,7 @@ const GOVERNANCE_AUDIT_RECOVERY_DEAD_END_PATTERNS = [
 ]
 
 const GOVERNANCE_AUDIT_VISIBLE_JARGON_PATTERNS = [
+  /\bapply (?:the )?(?:change )?filters?\b/i,
   /\baudit views\b/i,
   /\baudit view\b/i,
   /\baudit history\b/i,

@@ -116,7 +116,7 @@ describe('CreateAgentModal', () => {
       within(choices).getByText('Tasks and code changes in a folder on this computer.')
     ).toBeInTheDocument()
     expect(
-      within(choices).getByText('Questions only. No Tasks, code changes, or computer apps.')
+      within(choices).getByText('Questions only. It cannot take Tasks, change files, or use apps.')
     ).toBeInTheDocument()
     expect(screen.queryByTestId('agent-runtime-fit')).toBeNull()
   })
@@ -152,7 +152,7 @@ describe('CreateAgentModal', () => {
     expect(screen.getByText('Local files')).toBeInTheDocument()
     expect(
       screen.queryByText(
-        /Use this for direct questions, writing, and result checks. It cannot take Tasks, change files, or use computer apps/i
+        /Use this for questions and result checks in chat. It cannot take Tasks, change files, or use apps/i
       )
     ).toBeNull()
     expect(screen.getByText('Questions only')).toBeInTheDocument()
@@ -317,13 +317,11 @@ describe('CreateAgentModal', () => {
     const review = screen.getByTestId('agent-create-review')
     expect(within(review).getByText('Platform')).toBeInTheDocument()
     expect(
-      within(review).getByText(
-        'Set up a task queue here when you want new tasks to wait in one place.'
-      )
+      within(review).getByText('Set up a place here when you want new tasks to wait together.')
     ).toBeInTheDocument()
   })
 
-  test('guides users when task queues exist but none is selected yet', () => {
+  test('guides users when places for new tasks exist but none is selected yet', () => {
     useNavigationStore.setState({
       selectedProjectId: 'p1',
       projects: {
@@ -346,21 +344,21 @@ describe('CreateAgentModal', () => {
 
     const review = screen.getByTestId('agent-create-review')
     expect(
-      within(review).getByText('Choose a task queue now, or set it later from Tasks.')
+      within(review).getByText('Choose a place for new tasks now, or set it later from Tasks.')
     ).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Review task queue' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Review place' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /set this later/i })).toBeInTheDocument()
-    expect(within(review).getByText('Task queue')).toBeInTheDocument()
+    expect(within(review).getByText('Place for new tasks')).toBeInTheDocument()
     expect(within(review).queryByText('No task queue selected yet')).toBeNull()
     expect(screen.queryByRole('option', { name: /^no task queue$/i })).toBeNull()
     expect(screen.queryByRole('option', { name: 'Review Queue' })).toBeNull()
     expect(screen.queryByText('Where tasks wait')).toBeNull()
 
-    fireEvent.change(screen.getByLabelText(/task queue/i), {
+    fireEvent.change(screen.getByLabelText(/place for new tasks/i), {
       target: { value: 'group-1' },
     })
 
-    expect(within(review).getByText('Review task queue')).toBeInTheDocument()
+    expect(within(review).getByText('Review place')).toBeInTheDocument()
     expect(within(review).queryByText('Review Queue')).toBeNull()
   })
 
@@ -430,11 +428,9 @@ describe('CreateAgentModal', () => {
 
     render(<CreateAgentModal />)
     expect(
-      screen.getByText(
-        /starter task queue for this project so new tasks have a clear place to wait/i
-      )
+      screen.getByText(/starter place for this project so new tasks have somewhere to wait/i)
     ).toBeInTheDocument()
-    fireEvent.click(await screen.findByRole('button', { name: /set up task queue/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /set up place/i }))
 
     await waitFor(() =>
       expect(agentGroupApi.createGroup).toHaveBeenCalledWith({
@@ -444,13 +440,15 @@ describe('CreateAgentModal', () => {
           'Starter place for this project. New tasks wait here until an agent can take them.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /task queue/i })).toHaveValue('group-new')
+    expect(screen.getByRole('combobox', { name: /place for new tasks/i })).toHaveValue(
+      'group-new'
+    )
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(
       screen.getByText(/new tasks wait here until an available agent can take them/i)
     ).toBeInTheDocument()
     expect(
-      within(screen.getByTestId('agent-create-review')).getByText('Default task queue')
+      within(screen.getByTestId('agent-create-review')).getByText('Default place')
     ).toBeInTheDocument()
     expect(screen.queryByText('Where tasks wait')).toBeNull()
     expect(screen.queryByText(/work a place to wait until this agent can take it/i)).toBeNull()
@@ -489,11 +487,14 @@ describe('CreateAgentModal', () => {
     })
 
     render(<CreateAgentModal />)
-    fireEvent.click(await screen.findByRole('button', { name: /set up task queue/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /set up place/i }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Wait a few minutes, then set up the task queue again.')
-    expect(alert).toHaveTextContent('ask an owner or admin to check the task queue in this project')
+    expect(alert).toHaveTextContent(
+      'Wait a few minutes, then set up the place for new tasks again.'
+    )
+    expect(alert).toHaveTextContent('ask an owner or admin to check places in this project')
+    expect(alert).not.toHaveTextContent('task queue')
     expect(alert).not.toHaveTextContent('task routing setup')
     expect(alert).not.toHaveTextContent('waiting place')
     expect(alert).not.toHaveTextContent('HTTP 500')
@@ -524,19 +525,23 @@ describe('CreateAgentModal', () => {
     expect(
       screen.getAllByText(/anthropic for questions and result checks/i).length
     ).toBeGreaterThan(0)
-    expect(screen.queryByText(/direct questions, writing, and result checks/i)).toBeNull()
     expect(
-      screen.getAllByText(/cannot take Tasks, change files, or use computer apps/i).length
+      screen.getAllByText(/cannot take Tasks, change files, or use apps/i).length
     ).toBeGreaterThan(0)
-    expect(screen.getByTestId('simple-chat-limits')).toHaveTextContent(/run commands/i)
-    expect(screen.getByText(/use it for direct questions and result checks/i)).toBeInTheDocument()
+    expect(screen.getByTestId('simple-chat-limits')).toHaveTextContent(
+      /simple chat answers questions only/i
+    )
+    expect(screen.getByTestId('simple-chat-limits')).not.toHaveTextContent(/task runner/i)
+    expect(screen.getByTestId('simple-chat-limits')).not.toHaveTextContent(/run commands/i)
+    expect(screen.getByText(/use it for questions and result checks/i)).toBeInTheDocument()
     expect(screen.queryByText(/file work/i)).toBeNull()
     expect(screen.queryByText(/does not open project files/i)).toBeNull()
-    expect(screen.queryByText('Check AI service in Settings')).toBeNull()
+    expect(screen.queryByText('Check AI services in Settings')).toBeNull()
     const runtimeDetails = openRuntimeDetails()
     expect(runtimeDetails).toHaveTextContent(/does not open project files/i)
-    expect(runtimeDetails).toHaveTextContent(/direct questions, writing, and checking results/i)
-    expect(within(runtimeDetails).getByText('Check AI service in Settings')).toBeInTheDocument()
+    expect(runtimeDetails).toHaveTextContent(/questions, writing, and checking results/i)
+    expect(within(runtimeDetails).getByText('Check AI services in Settings')).toBeInTheDocument()
+    expect(within(runtimeDetails).queryByText('Check AI service in Settings')).toBeNull()
     expect(screen.queryByText(/ai service must be checked/i)).toBeNull()
     expect(screen.queryByRole('combobox', { name: /^tool for file changes$/i })).toBeNull()
     expect(screen.queryByRole('combobox', { name: /^work tool$/i })).toBeNull()
@@ -557,7 +562,9 @@ describe('CreateAgentModal', () => {
     const readiness = screen.getByTestId('agent-work-readiness')
     expect(within(readiness).getByText('Where to use it')).toBeInTheDocument()
     expect(
-      within(readiness).getByText('Open this agent from Chat. No project or task queue is needed.')
+      within(readiness).getByText(
+        'Open this agent from Chat. It does not need a project or a place for new tasks.'
+      )
     ).toBeInTheDocument()
     expect(within(readiness).queryByText('Shown under project')).toBeNull()
     expect(within(readiness).queryByText('Choose a project later')).toBeNull()
@@ -570,12 +577,17 @@ describe('CreateAgentModal', () => {
     expect(within(review).getByText('Tasks and files')).toBeInTheDocument()
     expect(
       within(review).getByText(
-        'Need Tasks or code changes? Create a Project files or This computer agent.'
+        'Need Tasks or code changes? Create an agent with Project files or This computer.'
       )
     ).toBeInTheDocument()
     expect(
+      within(review).queryByText(
+        'Need Tasks or code changes? Create a Project files or This computer agent.'
+      )
+    ).toBeNull()
+    expect(
       within(review).getByText(
-        'Ready for direct questions and result checks after the AI service is connected.'
+        'Ready for questions and result checks after the AI service is connected.'
       )
     ).toBeInTheDocument()
     expect(within(review).queryByText('Project for new tasks')).toBeNull()
@@ -628,7 +640,7 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
 
     fireEvent.click(screen.getByRole('radio', { name: /project files/i }))
-    fireEvent.change(screen.getByLabelText(/task queue/i), {
+    fireEvent.change(screen.getByLabelText(/place for new tasks/i), {
       target: { value: 'group-1' },
     })
 
@@ -636,17 +648,19 @@ describe('CreateAgentModal', () => {
 
     expect(screen.queryByLabelText(/task queue/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /set up task queue/i })).toBeNull()
+    expect(screen.queryByLabelText(/place for new tasks/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /set up place/i })).toBeNull()
     expect(
       within(screen.getByTestId('agent-work-readiness')).getByText('Where to use it')
     ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('agent-work-readiness')).getByText(
-        'Open this agent from Chat. No project or task queue is needed.'
+        'Open this agent from Chat. It does not need a project or a place for new tasks.'
       )
     ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('agent-create-review')).getByText(
-        'Need Tasks or code changes? Create a Project files or This computer agent.'
+        'Need Tasks or code changes? Create an agent with Project files or This computer.'
       )
     ).toBeInTheDocument()
     expect(within(screen.getByTestId('agent-create-review')).queryByText('Task queue')).toBeNull()
@@ -677,16 +691,17 @@ describe('CreateAgentModal', () => {
     expect(runtimeDetails).not.toHaveTextContent(/Provider for questions and result checks/i)
     const providerHint = screen.getByTestId('provider-empty-hint')
     expect(providerHint).toHaveTextContent(/add and check an ai service first/i)
-    expect(providerHint).toHaveTextContent(/open ai service settings/i)
+    expect(providerHint).toHaveTextContent(/open ai services in settings/i)
     expect(providerHint).toHaveTextContent(/paste the key from that service/i)
     expect(providerHint).toHaveTextContent(/choose check connection/i)
     expect(providerHint).toHaveTextContent(/service shows ready/i)
+    expect(providerHint).not.toHaveTextContent(/open ai service settings/i)
     expect(providerHint).not.toHaveTextContent(/no ai service ready yet/i)
     expect(providerHint).not.toHaveTextContent(/service access key/i)
     expect(providerHint).not.toHaveTextContent(/settings > ai services/i)
     expect(providerHint).not.toHaveTextContent(/ai services settings/i)
     expect(providerHint).not.toHaveTextContent(/click check/i)
-    expect(screen.getByRole('link', { name: /open ai service settings/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /open ai services/i })).toHaveAttribute(
       'href',
       '/settings/providers'
     )
@@ -697,17 +712,18 @@ describe('CreateAgentModal', () => {
 
     let alert: HTMLElement | null = null
     await waitFor(() =>
-      expect((alert = screen.getByRole('alert'))).toHaveTextContent(/open ai service settings/i)
+      expect((alert = screen.getByRole('alert'))).toHaveTextContent(/open ai services in settings/i)
     )
     expect(alert).toHaveTextContent(/paste the key from that service/i)
     expect(alert).toHaveTextContent(/come back when it shows ready/i)
+    expect(alert).not.toHaveTextContent(/open ai service settings/i)
     expect(alert).not.toHaveTextContent(/service access key/i)
     expect(alert).not.toHaveTextContent(/until it says ready/i)
     expect(alert).not.toHaveTextContent(/settings > ai services/i)
     expect(alert).not.toHaveTextContent(/ai services settings/i)
     expect(alert).not.toHaveTextContent(/click check/i)
     expect(
-      within(alert as HTMLElement).getByRole('link', { name: /open ai service settings/i })
+      within(alert as HTMLElement).getByRole('link', { name: /open ai services/i })
     ).toHaveAttribute('href', '/settings/providers')
     expect(createAgent).not.toHaveBeenCalled()
   })
@@ -810,8 +826,9 @@ describe('CreateAgentModal', () => {
     const providerRuntimeDetails = openRuntimeDetails()
     expect(within(providerRuntimeDetails).getByText('AI service only')).toBeInTheDocument()
     expect(
-      within(providerRuntimeDetails).getByText('Check AI service in Settings')
+      within(providerRuntimeDetails).getByText('Check AI services in Settings')
     ).toBeInTheDocument()
+    expect(within(providerRuntimeDetails).queryByText('Check AI service in Settings')).toBeNull()
     expect(
       screen.queryByText(new RegExp(['AI service', 'must be checked'].join('.*'), 'i'))
     ).toBeNull()
@@ -1105,9 +1122,9 @@ describe('CreateAgentModal', () => {
       within(screen.getByTestId('agent-work-readiness')).queryByText('Choose a project later')
     ).toBeNull()
     const chatLimits = screen.getByTestId('simple-chat-limits')
-    expect(chatLimits).toHaveTextContent('Simple chat is not a task runner')
+    expect(chatLimits).toHaveTextContent('Simple chat answers questions only')
     expect(chatLimits).toHaveTextContent(
-      'It can answer questions and check text in chat. It cannot take Tasks, edit files, run commands, or use apps.'
+      'It can answer questions and check text in chat. It cannot take Tasks, edit files, or use apps.'
     )
     expect(chatLimits).toHaveTextContent(
       'Need Tasks or code changes? Choose Project files for shared project files, or This computer for local files and apps.'
@@ -1259,9 +1276,10 @@ describe('CreateAgentModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
+      'Open AI services in Settings, choose Check connection for this service, then come back when it shows Ready.'
     )
-    expect(within(alert).getByRole('link', { name: /open ai service settings/i })).toHaveAttribute(
+    expect(alert).not.toHaveTextContent('Open AI service settings')
+    expect(within(alert).getByRole('link', { name: /open ai services/i })).toHaveAttribute(
       'href',
       '/settings/providers'
     )
@@ -1394,9 +1412,10 @@ describe('CreateAgentModal', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
+        'Open AI services in Settings, choose Check connection for this service, then come back when it shows Ready.'
       )
     )
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Open AI service settings')
     expect(createAgent).not.toHaveBeenCalled()
   })
 
@@ -1481,15 +1500,15 @@ describe('CreateAgentModal', () => {
     fireEvent.click(within(templateGroup).getByRole('button', { name: /check results/i }))
 
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('Result Check Helper')
-    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
-      'confusing behavior'
-    )
-    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).toContain(
-      'clear use, fix, or wait recommendation'
-    )
-    expect((screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement).value).not.toMatch(
-      /cite files|tradeoffs/i
-    )
+    expect(
+      (screen.getByLabelText(/tell this agent how to answer/i) as HTMLTextAreaElement).value
+    ).toContain('confusing behavior')
+    expect(
+      (screen.getByLabelText(/tell this agent how to answer/i) as HTMLTextAreaElement).value
+    ).toContain('clear use, fix, or wait recommendation')
+    expect(
+      (screen.getByLabelText(/tell this agent how to answer/i) as HTMLTextAreaElement).value
+    ).not.toMatch(/cite files|tradeoffs/i)
     expect(screen.queryByText(/^Reviewer$/)).toBeNull()
     expect(screen.queryByText(/prompt work/i)).toBeNull()
     expect(screen.queryByRole('group', { name: /agent role templates/i })).toBeNull()
@@ -1527,7 +1546,9 @@ describe('CreateAgentModal', () => {
     const templateGroup = openStarterTemplates()
     fireEvent.click(within(templateGroup).getByRole('button', { name: /find the cause/i }))
 
-    const instructions = screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement
+    const instructions = screen.getByLabelText(
+      /tell this agent how to answer/i
+    ) as HTMLTextAreaElement
     expect(instructions.value).toContain('what the user already knows')
     expect(instructions.value).toContain('what is confirmed from what is only a guess')
     expect(instructions.value).toContain('next action that can confirm the answer')
@@ -1554,7 +1575,13 @@ describe('CreateAgentModal', () => {
     render(<CreateAgentModal />)
     fireEvent.click(screen.getByRole('radio', { name: /simple chat agent/i }))
     const templateGroup = openStarterTemplates()
-    const instructions = screen.getByLabelText(/agent instructions/i) as HTMLTextAreaElement
+    const instructions = screen.getByLabelText(
+      /tell this agent how to answer/i
+    ) as HTMLTextAreaElement
+    expect(within(templateGroup).getByText('Checks the next useful clue')).toBeInTheDocument()
+    expect(within(templateGroup).queryByText('Tracks down unclear failures')).toBeNull()
+    expect(within(templateGroup).getByText('Checks the problem and fixes it')).toBeInTheDocument()
+    expect(within(templateGroup).queryByText('Reproduces and fixes bugs')).toBeNull()
 
     fireEvent.click(within(templateGroup).getByRole('button', { name: /make a change/i }))
     expect(instructions.value).toContain('what changed and what to try next')

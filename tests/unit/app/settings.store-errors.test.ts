@@ -288,10 +288,13 @@ describe('settingsActionErrorMessage', () => {
   })
 
   test('starts unknown Settings failures with the retry step', () => {
+    const message = settingsActionErrorMessage('providers', 'load', statusError(418, 'teapot'))
+
     expectBeginnerError(
-      settingsActionErrorMessage('providers', 'load', statusError(418, 'teapot')),
-      'Open Settings and AI services again. Settings could not load AI service settings.'
+      message,
+      'Open Settings and AI services again. Settings could not load AI services.'
     )
+    expect(message).not.toContain('AI service settings')
   })
 
   test('uses product labels for code access permission errors', () => {

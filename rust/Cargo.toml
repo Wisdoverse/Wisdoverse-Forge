@@ -78,7 +78,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 hmac = "0.13"
 sha2 = "0.11"
 hex = "0.4"
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 libc = "0.2"
 
 # Symlink-safe filesystem ops (openat/mkdirat + O_NOFOLLOW) for materializing
@@ -118,7 +118,7 @@ async-stream = "0.3"
 url = "2"
 temporalio-client = "0.4.0"
 temporalio-sdk = "0.4.0"
-temporalio-macros = "0.4.0"
+temporalio-macros = "0.5.0"
 temporalio-sdk-core = "0.4.0"
 temporalio-common = "0.4.0"
 

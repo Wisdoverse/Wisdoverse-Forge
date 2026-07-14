@@ -81,7 +81,7 @@ interface CatalogVendor {
 }
 
 const PROVIDER_SEARCH_HELP =
-  'Search only filters AI services. Use Show all AI services to see every AI service again.'
+  'Search only narrows AI services. Use Show all AI services to see every AI service again.'
 
 const PROVIDER_FILTERS: { id: ProviderFilter; label: string; ariaLabel: string }[] = [
   { id: 'all', label: 'All', ariaLabel: 'All AI services status filter' },
@@ -324,12 +324,12 @@ const FALLBACK_SUPPORTED_PROVIDERS: ProviderInfo[] = [
   },
   {
     provider: 'litellm',
-    displayName: 'LiteLLM shared AI service',
+    displayName: 'Shared team AI service',
     defaultModel: 'gpt-4o-mini',
     defaultBaseUrl: 'http://litellm:4000',
     requiresApiKey: true,
     allowCustomModels: true,
-    models: [{ model: 'gpt-4o-mini', displayName: 'Suggested service choice: gpt-4o-mini' }],
+    models: [{ model: 'gpt-4o-mini', displayName: 'Suggested service choice' }],
   },
   {
     provider: 'openai_compatible',
@@ -533,9 +533,9 @@ function providerFilterEmptyState(
 
   if (hasSearch && hasFilter) {
     return {
-      title: 'Search and filter are hiding AI services',
+      title: 'Search and selected status are hiding AI services',
       detail:
-        'Your AI services exist, but the current search and filter hide them. Use Show all AI services before assuming a service is missing.',
+        'Your AI services exist, but the current search and selected status hide them. Use Show all AI services before assuming a service is missing.',
     }
   }
 
@@ -1350,7 +1350,7 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
           )}
           {hasRegionToggle && (
             <SegmentedToggle<RegionVariant>
-              label="Service website region"
+              label="Service location"
               value={region}
               onChange={setRegion}
               options={[
@@ -1387,7 +1387,11 @@ function CatalogConfigPanel({ vendor, onSave, onCancel, saving }: CatalogConfigP
                 name="model"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder={variant?.defaultModel ?? 'e.g. service choice…'}
+                placeholder={
+                  variant?.defaultModel
+                    ? 'Suggested service choice'
+                    : 'Choice from your service guide'
+                }
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={modelError}
@@ -1762,7 +1766,11 @@ function AddProviderFormPanel({
                 name="model"
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder={selectedProvider?.defaultModel ?? 'e.g. gpt-4o-mini…'}
+                placeholder={
+                  selectedProvider?.defaultModel
+                    ? 'Suggested service choice'
+                    : 'Choice from your service guide'
+                }
                 list={models.length > 0 ? modelListId : undefined}
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
@@ -1823,7 +1831,7 @@ function AddProviderFormPanel({
                 name="model"
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder="e.g. gpt-4o-mini…"
+                placeholder="Choice from your service guide"
                 autoComplete="off"
                 aria-invalid={visibleError !== null && readiness.fieldId === modelInputId}
                 aria-describedby={`${formStatusId} ${modelHelpId}${
@@ -2175,7 +2183,7 @@ export function ProvidersSection() {
           <h2 className={uiStyles.sectionTitle}>AI services</h2>
           <p className={uiStyles.sectionDescription}>
             AI services answer questions and check results for simple chat agents. They cannot take
-            Tasks or change code; use Where agents work and File-change tool sign-in for that.
+            Tasks or change code; use Where agents work and Sign in to code tools for that.
           </p>
         </div>
         {!showForm && (

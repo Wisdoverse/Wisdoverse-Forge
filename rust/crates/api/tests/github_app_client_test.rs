@@ -49,7 +49,7 @@ async fn github_app_client_drives_pr_lifecycle() {
                 .path(format!("/repos/{REPO}/pulls"))
                 .header("Accept", "application/vnd.github+json")
                 .header("Authorization", "Bearer ghs_x")
-                .json_body_partial(r#"{ "draft": true }"#);
+                .json_body_includes(r#"{ "draft": true }"#);
             then.status(201).header("content-type", "application/json").json_body(serde_json::json!({
                 "number": 7,
                 "html_url": "https://github.com/acme/widgets/pull/7",
@@ -171,7 +171,7 @@ async fn github_app_client_drives_pr_lifecycle() {
     // --- create_draft_pr: 422 (PR exists) => reuse existing open PR ----------
     let create_422 = server
         .mock_async(|when, then| {
-            when.method(POST).path(format!("/repos/{REPO}/pulls")).json_body_partial(r#"{ "head": "agent/retry" }"#);
+            when.method(POST).path(format!("/repos/{REPO}/pulls")).json_body_includes(r#"{ "head": "agent/retry" }"#);
             then.status(422).header("content-type", "application/json").json_body(serde_json::json!({
                 "message": "Validation Failed",
                 "errors": [ { "message": "A pull request already exists for acme:agent/retry." } ]
@@ -208,7 +208,7 @@ async fn github_app_client_drives_pr_lifecycle() {
     // --- merge: 409 head moved => head-moved conflict ------------------------
     let merge_409 = server
         .mock_async(|when, then| {
-            when.method(PUT).path(format!("/repos/{REPO}/pulls/7/merge")).json_body_partial(r#"{ "sha": "abc" }"#);
+            when.method(PUT).path(format!("/repos/{REPO}/pulls/7/merge")).json_body_includes(r#"{ "sha": "abc" }"#);
             then.status(409)
                 .header("content-type", "application/json")
                 .json_body(serde_json::json!({ "message": "Head branch was modified." }));

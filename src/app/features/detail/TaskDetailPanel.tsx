@@ -270,7 +270,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 <p className="mb-2 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
                   Use this result to decide whether the task is done. If it does not answer the
                   brief, go back to Work and decide whether to retry, check saved notes and
-                  instructions, or create a follow-up task.
+                  guidance, or create a follow-up task.
                 </p>
                 <pre className="text-xs text-foreground-light dark:text-foreground-dark whitespace-pre-wrap break-words font-mono leading-relaxed max-h-[300px] overflow-y-auto">
                   {artifact.data}
@@ -547,14 +547,13 @@ function taskRecoveryGuidance(
     return {
       title: 'Try the task again when the request is still useful',
       detail:
-        'Use Retry task after checking the brief. Forge puts the task back in the task queue so an agent can try it again.',
+        'Use Retry task after checking the brief. Forge sends the task back so an agent can try it again.',
     }
   }
   if (canApprove) {
     return {
       title: 'Let the task continue when it has what it needs',
-      detail:
-        'Check the request first. Then choose Allow and continue to put the task back in the task queue for an agent to continue.',
+      detail: 'Check the request first. Then choose Allow and continue so an agent can continue.',
     }
   }
   return null

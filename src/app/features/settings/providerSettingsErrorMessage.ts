@@ -139,9 +139,9 @@ export function providerSettingsErrorMessage(error: unknown): string {
   }
   if (RAW_SERVICE_DETAIL.test(lower)) {
     if (action === 'load') {
-      return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
+      return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI services.'
     }
-    return `Open Settings and AI services again, then ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
+    return `Open Settings and AI services again, then ${retry}. If it still fails, ask an owner or admin to check AI services.`
   }
   if (
     code === 422 ||
@@ -157,13 +157,13 @@ export function providerSettingsErrorMessage(error: unknown): string {
   }
   if (code != null && code >= 500) {
     if (action === 'load') {
-      return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
+      return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI services.'
     }
-    return `Open Settings and AI services again, then ${retry}. If it still fails, ask an owner or admin to check AI service settings.`
+    return `Open Settings and AI services again, then ${retry}. If it still fails, ask an owner or admin to check AI services.`
   }
   if (isNetworkError(error)) {
     if (action === 'load') {
-      return 'Check your connection, then open Settings and AI services again. Forge could not connect while opening AI service settings.'
+      return 'Check your connection, then open Settings and AI services again. Forge could not connect while opening AI services.'
     }
     if (action === 'remove') {
       return 'Check your connection, then remove this AI service again. The removal did not finish.'
@@ -172,8 +172,8 @@ export function providerSettingsErrorMessage(error: unknown): string {
   }
 
   if (action === 'load') {
-    return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI service settings.'
+    return 'Open Settings and AI services again. If it still fails, ask an owner or admin to check AI services.'
   }
 
-  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check AI service settings.`
+  return `${retry.charAt(0).toUpperCase()}${retry.slice(1)}. If it still fails, ask an owner or admin to check AI services.`
 }

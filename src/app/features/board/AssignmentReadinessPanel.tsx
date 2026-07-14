@@ -55,7 +55,7 @@ export function AssignmentReadinessPanel({
       : available.length > 0
         ? `${available.length} agent${available.length === 1 ? '' : 's'} can take work now.`
         : chatOnly.length === roster.length
-          ? 'Simple chat agents answer in Chat. Add a Project files or This computer agent for Tasks.'
+          ? 'Simple chat agents answer in Chat. For Tasks, add an agent with Project files or This computer.'
           : 'Open Agents to start or connect an agent, or wait for one to finish.'
   const handoffSummary = summarizeHandoff(workload, available.length)
   const isCompactHealthy =
@@ -173,8 +173,8 @@ export function AssignmentReadinessPanel({
             Connect an agent before sending work
           </p>
           <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Set up a task queue for this project, then add a ready agent. Until then, new tasks stay
-            in Not sent yet.
+            Set up a place for new tasks in this project, then add or start an agent. Until then,
+            new tasks wait on this board.
           </p>
         </div>
       ) : !isCompactHealthy && roster.length > 0 ? (
@@ -257,7 +257,7 @@ function pluralize(count: number, singular: string): string {
 function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
   const taskCapable = agentHasTaskCapability(participant)
   const reason = !taskCapable
-    ? 'Simple chat only. Use Project files or This computer for Tasks.'
+    ? 'Simple chat only. Use an agent with Project files or This computer for Tasks.'
     : participant.status === 'available'
       ? 'Can take a task now'
       : participant.status === 'busy'

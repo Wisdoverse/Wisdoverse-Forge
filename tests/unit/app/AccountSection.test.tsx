@@ -353,12 +353,45 @@ describe('AccountSection', () => {
     })
 
     expect(screen.getByText('Open Account settings again to load username')).toBeDefined()
+    const profileFrame = screen
+      .getByText('Open Account settings again to load username')
+      .closest('div')?.parentElement
+    expect(profileFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(profileFrame?.className).not.toContain('rounded-card')
+    expect(profileFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(screen.getByText('Open Account settings again to load email')).toBeDefined()
     expect(screen.queryByText('Refresh this page to load username')).toBeNull()
     expect(screen.queryByText('Refresh this page to load email')).toBeNull()
     expect(screen.queryByText('Username not reported yet')).toBeNull()
     expect(screen.queryByText('Email not reported yet')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
+  })
+
+  test('keeps appearance settings in a simple list frame', () => {
+    renderAccountSection()
+
+    const appearanceFrame = screen.getByText('Theme').closest('div')?.parentElement
+    expect(appearanceFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(appearanceFrame?.className).not.toContain('rounded-card')
+    expect(appearanceFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
+  })
+
+  test('keeps team space settings in a simple form frame', () => {
+    renderAccountSection()
+
+    const teamFrame = screen.getByRole('heading', { name: 'Team space' }).nextElementSibling
+    expect(teamFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(teamFrame?.className).not.toContain('rounded-card')
+    expect(teamFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
+  })
+
+  test('keeps the setup checklist in a simple list frame', () => {
+    renderAccountSection()
+
+    const setupFrame = screen.getByRole('heading', { name: 'Setup checklist' }).nextElementSibling
+    expect(setupFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(setupFrame?.className).not.toContain('rounded-card')
+    expect(setupFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
   })
 
   test('shows sign-in guidance when password update is not authorized', async () => {

@@ -275,6 +275,11 @@ describe('workspace settings empty states', () => {
     render(<ProjectsSection />)
 
     expect(await screen.findByText('Create a team before adding projects')).toBeInTheDocument()
+    const projectsFrame = screen.getByText('Create a team before adding projects').closest('div')!
+      .parentElement!.parentElement!
+    expect(projectsFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(projectsFrame.className).not.toContain('rounded-card')
+    expect(projectsFrame.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(screen.getByText(/Projects live inside teams/i)).toBeInTheDocument()
     expect(screen.getByText('Choose Open Teams.')).toBeInTheDocument()
     expect(
@@ -360,9 +365,10 @@ describe('workspace settings empty states', () => {
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent('Project "Project One" is ready')
     expect(status).toHaveTextContent(
-      'Next: set up a task queue in Agents, then create the first task in Tasks.'
+      'Next: set up a place for new tasks in Agents, then create the first task in Tasks.'
     )
-    expect(within(status).getByRole('link', { name: /set up task queue/i })).toHaveAttribute(
+    expect(status).not.toHaveTextContent('task queue')
+    expect(within(status).getByRole('link', { name: /set up place/i })).toHaveAttribute(
       'href',
       '/agents'
     )

@@ -25,7 +25,10 @@ describe('DescriptionTab', () => {
       'Choose an agent before this task can start.'
     )
     expect(screen.getByTestId('task-next-action').textContent).toContain(
-      'Choose a ready agent, check the suggested saved notes and instructions, then send the task.'
+      'Choose an agent, check the suggested saved notes and guidance, then send the task.'
+    )
+    expect(screen.getByTestId('task-next-action').textContent).not.toContain(
+      'saved notes and instructions'
     )
     expect(screen.getByTestId('task-next-action').textContent).not.toContain('available agent')
     expect(screen.getByRole('link', { name: /open agents/i })).toHaveAttribute('href', '/agents')
@@ -38,7 +41,8 @@ describe('DescriptionTab', () => {
   test('does not call a task unassigned when only the agent id is loaded', () => {
     render(<DescriptionTab task={{ ...mockTask, assignedTo: 'agent-1' }} />)
 
-    expect(screen.getByText('Agent name loading')).toBeDefined()
+    expect(screen.getByText('Loading agent name')).toBeDefined()
+    expect(screen.queryByText('Agent name loading')).toBeNull()
     expect(screen.queryByText('Agent details loading')).toBeNull()
     expect(screen.getByText('Ready to send')).toBeDefined()
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
@@ -114,7 +118,7 @@ describe('DescriptionTab', () => {
   test('explains how to start a waiting task that has no agent', () => {
     render(<DescriptionTab task={{ ...mockTask, state: 'queued' }} />)
 
-    expect(screen.getByText('Waiting for a ready agent')).toBeDefined()
+    expect(screen.getByText('Waiting for an agent')).toBeDefined()
     expect(screen.getByTestId('task-next-action').textContent).toContain(
       'If this stays here, choose or start an agent so the task has someone to begin the work.'
     )
@@ -150,7 +154,7 @@ describe('DescriptionTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /open result files/i }))
     fireEvent.click(screen.getByRole('button', { name: /^check what was used/i }))
     fireEvent.click(screen.getByRole('button', { name: /check ideas to reuse/i }))
-    fireEvent.click(screen.getByRole('button', { name: /draft saved instruction/i }))
+    fireEvent.click(screen.getByRole('button', { name: /draft saved guidance/i }))
 
     expect(onOpenResult).toHaveBeenCalledOnce()
     expect(onOpenContext).toHaveBeenCalledTimes(2)
@@ -172,7 +176,8 @@ describe('DescriptionTab', () => {
       screen.getByText('Open result files or what the agent used before accepting.')
     ).toBeDefined()
     expect(screen.getByText('Result files')).toBeDefined()
-    expect(screen.getByText('1 saved note or instruction helped this task.')).toBeDefined()
+    expect(screen.getByText('1 saved item helped this task.')).toBeDefined()
+    expect(screen.queryByText('1 saved note or instruction helped this task.')).toBeNull()
     expect(screen.queryByText(new RegExp(['saved context', 'item'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText('Evidence')).toBeNull()
     expect(screen.queryByText(/result files and evidence/i)).toBeNull()
@@ -183,7 +188,7 @@ describe('DescriptionTab', () => {
     const previousReuseCopy = new RegExp(['Completed work', 'saved instructions'].join('.*'), 'i')
     expect(screen.queryByText(previousReuseCopy)).toBeNull()
     expect(screen.queryByText('Reusable learning')).toBeNull()
-    expect(screen.queryByText(/saved guidance/i)).toBeNull()
+    expect(screen.queryByText(/draft saved instruction/i)).toBeNull()
     expect(screen.queryByText(/governed skill/i)).toBeNull()
     expect(screen.queryByText(new RegExp(['Draft a', 'skill'].join('\\s+')))).toBeNull()
     expect(screen.queryByText(new RegExp(['result', 'artifact'].join('\\s+'), 'i'))).toBeNull()
@@ -199,9 +204,7 @@ describe('DescriptionTab', () => {
       )
     ).toBeDefined()
     expect(
-      screen.getByText(
-        'You can save repeatable steps after useful work is completed.'
-      )
+      screen.getByText('You can save repeatable steps after useful work is completed.')
     ).toBeDefined()
     expect(
       screen.queryByText(
@@ -269,13 +272,14 @@ describe('DescriptionTab', () => {
     expect(screen.getByTestId('task-assignment-guidance').textContent).toBe(
       'This agent tried this task. Check retry steps before trying again.'
     )
-    expect(screen.getAllByText('Check retry steps').length).toBeGreaterThan(1)
+    expect(screen.getByText('Check retry steps')).toBeDefined()
+    expect(screen.getByText('Needs another try')).toBeDefined()
     expect(screen.queryByText('Triage failure')).toBeNull()
     expect(screen.queryByText('Failed')).toBeNull()
     expect(screen.queryByText('This agent will handle the next step for this task.')).toBeNull()
     expect(screen.getAllByText(/AI service is busy/i).length).toBeGreaterThan(0)
     expect(
-      screen.getAllByText(/Wait a minute, then open the task details and retry/i).length
+      screen.getAllByText(/Wait a minute, then open the task details and try again/i).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/when ready/i)).toBeNull()
     expect(screen.queryByText(/model service is busy/i)).toBeNull()
@@ -338,7 +342,8 @@ describe('DescriptionTab', () => {
   test('labels unknown assignment state without exposing raw codes', () => {
     render(<DescriptionTab task={{ ...mockTask, state: 'waiting_for_agent' as never }} />)
 
-    expect(screen.getByText('Check task status')).toBeDefined()
+    expect(screen.getByText('Open task details to read this status')).toBeDefined()
+    expect(screen.queryByText('Check task status')).toBeNull()
     expect(screen.queryByText(/waiting_for_agent/i)).toBeNull()
     expect(screen.queryByText(/waiting for agent/i)).toBeNull()
   })

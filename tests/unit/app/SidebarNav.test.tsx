@@ -64,8 +64,11 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('button', { name: /saved items: check saved notes and instructions/i })
+      screen.getByRole('button', { name: /saved items: check saved notes and guidance/i })
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /saved items: check saved notes and instructions/i })
+    ).toBeNull()
     expect(screen.queryByRole('button', { name: /context: review saved guidance/i })).toBeNull()
     expect(screen.queryByRole('button', { name: previousSavedItemNavCopy })).toBeNull()
     expect(
@@ -73,9 +76,14 @@ describe('SidebarNav', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: /saved instructions: reuse instructions/i,
+        name: /saved guidance: reuse guidance/i,
       })
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: /saved instructions: reuse instructions/i,
+      })
+    ).toBeNull()
     expect(
       screen.queryByRole('button', { name: /skills: reuse proven work steps/i })
     ).not.toBeInTheDocument()

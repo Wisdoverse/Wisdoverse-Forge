@@ -128,9 +128,9 @@ const AGENT_READY_BRIEF_POINTS = [
 ]
 
 const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
-const TASK_WAITING_PLACE_REQUIRED_ERROR = 'Set up a task queue before saving this task.'
+const TASK_WAITING_PLACE_REQUIRED_ERROR = 'Set up a place for new tasks before saving this task.'
 const ASSIGNED_AGENT_NOT_READY_ERROR =
-  'Choose a ready agent, or leave this set to Let the next ready agent start it.'
+  'Choose an agent, or leave this set to Let the next agent start it.'
 
 interface TaskFormModalProps {
   isOpen: boolean
@@ -141,7 +141,7 @@ interface TaskFormModalProps {
   selectedProjectId?: string | null
   selectedTaskGroupId?: string | null
   selectedTaskGroupName?: string | null
-  /** May resolve `false` to signal the project switched but its task queues
+  /** May resolve `false` to signal the project switched but its places for new tasks
    * failed to load (the modal shows a retry message in that case). */
   onProjectChange?: (projectId: string) => void | boolean | Promise<void | boolean>
   onOpenAgentSetup?: () => void
@@ -206,18 +206,18 @@ export function TaskFormModal({
     ? 'Checking where new tasks will wait'
     : workLaneReady
       ? 'Task can be created'
-      : 'Set up a task queue before creating this task'
+      : 'Set up a place for new tasks before creating this task'
   const readinessDetail = selectingProject
-    ? 'Wait a moment while Forge finds the task queue for this project.'
+    ? 'Wait a moment while Forge finds the place for new tasks in this project.'
     : workLaneReady
-      ? `New tasks will wait in ${waitingPlaceDisplayName(selectedTaskGroupName)} until a ready agent starts them.`
+      ? `New tasks will wait in ${waitingPlaceDisplayName(selectedTaskGroupName)} until an agent starts them.`
       : 'Create one place for new tasks to wait, then return here.'
   const waitingPlaceSetupSteps =
     selectedProject && !selectingProject && !workLaneReady
       ? [
           'Open Agents.',
           `Choose this project: ${selectedProject.name}.`,
-          'Create one task queue for new tasks.',
+          'Set up one place for new tasks.',
           'Come back here. Success looks like this card saying Task can be created.',
         ]
       : []
@@ -301,17 +301,15 @@ export function TaskFormModal({
   }
 
   const taskOptionsSummary = `${PRIORITY_LABELS[priorityValue]} priority, ${
-    selectedAssignedAgent
-      ? `${selectedAssignedAgent.name} starts first`
-      : 'next ready agent starts it'
+    selectedAssignedAgent ? `${selectedAssignedAgent.name} starts first` : 'next agent starts it'
   }`
   const submitPreview = !selectedProject
     ? 'Choose a project first. Forge needs a home for this task and its history.'
     : !workLaneReady
-      ? 'Set up a task queue first. Then this task will have a safe place to wait.'
+      ? 'Set up a place first. Then this task will have somewhere safe to wait.'
       : taskWillWaitForAgent
         ? 'After you save, the task waits here until an agent is ready.'
-        : 'After you create it, the next ready agent can start it from this project.'
+        : 'After you create it, the next agent can start it from this project.'
   const TaskTemplateDisclosureIcon = taskTemplatesOpen ? ChevronDown : ChevronRight
 
   // The error banner renders partway down a scrollable dialog (below the
@@ -404,7 +402,7 @@ export function TaskFormModal({
       const ok = await onProjectChange(projectId)
       if (ok === false) {
         setSubmitError(
-          'Select the project again to find the task queue. If it still does not load, open the Tasks page again or ask an owner to check the task queue in this project.'
+          'Select the project again to find the place for new tasks. If it still does not load, open the Tasks page again or ask an owner to check this project.'
         )
       }
     } catch (err) {
@@ -444,8 +442,8 @@ export function TaskFormModal({
               Tell an agent what to do
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Write the result you want. Forge will show whether the task has a project, a task
-              queue, and enough detail before you save.
+              Write the result you want. Forge will show whether the task has a project, a place,
+              and enough detail before you save.
             </p>
           </div>
           <button
@@ -577,7 +575,7 @@ export function TaskFormModal({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
                   {hasOnlyNonTaskAgents
-                    ? 'Create a task-ready agent before this task can start'
+                    ? 'Create an agent for tasks before this task can start'
                     : 'Start or connect an agent before this task can start'}
                 </p>
                 <p className="mt-0.5">{missingAgentDetail}</p>
@@ -641,7 +639,7 @@ export function TaskFormModal({
                 onClick={onOpenTaskRouting}
                 className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
-                Set up task queue
+                Set up place
               </button>
             )}
           </div>
@@ -671,7 +669,7 @@ export function TaskFormModal({
                   onClick={onOpenTaskRouting}
                   className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
                 >
-                  Set up task queue
+                  Set up place
                 </button>
               )}
             </div>
@@ -926,7 +924,7 @@ export function TaskFormModal({
                     {...register('assignedTo')}
                     className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
                   >
-                    <option value="">Let the next ready agent start it</option>
+                    <option value="">Let the next agent start it</option>
                     {agents.map((a) => (
                       <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a)}>
                         {a.name} ({agentTaskStatusLabel(a)})
@@ -936,7 +934,7 @@ export function TaskFormModal({
                   <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
                     {taskWillWaitForAgent
                       ? 'This task will wait here until an agent is ready.'
-                      : 'Use the next ready agent when any ready agent can do the work.'}
+                      : 'Use the next agent when any agent can do the work.'}
                   </p>
                 </div>
               </div>
@@ -1055,9 +1053,9 @@ function agentSetupDetail({
 }): string {
   if (hasAgents && !hasTaskCapableAgents) {
     if (workLaneReady) {
-      return 'Simple chat agents answer questions in Chat. For Tasks, open Agents and create or start a Project files or This computer agent.'
+      return 'Simple chat agents answer questions in Chat. For Tasks, open Agents and create or start an agent with Project files or This computer.'
     }
-    return 'Set up a task queue first. For Tasks, use a Project files or This computer agent instead of Simple chat.'
+    return 'Set up a place first. For Tasks, use an agent with Project files or This computer instead of Simple chat.'
   }
 
   if (workLaneReady) {
@@ -1067,8 +1065,8 @@ function agentSetupDetail({
   }
 
   const setupStep = hasProject
-    ? 'Set up a task queue first.'
-    : 'Create a project and set up a task queue first.'
+    ? 'Set up a place first.'
+    : 'Create a project and set up a place first.'
   const waitTarget = hasAgents ? 'one of your agents' : 'an agent'
   return `${setupStep} Then this task can wait here until ${waitTarget} is ready. To fix agent setup now, open Agents.`
 }

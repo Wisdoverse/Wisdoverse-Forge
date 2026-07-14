@@ -32,14 +32,14 @@ describe('skillHttpErrorMessage', () => {
   test('turns unauthorized catalog loads into a sign-in step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 401),
-      'Sign in again, then open Saved instructions again.'
+      'Sign in again, then open Saved guidance again.'
     )
   })
 
   test('turns create permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
+      'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
     )
     expect(skillHttpErrorMessage('create', 403)).not.toContain('workspace instructions')
   })
@@ -47,7 +47,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns catalog permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 403),
-      'Ask an owner or admin to update your team space access, then open Saved instructions again. You do not have access to saved instructions for this team space.'
+      'Ask an owner or admin to update your team space access, then open Saved guidance again. You do not have access to saved guidance for this team space.'
     )
     expect(skillHttpErrorMessage('load', 403)).not.toContain('workspace instructions')
   })
@@ -55,36 +55,36 @@ describe('skillHttpErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } }),
-      'Enter the saved instructions, then save the instruction again.'
+      'Enter the reusable guidance, then save the guidance again.'
     )
   })
 
-  test('turns duplicate saved instruction errors into a specific check step', () => {
+  test('turns duplicate saved guidance errors into a specific check step', () => {
     const message = skillHttpErrorMessage('create', 409)
 
     expectBeginnerMessage(
       message,
-      'Open Saved instructions to check for a similar item, then change the name or matching words and save the instruction again.'
+      'Open Saved guidance to check for a similar item, then change the name or matching words and save the guidance again.'
     )
     expect(message).not.toContain('Review the existing instructions')
   })
 
-  test('turns busy saved-instruction saves into a plain wait step', () => {
+  test('turns busy saved guidance saves into a plain wait step', () => {
     const message = skillHttpErrorMessage('create', 429)
 
     expectBeginnerMessage(
       message,
-      'Wait a moment, then save the instruction again. Forge is busy with saved instructions right now.'
+      'Wait a moment, then save the guidance again. Forge is busy with saved guidance right now.'
     )
     expect(message).not.toContain('Instruction setup')
   })
 
-  test('turns busy saved-instruction loads into a plain wait step', () => {
+  test('turns busy saved guidance loads into a plain wait step', () => {
     const message = skillHttpErrorMessage('load', 429)
 
     expectBeginnerMessage(
       message,
-      'Wait a moment, then open Saved instructions again. Forge is busy with saved instructions right now.'
+      'Wait a moment, then open Saved guidance again. Forge is busy with saved guidance right now.'
     )
     expect(message).not.toContain('Instruction setup')
   })
@@ -92,13 +92,13 @@ describe('skillHttpErrorMessage', () => {
   test('uses a check step for unknown create failures', () => {
     const message = skillHttpErrorMessage('create', 418)
 
-    expectBeginnerMessage(message, 'Check the required fields, then save the instruction again.')
+    expectBeginnerMessage(message, 'Check the required fields, then save the guidance again.')
     expect(message).not.toContain('Review the fields')
   })
 })
 
 describe('useSkillsStore errors', () => {
-  test('normalizes missing saved-instruction source names for team spaces', async () => {
+  test('normalizes missing saved guidance source names for team spaces', async () => {
     fetchMock.mockResolvedValue(
       response(200, {
         ok: true,
@@ -116,11 +116,11 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     const [skill] = useSkillsStore.getState().skills
-    expect(skill?.plugin).toBe('Team space saved instructions')
+    expect(skill?.plugin).toBe('Team space saved guidance')
     expect(skill?.plugin).not.toContain('Workspace')
   })
 
-  test('uses scope kind before missing organization id when labeling saved instructions', async () => {
+  test('uses scope kind before missing organization id when labeling saved guidance', async () => {
     fetchMock.mockResolvedValue(
       response(200, {
         ok: true,
@@ -138,11 +138,11 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     const [skill] = useSkillsStore.getState().skills
-    expect(skill?.plugin).toBe('Team space saved instructions')
+    expect(skill?.plugin).toBe('Team space saved guidance')
     expect(skill?.marketplace).toBe('workspace')
   })
 
-  test('labels project-scoped saved instructions as project saved instructions', async () => {
+  test('labels project-scoped saved guidance as project saved guidance', async () => {
     fetchMock.mockResolvedValue(
       response(200, {
         ok: true,
@@ -160,7 +160,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     const [skill] = useSkillsStore.getState().skills
-    expect(skill?.plugin).toBe('Project saved instructions')
+    expect(skill?.plugin).toBe('Project saved guidance')
     expect(skill?.marketplace).toBe('project')
   })
 
@@ -169,7 +169,7 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Open Saved instructions again to load the list.')
+    expect(useSkillsStore.getState().error).toBe('Open Saved guidance again to load the list.')
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
     expect(useSkillsStore.getState().error).not.toContain('database unavailable')
   })
@@ -180,7 +180,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Check your connection, then open Saved instructions again to load the list.'
+      'Check your connection, then open Saved guidance again to load the list.'
     )
     expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
   })
@@ -190,7 +190,7 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Open Saved instructions again to load the list.')
+    expect(useSkillsStore.getState().error).toBe('Open Saved guidance again to load the list.')
     expect(useSkillsStore.getState().error).not.toContain('database parser detail')
   })
 
@@ -203,10 +203,10 @@ describe('useSkillsStore errors', () => {
         trigger_pattern: '[',
         content: 'Review the task',
       })
-    ).rejects.toThrow('Check the matching words, then save the instruction again.')
+    ).rejects.toThrow('Check the matching words, then save the guidance again.')
   })
 
-  test('throws access guidance when saved-instruction create responses carry role details', async () => {
+  test('throws access guidance when saved guidance create responses carry role details', async () => {
     fetchMock.mockResolvedValue(response(200, { ok: false, error: 'owner role required' }))
 
     await expect(
@@ -215,7 +215,7 @@ describe('useSkillsStore errors', () => {
         content: 'Check release notes',
       })
     ).rejects.toThrow(
-      'Ask an owner or admin to let you create saved instructions for this team space, then save the instruction again.'
+      'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
     )
   })
 
@@ -228,7 +228,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'Check your connection, then save the instruction again. Forge could not connect while saving it.'
+      'Check your connection, then save the guidance again. Forge could not connect while saving it.'
     )
   })
 })

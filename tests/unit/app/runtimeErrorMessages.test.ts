@@ -26,7 +26,7 @@ describe('runtimeErrorMessage', () => {
   test('explains network failures without exposing only a transport error', () => {
     const message = runtimeErrorMessage('loadCliSignIn', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('File-change tool sign-in could not be checked')
+    expect(message).toContain('Code tool sign-in could not be checked')
     expect(message).toContain('Forge could not connect while checking the Codex sign-in page')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -58,7 +58,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose and save an AI service first, then reconnect the file-change tool sign-in.'
+      'Choose and save an AI service first, then reconnect the code tool sign-in.'
     )
     expect(message).not.toContain('provider')
   })
@@ -70,7 +70,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose and save an AI service first, then reconnect the file-change tool sign-in.'
+      'Choose and save an AI service first, then reconnect the code tool sign-in.'
     )
     expect(message).not.toContain('Provider is not configured')
   })
@@ -82,7 +82,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the connected AI service and selected file-change tool, then reconnect the file-change tool sign-in.'
+      'Check the connected AI service and selected code tool, then reconnect the code tool sign-in.'
     )
     expect(message).not.toContain('provider')
   })
@@ -92,7 +92,7 @@ describe('runtimeErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Settings, then Codex sign-in again, then reconnect the account. File-change tool sign-in did not start. Check your connection, then open Settings, then Codex sign-in again. Forge could not connect while checking the Codex sign-in page.'
+      'Open Settings, then Codex sign-in again, then reconnect the account. Code tool sign-in did not start. Check your connection, then open Settings, then Codex sign-in again. Forge could not connect while checking the Codex sign-in page.'
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('Failed to fetch')
@@ -255,11 +255,16 @@ describe('runtimeSettingsErrorMessage', () => {
   })
 
   test('turns changed loaded work choices into an open-settings step', () => {
+    const message = runtimeSettingsErrorMessage({
+      status: 409,
+      reason: 'runtime settings conflict',
+    })
+
     expectBeginnerMessage(
-      runtimeSettingsErrorMessage({
-        status: 409,
-        reason: 'runtime settings conflict',
-      }),
+      message,
+      'Open Settings and Where agents work again, then check the current choices. The choices in Where agents work changed while you were working.'
+    )
+    expect(message).not.toContain(
       'Open Settings and Where agents work again, check the current choices, then open Settings and Where agents work again. The choices in Where agents work changed while you were working.'
     )
   })

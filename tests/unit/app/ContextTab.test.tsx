@@ -82,17 +82,17 @@ describe('ContextTab', () => {
     render(<ContextTab taskId="task-1" loadContext={async () => new Promise(() => {})} />)
 
     const loading = screen.getByRole('status', {
-      name: /checking saved notes and instructions/i,
+      name: /checking saved notes and guidance/i,
     })
-    expect(loading).toHaveTextContent('Checking saved notes and instructions')
+    expect(loading).toHaveTextContent('Checking saved notes and guidance')
     expect(loading).toHaveTextContent(
-      'Forge is checking which saved notes and saved instructions helped this task.'
+      'Forge is checking which saved notes and saved guidance helped this task.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access.'
     )
     expect(loading).toHaveTextContent(
-      'Success looks like saved notes used, instructions used, or a start-the-task step.'
+      'Success looks like saved notes used, guidance used, or a start-the-task step.'
     )
     expect(loading).not.toHaveTextContent('Loading saved notes and instructions')
     expect(screen.queryByText(/saved\s+context/i)).toBeNull()
@@ -119,8 +119,9 @@ describe('ContextTab', () => {
     const emptyState = await screen.findByTestId('context-empty-state')
     expect(within(emptyState).getByText('Start the task to build work history')).toBeDefined()
     expect(
-      within(emptyState).getByText(/saved notes, saved instructions, or work history/i)
+      within(emptyState).getByText(/saved notes, saved guidance, or work history/i)
     ).toBeDefined()
+    expect(within(emptyState).queryByText(/saved instructions/i)).toBeNull()
     expect(within(emptyState).getByText(/future tasks get better/i)).toBeDefined()
     expect(within(emptyState).queryByText('No saved notes or run details yet')).toBeNull()
     expect(within(emptyState).queryByText('No saved notes or work history yet')).toBeNull()
@@ -252,7 +253,7 @@ describe('ContextTab', () => {
     )
 
     expect(await screen.findByTestId('context-tab')).toBeDefined()
-    expect(screen.getByText('Agent checked saved notes and instructions')).toBeDefined()
+    expect(screen.getByText('Agent checked saved notes and guidance')).toBeDefined()
     expect(screen.getByText('Check 1')).toBeDefined()
     expect(screen.queryByText('Agent work checked saved notes and instructions')).toBeNull()
     expect(screen.queryByText('Work run 1')).toBeNull()
@@ -263,8 +264,9 @@ describe('ContextTab', () => {
       screen.getByText('These saved notes helped the agent before it worked on this task.')
     ).toBeDefined()
     expect(
-      screen.getByText('These saved instructions helped the agent before it worked on this task.')
+      screen.getByText('This saved guidance helped the agent before it worked on this task.')
     ).toBeDefined()
+    expect(screen.queryByText(/saved instructions helped/i)).toBeNull()
     expect(screen.queryByText(/notes and skills/i)).toBeNull()
     expect(screen.queryByText(/These skills were selected/i)).toBeNull()
     expect(screen.queryByText(/selected for the agent before it worked/i)).toBeNull()
@@ -284,7 +286,8 @@ describe('ContextTab', () => {
     expect(screen.queryByText(/Review the full item before relying on it/i)).toBeNull()
     expect(screen.queryByText(/source snapshot/i)).toBeNull()
     expect(screen.queryByText(/limited context/i)).toBeNull()
-    expect(screen.getByText('Instructions used')).toBeDefined()
+    expect(screen.getByText('Guidance used')).toBeDefined()
+    expect(screen.queryByText('Instructions used')).toBeNull()
     expect(screen.queryByText('Applied instructions')).toBeNull()
     expect(screen.getByText('Release checklist')).toBeDefined()
     expect(screen.getByText('Team space')).toBeDefined()
@@ -294,14 +297,16 @@ describe('ContextTab', () => {
     expect(screen.queryByText('Suggested notes to review')).toBeNull()
     expect(screen.queryByText('Suggested memory updates')).toBeNull()
     expect(screen.getByText('New release memory')).toBeDefined()
-    expect(screen.getByText('Suggested instructions to check')).toBeDefined()
+    expect(screen.getByText('Suggested guidance to check')).toBeDefined()
+    expect(screen.queryByText('Suggested instructions to check')).toBeNull()
     expect(screen.queryByText('Suggested instructions to review')).toBeNull()
     expect(screen.queryByText('Suggested saved instructions')).toBeNull()
     expect(screen.getByText('Release operator')).toBeDefined()
     expect(screen.getByTestId('context-evidence')).toBeDefined()
     expect(screen.getByText(/No longer used for future work/)).toBeDefined()
     expect(screen.getByTestId('context-provenance')).toBeDefined()
-    expect(screen.getByText('Where saved notes or instructions came from')).toBeDefined()
+    expect(screen.getByText('Where saved notes or guidance came from')).toBeDefined()
+    expect(screen.queryByText('Where saved notes or instructions came from')).toBeNull()
     expect(screen.queryByText('Where saved context came from')).toBeNull()
     expect(
       screen.getByText(/came from Prod deploy memory and helped during this task/i)
@@ -350,7 +355,8 @@ describe('ContextTab', () => {
       />
     )
 
-    expect(await screen.findByText('Agent checked saved notes and instructions')).toBeDefined()
+    expect(await screen.findByText('Agent checked saved notes and guidance')).toBeDefined()
+    expect(screen.queryByText('Agent checked saved notes and instructions')).toBeNull()
     expect(screen.getByText('Waiting to start')).toBeDefined()
     expect(screen.getByText('Check task status')).toBeDefined()
     expect(screen.getByText('Open task details to check status')).toBeDefined()

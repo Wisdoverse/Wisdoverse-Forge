@@ -83,8 +83,9 @@ describe('adminHttpErrorMessage', () => {
 
     expectBeginnerError(
       message,
-      'Open Admin and choose App health, then choose Check now again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
+      'Open Admin and choose App health, then choose Check now again. Forge could not load App health right now. If it still fails, ask an owner or admin to check App health in Admin.'
     )
+    expect(message).not.toContain('system health')
     expect(message).not.toContain('then try again')
     expect(message).not.toContain('temporarily unavailable')
     expect(message).not.toContain('admin service')
@@ -107,6 +108,17 @@ describe('adminHttpErrorMessage', () => {
       adminHttpErrorMessage('users', 429),
       'Wait a moment, then open Admin and choose User access before trying again. Forge is receiving too many Admin requests right now.'
     )
+  })
+
+  test('uses plain-language recovery text for agent work checks', () => {
+    const message = adminHttpErrorMessage('control-plane', 503)
+
+    expectBeginnerError(
+      message,
+      'Open Admin and choose Agent work checks, then try again. Forge could not load the admin agent work checks right now. If it still fails, ask an owner or admin to check agent work checks in Admin.'
+    )
+    expect(message).not.toContain('Agent coordination')
+    expect(message).not.toContain('Control Plane')
   })
 })
 
@@ -159,15 +171,16 @@ describe('useAdminStore loading errors', () => {
     expect(useAdminStore.getState().userActionError).not.toContain('role')
   })
 
-  test('stores service recovery guidance when health loading fails', async () => {
+  test('stores App health recovery guidance when health loading fails', async () => {
     authFetchMock.mockResolvedValue(response(503, { message: 'health database unavailable' }))
 
     await useAdminStore.getState().loadHealth()
 
     expectBeginnerError(
       useAdminStore.getState().healthError,
-      'Open Admin and choose App health, then choose Check now again. Forge could not load the admin system health right now. If it still fails, ask an owner or admin to check system health in Admin.'
+      'Open Admin and choose App health, then choose Check now again. Forge could not load App health right now. If it still fails, ask an owner or admin to check App health in Admin.'
     )
+    expect(useAdminStore.getState().healthError).not.toContain('system health')
     expect(useAdminStore.getState().healthError).not.toContain('then try again')
     expect(useAdminStore.getState().healthError).not.toContain('temporarily unavailable')
     expect(useAdminStore.getState().healthError).not.toContain('Admin setup')
@@ -712,7 +725,7 @@ describe('useAdminStore loading errors', () => {
     expect(health?.checks.redis?.status).toBe('up')
   })
 
-  test('coerces malformed agent coordination status numbers to zeros', async () => {
+  test('coerces malformed agent work check numbers to zeros', async () => {
     authFetchMock.mockResolvedValue(
       response(200, {
         ok: true,

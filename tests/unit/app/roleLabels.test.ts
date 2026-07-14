@@ -3,9 +3,9 @@ import { describe, expect, test } from 'vitest'
 import { userRoleLabel } from '@app/entities/user'
 
 describe('userRoleLabel', () => {
-  test('turns missing access levels into an Account settings check step', () => {
-    expect(userRoleLabel(null)).toBe('Check access in Account settings')
-    expect(userRoleLabel(' ')).toBe('Check access in Account settings')
+  test('turns missing access levels into an Account settings reload step', () => {
+    expect(userRoleLabel(null)).toBe('Open Account settings again to load access level')
+    expect(userRoleLabel(' ')).toBe('Open Account settings again to load access level')
   })
 
   test('keeps known and unexpected access levels readable', () => {

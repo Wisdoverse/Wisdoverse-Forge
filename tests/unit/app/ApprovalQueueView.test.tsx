@@ -80,11 +80,11 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     const loading = screen.getByRole('status', {
-      name: /checking saved notes and instructions/i,
+      name: /checking saved notes and guidance/i,
     })
-    expect(loading).toHaveTextContent('Checking saved notes and instructions')
+    expect(loading).toHaveTextContent('Checking saved notes and guidance')
     expect(loading).toHaveTextContent(
-      'Forge is checking which saved notes or instructions need your decision before agents can reuse them.'
+      'Forge is checking which saved notes or guidance need your decision before agents can reuse them.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access.'
@@ -101,10 +101,12 @@ describe('ApprovalQueueView', () => {
     expect(await screen.findByTestId('context-approval-path')).toBeDefined()
     expect(screen.getByText('Check what agents can save')).toBeDefined()
     expect(screen.getByText('Check steps')).toBeDefined()
-    expect(screen.getByText(/saved notes or instructions are useful/i)).toBeDefined()
+    expect(screen.getByText(/saved notes or guidance are useful/i)).toBeDefined()
     expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
     expect(screen.getByText('Saved note')).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Saved guidance' })).toBeDefined()
+    expect(screen.queryByRole('option', { name: 'Saved instructions' })).toBeNull()
     expect(screen.getAllByText('Needs your check').length).toBeGreaterThan(0)
     expect(screen.queryByText(/Saved\s+memory/i)).toBeNull()
     expect(screen.queryByText('Pending')).toBeNull()
@@ -166,6 +168,18 @@ describe('ApprovalQueueView', () => {
     expect(rejectContextCandidate).not.toHaveBeenCalled()
     expect(screen.queryByTestId('context-decision-checklist')).toBeNull()
     expect(screen.getByText('Use stable credentials')).toBeDefined()
+  })
+
+  test('labels saved guidance candidates without instruction jargon', async () => {
+    listContextCandidates.mockResolvedValue([
+      { ...candidate, id: 'candidate-guidance', item_kind: 'skill' },
+    ])
+
+    render(<ApprovalQueueView />)
+
+    const row = await screen.findByTestId('context-candidate-candidate-guidance')
+    expect(within(row).getByText('Saved guidance')).toBeDefined()
+    expect(within(row).queryByText('Saved instruction')).toBeNull()
   })
 
   test('defaults broad saved-item suggestions to only me so beginners can save safely', async () => {
@@ -256,7 +270,7 @@ describe('ApprovalQueueView', () => {
     expect(within(emptyState).getByText('No saved items need checking')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        /when an agent suggests a saved note or saved instruction, it will appear here/i
+        /when an agent suggests a saved note or saved guidance, it will appear here/i
       )
     ).toBeDefined()
     expect(within(emptyState).getByText(/open Tasks and finish work/i)).toBeDefined()
@@ -325,7 +339,7 @@ describe('ApprovalQueueView', () => {
       'Check your connection, then choose Check saved items again'
     )
     expect(error.textContent).toContain(
-      'Forge could not connect while loading saved notes and instructions'
+      'Forge could not connect while loading saved notes and guidance'
     )
     expect(error.textContent).not.toContain('refresh Saved items')
     expect(error.textContent).not.toMatch(/failed to fetch/i)

@@ -60,7 +60,7 @@ export function controlPlaneErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('sign in again') || text.includes('unauthorized')) {
-    return 'Sign in again, then open Admin and choose Agent coordination before choosing Check again. Forge could not load agent coordination status because your sign-in expired.'
+    return 'Sign in again, then open Admin and choose Agent work checks before choosing Check again. Forge could not load agent work check status because your sign-in expired.'
   }
   if (
     code === 403 ||
@@ -68,20 +68,20 @@ export function controlPlaneErrorMessage(error: unknown): string {
     text.includes('forbidden') ||
     text.includes('role required')
   ) {
-    return 'Ask an owner or admin to give you Admin access, then open Admin and choose Agent coordination before choosing Check again. You do not have access to agent coordination status.'
+    return 'Ask an owner or admin to give you Admin access, then open Admin and choose Agent work checks before choosing Check again. You do not have access to agent work check status.'
   }
   if (code === 404 || text.includes('endpoint is not available')) {
-    return 'Open Admin and choose Agent coordination, then choose Check again. Agent coordination status is not available from this Admin view. If it still fails, ask an owner or admin to check Agent coordination in Admin.'
+    return 'Open Admin and choose Agent work checks, then choose Check again. Agent work check status is not available from this Admin view. If it still fails, ask an owner or admin to check agent work checks in Admin.'
   }
   if (code === 429 || text.includes('busy') || text.includes('too many')) {
-    return 'Wait a minute, then open Admin, choose Agent coordination, and choose Check again. Forge is receiving too many requests right now.'
+    return 'Wait a minute, then open Admin, choose Agent work checks, and choose Check again. Forge is receiving too many requests right now.'
   }
   if (code === 503 || (code != null && code >= 500)) {
-    return 'Open Admin and choose Agent coordination, then choose Check again. Forge could not load agent coordination status. If it still fails, ask an owner or admin to check Agent coordination in Admin.'
+    return 'Open Admin and choose Agent work checks, then choose Check again. Forge could not load agent work check status. If it still fails, ask an owner or admin to check agent work checks in Admin.'
   }
   if (isNetworkError(error)) {
-    return 'Check your connection, then open Admin and choose Agent coordination before choosing Check again. Forge could not connect while loading agent coordination status.'
+    return 'Check your connection, then open Admin and choose Agent work checks before choosing Check again. Forge could not connect while loading agent work check status.'
   }
 
-  return 'Open Admin and choose Agent coordination, then choose Check again. Forge could not load agent coordination status. If it still fails, ask an owner or admin to check Agent coordination in Admin.'
+  return 'Open Admin and choose Agent work checks, then choose Check again. Forge could not load agent work check status. If it still fails, ask an owner or admin to check agent work checks in Admin.'
 }

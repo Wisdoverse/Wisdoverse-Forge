@@ -121,8 +121,8 @@ export function InjectionPreviewModal({
               {selectedSummary} · {budget}
             </p>
             <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-              These are the saved notes and saved instructions the agent will see next. Remove
-              anything that does not belong.
+              These are the saved notes and guidance the agent will see next. Remove anything that
+              does not belong.
             </p>
           </div>
           <button
@@ -192,7 +192,7 @@ export function InjectionPreviewModal({
                 title="More saved items you can include"
                 helper="These are not shared unless you add them."
                 items={preview.suggestedItems}
-                empty="More saved items appear here after tasks save helpful notes or instructions."
+                empty="More saved items appear here after tasks save helpful notes or guidance."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
@@ -478,7 +478,7 @@ function itemKindLabel(kind: string): string {
     case 'memory':
       return 'Saved note'
     case 'skill':
-      return 'Saved instruction'
+      return 'Saved guidance'
     default:
       return 'Check saved item'
   }

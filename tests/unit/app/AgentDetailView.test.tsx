@@ -162,7 +162,8 @@ describe('AgentDetailView', () => {
       />
     )
 
-    expect(screen.getAllByText('Check agent status').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Check if ready').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Check agent status')).toBeNull()
     expect(screen.queryByText(/warming_up/i)).toBeNull()
     expect(screen.queryByText(/warming up/i)).toBeNull()
   })
@@ -200,7 +201,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Current chat')).toBeDefined()
     expect(
       screen.getAllByText(
-        'No project files. Use Project files or This computer for Tasks and code changes.'
+        'No project files. Use an agent with Project files or This computer for Tasks and code changes.'
       ).length
     ).toBeGreaterThan(0)
     expect(screen.getByText('Save useful chat notes after a reply.')).toBeDefined()
@@ -262,7 +263,15 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText('Success Rate')).toBeNull()
   })
 
-  test('foregrounds assignment fit on the agent overview', () => {
+  test('foregrounds assignment fit on the agent overview', async () => {
+    getTasksByAgentMock.mockResolvedValueOnce([
+      makeTask({
+        id: 'reuse-task',
+        params: { task: 'Reuse saved guidance', message: '' },
+        contextCounts: { total: 2, appliedMemories: 0, appliedSkills: 2 },
+      }),
+    ])
+
     render(
       <AgentDetailView
         agent={{ ...containerAgent, currentTask: 'Implement onboarding flow' }}
@@ -272,7 +281,10 @@ describe('AgentDetailView', () => {
     expect(screen.getByTestId('agent-assignment-fit')).toBeDefined()
     expect(screen.getByText('Ready for work')).toBeDefined()
     expect(screen.getByText('Implement onboarding flow')).toBeDefined()
-    expect(screen.getByText('Finish a task, then save useful steps.')).toBeDefined()
+    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(await screen.findByText('2 saved guidance items used in recent work')).toBeDefined()
+    expect(screen.queryByText('Saved instructions')).toBeNull()
+    expect(screen.queryByText(/saved instructions? used in recent work/i)).toBeNull()
     expect(screen.queryByText(/task\s+context/i)).toBeNull()
   })
 
@@ -284,12 +296,14 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('Ready for a task')).toBeDefined()
     expect(screen.getByText('Send a task to create the first update.')).toBeDefined()
     expect(screen.getByText('Send a small first task')).toBeDefined()
+    const nextStep = screen.getByTestId('agent-next-step')
     expect(
-      screen.getByText(
-        'Use Tasks to send a small, low-risk task. Choose this agent directly, or choose a task queue that includes this agent.'
+      within(nextStep).getByText(
+        'Use Tasks to send a small, low-risk task. Choose this agent directly, or let another agent take it.'
       )
     ).toBeDefined()
-    expect(screen.queryByText(/where tasks wait/i)).toBeNull()
+    expect(within(nextStep).queryByText(/task queue/i)).toBeNull()
+    expect(within(nextStep).queryByText(/place where new tasks wait/i)).toBeNull()
     expect(screen.queryByText('No active task')).toBeNull()
     expect(screen.queryByText('No recent task updates')).toBeNull()
     expect(screen.queryByText(/unassigned/i)).toBeNull()
@@ -576,7 +590,12 @@ describe('AgentDetailView', () => {
 
     const nextStep = screen.getByTestId('agent-next-step')
     expect(screen.getByText('Check the AI service before sending a message')).toBeDefined()
-    expect(screen.getByText('Open AI service settings and choose Check connection')).toBeDefined()
+    expect(screen.getByText('Open AI services in Settings and choose Check connection')).toBeDefined()
+    expect(
+      screen.getByText(
+        'Open AI services in Settings to confirm this simple chat agent can answer. It cannot take Tasks, change code, or use computer apps.'
+      )
+    ).toBeDefined()
     expect(within(nextStep).getByText(/choose Check connection for this service/i)).toBeDefined()
     expect(
       within(nextStep).getByText(
@@ -584,10 +603,11 @@ describe('AgentDetailView', () => {
       )
     ).toBeDefined()
     expect(screen.getByText(/returns to Ready and can answer in chat/i)).toBeDefined()
-    expect(screen.getByRole('link', { name: /open AI service settings/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /open AI services/i })).toHaveAttribute(
       'href',
       '/settings/providers'
     )
+    expect(screen.queryByText(/Open AI service settings/i)).toBeNull()
     expect(screen.queryByText('Check the AI service before sending work')).toBeNull()
     expect(within(nextStep).queryByText(/chat work/i)).toBeNull()
     expect(screen.queryByText('Unavailable until restarted or reconnected')).toBeNull()
@@ -629,7 +649,7 @@ describe('AgentDetailView', () => {
     expect(screen.getByText('File access')).toBeDefined()
     expect(
       screen.getAllByText(
-        'No project files. Use Project files or This computer for Tasks and code changes.'
+        'No project files. Use an agent with Project files or This computer for Tasks and code changes.'
       ).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText('No file access needed')).toBeNull()
@@ -645,7 +665,9 @@ describe('AgentDetailView', () => {
       screen.getByText(/cannot take Tasks, change code, use computer apps, or open project files/i)
     ).toBeDefined()
     expect(
-      screen.getByText(/for Tasks and code changes, use Project files or This computer/i)
+      screen.getByText(
+        /for Tasks and code changes, use an agent with Project files or This computer/i
+      )
     ).toBeDefined()
     const accessNote = screen.getByText(/cannot take Tasks, change code, or use computer apps/i)
     expect(accessNote).toBeDefined()

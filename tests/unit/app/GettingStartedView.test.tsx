@@ -318,7 +318,7 @@ describe('GettingStartedView', () => {
     expect(getTasksMock).toHaveBeenCalledWith('group-1')
   })
 
-  test('routes incomplete file-change access setup to file-change tool sign-in after runtime exists', async () => {
+  test('routes incomplete file-change access setup to code tool sign-in after runtime exists', async () => {
     useNavigationStore.setState({
       teams: [
         {
@@ -374,7 +374,7 @@ describe('GettingStartedView', () => {
     expect(screen.queryByText(/routing needs/i)).toBeNull()
     fireEvent.click(
       within(screen.getByTestId('getting-started-expanded-step')).getByRole('button', {
-        name: /open file-change tool sign-in/i,
+        name: /open sign in to code tools/i,
       })
     )
 
@@ -492,18 +492,17 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Do this next')).toBeDefined()
-    expect(screen.getAllByText('Task queue').length).toBeGreaterThan(0)
-    expect(screen.getByText('Set up a task queue for this project.')).toBeDefined()
+    expect(screen.getAllByText('Place for new tasks').length).toBeGreaterThan(0)
+    expect(screen.getByText('Set up where new tasks wait for this project.')).toBeDefined()
     expect(
-      screen.getAllByText(
-        'This gives new work a place to wait until the next available agent starts it.'
-      ).length
+      screen.getAllByText('New tasks wait here until an agent starts them.').length
     ).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Set up a task queue before the first task.')).toBeDefined()
-    expect(screen.queryByText('Where tasks wait')).toBeNull()
+    expect(screen.getByText('Set up where new tasks wait before the first task.')).toBeDefined()
+    expect(screen.queryByText('Task queue')).toBeNull()
+    expect(screen.queryByText(/task queue/i)).toBeNull()
 
     const routingStep = screen.getByTestId('getting-started-expanded-step')
-    fireEvent.click(within(routingStep).getByRole('button', { name: /set up task queue/i }))
+    fireEvent.click(within(routingStep).getByRole('button', { name: /set up place/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/agents' })
   })
 
@@ -513,9 +512,10 @@ describe('GettingStartedView', () => {
     expect(await screen.findByText('Do this next')).toBeDefined()
     expect(
       screen.getByText(
-        'Create or choose a project, then set up a task queue before the first task.'
+        'Create or choose a project, then set up where new tasks wait before the first task.'
       )
     ).toBeDefined()
+    expect(screen.queryByText(/task queue/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /write first task/i })).toBeNull()
 
     const laterSteps = screen.getByTestId('getting-started-later-steps')
@@ -605,7 +605,7 @@ describe('GettingStartedView', () => {
     expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Write one small task. Forge puts it in the task queue until the next available agent starts it.'
+        'Write one small task. Forge puts it where new tasks wait until an agent starts it.'
       )
     ).toBeDefined()
     expect(
@@ -613,6 +613,7 @@ describe('GettingStartedView', () => {
         'The task appears on the board, either waiting for an agent or already has one.'
       ).length
     ).toBeGreaterThan(0)
+    expect(screen.queryByText(/task queue until/i)).toBeNull()
     expect(screen.queryByText(/where tasks wait/i)).toBeNull()
     expect(screen.queryByText(/picks it up/i)).toBeNull()
     expect(screen.getAllByRole('button', { name: /write first task/i }).length).toBeGreaterThan(0)
@@ -787,7 +788,7 @@ describe('GettingStartedView', () => {
     expect(screen.queryByRole('button', { name: /open agents/i })).toBeNull()
   })
 
-  test('routes project-file sign-in setup to file-change tool sign-in settings', async () => {
+  test('routes project-file sign-in setup to code tool sign-in settings', async () => {
     useNavigationStore.setState({
       teams: [
         {
@@ -835,14 +836,18 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     const signInButtons = await screen.findAllByRole('button', {
-      name: /open file-change tool sign-in/i,
+      name: /open sign in to code tools/i,
     })
     expect(signInButtons.length).toBeGreaterThan(0)
     expect(
       screen.getAllByText(
-        /open file-change tool sign-in for Codex or another tool before Tasks need project files/i
+        /open Sign in to code tools before creating tasks that need project files/i
       ).length
     ).toBeGreaterThan(0)
+    expect(screen.queryByText(/open Code tool sign-in/i)).toBeNull()
+    expect(
+      screen.queryByText(/open code tool sign-in for Codex or another tool/i)
+    ).toBeNull()
     expect(screen.queryByText(/open work tool sign-in/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /join this computer/i })).toBeNull()
 

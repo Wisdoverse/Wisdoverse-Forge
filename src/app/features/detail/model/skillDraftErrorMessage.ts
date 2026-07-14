@@ -68,12 +68,12 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export function skillDraftErrorMessage(error: unknown): string {
-  const failure = 'Saved instruction was not saved.'
+  const failure = 'Reusable guidance was not saved.'
   const text = structuredErrorText(error).toLowerCase()
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return `Sign in again, reopen this task, and save the instruction again. ${failure}`
+    return `Sign in again, reopen this task, and save the guidance again. ${failure}`
   }
   if (
     code === 403 ||
@@ -81,12 +81,13 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('permission') ||
     text.includes('role required') ||
     text.includes('let you create saved instructions') ||
+    text.includes('let you save reusable guidance') ||
     text.includes('cannot create workspace instructions')
   ) {
-    return `Ask an owner or admin to let you create saved instructions, then save again. ${failure}`
+    return `Ask an owner or admin to let you save reusable guidance, then save again. ${failure}`
   }
   if (code === 404) {
-    return `Open this task again, then save the instruction again. ${failure} Saved instruction access may have changed.`
+    return `Open this task again, then save the guidance again. ${failure} Guidance access may have changed.`
   }
   if (
     code === 409 ||
@@ -94,23 +95,23 @@ export function skillDraftErrorMessage(error: unknown): string {
     text.includes('already exist') ||
     text.includes('duplicate')
   ) {
-    return `Rename it, then save again. A saved instruction with this name may already exist. ${failure}`
+    return `Rename it, then save again. Reusable guidance with this name may already exist. ${failure}`
   }
   if (RAW_SERVICE_DETAIL.test(text)) {
-    return 'Wait a few minutes, then save again. Forge could not save this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
+    return 'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
   }
   if (code === 422 || text.includes('validation')) {
-    return `Check the name, matching words, and reusable instructions, then save again. ${failure}`
+    return `Check the name, matching words, and reusable guidance, then save again. ${failure}`
   }
   if (code === 429 || text.includes('rate limit') || text.includes('too many')) {
-    return `Wait a minute, then save again. Too many instruction changes are happening right now. ${failure}`
+    return `Wait a minute, then save again. Too many guidance changes are happening right now. ${failure}`
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then save again. Forge could not save this instruction right now. If it still fails, ask an owner or admin to check Saved instructions access.'
+    return 'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
   }
   if (isNetworkError(error)) {
-    return 'Check your connection, then save again. Forge could not connect while saving this instruction.'
+    return 'Check your connection, then save again. Forge could not connect while saving this guidance.'
   }
 
-  return `Check the draft, then save again. ${failure} If it still fails, ask an owner or admin to check Saved instructions access.`
+  return `Check the draft, then save again. ${failure} If it still fails, ask an owner or admin to check saved guidance access.`
 }

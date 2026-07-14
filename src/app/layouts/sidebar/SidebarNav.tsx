@@ -58,7 +58,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'context',
     Icon: ClipboardCheck,
     labelKey: 'nav.context',
-    description: 'check saved notes and instructions',
+    description: 'check saved notes and guidance',
     path: '/context',
   },
   {
@@ -72,7 +72,7 @@ const NAV_ITEMS: NavItem[] = [
     id: 'skills',
     Icon: Zap,
     labelKey: 'nav.skills',
-    description: 'reuse instructions',
+    description: 'reuse guidance',
     path: '/skills',
   },
   {

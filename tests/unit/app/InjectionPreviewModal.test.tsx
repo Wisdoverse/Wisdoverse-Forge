@@ -36,14 +36,19 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Check saved items before sending')).toBeDefined()
+    expect(screen.getByText(/saved notes and guidance the agent will see next/i)).toBeDefined()
+    expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
     expect(
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
     expect(
-      screen.getByText(
+      screen.getByText('More saved items appear here after tasks save helpful notes or guidance.')
+    ).toBeDefined()
+    expect(
+      screen.queryByText(
         'More saved items appear here after tasks save helpful notes or instructions.'
       )
-    ).toBeDefined()
+    ).toBeNull()
     expect(screen.queryByText('No other saved items were found.')).toBeNull()
     expect(screen.getByRole('button', { name: 'Back to task' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
@@ -259,7 +264,8 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Saved instruction')).toBeDefined()
+    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(screen.queryByText('Saved instruction')).toBeNull()
     expect(screen.getByText('More saved items you can include')).toBeDefined()
     expect(screen.getByText('These are not shared unless you add them.')).toBeDefined()
     expect(screen.getByText('Kept easy to reuse')).toBeDefined()

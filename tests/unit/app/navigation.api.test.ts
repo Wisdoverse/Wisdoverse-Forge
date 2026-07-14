@@ -280,7 +280,7 @@ describe('navigation entity APIs', () => {
     )
   })
 
-  it('createGroup explains missing created task queue without API wording', async () => {
+  it('createGroup explains missing created place without API wording', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ ok: true, group: null }),
@@ -293,7 +293,7 @@ describe('navigation entity APIs', () => {
         description: 'Agents in this group can receive tasks from the board.',
       })
     ).rejects.toThrow(
-      'Check the task queue name and project, then create it again. The task queue was not created.'
+      'Check the place name and project, then create it again. The place was not created.'
     )
   })
 

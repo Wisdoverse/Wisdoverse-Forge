@@ -341,7 +341,7 @@ function taskCheckIn(task: TaskSummary): {
           }
         : {
             title: 'Choose an agent to start this task',
-            detail: 'Choose a ready agent before this task can start.',
+            detail: 'Choose an agent before this task can start.',
             tone: 'warn',
             Icon: Bot,
           }
@@ -355,7 +355,7 @@ function taskCheckIn(task: TaskSummary): {
             Icon: Clock3,
           }
         : {
-            title: 'Waiting for a ready agent',
+            title: 'Waiting for an agent',
             detail: 'Choose or start an agent so this task has someone to begin the work.',
             tone: 'warn',
             Icon: Clock3,

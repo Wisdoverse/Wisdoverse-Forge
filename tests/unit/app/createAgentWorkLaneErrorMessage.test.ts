@@ -6,7 +6,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new Error('HTTP 401: Unauthorized'))
 
     expect(message).toBe(
-      'Sign in again, open New agent again, and set up the task queue again. The task queue was not created.'
+      'Sign in again, open New agent again, and set up the place for new tasks again. The place was not created.'
     )
     expect(message).not.toContain('Create Agent')
     expect(message).not.toContain('Unauthorized')
@@ -15,7 +15,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
 
   test('turns permission failures into an owner or admin next step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('HTTP 403: Forbidden'))).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
   })
 
@@ -26,7 +26,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('waiting place')
@@ -36,7 +36,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage('owner role required')
 
     expect(message).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
     expect(message).not.toContain('owner role required')
     expect(message).not.toContain('waiting place')
@@ -48,14 +48,14 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Ask an owner or admin to let you set up the task queue in this project. The task queue was not created.'
+      'Ask an owner or admin to let you set up the place for new tasks in this project. The place was not created.'
     )
     expect(message).not.toContain('owner role required')
   })
 
   test('turns duplicate task-queue failures into an existing-queue step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('API 409: duplicate lane'))).toBe(
-      'Open the project again, then choose the existing task queue. A starter task queue may already exist.'
+      'Open the project again, then choose the existing place for new tasks. A starter place may already exist.'
     )
   })
 
@@ -66,7 +66,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Open the project again, then choose the existing task queue. A starter task queue may already exist.'
+      'Open the project again, then choose the existing place for new tasks. A starter place may already exist.'
     )
     expect(message).not.toContain('duplicate lane')
     expect(message).not.toContain('waiting place')
@@ -77,14 +77,14 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage({ code: '404' })
 
     expect(message).toBe(
-      'Open New agent, choose the project again, then set up the task queue. The task queue was not created because the selected project may have changed or been removed.'
+      'Open New agent, choose the project again, then set up the place for new tasks. The place was not created because the selected project may have changed or been removed.'
     )
     expect(message).not.toContain('Refresh this page')
   })
 
   test('turns invalid task-queue setup into a project selection step', () => {
     expect(createAgentWorkLaneErrorMessage(new Error('HTTP 422: validation failed'))).toBe(
-      'Choose a project first, then set up the task queue again. The task queue was not created.'
+      'Choose a project first, then set up the place for new tasks again. The place was not created.'
     )
   })
 
@@ -94,7 +94,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+      'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('Choose a project first')
@@ -104,7 +104,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new TypeError('Failed to fetch'))
 
     expect(message).toBe(
-      'Check your connection, then set up the task queue again. Forge could not connect while creating the task queue.'
+      'Check your connection, then set up the place for new tasks again. Forge could not connect while creating the place.'
     )
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('waiting place')
@@ -114,7 +114,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     const message = createAgentWorkLaneErrorMessage(new Error('HTTP 500: database unavailable'))
 
     expect(message).toBe(
-      'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+      'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('platform')
@@ -129,7 +129,7 @@ describe('createAgentWorkLaneErrorMessage', () => {
     })
 
     expect(message).toBe(
-      'Wait a few minutes, then set up the task queue again. Forge could not create the task queue right now. If it still fails, ask an owner or admin to check the task queue in this project.'
+      'Wait a few minutes, then set up the place for new tasks again. Forge could not create the place right now. If it still fails, ask an owner or admin to check places in this project.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('503')

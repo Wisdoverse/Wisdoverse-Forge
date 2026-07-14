@@ -35,8 +35,8 @@ describe('AgentCard', () => {
     expect(agentStatusLabel('working')).toBe('Working now')
     expect(agentStatusLabel('idle')).toBe('Ready')
     expect(agentStatusLabel('offline')).toBe('Not connected')
-    expect(agentStatusLabel(null)).toBe('Check agent status')
-    expect(agentStatusLabel('future_status')).toBe('Check agent status')
+    expect(agentStatusLabel(null)).toBe('Check if ready')
+    expect(agentStatusLabel('future_status')).toBe('Check if ready')
     expect(agentStatusLabel('offline')).not.toBe('Offline')
     expect(agentStatusLabel(null)).not.toBe('Status not reported')
     expect(agentStatusLabel('future_status')).not.toBe('Status needs review')
@@ -94,7 +94,7 @@ describe('AgentCard', () => {
     expect(screen.getByText('Replying')).toBeDefined()
     expect(screen.getByText('Answer success')).toBeDefined()
     expect(screen.getByTestId('agent-status-help-provider-agent').textContent).toBe(
-      'Ready for direct chat. Use Project files or This computer for Tasks and code changes.'
+      'Ready for direct chat. Use an agent with Project files or This computer for Tasks and code changes.'
     )
     expect(screen.queryByText('Ready for a message')).toBeNull()
     expect(screen.queryByText('Open project settings first.')).toBeNull()
@@ -195,7 +195,7 @@ describe('AgentCard', () => {
     }
 
     expect(agentCardStatusHelp('idle', providerAgent)).toBe(
-      'Ready for direct chat. Use Project files or This computer for Tasks and code changes.'
+      'Ready for direct chat. Use an agent with Project files or This computer for Tasks and code changes.'
     )
     expect(agentCardStatusHelp('working', providerAgent)).toBe('Answering a message now')
 
@@ -212,7 +212,7 @@ describe('AgentCard', () => {
 
     render(<AgentCard agent={{ ...mockAgent, status: 'warming_up' as never }} />)
 
-    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Check agent status')
+    expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Check if ready')
     expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe(
       'Check this agent before sending work'
     )

@@ -10,7 +10,7 @@ afterEach(() => {
 const groups: NavAgentGroup[] = [{ id: 'queue-1', name: 'Delivery Queue', projectId: 'project-1' }]
 
 describe('AgentGroupSelector', () => {
-  test('explains that a project is needed before choosing a task queue', () => {
+  test('explains that a project is needed before choosing where tasks wait', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -20,18 +20,18 @@ describe('AgentGroupSelector', () => {
       />
     )
 
-    expect(screen.getByText('Task queue')).toBeDefined()
+    expect(screen.getByText('Place for new tasks')).toBeDefined()
     const select = screen.getByRole('combobox', {
-      name: /task queue for new tasks/i,
+      name: /place for new tasks/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toBe('Choose a project before choosing a task queue.')
+    expect(select.title).toBe('Choose a project before choosing where new tasks wait.')
     expect(screen.getByRole('option', { name: /choose a project first/i })).toBeDefined()
-    expect(screen.queryByText('Where tasks wait')).toBeNull()
+    expect(screen.queryByText('Task queue')).toBeNull()
   })
 
-  test('explains how to set up a task queue before sending work', () => {
+  test('explains how to set up where tasks wait before sending work', () => {
     render(
       <AgentGroupSelector
         groups={[]}
@@ -42,14 +42,14 @@ describe('AgentGroupSelector', () => {
     )
 
     const select = screen.getByRole('combobox', {
-      name: /task queue for new tasks/i,
+      name: /place for new tasks/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(true)
-    expect(select.title).toBe('Set up a task queue, then come back here.')
+    expect(select.title).toBe('Set up a place where new tasks wait, then come back here.')
     const previousActionPhrase = ['assigning', 'tasks'].join(' ')
     expect(select.title).not.toContain(previousActionPhrase)
-    expect(screen.getByRole('option', { name: /set up a task queue first/i })).toBeDefined()
+    expect(screen.getByRole('option', { name: /set up a place first/i })).toBeDefined()
   })
 
   test('selects where new tasks wait', () => {
@@ -65,12 +65,12 @@ describe('AgentGroupSelector', () => {
     )
 
     const select = screen.getByRole('combobox', {
-      name: /task queue for new tasks/i,
+      name: /place for new tasks/i,
     }) as HTMLSelectElement
 
     expect(select.disabled).toBe(false)
-    expect(select.title).toContain('task queue for new tasks')
-    expect(screen.getByRole('option', { name: 'Delivery task queue' })).toBeDefined()
+    expect(select.title).toBe('Choose where new tasks wait.')
+    expect(screen.getByRole('option', { name: 'Delivery place' })).toBeDefined()
     expect(screen.queryByRole('option', { name: 'Delivery Queue' })).toBeNull()
 
     fireEvent.change(select, { target: { value: 'queue-1' } })

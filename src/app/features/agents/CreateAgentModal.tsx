@@ -94,7 +94,7 @@ const AGENT_STARTER_TEMPLATES: AgentStarterTemplate[] = [
   {
     id: 'investigator',
     label: 'Find the cause',
-    summary: 'Tracks down unclear failures',
+    summary: 'Checks the next useful clue',
     name: 'Investigation Helper',
     systemPrompt:
       'You help find the cause of a problem. Start with what the user already knows, separate what is confirmed from what is only a guess, check the smallest useful clue next, and end with the next action that can confirm the answer.',
@@ -103,7 +103,7 @@ const AGENT_STARTER_TEMPLATES: AgentStarterTemplate[] = [
   {
     id: 'fixer',
     label: 'Fix a bug',
-    summary: 'Reproduces and fixes bugs',
+    summary: 'Checks the problem and fixes it',
     name: 'Bug Fix Helper',
     systemPrompt:
       'You fix bugs in the smallest safe way. Reproduce what is broken when possible, change only what is related, check the broken case again, and explain what the user should try next.',
@@ -133,7 +133,7 @@ const AGENT_KIND_OPTIONS: Array<{
     value: 'provider',
     label: 'Simple chat agent',
     badge: 'Questions only',
-    summary: 'Questions only. No Tasks, code changes, or computer apps.',
+    summary: 'Questions only. It cannot take Tasks, change files, or use apps.',
   },
 ]
 
@@ -154,9 +154,9 @@ interface ProviderOption {
 
 const DEFAULT_AGENT_CWD = '/workspace'
 const NO_READY_AI_SERVICE_ERROR =
-  'Open AI service settings, add a service, paste the key from that service, save it, then choose Check connection. Come back when it shows Ready.'
+  'Open AI services in Settings, add a service, paste the key from that service, save it, then choose Check connection. Come back when it shows Ready.'
 const SELECTED_AI_SERVICE_NOT_READY_ERROR =
-  'Open AI service settings, choose Check connection for this service, then come back when it shows Ready.'
+  'Open AI services in Settings, choose Check connection for this service, then come back when it shows Ready.'
 const NO_SELECTED_PROJECT_ERROR =
   'Open project settings, create or choose a project, then create this agent. Agents that work with files need a project first.'
 
@@ -232,11 +232,11 @@ function runtimeFitFor(
   return {
     title: `${providerLabel} for questions and result checks`,
     detail:
-      'Best for direct questions, writing, and checking results. It cannot take Tasks, change files, or use computer apps.',
+      'Best for questions, writing, and checking results. It cannot take Tasks, change files, or use apps.',
     items: [
       { label: 'Where it works', value: 'AI service only' },
       { label: 'Files', value: 'Does not open project files' },
-      { label: 'Before use', value: 'Check AI service in Settings' },
+      { label: 'Before use', value: 'Check AI services in Settings' },
     ],
   }
 }
@@ -278,11 +278,11 @@ function createReviewItems({
       { label: 'How to use it', value: 'Open this agent from Chat. It does not take Tasks.' },
       {
         label: 'Tasks and files',
-        value: 'Need Tasks or code changes? Create a Project files or This computer agent.',
+        value: 'Need Tasks or code changes? Create an agent with Project files or This computer.',
       },
       {
         label: 'After creation',
-        value: 'Ready for direct questions and result checks after the AI service is connected.',
+        value: 'Ready for questions and result checks after the AI service is connected.',
       },
     ]
   }
@@ -298,8 +298,8 @@ function createReviewItems({
     ? waitingPlaceDisplayName(selectedGroupName)
     : hasSelectedProject
       ? hasGroups
-        ? 'Choose a task queue now, or set it later from Tasks.'
-        : 'Set up a task queue here when you want new tasks to wait in one place.'
+        ? 'Choose a place for new tasks now, or set it later from Tasks.'
+        : 'Set up a place here when you want new tasks to wait together.'
       : 'Choose a project later before sending tasks.'
 
   const nextStep =
@@ -313,7 +313,7 @@ function createReviewItems({
       label: 'Project for new tasks',
       value: projectForTasks,
     },
-    { label: 'Task queue', value: taskQueue },
+    { label: 'Place for new tasks', value: taskQueue },
     { label: 'Next step', value: nextStep },
     { label: 'After creation', value: startState },
   ]
@@ -574,7 +574,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   async function handleCreateDefaultGroup() {
     if (!selectedProjectId) {
       setError(
-        'Select a project before setting up a task queue. Each task queue belongs to one project.'
+        'Select a project before setting up a place for new tasks. Each place belongs to one project.'
       )
       return
     }
@@ -713,7 +713,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   href="/settings/providers"
                   className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
                 >
-                  <span>Open AI service settings</span>
+                  <span>Open AI services</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
                 </a>
               )}
@@ -1039,7 +1039,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ? 'Recommended: Project files for most tasks that need shared files or code changes.'
                   : kind === 'local-cli'
                     ? 'Use this only when files must stay on this computer. Forge still tracks tasks, status, and history.'
-                    : 'Use this for questions and result checks in chat. It cannot take Tasks, change files, or use computer apps.'}
+                    : 'Use this for questions and result checks in chat. It cannot take Tasks, change files, or use apps.'}
               </p>
             </div>
 
@@ -1205,7 +1205,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
               </div>
               <div className="w-full rounded-[18px] border border-black/[0.08] bg-white px-4 py-2 text-ui-body text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark">
                 {kind === 'provider'
-                  ? 'Open this agent from Chat. No project or task queue is needed.'
+                  ? 'Open this agent from Chat. It does not need a project or a place for new tasks.'
                   : (selectedProject?.name ?? 'Choose a project later')}
               </div>
               <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -1213,10 +1213,10 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   ? kind === 'local-cli'
                     ? 'Project ready. Tasks default to this project. File access stays on the joined computer.'
                     : kind === 'provider'
-                      ? 'Use it for direct questions and result checks. It cannot take Tasks or change project files.'
+                      ? 'Use it for questions and result checks. It cannot take Tasks or change project files.'
                       : 'Project ready. Tasks default to this project. Forge opens the shared project folder for this agent.'
                   : kind === 'provider'
-                    ? 'Use it for direct questions and result checks. It cannot take Tasks or change project files.'
+                    ? 'Use it for questions and result checks. It cannot take Tasks or change project files.'
                     : 'Open project settings to create or choose a project before creating this project files agent.'}
               </p>
               {!selectedProject && onOpenProjectsSetup ? (
@@ -1266,11 +1266,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   className="rounded-lg border border-apple-orange/20 bg-apple-orange/[0.06] px-3 py-2.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
                 >
                   <p className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
-                    Simple chat is not a task runner
+                    Simple chat answers questions only
                   </p>
                   <p className="mt-1">
                     It can answer questions and check text in chat. It cannot take Tasks, edit
-                    files, run commands, or use apps.
+                    files, or use apps.
                   </p>
                   <p className="mt-1 font-medium text-foreground-light dark:text-foreground-dark">
                     Need Tasks or code changes? Choose Project files for shared project files, or
@@ -1316,7 +1316,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       >
                         {selectedProviderReady
                           ? 'Forge uses the answer setting that is already checked in Settings. You do not need to choose anything else here.'
-                          : 'Open AI service settings and choose Check connection before creating this simple chat agent.'}
+                          : 'Open AI services in Settings and choose Check connection before creating this simple chat agent.'}
                       </p>
                     </div>
                   </>
@@ -1329,14 +1329,14 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       Add and check an AI service first
                     </p>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      Open AI service settings, add a service, paste the key from that service, save
-                      it, then choose Check connection. Come back when the service shows Ready.
+                      Open AI services in Settings, add a service, paste the key from that service,
+                      save it, then choose Check connection. Come back when the service shows Ready.
                     </p>
                     <a
                       href="/settings/providers"
                       className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
                     >
-                      <span>Open AI service settings</span>
+                      <span>Open AI services</span>
                       <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                     </a>
                   </div>
@@ -1346,7 +1346,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                     htmlFor="systemPrompt"
                     className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                   >
-                    Agent instructions
+                    Tell this agent how to answer
                   </label>
                   <textarea
                     id="systemPrompt"
@@ -1408,7 +1408,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   htmlFor="agent-group"
                   className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
                 >
-                  Task queue
+                  Place for new tasks
                 </label>
                 {groups.length > 0 ? (
                   <>
@@ -1442,11 +1442,11 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                       )}
                     >
                       <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
-                      {creatingGroup ? 'Creating…' : 'Set up task queue'}
+                      {creatingGroup ? 'Creating…' : 'Set up place'}
                     </button>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      This creates a starter task queue for this project so new tasks have a clear
-                      place to wait.
+                      This creates a starter place for this project so new tasks have somewhere to
+                      wait.
                     </p>
                   </div>
                 )}

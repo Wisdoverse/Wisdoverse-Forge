@@ -297,7 +297,12 @@ describe('GitCredentialsSection', () => {
 
     render(<GitCredentialsSection />)
 
-    expect(await screen.findByRole('table', { name: /^code access$/i })).toBeDefined()
+    const table = await screen.findByRole('table', { name: /^code access$/i })
+    expect(table).toBeDefined()
+    const tableFrame = table.parentElement
+    expect(tableFrame).toHaveClass('border-y', 'bg-transparent')
+    expect(tableFrame?.className).not.toContain('rounded-card')
+    expect(tableFrame?.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
     expect(screen.getByText('Code website')).toBeDefined()
     expect(screen.getByText('Website address')).toBeDefined()
     expect(screen.queryByText('Git service')).toBeNull()
