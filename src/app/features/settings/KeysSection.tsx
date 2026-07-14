@@ -46,9 +46,7 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
         </span>
       </td>
       <td className={uiStyles.tableCell}>
-        <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {apiKey.keyPrefix}••••••••
-        </span>
+        <span className={uiStyles.chip}>{apiKey.keyPrefix}••••••••</span>
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -89,7 +87,14 @@ function KeyRow({ apiKey, onRevoke }: KeyRowProps) {
             }
             aria-describedby={confirming ? removeWarningId : undefined}
             aria-busy={removing || undefined}
-            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+            className={
+              confirming
+                ? cn(
+                    uiStyles.secondaryButton,
+                    'border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+                  )
+                : uiStyles.dangerButton
+            }
           >
             {removing ? 'Removing...' : confirming ? 'Remove now' : 'Remove'}
           </button>
@@ -161,7 +166,7 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
             This full access value is shown only once. Save it in a password manager before choosing
             I saved this value.
           </p>
-          <code className="break-all font-mono text-ui-caption">{keyValue}</code>
+          <code className={cn(uiStyles.chip, 'break-all')}>{keyValue}</code>
           {copyError && (
             <p
               role="alert"
@@ -193,7 +198,12 @@ function NewKeyBanner({ keyValue, onDismiss }: NewKeyBannerProps) {
             onClick={handleDismiss}
             aria-describedby={confirmingHide ? hideWarningId : undefined}
             className={cn(
-              confirmingHide ? uiStyles.dangerConfirmButton : uiStyles.subtleButton,
+              confirmingHide
+                ? cn(
+                    uiStyles.secondaryButton,
+                    'border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+                  )
+                : uiStyles.subtleButton,
               'flex-1 sm:flex-none'
             )}
           >
@@ -239,7 +249,7 @@ function CreateKeyForm({ onSave, onCancel, saving }: CreateKeyFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
+      className="mt-3 rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-surface-dark"
     >
       <label htmlFor={nameInputId} className={uiStyles.label}>
         Which tool will use this access key?
@@ -410,7 +420,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-apple-blue/10 text-apple-blue">
             <KeyRound size={17} strokeWidth={2.15} aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -432,7 +442,7 @@ function PlatformKeyEmptyState({ onCreate }: { onCreate: () => void }) {
           {ACCESS_KEY_EMPTY_STEPS.map((step) => (
             <div
               key={step}
-              className="flex min-h-16 items-start gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+              className="flex min-h-16 items-start gap-2 rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
             >
               <CheckCircle2
                 size={14}

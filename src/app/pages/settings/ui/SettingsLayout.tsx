@@ -256,7 +256,7 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
         </select>
         <p
           data-testid="settings-mobile-section-hint"
-          className="mt-2 rounded-lg bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.035] dark:text-secondary-dark"
+          className="mt-2 rounded-card bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.035] dark:text-secondary-dark"
         >
           {activeSectionItem.description}
         </p>
@@ -348,9 +348,7 @@ function SettingsSectionGroup({
 
   return (
     <div className="mb-4">
-      <p className="mb-1 px-2 text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
-        {group}
-      </p>
+      <p className={cn(uiStyles.groupLabel, 'mb-1 px-2')}>{group}</p>
       {items.map((item) => {
         const isActive = activeSection === item.id
         return (
@@ -360,19 +358,19 @@ function SettingsSectionGroup({
             onClick={(event) => onSectionLinkClick(event, item.id)}
             aria-label={`${item.label}: ${item.description}`}
             className={cn(
-              'flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
+              'flex w-full items-start gap-2 rounded-button px-2.5 py-2 text-left transition-colors',
               isActive
-                ? cn('text-apple-blue', 'bg-apple-blue/10')
-                : 'text-foreground-light dark:text-foreground-dark hover:bg-black/5 dark:hover:bg-white/5'
+                ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                : 'text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]'
             )}
           >
-            <item.Icon size={15} strokeWidth={2.2} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <item.Icon size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span className="min-w-0">
               <span className="block text-ui-button font-medium">{item.label}</span>
               <span
                 className={cn(
                   'mt-0.5 block text-ui-caption leading-snug',
-                  isActive ? 'text-apple-blue/85' : 'text-secondary-light dark:text-secondary-dark'
+                  'text-secondary-light dark:text-secondary-dark'
                 )}
               >
                 {item.description}
@@ -406,7 +404,7 @@ function SettingsDisclosureButton({
       aria-expanded={open}
       onClick={onClick}
       className={cn(
-        'inline-flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border border-black/[0.06] bg-black/[0.02] px-2.5 py-2 text-left text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/25 hover:bg-apple-blue/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.07]',
+        'inline-flex min-h-8 w-full items-center justify-between gap-2 rounded-button border border-black/[0.06] bg-black/[0.02] px-2.5 py-1.5 text-left text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]',
         className
       )}
     >

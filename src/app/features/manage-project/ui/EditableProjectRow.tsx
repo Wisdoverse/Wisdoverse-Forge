@@ -104,7 +104,7 @@ export function EditableProjectRow({
               onChange={(e) => setColor(e.target.value)}
               disabled={saving}
               aria-label="Project color"
-              className="h-8 w-10 rounded-lg border border-black/10 bg-transparent p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10"
+              className="h-8 w-10 rounded-button border border-black/10 bg-transparent p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10"
             />
             <input
               value={name}
@@ -137,7 +137,7 @@ export function EditableProjectRow({
                 disabled={saving}
                 aria-label="Cancel project edit"
                 title="Cancel"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+                className={cn(uiStyles.subtleButton, 'w-8 px-0')}
               >
                 <X size={14} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -146,7 +146,7 @@ export function EditableProjectRow({
                 disabled={saving || !name.trim()}
                 aria-label="Save project"
                 title="Save"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-apple-blue text-ui-button text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className={cn(uiStyles.primaryButton, 'w-8 px-0')}
               >
                 <Check size={14} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -202,7 +202,7 @@ export function EditableProjectRow({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden rounded-badge border border-black/5 bg-black/[0.03] px-1.5 py-0.5 text-[10px] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark sm:inline">
+        <span className={cn(uiStyles.chip, 'hidden sm:inline-flex')}>
           Project link preview: {project.slug}. Forge creates this automatically from the project
           name
         </span>
@@ -217,7 +217,7 @@ export function EditableProjectRow({
               disabled={saving || !onManageMembers}
               aria-label={`Manage people and access for ${project.name}`}
               title="Manage people and access"
-              className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-apple-blue/10 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-apple-blue/15 dark:hover:text-apple-blue"
+              className={cn(uiStyles.subtleButton, 'w-8 touch-manipulation px-0')}
             >
               <Users size={14} strokeWidth={2} aria-hidden="true" />
             </button>
@@ -230,7 +230,7 @@ export function EditableProjectRow({
               disabled={saving}
               aria-label={`Edit ${project.name}`}
               title="Rename project"
-              className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+              className={cn(uiStyles.subtleButton, 'w-8 touch-manipulation px-0')}
             >
               <Pencil size={14} strokeWidth={2} aria-hidden="true" />
             </button>
@@ -243,7 +243,7 @@ export function EditableProjectRow({
             disabled={saving}
             aria-label={`Delete ${project.name}`}
             title="Delete project"
-            className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-apple-red/10 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-apple-red/10 dark:hover:text-apple-red"
+            className={cn(uiStyles.dangerButton, 'w-8 touch-manipulation px-0')}
           >
             <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -255,7 +255,7 @@ export function EditableProjectRow({
               onClick={() => setConfirmingDelete(false)}
               disabled={saving}
               aria-label={`Keep ${project.name}`}
-              className="flex h-8 touch-manipulation items-center justify-center rounded-lg px-2 text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+              className={cn(uiStyles.subtleButton, 'touch-manipulation')}
             >
               Keep
             </button>
@@ -265,7 +265,10 @@ export function EditableProjectRow({
               disabled={saving}
               aria-label={`Confirm delete ${project.name}`}
               title="Confirm delete"
-              className="flex h-8 w-auto touch-manipulation items-center justify-center whitespace-nowrap rounded-lg bg-apple-red px-2 text-ui-caption font-semibold text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(
+                uiStyles.secondaryButton,
+                'touch-manipulation border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+              )}
             >
               Delete project
             </button>

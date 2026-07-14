@@ -352,7 +352,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
       </div>
 
       <div className="mb-3">
-        <div className="rounded-md border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-white/[0.04]">
+        <div className="rounded-card border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-white/[0.04]">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className={uiStyles.label}>Code access</p>
@@ -449,7 +449,7 @@ export function CreateProjectForm({ teams, onSave, onCancel, saving }: CreatePro
                     Use this only if an owner, admin, or support message asks for the project
                     folder.
                   </p>
-                  <span className="font-mono text-[11px] text-foreground-light dark:text-foreground-dark">
+                  <span className={uiStyles.chip}>
                     Copy this support reference if asked: {workspacePath}
                   </span>
                 </>

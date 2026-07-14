@@ -6,7 +6,7 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto h-full max-w-2xl overflow-y-auto px-4 py-5 sm:px-6">
-      <h1 className="mb-6 text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+      <h1 className="mb-6 text-ui-doc-title text-foreground-light dark:text-foreground-dark">
         Settings
       </h1>
 

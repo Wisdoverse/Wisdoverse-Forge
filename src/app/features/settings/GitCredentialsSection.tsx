@@ -120,7 +120,7 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
         </span>
       </td>
       <td className={uiStyles.tableCell}>
-        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+        <span className={uiStyles.chip}>
           {credential.host ?? defaultCodeHostLabel(credential.provider)}
         </span>
       </td>
@@ -155,7 +155,14 @@ function CredentialRow({ credential, onDelete }: CredentialRowProps) {
             }
             aria-describedby={confirming ? removeWarningId : undefined}
             aria-busy={removing || undefined}
-            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+            className={
+              confirming
+                ? cn(
+                    uiStyles.secondaryButton,
+                    'border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+                  )
+                : uiStyles.dangerButton
+            }
           >
             {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
           </button>
@@ -235,7 +242,7 @@ function AddCredentialForm({
       )}
       noValidate
     >
-      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+      <div className="mb-3 rounded-card border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           Add code access
         </div>
@@ -243,9 +250,9 @@ function AddCredentialForm({
           {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
             <div
               key={step.label}
-              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+              className="min-w-0 rounded-card bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
             >
-              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+              <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 {step.label}
               </span>
               <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
@@ -507,7 +514,7 @@ export function GitCredentialsSection() {
                 {GIT_CREDENTIAL_SETUP_STEPS.map((step) => (
                   <div
                     key={step.label}
-                    className="min-h-20 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+                    className="min-h-20 rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
                   >
                     <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
                       {step.label}

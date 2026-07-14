@@ -135,7 +135,7 @@ function ResourceProfileGuide({ profiles }: { profiles: ResourceProfileOption[] 
       </div>
       <div className="grid gap-2 md:grid-cols-3">
         {RESOURCE_PROFILE_GUIDANCE.map(({ title, description, Icon }) => (
-          <div key={title} className="rounded-lg bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+          <div key={title} className="rounded-card bg-black/[0.03] p-3 dark:bg-white/[0.04]">
             <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
               <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
               <p className="text-ui-caption font-semibold">{title}</p>
@@ -166,13 +166,13 @@ function ResourceProfilesEmptyState() {
         Success looks like one size listed here, such as Small or Standard.
       </p>
       <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
-        <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+        <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Ask an owner or admin to add agent sizes in Work limits.
         </p>
-        <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+        <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Start with small, standard, and large sizes so users can choose safely.
         </p>
-        <p className="rounded-lg bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+        <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
           Return here before creating agents that edit project files; at least one row means this
           step is ready.
         </p>
@@ -203,7 +203,10 @@ function ResourceProfilesError({
           type="button"
           onClick={() => void onRetry()}
           disabled={loading}
-          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
+          className={cn(
+            uiStyles.secondaryButton,
+            'shrink-0 border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+          )}
         >
           {loading ? 'Checking agent sizes' : 'Check again'}
         </button>

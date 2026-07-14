@@ -26,6 +26,7 @@ import { useSettingsStore } from '@app/entities/settings'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import { useSkillsStore } from '@app/entities/skill'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
 
@@ -373,15 +374,18 @@ export function GettingStartedView() {
   }
 
   return (
-    <div data-testid="page-start" className="min-h-full overflow-y-auto px-4 py-5 sm:px-6">
+    <div
+      data-testid="page-start"
+      className="min-h-full overflow-y-auto bg-background-light px-4 py-5 dark:bg-background-dark sm:px-6"
+    >
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+        <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-surface-dark">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-ui-caption font-semibold uppercase tracking-[0.08em] text-apple-blue">
                 {t('gettingStarted.eyebrow')}
               </p>
-              <h2 className="mt-1 text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+              <h2 className="mt-1 text-ui-doc-title text-foreground-light dark:text-foreground-dark">
                 {t('gettingStarted.title')}
               </h2>
               <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -409,7 +413,7 @@ export function GettingStartedView() {
                 </p>
               )}
             </div>
-            <div className="shrink-0 rounded-lg border border-black/[0.08] px-4 py-3 text-right dark:border-white/[0.1]">
+            <div className="shrink-0 rounded-card border border-black/[0.08] px-4 py-3 text-right dark:border-white/[0.1]">
               <p className="text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
                 {progress}%
               </p>
@@ -431,7 +435,7 @@ export function GettingStartedView() {
           )}
         </div>
 
-        <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+        <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-surface-dark">
           <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             {setupComplete ? t('gettingStarted.readyTitle') : t('gettingStarted.nextTitle')}
           </p>
@@ -441,7 +445,7 @@ export function GettingStartedView() {
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {setupComplete ? t('gettingStarted.readyDetail') : nextStep.why}
           </p>
-          <div className="mt-3 rounded-lg bg-black/[0.035] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark">
+          <div className="mt-3 rounded-card bg-black/[0.035] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark">
             <span className="font-medium text-foreground-light dark:text-foreground-dark">
               {t('gettingStarted.successLabel')}
             </span>{' '}
@@ -450,7 +454,10 @@ export function GettingStartedView() {
           <button
             type="button"
             onClick={() => go(actionPath)}
-            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            className={cn(
+              uiStyles.primaryButton,
+              'mt-4 w-full transition-transform active:scale-95'
+            )}
           >
             <ActionIcon width={14} height={14} aria-hidden="true" />
             {actionCta}
@@ -563,12 +570,7 @@ function SetupStepItem({
   return (
     <article
       data-testid="getting-started-expanded-step"
-      className={cn(
-        'flex min-w-0 flex-col gap-3 rounded-card border bg-white p-4 dark:bg-[#2a2a2c] sm:flex-row sm:items-center sm:gap-4',
-        step.complete || isNext
-          ? 'border-apple-blue/30'
-          : 'border-black/[0.08] dark:border-white/[0.1]'
-      )}
+      className="flex min-w-0 flex-col gap-3 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark sm:flex-row sm:items-center sm:gap-4"
     >
       <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center sm:gap-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
@@ -580,7 +582,7 @@ function SetupStepItem({
               size={16}
               strokeWidth={2.25}
               className={
-                step.complete ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
+                step.complete ? 'text-apple-green' : 'text-secondary-light dark:text-secondary-dark'
               }
               aria-hidden="true"
             />
@@ -590,14 +592,17 @@ function SetupStepItem({
               </span>
               {step.title}
             </h3>
-            <span
-              className={cn(
-                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                step.complete || isNext
-                  ? 'bg-apple-blue/10 text-apple-blue'
-                  : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-              )}
-            >
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 shrink-0 rounded-full',
+                  step.complete
+                    ? 'bg-apple-green'
+                    : isNext
+                      ? 'bg-apple-blue'
+                      : 'bg-secondary-light/60 dark:bg-secondary-dark/60'
+                )}
+              />
               {statusLabel}
             </span>
           </div>
@@ -620,7 +625,10 @@ function SetupStepItem({
       <button
         type="button"
         onClick={() => onNavigate(step.path)}
-        className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 py-2 text-center text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus sm:w-auto"
+        className={cn(
+          uiStyles.primaryButton,
+          'w-full shrink-0 px-4 text-center transition-transform active:scale-95 sm:w-auto'
+        )}
       >
         <span>{step.cta}</span>
         <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
@@ -645,13 +653,13 @@ function CompactSetupStepList({
   return (
     <section
       data-testid={testId}
-      className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+      className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
     >
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
           {title}
         </h3>
-        <span className="rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+        <span className="rounded-button bg-black/[0.04] px-2.5 py-1 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
           {steps.length}
         </span>
       </div>
@@ -676,7 +684,7 @@ function CompactSetupStepList({
                     strokeWidth={2.25}
                     className={
                       step.complete
-                        ? 'text-apple-blue'
+                        ? 'text-apple-green'
                         : 'text-secondary-light dark:text-secondary-dark'
                     }
                     aria-hidden="true"
@@ -687,14 +695,15 @@ function CompactSetupStepList({
                     </span>
                     {step.title}
                   </p>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                      step.complete
-                        ? 'bg-apple-blue/10 text-apple-blue'
-                        : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-                    )}
-                  >
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 shrink-0 rounded-full',
+                        step.complete
+                          ? 'bg-apple-green'
+                          : 'bg-secondary-light/60 dark:bg-secondary-dark/60'
+                      )}
+                    />
                     {statusLabel}
                   </span>
                 </div>

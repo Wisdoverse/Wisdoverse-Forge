@@ -302,7 +302,7 @@ function WorkspaceEmptyState({
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
       <div
-        className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light ring-1 ring-black/5 dark:bg-white/[0.05] dark:text-secondary-dark dark:ring-white/10"
+        className="flex h-10 w-10 items-center justify-center rounded-card bg-black/[0.03] text-secondary-light ring-1 ring-black/5 dark:bg-white/[0.05] dark:text-secondary-dark dark:ring-white/10"
         aria-hidden="true"
       >
         {icon}

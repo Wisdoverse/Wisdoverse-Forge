@@ -239,7 +239,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
       {focus === 'sign-ins' && (
         <section
           data-testid="runtime-sign-in-entry"
-          className="mb-4 rounded-lg border border-apple-blue/20 bg-apple-blue/[0.04] p-4"
+          className="mb-4 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
         >
           <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
             Start here when Codex asks you to sign in
@@ -364,7 +364,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
             {cliToolDetails.map((detail) => (
               <div
                 key={detail.cliTool}
-                className="grid gap-2 rounded-lg bg-black/[0.03] px-3 py-2 text-ui-caption dark:bg-white/[0.04] sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto]"
+                className="grid gap-2 rounded-card bg-black/[0.03] px-3 py-2 text-ui-caption dark:bg-white/[0.04] sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto]"
               >
                 <div className="min-w-0">
                   <span className="block font-medium text-foreground-light dark:text-foreground-dark">
@@ -379,14 +379,13 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                 <span className="min-w-0 truncate text-secondary-light dark:text-secondary-dark">
                   {detail.imagePresent ? 'Installed and ready' : 'Install this tool'}
                 </span>
-                <span
-                  className={cn(
-                    'h-fit rounded-full px-2 py-0.5 text-ui-caption font-medium',
-                    detail.imagePresent
-                      ? 'bg-apple-green/10 text-apple-green'
-                      : 'bg-apple-gray-5 text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-                  )}
-                >
+                <span className="inline-flex h-fit items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 shrink-0 rounded-full',
+                      detail.imagePresent ? 'bg-apple-green' : 'bg-apple-orange'
+                    )}
+                  />
                   {versionSourceLabel(detail.versionSource, detail.imagePresent)}
                 </span>
               </div>
@@ -409,7 +408,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
 
         <div
           data-testid="runtime-launch-checklist"
-          className="mt-4 rounded-lg border border-black/[0.06] bg-black/[0.02] p-3 dark:border-white/[0.08] dark:bg-white/[0.03]"
+          className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] p-3 dark:border-white/[0.08] dark:bg-white/[0.03]"
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -429,7 +428,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                 or show live progress.
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+            <span className="shrink-0 rounded-button bg-white px-2 py-0.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
               {checklistReadyCount}/{checklistItems.length} ready
             </span>
           </div>
@@ -572,10 +571,7 @@ function RuntimeNextStepPanel({
     <section
       data-testid="runtime-next-step"
       className={cn(
-        'mt-4 rounded-lg border px-4 py-3',
-        allReady
-          ? 'border-apple-green/20 bg-apple-green/5'
-          : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+        'mt-4 rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-surface-dark'
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -645,10 +641,7 @@ function RuntimeChecklistRow({
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-col gap-3 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between',
-        item.ready
-          ? 'border-apple-green/15 bg-apple-green/5'
-          : 'border-apple-orange/20 bg-apple-orange/10'
+        'flex min-w-0 flex-col gap-3 rounded-card border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-surface-dark sm:flex-row sm:items-center sm:justify-between'
       )}
     >
       <div className="flex min-w-0 items-start gap-2">
@@ -672,14 +665,13 @@ function RuntimeChecklistRow({
             <p className="font-medium text-ui-caption text-foreground-light dark:text-foreground-dark">
               {item.title}
             </p>
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                item.ready
-                  ? 'bg-apple-green/10 text-apple-green'
-                  : 'bg-apple-orange/15 text-apple-orange'
-              )}
-            >
+            <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 shrink-0 rounded-full',
+                  item.ready ? 'bg-apple-green' : 'bg-apple-orange'
+                )}
+              />
               {item.ready ? 'Ready' : 'Check before use'}
             </span>
           </div>
@@ -713,7 +705,7 @@ function RuntimeReadinessMetric({
   ready: boolean
 }) {
   return (
-    <div className="rounded-lg border border-black/[0.06] px-3 py-2 dark:border-white/[0.08]">
+    <div className="rounded-card border border-black/[0.06] px-3 py-2 dark:border-white/[0.08]">
       <div className="flex items-center gap-2">
         <span
           className={cn('h-2 w-2 rounded-full', ready ? 'bg-apple-green' : 'bg-apple-orange')}
@@ -748,7 +740,7 @@ function CredentialStatusRow({
   const actionLabel = opening ? `Opening ${status.displayName}` : `Sign in to ${status.displayName}`
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2 rounded-card bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <span
@@ -760,9 +752,7 @@ function CredentialStatusRow({
           <span className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
             {status.displayName}
           </span>
-          <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-            {cliToolLabel(status.cliTool)}
-          </span>
+          <span className={cn(uiStyles.chip, 'shrink-0')}>{cliToolLabel(status.cliTool)}</span>
         </div>
         <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {detail}
@@ -776,7 +766,7 @@ function CredentialStatusRow({
           title={`Open the ${status.displayName} browser login page`}
           className={cn(
             uiStyles.secondaryButton,
-            'h-auto min-h-9 w-full whitespace-normal py-2 text-center leading-tight sm:w-auto sm:shrink-0 sm:whitespace-nowrap'
+            'h-auto min-h-8 w-full whitespace-normal py-1.5 text-center leading-tight sm:w-auto sm:shrink-0 sm:whitespace-nowrap'
           )}
         >
           {actionLabel}

@@ -127,7 +127,7 @@ export function EditableTeamRow({
                 disabled={saving}
                 aria-label="Cancel team edit"
                 title="Cancel"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+                className={cn(uiStyles.subtleButton, 'w-8 px-0')}
               >
                 <X size={14} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -136,7 +136,7 @@ export function EditableTeamRow({
                 disabled={saving || !name.trim()}
                 aria-label="Save team"
                 title="Save"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-apple-blue text-ui-button text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className={cn(uiStyles.primaryButton, 'w-8 px-0')}
               >
                 <Check size={14} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -161,17 +161,14 @@ export function EditableTeamRow({
             {team.name}
           </p>
           <span
-            className={cn(
-              'shrink-0',
-              team.visibility === 'open' ? uiStyles.activeBadge : uiStyles.badge
-            )}
+            className={cn('shrink-0', uiStyles.badge)}
             aria-label={`Team access: ${visibilityHelp}`}
             title={visibilityHelp}
           >
             {visibilityLabel}
           </span>
         </div>
-        <p className="mt-0.5 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+        <p className={cn(uiStyles.chip, 'mt-0.5 max-w-full truncate')}>
           Team link preview: {team.slug}. Forge creates this automatically from the team name
           {team.description ? ` · ${team.description}` : ''}
         </p>
@@ -198,7 +195,7 @@ export function EditableTeamRow({
               disabled={saving || !onManageMembers}
               aria-label={`Manage people and access for ${team.name}`}
               title="Manage people and access"
-              className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-apple-blue/10 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-apple-blue/15 dark:hover:text-apple-blue"
+              className={cn(uiStyles.subtleButton, 'w-8 touch-manipulation px-0')}
             >
               <Users size={14} strokeWidth={2} aria-hidden="true" />
             </button>
@@ -211,7 +208,7 @@ export function EditableTeamRow({
               disabled={saving}
               aria-label={`Edit ${team.name}`}
               title="Rename team"
-              className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+              className={cn(uiStyles.subtleButton, 'w-8 touch-manipulation px-0')}
             >
               <Pencil size={14} strokeWidth={2} aria-hidden="true" />
             </button>
@@ -224,7 +221,7 @@ export function EditableTeamRow({
             disabled={saving}
             aria-label={`Delete ${team.name}`}
             title="Delete team"
-            className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-ui-button text-secondary-light transition-colors hover:bg-apple-red/10 hover:text-apple-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-apple-red/10 dark:hover:text-apple-red"
+            className={cn(uiStyles.dangerButton, 'w-8 touch-manipulation px-0')}
           >
             <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -236,7 +233,7 @@ export function EditableTeamRow({
               onClick={() => setConfirmingDelete(false)}
               disabled={saving}
               aria-label={`Keep ${team.name}`}
-              className="flex h-8 touch-manipulation items-center justify-center rounded-lg px-2 text-ui-button text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+              className={cn(uiStyles.subtleButton, 'touch-manipulation')}
             >
               Keep
             </button>
@@ -246,7 +243,10 @@ export function EditableTeamRow({
               disabled={saving}
               aria-label={`Confirm delete ${team.name}`}
               title="Confirm delete"
-              className="flex h-8 w-auto touch-manipulation items-center justify-center whitespace-nowrap rounded-lg bg-apple-red px-2 text-ui-caption font-semibold text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(
+                uiStyles.secondaryButton,
+                'touch-manipulation border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+              )}
             >
               Delete team
             </button>

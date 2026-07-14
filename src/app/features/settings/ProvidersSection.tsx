@@ -508,12 +508,12 @@ function providerStatusLabel(provider: LlmProviderConfig): string {
   return 'Needs check'
 }
 
-function providerStatusTone(provider: LlmProviderConfig): string {
+function providerStatusDot(provider: LlmProviderConfig): string {
   if (!provider.isEnabled) {
-    return 'bg-apple-gray-5 text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+    return 'bg-secondary-light/60 dark:bg-secondary-dark/60'
   }
-  if (provider.lastTestStatus === 'passed') return 'bg-apple-green/10 text-apple-green'
-  return 'bg-apple-orange/12 text-apple-orange'
+  if (provider.lastTestStatus === 'passed') return 'bg-apple-green'
+  return 'bg-apple-orange'
 }
 
 function providerMatchesSearch(provider: LlmProviderConfig, search: string): boolean {
@@ -707,25 +707,19 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
     <div className={cn('px-4 py-3', uiStyles.row)}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          {/* Status dot */}
-          <div
-            className={cn(
-              'h-2 w-2 shrink-0 rounded-full',
-              isEnabled ? 'bg-apple-blue' : 'bg-[#d2d2d7]'
-            )}
-          />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="truncate text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
                 {displayName}
               </span>
-              {isDefault && <span className={uiStyles.activeBadge}>default</span>}
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-ui-caption font-semibold',
-                  providerStatusTone(providerConfig)
-                )}
-              >
+              {isDefault && <span className={uiStyles.badge}>default</span>}
+              <span className="inline-flex items-center gap-1.5 text-ui-body font-medium text-secondary-light dark:text-secondary-dark">
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                    providerStatusDot(providerConfig)
+                  )}
+                />
                 {providerStatusLabel(providerConfig)}
               </span>
             </div>
@@ -735,7 +729,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
               </span>
               {apiKeyPrefix && (
                 <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  Key saved: <span className="font-mono">{apiKeyPrefix}••••</span>
+                  Key saved: <span className={uiStyles.chip}>{apiKeyPrefix}••••</span>
                 </span>
               )}
             </div>
@@ -800,7 +794,12 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
             aria-describedby={confirming ? `${id}-remove-help` : undefined}
             className={cn(
               'shrink-0 gap-1.5',
-              confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton
+              confirming
+                ? cn(
+                    uiStyles.secondaryButton,
+                    'border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+                  )
+                : uiStyles.dangerButton
             )}
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -812,7 +811,7 @@ function ProviderCard({ providerConfig, onTest, onSetEnabled, onDelete }: Provid
         <div
           id={`${id}-remove-help`}
           role="note"
-          className="mt-3 flex gap-2 rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+          className="mt-3 flex gap-2 rounded-card border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
@@ -847,7 +846,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
   return (
     <section
       data-testid="provider-readiness"
-      className="mb-4 rounded-lg border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+      className="mb-4 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -879,7 +878,7 @@ function ProviderReadinessPanel({ providers }: { providers: LlmProviderConfig[] 
               : providerReadinessSummary(ready, needsTest, disabled)}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-ui-caption font-semibold text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+        <span className={cn(uiStyles.badge, 'shrink-0')}>
           Simple chat agents: {chatChoiceLabel}
         </span>
       </div>
@@ -939,10 +938,7 @@ function ProviderNextStepPanel({
     <section
       data-testid="provider-next-step"
       className={cn(
-        'mb-4 rounded-lg border px-4 py-3',
-        step.ready
-          ? 'border-apple-green/20 bg-apple-green/5'
-          : 'border-apple-blue/20 bg-apple-blue/[0.04]'
+        'mb-4 rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-surface-dark'
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1006,7 +1002,7 @@ function ProviderReadinessMetric({
   ready: boolean
 }) {
   return (
-    <div className="rounded-lg border border-black/[0.06] px-3 py-2 dark:border-white/[0.08]">
+    <div className="rounded-card border border-black/[0.06] px-3 py-2 dark:border-white/[0.08]">
       <div className="flex items-center gap-2">
         <span
           className={cn('h-2 w-2 rounded-full', ready ? 'bg-apple-green' : 'bg-apple-orange')}
@@ -1042,7 +1038,11 @@ function SegmentedToggle<T extends string>({
   return (
     <div>
       <span className={uiStyles.label}>{label}</span>
-      <div className="inline-flex gap-1" role="group" aria-label={label}>
+      <div
+        className="inline-flex rounded-button bg-black/[0.04] p-0.5 dark:bg-white/[0.06]"
+        role="group"
+        aria-label={label}
+      >
         {options.map((option) => (
           <button
             key={option.value}
@@ -1050,10 +1050,10 @@ function SegmentedToggle<T extends string>({
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-8 items-center rounded-full px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+              'inline-flex h-8 items-center rounded-button px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
               value === option.value
-                ? 'bg-apple-blue text-white'
-                : 'border border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
+                ? 'bg-black/[0.08] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
             )}
           >
             {option.label}
@@ -1104,10 +1104,10 @@ function ModelQuickPicks({
             aria-pressed={active}
             title={m.model}
             className={cn(
-              'rounded-full border px-2.5 py-1 text-ui-caption transition-colors',
+              'rounded-button border px-2.5 py-1 text-ui-caption transition-colors',
               active
-                ? 'border-apple-blue bg-apple-blue/10 text-apple-blue'
-                : 'border-black/[0.1] text-secondary-light hover:border-apple-blue/40 hover:text-foreground-light dark:border-white/[0.12] dark:text-secondary-dark dark:hover:text-foreground-dark'
+                ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.1] dark:text-foreground-dark'
+                : 'border-black/[0.08] text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
             )}
           >
             {m.displayName}
@@ -1180,10 +1180,7 @@ function DiscoverModelsControl({
         type="button"
         onClick={onDiscover}
         disabled={discovering}
-        className={cn(
-          'rounded-md border border-black/[0.1] px-2.5 py-1 text-ui-caption font-medium transition-colors dark:border-white/[0.12]',
-          'text-apple-blue hover:border-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-60'
-        )}
+        className={cn(uiStyles.secondaryButton, 'h-7 px-2.5 text-ui-caption')}
       >
         {discovering ? 'Finding choices…' : 'Show service choices'}
       </button>
@@ -1535,9 +1532,9 @@ function CatalogGrid({
             aria-pressed={selected}
             onClick={() => onSelect(vendor.key)}
             className={cn(
-              'flex min-h-14 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors',
+              'flex min-h-14 flex-col items-start gap-1 rounded-card border px-3 py-2.5 text-left transition-colors',
               selected
-                ? 'border-apple-blue/40 bg-apple-blue/10'
+                ? 'border-black/[0.1] bg-black/[0.06] dark:border-white/[0.12] dark:bg-white/[0.1]'
                 : 'border-black/[0.08] bg-white hover:bg-black/[0.03] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]'
             )}
           >
@@ -1546,7 +1543,8 @@ function CatalogGrid({
                 {vendor.displayName}
               </span>
               {configured && (
-                <span className="shrink-0 rounded-full bg-apple-green/10 px-2 py-0.5 text-ui-caption font-medium text-apple-green">
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                  <span className="h-1.5 w-1.5 rounded-full bg-apple-green" />
                   Configured
                 </span>
               )}
@@ -1689,7 +1687,7 @@ function AddProviderFormPanel({
       )}
       noValidate
     >
-      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+      <div className="mb-3 rounded-card border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           3 steps to connect an AI account
         </div>
@@ -1701,9 +1699,9 @@ function AddProviderFormPanel({
           {PROVIDER_SETUP_STEPS.map((step) => (
             <div
               key={step.label}
-              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+              className="min-w-0 rounded-card bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
             >
-              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+              <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 {step.label}
               </span>
               <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
@@ -1999,17 +1997,17 @@ function AddProviderPanel({
         <div
           role="group"
           aria-label="Choose how to add an AI service"
-          className="inline-flex rounded-full bg-black/[0.04] p-0.5 dark:bg-white/[0.06]"
+          className="inline-flex rounded-button bg-black/[0.04] p-0.5 dark:bg-white/[0.06]"
         >
           <button
             type="button"
             aria-pressed={bucket === 'catalog'}
             onClick={() => setBucket('catalog')}
             className={cn(
-              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-ui-caption font-semibold transition-colors',
+              'inline-flex h-8 items-center gap-1.5 rounded-button px-3 text-ui-caption font-semibold transition-colors',
               bucket === 'catalog'
-                ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-                : 'text-secondary-light dark:text-secondary-dark'
+                ? 'bg-black/[0.08] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06]'
             )}
           >
             <Plus size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -2020,21 +2018,17 @@ function AddProviderPanel({
             aria-pressed={bucket === 'custom'}
             onClick={() => setBucket('custom')}
             className={cn(
-              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-ui-caption font-semibold transition-colors',
+              'inline-flex h-8 items-center gap-1.5 rounded-button px-3 text-ui-caption font-semibold transition-colors',
               bucket === 'custom'
-                ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-                : 'text-secondary-light dark:text-secondary-dark'
+                ? 'bg-black/[0.08] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06]'
             )}
           >
             <SlidersHorizontal size={13} strokeWidth={2.25} aria-hidden="true" />
             Custom service address
           </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="self-start text-ui-caption font-medium text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark"
-        >
+        <button type="button" onClick={onClose} className={cn(uiStyles.subtleButton, 'self-start')}>
           Close
         </button>
       </div>
@@ -2208,10 +2202,13 @@ export function ProvidersSection() {
         <div
           role="status"
           aria-live="polite"
-          className="mb-4 rounded-lg border border-apple-green/30 bg-apple-green/10 px-3 py-2 text-ui-caption text-apple-green"
+          className="mb-4 flex items-center gap-2 rounded-card border border-black/[0.08] bg-white px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.1] dark:bg-surface-dark dark:text-secondary-dark"
         >
-          {savedProviderName} saved. Choose Check connection before simple chat agents use this AI
-          service.
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-apple-green" />
+          <span>
+            {savedProviderName} saved. Choose Check connection before simple chat agents use this AI
+            service.
+          </span>
         </div>
       )}
 
@@ -2261,9 +2258,9 @@ export function ProvidersSection() {
                 type="button"
                 onClick={() => setProviderFilter(filter.id)}
                 className={cn(
-                  'inline-flex h-8 items-center rounded-full px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+                  'inline-flex h-8 items-center rounded-button px-3 text-ui-caption font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
                   isSelected
-                    ? 'bg-apple-blue text-white'
+                    ? 'bg-black/[0.08] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
                     : 'border border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.03] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark'
                 )}
                 aria-label={`${filter.ariaLabel}, ${configuredAiServicesLabel(providerCount)}`}
@@ -2273,9 +2270,9 @@ export function ProvidersSection() {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'ml-2 inline-flex min-w-4 justify-center rounded-full px-1.5 text-[11px] leading-4',
+                    'ml-2 inline-flex min-w-4 justify-center rounded-button px-1.5 text-ui-caption leading-4',
                     isSelected
-                      ? 'bg-white/20 text-white'
+                      ? 'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
                       : 'bg-black/[0.06] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
                   )}
                 >
@@ -2325,7 +2322,7 @@ export function ProvidersSection() {
             <button
               type="button"
               onClick={resetProviderFilters}
-              className="mt-3 inline-flex h-8 items-center rounded-full px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              className={cn(uiStyles.subtleButton, 'mt-3 text-apple-blue')}
             >
               Show all AI services
             </button>

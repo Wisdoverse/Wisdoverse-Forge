@@ -75,9 +75,7 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
         </span>
       </td>
       <td className={uiStyles.tableCell}>
-        <span className="font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {sshKey.fingerprint}
-        </span>
+        <span className={uiStyles.chip}>{sshKey.fingerprint}</span>
       </td>
       <td className={uiStyles.tableCell}>
         <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -115,7 +113,14 @@ function SshKeyRow({ sshKey, onDelete }: SshKeyRowProps) {
             }
             aria-describedby={confirming ? removeWarningId : undefined}
             aria-busy={removing || undefined}
-            className={confirming ? uiStyles.dangerConfirmButton : uiStyles.dangerButton}
+            className={
+              confirming
+                ? cn(
+                    uiStyles.secondaryButton,
+                    'border-apple-red/30 text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+                  )
+                : uiStyles.dangerButton
+            }
           >
             {removing ? 'Removing...' : confirming ? 'Remove access now' : 'Remove'}
           </button>
@@ -188,7 +193,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
         'bg-black/[0.015] dark:bg-white/[0.025]'
       )}
     >
-      <div className="mb-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+      <div className="mb-3 rounded-card border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
         <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           Add code access for SSH links
         </div>
@@ -196,9 +201,9 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
           {SSH_KEY_SETUP_STEPS.map((step) => (
             <div
               key={step.label}
-              className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
+              className="min-w-0 rounded-card bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
             >
-              <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+              <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 {step.label}
               </span>
               <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
@@ -253,9 +258,7 @@ function AddSshKeyForm({ onSave, onCancel, saving }: AddSshKeyFormProps) {
             placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... dev@example.com"
             required
             rows={6}
-            className={cn(
-              'w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
-            )}
+            className={cn(uiStyles.input, 'h-auto resize-none py-2 font-mono text-ui-caption')}
             aria-invalid={visibleError !== null && publicKeyInvalid}
             aria-describedby={`${publicKeyHelpId} ${publicKeySafetyId}${visibleError !== null && publicKeyInvalid ? ` ${errorId}` : ''}`}
           />
@@ -419,7 +422,7 @@ export function SshKeysSection() {
                 {SSH_KEY_SETUP_STEPS.map((step) => (
                   <div
                     key={step.label}
-                    className="min-h-20 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
+                    className="min-h-20 rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.05]"
                   >
                     <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
                       {step.label}
