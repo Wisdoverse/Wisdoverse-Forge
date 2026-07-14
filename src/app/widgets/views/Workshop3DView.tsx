@@ -83,10 +83,10 @@ export function Workshop3DEmptyState({ onOpenAgents }: { onOpenAgents?: () => vo
   return (
     <div
       data-testid="workshop-3d-empty-state"
-      className="space-y-3 px-2 py-1 text-xs leading-5 text-white/70"
+      className="space-y-3 px-2 py-1 text-ui-caption leading-5 text-white/70"
     >
       <div>
-        <p className="text-sm font-medium leading-5 text-white">
+        <p className="text-ui-body font-medium leading-5 text-white">
           Open Agents to build the visual map
         </p>
         <p className="mt-1">
@@ -108,7 +108,7 @@ export function Workshop3DEmptyState({ onOpenAgents }: { onOpenAgents?: () => vo
         <button
           type="button"
           onClick={onOpenAgents}
-          className="inline-flex h-8 items-center justify-center rounded-full bg-white px-3 text-ui-button font-medium text-[#080a0f] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+          className="inline-flex h-8 items-center justify-center rounded-button bg-white px-3 text-ui-button font-medium text-[#080a0f] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         >
           Open Agents
         </button>
@@ -606,7 +606,7 @@ function countByStatus(agents: AgentInfo[]): Record<AgentStatus, number> {
 
 export function Workshop3DStatusSummary({ totals }: { totals: Record<AgentStatus, number> }) {
   return (
-    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-white/70">
+    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-ui-caption text-white/70">
       <span>{totals.working} Working now</span>
       <span>{totals.idle} Ready</span>
       <span>{totals.offline} Not connected</span>
@@ -618,7 +618,7 @@ export function Workshop3DInteractionHint() {
   return (
     <p
       data-testid="workshop-3d-interaction-hint"
-      className="mt-2 max-w-48 text-[11px] text-white/62"
+      className="mt-2 max-w-48 text-ui-caption text-white/62"
     >
       Choose an agent from the list, or select a robot in the map.
     </p>
@@ -627,9 +627,9 @@ export function Workshop3DInteractionHint() {
 
 export function Workshop3DUnavailableNotice() {
   return (
-    <div className="max-w-sm rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
-      <div className="text-sm font-medium">3D map is not available here</div>
-      <p className="mt-1 text-[12px] leading-snug text-white/65">
+    <div className="max-w-sm rounded-card border border-white/10 bg-black/35 px-4 py-3 text-white shadow-lg backdrop-blur">
+      <div className="text-ui-body font-medium">3D map is not available here</div>
+      <p className="mt-1 text-ui-caption leading-snug text-white/65">
         This browser or device can&apos;t open a 3D view. Your agents are still listed here — use
         the list to select one, or switch to Board or List view.
       </p>
@@ -920,9 +920,9 @@ export function Workshop3DView() {
         </div>
       )}
 
-      <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur sm:left-4 sm:top-4">
-        <div className="text-[11px] font-semibold text-white/55">Agent Map</div>
-        <div data-testid="workshop-3d-agent-count" className="mt-1 text-sm font-medium">
+      <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-card border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur sm:left-4 sm:top-4">
+        <div className="text-ui-caption font-semibold text-white/55">Agent Map</div>
+        <div data-testid="workshop-3d-agent-count" className="mt-1 text-ui-body font-medium">
           {loading && agents.length === 0
             ? 'Syncing agents'
             : `${agents.length} agent${agents.length === 1 ? '' : 's'}`}
@@ -931,7 +931,7 @@ export function Workshop3DView() {
         <Workshop3DInteractionHint />
       </div>
 
-      <div className="absolute inset-x-3 bottom-3 z-10 flex max-h-36 flex-col gap-2 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-white shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100%-2rem)] sm:w-64">
+      <div className="absolute inset-x-3 bottom-3 z-10 flex max-h-36 flex-col gap-2 overflow-y-auto rounded-card border border-white/10 bg-black/35 p-2 text-white shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100%-2rem)] sm:w-64">
         {agents.length === 0 && !loading ? (
           <Workshop3DEmptyState
             onOpenAgents={() => {
@@ -962,8 +962,8 @@ export function Workshop3DView() {
                   aria-hidden="true"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{agent.name}</span>
-                  <span className="block truncate text-[11px] text-white/58">
+                  <span className="block truncate text-ui-body font-medium">{agent.name}</span>
+                  <span className="block truncate text-ui-caption text-white/58">
                     {workshop3DAgentSubtitle(agent)}
                   </span>
                 </span>
@@ -976,11 +976,11 @@ export function Workshop3DView() {
       {selectedAgent ? (
         <div
           data-testid="workshop-3d-selected-agent"
-          className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-[calc(100%-2rem)] rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur"
+          className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-[calc(100%-2rem)] rounded-card border border-white/10 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur"
         >
-          <div className="text-[11px] text-white/55">Selected</div>
-          <div className="mt-1 truncate text-sm font-medium">{selectedAgent.name}</div>
-          <div className="mt-0.5 truncate text-[11px] text-white/60">
+          <div className="text-ui-caption text-white/55">Selected</div>
+          <div className="mt-1 truncate text-ui-body font-medium">{selectedAgent.name}</div>
+          <div className="mt-0.5 truncate text-ui-caption text-white/60">
             {workshop3DAgentSubtitle(selectedAgent)}
           </div>
         </div>

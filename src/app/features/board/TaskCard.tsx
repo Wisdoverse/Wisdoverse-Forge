@@ -4,6 +4,7 @@ import { Brain, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import {
   taskResultArtifacts,
@@ -19,12 +20,6 @@ const STATE_DOTS: Record<string, string> = {
   completed: 'bg-apple-gray-2',
   failed: 'bg-apple-red',
   canceled: 'bg-apple-gray-3',
-}
-
-const PRIORITY_STYLES: Record<string, string> = {
-  urgent: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
-  high: 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-  low: 'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
 }
 
 interface TaskCardProps {
@@ -142,8 +137,9 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
           {showPriorityBadge && (
             <span
               className={cn(
-                'rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                PRIORITY_STYLES[priorityKey] ?? PRIORITY_STYLES.low
+                uiStyles.badge,
+                'rounded-full',
+                task.priority === 'urgent' && 'text-apple-red'
               )}
             >
               {taskPriorityLabel(task.priority)}
@@ -160,7 +156,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
                 event.stopPropagation()
                 onPublish(task)
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              className="flex h-7 w-7 items-center justify-center rounded-button text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
               <Send size={13} strokeWidth={2} aria-hidden="true" />
             </button>
@@ -230,7 +226,7 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
           {showContextBadge && (
             <span
               data-testid="task-context-badge"
-              className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-apple-blue/10 px-1.5 text-ui-caption font-medium tabular-nums text-apple-blue"
+              className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-black/[0.04] px-1.5 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
               title={formatContextCountsLabel(contextCounts)}
               aria-label={formatContextCountsLabel(contextCounts)}
             >
