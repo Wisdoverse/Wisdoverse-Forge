@@ -615,9 +615,7 @@ test.describe('React App Smoke Tests', () => {
         settingsNav.getByRole('link', { name: /^Code access for SSH links:/ })
       ).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Where agents work:/ })).toBeVisible()
-      await expect(
-        settingsNav.getByRole('link', { name: /^File-change tool sign-in:/ })
-      ).toBeVisible()
+      await expect(settingsNav.getByRole('link', { name: /^Sign in to code tools:/ })).toBeVisible()
       await expect(settingsNav.getByRole('link', { name: /^Account:/ })).toBeVisible()
       await screenshot(page, '21-settings-page')
     })

@@ -480,7 +480,7 @@ test.describe.serial('Simple chat agent UX (#21)', () => {
     await promptTextarea.fill('new prompt')
 
     // Save button should be enabled (dirty)
-    const saveBtn = page.getByRole('button', { name: 'Save Instructions' })
+    const saveBtn = page.getByRole('button', { name: 'Save answer guidance' })
     await expect(saveBtn).toBeEnabled()
     await saveBtn.click()
 
