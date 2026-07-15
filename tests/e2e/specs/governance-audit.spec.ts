@@ -97,25 +97,29 @@ test.describe('Governance audit log', () => {
     await setupGovernanceAuditFixture(page, baseURL!)
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(2)
-    await expect(page.getByTestId('governance-audit-item-reference')).toContainText('11111111')
-    await expect(page.getByTestId('governance-audit-protected-reference')).toContainText(
-      hiddenSkillHash.slice(0, 10)
+    await expect(page.getByTestId('governance-audit-item-reference')).toHaveText(
+      'Visible saved item'
+    )
+    await expect(page.getByTestId('governance-audit-protected-reference')).toHaveText(
+      'Protected saved item'
     )
     await expect(page.getByTestId('governance-audit-redacted')).toBeVisible()
-    await expect(page.getByText('Hidden item references')).toBeVisible()
-    await expect(page.getByText('Review notes')).toBeVisible()
-    await expect(page.getByText('Show event details').first()).toBeVisible()
+    const auditView = page.getByTestId('governance-audit-view')
+    await expect(auditView.getByText('Protected saved items', { exact: true })).toBeVisible()
+    await expect(auditView.getByText('Hidden change-note rows', { exact: true })).toBeVisible()
+    await expect(
+      auditView.getByRole('columnheader', { name: 'Change notes', exact: true })
+    ).toBeVisible()
+    await expect(auditView.getByText('Show change notes', { exact: true }).first()).toBeVisible()
 
     await page
       .getByTestId('governance-audit-filter-event-type')
       .fill('governance.context.skill.reviewed')
     await page.getByTestId('governance-audit-filter-item-kind').selectOption('skill')
-    await page.getByRole('button', { name: 'Apply filters' }).click()
+    await page.getByRole('button', { name: 'Show changes', exact: true }).click()
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(1)
-    await expect(page.getByTestId('governance-audit-view')).toContainText(
-      'Saved instruction checked'
-    )
+    await expect(page.getByTestId('governance-audit-view')).toContainText('Saved guidance checked')
 
     const download = page.waitForEvent('download')
     await page.getByTestId('governance-audit-export').click()

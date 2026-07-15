@@ -213,7 +213,9 @@ test.describe('Mobile WebUI', () => {
     await page.getByRole('button', { name: 'Open navigation' }).click()
     await page.locator('[data-testid="sidebar-nav-agents"]').click()
     await page.waitForURL('**/agents')
-    await expect(page.getByRole('heading', { name: 'Agents' })).toBeVisible()
+    await expect(
+      page.getByTestId('top-bar').getByRole('heading', { name: 'Agents', exact: true, level: 1 })
+    ).toBeVisible()
     await expectNoHorizontalOverflow(page)
   })
 
@@ -250,8 +252,11 @@ test.describe('Mobile WebUI', () => {
     await page.locator('[data-testid="agent-card-agent-container-cli"]').click()
 
     await expect(page.locator('[data-testid="agent-back"]')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Codex Container' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Console' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+    await expect(
+      page.getByRole('heading', { name: 'Codex Container', exact: true, level: 2 })
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Live work', exact: true })).toBeVisible()
     await expect(page.getByText('Agent overview')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await page.screenshot({
@@ -267,11 +272,18 @@ test.describe('Mobile WebUI', () => {
     await expect(page.locator('[data-testid="settings-mobile-nav"]')).toBeVisible()
 
     const picker = page.locator('#settings-section-picker')
+    const mobileNav = page.getByTestId('settings-mobile-nav')
+    await mobileNav
+      .getByRole('button', { name: 'Show team and project setup', exact: true })
+      .click()
     await picker.selectOption('account')
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
-    await expect(page.getByText('Profile')).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Profile', exact: true, level: 3 })
+    ).toBeVisible()
     await expectNoHorizontalOverflow(page)
 
+    await mobileNav.getByRole('button', { name: 'Show more setup', exact: true }).click()
     await picker.selectOption('keys')
     await expect(picker).toHaveValue('keys')
     await expectNoHorizontalOverflow(page)

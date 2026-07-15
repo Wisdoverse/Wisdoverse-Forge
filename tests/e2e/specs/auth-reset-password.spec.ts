@@ -55,7 +55,9 @@ test.describe('password reset links', () => {
     await page.locator('#reset-confirm').fill(newPassword)
     await page.getByRole('button', { name: 'Save new password' }).click()
 
-    await expect(page.locator('#reset-error')).toHaveText('invalid or expired reset token')
+    await expect(page.locator('#reset-error')).toHaveText(
+      'Request a new reset email, then open the newest link. This reset link may have expired.'
+    )
   })
 
   test('shows client-side error when passwords do not match', async ({ page }) => {
@@ -64,6 +66,8 @@ test.describe('password reset links', () => {
     await page.locator('#reset-confirm').fill('DifferentPassword456!')
     await page.getByRole('button', { name: 'Save new password' }).click()
 
-    await expect(page.locator('#reset-error')).toHaveText('The two passwords do not match.')
+    await expect(page.locator('#reset-error')).toHaveText(
+      'The two passwords do not match. Re-enter both fields, then choose Save new password again.'
+    )
   })
 })

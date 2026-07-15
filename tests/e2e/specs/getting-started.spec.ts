@@ -112,12 +112,15 @@ test.describe('First-use Start checklist', () => {
     await expect(
       page.getByRole('heading', { name: 'Set up your first agent safely' })
     ).toBeVisible()
+    const completedSteps = startPage.getByTestId('getting-started-completed-steps')
     await expect(
-      startPage.getByRole('heading', { name: /Team and project/i }).first()
+      completedSteps.getByRole('listitem').filter({ hasText: /^1\.Team and project/ })
     ).toBeVisible()
-    await expect(startPage.getByRole('heading', { name: /Agent/i }).first()).toBeVisible()
     await expect(
-      startPage.getByRole('heading', { name: /Give agents a way to work/i }).first()
+      completedSteps.getByRole('listitem').filter({ hasText: /^4\.Agent/ })
+    ).toBeVisible()
+    await expect(
+      completedSteps.getByRole('listitem').filter({ hasText: /^3\.Give agents a way to work/ })
     ).toBeVisible()
     await expect(startPage.getByText('Wisdoverse Forge').first()).toBeVisible()
     await expect(startPage.getByText(/\d+ of \d+/).first()).toBeVisible()
@@ -135,16 +138,20 @@ test.describe('First-use Start checklist', () => {
 
     const startPage = page.locator('[data-testid="page-start"]')
     await expect(startPage).toBeVisible()
-    const providerStep = startPage
-      .getByRole('heading', { name: /Give agents a way to work/i })
-      .first()
-    await expect(providerStep).toBeVisible()
-    const stepRow = providerStep.locator('xpath=ancestor::article')
-    const actionBtn = stepRow.getByRole('button').first()
+    const workLocationStep = startPage
+      .getByTestId('getting-started-expanded-step')
+      .filter({ hasText: 'Work location' })
+    await expect(workLocationStep.getByRole('heading', { name: /Work location$/ })).toBeVisible()
+    const actionBtn = workLocationStep.getByRole('button', {
+      name: 'Choose work location',
+      exact: true,
+    })
     await expect(actionBtn).toBeVisible()
     await actionBtn.click()
-    await page.waitForURL(/\/(settings|agents)/)
-    await expect(page.getByRole('heading', { name: /Settings|Agents/i })).toBeVisible()
+    await page.waitForURL(/\/settings\/runtime/)
+    await expect(
+      page.getByRole('heading', { name: 'Where agents work', exact: true })
+    ).toBeVisible()
   })
 
   test('lets users skip the setup checklist and restore it from Settings', async ({
@@ -174,9 +181,15 @@ test.describe('First-use Start checklist', () => {
 
     await page.locator('[data-testid="sidebar-nav-settings"]').click({ timeout: 30000 })
     await page.waitForURL(/\/settings/)
-    await page
-      .locator('[data-testid="settings-desktop-nav"]')
-      .getByRole('link', { name: /Account: Update profile, password, and show/i })
+    const settingsNav = page.locator('[data-testid="settings-desktop-nav"]')
+    await settingsNav
+      .getByRole('button', { name: 'Show team and project setup', exact: true })
+      .click({ timeout: 30000 })
+    await settingsNav
+      .getByRole('link', {
+        name: 'Account: Update profile, password, and reset the setup checklist.',
+        exact: true,
+      })
       .click({ timeout: 30000 })
 
     await expect(page.getByRole('heading', { name: 'Setup checklist' })).toBeVisible()

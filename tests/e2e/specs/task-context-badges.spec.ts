@@ -65,7 +65,7 @@ test.describe('Task context badges', () => {
     await expect(badge).toBeVisible()
     await expect(badge).toHaveAttribute(
       'aria-label',
-      '2 saved notes added, 1 saved instruction added'
+      '2 saved notes added, 1 saved guidance item added'
     )
     await expect(badge).toContainText('2')
     await expect(badge).toContainText('1')
@@ -80,7 +80,7 @@ test.describe('Task context badges', () => {
     await expect(badge).toBeVisible()
     await expect(badge).toHaveAttribute(
       'aria-label',
-      '2 saved notes added, 1 saved instruction added'
+      '2 saved notes added, 1 saved guidance item added'
     )
   })
 })

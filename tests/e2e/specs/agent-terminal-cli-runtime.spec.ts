@@ -87,25 +87,32 @@ async function openAgents(page: Page, baseURL: string): Promise<void> {
 }
 
 test.describe('Agent detail Terminal tab', () => {
-  test('Managed workspace agent exposes Terminal tab and status output', async ({ page, baseURL }) => {
+  test('Managed workspace agent exposes Terminal tab and status output', async ({
+    page,
+    baseURL,
+  }) => {
     await openAgents(page, baseURL!)
     await page.locator('[data-testid="agent-card-agent-container-cli"]').click()
 
-    await expect(page.getByRole('button', { name: 'Console' })).toBeVisible({ timeout: 5000 })
-    await page.getByRole('button', { name: 'Console' }).click()
-    await expect(page.locator('[data-testid="agent-terminal-tab"]')).toBeVisible({
+    const liveWorkTab = page.getByRole('button', { name: 'Live work', exact: true })
+    await expect(liveWorkTab).toBeVisible({ timeout: 5000 })
+    await liveWorkTab.click()
+    const terminal = page.locator('[data-testid="agent-terminal-tab"]')
+    await expect(terminal).toBeVisible({
       timeout: 10_000,
     })
-    await expect(page.locator('[data-testid="agent-terminal-tab"]')).toContainText(
-      'Workspace: container-12'
-    )
+    await expect(terminal.getByText('Codex Container', { exact: true })).toBeVisible()
+    await expect(terminal.getByText('Ready for live work', { exact: true })).toBeVisible()
+    await expect(terminal.getByText('Live', { exact: true })).toBeVisible()
   })
 
   test('provider prompt agent does not expose Terminal tab', async ({ page, baseURL }) => {
     await openAgents(page, baseURL!)
     await page.locator('[data-testid="agent-card-agent-provider-prompt"]').click()
 
-    await expect(page.getByRole('button', { name: 'Chat' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('button', { name: 'Console' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Chat', exact: true })).toBeVisible({
+      timeout: 5000,
+    })
+    await expect(page.getByRole('button', { name: 'Live work', exact: true })).toHaveCount(0)
   })
 })

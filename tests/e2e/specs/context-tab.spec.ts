@@ -36,7 +36,7 @@ test.describe('Task detail saved items tab', () => {
     await expect(
       rightPanel.getByRole('heading', { name: 'Prod-ext validation memory' })
     ).toBeVisible()
-    await expect(rightPanel.getByText('Instructions used')).toBeVisible()
+    await expect(rightPanel.getByText('Guidance used', { exact: true })).toBeVisible()
     await expect(rightPanel.getByText('Review checklist')).toBeVisible()
     await expect(rightPanel.getByTestId('context-evidence')).toBeVisible()
     await expect(rightPanel.getByTestId('context-provenance')).toBeVisible()

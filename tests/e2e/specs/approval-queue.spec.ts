@@ -127,6 +127,14 @@ test.describe('Approval queue', () => {
     })
 
     await setupAndNavigate(page, baseURL!, candidates)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+    await expect(
+      page.getByRole('heading', {
+        name: 'Check what agents can save',
+        exact: true,
+        level: 2,
+      })
+    ).toBeVisible()
     await expect(page.getByText('Production validation memory')).toBeVisible()
 
     candidates.push(
@@ -149,14 +157,19 @@ test.describe('Approval queue', () => {
     await expect(page.getByText('Realtime skill candidate')).toBeVisible()
 
     await page.getByTestId('context-approve-candidate-approval').dispatchEvent('click')
-    const dialog = page.getByRole('dialog', { name: /approve production validation memory/i })
+    const dialog = page.getByRole('dialog', {
+      name: 'Save Production validation memory',
+      exact: true,
+    })
     await expect(dialog).toBeVisible()
     await dialog.getByTestId('context-approval-scope-kind').selectOption('team')
     await dialog.getByTestId('context-approval-scope-id').fill('team-1')
-    await dialog.getByLabel('Expiration').fill('2030-01-01T12:00')
-    await dialog.getByLabel('Sensitivity').selectOption('confidential')
+    await dialog.getByLabel('Stop sharing after (optional)').fill('2030-01-01T12:00')
+    await dialog.getByLabel('Sensitive content level').selectOption('confidential')
     await dialog.getByLabel('Note').fill('Approved from queue')
-    await dialog.getByRole('checkbox', { name: /Confirm this team can reuse/i }).check()
+    await dialog
+      .getByRole('checkbox', { name: /I checked your team can reuse this safely/i })
+      .check()
     await dialog.getByTestId('context-approval-submit').click()
 
     await expect(dialog).toBeHidden()
@@ -194,7 +207,10 @@ test.describe('Approval queue', () => {
 
     await setupAndNavigate(page, baseURL!, candidates)
     await page.getByTestId('context-reject-candidate-reject').dispatchEvent('click')
-    const dialog = page.getByRole('dialog', { name: /reject broad memory candidate/i })
+    const dialog = page.getByRole('dialog', {
+      name: 'Do not save Broad memory candidate',
+      exact: true,
+    })
     await dialog.getByTestId('context-reject-reason').fill('Too broad for governed memory')
     await dialog.getByTestId('context-reject-submit').click()
 
@@ -226,7 +242,10 @@ test.describe('Approval queue', () => {
     await setupAndNavigate(page, baseURL!, candidates)
     await page.getByTestId('context-approve-candidate-approval').dispatchEvent('click')
 
-    const dialog = page.getByRole('dialog', { name: /approve production validation memory/i })
+    const dialog = page.getByRole('dialog', {
+      name: 'Save Production validation memory',
+      exact: true,
+    })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByTestId('context-approval-scope-kind')).toBeVisible()
     await expect(dialog.getByTestId('context-approval-submit')).toBeVisible()

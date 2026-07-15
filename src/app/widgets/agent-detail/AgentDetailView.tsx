@@ -255,9 +255,9 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-ui-doc-title font-medium text-foreground-light dark:text-foreground-dark">
+            <h2 className="truncate text-ui-doc-title font-medium text-foreground-light dark:text-foreground-dark">
               {agent.name}
-            </h1>
+            </h2>
             <AgentKindBadge cliTool={agent.cliTool} runtimeKind={agent.runtimeKind} />
           </div>
           <p className={cn(uiStyles.chip, 'max-w-full truncate')}>
