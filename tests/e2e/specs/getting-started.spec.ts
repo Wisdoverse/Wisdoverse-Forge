@@ -113,9 +113,23 @@ test.describe('First-use Start checklist', () => {
       page.getByRole('heading', { name: 'Set up your first agent safely' })
     ).toBeVisible()
     const completedSteps = startPage.getByTestId('getting-started-completed-steps')
+    const teamAndProjectStep = completedSteps
+      .getByRole('listitem')
+      .filter({ hasText: /^1\.Team and project/ })
+    await expect(teamAndProjectStep).toBeVisible()
+    const successDisclosure = teamAndProjectStep.getByRole('button', {
+      name: 'Success looks like:',
+      exact: true,
+    })
+    await expect(successDisclosure).toHaveAttribute('aria-expanded', 'true')
     await expect(
-      completedSteps.getByRole('listitem').filter({ hasText: /^1\.Team and project/ })
+      teamAndProjectStep.getByText('A team and project exist, and the project is selected.')
     ).toBeVisible()
+    await successDisclosure.click()
+    await expect(successDisclosure).toHaveAttribute('aria-expanded', 'false')
+    await expect(
+      teamAndProjectStep.getByText('A team and project exist, and the project is selected.')
+    ).toHaveCount(0)
     await expect(
       completedSteps.getByRole('listitem').filter({ hasText: /^4\.Agent/ })
     ).toBeVisible()

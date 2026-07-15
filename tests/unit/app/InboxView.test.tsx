@@ -33,11 +33,23 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+  })
+})
 beforeEach(() => {
   useFeedStore.getState().reset()
   useBoardStore.getState().reset()
   useSettingsStore.getState().setActiveSection('providers')
+  useSettingsStore.setState({
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
+  })
   navigateMock.mockClear()
   orchestrationApiMock.fetchInboxNotifications.mockResolvedValue([])
   orchestrationApiMock.markInboxNotificationRead.mockResolvedValue({ ok: true })

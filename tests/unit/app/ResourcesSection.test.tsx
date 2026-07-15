@@ -19,6 +19,9 @@ beforeEach(() => {
     resourceProfiles: profiles,
     resourceProfilesLoading: false,
     resourceProfilesError: null,
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
     loadResourceProfiles: loadResourceProfilesMock,
   })
 })
@@ -30,6 +33,9 @@ afterEach(() => {
     resourceProfiles: [],
     resourceProfilesLoading: false,
     resourceProfilesError: null,
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
     loadResourceProfiles: originalLoadResourceProfiles,
   })
 })
@@ -62,9 +68,10 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const guide = await screen.findByTestId('resource-profile-guide')
-    expect(guide).toHaveClass('border-y', 'bg-transparent')
-    expect(guide.className).not.toContain('rounded-card')
-    expect(guide.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
+    expect(within(guide).getByRole('button', { name: 'Before choosing a size' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
     expect(within(guide).getByText('Pick the smallest size that can finish the work')).toBeDefined()
     expect(guide.textContent).toContain('Small is the smallest size')
     expect(within(guide).getByText('Before choosing a size')).toBeDefined()
@@ -126,6 +133,7 @@ describe('ResourcesSection', () => {
         'Success looks like one size listed here, such as Small or Standard.'
       )
     ).toBeDefined()
+    expect(within(emptyState).getByRole('button', { name: 'Check again' })).toBeDefined()
   })
 
   test('shows a beginner retry path when agent sizes cannot load', async () => {

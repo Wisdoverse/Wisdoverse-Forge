@@ -2,9 +2,24 @@ import { describe, test, expect, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ListView } from '@app/features/list/ListView'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useSettingsStore } from '@app/entities/settings'
 
-afterEach(cleanup)
-beforeEach(() => useBoardStore.getState().reset())
+afterEach(() => {
+  cleanup()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+  })
+})
+beforeEach(() => {
+  useBoardStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
+  })
+})
 
 describe('ListView', () => {
   test('renders table headers', () => {
