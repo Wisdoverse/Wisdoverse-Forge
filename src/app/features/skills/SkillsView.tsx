@@ -163,7 +163,7 @@ export function SkillsView() {
               <SkillStat label="Check before use" value={stats.available} Icon={Circle} />
               <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
             </div>
-            <div className="rounded-card border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+            <div className={cn(uiStyles.card, 'p-3')}>
               <div className="mb-2 flex items-center gap-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 <Filter size={14} strokeWidth={2.25} aria-hidden="true" />
                 <span>Show saved guidance</span>
@@ -227,7 +227,7 @@ export function SkillsView() {
             data-testid="saved-instructions-empty-state"
             className="flex h-full flex-col items-center justify-center gap-4 text-center"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
+            <div className="flex h-14 w-14 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
               <BrainCircuit size={28} strokeWidth={1.75} aria-hidden="true" />
             </div>
             <div className="space-y-1">
@@ -419,8 +419,8 @@ function SkillStat({
   Icon: typeof BrainCircuit
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-card border border-black/[0.08] bg-white px-3 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+    <div className={cn(uiStyles.card, 'flex min-w-0 items-center gap-3 px-3 py-3')}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
         <Icon size={16} strokeWidth={2.1} aria-hidden="true" />
       </span>
       <span className="min-w-0">
@@ -457,10 +457,10 @@ function SkillFilterButton({
       aria-label={`${ariaLabel}, ${countLabel}`}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+        'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-button border px-2.5 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
         active
-          ? 'border-apple-blue/45 bg-apple-blue/[0.08] text-apple-blue'
-          : 'border-black/[0.08] bg-white text-secondary-light hover:border-apple-blue/30 hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:text-foreground-dark'
+          ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+          : 'border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
     >
       <span className="truncate">{label}</span>

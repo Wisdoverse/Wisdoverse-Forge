@@ -199,7 +199,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
+            className={cn(uiStyles.subtleButton, 'w-8 shrink-0 px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -245,10 +245,10 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
                   aria-pressed={selectedTemplateId === template.id}
                   onClick={() => applyTemplate(template)}
                   className={cn(
-                    'rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                    'rounded-button border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
                     selectedTemplateId === template.id
-                      ? 'border-apple-blue/45 bg-apple-blue/[0.08]'
-                      : 'border-black/[0.08] bg-white hover:border-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04]'
+                      ? 'border-black/[0.08] bg-black/[0.06] dark:border-white/[0.1] dark:bg-white/[0.08]'
+                      : 'border-black/[0.08] bg-white hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.06]'
                   )}
                 >
                   <span className="block truncate text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
@@ -324,7 +324,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
             </p>
           </div>
 
-          <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+          <div className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
             <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               Check before saving
             </div>
@@ -332,9 +332,9 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               {SKILL_REVIEW_POINTS.map((point) => (
                 <div
                   key={point.label}
-                  className="min-w-0 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
+                  className="min-w-0 rounded-card bg-white px-2 py-1.5 dark:bg-black/20"
                 >
-                  <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                  <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                     {point.label}
                   </span>
                   <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
@@ -356,9 +356,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               onChange={(event) => updateField('content', event.target.value)}
               aria-invalid={fieldError === 'content'}
               aria-describedby={fieldError === 'content' ? 'create-skill-error' : undefined}
-              className={cn(
-                'min-h-36 w-full resize-y rounded-[18px] border border-black/[0.08] bg-white px-3 py-2 font-mono text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
-              )}
+              className={cn(uiStyles.input, 'h-auto min-h-36 resize-y py-2 font-mono')}
               placeholder="Write each step the agent should follow"
             />
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">

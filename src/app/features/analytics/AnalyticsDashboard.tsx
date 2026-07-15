@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAnalyticsStore, type DateRange } from './model/analytics.store'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { ContextUsageDashboard } from './ContextUsageDashboard'
@@ -205,7 +206,7 @@ export function AnalyticsDashboard() {
         </p>
 
         {/* Date range selector */}
-        <div className="flex items-center gap-0.5 rounded-full border border-black/[0.08] bg-white p-0.5 dark:border-white/[0.1] dark:bg-white/[0.06]">
+        <div className="flex items-center gap-0.5 rounded-button bg-black/[0.035] p-0.5 dark:bg-white/[0.05]">
           {DATE_RANGE_OPTIONS.map((opt) => {
             const selected = dateRange === opt.value
             const stateLabel = selected ? (loading ? ', checking now' : ', selected') : ''
@@ -219,10 +220,10 @@ export function AnalyticsDashboard() {
                 aria-pressed={selected}
                 aria-label={`${opt.label}${stateLabel}`}
                 className={cn(
-                  'rounded-full px-3 py-1 text-ui-caption font-medium transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:active:scale-100',
+                  'h-8 rounded-button px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed',
                   selected
-                    ? 'bg-apple-blue text-white'
-                    : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark',
+                    ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                    : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
                   loading && !selected && 'opacity-60'
                 )}
               >
@@ -303,7 +304,7 @@ export function AnalyticsDashboard() {
         {/* Charts row */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Hourly activity */}
-          <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
+          <div className={uiStyles.cardPadded}>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 Activity by hour
@@ -323,7 +324,7 @@ export function AnalyticsDashboard() {
           </div>
 
           {/* Top tools */}
-          <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
+          <div className={uiStyles.cardPadded}>
             <p className="mb-3 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               Work steps used most
             </p>
@@ -399,19 +400,14 @@ function AnalyticsNextStepPanel({
   guidance: AnalyticsGuidance
   loading: boolean
 }) {
-  const toneClasses = {
-    ready:
-      'border-apple-blue/20 bg-apple-blue/10 text-apple-blue dark:border-apple-blue/30 dark:bg-apple-blue/15',
-    watch:
-      'border-black/[0.08] bg-black/[0.03] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-foreground-dark',
-    attention: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
+  const toneDotClasses = {
+    ready: 'bg-apple-blue',
+    watch: 'bg-[#86868b]',
+    attention: 'bg-apple-red',
   } satisfies Record<AnalyticsGuidance['tone'], string>
 
   return (
-    <section
-      data-testid="analytics-next-step"
-      className="mb-6 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
-    >
+    <section data-testid="analytics-next-step" className={cn(uiStyles.cardPadded, 'mb-6')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-ui-caption font-medium uppercase text-secondary-light dark:text-secondary-dark">
@@ -431,13 +427,14 @@ function AnalyticsNextStepPanel({
           )}
         </div>
         {!loading && (
-          <div
-            className={cn(
-              'max-w-sm rounded-card border px-3 py-2 text-ui-caption font-medium',
-              toneClasses[guidance.tone]
-            )}
-          >
-            {guidance.action}
+          <div className="flex max-w-sm items-start gap-2 rounded-card border border-black/[0.08] bg-black/[0.025] px-3 py-2 text-ui-caption font-medium text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-secondary-dark">
+            <span
+              className={cn(
+                'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
+                toneDotClasses[guidance.tone]
+              )}
+            />
+            <span>{guidance.action}</span>
           </div>
         )}
       </div>
@@ -455,11 +452,7 @@ function AnalyticsErrorPanel({
   onRetry: () => Promise<void>
 }) {
   return (
-    <div
-      role="alert"
-      aria-live="polite"
-      className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-3 text-apple-red"
-    >
+    <div role="alert" aria-live="polite" className={uiStyles.error}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-ui-body font-semibold">Check analytics again</p>
@@ -469,7 +462,7 @@ function AnalyticsErrorPanel({
           type="button"
           onClick={() => void onRetry()}
           disabled={loading}
-          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-apple-red/30 px-3 text-ui-button font-semibold text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/40 disabled:cursor-not-allowed disabled:opacity-60"
+          className={uiStyles.dangerButton}
         >
           {loading ? 'Checking analytics...' : 'Check analytics again'}
         </button>

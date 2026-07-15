@@ -49,22 +49,22 @@ function metricCopy(metric: string): { label: string; description: string; highA
   }
 }
 
-function usageStatus(pct: number, hasLimit: boolean): { label: string; color: string } {
+function usageStatus(pct: number, hasLimit: boolean): { label: string; dot: string } {
   if (!hasLimit) {
     return {
       label: 'No limit set',
-      color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+      dot: 'bg-[#86868b]',
     }
   }
-  if (pct >= 100) return { label: 'Limit reached', color: 'bg-apple-red/10 text-apple-red' }
-  if (pct >= 90) return { label: 'Almost full', color: 'bg-apple-red/10 text-apple-red' }
+  if (pct >= 100) return { label: 'Limit reached', dot: 'bg-apple-red' }
+  if (pct >= 90) return { label: 'Almost full', dot: 'bg-apple-red' }
   if (pct >= 80) {
     return {
       label: 'Getting close',
-      color: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+      dot: 'bg-[#86868b]',
     }
   }
-  return { label: 'Plenty left', color: 'bg-apple-blue/10 text-apple-blue' }
+  return { label: 'Plenty left', dot: 'bg-apple-blue' }
 }
 
 function barColor(pct: number, hasLimit: boolean): string {
@@ -95,12 +95,8 @@ function Meter({ metric }: MeterProps) {
         <span className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           {copy.label}
         </span>
-        <span
-          className={cn(
-            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-ui-caption font-medium',
-            status.color
-          )}
-        >
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          <span className={cn('h-1.5 w-1.5 rounded-full', status.dot)} />
           {status.label}
         </span>
       </div>
@@ -129,7 +125,7 @@ function Meter({ metric }: MeterProps) {
         )}
       </div>
 
-      <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+      <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.08] dark:bg-white/[0.1]">
         <div
           className={cn('h-full rounded-full transition-all', barColor(pct, hasLimit))}
           style={{ width: hasLimit ? `${pct}%` : '100%' }}
