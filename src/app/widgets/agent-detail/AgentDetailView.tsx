@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from 'react'
-import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, Info, Terminal } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
@@ -12,6 +12,7 @@ import {
   useAgentsStore,
   type AgentInfo,
 } from '@app/entities/agent'
+import { PreferenceGuideDisclosure } from '@app/entities/settings'
 import {
   AgentConfigTab,
   AgentControlPanel,
@@ -502,75 +503,53 @@ function AgentNextStepCard({
   const actionLabel = step.actionLabel
 
   return (
-    <section
-      data-testid="agent-next-step"
-      className={cn(
-        'rounded-card border px-4 py-3',
-        step.ready
-          ? 'border-apple-green/20 bg-apple-green/5'
-          : 'border-apple-blue/20 bg-apple-blue/[0.04]'
-      )}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {step.ready ? (
-              <CheckCircle2
-                size={17}
-                strokeWidth={2.25}
-                className="shrink-0 text-apple-green"
-                aria-hidden="true"
-              />
-            ) : (
-              <AlertTriangle
-                size={17}
-                strokeWidth={2.25}
-                className="shrink-0 text-apple-blue"
-                aria-hidden="true"
-              />
-            )}
-            <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Do this next'}
+    <div data-testid="agent-next-step">
+      <PreferenceGuideDisclosure
+        guideKey="agent-detail-next-step"
+        icon={step.ready ? <CheckCircle2 /> : <AlertTriangle />}
+        title={step.ready ? 'Ready' : 'Do this next'}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              {step.title}
+            </h2>
+            <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+              {step.detail}
+            </p>
+            <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              What success looks like: {step.success}
             </p>
           </div>
-          <h2 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {step.title}
-          </h2>
-          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            {step.detail}
-          </p>
-          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            What success looks like: {step.success}
-          </p>
+          {targetTab && actionLabel && (
+            <button
+              type="button"
+              onClick={() => onOpenTab(targetTab)}
+              className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}
+            >
+              <span>{actionLabel}</span>
+              <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
+          {targetHref && actionLabel && (
+            <a href={targetHref} className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}>
+              <span>{actionLabel}</span>
+              <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+            </a>
+          )}
+          {targetBack && actionLabel && (
+            <button
+              type="button"
+              onClick={onBack}
+              className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}
+            >
+              <span>{actionLabel}</span>
+              <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
         </div>
-        {targetTab && actionLabel && (
-          <button
-            type="button"
-            onClick={() => onOpenTab(targetTab)}
-            className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}
-          >
-            <span>{actionLabel}</span>
-            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
-          </button>
-        )}
-        {targetHref && actionLabel && (
-          <a href={targetHref} className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}>
-            <span>{actionLabel}</span>
-            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
-          </a>
-        )}
-        {targetBack && actionLabel && (
-          <button
-            type="button"
-            onClick={onBack}
-            className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}
-          >
-            <span>{actionLabel}</span>
-            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
-          </button>
-        )}
-      </div>
-    </section>
+      </PreferenceGuideDisclosure>
+    </div>
   )
 }
 
@@ -752,22 +731,31 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
     <div
       className={cn(uiStyles.cardPadded, 'flex flex-col items-center gap-3 px-4 py-6 text-center')}
     >
-      <div className="flex flex-col gap-1">
-        <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Start project files to open Live work
-        </span>
-        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+      <Terminal
+        size={20}
+        strokeWidth={1.9}
+        className="text-secondary-light dark:text-secondary-dark"
+        aria-hidden="true"
+      />
+      <PreferenceGuideDisclosure
+        guideKey="agent-detail-live-work-help"
+        icon={<Terminal />}
+        title="Start project files to open Live work"
+        className="w-full max-w-xl text-left"
+        dismissible={false}
+      >
+        <p>
           {agent.cliTool
             ? `${agentToolLabel(agent.cliTool)} is ready. Start project files before this agent changes project files.`
             : 'This agent does not change project files.'}
-        </span>
+        </p>
         {agent.cliTool && (
-          <span className="max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
+          <p className="mt-1 text-ui-caption">
             Success looks like the agent status changing to Ready or Working now. If it stays stuck,
             ask an owner or admin to check this agent's connection and access in Agents.
-          </span>
+          </p>
         )}
-      </div>
+      </PreferenceGuideDisclosure>
       {showStartProblem && (
         <div
           role="alert"

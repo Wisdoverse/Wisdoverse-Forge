@@ -99,6 +99,9 @@ beforeEach(() => {
     },
     runtimeLoading: false,
     runtimeError: null,
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
     loadRuntimeSettings: loadRuntimeSettingsMock,
     updateRuntimeSettings: updateRuntimeSettingsMock,
   })
@@ -111,6 +114,9 @@ afterEach(() => {
     runtimeSettings: null,
     runtimeLoading: false,
     runtimeError: null,
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
     loadRuntimeSettings: originalLoadRuntimeSettings,
     updateRuntimeSettings: originalUpdateRuntimeSettings,
   })

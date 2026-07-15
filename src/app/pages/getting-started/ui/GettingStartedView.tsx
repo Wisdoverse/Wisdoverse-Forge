@@ -22,7 +22,7 @@ import {
 } from '@app/shared/api/orchestration'
 import { agentAiServiceLabel, isHostCliAgent, useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
-import { useSettingsStore } from '@app/entities/settings'
+import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import { useSkillsStore } from '@app/entities/skill'
 import { cn } from '@app/shared/lib/utils'
@@ -614,12 +614,15 @@ function SetupStepItem({
               {step.why}
             </p>
           )}
-          <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            <span className="font-medium text-foreground-light dark:text-foreground-dark">
-              {t('gettingStarted.successLabel')}
-            </span>{' '}
-            {step.success}
-          </p>
+          <PreferenceGuideDisclosure
+            guideKey={`getting-started-${step.id}-success`}
+            icon={<CheckCircle2 />}
+            title={t('gettingStarted.successLabel')}
+            className="mt-2"
+            dismissible={false}
+          >
+            <p>{step.success}</p>
+          </PreferenceGuideDisclosure>
         </div>
       </div>
       <button
@@ -710,6 +713,15 @@ function CompactSetupStepList({
                 <p className="mt-0.5 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {step.detail}
                 </p>
+                <PreferenceGuideDisclosure
+                  guideKey={`getting-started-${step.id}-success`}
+                  icon={<CheckCircle2 />}
+                  title={t('gettingStarted.successLabel')}
+                  className="mt-2"
+                  dismissible={false}
+                >
+                  <p>{step.success}</p>
+                </PreferenceGuideDisclosure>
               </div>
             </li>
           )

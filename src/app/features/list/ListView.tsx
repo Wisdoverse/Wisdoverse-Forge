@@ -1,15 +1,8 @@
-import { useRef, useId, useMemo, useState, type ReactNode } from 'react'
+import { useRef, useId, useMemo, useState } from 'react'
 import { useVirtualizer, type VirtualizerOptions } from '@tanstack/react-virtual'
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  Clock3,
-  CircleDot,
-  ListChecks,
-  Search,
-} from 'lucide-react'
+import { ArrowRight, ListChecks, Search } from 'lucide-react'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { PreferenceGuideDisclosure } from '@app/entities/settings'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -131,36 +124,35 @@ export function ListView() {
           </div>
         </div>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-[560px]">
-            <ListMetric
-              testId="list-metric-active"
-              label="Active"
-              value={workload.active}
-              icon={<CircleDot size={15} strokeWidth={2.15} aria-hidden="true" />}
-              tone="active"
-            />
-            <ListMetric
-              testId="list-metric-backlog"
-              label="Not sent yet"
-              value={workload.backlog}
-              icon={<Clock3 size={15} strokeWidth={2.15} aria-hidden="true" />}
-              tone="neutral"
-            />
-            <ListMetric
-              testId="list-metric-attention"
-              label="Needs action"
-              value={workload.attention}
-              icon={<AlertTriangle size={15} strokeWidth={2.15} aria-hidden="true" />}
-              tone="attention"
-            />
-            <ListMetric
-              testId="list-metric-completed"
-              label="Completed"
-              value={workload.completed}
-              icon={<CheckCircle2 size={15} strokeWidth={2.15} aria-hidden="true" />}
-              tone="success"
-            />
-          </div>
+          <p
+            aria-label="Task summary"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ui-body text-secondary-light dark:text-secondary-dark"
+          >
+            <span data-testid="list-metric-active">
+              <span className="font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
+                {workload.active}
+              </span>{' '}
+              Active
+            </span>
+            <span data-testid="list-metric-backlog">
+              <span className="font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
+                {workload.backlog}
+              </span>{' '}
+              Not sent yet
+            </span>
+            <span data-testid="list-metric-attention">
+              <span className="font-semibold tabular-nums text-apple-orange">
+                {workload.attention}
+              </span>{' '}
+              Needs action
+            </span>
+            <span data-testid="list-metric-completed">
+              <span className="font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
+                {workload.completed}
+              </span>{' '}
+              Completed
+            </span>
+          </p>
 
           <div className="flex min-w-0 flex-1 flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
             <div className="min-w-0 flex-1 lg:max-w-sm">
@@ -237,18 +229,23 @@ export function ListView() {
       {tasks.length === 0 ? (
         <div
           data-testid="list-empty-state"
-          className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-ui-body"
+          className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center text-ui-body"
         >
-          <div className="flex size-10 items-center justify-center rounded-lg bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-            <ListChecks size={18} strokeWidth={1.9} aria-hidden="true" />
+          <div className="flex size-9 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+            <ListChecks size={20} strokeWidth={1.9} aria-hidden="true" />
           </div>
-          <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-            Create your first small task
-          </p>
-          <p className="max-w-sm text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
-            Use the board to create one small task first. Start with the outcome you want, then add
-            whether you need files, notes, or a short answer back.
-          </p>
+          <PreferenceGuideDisclosure
+            guideKey="list-empty-help"
+            icon={<ListChecks />}
+            title="Create your first small task"
+            className="w-full max-w-sm text-left"
+            dismissible={false}
+          >
+            <p>
+              Use the board to create one small task first. Start with the outcome you want, then
+              add whether you need files, notes, or a short answer back.
+            </p>
+          </PreferenceGuideDisclosure>
           <button
             type="button"
             onClick={() => setViewMode('board')}
@@ -263,14 +260,18 @@ export function ListView() {
           data-testid="list-filter-empty"
           role="status"
           aria-live="polite"
-          className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
+          className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
         >
-          <span className="font-medium text-foreground-light dark:text-foreground-dark">
-            {filteredEmptyState.title}
-          </span>
-          <span className="max-w-sm text-ui-caption leading-relaxed">
-            {filteredEmptyState.detail}
-          </span>
+          <Search size={20} strokeWidth={1.9} aria-hidden="true" />
+          <PreferenceGuideDisclosure
+            guideKey="list-filter-empty-help"
+            icon={<Search />}
+            title={filteredEmptyState.title}
+            className="w-full max-w-sm text-left"
+            dismissible={false}
+          >
+            <p>{filteredEmptyState.detail}</p>
+          </PreferenceGuideDisclosure>
           {hasActiveFilter && (
             <button
               type="button"
@@ -371,53 +372,6 @@ export function ListView() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function ListMetric({
-  testId,
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  testId: string
-  label: string
-  value: number
-  icon: ReactNode
-  tone: 'active' | 'attention' | 'neutral' | 'success'
-}) {
-  const toneClass =
-    tone === 'active'
-      ? 'text-apple-blue'
-      : tone === 'attention'
-        ? 'text-apple-orange'
-        : tone === 'success'
-          ? 'text-apple-green'
-          : 'text-secondary-light dark:text-secondary-dark'
-
-  return (
-    <div
-      data-testid={testId}
-      className="flex min-h-14 items-center gap-2 rounded-card bg-black/[0.025] px-2.5 py-2 dark:bg-white/[0.05]"
-    >
-      <span
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-black/20',
-          toneClass
-        )}
-      >
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
-          {value}
-        </span>
-        <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
-          {label}
-        </span>
-      </span>
     </div>
   )
 }

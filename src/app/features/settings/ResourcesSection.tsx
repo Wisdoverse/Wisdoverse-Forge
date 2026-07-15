@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { Cpu, HardDrive, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Cpu, HardDrive, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore } from '@app/entities/settings'
+import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type { ResourceProfileOption } from '@app/entities/agent'
 
@@ -118,65 +118,90 @@ function ProfileRow({ profile }: ProfileRowProps) {
 
 function ResourceProfileGuide({ profiles }: { profiles: ResourceProfileOption[] }) {
   return (
-    <section
-      data-testid="resource-profile-guide"
-      className="mb-4 border-y border-black/[0.06] bg-transparent py-4 dark:border-white/[0.08]"
-    >
-      <div className="mb-3">
-        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Before choosing a size
-        </p>
-        <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-          Pick the smallest size that can finish the work
-        </h3>
-        <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-          {summarizeProfileRange(profiles)}
-        </p>
-      </div>
-      <div className="grid gap-2 md:grid-cols-3">
-        {RESOURCE_PROFILE_GUIDANCE.map(({ title, description, Icon }) => (
-          <div key={title} className="rounded-card bg-black/[0.03] p-3 dark:bg-white/[0.04]">
-            <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
-              <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
-              <p className="text-ui-caption font-semibold">{title}</p>
+    <div data-testid="resource-profile-guide" className="mb-4">
+      <PreferenceGuideDisclosure
+        guideKey="settings-agent-size-guide"
+        icon={<Cpu />}
+        title="Before choosing a size"
+      >
+        <div className="mb-3">
+          <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            Pick the smallest size that can finish the work
+          </h3>
+          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+            {summarizeProfileRange(profiles)}
+          </p>
+        </div>
+        <div className="grid gap-2 md:grid-cols-3">
+          {RESOURCE_PROFILE_GUIDANCE.map(({ title, description, Icon }) => (
+            <div key={title} className="rounded-card bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+              <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
+                <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
+                <p className="text-ui-caption font-semibold">{title}</p>
+              </div>
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                {description}
+              </p>
             </div>
-            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {description}
-            </p>
-          </div>
-        ))}
-      </div>
-    </section>
+          ))}
+        </div>
+      </PreferenceGuideDisclosure>
+    </div>
   )
 }
 
-function ResourceProfilesEmptyState() {
+function ResourceProfilesEmptyState({
+  loading,
+  onRetry,
+}: {
+  loading: boolean
+  onRetry: () => Promise<void>
+}) {
   return (
-    <div data-testid="resource-profiles-empty" className="px-4 py-6 text-center">
+    <div
+      data-testid="resource-profiles-empty"
+      className="flex flex-col items-center gap-3 px-4 py-6 text-center"
+    >
+      <HardDrive
+        size={20}
+        strokeWidth={1.9}
+        className="text-secondary-light dark:text-secondary-dark"
+        aria-hidden="true"
+      />
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
         Ask an owner or admin to add agent sizes
       </p>
-      <p className="mx-auto mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Agents need at least one size before users can choose safe work capacity.
-      </p>
-      <p className="mx-auto mt-3 max-w-xl text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-        Next step: ask an owner or admin to open Work limits and add one agent size.
-      </p>
-      <p className="mx-auto mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Success looks like one size listed here, such as Small or Standard.
-      </p>
-      <div className="mx-auto mt-4 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
-        <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Ask an owner or admin to add agent sizes in Work limits.
-        </p>
-        <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Start with small, standard, and large sizes so users can choose safely.
-        </p>
-        <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
-          Return here before creating agents that edit project files; at least one row means this
-          step is ready.
-        </p>
-      </div>
+      <PreferenceGuideDisclosure
+        guideKey="settings-agent-sizes-empty-help"
+        icon={<HardDrive />}
+        title="Next step: ask an owner or admin to open Work limits and add one agent size."
+        className="w-full max-w-2xl text-left"
+        dismissible={false}
+      >
+        <p>Agents need at least one size before users can choose safe work capacity.</p>
+        <p className="mt-1">Success looks like one size listed here, such as Small or Standard.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+            Ask an owner or admin to add agent sizes in Work limits.
+          </p>
+          <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+            Start with small, standard, and large sizes so users can choose safely.
+          </p>
+          <p className="rounded-card bg-black/[0.03] p-3 text-ui-caption text-secondary-light dark:bg-white/[0.04] dark:text-secondary-dark">
+            Return here before creating agents that edit project files; at least one row means this
+            step is ready.
+          </p>
+        </div>
+      </PreferenceGuideDisclosure>
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        disabled={loading}
+        className={uiStyles.secondaryButton}
+      >
+        <RefreshCw size={14} className={cn(loading && 'animate-spin')} aria-hidden="true" />
+        {loading ? 'Checking agent sizes' : 'Check again'}
+      </button>
     </div>
   )
 }
@@ -264,7 +289,10 @@ export function ResourcesSection() {
             success="Success looks like a size row with power, memory, and a best-fit use case."
           />
         ) : resourceProfiles.length === 0 ? (
-          <ResourceProfilesEmptyState />
+          <ResourceProfilesEmptyState
+            loading={resourceProfilesLoading}
+            onRetry={loadResourceProfiles}
+          />
         ) : (
           <table className={uiStyles.table}>
             <thead className={uiStyles.tableHead}>

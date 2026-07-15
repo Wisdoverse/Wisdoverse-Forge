@@ -17,7 +17,11 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore, type SettingsSection } from '@app/entities/settings'
+import {
+  PreferenceGuideDisclosure,
+  useSettingsStore,
+  type SettingsSection,
+} from '@app/entities/settings'
 import {
   AboutSection,
   AccountSection,
@@ -254,12 +258,23 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
             </optgroup>
           ))}
         </select>
-        <p
-          data-testid="settings-mobile-section-hint"
-          className="mt-2 rounded-card bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.035] dark:text-secondary-dark"
-        >
-          {activeSectionItem.description}
-        </p>
+        {activeSectionItem.group === 'Start here' ? (
+          <PreferenceGuideDisclosure
+            guideKey="settings-start-here"
+            icon={<Bot />}
+            title="Start here"
+            className="mt-2"
+          >
+            <p data-testid="settings-mobile-section-hint">{activeSectionItem.description}</p>
+          </PreferenceGuideDisclosure>
+        ) : (
+          <p
+            data-testid="settings-mobile-section-hint"
+            className="mt-2 rounded-card bg-black/[0.025] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.035] dark:text-secondary-dark"
+          >
+            {activeSectionItem.description}
+          </p>
+        )}
         <SettingsDisclosureButton
           open={teamProjectOpen}
           openLabel="Hide team and project setup"
@@ -286,12 +301,32 @@ export function SettingsLayout({ routeSection, onSectionChange }: SettingsLayout
         )}
       >
         {PRIMARY_GROUPS.map((group) => (
-          <SettingsSectionGroup
-            key={group}
-            group={group}
-            activeSection={activeSection}
-            onSectionLinkClick={handleSectionLinkClick}
-          />
+          <div key={group}>
+            <PreferenceGuideDisclosure
+              guideKey="settings-start-here"
+              icon={<Bot />}
+              title={group}
+              className="mx-2 mb-2"
+            >
+              <div className="space-y-2">
+                {SECTIONS.filter((section) => section.group === group).map((section) => (
+                  <p key={section.id}>
+                    <span className="font-medium text-foreground-light dark:text-foreground-dark">
+                      {section.label}
+                    </span>{' '}
+                    {section.description}
+                  </p>
+                ))}
+              </div>
+            </PreferenceGuideDisclosure>
+            <SettingsSectionGroup
+              group={group}
+              activeSection={activeSection}
+              onSectionLinkClick={handleSectionLinkClick}
+              showHeading={false}
+              showDescriptions={false}
+            />
+          </div>
         ))}
         <SettingsDisclosureButton
           open={teamProjectOpen}
@@ -339,16 +374,20 @@ function SettingsSectionGroup({
   group,
   activeSection,
   onSectionLinkClick,
+  showHeading = true,
+  showDescriptions = true,
 }: {
   group: string
   activeSection: SettingsSection
   onSectionLinkClick: (event: MouseEvent<HTMLAnchorElement>, section: SettingsSection) => void
+  showHeading?: boolean
+  showDescriptions?: boolean
 }) {
   const items = SECTIONS.filter((section) => section.group === group)
 
   return (
     <div className="mb-4">
-      <p className={cn(uiStyles.groupLabel, 'mb-1 px-2')}>{group}</p>
+      {showHeading && <p className={cn(uiStyles.groupLabel, 'mb-1 px-2')}>{group}</p>}
       {items.map((item) => {
         const isActive = activeSection === item.id
         return (
@@ -367,14 +406,16 @@ function SettingsSectionGroup({
             <item.Icon size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span className="min-w-0">
               <span className="block text-ui-button font-medium">{item.label}</span>
-              <span
-                className={cn(
-                  'mt-0.5 block text-ui-caption leading-snug',
-                  'text-secondary-light dark:text-secondary-dark'
-                )}
-              >
-                {item.description}
-              </span>
+              {showDescriptions && (
+                <span
+                  className={cn(
+                    'mt-0.5 block text-ui-caption leading-snug',
+                    'text-secondary-light dark:text-secondary-dark'
+                  )}
+                >
+                  {item.description}
+                </span>
+              )}
             </span>
           </a>
         )

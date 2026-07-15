@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { useFeedStore, type Notification } from '@app/entities/feed'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
-import { useSettingsStore } from '@app/entities/settings'
+import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import { useAdminStore } from '@app/entities/admin'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -186,45 +186,33 @@ export function InboxView() {
   }
 
   if (notifications.length === 0) {
+    const checkingSavedUpdates = loadingSavedNotifications && !loadError
     return (
-      <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          <InboxIcon size={26} strokeWidth={1.75} aria-hidden="true" />
+      <div className="mx-auto flex h-full w-full max-w-sm flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="flex h-9 w-9 items-center justify-center rounded-card bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
+          <InboxIcon size={20} strokeWidth={1.9} aria-hidden="true" />
         </div>
         {loadError && (
           <div className="w-full">
             <InboxLoadError loading={loadingSavedNotifications} onRetry={loadNotifications} />
           </div>
         )}
-        {!loadError && loadingSavedNotifications && (
+        {checkingSavedUpdates && (
           <div role="status" aria-live="polite" className={cn(uiStyles.badge, 'gap-2')}>
             <RefreshCw size={13} className="animate-spin" aria-hidden="true" />
             Checking for saved updates...
           </div>
         )}
-        <div className="space-y-1">
-          <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {loadingSavedNotifications && !loadError
-              ? 'Checking for saved updates'
-              : 'No updates yet'}
-          </p>
-          <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-            {loadingSavedNotifications && !loadError
-              ? 'Forge is checking older updates. New live updates will still appear here.'
-              : 'Inbox updates appear after agents start work, finish work, need help, or ask you to reconnect account access.'}
-          </p>
-          {!loadingSavedNotifications && !loadError && (
-            <>
-              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Next: start a task or wait for an agent update, then open Inbox again.
-              </p>
-              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                Success looks like a new update listed here with the task name and next step.
-              </p>
-            </>
-          )}
-        </div>
-        <InboxActionPath compact />
+        <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+          {checkingSavedUpdates ? 'Checking for saved updates' : 'No updates yet'}
+        </p>
+        {!loadError && <InboxActionPath compact checkingSavedUpdates={checkingSavedUpdates} />}
+        {!loadError && !checkingSavedUpdates && (
+          <button type="button" onClick={loadNotifications} className={uiStyles.secondaryButton}>
+            <RefreshCw size={14} aria-hidden="true" />
+            Check updates again
+          </button>
+        )}
       </div>
     )
   }
@@ -242,34 +230,34 @@ export function InboxView() {
           </p>
         </header>
         {nextStepNotification && (
-          <div
-            data-testid="inbox-next-step"
-            className="mb-3 rounded-card border border-black/[0.08] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-                  Do this next
-                </p>
-                <p className="mt-0.5 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                  {nextStepTitle(nextStepNotification)}
-                </p>
-                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                  {nextStepDescription(
-                    nextStepNotification,
-                    unreadNeedsActionCount,
-                    unreadCredentialCount
-                  )}
-                </p>
+          <div data-testid="inbox-next-step" className="mb-3">
+            <PreferenceGuideDisclosure
+              guideKey="inbox-next-step"
+              icon={<InboxIcon />}
+              title="Do this next"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="mt-0.5 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                    {nextStepTitle(nextStepNotification)}
+                  </p>
+                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    {nextStepDescription(
+                      nextStepNotification,
+                      unreadNeedsActionCount,
+                      unreadCredentialCount
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenNotification(nextStepNotification)}
+                  className={uiStyles.primaryButton}
+                >
+                  {nextStepActionLabel(nextStepNotification)}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleOpenNotification(nextStepNotification)}
-                className={uiStyles.primaryButton}
-              >
-                {nextStepActionLabel(nextStepNotification)}
-              </button>
-            </div>
+            </PreferenceGuideDisclosure>
           </div>
         )}
         {loadError && (
@@ -356,12 +344,18 @@ export function InboxView() {
             data-testid="inbox-filter-empty"
             role="status"
             aria-live="polite"
-            className="flex h-full flex-col items-center justify-center px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
+            className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
           >
-            <p className="font-medium text-foreground-light dark:text-foreground-dark">
-              {filterEmptyState.title}
-            </p>
-            <p className="mt-1 max-w-sm text-ui-caption">{filterEmptyState.detail}</p>
+            <InboxIcon size={20} strokeWidth={1.9} aria-hidden="true" />
+            <PreferenceGuideDisclosure
+              guideKey="inbox-filter-empty-help"
+              icon={<InboxIcon />}
+              title={filterEmptyState.title}
+              className="w-full max-w-sm text-left"
+              dismissible={false}
+            >
+              <p>{filterEmptyState.detail}</p>
+            </PreferenceGuideDisclosure>
             {activeFilter !== 'all' && (
               <button
                 type="button"
@@ -506,25 +500,42 @@ function nextStepActionLabel(notification: Notification): string {
   }
 }
 
-function InboxActionPath({ compact = false }: { compact?: boolean }) {
+function InboxActionPath({
+  compact = false,
+  checkingSavedUpdates = false,
+}: {
+  compact?: boolean
+  checkingSavedUpdates?: boolean
+}) {
   return (
-    <section
-      data-testid="inbox-action-path"
-      className={cn(
-        'text-left text-ui-caption text-secondary-light dark:text-secondary-dark',
-        compact
-          ? 'max-w-sm'
-          : 'mt-3 rounded-card border border-black/[0.06] bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]'
-      )}
-    >
-      <p className="font-semibold text-foreground-light dark:text-foreground-dark">
-        Inbox action order
-      </p>
-      <ol className="mt-2 list-decimal space-y-1 pl-4">
-        {INBOX_ACTION_STEPS.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
-    </section>
+    <div data-testid="inbox-action-path" className={cn('w-full text-left', !compact && 'mt-3')}>
+      <PreferenceGuideDisclosure
+        guideKey="inbox-action-order"
+        icon={<InboxIcon />}
+        title="Inbox action order"
+        dismissible={!compact}
+      >
+        {compact && (
+          <div className="mb-2 space-y-1">
+            <p>
+              {checkingSavedUpdates
+                ? 'Forge is checking older updates. New live updates will still appear here.'
+                : 'Inbox updates appear after agents start work, finish work, need help, or ask you to reconnect account access.'}
+            </p>
+            {!checkingSavedUpdates && (
+              <>
+                <p>Next: start a task or wait for an agent update, then open Inbox again.</p>
+                <p>Success looks like a new update listed here with the task name and next step.</p>
+              </>
+            )}
+          </div>
+        )}
+        <ol className="list-decimal space-y-1 pl-4">
+          {INBOX_ACTION_STEPS.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </PreferenceGuideDisclosure>
+    </div>
   )
 }

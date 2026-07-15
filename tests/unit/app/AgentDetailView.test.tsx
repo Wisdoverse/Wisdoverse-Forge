@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useAgentsStore } from '@app/entities/agent'
+import { useSettingsStore } from '@app/entities/settings'
 import {
   agentDetailHeaderSubtitle,
   AgentDetailView,
@@ -10,6 +11,11 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+  })
 })
 
 const getTasksByAgentMock = vi.hoisted(() => vi.fn())
@@ -22,6 +28,11 @@ vi.mock('@app/shared/api/orchestration', () => ({
 
 beforeEach(() => {
   useAgentsStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
+  })
   getTasksByAgentMock.mockResolvedValue([])
 })
 
@@ -449,7 +460,7 @@ describe('AgentDetailView', () => {
     expect(screen.queryByText(/live terminal/i)).toBeNull()
     expect(screen.queryByText(/command window/i)).toBeNull()
     expect(screen.queryByText('Loading live work...')).toBeNull()
-    expect(screen.getByRole('button', { name: /start project files/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /^start project files$/i })).toBeDefined()
     expect(screen.queryByText(/file work/i)).toBeNull()
   })
 
@@ -506,7 +517,7 @@ describe('AgentDetailView', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    const startButton = screen.getByRole('button', { name: /start project files/i })
+    const startButton = screen.getByRole('button', { name: /^start project files$/i })
     fireEvent.click(startButton)
 
     await waitFor(() => expect(startButton).not.toBeDisabled())
@@ -547,7 +558,7 @@ describe('AgentDetailView', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
-    fireEvent.click(screen.getByRole('button', { name: /start project files/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^start project files$/i }))
 
     expect(screen.getByRole('button', { name: /opening project files/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^Starting\.\.\.$/i })).toBeNull()
@@ -590,7 +601,9 @@ describe('AgentDetailView', () => {
 
     const nextStep = screen.getByTestId('agent-next-step')
     expect(screen.getByText('Check the AI service before sending a message')).toBeDefined()
-    expect(screen.getByText('Open AI services in Settings and choose Check connection')).toBeDefined()
+    expect(
+      screen.getByText('Open AI services in Settings and choose Check connection')
+    ).toBeDefined()
     expect(
       screen.getByText(
         'Open AI services in Settings to confirm this simple chat agent can answer. It cannot take Tasks, change code, or use computer apps.'

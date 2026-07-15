@@ -303,8 +303,10 @@ describe('GettingStartedView', () => {
     expect(screen.getAllByText('Save useful steps').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved steps are available for future tasks.')).toBeDefined()
     expect(
-      within(screen.getByTestId('getting-started-completed-steps')).queryByRole('button')
-    ).toBeNull()
+      within(screen.getByTestId('getting-started-completed-steps')).getAllByRole('button', {
+        name: /success looks like/i,
+      })
+    ).toHaveLength(8)
     fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
     expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
     expect(screen.queryByText('Reusable learning')).toBeNull()
@@ -397,7 +399,9 @@ describe('GettingStartedView', () => {
     const laterSteps = screen.getByTestId('getting-started-later-steps')
     expect(laterSteps).toHaveTextContent('Work location')
     expect(laterSteps).toHaveTextContent('First task')
-    expect(within(laterSteps).queryByRole('button')).toBeNull()
+    expect(within(laterSteps).getAllByRole('button', { name: /success looks like/i })).toHaveLength(
+      7
+    )
     expect(screen.queryAllByTestId('getting-started-step-card')).toHaveLength(0)
   })
 
@@ -520,7 +524,9 @@ describe('GettingStartedView', () => {
 
     const laterSteps = screen.getByTestId('getting-started-later-steps')
     expect(laterSteps).toHaveTextContent('First task')
-    expect(within(laterSteps).queryByRole('button')).toBeNull()
+    expect(
+      within(laterSteps).getAllByRole('button', { name: /success looks like/i }).length
+    ).toBeGreaterThan(0)
     fireEvent.click(
       screen.getAllByRole('button', {
         name: /create team and project/i,
@@ -845,9 +851,7 @@ describe('GettingStartedView', () => {
       ).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText(/open Code tool sign-in/i)).toBeNull()
-    expect(
-      screen.queryByText(/open code tool sign-in for Codex or another tool/i)
-    ).toBeNull()
+    expect(screen.queryByText(/open code tool sign-in for Codex or another tool/i)).toBeNull()
     expect(screen.queryByText(/open work tool sign-in/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /join this computer/i })).toBeNull()
 
@@ -981,6 +985,29 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByTestId('page-start')).toBeDefined()
     expect(loadPreferencesMock).toHaveBeenCalled()
+  })
+
+  test('lets an established account expand a step success line', async () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
+
+    render(<GettingStartedView />)
+
+    const step = await screen.findByTestId('getting-started-expanded-step')
+    const successToggle = within(step).getByRole('button', { name: /success looks like/i })
+    expect(successToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      within(step).queryByText('A team and project exist, and the project is selected.')
+    ).toBeNull()
+
+    fireEvent.click(successToggle)
+
+    expect(successToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      within(step).getByText('A team and project exist, and the project is selected.')
+    ).toBeDefined()
   })
 
   test('skip action persists the dismissal and moves to the task board', async () => {

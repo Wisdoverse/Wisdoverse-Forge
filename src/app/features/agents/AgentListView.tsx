@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Funnel,
   Laptop,
   Monitor,
   Plus,
@@ -22,6 +23,7 @@ import {
   type AgentStatus,
 } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
+import { PreferenceGuideDisclosure } from '@app/entities/settings'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
@@ -67,7 +69,6 @@ const SORT_OPTIONS: { value: AgentSortKey; label: string }[] = [
 
 const AGENT_SEARCH_HELP =
   'Search only narrows this list. Use Show all agents to see every agent and work location again.'
-const MIN_AGENT_COUNT_FOR_FLEET_CONTROLS = 3
 
 const HOST_CLI_PLATFORMS: {
   value: HostCliPlatform
@@ -105,7 +106,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
   const [runtimeFilter, setRuntimeFilter] = useState<AgentRuntimeFilter>('all')
   const [sortKey, setSortKey] = useState<AgentSortKey>('name')
   const [moreSetupOpen, setMoreSetupOpen] = useState(false)
-  const [choiceGuideOpen, setChoiceGuideOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const statusCounts = useMemo(() => countByStatus(agents), [agents])
   const runtimeCounts = useMemo(() => countByRuntime(agents), [agents])
   const filteredAgents = useMemo(
@@ -119,7 +120,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
   const hasAgentLoadError = !loading && agents.length === 0 && Boolean(error)
   const hasActiveFilter =
     searchQuery.trim().length > 0 || statusFilter !== 'all' || runtimeFilter !== 'all'
-  const hasFleetControls = agents.length >= MIN_AGENT_COUNT_FOR_FLEET_CONTROLS || hasActiveFilter
+  const showFleetControls = filtersOpen || hasActiveFilter
   const showAgentChoiceGuide = agents.length > 0 || (!loading && !hasAgentLoadError)
   const clearAgentFilters = () => {
     setSearchQuery('')
@@ -162,6 +163,16 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                     : 'Add first agent'
                   : `${filteredAgents.length}/${agents.length} agent${agents.length === 1 ? '' : 's'}`}
               </p>
+              <button
+                type="button"
+                aria-expanded={showFleetControls}
+                aria-controls="agent-fleet-controls"
+                onClick={() => setFiltersOpen((open) => !open)}
+                className={uiStyles.subtleButton}
+              >
+                <Funnel size={14} strokeWidth={2.2} aria-hidden="true" />
+                <span>Filter</span>
+              </button>
               <MoreAgentSetupButton
                 open={moreSetupOpen}
                 onClick={() => setMoreSetupOpen((open) => !open)}
@@ -188,17 +199,18 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
             </div>
           )}
 
-          {showAgentChoiceGuide &&
-            (agents.length > 0 ? (
-              <AgentChoiceGuideDisclosure
-                open={choiceGuideOpen}
-                onClick={() => setChoiceGuideOpen((open) => !open)}
-              />
-            ) : (
-              <AgentChoiceGuide />
-            ))}
+          {showAgentChoiceGuide && (
+            <PreferenceGuideDisclosure
+              guideKey="agents-picker"
+              icon={<Bot />}
+              title="Which agent should I use?"
+              className="mb-3"
+            >
+              <AgentChoiceGuide showFirstAgentHelp={agents.length === 0} />
+            </PreferenceGuideDisclosure>
+          )}
 
-          {hasFleetControls && (
+          {showFleetControls && (
             <FleetControls
               searchQuery={searchQuery}
               onSearchQueryChange={setSearchQuery}
@@ -245,21 +257,13 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               </button>
             </div>
           ) : agents.length === 0 ? (
-            <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
-                <Bot size={28} strokeWidth={1.75} aria-hidden="true" />
+            <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10">
+              <div className="flex h-9 w-9 items-center justify-center rounded-card bg-apple-blue/10 text-apple-blue">
+                <Bot size={20} strokeWidth={1.9} aria-hidden="true" />
               </div>
-              <div className="max-w-sm space-y-1">
-                <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  Add your first agent
-                </p>
-                <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  Next: choose New agent. If this agent should take Tasks or change code, choose
-                  Project files. Use Simple chat agent only for questions and result checks; it does
-                  not take Tasks, change code, or use computer apps. Connect this computer only when
-                  the task needs files or apps on your computer.
-                </p>
-              </div>
+              <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                Add your first agent
+              </p>
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
@@ -277,22 +281,23 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10"
             >
               <Search
-                size={28}
+                size={20}
                 strokeWidth={1.75}
                 className="text-secondary-light dark:text-secondary-dark"
                 aria-hidden="true"
               />
-              <div className="max-w-sm space-y-1">
-                <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-                  {agentFilterEmpty.title}
-                </p>
-                <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  {agentFilterEmpty.detail}
-                </p>
-                <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-                  {agentFilterEmpty.nextStep}
-                </p>
-              </div>
+              <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                {agentFilterEmpty.title}
+              </p>
+              <PreferenceGuideDisclosure
+                guideKey="agents-filter-empty-help"
+                icon={<Search />}
+                title={agentFilterEmpty.nextStep}
+                className="w-full max-w-sm text-left"
+                dismissible={false}
+              >
+                <p>{agentFilterEmpty.detail}</p>
+              </PreferenceGuideDisclosure>
               {hasActiveFilter && (
                 <button
                   type="button"
@@ -334,37 +339,6 @@ function MoreAgentSetupButton({ open, onClick }: { open: boolean; onClick: () =>
       <Icon size={14} strokeWidth={2.2} className="shrink-0" aria-hidden="true" />
       <span className="hidden sm:inline">{label}</span>
     </button>
-  )
-}
-
-function AgentChoiceGuideDisclosure({ open, onClick }: { open: boolean; onClick: () => void }) {
-  const Icon = open ? ChevronDown : ChevronRight
-
-  return (
-    <div className="mb-3">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={onClick}
-        className="flex w-full items-center justify-between gap-3 rounded-card border border-black/[0.08] bg-white px-3 py-2 text-left transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-surface-dark dark:hover:bg-white/[0.06]"
-      >
-        <span className="min-w-0">
-          <span className="block text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
-            {open ? 'Hide agent choice help' : 'Which agent should I use?'}
-          </span>
-          <span className="mt-0.5 block text-ui-caption text-secondary-light dark:text-secondary-dark">
-            Open a short guide for Simple chat, This computer, and Project files.
-          </span>
-        </span>
-        <Icon
-          size={16}
-          strokeWidth={2.2}
-          className="shrink-0 text-secondary-light dark:text-secondary-dark"
-          aria-hidden="true"
-        />
-      </button>
-      {open && <AgentChoiceGuide />}
-    </div>
   )
 }
 
@@ -440,9 +414,12 @@ function buildLocalEnrollCommand(
   ].join('\n')
 }
 
-function AgentChoiceGuide() {
+function AgentChoiceGuide({ showFirstAgentHelp }: { showFirstAgentHelp: boolean }) {
   return (
-    <section data-testid="agent-choice-guide" className={cn(uiStyles.cardPadded, 'mb-3')}>
+    <div data-testid="agent-choice-guide">
+      <p className="mb-3 text-ui-caption text-secondary-light dark:text-secondary-dark">
+        Open a short guide for Simple chat, This computer, and Project files.
+      </p>
       <div className="flex flex-col gap-1">
         <h3 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           Choose by what the agent needs to use
@@ -451,6 +428,14 @@ function AgentChoiceGuide() {
           Choose the simplest agent that can safely reach the files, apps, or chat needed for the
           task.
         </p>
+        {showFirstAgentHelp && (
+          <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            Next: choose New agent. If this agent should take Tasks or change code, choose Project
+            files. Use Simple chat agent only for questions and result checks; it does not take
+            Tasks, change code, or use computer apps. Connect this computer only when the task needs
+            files or apps on your computer.
+          </p>
+        )}
       </div>
       <div className="mt-3 grid gap-2 md:grid-cols-3">
         <ChoiceGuideItem
@@ -469,7 +454,7 @@ function AgentChoiceGuide() {
           detail="Best when the agent should edit shared project files inside Forge."
         />
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -848,6 +833,7 @@ function FleetControls({
 }: FleetControlsProps) {
   return (
     <div
+      id="agent-fleet-controls"
       data-testid="agent-fleet-controls"
       className={cn(
         uiStyles.cardPadded,

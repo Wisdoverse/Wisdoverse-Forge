@@ -4,7 +4,7 @@ import { Activity, AlertTriangle, ArrowRight, CheckCircle2, RefreshCw } from 'lu
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore } from '@app/entities/settings'
+import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 import type { CliAuthProxyProvider, CliAuthProxyStatusEntry } from '@app/entities/agent'
@@ -237,22 +237,22 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
       )}
 
       {focus === 'sign-ins' && (
-        <section
-          data-testid="runtime-sign-in-entry"
-          className="mb-4 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
-        >
-          <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Start here when Codex asks you to sign in
-          </h3>
-          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            Use this page when Codex or another code tool asks you to sign in.{' '}
-            {codexSignInInstruction}
-          </p>
-          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            If the Codex sign-in option does not appear, choose Check again. If it still does not
-            appear, ask an owner or admin to check Codex sign-in in Settings.
-          </p>
-        </section>
+        <div data-testid="runtime-sign-in-entry" className="mb-4">
+          <PreferenceGuideDisclosure
+            guideKey="settings-code-tool-sign-in-help"
+            icon={<Activity />}
+            title="Start here when Codex asks you to sign in"
+          >
+            <p>
+              Use this page when Codex or another code tool asks you to sign in.{' '}
+              {codexSignInInstruction}
+            </p>
+            <p className="mt-2 text-ui-caption">
+              If the Codex sign-in option does not appear, choose Check again. If it still does not
+              appear, ask an owner or admin to check Codex sign-in in Settings.
+            </p>
+          </PreferenceGuideDisclosure>
+        </div>
       )}
 
       <section
@@ -568,62 +568,43 @@ function RuntimeNextStepPanel({
   const busyLabel = item?.action === 'refresh' ? 'Checking' : 'Opening'
 
   return (
-    <section
-      data-testid="runtime-next-step"
-      className={cn(
-        'mt-4 rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-surface-dark'
-      )}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {allReady ? (
-              <CheckCircle2
-                size={17}
-                strokeWidth={2.25}
-                className="shrink-0 text-apple-green"
-                aria-hidden="true"
-              />
-            ) : (
-              <AlertTriangle
-                size={17}
-                strokeWidth={2.25}
-                className="shrink-0 text-apple-blue"
-                aria-hidden="true"
-              />
-            )}
-            <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {allReady ? 'Ready' : 'Next step'}
+    <div data-testid="runtime-next-step" className="mt-4">
+      <PreferenceGuideDisclosure
+        guideKey="settings-runtime-next-step"
+        icon={allReady ? <CheckCircle2 /> : <AlertTriangle />}
+        title={allReady ? 'Ready' : 'Next step'}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              {allReady ? 'Ready to give agents work' : item?.title}
+            </h3>
+            <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+              {allReady
+                ? 'Where project files open, work tools, sign-ins, and online status are ready.'
+                : item?.detail}
+            </p>
+            <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              What success looks like:{' '}
+              {allReady
+                ? 'Open Agents, create or select an agent, then send a task from Tasks.'
+                : 'This item changes to Ready.'}
             </p>
           </div>
-          <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {allReady ? 'Ready to give agents work' : item?.title}
-          </h3>
-          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            {allReady
-              ? 'Where project files open, work tools, sign-ins, and online status are ready.'
-              : item?.detail}
-          </p>
-          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            What success looks like:{' '}
-            {allReady
-              ? 'Open Agents, create or select an agent, then send a task from Tasks.'
-              : 'This item changes to Ready.'}
-          </p>
+          {!allReady && item?.action && item.actionLabel && (
+            <button
+              type="button"
+              onClick={onAction}
+              disabled={busy}
+              className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto sm:shrink-0')}
+            >
+              <span>{busy ? busyLabel : item.actionLabel}</span>
+              <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
         </div>
-        {!allReady && item?.action && item.actionLabel && (
-          <button
-            type="button"
-            onClick={onAction}
-            disabled={busy}
-            className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto sm:shrink-0')}
-          >
-            <span>{busy ? busyLabel : item.actionLabel}</span>
-            <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
-          </button>
-        )}
-      </div>
-    </section>
+      </PreferenceGuideDisclosure>
+    </div>
   )
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from 'react'
 import {
   Activity,
   AlertTriangle,
+  Bot,
   CheckCircle2,
   Plus,
   Power,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useSettingsStore } from '@app/entities/settings'
+import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import type {
   LlmProvider,
@@ -935,60 +936,41 @@ function ProviderNextStepPanel({
   const href = step.href
 
   return (
-    <section
-      data-testid="provider-next-step"
-      className={cn(
-        'mb-4 rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-surface-dark'
-      )}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {step.ready ? (
-              <CheckCircle2
-                size={17}
-                strokeWidth={2.25}
-                className="shrink-0 text-apple-green"
-                aria-hidden="true"
-              />
-            ) : (
-              <AlertTriangle
-                size={17}
-                strokeWidth={2.25}
-                className="shrink-0 text-apple-blue"
-                aria-hidden="true"
-              />
-            )}
-            <p className="text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-              {step.ready ? 'Ready' : 'Do this next'}
+    <div data-testid="provider-next-step" className="mb-4">
+      <PreferenceGuideDisclosure
+        guideKey="settings-ai-services-next-step"
+        icon={step.ready ? <CheckCircle2 /> : <AlertTriangle />}
+        title={step.ready ? 'Ready' : 'Do this next'}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+              {step.title}
+            </h3>
+            <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
+              {step.detail}
+            </p>
+            <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              What success looks like: {step.success}
             </p>
           </div>
-          <h3 className="mt-1 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {step.title}
-          </h3>
-          <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-            {step.detail}
-          </p>
-          <p className="mt-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            What success looks like: {step.success}
-          </p>
+          {action && step.actionLabel && (
+            <button
+              type="button"
+              onClick={() => onAction(action)}
+              className={cn(uiStyles.secondaryButton, 'shrink-0')}
+            >
+              {step.actionLabel}
+            </button>
+          )}
+          {href && step.actionLabel && (
+            <a href={href} className={cn(uiStyles.secondaryButton, 'shrink-0')}>
+              {step.actionLabel}
+            </a>
+          )}
         </div>
-        {action && step.actionLabel && (
-          <button
-            type="button"
-            onClick={() => onAction(action)}
-            className={cn(uiStyles.secondaryButton, 'shrink-0')}
-          >
-            {step.actionLabel}
-          </button>
-        )}
-        {href && step.actionLabel && (
-          <a href={href} className={cn(uiStyles.secondaryButton, 'shrink-0')}>
-            {step.actionLabel}
-          </a>
-        )}
-      </div>
-    </section>
+      </PreferenceGuideDisclosure>
+    </div>
   )
 }
 
@@ -2297,32 +2279,60 @@ export function ProvidersSection() {
             compact
           />
         ) : providers.length === 0 && !showForm ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Add your first AI service
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Use the step above to add one AI account, then choose Check connection so agents can
-              answer without setup surprises.
-            </p>
+          <div className="flex flex-col items-center gap-3 px-4 py-6 text-center">
+            <Bot
+              size={20}
+              strokeWidth={1.9}
+              className="text-secondary-light dark:text-secondary-dark"
+              aria-hidden="true"
+            />
+            <PreferenceGuideDisclosure
+              guideKey="settings-ai-services-empty-help"
+              icon={<Bot />}
+              title="Add your first AI service"
+              className="w-full max-w-lg text-left"
+              dismissible={false}
+            >
+              <p>
+                Use the step above to add one AI account, then choose Check connection so agents can
+                answer without setup surprises.
+              </p>
+            </PreferenceGuideDisclosure>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className={uiStyles.primaryButton}
+            >
+              <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+              <span>Add AI service</span>
+            </button>
           </div>
         ) : filteredProviders.length === 0 && !showForm ? (
           <div
             data-testid="provider-filter-empty"
             role="status"
             aria-live="polite"
-            className="px-4 py-6 text-center"
+            className="flex flex-col items-center gap-3 px-4 py-6 text-center"
           >
-            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {filterEmptyState.title}
-            </p>
-            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {filterEmptyState.detail}
-            </p>
+            <Search
+              size={20}
+              strokeWidth={1.9}
+              className="text-secondary-light dark:text-secondary-dark"
+              aria-hidden="true"
+            />
+            <PreferenceGuideDisclosure
+              guideKey="settings-ai-services-filter-empty-help"
+              icon={<Search />}
+              title={filterEmptyState.title}
+              className="w-full max-w-lg text-left"
+              dismissible={false}
+            >
+              <p>{filterEmptyState.detail}</p>
+            </PreferenceGuideDisclosure>
             <button
               type="button"
               onClick={resetProviderFilters}
-              className={cn(uiStyles.subtleButton, 'mt-3 text-apple-blue')}
+              className={cn(uiStyles.subtleButton, 'text-apple-blue')}
             >
               Show all AI services
             </button>

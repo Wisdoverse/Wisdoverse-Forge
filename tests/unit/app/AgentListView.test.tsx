@@ -4,6 +4,7 @@ import { AgentListView } from '@app/features/agents/AgentListView'
 import { useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
+import { useSettingsStore } from '@app/entities/settings'
 import type { AgentInfo } from '@app/entities/agent'
 
 function makeAgent(overrides: Partial<AgentInfo>): AgentInfo {
@@ -25,12 +26,22 @@ afterEach(() => {
   useAgentsStore.getState().reset()
   useBoardStore.getState().reset()
   useNavigationStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+  })
 })
 
 beforeEach(() => {
   useAgentsStore.getState().reset()
   useBoardStore.getState().reset()
   useNavigationStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: {},
+    preferencesLoaded: true,
+    preferencesLoading: false,
+  })
   useAgentsStore.setState({ loadAgents: vi.fn(async () => undefined) })
 })
 
@@ -97,10 +108,7 @@ describe('AgentListView', () => {
     expect(layout.className).not.toContain('xl:grid-cols')
     const header = screen.getByTestId('agent-list-header')
     const moreSetupButton = within(header).getByRole('button', { name: /more agent setup/i })
-    expect(moreSetupButton).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    )
+    expect(moreSetupButton).toHaveAttribute('aria-expanded', 'false')
     expect(moreSetupButton).toHaveAttribute('title', 'Places and this computer setup')
     expect(screen.queryByText('Task queues and this computer setup')).toBeNull()
     expect(screen.queryByText('Task Queues')).toBeNull()
@@ -388,6 +396,10 @@ describe('AgentListView', () => {
   })
 
   test('keeps the agent choice guide collapsed when agents already exist', () => {
+    useSettingsStore.setState({
+      preferences: { gettingStartedDismissed: true },
+      preferencesLoaded: true,
+    })
     useAgentsStore.getState().setAgents([
       makeAgent({
         id: 'a1',
@@ -400,16 +412,16 @@ describe('AgentListView', () => {
     render(<AgentListView />)
 
     expect(screen.queryByTestId('agent-choice-guide')).toBeNull()
-    expect(screen.getByRole('button', { name: /which agent should i use/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^which agent should i use\?$/i })).toHaveAttribute(
       'aria-expanded',
       'false'
     )
     expect(screen.getByText('Review Agent')).toBeDefined()
 
-    fireEvent.click(screen.getByRole('button', { name: /which agent should i use/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^which agent should i use\?$/i }))
 
     const guide = screen.getByTestId('agent-choice-guide')
-    expect(screen.getByRole('button', { name: /hide agent choice help/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^which agent should i use\?$/i })).toHaveAttribute(
       'aria-expanded',
       'true'
     )
@@ -430,7 +442,7 @@ describe('AgentListView', () => {
     expect(within(guide).getByText(/shared project files/i)).toBeDefined()
   })
 
-  test('hides fleet filters until the list is large enough to need them', () => {
+  test('hides fleet filters until the user opens them', () => {
     useAgentsStore.getState().setAgents([
       makeAgent({
         id: 'a1',
@@ -454,6 +466,15 @@ describe('AgentListView', () => {
     expect(screen.queryByTestId('agent-search')).toBeNull()
     expect(screen.queryByRole('group', { name: /status filter/i })).toBeNull()
     expect(screen.queryByRole('group', { name: /work location filter/i })).toBeNull()
+    const filterButton = screen.getByRole('button', { name: /^filter$/i })
+    expect(filterButton).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(filterButton)
+
+    expect(filterButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('agent-fleet-controls')).toBeDefined()
+    expect(screen.getByRole('group', { name: /status filter/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /work location filter/i })).toBeDefined()
   })
 
   test('shows agent status indicators', () => {
@@ -514,6 +535,7 @@ describe('AgentListView', () => {
     ])
 
     render(<AgentListView />)
+    fireEvent.click(screen.getByRole('button', { name: /^filter$/i }))
     expect(screen.getByPlaceholderText(/AI services, projects/i)).toBeDefined()
     expect(screen.queryByPlaceholderText(/models, projects/i)).toBeNull()
     expect(screen.getByRole('status')).toHaveTextContent('4/4 agents')
@@ -588,6 +610,8 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
+    fireEvent.click(screen.getByRole('button', { name: /^filter$/i }))
+
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'missing' } })
     const emptyState = screen.getByTestId('agent-filter-empty')
     expect(emptyState).toHaveAttribute('role', 'status')
@@ -598,7 +622,7 @@ describe('AgentListView', () => {
     expect(emptyState.textContent).not.toContain('No Agents Match This View')
     expect(emptyState.textContent).not.toContain('review every agent')
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /show all agents/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /^show all agents$/i }))
     expect(screen.getByTestId('agent-search')).toHaveValue('')
     expect(screen.getByText('Build Runner')).toBeDefined()
   })
@@ -633,6 +657,8 @@ describe('AgentListView', () => {
 
     render(<AgentListView />)
 
+    fireEvent.click(screen.getByRole('button', { name: /^filter$/i }))
+
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
     fireEvent.click(within(statusFilters).getByRole('button', { name: /not connected\s*0/i }))
     const emptyState = screen.getByTestId('agent-filter-empty')
@@ -648,7 +674,7 @@ describe('AgentListView', () => {
     expect(emptyState.textContent).not.toContain('idle')
     expect(emptyState.textContent).not.toContain('offline')
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /show all agents/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /^show all agents$/i }))
     expect(screen.getByText('Build Runner')).toBeDefined()
 
     const workLocationFilters = screen.getByRole('group', { name: /work location filter/i })
@@ -773,12 +799,12 @@ describe('AgentListView', () => {
     expect((screen.getByLabelText(/place description/i) as HTMLInputElement).value).toContain(
       'unsafe to use'
     )
-    expect(
-      (screen.getByLabelText(/place description/i) as HTMLInputElement).value
-    ).not.toContain('Review completed work')
-    expect(
-      (screen.getByLabelText(/place description/i) as HTMLInputElement).value
-    ).not.toContain('block release')
+    expect((screen.getByLabelText(/place description/i) as HTMLInputElement).value).not.toContain(
+      'Review completed work'
+    )
+    expect((screen.getByLabelText(/place description/i) as HTMLInputElement).value).not.toContain(
+      'block release'
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /^create place$/i }))
 

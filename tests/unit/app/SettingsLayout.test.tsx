@@ -24,13 +24,23 @@ const originalActiveSection = useSettingsStore.getState().activeSection
 
 beforeEach(() => {
   vi.stubGlobal('__APP_VERSION__', 'test-version')
-  useSettingsStore.setState({ activeSection: 'about' })
+  useSettingsStore.setState({
+    activeSection: 'about',
+    preferences: { gettingStartedDismissed: true },
+    preferencesLoaded: true,
+    preferencesLoading: false,
+  })
 })
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-  useSettingsStore.setState({ activeSection: originalActiveSection })
+  useSettingsStore.setState({
+    activeSection: originalActiveSection,
+    preferences: null,
+    preferencesLoaded: false,
+    preferencesLoading: false,
+  })
 })
 
 describe('SettingsLayout', () => {
@@ -44,15 +54,22 @@ describe('SettingsLayout', () => {
 
     expect(within(desktopNav).getByText('AI services')).toBeInTheDocument()
     expect(within(desktopNav).getByText('Start here')).toBeInTheDocument()
+    const desktopStartHere = within(desktopNav).getByRole('button', { name: 'Start here' })
+    expect(desktopStartHere).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(desktopStartHere)
+    expect(desktopStartHere).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      within(desktopNav).getByText(
+        'Start here when agents need a chat service for answers and result checks.'
+      )
+    ).toBeInTheDocument()
     expect(within(desktopNav).queryByText('People and projects')).not.toBeInTheDocument()
     expect(within(desktopNav).queryByText('Access and limits')).not.toBeInTheDocument()
     expect(within(desktopNav).queryByText('Product info')).not.toBeInTheDocument()
     expect(
       within(desktopNav).getByRole('button', { name: /Show team and project setup/i })
     ).toBeInTheDocument()
-    expect(
-      within(desktopNav).getByRole('button', { name: /Show more setup/i })
-    ).toBeInTheDocument()
+    expect(within(desktopNav).getByRole('button', { name: /Show more setup/i })).toBeInTheDocument()
     expect(
       within(desktopNav).queryByRole('button', { name: /Show advanced setup/i })
     ).not.toBeInTheDocument()
@@ -137,12 +154,13 @@ describe('SettingsLayout', () => {
     expect(screen.queryByRole('option', { name: 'Codex sign-in' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Codex CLI sign-in' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Team members' })).not.toBeInTheDocument()
+    const mobileStartHere = within(mobileNav).getByRole('button', { name: 'Start here' })
+    expect(mobileStartHere).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(mobileStartHere)
     expect(screen.getByTestId('settings-mobile-section-hint')).toHaveTextContent(
       'Start here when agents need a chat service for answers and result checks.'
     )
-    expect(
-      within(mobileNav).getByRole('button', { name: /Show more setup/i })
-    ).toBeInTheDocument()
+    expect(within(mobileNav).getByRole('button', { name: /Show more setup/i })).toBeInTheDocument()
     expect(
       within(mobileNav).queryByRole('button', { name: /Show advanced setup/i })
     ).not.toBeInTheDocument()
@@ -228,9 +246,7 @@ describe('SettingsLayout', () => {
         name: /About: Check the app version and product details/i,
       })
     ).toBeInTheDocument()
-    expect(
-      within(desktopNav).getByRole('button', { name: /Hide more setup/i })
-    ).toBeInTheDocument()
+    expect(within(desktopNav).getByRole('button', { name: /Hide more setup/i })).toBeInTheDocument()
     expect(
       within(desktopNav).queryByRole('button', { name: /Hide advanced setup/i })
     ).not.toBeInTheDocument()
@@ -247,9 +263,7 @@ describe('SettingsLayout', () => {
         name: /Code access for SSH links: Use this when your private code link starts with git@/i,
       })
     ).toBeInTheDocument()
-    expect(
-      within(desktopNav).getByRole('button', { name: /Hide more setup/i })
-    ).toBeInTheDocument()
+    expect(within(desktopNav).getByRole('button', { name: /Hide more setup/i })).toBeInTheDocument()
     expect(
       within(desktopNav).queryByRole('button', { name: /Hide advanced setup/i })
     ).not.toBeInTheDocument()
