@@ -49,6 +49,15 @@ function openMoreAgentSetup() {
   fireEvent.click(screen.getByRole('button', { name: /more agent setup/i }))
 }
 
+function expandDisclosure(container: HTMLElement) {
+  const toggle = within(container)
+    .getAllByRole('button')
+    .find((button) => button.hasAttribute('aria-expanded'))
+  expect(toggle).toBeDefined()
+  if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+}
+
 describe('AgentListView', () => {
   test('explains the first agent loading state for beginners', () => {
     useAgentsStore.setState({ loading: true, agents: [] })
@@ -71,6 +80,13 @@ describe('AgentListView', () => {
 
   test('shows empty state when no agents', () => {
     render(<AgentListView />)
+    const agentChoiceToggle = screen.getByRole('button', {
+      name: 'Which agent should I use?',
+      exact: true,
+    })
+    expect(agentChoiceToggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(agentChoiceToggle)
+    expect(agentChoiceToggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Agents')).toBeDefined()
     expect(screen.queryByText('Agent Fleet')).toBeNull()
     expect(screen.getByText('Add first agent')).toBeDefined()
@@ -614,6 +630,7 @@ describe('AgentListView', () => {
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'missing' } })
     const emptyState = screen.getByTestId('agent-filter-empty')
+    expandDisclosure(emptyState)
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Nothing matches your agent search')).toBeDefined()
@@ -662,6 +679,7 @@ describe('AgentListView', () => {
     const statusFilters = screen.getByRole('group', { name: /status filter/i })
     fireEvent.click(within(statusFilters).getByRole('button', { name: /not connected\s*0/i }))
     const emptyState = screen.getByTestId('agent-filter-empty')
+    expandDisclosure(emptyState)
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(within(emptyState).getByText('Nothing matches this agent status')).toBeDefined()
@@ -682,6 +700,7 @@ describe('AgentListView', () => {
       within(workLocationFilters).getByRole('button', { name: /simple chat agent\s*0/i })
     )
     const locationEmpty = screen.getByTestId('agent-filter-empty')
+    expandDisclosure(locationEmpty)
     expect(within(locationEmpty).getByText('Nothing matches this work location')).toBeDefined()
     expect(locationEmpty).toHaveTextContent(
       'Agents may still exist in another place, such as this computer or the project files option.'
@@ -689,6 +708,7 @@ describe('AgentListView', () => {
 
     fireEvent.change(screen.getByTestId('agent-search'), { target: { value: 'missing' } })
     const combinedEmpty = screen.getByTestId('agent-filter-empty')
+    expandDisclosure(combinedEmpty)
     expect(within(combinedEmpty).getByText('Nothing matches this agent view')).toBeDefined()
     expect(combinedEmpty).toHaveTextContent(
       'Agents may still exist, but none fit the current search and choices.'

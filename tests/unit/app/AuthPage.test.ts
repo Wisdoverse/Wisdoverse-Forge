@@ -114,9 +114,7 @@ describe('AuthPage beginner guidance', () => {
       .querySelector<HTMLFormElement>('#login-form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
-    expect(bodyText()).toContain(
-      'Enter your email address and password, then choose Sign in.'
-    )
+    expect(bodyText()).toContain('Enter your email address and password, then choose Sign in.')
     expect(bodyText()).not.toContain('Enter your email address and password to sign in.')
     expect(login).not.toHaveBeenCalled()
   })
@@ -491,10 +489,12 @@ describe('AuthPage beginner guidance', () => {
   })
 
   test('shows reset-token users what password change will affect', async () => {
-    const page = new AuthPage(createAuthManager(), 'login', 'reset-token')
+    const getProviders = vi.fn(() => new Promise<never[]>(() => undefined))
+    const page = new AuthPage(createAuthManager({ getProviders }), 'login', 'reset-token')
 
     await page.show()
 
+    expect(getProviders).not.toHaveBeenCalled()
     expect(bodyText()).toContain('Choose a new password')
     expect(bodyText()).toContain('This only changes your Wisdoverse Forge account password.')
     expect(document.querySelector('#reset-submit')?.textContent).toContain('Save new password')

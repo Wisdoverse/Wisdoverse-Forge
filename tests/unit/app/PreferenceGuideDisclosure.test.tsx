@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 describe('PreferenceGuideDisclosure', () => {
-  test('starts expanded for a new account and persists collapse', () => {
+  test('starts collapsed for every account and persists open', () => {
     render(
       <PreferenceGuideDisclosure guideKey="agents-picker" icon={<svg />} title="Agent guide">
         Guide body
@@ -39,17 +39,17 @@ describe('PreferenceGuideDisclosure', () => {
     )
 
     const toggle = screen.getByRole('button', { name: 'Agent guide' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('Guide body')).toBeDefined()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Guide body')).toBeNull()
 
     fireEvent.click(toggle)
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Guide body')).toBeNull()
-    expect(setGuideCollapsed).toHaveBeenCalledWith('agents-picker', true)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Guide body')).toBeDefined()
+    expect(setGuideCollapsed).toHaveBeenCalledWith('agents-picker', false)
   })
 
-  test('starts collapsed for an established account and persists open and dismiss actions', () => {
+  test('keeps the collapsed default for an established account and persists dismiss actions', () => {
     useSettingsStore.setState({ preferences: { gettingStartedDismissed: true } })
 
     render(
@@ -61,11 +61,9 @@ describe('PreferenceGuideDisclosure', () => {
     const toggle = screen.getByRole('button', { name: 'Do this next' })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
 
-    fireEvent.click(toggle)
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss Do this next' }))
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(setGuideCollapsed).toHaveBeenCalledWith('inbox-next-step', false)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(setGuideDismissed).toHaveBeenCalledWith('inbox-next-step', true)
   })
 })

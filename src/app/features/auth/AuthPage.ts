@@ -222,8 +222,6 @@ export class AuthPage {
     const resetToken = this.initialResetToken ?? urlParams.get('reset_token')
     if (resetToken) {
       window.history.replaceState({}, '', window.location.pathname)
-      // Fetch providers and render container first
-      this.providers = await this.authManager.getProviders()
       this.container = document.createElement('div')
       this.container.id = 'auth-page'
       this.container.className = 'auth-page'

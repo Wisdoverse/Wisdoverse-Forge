@@ -24,6 +24,22 @@ const originalSaveProvider = useSettingsStore.getState().saveProvider
 const originalSetProviderEnabled = useSettingsStore.getState().setProviderEnabled
 const originalDeleteProvider = useSettingsStore.getState().deleteProvider
 
+async function expandProviderNextStep() {
+  const nextStep = await screen.findByTestId('provider-next-step')
+  const toggle = within(nextStep).getByRole('button', { name: /^(do this next|ready)$/i })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return nextStep
+}
+
+function expandGuide(container: HTMLElement, name: string) {
+  const toggle = within(container).getByRole('button', { name, exact: true })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+}
+
 beforeEach(() => {
   settingsApiMock.getSupportedProviders.mockResolvedValue([])
   settingsApiMock.testProvider.mockResolvedValue({ ok: true, latencyMs: 42 })
@@ -176,7 +192,7 @@ describe('ProvidersSection', () => {
     ).toBe(true)
     expect(screen.getByText('Ready: simple chat agents can use this service.')).toBeDefined()
     expect(screen.queryByText('Ready: agents can use this service.')).toBeNull()
-    const nextStep = screen.getByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     expect(within(nextStep).getByText('Do this next')).toBeDefined()
     expect(within(nextStep).getByText('Check the AI service connection')).toBeDefined()
     expect(within(nextStep).getByText(/before creating or using simple chat agents/i)).toBeDefined()
@@ -247,6 +263,7 @@ describe('ProvidersSection', () => {
     expect(searchEmpty).toHaveAttribute('role', 'status')
     expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(searchEmpty).getByText('Search is hiding AI services')).toBeDefined()
+    expandGuide(searchEmpty, 'Search is hiding AI services')
     expect(searchEmpty.textContent).toContain(
       'Your AI services exist, but this search hides them. Use Show all AI services to return to the full list.'
     )
@@ -294,6 +311,7 @@ describe('ProvidersSection', () => {
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(filterEmpty).getByText('This status hides AI services')).toBeDefined()
+    expandGuide(filterEmpty, 'This status hides AI services')
     expect(filterEmpty.textContent).toContain(
       'Your AI services exist, but this status has no results yet. Use Show all AI services to return to every status.'
     )
@@ -339,7 +357,14 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
+    const emptyGuideToggle = screen.getByRole('button', {
+      name: 'Add your first AI service',
+      exact: true,
+    })
+    expect(emptyGuideToggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(emptyGuideToggle)
+    expect(emptyGuideToggle).toHaveAttribute('aria-expanded', 'true')
     const readiness = screen.getByTestId('provider-readiness')
     expect(within(readiness).getByText('Simple chat agents: add an AI service first')).toBeDefined()
     expect(within(readiness).getByText('Add first service')).toBeDefined()
@@ -438,7 +463,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
     fireEvent.click(screen.getByRole('button', { name: /custom service address/i }))
 
@@ -528,7 +553,7 @@ describe('ProvidersSection', () => {
     expect(within(readiness).queryByText('Default: None')).toBeNull()
     expect(within(readiness).queryByText('Choose a default')).toBeNull()
     expect(within(readiness).queryByText('Not set')).toBeNull()
-    const nextStep = screen.getByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     expect(within(nextStep).getByText('Turn on or replace an AI service')).toBeDefined()
     expect(within(nextStep).getByText(/Show the disabled list/i)).toBeDefined()
 
@@ -577,7 +602,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     expect(within(nextStep).getByText('Ready to create simple chat agents')).toBeDefined()
     expect(within(nextStep).getByText(/is ready for simple chat agents/i)).toBeDefined()
     expect(within(nextStep).getByText(/choose New agent/i)).toBeDefined()
@@ -594,7 +619,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
@@ -645,7 +670,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
@@ -676,7 +701,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
@@ -708,7 +733,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })
@@ -735,7 +760,7 @@ describe('ProvidersSection', () => {
 
     render(<ProvidersSection />)
 
-    const nextStep = await screen.findByTestId('provider-next-step')
+    const nextStep = await expandProviderNextStep()
     fireEvent.click(within(nextStep).getByRole('button', { name: /add AI service/i }))
 
     const serviceChoices = screen.getByRole('group', { name: /known AI services/i })

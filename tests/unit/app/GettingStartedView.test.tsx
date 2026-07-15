@@ -275,40 +275,32 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByTestId('page-start')).toBeDefined()
-    expect(
-      screen.getByText(
-        'Follow one step at a time. Finish this checklist to create an agent, send a task, and check the result.'
-      )
-    ).toBeDefined()
-    expect(
-      screen.queryByText(
-        'Follow one step at a time. Finish this checklist to create an agent, send work, and check the result.'
-      )
-    ).toBeNull()
+    expect(screen.getByTestId('getting-started-progress')).toHaveTextContent('8/8')
+    expect(screen.queryByText('Do this next')).toBeNull()
+    const completedSteps = screen.getByTestId('getting-started-completed-steps')
+    expect(completedSteps).not.toHaveAttribute('open')
+    fireEvent.click(within(completedSteps).getByText('Already done'))
+    expect(completedSteps).toHaveAttribute('open')
     expect(screen.getAllByText('Team and project').length).toBeGreaterThan(0)
     expect(screen.queryByText('Workspace')).toBeNull()
-    expect(screen.getByTestId('getting-started-completed-steps')).toHaveTextContent(
-      'Team and project'
-    )
+    expect(completedSteps).toHaveTextContent('Team and project')
     expect(screen.queryByText('Review workspace')).toBeNull()
     expect(screen.getAllByText('Launch Project').length).toBeGreaterThan(0)
+    const successToggles = within(completedSteps).getAllByRole('button', {
+      name: /success looks like/i,
+    })
+    expect(successToggles).toHaveLength(8)
+    expect(successToggles[1]).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(successToggles[1]!)
     expect(screen.getByText(/Project files option is ready\./i)).toBeDefined()
     expect(screen.queryByText(/managed workspace is ready for agent work/i)).toBeNull()
     expect(screen.getByText('Model Service')).toBeDefined()
     expect(screen.getByText('Starter Agent')).toBeDefined()
-    expect(await screen.findByText('100%')).toBeDefined()
-    expect(screen.getByText('Ready to run work')).toBeDefined()
-    expect(screen.getByText(/Write one small task from Tasks, or save useful steps/i)).toBeDefined()
+    expect(screen.queryByText('Ready to run work')).toBeNull()
+    expect(screen.queryByText(/Write one small task from Tasks, or save useful steps/i)).toBeNull()
     expect(screen.queryByText(/The basic path is complete/i)).toBeNull()
     expect(screen.getAllByText('Save useful steps').length).toBeGreaterThan(0)
     expect(screen.getByText('Saved steps are available for future tasks.')).toBeDefined()
-    expect(
-      within(screen.getByTestId('getting-started-completed-steps')).getAllByRole('button', {
-        name: /success looks like/i,
-      })
-    ).toHaveLength(8)
-    fireEvent.click(screen.getByRole('button', { name: /write one small task/i }))
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
     expect(screen.queryByText('Reusable learning')).toBeNull()
     expect(screen.queryByText(/applied skill context/i)).toBeNull()
     expect(screen.queryByText(/skill candidates/i)).toBeNull()
@@ -366,7 +358,8 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-expanded-step')).toBeDefined()
+    expect(screen.queryByText('Do this next')).toBeNull()
     expect(screen.getByText(/Choose one way to let agents work/i)).toBeDefined()
     expect(screen.queryByText('Choose a project from the sidebar first.')).toBeNull()
     expect(screen.queryByText('No project selected')).toBeNull()
@@ -383,10 +376,11 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
   })
 
-  test('keeps focus on one expanded setup step instead of showing every step as a card', async () => {
+  test('keeps focus on one next step row instead of showing every step as a card', async () => {
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-expanded-step')).toBeDefined()
+    expect(screen.queryByText('Do this next')).toBeNull()
 
     const expandedSteps = screen.getAllByTestId('getting-started-expanded-step')
     expect(expandedSteps).toHaveLength(1)
@@ -495,12 +489,11 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-expanded-step')).toBeDefined()
+    expect(screen.queryByText('Do this next')).toBeNull()
     expect(screen.getAllByText('Place for new tasks').length).toBeGreaterThan(0)
     expect(screen.getByText('Set up where new tasks wait for this project.')).toBeDefined()
-    expect(
-      screen.getAllByText('New tasks wait here until an agent starts them.').length
-    ).toBeGreaterThanOrEqual(2)
+    expect(screen.queryByText('New tasks wait here until an agent starts them.')).toBeNull()
     expect(screen.getByText('Set up where new tasks wait before the first task.')).toBeDefined()
     expect(screen.queryByText('Task queue')).toBeNull()
     expect(screen.queryByText(/task queue/i)).toBeNull()
@@ -513,7 +506,8 @@ describe('GettingStartedView', () => {
   test('keeps the first task for later and routes the current action before a project exists', async () => {
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-expanded-step')).toBeDefined()
+    expect(screen.queryByText('Do this next')).toBeNull()
     expect(
       screen.getByText(
         'Create or choose a project, then set up where new tasks wait before the first task.'
@@ -607,7 +601,8 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Do this next')).toBeDefined()
+    const nextStep = await screen.findByTestId('getting-started-expanded-step')
+    expect(screen.queryByText('Do this next')).toBeNull()
     expect(screen.getAllByText('First task').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
@@ -615,10 +610,17 @@ describe('GettingStartedView', () => {
       )
     ).toBeDefined()
     expect(
-      screen.getAllByText(
+      screen.queryByText(
         'The task appears on the board, either waiting for an agent or already has one.'
-      ).length
-    ).toBeGreaterThan(0)
+      )
+    ).toBeNull()
+    const successToggle = within(nextStep).getByRole('button', { name: /success looks like/i })
+    fireEvent.click(successToggle)
+    expect(
+      within(nextStep).getByText(
+        'The task appears on the board, either waiting for an agent or already has one.'
+      )
+    ).toBeDefined()
     expect(screen.queryByText(/task queue until/i)).toBeNull()
     expect(screen.queryByText(/where tasks wait/i)).toBeNull()
     expect(screen.queryByText(/picks it up/i)).toBeNull()
@@ -716,7 +718,8 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('Do this next')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-expanded-step')).toBeDefined()
+    expect(screen.queryByText('Do this next')).toBeNull()
     expect(screen.getAllByText('Check the result').length).toBeGreaterThan(0)
     expect(
       screen.getByText('After an agent starts a task, open it to see progress and results.')
@@ -931,8 +934,8 @@ describe('GettingStartedView', () => {
     render(<GettingStartedView />)
 
     expect(await screen.findByText('Check the AI service before giving agents work.')).toBeDefined()
-    expect(screen.getByText('Do this next')).toBeDefined()
-    expect(screen.getAllByText(/Agents need one ready option/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Do this next')).toBeNull()
+    expect(screen.queryByText(/Agents need one ready option/i)).toBeNull()
     expect(screen.queryByText(/checked model service/i)).toBeNull()
     expect(screen.queryByText(/assigning work/i)).toBeNull()
     expect(screen.queryByText('100%')).toBeNull()
@@ -1015,10 +1018,10 @@ describe('GettingStartedView', () => {
 
     expect(await screen.findByRole('button', { name: /skip and open tasks/i })).toBeDefined()
     expect(
-      screen.getByText(
+      screen.queryByText(
         'This only hides the setup checklist from the left menu. Your projects, agents, and tasks stay the same, and you can reset it from Settings.'
       )
-    ).toBeDefined()
+    ).toBeNull()
     expect(screen.queryByRole('button', { name: /^skip the guide$/i })).toBeNull()
     fireEvent.click(await screen.findByTestId('getting-started-skip'))
 
@@ -1047,7 +1050,7 @@ describe('GettingStartedView', () => {
     seedCompletedSetup()
 
     const view = render(<GettingStartedView />)
-    expect(await screen.findByText('100%')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-progress')).toHaveTextContent('8/8')
 
     await waitFor(() => expect(setGettingStartedDismissedMock).toHaveBeenCalledTimes(1))
     expect(setGettingStartedDismissedMock).toHaveBeenCalledWith(true)
@@ -1056,7 +1059,7 @@ describe('GettingStartedView', () => {
     // not fire the persistence again (the mock does not update the store, so
     // only the ref guard prevents a second call here).
     view.rerender(<GettingStartedView />)
-    expect(await screen.findByText('100%')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-progress')).toHaveTextContent('8/8')
     expect(setGettingStartedDismissedMock).toHaveBeenCalledTimes(1)
   })
 
@@ -1066,8 +1069,8 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('100%')).toBeDefined()
-    expect(screen.getByText('Ready to run work')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-progress')).toHaveTextContent('8/8')
+    expect(screen.queryByText('Ready to run work')).toBeNull()
     expect(setGettingStartedDismissedMock).not.toHaveBeenCalled()
   })
 
@@ -1080,7 +1083,7 @@ describe('GettingStartedView', () => {
 
     render(<GettingStartedView />)
 
-    expect(await screen.findByText('100%')).toBeDefined()
+    expect(await screen.findByTestId('getting-started-progress')).toHaveTextContent('8/8')
     expect(setGettingStartedDismissedMock).not.toHaveBeenCalled()
   })
 })

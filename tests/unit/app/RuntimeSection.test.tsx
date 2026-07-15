@@ -32,6 +32,16 @@ const updateRuntimeSettingsMock = vi.fn().mockResolvedValue(true)
 const originalLoadRuntimeSettings = useSettingsStore.getState().loadRuntimeSettings
 const originalUpdateRuntimeSettings = useSettingsStore.getState().updateRuntimeSettings
 
+function expandDisclosure(container: HTMLElement) {
+  const toggle = within(container)
+    .getAllByRole('button')
+    .find((button) => button.hasAttribute('aria-expanded'))
+  expect(toggle).toBeDefined()
+  if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return container
+}
+
 beforeEach(() => {
   agentApiMock.getCliAuthProxyStatus.mockResolvedValue({
     ok: true,
@@ -130,7 +140,7 @@ describe('RuntimeSection', () => {
 
     expect(await screen.findByTestId('runtime-launch-checklist')).toBeDefined()
     const readiness = screen.getByTestId('runtime-readiness')
-    const nextStep = screen.getByTestId('runtime-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('runtime-next-step'))
     expect(readiness).toHaveClass('border-y', 'bg-transparent')
     expect(readiness.className).not.toContain('rounded-lg')
     expect(readiness.className).not.toMatch(/(^|\s)bg-white(\s|$)/)
@@ -272,6 +282,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
+    expandDisclosure(screen.getByTestId('runtime-next-step'))
     expect(
       screen.getByText(
         /Forge can run agents in 1 place and use 1 tool that can change project files, such as Claude or Codex/i
@@ -323,6 +334,7 @@ describe('RuntimeSection', () => {
     render(<RuntimeSection />)
 
     expect(await screen.findByText('4/4 ready')).toBeDefined()
+    expandDisclosure(screen.getByTestId('runtime-next-step'))
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getAllByText(/1\/1 work tools ready/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Version not shown yet')).toBeDefined()
@@ -386,9 +398,9 @@ describe('RuntimeSection', () => {
     expect(
       screen.getByText('Sign in to Codex or another tool before agents work on project files.')
     ).toBeDefined()
-    expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'Start here when Codex asks you to sign in'
-    )
+    const signInEntry = await screen.findByTestId('runtime-sign-in-entry')
+    expandDisclosure(signInEntry)
+    expect(signInEntry).toHaveTextContent('Start here when Codex asks you to sign in')
     expect(screen.getByTestId('runtime-sign-in-entry')).not.toHaveTextContent(
       'Code tool sign-in starts here'
     )
@@ -430,9 +442,9 @@ describe('RuntimeSection', () => {
   test('matches the Codex sign-in instruction to the shown provider name', async () => {
     render(<RuntimeSection focus="sign-ins" />)
 
-    expect(await screen.findByTestId('runtime-sign-in-entry')).toHaveTextContent(
-      'For Codex, choose Sign in to GitHub'
-    )
+    const signInEntry = await screen.findByTestId('runtime-sign-in-entry')
+    expandDisclosure(signInEntry)
+    expect(signInEntry).toHaveTextContent('For Codex, choose Sign in to GitHub')
     expect(screen.getByTestId('runtime-sign-in-entry')).not.toHaveTextContent(
       'choose Sign in next to OpenAI (Codex)'
     )
@@ -501,6 +513,7 @@ describe('RuntimeSection', () => {
     })
 
     render(<RuntimeSection />)
+    expandDisclosure(await screen.findByTestId('runtime-next-step'))
 
     expect(
       await screen.findAllByText(

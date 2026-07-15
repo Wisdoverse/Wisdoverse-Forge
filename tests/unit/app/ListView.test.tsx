@@ -4,6 +4,15 @@ import { ListView } from '@app/features/list/ListView'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
 
+function expandDisclosure(container: HTMLElement) {
+  const toggle = within(container)
+    .getAllByRole('button')
+    .find((button) => button.hasAttribute('aria-expanded'))
+  expect(toggle).toBeDefined()
+  if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+}
+
 afterEach(() => {
   cleanup()
   useSettingsStore.setState({
@@ -141,7 +150,8 @@ describe('ListView', () => {
     useBoardStore.getState().setViewMode('list')
 
     render(<ListView />)
-    expect(screen.getByTestId('list-empty-state')).toBeDefined()
+    const emptyState = screen.getByTestId('list-empty-state')
+    expandDisclosure(emptyState)
     expect(screen.getByText('Create your first small task')).toBeDefined()
     expect(screen.getByText(/use the board to create one small task/i)).toBeDefined()
     expect(screen.getByText(/whether you need files, notes, or a short answer back/i)).toBeDefined()
@@ -337,6 +347,7 @@ describe('ListView', () => {
       target: { value: 'missing task' },
     })
     const combinedEmpty = screen.getByTestId('list-filter-empty')
+    expandDisclosure(combinedEmpty)
     expect(combinedEmpty).toHaveAttribute('role', 'status')
     expect(combinedEmpty).toHaveAttribute('aria-live', 'polite')
     expect(
@@ -443,6 +454,7 @@ describe('ListView', () => {
       target: { value: 'missing task' },
     })
     const searchEmpty = screen.getByTestId('list-filter-empty')
+    expandDisclosure(searchEmpty)
     expect(searchEmpty).toHaveAttribute('role', 'status')
     expect(searchEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(searchEmpty).getByText('Search is hiding tasks')).toBeDefined()
@@ -458,6 +470,7 @@ describe('ListView', () => {
     )
 
     const filterEmpty = screen.getByTestId('list-filter-empty')
+    expandDisclosure(filterEmpty)
     expect(filterEmpty).toHaveAttribute('role', 'status')
     expect(filterEmpty).toHaveAttribute('aria-live', 'polite')
     expect(within(filterEmpty).getByText('Selected view is hiding tasks')).toBeDefined()

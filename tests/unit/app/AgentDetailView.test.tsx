@@ -95,6 +95,17 @@ function makeTask(overrides: Partial<TaskSummary>): TaskSummary {
   }
 }
 
+function expandAgentNextStep() {
+  const nextStep = screen.getByTestId('agent-next-step')
+  const toggle = within(nextStep)
+    .getAllByRole('button')
+    .find((button) => button.hasAttribute('aria-expanded'))
+  expect(toggle).toBeDefined()
+  if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return nextStep
+}
+
 describe('AgentDetailView', () => {
   test('renders agent name', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
@@ -181,6 +192,7 @@ describe('AgentDetailView', () => {
 
   test('prompt agent hides task and live-work tabs and points users to Chat', () => {
     render(<AgentDetailView agent={providerAgent} onBack={() => {}} />)
+    expandAgentNextStep()
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Chat' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Chat instructions' })).toBeDefined()
@@ -302,12 +314,11 @@ describe('AgentDetailView', () => {
   test('guides an idle agent toward a first safe task', () => {
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
 
-    expect(screen.getByTestId('agent-next-step')).toBeDefined()
+    const nextStep = expandAgentNextStep()
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
     expect(screen.getByText('Ready for a task')).toBeDefined()
     expect(screen.getByText('Send a task to create the first update.')).toBeDefined()
     expect(screen.getByText('Send a small first task')).toBeDefined()
-    const nextStep = screen.getByTestId('agent-next-step')
     expect(
       within(nextStep).getByText(
         'Use Tasks to send a small, low-risk task. Choose this agent directly, or let another agent take it.'
@@ -345,6 +356,7 @@ describe('AgentDetailView', () => {
     ])
 
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
+    expandAgentNextStep()
 
     expect(await screen.findByText('Check what this agent is doing')).toBeDefined()
     expect(screen.getAllByText(/Fix onboarding copy/).length).toBeGreaterThan(0)
@@ -365,6 +377,7 @@ describe('AgentDetailView', () => {
 
   test('guides agents without loaded task history into the Tasks tab', async () => {
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
+    expandAgentNextStep()
 
     expect(await screen.findByText('Go to Tasks to check recent activity')).toBeDefined()
     expect(screen.queryByText('Go to Tasks to review recent activity')).toBeNull()
@@ -387,6 +400,7 @@ describe('AgentDetailView', () => {
     getTasksByAgentMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
     render(<AgentDetailView agent={{ ...containerAgent, status: 'working' }} onBack={() => {}} />)
+    expandAgentNextStep()
 
     expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
@@ -411,6 +425,7 @@ describe('AgentDetailView', () => {
     getTasksByAgentMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
     render(<AgentDetailView agent={containerAgent} onBack={() => {}} />)
+    expandAgentNextStep()
 
     expect(await screen.findByText('Choose this agent again or open Tasks')).toBeDefined()
     expect(
@@ -434,6 +449,7 @@ describe('AgentDetailView', () => {
         onBack={() => {}}
       />
     )
+    expandAgentNextStep()
 
     expect(screen.getAllByText('Start project files').length).toBeGreaterThan(1)
     expect(screen.getByText('Open Live work and start project files')).toBeDefined()
@@ -445,6 +461,9 @@ describe('AgentDetailView', () => {
     ).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
     expect(screen.getByText('Start project files to open Live work')).toBeDefined()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Start project files to open Live work', exact: true })
+    )
     expect(
       screen.getByText(/start project files before this agent changes project files/i)
     ).toBeDefined()
@@ -481,6 +500,7 @@ describe('AgentDetailView', () => {
         onBack={() => {}}
       />
     )
+    expandAgentNextStep()
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
 
@@ -515,6 +535,7 @@ describe('AgentDetailView', () => {
         onBack={() => {}}
       />
     )
+    expandAgentNextStep()
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
     const startButton = screen.getByRole('button', { name: /^start project files$/i })
@@ -556,6 +577,7 @@ describe('AgentDetailView', () => {
         onBack={() => {}}
       />
     )
+    expandAgentNextStep()
 
     fireEvent.click(screen.getByRole('button', { name: /open live work/i }))
     fireEvent.click(screen.getByRole('button', { name: /^start project files$/i }))
@@ -572,7 +594,7 @@ describe('AgentDetailView', () => {
     const onBack = vi.fn()
     render(<AgentDetailView agent={{ ...hostCliAgent, status: 'offline' }} onBack={onBack} />)
 
-    const nextStep = screen.getByTestId('agent-next-step')
+    const nextStep = expandAgentNextStep()
     expect(screen.getAllByText('Reconnect this computer from Agents').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Use Connect this computer in Agents').length).toBeGreaterThan(0)
     expect(screen.getByText('Open Agents and connect this computer again')).toBeDefined()
@@ -599,7 +621,7 @@ describe('AgentDetailView', () => {
   test('guides offline chat-only agents to AI service settings', () => {
     render(<AgentDetailView agent={{ ...providerAgent, status: 'offline' }} onBack={() => {}} />)
 
-    const nextStep = screen.getByTestId('agent-next-step')
+    const nextStep = expandAgentNextStep()
     expect(screen.getByText('Check the AI service before sending a message')).toBeDefined()
     expect(
       screen.getByText('Open AI services in Settings and choose Check connection')

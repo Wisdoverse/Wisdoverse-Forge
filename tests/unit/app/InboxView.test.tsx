@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, waitFor, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { InboxView } from '@app/features/inbox/InboxView'
 import { useFeedStore } from '@app/entities/feed'
@@ -33,6 +33,17 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+function expandDisclosure(container: HTMLElement) {
+  const toggle = within(container)
+    .getAllByRole('button')
+    .find((button) => button.hasAttribute('aria-expanded'))
+  expect(toggle).toBeDefined()
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle!)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return container
+}
+
 afterEach(() => {
   cleanup()
   useSettingsStore.setState({
@@ -60,6 +71,7 @@ describe('InboxView', () => {
   test('shows empty state when no notifications', async () => {
     render(<InboxView />)
     expect(await screen.findByText('No updates yet')).toBeDefined()
+    expandDisclosure(screen.getByTestId('inbox-action-path'))
     expect(screen.getByText('Inbox action order')).toBeDefined()
     expect(
       screen.getByText(
@@ -98,6 +110,7 @@ describe('InboxView', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Checking for saved updates...')
     expect(screen.getByText('Checking for saved updates')).toBeDefined()
+    expandDisclosure(screen.getByTestId('inbox-action-path'))
     expect(screen.getByText(/older updates/i)).toBeDefined()
     expect(screen.queryByText(/older notifications/i)).toBeNull()
 
@@ -170,6 +183,7 @@ describe('InboxView', () => {
     render(<InboxView />)
 
     const item = await screen.findByTestId('inbox-notification-task-owner:t-failed:failed')
+    expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
     expect(screen.getByText('Recovery needed')).toBeDefined()
     expect(screen.getAllByText('Check retry steps').length).toBeGreaterThan(0)
@@ -269,7 +283,7 @@ describe('InboxView', () => {
 
     render(<InboxView />)
 
-    const nextStep = screen.getByTestId('inbox-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(nextStep).toHaveTextContent('Do this next')
     expect(nextStep).toHaveTextContent('Check what is stopping work')
     expect(nextStep).toHaveTextContent('This is the only item that needs action')
@@ -301,7 +315,7 @@ describe('InboxView', () => {
 
     render(<InboxView />)
 
-    const nextStep = screen.getByTestId('inbox-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(nextStep).toHaveTextContent('2 items need action')
     expect(nextStep).toHaveTextContent('Start with the newest item that needs help.')
     expect(nextStep).not.toHaveTextContent(/recovery item/i)
@@ -330,7 +344,7 @@ describe('InboxView', () => {
 
     render(<InboxView />)
 
-    const nextStep = screen.getByTestId('inbox-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(nextStep).toHaveTextContent('Open the latest completed result when you have time')
     expect(nextStep).toHaveTextContent('There are no urgent items that need help')
     expect(nextStep).not.toHaveTextContent('Check the retry steps before retrying')
@@ -362,7 +376,7 @@ describe('InboxView', () => {
 
     render(<InboxView />)
 
-    const nextStep = screen.getByTestId('inbox-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(nextStep).toHaveTextContent('Approve or reject the overdue review')
     expect(nextStep).toHaveTextContent('This is the only item that needs action')
     expect(nextStep).not.toHaveTextContent('Open the latest completed result when you have time')
@@ -383,7 +397,7 @@ describe('InboxView', () => {
 
     render(<InboxView />)
 
-    const nextStep = screen.getByTestId('inbox-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(nextStep).toHaveTextContent('No unread action items')
     expect(nextStep).toHaveTextContent(
       'Everything that needed help is marked read. Open this older item only if you still need to check it.'
@@ -418,7 +432,7 @@ describe('InboxView', () => {
 
     render(<InboxView />)
 
-    const nextStep = screen.getByTestId('inbox-next-step')
+    const nextStep = expandDisclosure(screen.getByTestId('inbox-next-step'))
     expect(nextStep).toHaveTextContent('Reconnect account access before agents continue tasks')
     expect(nextStep).toHaveTextContent('helps agents finish future tasks')
     expect(nextStep).not.toHaveTextContent('Reconnect account access before more agent work starts')
@@ -548,10 +562,10 @@ describe('InboxView', () => {
 
     await userEvent.setup().click(screen.getByTestId('inbox-filter-credentials'))
 
-    expect(screen.getByTestId('inbox-filter-empty')).toBeDefined()
+    const emptyState = expandDisclosure(screen.getByTestId('inbox-filter-empty'))
     expect(screen.getByText('No account access needs reconnecting')).toBeDefined()
-    expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('role', 'status')
-    expect(screen.getByTestId('inbox-filter-empty')).toHaveAttribute('aria-live', 'polite')
+    expect(emptyState).toHaveAttribute('role', 'status')
+    expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByText(/open all to check other updates/i)).toBeDefined()
     expect(screen.queryByText(/try all for the full history/i)).toBeNull()
     expect(screen.queryByText(/review other updates/i)).toBeNull()
@@ -574,6 +588,7 @@ describe('InboxView', () => {
     await user.click(screen.getByTestId('inbox-filter-credentials'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expandDisclosure(emptyState)
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No account access needs reconnecting')
@@ -606,6 +621,7 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-needs-action'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expandDisclosure(emptyState)
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('You are caught up on action items')
@@ -638,6 +654,7 @@ describe('InboxView', () => {
     await userEvent.setup().click(screen.getByTestId('inbox-filter-unread'))
 
     const emptyState = screen.getByTestId('inbox-filter-empty')
+    expandDisclosure(emptyState)
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
     expect(emptyState).toHaveTextContent('No unread updates')
@@ -821,6 +838,7 @@ describe('InboxView', () => {
     })
 
     render(<InboxView />)
+    expandDisclosure(screen.getByTestId('inbox-next-step'))
 
     const item = screen.getByTestId('inbox-notification-cli-image:codex:updated')
     expect(item.getAttribute('data-template')).toBe('task-lifecycle')
