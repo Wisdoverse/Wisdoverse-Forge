@@ -91,7 +91,7 @@ export function AdminLayout() {
           'overflow-y-auto'
         )}
       >
-        <h1 className="mb-4 px-2 text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
+        <h1 className="mb-4 px-2 text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
           Admin console
         </h1>
 
@@ -99,9 +99,7 @@ export function AdminLayout() {
           const items = SECTIONS.filter((s) => s.group === group)
           return (
             <div key={group} className="mb-4">
-              <p className="mb-1 px-2 text-ui-caption font-semibold uppercase text-secondary-light dark:text-secondary-dark">
-                {group}
-              </p>
+              <p className={cn(uiStyles.groupLabel, 'mb-1 px-2')}>{group}</p>
               {items.map((item) => {
                 const isActive = activeSection === item.id
                 return (
@@ -111,10 +109,10 @@ export function AdminLayout() {
                     onClick={() => setActiveSection(item.id)}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'w-full rounded-full px-3 py-1.5 text-left text-ui-button transition-colors',
+                      'h-8 w-full rounded-button px-3 text-left text-ui-body transition-colors',
                       isActive
-                        ? cn('font-medium text-apple-blue', 'bg-apple-blue/10')
-                        : 'text-foreground-light dark:text-foreground-dark hover:bg-black/5 dark:hover:bg-white/5'
+                        ? 'bg-black/[0.06] font-medium text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                        : 'text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]'
                     )}
                   >
                     {item.label}

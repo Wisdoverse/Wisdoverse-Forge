@@ -33,13 +33,6 @@ function stateLabel(state: CliImageToolState): string {
   }
 }
 
-function stateTone(state: CliImageToolState): string {
-  if (state === 'failed') return 'bg-apple-red/10 text-apple-red'
-  if (state === 'update_available') return 'bg-apple-orange/10 text-apple-orange'
-  if (state === 'up_to_date' || state === 'updated') return 'bg-apple-blue/10 text-apple-blue'
-  return 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-}
-
 function stateDot(state: CliImageToolState): string {
   if (state === 'failed') return 'bg-apple-red'
   if (state === 'update_available') return 'bg-apple-orange'
@@ -171,12 +164,7 @@ function cliImageIssueNote(error: string, context: CliImageIssueContext): string
 
 function StateBadge({ state, label }: { state: CliImageToolState; label?: string }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-ui-caption font-medium',
-        stateTone(state)
-      )}
-    >
+    <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
       <span className={cn('w-2 h-2 rounded-full flex-shrink-0', stateDot(state))} />
       {label ?? stateLabel(state)}
     </span>
@@ -219,7 +207,7 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
   }
   if (control.confirming) {
     return (
-      <div className="grid max-w-md gap-2 rounded-lg border border-apple-red/20 bg-apple-red/5 p-3">
+      <div className="grid max-w-md gap-2 rounded-card border border-apple-red/20 bg-apple-red/5 p-3">
         <div>
           <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
             Restart {agentCountLabel} on the latest tool?
@@ -231,18 +219,10 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={control.onConfirm}
-            className="rounded-full bg-apple-red/10 px-3 py-1 text-ui-caption font-medium text-apple-red"
-          >
+          <button type="button" onClick={control.onConfirm} className={uiStyles.dangerButton}>
             Restart {agentCountLabel} now
           </button>
-          <button
-            type="button"
-            onClick={control.onCancel}
-            className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
-          >
+          <button type="button" onClick={control.onCancel} className={uiStyles.secondaryButton}>
             Keep agents running
           </button>
         </div>
@@ -251,11 +231,7 @@ function RollButton({ tool, control }: { tool: CliImageTool; control: RollContro
   }
   return (
     <>
-      <button
-        type="button"
-        onClick={control.onRequest}
-        className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
-      >
+      <button type="button" onClick={control.onRequest} className={uiStyles.secondaryButton}>
         Restart agents on latest tool
       </button>
       {/* Close the loop in the row itself: after a roll, nothing else on the
@@ -297,33 +273,21 @@ function BuildButton({ tool, control }: { tool: CliImageTool; control: BuildCont
 
   if (tool.building) {
     return (
-      <button
-        type="button"
-        disabled
-        className="rounded-full bg-apple-blue/60 px-3 py-1 text-ui-caption font-medium text-white"
-      >
+      <button type="button" disabled className={uiStyles.primaryButton}>
         Preparing…
       </button>
     )
   }
   if (tool.state === 'update_available') {
     return (
-      <button
-        type="button"
-        onClick={control.onBuild}
-        className="rounded-full bg-apple-blue px-3 py-1 text-ui-caption font-medium text-white"
-      >
+      <button type="button" onClick={control.onBuild} className={uiStyles.primaryButton}>
         Prepare {tool.remoteVersion ? `v${tool.remoteVersion}` : 'update'}
       </button>
     )
   }
   if (tool.state === 'pending' || tool.state === 'failed') {
     return (
-      <button
-        type="button"
-        onClick={control.onBuild}
-        className="rounded-full border border-black/[0.1] px-3 py-1 text-ui-caption font-medium text-foreground-light dark:border-white/[0.12] dark:text-foreground-dark"
-      >
+      <button type="button" onClick={control.onBuild} className={uiStyles.secondaryButton}>
         Prepare latest
       </button>
     )
@@ -356,14 +320,8 @@ function ToolRow({
         <span className={cn('mt-1.5 w-2 h-2 rounded-full flex-shrink-0', stateDot(tool.state))} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-              {toolLabel(tool.tool)}
-            </p>
-            {localBuild && (
-              <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-                Prepared by Forge
-              </span>
-            )}
+            <span className={uiStyles.chip}>{toolLabel(tool.tool)}</span>
+            {localBuild && <span className={uiStyles.badge}>Prepared by Forge</span>}
           </div>
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             {tool.agentsWithContainer === 1
@@ -380,11 +338,12 @@ function ToolRow({
             <div className="mt-1 grid gap-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               {/* Local-prepared tools have no public registry image, so versions
                   are the meaningful comparison. */}
-              <span>
-                Current version: {versionMarker(tool.localVersion)}
-                {tool.state === 'update_available' && tool.remoteVersion
-                  ? ` -> latest available: v${tool.remoteVersion}`
-                  : ''}
+              <span className={uiStyles.chip}>
+                {`Current version: ${versionMarker(tool.localVersion)}${
+                  tool.state === 'update_available' && tool.remoteVersion
+                    ? ` -> latest available: v${tool.remoteVersion}`
+                    : ''
+                }`}
               </span>
               <span>last checked {relativeTime(tool.lastCheckedUnix)}</span>
             </div>
@@ -440,24 +399,12 @@ function ConfigBanner({ enabled, intervalSecs }: { enabled: boolean; intervalSec
     intervalSecs < 120 ? `${intervalSecs}s` : `${Math.round(intervalSecs / 60)} min`
 
   return (
-    <div
-      className={cn(
-        'mb-6 flex items-start gap-3 rounded-card border px-4 py-3',
-        enabled
-          ? 'border-apple-blue/20 bg-apple-blue/10'
-          : 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]'
-      )}
-    >
+    <div className="mb-6 flex items-start gap-3 rounded-card border border-black/[0.08] bg-black/[0.025] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <span
         className={cn('mt-1 w-2.5 h-2.5 rounded-full', enabled ? 'bg-apple-blue' : 'bg-[#86868b]')}
       />
       <div className="min-w-0">
-        <p
-          className={cn(
-            'text-ui-body font-medium',
-            enabled ? 'text-apple-blue' : 'text-secondary-light dark:text-secondary-dark'
-          )}
-        >
+        <p className="text-ui-body font-medium text-secondary-light dark:text-secondary-dark">
           {enabled ? 'Automatic updates are on' : 'Automatic updates are off'}
         </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -660,7 +607,7 @@ function RollResultBlock({
   return (
     <div className="mt-4 rounded-card border border-black/[0.06] bg-black/[0.02] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-        Last restart: {toolLabel(result.tool)}
+        <span className={uiStyles.chip}>{`Last restart: ${toolLabel(result.tool)}`}</span>
       </p>
       <p className="mt-1 text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
         {result.succeeded} of {result.total} agents restarted

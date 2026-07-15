@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { CheckCircle2, CircleDashed, Loader2, RefreshCw, XCircle } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { projectApi, type CloneStatus, type CloneSummary } from '@app/entities/navigation/project'
 
 interface CloneStatusBadgeProps {
@@ -21,33 +22,27 @@ interface CloneStatusBadgeProps {
 
 type Visual = {
   label: string
-  /** `bg-<tint> text-<tone>` classes for the pill body. */
-  tint: string
-  Icon: typeof CheckCircle2
-  spin?: boolean
+  dot: string
+  pulse?: boolean
 }
 
 const VISUALS: Record<Exclude<CloneStatus, 'none'>, Visual> = {
   queued: {
     label: 'Code copy waiting',
-    tint: 'bg-apple-orange/10 text-apple-orange',
-    Icon: CircleDashed,
+    dot: 'bg-apple-orange',
   },
   cloning: {
     label: 'Copying code…',
-    tint: 'bg-apple-blue/10 text-apple-blue',
-    Icon: Loader2,
-    spin: true,
+    dot: 'bg-apple-blue',
+    pulse: true,
   },
   ready: {
     label: 'Code copied',
-    tint: 'bg-apple-green/10 text-apple-green',
-    Icon: CheckCircle2,
+    dot: 'bg-apple-green',
   },
   failed: {
     label: 'Code copy needs help',
-    tint: 'bg-apple-red/10 text-apple-red',
-    Icon: XCircle,
+    dot: 'bg-apple-red',
   },
 }
 
@@ -147,7 +142,7 @@ function visualFor(status: CloneStatus | undefined): Visual | null {
 
 /**
  * Clone lifecycle badge for a project's optional git repository. Renders the
- * status as an Apple-style pill (queued / cloning with spinner / ready / failed),
+ * status as a compact dot and label (queued / cloning / ready / failed),
  * and — in the `detail` variant — the resolved branch + short HEAD on success,
  * beginner recovery guidance plus a copy-again action on failure. The action
  * is enabled only for `failed`; permission is enforced server-side (a 403
@@ -167,7 +162,7 @@ export function CloneStatusBadge({
   const visual = visualFor(status)
   if (!visual) return null
 
-  const { label, tint, Icon, spin } = visual
+  const { label, dot, pulse } = visual
   const isFailed = status === 'failed'
   const failureMessage = isFailed ? cloneFailureMessage(clone) : null
   const progressMessage =
@@ -179,21 +174,13 @@ export function CloneStatusBadge({
           ? 'Agents can use this copied code for tasks in this project.'
           : null
 
-  const pill = (
+  const statusLabel = (
     <span
       data-testid={`clone-status-${projectId}`}
       data-clone-status={status}
-      className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-ui-caption font-medium',
-        tint
-      )}
+      className="inline-flex h-6 shrink-0 items-center gap-1.5 text-ui-body font-medium text-secondary-light dark:text-secondary-dark"
     >
-      <Icon
-        size={12}
-        strokeWidth={2.25}
-        aria-hidden="true"
-        className={cn(spin && 'animate-spin')}
-      />
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot, pulse && 'animate-pulse')} />
       <span className="truncate">{label}</span>
     </span>
   )
@@ -208,19 +195,8 @@ export function CloneStatusBadge({
         title={label}
         aria-label={label}
         role="status"
-        className={cn(
-          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
-          tint,
-          className
-        )}
-      >
-        <Icon
-          size={11}
-          strokeWidth={2.5}
-          aria-hidden="true"
-          className={cn(spin && 'animate-spin')}
-        />
-      </span>
+        className={cn('h-2 w-2 shrink-0 rounded-full', dot, pulse && 'animate-pulse', className)}
+      />
     )
   }
 
@@ -240,7 +216,7 @@ export function CloneStatusBadge({
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <div className="flex flex-wrap items-center gap-2">
-        {pill}
+        {statusLabel}
         {isFailed && (
           <button
             type="button"
@@ -248,9 +224,8 @@ export function CloneStatusBadge({
             disabled={retrying}
             data-testid={`clone-retry-${projectId}`}
             className={cn(
-              'inline-flex h-6 items-center gap-1 rounded-full border border-apple-red/30 px-2 text-ui-caption font-semibold text-apple-red transition-colors',
-              'hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30',
-              'disabled:cursor-not-allowed disabled:opacity-60'
+              uiStyles.secondaryButton,
+              'h-6 border-apple-red/30 px-2 text-ui-caption text-apple-red hover:bg-apple-red/10 dark:border-apple-red/30 dark:text-apple-red'
             )}
           >
             <RefreshCw

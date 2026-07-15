@@ -6,12 +6,11 @@ import {
   Fingerprint,
   RefreshCw,
   Search,
-  ShieldAlert,
   ShieldCheck,
-  ShieldQuestion,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   orchestrationApi,
@@ -114,8 +113,8 @@ const COMMON_EVENT_TYPES = [
   'governance.context.memory.rejected',
 ]
 
-const INPUT_CLASS =
-  'h-9 w-full rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption text-foreground-light outline-none transition-colors placeholder:text-secondary-light/70 focus:border-apple-blue focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:placeholder:text-secondary-dark/70'
+const INPUT_CLASS = uiStyles.input
+const SELECT_CLASS = cn(uiStyles.select, 'w-full')
 const HIDDEN_AUDIT_DETAIL_VALUE =
   'Hidden for safety. Keep secrets hidden, choose Check change history again, then export again.'
 const MISSING_AUDIT_ACCESS_MESSAGE =
@@ -270,7 +269,7 @@ export function AuditLogView() {
               name="itemKind"
               value={filters.itemKind}
               onChange={(event) => updateFilter('itemKind', event.target.value as ItemKindFilter)}
-              className={INPUT_CLASS}
+              className={SELECT_CLASS}
             >
               {ITEM_KIND_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -285,7 +284,7 @@ export function AuditLogView() {
               name="scopeKind"
               value={filters.scopeKind}
               onChange={(event) => updateFilter('scopeKind', event.target.value as ScopeKindFilter)}
-              className={INPUT_CLASS}
+              className={SELECT_CLASS}
             >
               {SCOPE_KIND_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -308,11 +307,7 @@ export function AuditLogView() {
             />
           </Field>
           <div className="flex items-end gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <button type="submit" disabled={loading} className={uiStyles.primaryButton}>
               <Search size={15} aria-hidden="true" />
               Show changes
             </button>
@@ -322,7 +317,7 @@ export function AuditLogView() {
               onClick={() => void loadAudit(filters)}
               disabled={loading}
               aria-label="Check change history again"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
+              className={cn(uiStyles.secondaryButton, 'w-8 px-0')}
               title="Check change history again"
             >
               <RefreshCw size={15} className={cn(loading && 'animate-spin')} aria-hidden="true" />
@@ -333,7 +328,7 @@ export function AuditLogView() {
               onClick={() => void exportAudit()}
               disabled={exporting}
               aria-label="Export change history"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-ui-button text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
+              className={cn(uiStyles.secondaryButton, 'w-8 px-0')}
               title="Export change history"
             >
               <Download size={15} aria-hidden="true" />
@@ -397,19 +392,12 @@ export function AuditLogView() {
 
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         {error && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="mb-4 rounded-card border border-apple-red/20 bg-apple-red/10 px-4 py-2 text-ui-body text-apple-red"
-          >
+          <div role="alert" aria-live="polite" className={uiStyles.error}>
             {error}
           </div>
         )}
         {exportStatus && (
-          <div
-            aria-live="polite"
-            className="mb-4 rounded-card border border-apple-blue/20 bg-apple-blue/10 px-4 py-2 text-ui-body text-apple-blue"
-          >
+          <div aria-live="polite" className={cn(uiStyles.note, 'mb-4')}>
             {exportStatus}
           </div>
         )}
@@ -425,18 +413,18 @@ export function AuditLogView() {
           <Metric label="Hidden change-note rows" value={redactedRows} />
         </div>
 
-        <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]">
+        <div className={uiStyles.card}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-left text-ui-caption">
-              <thead className="border-b border-black/[0.06] bg-black/[0.025] text-ui-caption text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.03] dark:text-secondary-dark">
+            <table className={cn(uiStyles.table, 'min-w-[1120px]')}>
+              <thead className={uiStyles.tableHead}>
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Time</th>
-                  <th className="px-4 py-3 font-semibold">Change</th>
-                  <th className="px-4 py-3 font-semibold">Changed item</th>
-                  <th className="px-4 py-3 font-semibold">Area</th>
-                  <th className="px-4 py-3 font-semibold">Changed by</th>
-                  <th className="px-4 py-3 font-semibold">Change check</th>
-                  <th className="px-4 py-3 font-semibold">Change notes</th>
+                  <th className={uiStyles.tableHeaderCell}>Time</th>
+                  <th className={uiStyles.tableHeaderCell}>Change</th>
+                  <th className={uiStyles.tableHeaderCell}>Changed item</th>
+                  <th className={uiStyles.tableHeaderCell}>Area</th>
+                  <th className={uiStyles.tableHeaderCell}>Changed by</th>
+                  <th className={uiStyles.tableHeaderCell}>Change check</th>
+                  <th className={uiStyles.tableHeaderCell}>Change notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/10">
@@ -454,7 +442,7 @@ export function AuditLogView() {
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center">
+                    <td colSpan={7} className={cn(uiStyles.tableCell, 'py-12 text-center')}>
                       <p className="font-semibold text-foreground-light dark:text-foreground-dark">
                         Your filters may be hiding changes
                       </p>
@@ -466,7 +454,7 @@ export function AuditLogView() {
                       <button
                         type="button"
                         onClick={() => applyQuickView(QUICK_AUDIT_VIEWS[0])}
-                        className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                        className={cn(uiStyles.primaryButton, 'mt-4')}
                       >
                         <Search size={15} aria-hidden="true" />
                         Show all change history
@@ -503,13 +491,13 @@ function QuickAuditButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60',
+        'flex min-h-16 items-center gap-3 rounded-button border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60',
         active
-          ? 'border-apple-blue/45 bg-apple-blue/[0.08]'
-          : 'border-black/[0.08] bg-white hover:border-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04]'
+          ? 'border-black/[0.08] bg-black/[0.06] dark:border-white/[0.1] dark:bg-white/[0.08]'
+          : 'border-black/[0.08] bg-white hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:hover:bg-white/[0.06]'
       )}
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black/[0.04] text-apple-blue dark:bg-white/[0.06]">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-button bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
         <view.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
       </span>
       <span className="min-w-0">
@@ -530,22 +518,24 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
       data-testid="governance-audit-row"
       className="align-top hover:bg-black/[0.025] dark:hover:bg-white/[0.03]"
     >
-      <td className="w-40 px-4 py-3 text-secondary-light dark:text-secondary-dark">
+      <td className={cn(uiStyles.tableCell, 'w-40 text-secondary-light dark:text-secondary-dark')}>
         <span className="tabular-nums">{formatDate(entry.createdAt)}</span>
       </td>
-      <td className="max-w-[260px] px-4 py-3">
+      <td className={cn(uiStyles.tableCell, 'max-w-[260px]')}>
         <div className="truncate font-medium">{auditEventLabel(entry.eventType)}</div>
         <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           <summary className="cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30">
             Show saved change name
           </summary>
-          <span className="mt-1 block font-mono">{shortEventType(entry.eventType)}</span>
+          <span className={cn(uiStyles.chip, 'mt-1 max-w-full')}>
+            {shortEventType(entry.eventType)}
+          </span>
         </details>
         <div className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {auditItemKindLabel(entry.itemKind)} · {resourceTypeLabel(entry.resourceType)}
         </div>
       </td>
-      <td className="w-72 px-4 py-3">
+      <td className={cn(uiStyles.tableCell, 'w-72')}>
         {entry.rawItemId ? (
           <SubjectLine
             testId="governance-audit-item-reference"
@@ -560,30 +550,27 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           />
         )}
         {entry.detailsRedacted && (
-          <div
-            data-testid="governance-audit-redacted"
-            className="mt-2 inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
-          >
+          <div data-testid="governance-audit-redacted" className={cn(uiStyles.badge, 'mt-2 gap-1')}>
             <EyeOff size={12} aria-hidden="true" />
             Change notes hidden
           </div>
         )}
       </td>
-      <td className="w-56 px-4 py-3">
+      <td className={cn(uiStyles.tableCell, 'w-56')}>
         <div className="font-medium">{auditAreaLabel(entry.scopeKind)}</div>
-        <div className="mt-1 truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+        <div className={cn(uiStyles.chip, 'mt-1 max-w-full truncate')}>
           {entry.scopeId ? `Work area ${shortId(entry.scopeId)}` : 'Work area hidden'}
         </div>
       </td>
-      <td className="w-48 px-4 py-3">
-        <span className="block truncate font-mono text-ui-caption text-secondary-light dark:text-secondary-dark">
+      <td className={cn(uiStyles.tableCell, 'w-48')}>
+        <span className={cn(uiStyles.chip, 'max-w-full truncate')}>
           {auditActorLabel(entry.actorUserId)}
         </span>
       </td>
-      <td className="w-44 px-4 py-3">
+      <td className={cn(uiStyles.tableCell, 'w-44')}>
         <TamperBadge status={entry.tamperStatus} />
       </td>
-      <td className="min-w-[260px] px-4 py-3">
+      <td className={cn(uiStyles.tableCell, 'min-w-[260px]')}>
         <details>
           <summary className="cursor-pointer select-none text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/30 dark:text-foreground-dark">
             Show change notes
@@ -620,30 +607,21 @@ function SubjectLine({
 function TamperBadge({ status }: { status: GovernanceAuditTamperStatus }) {
   const config = {
     valid: {
-      Icon: ShieldCheck,
-      className: 'bg-apple-blue/10 text-apple-blue',
+      dot: 'bg-apple-blue',
       label: 'Checked',
     },
     invalid: {
-      Icon: ShieldAlert,
-      className: 'bg-apple-red/10 text-apple-red',
+      dot: 'bg-apple-red',
       label: 'Check this change',
     },
     not_configured: {
-      Icon: ShieldQuestion,
-      className:
-        'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
+      dot: 'bg-gray-400',
       label: 'Change check not set up',
     },
   }[status]
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-ui-caption font-medium',
-        config.className
-      )}
-    >
-      <config.Icon size={13} aria-hidden="true" />
+    <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+      <span className={cn('h-1.5 w-1.5 rounded-full', config.dot)} />
       {config.label}
     </span>
   )
@@ -659,14 +637,14 @@ function Metric({
   compact?: boolean
 }) {
   return (
-    <div className="rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2c2c2e]">
+    <div className={cn(uiStyles.card, 'px-4 py-3')}>
       <div className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
         {label}
       </div>
       <div
         className={cn(
           'mt-1 truncate font-semibold text-foreground-light dark:text-foreground-dark',
-          compact ? 'font-mono text-ui-body' : 'text-ui-metric tabular-nums'
+          compact ? 'text-ui-body' : 'text-ui-metric tabular-nums'
         )}
         title={String(value)}
       >
@@ -689,9 +667,7 @@ function Field({
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-ui-caption font-semibold text-secondary-light dark:text-secondary-dark">
-        {label}
-      </span>
+      <span className={cn(uiStyles.label, 'mb-0')}>{label}</span>
       {children}
       {help && (
         <span

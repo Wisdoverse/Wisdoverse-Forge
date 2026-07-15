@@ -17,26 +17,26 @@ function formatDate(iso: string): string {
 
 function organizationReadiness(org: AdminOrg): {
   label: string
-  tone: string
+  dot: string
   nextStep: string
 } {
   if (org.membersCount <= 0) {
     return {
       label: 'Needs people',
-      tone: 'text-apple-red',
+      dot: 'bg-apple-red',
       nextStep: 'Invite at least one person so someone can use this team space.',
     }
   }
   if (org.teamsCount <= 0) {
     return {
       label: 'Needs a team',
-      tone: 'text-secondary-light dark:text-secondary-dark',
+      dot: 'bg-[#86868b]',
       nextStep: 'Create a team so people have a place to organize projects.',
     }
   }
   return {
     label: 'Ready to use',
-    tone: 'text-apple-blue',
+    dot: 'bg-apple-blue',
     nextStep: 'People can create projects and start work from their teams.',
   }
 }
@@ -72,10 +72,7 @@ function organizationSummary(orgs: AdminOrg[]): string {
 
 function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
   return (
-    <section
-      data-testid="admin-org-guide"
-      className="mb-4 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2c2c2e]"
-    >
+    <section data-testid="admin-org-guide" className={cn(uiStyles.cardPadded, 'mb-4')}>
       <div className="mb-3">
         <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           Admin view
@@ -89,7 +86,7 @@ function OrganizationsGuide({ orgs }: { orgs: AdminOrg[] }) {
       </div>
       <div className="grid gap-2 md:grid-cols-3">
         {ORG_GUIDANCE.map(({ title, description, Icon }) => (
-          <div key={title} className="rounded-lg bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+          <div key={title} className="rounded-card bg-black/[0.03] p-3 dark:bg-white/[0.04]">
             <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
               <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
               <p className="text-ui-caption font-semibold">{title}</p>
@@ -111,7 +108,7 @@ function OrganizationsEmptyState() {
       className="flex flex-col items-center justify-center px-4 py-12 text-center"
     >
       <div
-        className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
+        className="mb-3 flex h-10 w-10 items-center justify-center rounded-card bg-black/[0.03] text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
         aria-hidden="true"
       >
         <Building2 size={18} strokeWidth={2} />
@@ -226,7 +223,8 @@ export function OrganizationsPanel() {
                     </td>
                     <td className={uiStyles.tableCell}>
                       <div className="max-w-[260px]">
-                        <p className={cn('text-ui-body font-medium', readiness.tone)}>
+                        <p className="inline-flex items-center gap-1.5 text-ui-body font-medium text-secondary-light dark:text-secondary-dark">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', readiness.dot)} />
                           {readiness.label}
                         </p>
                         <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">

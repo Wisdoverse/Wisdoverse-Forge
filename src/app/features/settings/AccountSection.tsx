@@ -452,10 +452,7 @@ function GettingStartedGuideRow() {
             <button
               type="button"
               onClick={openChecklist}
-              className={cn(
-                uiStyles.secondaryButton,
-                'inline-flex h-9 items-center justify-center text-apple-blue'
-              )}
+              className={cn(uiStyles.secondaryButton, 'text-apple-blue')}
             >
               Open setup checklist
             </button>
@@ -488,10 +485,7 @@ function GettingStartedGuideRow() {
           <button
             type="button"
             onClick={openChecklist}
-            className={cn(
-              uiStyles.secondaryButton,
-              'inline-flex h-9 shrink-0 items-center justify-center text-apple-blue'
-            )}
+            className={cn(uiStyles.secondaryButton, 'shrink-0 text-apple-blue')}
           >
             Open setup checklist
           </button>
@@ -544,7 +538,7 @@ export function AccountSection() {
             <span className="text-ui-body text-secondary-light dark:text-secondary-dark">
               Access level
             </span>
-            <span className={uiStyles.activeBadge}>{userRoleLabel(user?.role)}</span>
+            <span className={uiStyles.badge}>{userRoleLabel(user?.role)}</span>
           </div>
         </div>
       </div>

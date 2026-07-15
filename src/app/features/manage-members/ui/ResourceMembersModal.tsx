@@ -28,14 +28,6 @@ const ROLE_OPTIONS: Array<{ value: ResourceMemberRole; label: string }> = [
   { value: 'member', label: 'Member access' },
 ]
 
-const ROLE_TONE: Record<ResourceMemberRole, string> = {
-  owner: 'border-apple-blue/30 bg-apple-blue/10 text-apple-blue',
-  admin: 'border-apple-blue/20 bg-apple-blue/10 text-apple-blue',
-  maintainer: 'border-apple-blue/15 bg-apple-blue/[0.07] text-apple-blue',
-  member:
-    'border-black/10 bg-black/[0.03] text-secondary-light dark:border-white/10 dark:bg-white/[0.05] dark:text-secondary-dark',
-}
-
 const MEMBER_ROLE_GUIDANCE: {
   title: string
   description: string
@@ -229,14 +221,14 @@ export function ResourceMembersModal({
         aria-labelledby="resource-members-title"
         className={cn(
           'max-h-[min(720px,calc(100vh-32px))] w-full overflow-hidden rounded-t-card border sm:max-w-2xl sm:rounded-card',
-          'border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]'
+          'border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-surface-dark'
         )}
       >
         <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-4 dark:border-white/[0.08] sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <div
               className={cn(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                'flex h-10 w-10 shrink-0 items-center justify-center rounded-card',
                 'bg-apple-blue/10 text-apple-blue ring-1 ring-apple-blue/15'
               )}
               aria-hidden="true"
@@ -265,7 +257,7 @@ export function ResourceMembersModal({
             onClick={onClose}
             aria-label="Close Members dialog"
             title="Close"
-            className="flex h-8 w-8 shrink-0 touch-manipulation items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 dark:text-secondary-dark dark:hover:bg-white/5"
+            className={cn(uiStyles.subtleButton, 'w-8 shrink-0 touch-manipulation px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -403,7 +395,7 @@ export function ResourceMembersModal({
                   className="flex flex-col items-center gap-2 px-4 py-10 text-center text-ui-body text-secondary-light dark:text-secondary-dark"
                 >
                   <div
-                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/[0.03] text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
+                    className="flex h-9 w-9 items-center justify-center rounded-card bg-black/[0.03] text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark"
                     aria-hidden="true"
                   >
                     <Users size={17} strokeWidth={2} />
@@ -426,7 +418,7 @@ export function ResourceMembersModal({
                     <div className="flex min-w-0 items-center gap-3">
                       <div
                         className={cn(
-                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
                           'bg-black/[0.04] text-ui-caption font-semibold uppercase text-foreground-light',
                           'ring-1 ring-black/5 dark:bg-white/[0.06] dark:text-foreground-dark dark:ring-white/10'
                         )}
@@ -444,12 +436,7 @@ export function ResourceMembersModal({
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'hidden rounded-badge border px-2 py-1 text-[10px] font-medium sm:inline-flex',
-                          ROLE_TONE[roleValue(member.role)]
-                        )}
-                      >
+                      <span className={cn(uiStyles.badge, 'hidden sm:inline-flex')}>
                         {roleLabel(member.role)}
                       </span>
                       <select
@@ -469,7 +456,7 @@ export function ResourceMembersModal({
                       </select>
                       {confirmRemoveUserId === member.userId ? (
                         <div className="flex max-w-full flex-col items-end gap-2 sm:max-w-xs">
-                          <div className="flex items-start gap-1.5 rounded-lg border border-apple-red/20 bg-apple-red/10 px-2 py-1.5 text-left text-ui-caption text-apple-red">
+                          <div className="flex items-start gap-1.5 rounded-card border border-apple-red/20 bg-apple-red/10 px-2 py-1.5 text-left text-ui-caption text-apple-red">
                             <AlertTriangle
                               size={14}
                               strokeWidth={2}
@@ -487,7 +474,10 @@ export function ResourceMembersModal({
                               onClick={() => void handleRemoveMember(member)}
                               disabled={busyKey !== null}
                               aria-label={`Remove access for ${member.username || member.email}`}
-                              className="inline-flex h-8 items-center justify-center rounded-lg bg-apple-red px-2 text-ui-caption font-medium text-white transition-colors hover:bg-apple-red/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                              className={cn(
+                                uiStyles.secondaryButton,
+                                'border-apple-red/30 px-2 text-ui-caption text-apple-red dark:border-apple-red/30 dark:text-apple-red'
+                              )}
                             >
                               {busyKey === `remove:${member.userId}`
                                 ? 'Removing...'
@@ -498,7 +488,7 @@ export function ResourceMembersModal({
                               onClick={() => setConfirmRemoveUserId(null)}
                               disabled={busyKey !== null}
                               aria-label={`Keep access for ${member.username || member.email}`}
-                              className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/5"
+                              className={cn(uiStyles.subtleButton, 'px-2 text-ui-caption')}
                             >
                               Keep access
                             </button>
@@ -511,7 +501,7 @@ export function ResourceMembersModal({
                           disabled={busyKey !== null}
                           aria-label={`Remove ${member.username || member.email}`}
                           title="Remove"
-                          className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                          className={cn(uiStyles.dangerButton, 'w-8 touch-manipulation px-0')}
                         >
                           <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
                         </button>
@@ -548,7 +538,7 @@ function MemberRoleGuide({ resourceLabel }: { resourceLabel: 'Team' | 'Project' 
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         {MEMBER_ROLE_GUIDANCE.map(({ title, description, Icon }) => (
-          <div key={title} className="rounded-lg bg-black/[0.03] p-3 dark:bg-white/[0.04]">
+          <div key={title} className="rounded-card bg-black/[0.03] p-3 dark:bg-white/[0.04]">
             <div className="mb-2 flex items-center gap-2 text-foreground-light dark:text-foreground-dark">
               <Icon size={14} strokeWidth={2.2} className="shrink-0 text-apple-blue" />
               <p className="text-ui-caption font-semibold">{title}</p>

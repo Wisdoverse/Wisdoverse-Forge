@@ -75,12 +75,6 @@ function StatusDot({ status }: { status: ServiceStatus }) {
 }
 
 function StatusBadge({ status }: { status: ServiceStatus }) {
-  const styles: Record<ServiceStatus, string> = {
-    up: 'bg-apple-blue/10 text-apple-blue',
-    degraded: 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark',
-    down: 'bg-apple-red/10 text-apple-red',
-    unknown: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-  }
   const label =
     status === 'up'
       ? 'Ready'
@@ -91,12 +85,7 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
           : 'Check now'
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-ui-caption font-medium',
-        styles[status]
-      )}
-    >
+    <span className="inline-flex items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
       <StatusDot status={status} />
       {label}
     </span>
@@ -108,12 +97,6 @@ function serviceStatusText(status: ServiceStatus): string {
   if (status === 'degraded') return 'Check again soon'
   if (status === 'down') return 'Not working'
   return 'Choose Check now to confirm'
-}
-
-function serviceTone(status: ServiceStatus): string {
-  if (status === 'up') return 'text-apple-blue'
-  if (status === 'down') return 'text-apple-red'
-  return 'text-secondary-light dark:text-secondary-dark'
 }
 
 function healthCheckTimingText(latencyMs: number | undefined): string | null {
@@ -204,7 +187,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
           <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             {description}
           </p>
-          <p className={cn('mt-1 text-ui-caption font-medium', serviceTone(status))}>
+          <p className="mt-1 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             {serviceStatusText(status)}
           </p>
           {hasIssue && (
@@ -224,7 +207,7 @@ function ServiceRow({ name, supportName, description, impact, action, health }: 
           )}
         </div>
       </div>
-      <div className="flex items-center gap-4 shrink-0 ml-4">
+      <div className="ml-4 flex shrink-0 items-center gap-4">
         {responseTime && (
           <span className="text-ui-caption tabular-nums text-secondary-light dark:text-secondary-dark">
             {responseTime}
@@ -249,21 +232,15 @@ function OverallBanner({
 }) {
   const config = {
     healthy: {
-      bg: 'border-apple-blue/20 bg-apple-blue/10',
-      text: 'text-apple-blue',
       label: 'All areas are ready',
       detail: 'Users should be able to open the app, run agents, and receive updates.',
     },
     degraded: {
-      bg: 'border-black/[0.08] bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]',
-      text: 'text-secondary-light dark:text-secondary-dark',
       label: 'Some areas need a check',
       detail:
         'Users may see slow screens, delayed updates, or work waiting to start until this clears.',
     },
     unhealthy: {
-      bg: 'border-apple-red/20 bg-apple-red/10',
-      text: 'text-apple-red',
       label: 'App interruption likely',
       detail: 'Fix the area marked Fix first before sending new work.',
     },
@@ -271,7 +248,7 @@ function OverallBanner({
   const c = config[status]
 
   return (
-    <div className={cn('mb-6 flex items-start gap-3 rounded-card border px-4 py-3', c.bg)}>
+    <div className="mb-6 flex items-start gap-3 rounded-card border border-black/[0.08] bg-black/[0.025] px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
       <span
         className={cn(
           'mt-1 w-2.5 h-2.5 rounded-full',
@@ -283,7 +260,9 @@ function OverallBanner({
         )}
       />
       <div className="min-w-0">
-        <p className={cn('text-ui-body font-medium', c.text)}>{c.label}</p>
+        <p className="text-ui-body font-medium text-secondary-light dark:text-secondary-dark">
+          {c.label}
+        </p>
         <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
           {c.detail}
         </p>
