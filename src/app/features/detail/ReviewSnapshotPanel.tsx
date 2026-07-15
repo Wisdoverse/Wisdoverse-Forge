@@ -9,6 +9,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import {
   orchestrationApi,
@@ -111,14 +112,15 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   return (
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase text-secondary-light dark:text-secondary-dark">
+        <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           Fix check status
         </span>
         <button
           onClick={refresh}
           disabled={loading}
           className={cn(
-            'flex items-center gap-1 text-[10px] text-secondary-light dark:text-secondary-dark',
+            uiStyles.subtleButton,
+            'h-auto gap-1 px-0 text-ui-caption',
             'hover:text-foreground-light dark:hover:text-foreground-dark transition-colors disabled:opacity-50'
           )}
           aria-label="Check fix status again"
@@ -129,11 +131,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
       </div>
 
       {error && (
-        <div
-          className="px-3 py-2 rounded-lg bg-apple-red/10 text-apple-red text-xs"
-          role="alert"
-          aria-live="polite"
-        >
+        <div className={uiStyles.error} role="alert" aria-live="polite">
           {error}
         </div>
       )}
@@ -149,28 +147,28 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
           compact
         />
       ) : review ? (
-        <div className="rounded-lg border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04] space-y-3">
+        <div className="space-y-3 rounded-card border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.04]">
           {/* PR linkage */}
           {hasPullRequest ? (
             <a
               href={review.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-xs font-medium text-apple-blue hover:underline"
+              className="flex items-center gap-2 text-ui-body font-medium text-apple-blue hover:underline"
             >
               <GitPullRequest size={14} />
               Fix check page #{review.prNumber}
               <ExternalLink size={11} />
             </a>
           ) : (
-            <p className="text-xs text-secondary-light dark:text-secondary-dark">
+            <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
               The agent is still preparing the fix check page for this fix. Choose Check fix status
               after it appears.
             </p>
           )}
 
           {/* Status + CI + sensitive rows */}
-          <div className="space-y-1.5 text-xs">
+          <div className="space-y-1.5 text-ui-body">
             {review.reviewStatus && (
               <Row label="Status" value={STATUS_LABEL[review.reviewStatus]} />
             )}
@@ -200,7 +198,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               href={review.diffUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-secondary-light dark:text-secondary-dark hover:text-apple-blue transition-colors"
+              className="inline-flex items-center gap-1 text-ui-caption text-secondary-light transition-colors hover:text-apple-blue dark:text-secondary-dark"
             >
               Check the changes
               <ExternalLink size={10} />
@@ -213,24 +211,19 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               onClick={approve}
               disabled={approveDisabled}
               data-testid="review-approve"
-              className={cn(
-                'w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
-                approveDisabled
-                  ? 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark cursor-not-allowed'
-                  : 'bg-apple-blue text-white hover:bg-apple-blue/90'
-              )}
+              className={cn(uiStyles.primaryButton, 'w-full')}
             >
               {approving && <Loader2 size={13} className="animate-spin" />}
               {merged ? 'Finished' : approving ? 'Finishing…' : 'Finish this fix'}
             </button>
             {!merged && !hasPullRequest && (
-              <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+              <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 You can finish after the agent opens the fix check page. Choose Check fix status
                 after it appears.
               </p>
             )}
             {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
-              <p className="mt-1.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+              <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 You can finish after automated checks pass. Choose Check fix status after they
                 finish.
               </p>

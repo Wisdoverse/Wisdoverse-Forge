@@ -80,10 +80,10 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
   return (
     <div className="space-y-1.5">
       <div>
-        <p className="text-[10px] font-medium text-foreground-light dark:text-foreground-dark">
+        <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
           Was this saved item helpful?
         </p>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        <p className="mt-0.5 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
           Your answer helps future tasks choose safer, more useful saved items.
         </p>
       </div>
@@ -96,10 +96,10 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
             onClick={() => record(option.label)}
             title={option.description}
             className={cn(
-              'rounded-full px-2 py-1 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+              'rounded-button px-2 py-1 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
               selected === option.label
-                ? 'bg-apple-blue text-white'
-                : 'bg-apple-gray-6 dark:bg-white/[0.05] text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark',
+                ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                : 'bg-apple-gray-6 text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:bg-white/[0.05] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
               pending !== null && 'cursor-not-allowed opacity-60'
             )}
           >
@@ -108,7 +108,7 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
         ))}
       </div>
       {selectedOption && !pending && (
-        <p className="text-[10px] leading-relaxed text-secondary-light dark:text-secondary-dark">
+        <p className="text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
           Saved: {selectedOption.confirmation}
         </p>
       )}

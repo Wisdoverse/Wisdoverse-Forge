@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   agentStatusKey,
   agentStatusLabel,
@@ -75,7 +76,7 @@ function tabsFor(agent: AgentInfo): { id: Tab; label: string }[] {
 function WorkspaceBoundaryNote({ agent }: { agent: AgentInfo }) {
   const hostCli = isHostCliAgent(agent)
   return (
-    <div className="flex gap-2 rounded-lg bg-apple-blue/10 px-3 py-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+    <div className={cn(uiStyles.note, 'flex gap-2 text-ui-caption')}>
       <Info
         size={13}
         strokeWidth={2.25}
@@ -235,12 +236,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
           type="button"
           data-testid="agent-back"
           onClick={onBack}
-          className={cn(
-            'flex items-center justify-center w-8 h-8 rounded-lg shrink-0',
-            'bg-white dark:bg-[#2a2a2c] border border-black/[0.08] dark:border-white/[0.1]',
-            'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark',
-            'transition-colors'
-          )}
+          className={cn(uiStyles.secondaryButton, 'h-8 w-8 shrink-0 px-0')}
           aria-label="Back"
         >
           ‹
@@ -249,7 +245,7 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
         {/* Provider-colored avatar */}
         <div
           className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-card',
             'border border-black/[0.08] text-ui-body font-semibold select-none dark:border-white/[0.1]',
             defaultGradient()
           )}
@@ -259,47 +255,40 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-ui-title font-semibold text-foreground-light dark:text-foreground-dark">
+            <h1 className="truncate text-ui-doc-title font-medium text-foreground-light dark:text-foreground-dark">
               {agent.name}
             </h1>
             <AgentKindBadge cliTool={agent.cliTool} runtimeKind={agent.runtimeKind} />
           </div>
-          <p className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+          <p className={cn(uiStyles.chip, 'max-w-full truncate')}>
             {agentDetailHeaderSubtitle(agent)}
           </p>
         </div>
 
         {/* Status badge */}
-        <div
-          className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1 rounded-full',
-            'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-          )}
-        >
+        <div className="flex items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
           <div
             className={cn(
-              'w-2 h-2 rounded-full shrink-0',
+              'h-1.5 w-1.5 shrink-0 rounded-full',
               STATUS_COLORS[statusKey] ?? STATUS_FALLBACK_COLOR
             )}
           />
-          <span className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-            {statusLabel}
-          </span>
+          <span>{statusLabel}</span>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className={cn('flex gap-1 p-1 rounded-xl', 'bg-black/5 dark:bg-white/5')}>
+      <div className="flex gap-1 rounded-button bg-black/5 p-1 dark:bg-white/5">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'flex-1 rounded-lg py-1.5 text-ui-button font-medium transition-colors',
+              'flex-1 rounded-button py-1.5 text-ui-button font-medium transition-colors',
               activeTab === tab.id
-                ? 'bg-white dark:bg-[#3a3a3c] text-foreground-light dark:text-foreground-dark shadow-sm'
-                : 'text-secondary-light dark:text-secondary-dark hover:text-foreground-light dark:hover:text-foreground-dark'
+                ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
             )}
           >
             {tab.label}
@@ -329,19 +318,18 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
           </div>
 
           {/* Agent info */}
-          <div
-            className={cn(
-              'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-3',
-              'border border-black/[0.08] dark:border-white/[0.1]',
-              'flex flex-col gap-2'
-            )}
-          >
+          <div className={cn(uiStyles.card, 'flex flex-col gap-2 px-4 py-3')}>
             <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               Agent overview
             </span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-ui-caption">
               {detailRows.map((row) => (
-                <DetailRow key={row.label} label={row.label} value={row.value} />
+                <DetailRow
+                  key={row.label}
+                  label={row.label}
+                  value={row.value}
+                  chip={row.label === 'Where it works'}
+                />
               ))}
             </div>
             <WorkspaceBoundaryNote agent={agent} />
@@ -361,9 +349,8 @@ export function AgentDetailView({ agent, onBack }: AgentDetailViewProps) {
           fallback={
             <div
               className={cn(
-                'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-                'border border-black/[0.08] dark:border-white/[0.1]',
-                'text-center text-ui-body text-secondary-light dark:text-secondary-dark'
+                uiStyles.cardPadded,
+                'px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark'
               )}
             >
               Checking this agent's project files...
@@ -518,7 +505,7 @@ function AgentNextStepCard({
     <section
       data-testid="agent-next-step"
       className={cn(
-        'rounded-xl border px-4 py-3',
+        'rounded-card border px-4 py-3',
         step.ready
           ? 'border-apple-green/20 bg-apple-green/5'
           : 'border-apple-blue/20 bg-apple-blue/[0.04]'
@@ -560,21 +547,14 @@ function AgentNextStepCard({
           <button
             type="button"
             onClick={() => onOpenTab(targetTab)}
-            className={cn(
-              'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
-            )}
+            className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}
           >
             <span>{actionLabel}</span>
             <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
           </button>
         )}
         {targetHref && actionLabel && (
-          <a
-            href={targetHref}
-            className={cn(
-              'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
-            )}
-          >
+          <a href={targetHref} className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}>
             <span>{actionLabel}</span>
             <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
           </a>
@@ -583,9 +563,7 @@ function AgentNextStepCard({
           <button
             type="button"
             onClick={onBack}
-            className={cn(
-              'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.08]'
-            )}
+            className={cn(uiStyles.secondaryButton, 'h-9 shrink-0')}
           >
             <span>{actionLabel}</span>
             <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
@@ -629,11 +607,7 @@ function AssignmentFitCard({
   return (
     <section
       data-testid="agent-assignment-fit"
-      className={cn(
-        'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-3',
-        'border border-black/[0.08] dark:border-white/[0.1]',
-        'flex flex-col gap-3'
-      )}
+      className={cn(uiStyles.card, 'flex flex-col gap-3 px-4 py-3')}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -644,16 +618,17 @@ function AssignmentFitCard({
             {availability}
           </h2>
         </div>
-        <span
-          className={cn(
-            'inline-flex h-7 w-fit items-center rounded-full px-2.5 text-ui-caption font-medium',
-            available
-              ? 'bg-apple-green/10 text-apple-green'
-              : agent.status === 'working'
-                ? 'bg-apple-orange/10 text-apple-orange'
-                : 'bg-apple-gray-5 text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-          )}
-        >
+        <span className="inline-flex h-7 w-fit items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full',
+              available
+                ? 'bg-apple-green'
+                : agent.status === 'working'
+                  ? 'bg-apple-orange'
+                  : 'bg-apple-gray-2'
+            )}
+          />
           {agentStatusLabel(agent.status)}
         </span>
       </div>
@@ -698,7 +673,7 @@ function AssignmentFitCard({
 
 function ProfileSummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+    <div className="min-w-0 rounded-card bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
       <span className="block text-secondary-light dark:text-secondary-dark">{label}</span>
       <span className="mt-0.5 block break-words font-medium text-foreground-light dark:text-foreground-dark">
         {value}
@@ -714,26 +689,38 @@ interface StatCardProps {
 
 function StatCard({ label, value }: StatCardProps) {
   return (
-    <div
-      className={cn(
-        'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-3',
-        'border border-black/[0.08] dark:border-white/[0.1]',
-        'flex flex-col gap-1'
-      )}
-    >
+    <div className={cn(uiStyles.card, 'flex flex-col gap-1 px-4 py-3')}>
       <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">{label}</span>
-      <span className="text-ui-metric font-semibold text-foreground-light dark:text-foreground-dark">
+      <span
+        className={cn(
+          'text-ui-metric font-semibold text-foreground-light dark:text-foreground-dark',
+          label === 'Work type' && uiStyles.chip
+        )}
+      >
         {value}
       </span>
     </div>
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  chip = false,
+}: {
+  label: string
+  value: string
+  chip?: boolean
+}) {
   return (
     <>
       <span className="text-secondary-light dark:text-secondary-dark">{label}</span>
-      <span className="text-foreground-light dark:text-foreground-dark font-medium truncate">
+      <span
+        className={cn(
+          'truncate font-medium text-foreground-light dark:text-foreground-dark',
+          chip && uiStyles.chip
+        )}
+      >
         {value}
       </span>
     </>
@@ -763,11 +750,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
 
   return (
     <div
-      className={cn(
-        'bg-white dark:bg-[#2c2c2e] rounded-xl px-4 py-6',
-        'border border-black/[0.08] dark:border-white/[0.1]',
-        'flex flex-col items-center gap-3 text-center'
-      )}
+      className={cn(uiStyles.cardPadded, 'flex flex-col items-center gap-3 px-4 py-6 text-center')}
     >
       <div className="flex flex-col gap-1">
         <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -789,7 +772,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
         <div
           role="alert"
           aria-live="polite"
-          className="rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+          className="rounded-card bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
           Check the agent status, then choose Start project files again. If it keeps failing, ask an
           owner or admin to check this agent's connection and access in Agents.
@@ -800,11 +783,7 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           type="button"
           onClick={handleStart}
           disabled={starting}
-          className={cn(
-            'rounded-full px-4 py-2 text-ui-button font-medium',
-            'bg-apple-blue text-white hover:bg-apple-blue/90 transition-colors',
-            starting && 'opacity-50'
-          )}
+          className={cn(uiStyles.primaryButton, 'px-4')}
         >
           {starting ? 'Opening project files...' : 'Start project files'}
         </button>

@@ -23,6 +23,7 @@ import {
 } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { AgentCard } from './AgentCard'
 import { AgentGroupsPanel } from './AgentGroupsPanel'
@@ -168,7 +169,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                className={cn(uiStyles.primaryButton, 'h-9 px-4')}
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
                 <span>New agent</span>
@@ -225,7 +226,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               role="alert"
               aria-live="polite"
               data-testid="agent-list-error"
-              className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+              className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10"
             >
               <div className="max-w-sm space-y-1">
                 <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
@@ -238,13 +239,13 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               <button
                 type="button"
                 onClick={() => void loadAgents()}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                className={cn(uiStyles.primaryButton, 'h-10 px-4')}
               >
                 Check agents again
               </button>
             </div>
           ) : agents.length === 0 ? (
-            <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10">
+            <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-apple-blue/10 text-apple-blue">
                 <Bot size={28} strokeWidth={1.75} aria-hidden="true" />
               </div>
@@ -262,7 +263,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-apple-blue px-4 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+                className={cn(uiStyles.primaryButton, 'h-10 px-4')}
               >
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
                 <span>New agent</span>
@@ -273,7 +274,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
               data-testid="agent-filter-empty"
               role="status"
               aria-live="polite"
-              className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+              className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10"
             >
               <Search
                 size={28}
@@ -296,7 +297,7 @@ export function AgentListView({ onOpenProjectsSetup }: AgentListViewProps = {}) 
                 <button
                   type="button"
                   onClick={clearAgentFilters}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark"
+                  className={cn(uiStyles.secondaryButton, 'h-9')}
                 >
                   Show all agents
                 </button>
@@ -328,7 +329,7 @@ function MoreAgentSetupButton({ open, onClick }: { open: boolean; onClick: () =>
       aria-label={label}
       title="Places and this computer setup"
       onClick={onClick}
-      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-black/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:hover:border-white/[0.16]"
+      className={cn(uiStyles.secondaryButton, 'h-9')}
     >
       <Icon size={14} strokeWidth={2.2} className="shrink-0" aria-hidden="true" />
       <span className="hidden sm:inline">{label}</span>
@@ -345,7 +346,7 @@ function AgentChoiceGuideDisclosure({ open, onClick }: { open: boolean; onClick:
         type="button"
         aria-expanded={open}
         onClick={onClick}
-        className="flex w-full items-center justify-between gap-3 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-left transition-colors hover:border-apple-blue/25 hover:bg-apple-blue/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:hover:bg-white/[0.06]"
+        className="flex w-full items-center justify-between gap-3 rounded-card border border-black/[0.08] bg-white px-3 py-2 text-left transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-surface-dark dark:hover:bg-white/[0.06]"
       >
         <span className="min-w-0">
           <span className="block text-ui-button font-semibold text-foreground-light dark:text-foreground-dark">
@@ -441,10 +442,7 @@ function buildLocalEnrollCommand(
 
 function AgentChoiceGuide() {
   return (
-    <section
-      data-testid="agent-choice-guide"
-      className="mb-3 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-    >
+    <section data-testid="agent-choice-guide" className={cn(uiStyles.cardPadded, 'mb-3')}>
       <div className="flex flex-col gap-1">
         <h3 className="text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
           Choose by what the agent needs to use
@@ -485,7 +483,7 @@ function ChoiceGuideItem({
   detail: string
 }) {
   return (
-    <div className="flex min-w-0 gap-2 rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+    <div className="flex min-w-0 gap-2 rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
       <Icon
         size={15}
         strokeWidth={2.1}
@@ -562,10 +560,7 @@ function HostCliEnrollmentPanel({
   }
 
   return (
-    <section
-      data-testid="host-cli-enrollment-panel"
-      className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-    >
+    <section data-testid="host-cli-enrollment-panel" className={cn(uiStyles.cardPadded, 'p-5')}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -584,15 +579,13 @@ function HostCliEnrollmentPanel({
             shows it here and manages it with your other agents.
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-apple-blue/[0.08] px-2 py-1 text-[10px] font-semibold text-apple-blue">
-          This computer
-        </span>
+        <span className={cn(uiStyles.chip, 'shrink-0')}>This computer</span>
       </div>
 
       <button
         type="button"
         onClick={() => setCreateModalOpen(true, 'local-cli')}
-        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95"
+        className={cn(uiStyles.primaryButton, 'mt-3 h-9 w-full')}
       >
         <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
         Add this computer as an agent
@@ -631,10 +624,10 @@ function HostCliEnrollmentPanel({
                       setCopyError(null)
                     }}
                     className={cn(
-                      'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                      'flex min-w-0 items-center gap-2 rounded-card border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
                       platform === option.value
-                        ? 'border-apple-blue/45 bg-apple-blue/[0.08] text-apple-blue'
-                        : 'border-black/[0.08] bg-white text-foreground-light hover:border-apple-blue/30 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                        ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+                        : 'border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
                     )}
                   >
                     <option.Icon size={15} strokeWidth={2.15} aria-hidden="true" />
@@ -642,7 +635,7 @@ function HostCliEnrollmentPanel({
                       <span className="block truncate text-ui-button font-medium">
                         {option.label}
                       </span>
-                      <span className="block truncate text-[10px] text-secondary-light dark:text-secondary-dark">
+                      <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
                         {option.detail}
                       </span>
                     </span>
@@ -651,7 +644,7 @@ function HostCliEnrollmentPanel({
               </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <div className="mt-3 flex items-center gap-2 rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
               <ShieldCheck
                 size={15}
                 strokeWidth={2.1}
@@ -679,7 +672,7 @@ function HostCliEnrollmentPanel({
                     Copy this only if Add this computer as an agent does not open.
                   </p>
                 </div>
-                <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-[#111318] p-3 text-left font-mono text-[11px] leading-relaxed text-white/85">
+                <pre className="mt-3 max-h-36 overflow-auto rounded-card bg-[#111318] p-3 text-left font-mono text-ui-caption leading-relaxed text-white/85">
                   <code className="whitespace-pre-wrap break-all">{command}</code>
                 </pre>
 
@@ -704,7 +697,7 @@ function HostCliEnrollmentPanel({
             ) : (
               <div
                 data-testid="host-cli-command-waiting"
-                className="mt-3 rounded-lg border border-dashed border-black/[0.12] px-3 py-3 text-ui-caption text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark"
+                className="mt-3 rounded-card border border-dashed border-black/[0.12] px-3 py-3 text-ui-caption text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark"
               >
                 <p>
                   Open project settings to create a project, or choose an existing project from the
@@ -714,7 +707,7 @@ function HostCliEnrollmentPanel({
                   <button
                     type="button"
                     onClick={onOpenProjectsSetup}
-                    className="mt-3 inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-apple-blue/20 bg-apple-blue/[0.08] px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
+                    className={cn(uiStyles.secondaryButton, 'mt-3')}
                   >
                     <span>Open project settings</span>
                     <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -727,12 +720,7 @@ function HostCliEnrollmentPanel({
               type="button"
               onClick={() => void handleCopyCommand()}
               disabled={!commandReady}
-              className={cn(
-                'mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-                commandReady
-                  ? 'hover:border-apple-blue/35 hover:text-apple-blue'
-                  : 'cursor-not-allowed opacity-60'
-              )}
+              className={cn(uiStyles.secondaryButton, 'mt-4 h-9 w-full')}
             >
               {copied ? (
                 <Check size={14} strokeWidth={2.25} aria-hidden="true" />
@@ -861,7 +849,10 @@ function FleetControls({
   return (
     <div
       data-testid="agent-fleet-controls"
-      className="mb-3 grid gap-3 rounded-lg border border-black/[0.08] bg-white p-3 dark:border-white/[0.1] dark:bg-[#2a2a2c] xl:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)_auto]"
+      className={cn(
+        uiStyles.cardPadded,
+        'mb-3 grid gap-3 p-3 xl:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)_auto]'
+      )}
     >
       <div className="min-w-0">
         <label htmlFor="agent-search" className="sr-only">
@@ -884,7 +875,7 @@ function FleetControls({
             onChange={(event) => onSearchQueryChange(event.target.value)}
             placeholder="Search agents, AI services, projects…"
             aria-describedby="agent-search-help"
-            className="h-10 w-full rounded-md border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark"
+            className={cn(uiStyles.input, 'h-10 pl-9 pr-3')}
           />
         </div>
         <p
@@ -937,7 +928,7 @@ function FleetControls({
           name="agent-sort"
           value={sortKey}
           onChange={(event) => onSortKeyChange(event.target.value as AgentSortKey)}
-          className="h-10 rounded-md border border-black/[0.08] bg-white px-3 text-ui-body text-foreground-light outline-none transition-colors focus-visible:border-apple-blue/40 focus-visible:ring-2 focus-visible:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+          className={cn(uiStyles.select, 'h-10 px-3')}
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -982,10 +973,10 @@ function FilterButton({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+        'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-button border px-2.5 text-ui-caption font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
         active
-          ? 'border-apple-blue/45 bg-apple-blue/[0.08] text-apple-blue'
-          : 'border-black/[0.08] bg-white text-secondary-light hover:border-apple-blue/30 hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:text-foreground-dark'
+          ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+          : 'border-black/[0.08] bg-white text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
     >
       <span className="truncate">{label}</span>

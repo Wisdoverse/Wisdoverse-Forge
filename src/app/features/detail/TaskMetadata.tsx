@@ -1,12 +1,12 @@
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { TASK_AGENT_NAME_LOADING_LABEL } from './model/taskAgentLabels'
 
-const METADATA_BADGE_TONE =
-  'border border-black/[0.08] bg-transparent text-secondary-light dark:border-white/[0.1] dark:text-secondary-dark'
+const METADATA_BADGE_TONE = cn(uiStyles.badge, 'rounded-full bg-transparent')
 
 interface TaskMetadataProps {
   task: TaskSummary
@@ -21,37 +21,31 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
     <div className="flex flex-col gap-3 py-3">
       {/* Badges row */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span
-          className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-badge', METADATA_BADGE_TONE)}
-        >
+        <span className={cn(METADATA_BADGE_TONE, 'font-semibold')}>
           {taskStateLabel(task.state)}
         </span>
         <span
-          className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-badge', METADATA_BADGE_TONE)}
+          className={cn(
+            METADATA_BADGE_TONE,
+            task.priority === 'urgent' && 'text-apple-red dark:text-apple-red'
+          )}
         >
           {taskPriorityLabel(task.priority)}
         </span>
         {attemptLabel && (
-          <span
-            className={cn(
-              'text-[10px] font-medium px-1.5 py-0.5 rounded-badge tabular-nums',
-              METADATA_BADGE_TONE
-            )}
-          >
-            {attemptLabel}
-          </span>
+          <span className={cn(METADATA_BADGE_TONE, 'tabular-nums')}>{attemptLabel}</span>
         )}
       </div>
 
       {/* Agent check-in countdown while work is active. */}
       {task.state === 'working' && task.leaseExpiresAt != null && (
-        <p className="text-[10px] text-secondary-light dark:text-secondary-dark">
+        <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
           Agent should report back {formatRelativeTime(task.leaseExpiresAt)}
         </p>
       )}
 
       {/* Agent */}
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-ui-body">
         <span className="text-secondary-light dark:text-secondary-dark">Agent</span>
         {hasAssignee ? (
           <span className="font-medium text-foreground-light dark:text-foreground-dark">
@@ -66,10 +60,10 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         data-testid="task-metadata-guidance"
         className="space-y-1 border-y border-black/[0.06] bg-transparent py-2 dark:border-white/[0.08]"
       >
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-secondary-light dark:text-secondary-dark">
+        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           What this status means
         </p>
-        <p className="text-xs leading-relaxed text-foreground-light dark:text-foreground-dark">
+        <p className="text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
           {guidance}
         </p>
       </div>
@@ -77,7 +71,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       {/* Progress */}
       {task.state === 'working' && (
         <div>
-          <div className="flex items-center justify-between text-xs mb-1">
+          <div className="mb-1 flex items-center justify-between text-ui-body">
             <span className="text-secondary-light dark:text-secondary-dark">Progress</span>
             <span className="font-medium text-foreground-light dark:text-foreground-dark">
               {task.progress}%
@@ -93,7 +87,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       )}
 
       {/* Timestamps */}
-      <div className="flex items-center justify-between text-[10px] text-secondary-light dark:text-secondary-dark">
+      <div className="flex items-center justify-between text-ui-caption text-secondary-light dark:text-secondary-dark">
         <span>Created {formatRelativeTime(task.createdAt)}</span>
         <span>Updated {formatRelativeTime(task.updatedAt)}</span>
       </div>

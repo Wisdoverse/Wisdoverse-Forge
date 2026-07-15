@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Info } from 'lucide-react'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { cn } from '@app/shared/lib/utils'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { ContextAppliedList } from './ContextAppliedList'
 import { ContextCandidatesList } from './ContextCandidatesList'
@@ -119,7 +120,7 @@ export function ContextTab({
   if (error) {
     return (
       <div className="py-8 flex items-center justify-center">
-        <p role="alert" aria-live="polite" className="text-xs text-apple-red">
+        <p role="alert" aria-live="polite" className="text-ui-caption text-apple-red">
           {error}
         </p>
       </div>
@@ -133,12 +134,12 @@ export function ContextTab({
   return (
     <div className="py-3 space-y-4" data-testid="context-tab">
       {context.runs.length > 0 && (
-        <section className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] p-3">
+        <section className="rounded-card bg-apple-gray-6/70 p-3 dark:bg-white/[0.035]">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+            <h3 className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
               Agent checked saved notes and guidance
             </h3>
-            <span className="text-[10px] text-secondary-light dark:text-secondary-dark">
+            <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
               {context.runs.length} check{context.runs.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -146,12 +147,18 @@ export function ContextTab({
             {context.runs.map((run, index) => (
               <div
                 key={run.id}
-                className="flex items-center justify-between gap-2 text-[10px] text-secondary-light dark:text-secondary-dark"
+                className="flex items-center justify-between gap-2 text-ui-body text-secondary-light dark:text-secondary-dark"
               >
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
                   Check {index + 1}
                 </span>
-                <span>{runStatusLabel(run.status)}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className={cn('h-1.5 w-1.5 rounded-full', runStatusDot(run.status))}
+                  />
+                  {runStatusLabel(run.status)}
+                </span>
                 <span>Started {formatRelativeTime(run.startedAt)}</span>
               </div>
             ))}
@@ -186,14 +193,14 @@ export function ContextTab({
       <ContextEvidenceList evidence={context.evidence} revokedItems={grouped.revoked} />
       {context.provenance.length > 0 && (
         <section className="space-y-2" data-testid="context-provenance">
-          <h3 className="text-xs font-semibold text-foreground-light dark:text-foreground-dark">
+          <h3 className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             Where saved notes or guidance came from
           </h3>
           <div className="space-y-1.5">
             {context.provenance.map((item) => (
               <div
                 key={`${item.runId}-${item.itemId}`}
-                className="rounded-lg bg-apple-gray-6/70 dark:bg-white/[0.035] px-3 py-2 text-[10px] text-secondary-light dark:text-secondary-dark"
+                className="rounded-card bg-apple-gray-6/70 px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.035] dark:text-secondary-dark"
               >
                 <span className="font-medium text-foreground-light dark:text-foreground-dark">
                   {item.title}
@@ -237,6 +244,27 @@ function normalizeRunStatus(status: string): string {
   return status.trim().toLowerCase()
 }
 
+function runStatusDot(status: string): string {
+  switch (normalizeRunStatus(status)) {
+    case 'completed':
+    case 'succeeded':
+    case 'success':
+      return 'bg-apple-green'
+    case 'running':
+    case 'working':
+    case 'in_progress':
+      return 'bg-apple-blue'
+    case 'failed':
+    case 'error':
+      return 'bg-apple-red'
+    case 'queued':
+    case 'pending':
+      return 'bg-apple-orange'
+    default:
+      return 'bg-apple-gray-3'
+  }
+}
+
 function contextSourceLabel(source: TaskContextResponse['provenance'][number]['source']): string {
   return source?.title ?? 'the saved content check'
 }
@@ -250,7 +278,7 @@ function ContextEmptyState() {
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-apple-blue/10 text-apple-blue">
             <Info size={17} strokeWidth={2.15} aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -271,7 +299,7 @@ function ContextEmptyState() {
           {EMPTY_CONTEXT_STEPS.map((step) => (
             <div
               key={step}
-              className="flex min-h-16 items-start gap-2 rounded-lg bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]"
+              className="flex min-h-16 items-start gap-2 rounded-card bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]"
             >
               <CheckCircle2
                 size={14}

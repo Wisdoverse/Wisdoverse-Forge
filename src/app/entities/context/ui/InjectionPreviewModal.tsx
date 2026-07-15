@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Pin, PinOff, RefreshCw, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { ContextPreviewItem, ContextPreviewResponse } from '@shared/types/context'
 
 interface InjectionPreviewModalProps {
@@ -103,7 +104,7 @@ export function InjectionPreviewModal({
         aria-labelledby="context-preview-title"
         className={cn(
           'relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-panel',
-          'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]'
+          'border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-surface-dark'
         )}
       >
         <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
@@ -130,7 +131,7 @@ export function InjectionPreviewModal({
             onClick={onClose}
             disabled={publishing}
             aria-label="Close saved items check"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+            className={cn(uiStyles.subtleButton, 'w-8 shrink-0 px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -239,7 +240,7 @@ export function InjectionPreviewModal({
             type="button"
             onClick={onClose}
             disabled={publishing}
-            className="rounded-full bg-apple-gray-5 px-4 py-2 text-ui-button font-medium transition-colors hover:bg-apple-gray-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:opacity-50 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]"
+            className={uiStyles.secondaryButton}
           >
             Back to task
           </button>
@@ -247,7 +248,7 @@ export function InjectionPreviewModal({
             type="button"
             onClick={() => void confirm()}
             disabled={!preview || loading || publishing}
-            className="rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-not-allowed disabled:opacity-60"
+            className={uiStyles.primaryButton}
           >
             {publishing ? 'Sending…' : 'Send task with selected notes'}
           </button>
@@ -265,18 +266,31 @@ function PreviewMeta({ preview }: { preview: ContextPreviewResponse }) {
   const runtime = stringValue(preview.capability.runtime_kind)
   return (
     <div className="grid gap-2 text-ui-caption sm:grid-cols-3">
-      <MetaCell label="Agent will use" value={formatCodeLabel(cli)} />
-      <MetaCell label="Work location" value={runtimeLabel(runtime)} />
+      <MetaCell label="Agent will use" value={formatCodeLabel(cli)} chip />
+      <MetaCell label="Work location" value={runtimeLabel(runtime)} chip />
       <MetaCell label="Note limits" value={degradationSummary(preview.degradation)} />
     </div>
   )
 }
 
-function MetaCell({ label, value }: { label: string; value: string }) {
+function MetaCell({
+  label,
+  value,
+  chip = false,
+}: {
+  label: string
+  value: string
+  chip?: boolean
+}) {
   return (
     <div className="rounded-card bg-apple-gray-6 px-3 py-2 dark:bg-white/[0.04]">
       <div className="text-ui-caption text-secondary-light dark:text-secondary-dark">{label}</div>
-      <div className="mt-1 truncate font-medium text-foreground-light dark:text-foreground-dark">
+      <div
+        className={cn(
+          'mt-1 truncate font-medium text-foreground-light dark:text-foreground-dark',
+          chip && uiStyles.chip
+        )}
+      >
         {value}
       </div>
     </div>
@@ -372,7 +386,9 @@ function PreviewItemRow({
               {item.title}
             </h4>
             <Badge>{itemKindLabel(item.itemKind)}</Badge>
-            {item.scopeKind && <Badge>{scopeKindLabel(item.scopeKind)}</Badge>}
+            {item.scopeKind && (
+              <span className={uiStyles.chip}>{scopeKindLabel(item.scopeKind)}</span>
+            )}
             {item.sensitivity && <Badge>{sensitivityLabel(item.sensitivity)}</Badge>}
           </div>
           <p className="mt-1 text-ui-body leading-relaxed text-secondary-light dark:text-secondary-dark">
@@ -391,7 +407,7 @@ function PreviewItemRow({
             pinned ? `Stop keeping ${item.title} easy to reuse` : `Keep ${item.title} easy to reuse`
           }
           className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-button transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
             pinned
               ? 'bg-apple-blue/10 text-apple-blue hover:bg-apple-blue/20'
               : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
@@ -409,11 +425,7 @@ function PreviewItemRow({
 }
 
 function Badge({ children }: { children: string }) {
-  return (
-    <span className="rounded-full bg-apple-gray-6 px-1.5 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-      {children}
-    </span>
-  )
+  return <span className={uiStyles.badge}>{children}</span>
 }
 
 function budgetLabel(capability?: Record<string, unknown>): string {

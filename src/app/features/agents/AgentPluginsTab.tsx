@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, Circle, RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
+import { RotateCcw, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { authFetch } from '@app/shared/api/authFetch'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { agentPluginErrorMessage } from './model/pluginErrorMessage'
@@ -317,10 +318,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
           <button
             type="button"
             onClick={onBackToAgents}
-            className={cn(
-              'mt-4 rounded-full px-4 py-2 text-ui-button font-medium',
-              'bg-apple-blue text-white transition-colors hover:bg-apple-blue/90'
-            )}
+            className={cn(uiStyles.primaryButton, 'mt-4 px-4')}
           >
             Back to Agents
           </button>
@@ -365,7 +363,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
   return (
     <div className="flex flex-col gap-4">
       <section data-testid="agent-plugin-readiness" className="space-y-4">
-        <div className="rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]">
+        <div className={cn(uiStyles.card, 'px-4 py-3')}>
           <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
             Agent tools
           </p>
@@ -420,7 +418,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by tool name or what it does"
-              className="h-9 w-full rounded-lg border border-black/[0.08] bg-white pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light/75 focus:border-apple-blue/45 focus:ring-2 focus:ring-apple-blue/15 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark dark:placeholder:text-secondary-dark/75"
+              className={cn(uiStyles.input, 'h-9 pl-9 pr-3')}
             />
           </label>
           <p
@@ -435,7 +433,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
             data-testid="agent-plugin-filter"
             role="group"
             aria-label="Tool view choices"
-            className="inline-flex h-9 items-center gap-1 rounded-lg border border-black/[0.08] bg-black/[0.025] p-1 dark:border-white/[0.1] dark:bg-white/[0.04]"
+            className="inline-flex h-9 items-center gap-1 rounded-button border border-black/[0.08] bg-black/[0.025] p-1 dark:border-white/[0.1] dark:bg-white/[0.04]"
           >
             {PLUGIN_FILTERS.map((option) => (
               <PluginFilterButton
@@ -499,7 +497,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
               setQuery('')
               setFilter('all')
             }}
-            className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-foreground-dark"
+            className={cn(uiStyles.secondaryButton, 'mt-3 text-ui-caption')}
           >
             <RotateCcw size={13} strokeWidth={2} aria-hidden="true" />
             Show all tools
@@ -513,10 +511,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
             <div
               key={plugin.id}
               data-testid={`plugin-row-${plugin.id}`}
-              className={cn(
-                'flex items-center justify-between gap-4',
-                'rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]'
-              )}
+              className={cn(uiStyles.card, 'flex items-center justify-between gap-4 px-4 py-3')}
             >
               <div className="min-w-0 flex flex-1 flex-col gap-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -528,7 +523,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
                 <span className="truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
                   {toolDescription(plugin)}
                 </span>
-                <span className="text-[10px] font-medium tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
+                <span className="text-ui-caption font-medium tracking-normal text-secondary-light/80 dark:text-secondary-dark/80">
                   {pluginSettingNote(plugin)}
                 </span>
               </div>
@@ -541,7 +536,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
                 onClick={() => void toggle(plugin)}
                 disabled={plugin.saving}
                 className={cn(
-                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
+                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-button border-2 border-transparent',
                   'transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
                   plugin.saving && 'opacity-50 cursor-wait',
                   plugin.enabled ? 'bg-apple-blue' : 'bg-apple-gray-2'
@@ -549,7 +544,7 @@ export function AgentPluginsTab({ agentId, onBackToAgents }: AgentPluginsTabProp
               >
                 <span
                   className={cn(
-                    'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md',
+                    'pointer-events-none inline-block h-5 w-5 rounded-full bg-white',
                     'transform transition-transform duration-200',
                     plugin.enabled ? 'translate-x-5' : 'translate-x-0'
                   )}
@@ -584,9 +579,9 @@ function PluginMetric({
   return (
     <div
       data-testid={testId}
-      className="rounded-card border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
+      className="rounded-card border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-surface-dark"
     >
-      <p className="text-[10px] font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
+      <p className="text-ui-caption font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
         {label}
       </p>
       <p className={cn('mt-1 text-ui-title font-semibold', toneClass)}>{value}</p>
@@ -616,14 +611,14 @@ function PluginFilterButton({
       aria-label={`${ariaLabel}, ${countLabel}`}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
+        'inline-flex h-7 items-center gap-1 rounded-button px-2 text-ui-caption font-medium transition-colors',
         active
-          ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-          : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
+          ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+          : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
     >
       <span>{label}</span>
-      <span className="font-mono text-[10px]" aria-hidden="true">
+      <span className="text-ui-caption tabular-nums" aria-hidden="true">
         {count}
       </span>
     </button>
@@ -631,18 +626,15 @@ function PluginFilterButton({
 }
 
 function PluginStatusPill({ plugin }: { plugin: PluginItem }) {
-  const Icon = plugin.enabled ? CheckCircle2 : Circle
   const label = plugin.enabled ? 'Can use now' : 'Turned off for this agent'
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal',
-        plugin.enabled
-          ? 'bg-apple-green/[0.1] text-apple-green'
-          : 'bg-black/[0.05] text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark'
-      )}
-    >
-      <Icon size={11} strokeWidth={2.2} aria-hidden="true" />
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium uppercase tracking-normal text-secondary-light dark:text-secondary-dark">
+      <span
+        className={cn(
+          'h-1.5 w-1.5 rounded-full',
+          plugin.enabled ? 'bg-apple-green' : 'bg-apple-gray-2'
+        )}
+      />
       {label}
     </span>
   )

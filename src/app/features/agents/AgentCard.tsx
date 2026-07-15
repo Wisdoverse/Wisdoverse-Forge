@@ -1,4 +1,5 @@
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   agentAvatarInitial,
   agentServiceLabel,
@@ -110,8 +111,8 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
       onClick={onClick}
       aria-label={`Open ${agent.name}`}
       className={cn(
-        'group flex w-full min-w-0 items-start gap-3 rounded-lg border px-4 py-3 text-left text-ui-button',
-        'border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-[#2a2a2c]',
+        'group flex w-full min-w-0 items-start gap-3 rounded-card border px-4 py-3 text-left text-ui-button',
+        'border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-surface-dark',
         'transition-colors hover:border-apple-blue/35 hover:bg-white dark:hover:border-apple-blue/35 dark:hover:bg-white/[0.05]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
       )}
@@ -136,13 +137,13 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
         </div>
 
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-          <span className="truncate" translate="no">
+          <span className={cn('truncate', agent.cliTool && uiStyles.chip)} translate="no">
             {serviceLabel}
           </span>
           <span className="hidden sm:inline" aria-hidden="true">
             ·
           </span>
-          <span className="truncate">{runtimeLabel}</span>
+          <span className={cn(uiStyles.chip, 'max-w-full truncate')}>{runtimeLabel}</span>
           <span className="hidden sm:inline" aria-hidden="true">
             ·
           </span>
@@ -177,13 +178,13 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
 
       <span
         data-testid={`agent-status-${agent.id}`}
-        className={cn(
-          'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2 text-ui-caption font-medium',
-          'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark'
-        )}
+        className="inline-flex h-7 shrink-0 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark"
       >
         <span
-          className={cn('h-2 w-2 rounded-full', STATUS_COLORS[statusKey] ?? STATUS_FALLBACK_COLOR)}
+          className={cn(
+            'h-1.5 w-1.5 rounded-full',
+            STATUS_COLORS[statusKey] ?? STATUS_FALLBACK_COLOR
+          )}
         />
         {statusLabel}
       </span>
