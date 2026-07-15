@@ -56,16 +56,23 @@ test.describe('Context injection preview', () => {
     await setupAndNavigate(page, baseURL!)
     await page
       .getByTestId('task-card-t-001')
-      .getByRole('button', { name: 'Publish Implement login flow' })
+      .getByRole('button', { name: 'Preview and send Implement login flow', exact: true })
       .click()
 
-    const dialog = page.getByRole('dialog', { name: /review context before publishing/i })
+    const dialog = page.getByRole('dialog', {
+      name: 'Check saved items before sending',
+      exact: true,
+    })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('Prod-ext validation memory')).toBeVisible()
     await expect(dialog.getByText('Pinned migration note')).toBeVisible()
-    await dialog.getByRole('checkbox', { name: /Rollback memory/ }).click()
-    await dialog.getByRole('button', { name: /Pinned migration note.*pinned/i }).click()
-    await dialog.getByRole('button', { name: 'Publish with selected context' }).click()
+    await dialog
+      .getByRole('checkbox', { name: 'Remove Rollback memory from this task', exact: true })
+      .click()
+    await dialog
+      .getByRole('button', { name: 'Keep Pinned migration note easy to reuse', exact: true })
+      .click()
+    await dialog.getByRole('button', { name: 'Send task with selected notes', exact: true }).click()
 
     await expect(dialog).toBeHidden()
     expect(publishBody).toMatchObject({
@@ -84,11 +91,16 @@ test.describe('Context injection preview', () => {
     await setupAndNavigate(page, baseURL!)
     await page
       .getByTestId('task-card-t-001')
-      .getByRole('button', { name: 'Publish Implement login flow' })
+      .getByRole('button', { name: 'Preview and send Implement login flow', exact: true })
       .click()
 
-    const dialog = page.getByRole('dialog', { name: /review context before publishing/i })
+    const dialog = page.getByRole('dialog', {
+      name: 'Check saved items before sending',
+      exact: true,
+    })
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByRole('button', { name: 'Publish with selected context' })).toBeVisible()
+    await expect(
+      dialog.getByRole('button', { name: 'Send task with selected notes', exact: true })
+    ).toBeVisible()
   })
 })

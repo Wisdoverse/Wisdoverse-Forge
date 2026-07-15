@@ -278,7 +278,7 @@ export function ApprovalQueueView() {
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
               <span>Saved items</span>
             </div>
-            <h1 className="mt-1 text-ui-doc-title font-medium">Check what agents can save</h1>
+            <h2 className="mt-1 text-ui-doc-title font-medium">Check what agents can save</h2>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
               {totalLabel}
             </p>
