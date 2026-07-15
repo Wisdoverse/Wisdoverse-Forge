@@ -251,7 +251,7 @@ test.describe('React App Smoke Tests', () => {
     test('clicking Skills navigates to /skills', async ({ page }) => {
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
-      await expect(page.getByRole('heading', { name: 'Saved guidance', level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'Skills', level: 1 })).toBeVisible({
         timeout: 5000,
       })
       await screenshot(page, '07-nav-skills')
@@ -1283,7 +1283,7 @@ test.describe('React App Smoke Tests', () => {
 
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
-      await expect(page.getByRole('heading', { name: 'Saved guidance', level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'Skills', level: 1 })).toBeVisible({
         timeout: 5000,
       })
 

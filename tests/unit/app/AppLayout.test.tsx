@@ -540,7 +540,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByRole('heading', { name: 'Saved items' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Context' })).toBeDefined()
     expect(screen.getByText('Check what agents may reuse later')).toBeDefined()
     expect(screen.queryByRole('heading', { name: 'Saved notes and instructions' })).toBeNull()
     expect(screen.queryByText(/Saved\s+memories/i)).toBeNull()
