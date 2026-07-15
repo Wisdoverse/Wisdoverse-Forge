@@ -93,7 +93,7 @@ describe('SidebarNav', () => {
       screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('button', { name: /saved items: check saved notes and guidance/i })
+      screen.getByRole('button', { name: /context: check saved notes and guidance/i })
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /saved items: check saved notes and instructions/i })
@@ -105,7 +105,7 @@ describe('SidebarNav', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: /saved guidance: reuse guidance/i,
+        name: /skills: reuse guidance/i,
       })
     ).toBeInTheDocument()
     expect(

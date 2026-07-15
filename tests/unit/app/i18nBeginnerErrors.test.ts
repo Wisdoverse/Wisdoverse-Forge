@@ -705,8 +705,8 @@ describe('beginner error translations', () => {
   })
 
   test('Chinese agent-facing copy uses the current Agent vocabulary', () => {
-    const previousContextNavLabel = ['Con', 'text'].join('')
-    const previousChineseContextNavLabel = ['上', '下', '文'].join('')
+    const previousContextNavLabel = ['Saved', ' items'].join('')
+    const previousChineseContextNavLabel = ['保存', '内容'].join('')
 
     expect(en.nav.start).toBe('Setup checklist')
     expect(en.nav.start).not.toBe('Start')
@@ -744,7 +744,7 @@ describe('beginner error translations', () => {
     )
     expect(zh.commandPalette.commands.actions.account.description).toContain('重置设置清单')
     expect(zh.commandPalette.commands.actions.account.description).not.toContain('重新显示设置清单')
-    expect(en.nav.context).toBe('Saved items')
+    expect(en.nav.context).toBe('Context')
     expect(en.nav.context).not.toBe(previousContextNavLabel)
     expect(en.commandPalette.commands.nav.context.description).toBe(
       'Check saved notes and guidance before agents reuse them.'
@@ -752,14 +752,14 @@ describe('beginner error translations', () => {
     expect(en.commandPalette.commands.nav.context.description).not.toContain(
       'notes and instructions'
     )
-    expect(en.appLayout.pages.savedItems.title).toBe('Saved items')
+    expect(en.appLayout.pages.savedItems.title).toBe('Context')
     expect(en.appLayout.pages.savedItems.title).not.toBe('Saved notes and instructions')
-    expect(en.nav.skills).toBe('Saved guidance')
-    expect(en.nav.skills).not.toBe('Skills')
-    expect(zh.nav.context).toBe('保存内容')
+    expect(en.nav.skills).toBe('Skills')
+    expect(en.nav.skills).not.toBe('Saved guidance')
+    expect(zh.nav.context).toBe('Context')
     expect(zh.nav.context).not.toBe(previousChineseContextNavLabel)
-    expect(zh.nav.skills).toBe('保存的指引')
-    expect(zh.nav.skills).not.toBe('技能')
+    expect(zh.nav.skills).toBe('Skills')
+    expect(zh.nav.skills).not.toBe('保存的指引')
     expect(zh.nav.agents).toBe('智能体')
     expect(zh.agents.title).toBe('智能体')
     expect(zh.gettingStarted.steps.agent.create).toBe('创建智能体')

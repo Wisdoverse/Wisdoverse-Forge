@@ -67,9 +67,9 @@ export const zh: TranslationKeys = {
     dashboard: '仪表板',
     tasks: '任务',
     inbox: '收件箱',
-    context: '保存内容',
+    context: 'Context',
     agents: '智能体',
-    skills: '保存的指引',
+    skills: 'Skills',
     analytics: '分析',
     billing: '账单',
     settings: '设置',
@@ -247,7 +247,7 @@ export const zh: TranslationKeys = {
           description: '查看可能需要人工处理的提醒。',
         },
         context: {
-          label: '保存内容',
+          label: 'Context',
           description: '查看智能体之后可能复用的笔记和指令。',
         },
         agents: {
@@ -255,7 +255,7 @@ export const zh: TranslationKeys = {
           description: '创建或查看用于任务或聊天的智能体。',
         },
         skills: {
-          label: '保存的指引',
+          label: 'Skills',
           description: '复用适合重复工作的指引。',
         },
         settings: {
@@ -382,7 +382,7 @@ export const zh: TranslationKeys = {
         subtitle: '查看哪些内容被检查或复用过',
       },
       savedItems: {
-        title: '保存的笔记和指令',
+        title: 'Context',
         subtitle: '查看智能体之后可能复用的内容',
       },
       agents: {
@@ -390,7 +390,7 @@ export const zh: TranslationKeys = {
         subtitle: '创建用于任务或简单聊天的智能体',
       },
       skills: {
-        title: '保存的指引',
+        title: 'Skills',
         subtitle: '智能体可以再次使用的指引',
       },
       analytics: {

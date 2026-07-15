@@ -66,9 +66,9 @@ export const en = {
     dashboard: 'Dashboard',
     tasks: 'Tasks',
     inbox: 'Inbox',
-    context: 'Saved items',
+    context: 'Context',
     agents: 'Agents',
-    skills: 'Saved guidance',
+    skills: 'Skills',
     analytics: 'Analytics',
     billing: 'Billing',
     settings: 'Settings',
@@ -252,7 +252,7 @@ export const en = {
           description: 'Check alerts that may need a person.',
         },
         context: {
-          label: 'Saved items',
+          label: 'Context',
           description: 'Check saved notes and guidance before agents reuse them.',
         },
         agents: {
@@ -260,7 +260,7 @@ export const en = {
           description: 'Create or check agents for tasks or chat.',
         },
         skills: {
-          label: 'Saved guidance',
+          label: 'Skills',
           description: 'Reuse guidance for repeated work.',
         },
         settings: {
@@ -390,7 +390,7 @@ export const en = {
         subtitle: 'See what was checked or reused',
       },
       savedItems: {
-        title: 'Saved items',
+        title: 'Context',
         subtitle: 'Check what agents may reuse later',
       },
       agents: {
@@ -398,7 +398,7 @@ export const en = {
         subtitle: 'Create agents for tasks or simple chat',
       },
       skills: {
-        title: 'Saved guidance',
+        title: 'Skills',
         subtitle: 'Guidance agents can follow again',
       },
       analytics: {
