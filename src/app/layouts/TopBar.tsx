@@ -82,7 +82,7 @@ export function TopBar({
                 type="button"
                 onClick={() => onViewChange(opt.id)}
                 className={cn(
-                  'rounded-[4px] px-2.5 py-1 text-ui-caption transition-colors',
+                  'rounded-button px-2.5 py-1 text-ui-caption transition-colors',
                   viewMode === opt.id
                     ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
                     : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'

@@ -66,7 +66,7 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
           aria-label="Choose team space"
           className={cn(
             'absolute left-3 right-3 top-full mt-1 z-50',
-            'bg-surface dark:bg-surface-dark backdrop-blur-xl rounded-lg',
+            'bg-surface dark:bg-surface-dark backdrop-blur-xl rounded-card',
             'border border-black/[0.08] dark:border-white/[0.1]',
             'py-1 shadow-lg'
           )}

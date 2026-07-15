@@ -30,9 +30,9 @@
    Legal Container — mirrors .settings-container / .billing-container
    ============================================================================= */
 .legal-container {
-  background: rgba(255, 255, 255, 0.96);
+  background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 18px;
+  border-radius: 8px;
   width: 95%;
   max-width: 900px;
   height: 90vh;
@@ -108,7 +108,7 @@
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 9999px;
+  border-radius: 6px;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -138,7 +138,7 @@
 .legal-tab {
   padding: 8px 14px;
   border: none;
-  border-radius: 9999px;
+  border-radius: 6px;
   background: transparent;
   color: var(--color-text-muted);
   font-size: 14px;
@@ -176,7 +176,7 @@
 
 .legal-content::-webkit-scrollbar-thumb {
   background: var(--color-scrollbar-thumb);
-  border-radius: var(--radius-sm);
+  border-radius: 9999px;
 }
 
 .legal-content::-webkit-scrollbar-thumb:hover {
@@ -244,7 +244,7 @@
 .legal-text code {
   background: var(--color-bg-active);
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   font-size: 13px;
   font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
   color: var(--color-accent);
@@ -292,7 +292,7 @@
 .legal-highlight {
   background: rgba(0, 102, 204, 0.08);
   border: 1px solid rgba(0, 102, 204, 0.18);
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 16px 20px;
   margin: 16px 0;
 }
@@ -322,7 +322,7 @@
 .legal-contact {
   background: rgba(0, 0, 0, 0.025);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 20px 24px;
 }
 
@@ -347,7 +347,7 @@
 }
 
 .dark .legal-container {
-  background: rgba(44, 44, 46, 0.96);
+  background: rgba(35, 35, 38, 0.96);
   border-color: rgba(255, 255, 255, 0.1);
 }
 

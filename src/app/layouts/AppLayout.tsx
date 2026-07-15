@@ -355,8 +355,9 @@ export function AppLayout({
             data-testid="task-created-status"
             role="status"
             aria-live="polite"
-            className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-4 py-2 text-ui-caption font-medium text-foreground-light dark:text-foreground-dark"
+            className="flex items-center gap-2 rounded-card border border-black/[0.08] bg-black/[0.025] px-4 py-2 text-ui-caption font-medium text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-secondary-dark"
           >
+            <span className="h-1.5 w-1.5 rounded-full bg-apple-blue" aria-hidden="true" />
             {taskCreatedMessage}
           </div>
         )}

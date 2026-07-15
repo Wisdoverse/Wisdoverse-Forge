@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
   ResourceMembersModal,
   resourceMemberSelectionLostMessage,
@@ -329,7 +330,7 @@ function ProjectMenuItem({ Icon, label, detail, tone = 'default', onClick }: Pro
       type="button"
       role="menuitem"
       className={cn(
-        'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
+        'flex w-full items-center gap-2 rounded-button px-2.5 py-2 text-left transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
         tone === 'danger'
           ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
@@ -357,7 +358,7 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
     <div
       data-testid={testId}
       className={cn(
-        'mx-2 my-1 rounded-lg border px-2.5 py-2',
+        'mx-2 my-1 rounded-card border px-2.5 py-2',
         'border-black/[0.06] bg-black/[0.02] dark:border-white/[0.08] dark:bg-white/[0.04]'
       )}
     >
@@ -381,7 +382,7 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
         <button
           type="button"
           className={cn(
-            'mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-ui-caption font-medium',
+            'mt-2 inline-flex items-center gap-1.5 rounded-button px-2 py-1 text-ui-caption font-medium',
             'text-apple-blue hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
           )}
           onClick={onAction}
@@ -427,7 +428,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={state.error ? `${detailId} ${errorId}` : detailId}
-        className="relative w-full max-w-[380px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
+        className="relative w-full max-w-[380px] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
       >
         <h2
           id={titleId}
@@ -446,7 +447,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
             id={errorId}
             role="alert"
             aria-live="polite"
-            className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+            className={cn(uiStyles.error, 'mb-0 mt-3 text-ui-caption')}
           >
             {state.error}
           </div>
@@ -456,7 +457,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
             type="button"
             disabled={state.saving}
             onClick={onCancel}
-            className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light disabled:opacity-50 dark:bg-white/[0.06] dark:text-foreground-dark"
+            className={uiStyles.secondaryButton}
           >
             {cancelLabel}
           </button>
@@ -465,7 +466,7 @@ function DeleteConfirmationDialog({ state, onCancel, onConfirm }: DeleteConfirma
             disabled={state.saving}
             onClick={onConfirm}
             aria-busy={state.saving || undefined}
-            className="rounded-full bg-red-600 px-3 py-1.5 text-ui-button font-medium text-white disabled:opacity-50"
+            className={uiStyles.dangerConfirmButton}
           >
             {confirmLabel}
           </button>
@@ -819,7 +820,7 @@ export function ProjectTree({
             aria-label={`${teamMenu.team.name} team menu`}
             data-testid="team-context-menu"
             className={cn(
-              'fixed min-w-[11rem] rounded-lg border p-1 shadow-lg',
+              'fixed min-w-[11rem] rounded-card border p-1 shadow-lg',
               'bg-white dark:bg-[#2c2c2e]',
               'border-black/10 dark:border-white/10'
             )}
@@ -830,7 +831,7 @@ export function ProjectTree({
               <button
                 type="button"
                 role="menuitem"
-                className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-caption text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
+                className="w-full rounded-button px-2.5 py-1.5 text-left text-ui-caption text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
                 onClick={() => openTeamEditor(teamMenu.team)}
               >
                 Edit team details
@@ -840,7 +841,7 @@ export function ProjectTree({
               <button
                 type="button"
                 role="menuitem"
-                className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-caption text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="w-full rounded-button px-2.5 py-1.5 text-left text-ui-caption text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                 onClick={() => handleDeleteTeam(teamMenu.team)}
               >
                 Delete Team
@@ -862,14 +863,14 @@ export function ProjectTree({
             aria-label={`${projectMenu.project.name} project menu`}
             data-testid="project-context-menu"
             className={cn(
-              'fixed max-h-[calc(100vh-16px)] w-[17.5rem] max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border p-1 shadow-lg',
+              'fixed max-h-[calc(100vh-16px)] w-[17.5rem] max-w-[calc(100vw-16px)] overflow-y-auto rounded-card border p-1 shadow-lg',
               'bg-white dark:bg-[#2c2c2e]',
               'border-black/10 dark:border-white/10'
             )}
             style={getMenuPosition(projectMenu, PROJECT_MENU_SIZE)}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-1 rounded-lg px-2.5 py-2">
+            <div className="mb-1 rounded-card px-2.5 py-2">
               <div className="flex min-w-0 items-center gap-2">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-black/5 dark:ring-white/10"
@@ -983,7 +984,7 @@ export function ProjectTree({
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-details-title"
-            className="relative w-[360px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
+            className="relative w-[360px] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
             onSubmit={handleSaveTeam}
           >
             <h2
@@ -996,7 +997,7 @@ export function ProjectTree({
               <div
                 role="alert"
                 aria-live="polite"
-                className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                className={cn(uiStyles.error, 'mb-3 text-ui-caption')}
               >
                 {teamEditor.error}
               </div>
@@ -1013,7 +1014,7 @@ export function ProjectTree({
               onChange={(event) =>
                 setTeamEditor({ ...teamEditor, name: event.target.value, error: null })
               }
-              className="w-full rounded-lg bg-apple-gray-6 px-3 py-2 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue/30 dark:bg-white/[0.06] dark:text-foreground-dark"
+              className={uiStyles.input}
               autoFocus
             />
             <div className="mt-5 flex justify-end gap-2">
@@ -1021,15 +1022,11 @@ export function ProjectTree({
                 type="button"
                 disabled={teamEditor.saving}
                 onClick={() => setTeamEditor(null)}
-                className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
+                className={uiStyles.secondaryButton}
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={teamEditor.saving}
-                className="rounded-full bg-apple-blue px-3 py-1.5 text-ui-button font-medium text-white disabled:opacity-50"
-              >
+              <button type="submit" disabled={teamEditor.saving} className={uiStyles.primaryButton}>
                 {teamEditor.saving ? 'Saving…' : 'Save'}
               </button>
             </div>
@@ -1049,7 +1046,7 @@ export function ProjectTree({
             role="dialog"
             aria-modal="true"
             aria-labelledby="project-config-title"
-            className="relative w-[360px] rounded-lg bg-white p-5 shadow-xl dark:bg-[#2c2c2e]"
+            className="relative w-[360px] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
             onSubmit={handleSaveProject}
           >
             <h2
@@ -1062,7 +1059,7 @@ export function ProjectTree({
               <div
                 role="alert"
                 aria-live="polite"
-                className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-ui-caption text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                className={cn(uiStyles.error, 'mb-3 text-ui-caption')}
               >
                 {projectEditor.error}
               </div>
@@ -1079,7 +1076,7 @@ export function ProjectTree({
               onChange={(event) =>
                 setProjectEditor({ ...projectEditor, name: event.target.value, error: null })
               }
-              className="w-full rounded-lg bg-apple-gray-6 px-3 py-2 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue/30 dark:bg-white/[0.06] dark:text-foreground-dark"
+              className={uiStyles.input}
               autoFocus
             />
             <div className="mt-5 flex justify-end gap-2">
@@ -1087,14 +1084,14 @@ export function ProjectTree({
                 type="button"
                 disabled={projectEditor.saving}
                 onClick={() => setProjectEditor(null)}
-                className="rounded-full bg-apple-gray-5 px-3 py-1.5 text-ui-button font-medium text-foreground-light dark:bg-white/[0.06] dark:text-foreground-dark"
+                className={uiStyles.secondaryButton}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={projectEditor.saving}
-                className="rounded-full bg-apple-blue px-3 py-1.5 text-ui-button font-medium text-white disabled:opacity-50"
+                className={uiStyles.primaryButton}
               >
                 {projectEditor.saving ? 'Saving…' : 'Save'}
               </button>
@@ -1122,24 +1119,33 @@ export function ProjectTree({
           aria-live="polite"
           data-testid="project-copy-status"
           className={cn(
-            'fixed bottom-4 left-1/2 z-50 max-w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 break-words px-4 py-2 text-ui-caption font-medium shadow-lg',
+            'fixed bottom-4 left-1/2 z-50 flex max-w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 items-start gap-2 break-words rounded-card border bg-white px-4 py-2 text-ui-caption font-medium shadow-lg dark:bg-surface-dark',
             copyFeedback.tone === 'error'
-              ? 'rounded-card border border-apple-red/25 bg-white text-apple-red dark:bg-[#2c2c2e]'
-              : 'rounded-full bg-foreground-light text-white dark:bg-foreground-dark dark:text-black'
+              ? 'border-apple-red/25 text-apple-red'
+              : 'border-black/[0.08] text-secondary-light dark:border-white/[0.1] dark:text-secondary-dark'
           )}
         >
-          <span>{copyFeedback.message}</span>
-          {copyFeedback.manualValue && (
-            <span className="mt-1 block">
-              <span className="sr-only">{copyFeedback.manualValue.label}: </span>
-              <span
-                data-testid="project-copy-manual-value"
-                className="block select-all rounded-md bg-apple-red/5 px-2 py-1 font-mono text-ui-caption text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark"
-              >
-                {copyFeedback.manualValue.value}
+          <span
+            className={cn(
+              'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
+              copyFeedback.tone === 'error' ? 'bg-apple-red' : 'bg-apple-blue'
+            )}
+            aria-hidden="true"
+          />
+          <span className="min-w-0">
+            <span>{copyFeedback.message}</span>
+            {copyFeedback.manualValue && (
+              <span className="mt-1 block">
+                <span className="sr-only">{copyFeedback.manualValue.label}: </span>
+                <span
+                  data-testid="project-copy-manual-value"
+                  className={cn(uiStyles.chip, 'block select-all')}
+                >
+                  {copyFeedback.manualValue.value}
+                </span>
               </span>
-            </span>
-          )}
+            )}
+          </span>
         </div>
       )}
     </div>

@@ -27,7 +27,7 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           title="Expand left menu"
           className={cn(
             'flex h-8 w-8 items-center justify-center rounded-button bg-apple-blue',
-            'text-sm font-bold text-white transition-transform active:scale-95',
+            'text-ui-body font-bold text-white transition-transform active:scale-95',
             'cursor-pointer hover:bg-apple-blue-focus'
           )}
         >

@@ -25,18 +25,17 @@ export function AuthShellLoadingState() {
         minHeight: '100vh',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#f6f8fb',
-        color: '#172033',
+        background: '#f7f7f8',
+        color: '#1d1d1f',
         padding: '24px',
       }}
     >
       <div
         style={{
           width: 'min(100%, 420px)',
-          border: '1px solid #d8dee9',
+          border: '1px solid rgba(0, 0, 0, 0.08)',
           borderRadius: '8px',
           background: '#ffffff',
-          boxShadow: '0 18px 42px rgba(31, 41, 55, 0.08)',
           padding: '24px',
           textAlign: 'left',
         }}
@@ -44,8 +43,8 @@ export function AuthShellLoadingState() {
         <p
           style={{
             margin: 0,
-            fontSize: '18px',
-            fontWeight: 700,
+            fontSize: '15px',
+            fontWeight: 600,
             lineHeight: 1.35,
           }}
         >
@@ -54,8 +53,8 @@ export function AuthShellLoadingState() {
         <p
           style={{
             margin: '10px 0 0',
-            color: '#516070',
-            fontSize: '14px',
+            color: '#424245',
+            fontSize: '13px',
             lineHeight: 1.55,
           }}
         >
@@ -67,13 +66,13 @@ export function AuthShellLoadingState() {
           style={{
             display: 'inline-flex',
             marginTop: '16px',
-            minHeight: '36px',
+            minHeight: '32px',
             alignItems: 'center',
-            borderRadius: '8px',
-            background: '#0a84ff',
+            borderRadius: '6px',
+            background: '#0066cc',
             color: '#ffffff',
-            fontSize: '14px',
-            fontWeight: 700,
+            fontSize: '13px',
+            fontWeight: 500,
             padding: '0 14px',
             textDecoration: 'none',
           }}
