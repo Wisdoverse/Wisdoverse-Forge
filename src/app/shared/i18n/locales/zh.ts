@@ -78,6 +78,11 @@ export const zh: TranslationKeys = {
     logout: '退出登录',
     profile: '个人资料',
     admin: '管理',
+    groups: {
+      workspace: '工作区',
+      projects: '项目',
+      manage: '管理',
+    },
   },
 
   // =========================================================================

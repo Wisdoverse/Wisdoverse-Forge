@@ -35,18 +35,18 @@
   --color-border-default: var(--primitive-alpha-white-15); /* Default borders */
   --color-border-subtle: var(--primitive-alpha-white-10); /* Subtle borders */
   --color-border-strong: var(--primitive-alpha-white-20); /* Emphasized borders */
-  --color-border-focus: var(--primitive-violet-500); /* Focus ring */
+  --color-border-focus: #2997ff;
 
   /* -----------------------------------------------------------------------------
      Accent Colors (Brand)
      ----------------------------------------------------------------------------- */
-  --color-accent: var(--primitive-violet-400);
-  --color-accent-hover: var(--primitive-violet-300);
-  --color-accent-active: var(--primitive-violet-500);
-  --color-accent-subtle: rgba(167, 139, 250, 0.15);
-  --color-accent-subtle-hover: rgba(167, 139, 250, 0.25);
-  --color-accent-text: var(--primitive-violet-400);
-  --color-accent-border: rgba(167, 139, 250, 0.4);
+  --color-accent: #2997ff;
+  --color-accent-hover: #55aeff;
+  --color-accent-active: #0071e3;
+  --color-accent-subtle: rgba(41, 151, 255, 0.15);
+  --color-accent-subtle-hover: rgba(41, 151, 255, 0.25);
+  --color-accent-text: #2997ff;
+  --color-accent-border: rgba(41, 151, 255, 0.4);
 
   /* -----------------------------------------------------------------------------
      Status Colors
@@ -78,8 +78,8 @@
   /* -----------------------------------------------------------------------------
      Interactive Elements
      ----------------------------------------------------------------------------- */
-  --color-link: var(--primitive-violet-400);
-  --color-link-hover: var(--primitive-violet-300);
+  --color-link: #2997ff;
+  --color-link-hover: #55aeff;
 
   /* -----------------------------------------------------------------------------
      Form Elements
@@ -87,7 +87,7 @@
   --color-input-bg: var(--primitive-gray-800);
   --color-input-border: var(--primitive-alpha-white-15);
   --color-input-border-hover: var(--primitive-alpha-white-20);
-  --color-input-border-focus: var(--primitive-violet-500);
+  --color-input-border-focus: #2997ff;
   --color-input-placeholder: var(--primitive-alpha-white-40);
 
   /* -----------------------------------------------------------------------------

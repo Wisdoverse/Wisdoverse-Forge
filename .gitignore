@@ -59,6 +59,7 @@ cli/af
 .claude.local.md
 .codex
 .playwright-mcp/
+.ui-qa/
 coverage/
 .remember/
 docs/superpowers/

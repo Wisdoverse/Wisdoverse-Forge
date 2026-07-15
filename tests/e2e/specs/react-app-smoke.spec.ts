@@ -1414,11 +1414,11 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
     })
 
-    test('Board button has active gradient style by default', async ({ page }) => {
+    test('Board button has active neutral fill by default', async ({ page }) => {
       const topBar = page.locator('[data-testid="top-bar"]')
       const boardBtn = topBar.getByRole('button', { name: 'Board' })
       const classes = await boardBtn.getAttribute('class')
-      expect(classes).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      expect(classes).toMatch(/(^|\s)bg-black\/\[0\.06\]($|\s)/)
     })
 
     test('switching to List makes List button active', async ({ page }) => {
@@ -1428,11 +1428,11 @@ test.describe('React App Smoke Tests', () => {
       await listBtn.click()
 
       const listClasses = await listBtn.getAttribute('class')
-      expect(listClasses).toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      expect(listClasses).toMatch(/(^|\s)bg-black\/\[0\.06\]($|\s)/)
 
       // Board should no longer have active style
       const boardClasses = await boardBtn.getAttribute('class')
-      expect(boardClasses).not.toMatch(/(^|\s)bg-apple-blue($|\s)/)
+      expect(boardClasses).not.toMatch(/(^|\s)bg-black\/\[0\.06\]($|\s)/)
     })
   })
 

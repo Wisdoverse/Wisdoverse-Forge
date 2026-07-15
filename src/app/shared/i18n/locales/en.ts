@@ -77,6 +77,11 @@ export const en = {
     logout: 'Logout',
     profile: 'Profile',
     admin: 'Admin',
+    groups: {
+      workspace: 'Workspace',
+      projects: 'Projects',
+      manage: 'Manage',
+    },
   },
 
   // =========================================================================

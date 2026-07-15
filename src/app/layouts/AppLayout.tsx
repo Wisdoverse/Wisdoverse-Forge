@@ -307,7 +307,7 @@ export function AppLayout({
   }
 
   return (
-    <div className="flex h-[100dvh] md:h-screen gap-2 p-2 overflow-hidden bg-background-light dark:bg-background-dark relative">
+    <div className="relative flex h-[100dvh] overflow-hidden bg-background-light dark:bg-background-dark md:h-screen">
       {sidebarAsOverlay && (
         <button
           type="button"
@@ -317,7 +317,7 @@ export function AppLayout({
         />
       )}
       {showSidebar && (
-        <div className={sidebarAsOverlay ? 'absolute z-30 top-2 bottom-2 left-2' : 'contents'}>
+        <div className={sidebarAsOverlay ? 'absolute inset-y-0 left-0 z-30' : 'contents'}>
           <Sidebar
             activePath={activePath}
             onNavigate={handleNavigate}
@@ -325,7 +325,7 @@ export function AppLayout({
           />
         </div>
       )}
-      <div className="flex flex-col flex-1 gap-2 min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           title={pageTitle}
           subtitle={pageSubtitle}
@@ -360,7 +360,10 @@ export function AppLayout({
             {taskCreatedMessage}
           </div>
         )}
-        <main data-testid="main-content" className="flex-1 overflow-auto rounded-panel">
+        <main
+          data-testid="main-content"
+          className="flex-1 overflow-auto bg-white dark:bg-surface-dark"
+        >
           {children}
         </main>
       </div>
@@ -370,7 +373,7 @@ export function AppLayout({
           data-testid="activity-panel-toggle"
           onClick={() => setPanelCollapsed(false)}
           aria-label="Show live task updates"
-          className="mt-2 flex h-9 items-center gap-2 self-start whitespace-nowrap rounded-full border border-black/[0.08] bg-white px-3 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-surface-dark dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+          className="m-2 flex h-8 items-center gap-2 self-start whitespace-nowrap rounded-button border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           title="Show live task updates"
         >
           <PanelRightOpen size={15} strokeWidth={2} aria-hidden="true" />
@@ -391,7 +394,7 @@ export function AppLayout({
             onClick={closeMobileDetail}
             className="absolute inset-0 z-30 bg-black/35 backdrop-blur-sm"
           />
-          <div className="absolute inset-x-2 top-[68px] bottom-2 z-40">
+          <div className="absolute inset-x-2 bottom-2 top-[60px] z-40">
             <RightPanel
               collapsed={false}
               onToggle={closeMobileDetail}

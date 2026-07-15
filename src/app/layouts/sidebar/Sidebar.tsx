@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useNavigationStore } from '@app/entities/navigation'
 import { SidebarHeader } from './SidebarHeader'
 import { OrgSwitcher } from './OrgSwitcher'
@@ -12,6 +14,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: SidebarProps) {
+  const { t } = useTranslation()
   const {
     orgs,
     selectedOrgId,
@@ -34,8 +37,7 @@ export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: Side
     <nav
       data-testid="sidebar"
       className={cn(
-        'flex flex-shrink-0 flex-col overflow-hidden py-2 transition-all duration-300 ease-out',
-        'rounded-panel border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-surface-dark',
+        'flex flex-shrink-0 flex-col overflow-hidden border-r border-black/[0.08] bg-background-light py-2 transition-all duration-300 ease-out dark:border-white/[0.1] dark:bg-background-dark',
         sidebarExpanded ? 'w-[240px]' : 'w-[52px]'
       )}
     >
@@ -46,6 +48,9 @@ export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: Side
       )}
 
       <div className={sidebarExpanded ? 'mt-1' : 'mt-2'}>
+        {sidebarExpanded && (
+          <p className={cn(uiStyles.groupLabel, 'px-4')}>{t('nav.groups.workspace')}</p>
+        )}
         <SidebarNav
           expanded={sidebarExpanded}
           activePath={activePath}
@@ -56,11 +61,7 @@ export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: Side
 
       {sidebarExpanded ? (
         <>
-          <div className="h-px bg-black/[0.06] dark:bg-white/[0.06] mx-3 my-2" />
-
-          <div className="px-4 pb-1 text-ui-caption font-medium uppercase text-secondary-light dark:text-secondary-dark">
-            Projects
-          </div>
+          <p className={cn(uiStyles.groupLabel, 'mt-4 px-4')}>{t('nav.groups.projects')}</p>
 
           <div className="flex-1 overflow-y-auto min-h-0 pb-2">
             <ProjectTree
@@ -79,7 +80,7 @@ export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: Side
             />
           </div>
 
-          <div className="h-px bg-black/[0.06] dark:bg-white/[0.06] mx-3 my-1" />
+          <p className={cn(uiStyles.groupLabel, 'px-4 pt-2')}>{t('nav.groups.manage')}</p>
         </>
       ) : (
         <div className="flex-1" />

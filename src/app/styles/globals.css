@@ -4,20 +4,20 @@
 
 @layer base {
   :root {
-    --background: 245 245 247;
+    --background: 247 247 248;
     --foreground: 29 29 31;
     --surface: 255 255 255;
     --secondary: 122 122 122;
     --border: 0 0 0 / 0.08;
     --ring: 0 113 227;
-    --radius: 18px;
+    --radius: 8px;
     color-scheme: light;
   }
 
   .dark {
-    --background: 37 37 39;
-    --foreground: 255 255 255;
-    --surface: 42 42 44;
+    --background: 28 28 30;
+    --foreground: 245 245 247;
+    --surface: 35 35 38;
     --secondary: 204 204 204;
     --border: 255 255 255 / 0.1;
     --ring: 41 151 255;

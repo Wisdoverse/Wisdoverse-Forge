@@ -118,7 +118,7 @@ export function ChatComposer({
             onClick={handleClickSend}
             className={cn(
               'rounded-lg px-3 py-2 text-xs font-medium text-white',
-              'bg-gradient-to-br from-apple-blue to-apple-purple',
+              'bg-apple-blue',
               sendDisabled && 'cursor-not-allowed opacity-50'
             )}
           >

@@ -148,21 +148,21 @@ export function SidebarNav({
         aria-label={accessibleLabel}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'relative flex items-center gap-2.5 rounded-lg transition-colors',
+          'relative flex items-center gap-2.5 rounded-button text-ui-body transition-colors',
           expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
           active
-            ? 'bg-apple-blue/10 text-apple-blue shadow-[inset_0_0_0_1px_rgba(0,102,204,0.24)]'
-            : 'text-foreground-light/80 dark:text-foreground-dark/80 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-foreground-light dark:hover:text-foreground-dark'
+            ? 'rounded-button bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+            : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
         )}
         title={accessibleLabel}
       >
         <Icon size={16} strokeWidth={2} className="flex-shrink-0" />
-        {expanded && <span className="truncate text-ui-body font-medium">{label}</span>}
+        {expanded && <span className="truncate font-medium">{label}</span>}
         {badgeCount > 0 && (
           <span
             data-testid="context-approval-nav-badge"
             className={cn(
-              'min-w-5 h-5 px-1.5 rounded-full bg-apple-blue text-white text-ui-caption font-semibold leading-5 text-center',
+              'h-5 min-w-5 rounded-button bg-black/[0.05] px-1.5 text-center text-ui-caption font-medium leading-5 text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark',
               expanded ? 'ml-auto' : 'absolute -right-1 -top-1'
             )}
           >
@@ -204,14 +204,14 @@ export function SidebarNav({
         onClick={handleLogout}
         aria-label="Logout: sign out of Forge"
         className={cn(
-          'flex items-center gap-2.5 rounded-lg transition-colors',
+          'flex items-center gap-2.5 rounded-button text-ui-body transition-colors',
           expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
           'text-foreground-light/80 dark:text-foreground-dark/80 hover:bg-red-500/10 hover:text-red-500'
         )}
         title="Logout: sign out of Forge"
       >
         <LogOut size={16} strokeWidth={2} className="flex-shrink-0" />
-        {expanded && <span className="truncate text-ui-body font-medium">{t('nav.logout')}</span>}
+        {expanded && <span className="truncate font-medium">{t('nav.logout')}</span>}
       </button>
     </div>
   )

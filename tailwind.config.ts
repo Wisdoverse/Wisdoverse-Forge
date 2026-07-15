@@ -13,7 +13,6 @@ const config: Config = {
           green: '#30D158',
           orange: '#FF9F0A',
           red: '#FF453A',
-          purple: '#5856D6',
           gray: {
             1: '#8E8E93',
             2: '#AEAEB2',
@@ -31,12 +30,12 @@ const config: Config = {
           parchment: '#F5F5F7',
         },
         'surface-dark': {
-          DEFAULT: 'rgba(39, 39, 41, 0.84)',
-          elevated: 'rgba(42, 42, 44, 0.92)',
+          DEFAULT: '#232326',
+          elevated: '#2A2A2C',
         },
         background: {
-          light: '#F5F5F7',
-          dark: '#252527',
+          light: '#F7F7F8',
+          dark: '#1C1C1E',
         },
         foreground: {
           light: '#1D1D1F',
@@ -48,9 +47,9 @@ const config: Config = {
         },
       },
       borderRadius: {
-        card: '18px',
-        panel: '18px',
-        button: '8px',
+        card: '8px',
+        panel: '8px',
+        button: '6px',
         badge: '9999px',
       },
       fontFamily: {
@@ -68,10 +67,11 @@ const config: Config = {
         mono: ['SF Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       fontSize: {
-        'ui-title': ['17px', { lineHeight: '22px', letterSpacing: '0' }],
-        'ui-section': ['15px', { lineHeight: '20px', letterSpacing: '0' }],
-        'ui-body': ['14px', { lineHeight: '20px', letterSpacing: '0' }],
-        'ui-button': ['14px', { lineHeight: '18px', letterSpacing: '0' }],
+        'ui-doc-title': ['24px', { lineHeight: '30px', letterSpacing: '-0.01em' }],
+        'ui-title': ['15px', { lineHeight: '20px', letterSpacing: '0' }],
+        'ui-section': ['14px', { lineHeight: '20px', letterSpacing: '0' }],
+        'ui-body': ['13px', { lineHeight: '18px', letterSpacing: '0' }],
+        'ui-button': ['13px', { lineHeight: '16px', letterSpacing: '0' }],
         'ui-caption': ['12px', { lineHeight: '16px', letterSpacing: '0' }],
         'ui-metric': ['20px', { lineHeight: '24px', letterSpacing: '0' }],
       },
