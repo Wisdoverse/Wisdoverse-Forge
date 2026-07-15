@@ -4,7 +4,11 @@ import '@app/i18n'
 import { SidebarNav } from '@app/layouts/sidebar/SidebarNav'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { useContextStore } from '@app/features/context/model/context.store'
+import { useAgentsStore } from '@app/entities/agent'
+import { useNavigationStore } from '@app/entities/navigation'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
+import { useSkillsStore } from '@app/entities/skill'
 
 const navigateMock = vi.fn()
 const logoutMock = vi.fn()
@@ -44,14 +48,32 @@ beforeEach(() => {
     loading: false,
   })
   useContextStore.getState().reset()
-  useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
+  useAgentsStore.getState().reset()
+  useNavigationStore.getState().reset()
+  useBoardStore.getState().reset()
+  useSkillsStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    providers: [],
+    runtimeSettings: null,
+  })
 })
 
 afterEach(() => {
   cleanup()
   useContextFeaturesStore.getState().reset()
   useContextStore.getState().reset()
-  useSettingsStore.setState({ preferences: null, preferencesLoaded: false })
+  useAgentsStore.getState().reset()
+  useNavigationStore.getState().reset()
+  useBoardStore.getState().reset()
+  useSkillsStore.getState().reset()
+  useSettingsStore.setState({
+    preferences: null,
+    preferencesLoaded: false,
+    providers: [],
+    runtimeSettings: null,
+  })
 })
 
 describe('SidebarNav', () => {
@@ -66,6 +88,7 @@ describe('SidebarNav', () => {
     expect(
       screen.getByRole('button', { name: /setup checklist: follow the setup checklist/i })
     ).toBeInTheDocument()
+    expect(screen.getByTestId('setup-checklist-nav-badge')).toHaveTextContent('0/8')
     expect(
       screen.getByRole('button', { name: /tasks: see tasks and check progress/i })
     ).toHaveAttribute('aria-current', 'page')

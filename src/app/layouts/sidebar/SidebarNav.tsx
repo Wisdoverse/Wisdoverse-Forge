@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import type { ComponentType, SVGProps } from 'react'
@@ -21,8 +21,16 @@ import { cn } from '@app/shared/lib/utils'
 import { useAuth } from '@app/shared/model/auth.context'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { useContextStore } from '@app/features/context'
+import { useAgentsStore } from '@app/entities/agent'
+import { useNavigationStore } from '@app/entities/navigation'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
+import { useSkillsStore } from '@app/entities/skill'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
+import {
+  getGettingStartedProgress,
+  summarizeGettingStartedTasks,
+} from '@app/shared/lib/gettingStartedProgress'
 import { useTheme } from '@app/shared/model/theme.context'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
@@ -134,6 +142,33 @@ export function SidebarNav({
   // Start is beginner-default. Only an explicit skip/completion preference
   // hides it from the sidebar.
   const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
+  const teams = useNavigationStore((s) => s.teams)
+  const projectsByTeam = useNavigationStore((s) => s.projects)
+  const agentGroups = useNavigationStore((s) => s.agentGroups)
+  const agents = useAgentsStore((s) => s.agents)
+  const providers = useSettingsStore((s) => s.providers)
+  const runtimeSettings = useSettingsStore((s) => s.runtimeSettings)
+  const skills = useSkillsStore((s) => s.skills)
+  const boardColumns = useBoardStore((s) => s.columns)
+  const selectedGroupId = useBoardStore((s) => s.selectedGroupId)
+  const projects = useMemo(() => Object.values(projectsByTeam).flat(), [projectsByTeam])
+  const tasks = useMemo(() => Object.values(boardColumns).flat(), [boardColumns])
+  const taskSnapshot = useMemo(() => summarizeGettingStartedTasks(tasks), [tasks])
+  const checklistProgress = getGettingStartedProgress({
+    hasWorkspace: teams.length > 0 && projects.length > 0,
+    runtimeReady: Boolean(
+      runtimeSettings &&
+      runtimeSettings.availableRuntimes.length > 0 &&
+      runtimeSettings.availableCliTools.length > 0
+    ),
+    executionCredentialReady:
+      providers.some((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ||
+      agents.some((agent) => agent.cliTool),
+    hasAgent: agents.length > 0,
+    hasRouting: Boolean(selectedGroupId ?? agentGroups[0]?.id),
+    taskSnapshot,
+    hasReusableLearning: skills.length > 0 || taskSnapshot.appliedSkills > 0,
+  })
 
   const handleLogout = useCallback(() => {
     authManager.logout()
@@ -143,9 +178,12 @@ export function SidebarNav({
   function renderItem(item: NavItem) {
     const active = activePath.startsWith(item.path)
     const label = t(item.labelKey)
-    const accessibleLabel = `${label}: ${item.description}`
     const Icon = item.Icon
     const badgeCount = item.id === 'context' ? pendingContextCount : 0
+    const showChecklistBadge =
+      item.id === 'start' && checklistProgress.completeCount < checklistProgress.total
+    const checklistLabel = `${checklistProgress.completeCount}/${checklistProgress.total}`
+    const accessibleLabel = `${label}: ${item.description}${showChecklistBadge ? `. ${checklistLabel}` : ''}`
     return (
       <button
         key={item.id}
@@ -173,6 +211,17 @@ export function SidebarNav({
             )}
           >
             {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
+        {showChecklistBadge && (
+          <span
+            data-testid="setup-checklist-nav-badge"
+            className={cn(
+              'h-5 min-w-5 rounded-button bg-black/[0.05] px-1.5 text-center text-ui-caption font-medium leading-5 tabular-nums text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark',
+              expanded ? 'ml-auto' : 'absolute -right-1 -top-1'
+            )}
+          >
+            {checklistLabel}
           </span>
         )}
       </button>

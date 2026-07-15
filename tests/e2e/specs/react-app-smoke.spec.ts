@@ -680,8 +680,13 @@ test.describe('React App Smoke Tests', () => {
       await page.waitForURL('**/inbox')
 
       await expect(page.getByText('No updates yet')).toBeVisible({ timeout: 5000 })
+      const actionPath = page.getByTestId('inbox-action-path')
+      await actionPath.getByRole('button', { name: 'Inbox action order', exact: true }).click()
       await expect(
-        page.getByText('Next: start a task or wait for an agent update, then open Inbox again.')
+        actionPath.getByText(
+          'Next: start a task or wait for an agent update, then open Inbox again.',
+          { exact: true }
+        )
       ).toBeVisible()
       await screenshot(page, '24-inbox-empty')
     })
@@ -1243,8 +1248,13 @@ test.describe('React App Smoke Tests', () => {
 
       // Default Zustand state has no notifications
       await expect(page.getByText('No updates yet')).toBeVisible({ timeout: 5000 })
+      const actionPath = page.getByTestId('inbox-action-path')
+      await actionPath.getByRole('button', { name: 'Inbox action order', exact: true }).click()
       await expect(
-        page.getByText('Next: start a task or wait for an agent update, then open Inbox again.')
+        actionPath.getByText(
+          'Next: start a task or wait for an agent update, then open Inbox again.',
+          { exact: true }
+        )
       ).toBeVisible()
       await screenshot(page, '38-inbox-default')
     })
@@ -1253,17 +1263,12 @@ test.describe('React App Smoke Tests', () => {
   // 28. Deep Linking / Direct URL ────────────────────────────────────────────
 
   test.describe('28. Client-Side Routing', () => {
-    test('root URL / opens Start until the setup checklist is dismissed', async ({
-      page,
-      baseURL,
-    }) => {
-      // The `/` index route sends first-time users to Start. Tests that need
-      // Tasks navigate directly so the setup checklist does not hide the board.
+    test('root URL / always opens Tasks for authenticated users', async ({ page, baseURL }) => {
       await injectAuth(page, baseURL!)
       await gotoAndWaitForAppReady(page, baseURL!, '/')
 
-      await page.waitForURL('**/start')
-      expect(page.url()).toContain('/start')
+      await page.waitForURL('**/tasks')
+      expect(page.url()).toContain('/tasks')
     })
 
     test('navigating to each page and back preserves state', async ({ page, baseURL }) => {

@@ -13,15 +13,3 @@ export function shouldShowGuide(
 ): boolean {
   return !includesGuide(preferences?.dismissedGuides, key)
 }
-
-export function isGuideExpanded(
-  key: string,
-  preferences: GuidePreference | null | undefined,
-  isNewAccount: boolean
-): boolean {
-  return (
-    shouldShowGuide(key, preferences) &&
-    isNewAccount &&
-    !includesGuide(preferences?.collapsedGuides, key)
-  )
-}

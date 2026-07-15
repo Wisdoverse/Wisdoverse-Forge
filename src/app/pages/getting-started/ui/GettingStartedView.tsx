@@ -1,25 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import {
-  ArrowRight,
-  Activity,
-  Bot,
-  CheckCircle2,
-  Circle,
-  KeyRound,
-  Layers3,
-  ListTodo,
-  Rocket,
-  WandSparkles,
-  Users,
-} from 'lucide-react'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useNavigationStore } from '@app/entities/navigation'
-import {
-  orchestrationApi,
-  taskResultArtifacts,
-  type TaskSummary,
-} from '@app/shared/api/orchestration'
+import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
 import { agentAiServiceLabel, isHostCliAgent, useAgentsStore } from '@app/entities/agent'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
@@ -27,16 +11,10 @@ import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import { useSkillsStore } from '@app/entities/skill'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-
-type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
-
-interface TaskSnapshot {
-  total: number
-  assigned: number
-  completed: number
-  artifacts: number
-  appliedSkills: number
-}
+import {
+  getGettingStartedProgress,
+  summarizeGettingStartedTasks,
+} from '@app/shared/lib/gettingStartedProgress'
 
 interface SetupStep {
   id: string
@@ -47,7 +25,6 @@ interface SetupStep {
   complete: boolean
   path: string
   cta: string
-  Icon: IconComponent
 }
 
 export function GettingStartedView() {
@@ -95,7 +72,7 @@ export function GettingStartedView() {
   const taskGroupId = selectedGroupId ?? agentGroups[0]?.id ?? null
   const localTasks = useMemo(() => Object.values(boardColumns).flat(), [boardColumns])
   const taskSnapshot = useMemo(
-    () => summarizeTasks([...localTasks, ...loadedTasks]),
+    () => summarizeGettingStartedTasks([...localTasks, ...loadedTasks]),
     [loadedTasks, localTasks]
   )
   const firstAgent = useMemo(() => agents[0] ?? null, [agents])
@@ -128,6 +105,29 @@ export function GettingStartedView() {
     teams[0]?.name ??
     t('gettingStarted.steps.workspace.empty')
   const hasReusableLearning = skills.length > 0 || taskSnapshot.appliedSkills > 0
+  const checklistProgress = useMemo(
+    () =>
+      getGettingStartedProgress({
+        hasWorkspace: teams.length > 0 && projects.length > 0,
+        runtimeReady,
+        executionCredentialReady,
+        hasAgent: agents.length > 0,
+        hasRouting: Boolean(taskGroupId),
+        taskSnapshot,
+        hasReusableLearning,
+      }),
+    [
+      agents.length,
+      executionCredentialReady,
+      hasReusableLearning,
+      projects.length,
+      runtimeReady,
+      taskGroupId,
+      taskSnapshot,
+      teams.length,
+    ]
+  )
+  const { completion, completeCount, total: stepCount } = checklistProgress
   const firstTaskPath = taskGroupId ? '/tasks' : selectedProject ? '/agents' : '/settings/projects'
   const firstTaskCta =
     taskSnapshot.total > 0
@@ -146,13 +146,12 @@ export function GettingStartedView() {
         detail: workspaceDetail,
         why: t('gettingStarted.steps.workspace.why'),
         success: t('gettingStarted.steps.workspace.success'),
-        complete: teams.length > 0 && projects.length > 0,
+        complete: completion.workspace,
         path: '/settings/projects',
         cta:
           teams.length > 0 && projects.length > 0
             ? t('gettingStarted.steps.workspace.review')
             : t('gettingStarted.steps.workspace.create'),
-        Icon: Users,
       },
       {
         id: 'runtime',
@@ -164,12 +163,11 @@ export function GettingStartedView() {
           : t('gettingStarted.steps.runtime.empty'),
         why: t('gettingStarted.steps.runtime.why'),
         success: t('gettingStarted.steps.runtime.success'),
-        complete: runtimeReady,
+        complete: completion.runtime,
         path: '/settings/runtime',
         cta: runtimeReady
           ? t('gettingStarted.steps.runtime.review')
           : t('gettingStarted.steps.runtime.open'),
-        Icon: Activity,
       },
       {
         id: 'provider',
@@ -188,7 +186,7 @@ export function GettingStartedView() {
               : t('gettingStarted.steps.provider.empty'),
         why: t('gettingStarted.steps.provider.why'),
         success: t('gettingStarted.steps.provider.success'),
-        complete: executionCredentialReady,
+        complete: completion.provider,
         path: executionCredentialPath,
         cta: executionCredentialReady
           ? verifiedProvider
@@ -199,7 +197,6 @@ export function GettingStartedView() {
             : runtimeReady
               ? t('gettingStarted.steps.provider.signInTool')
               : t('gettingStarted.steps.provider.create'),
-        Icon: KeyRound,
       },
       {
         id: 'agent',
@@ -207,13 +204,12 @@ export function GettingStartedView() {
         detail: firstAgent?.name ?? t('gettingStarted.steps.agent.empty'),
         why: t('gettingStarted.steps.agent.why'),
         success: t('gettingStarted.steps.agent.success'),
-        complete: agents.length > 0,
+        complete: completion.agent,
         path: '/agents',
         cta:
           agents.length > 0
             ? t('gettingStarted.steps.agent.review')
             : t('gettingStarted.steps.agent.create'),
-        Icon: Bot,
       },
       {
         id: 'routing',
@@ -226,12 +222,11 @@ export function GettingStartedView() {
               : t('gettingStarted.steps.routing.emptyWithoutProject'),
         why: t('gettingStarted.steps.routing.why'),
         success: t('gettingStarted.steps.routing.success'),
-        complete: Boolean(taskGroupId),
+        complete: completion.routing,
         path: '/agents',
         cta: taskGroupId
           ? t('gettingStarted.steps.routing.review')
           : t('gettingStarted.steps.routing.create'),
-        Icon: Layers3,
       },
       {
         id: 'task',
@@ -246,10 +241,9 @@ export function GettingStartedView() {
                 : t('gettingStarted.steps.task.emptyWithoutProject'),
         why: t('gettingStarted.steps.task.why'),
         success: t('gettingStarted.steps.task.success'),
-        complete: taskSnapshot.total > 0,
+        complete: completion.task,
         path: firstTaskPath,
         cta: firstTaskCta,
-        Icon: ListTodo,
       },
       {
         id: 'review',
@@ -262,10 +256,9 @@ export function GettingStartedView() {
               : t('gettingStarted.steps.review.empty'),
         why: t('gettingStarted.steps.review.why'),
         success: t('gettingStarted.steps.review.success'),
-        complete: taskSnapshot.completed > 0 || taskSnapshot.artifacts > 0,
+        complete: completion.review,
         path: '/tasks',
         cta: t('gettingStarted.steps.review.open'),
-        Icon: Rocket,
       },
       {
         id: 'reuse',
@@ -275,18 +268,18 @@ export function GettingStartedView() {
           : t('gettingStarted.steps.reuse.empty'),
         why: t('gettingStarted.steps.reuse.why'),
         success: t('gettingStarted.steps.reuse.success'),
-        complete: hasReusableLearning,
+        complete: completion.reuse,
         path: hasReusableLearning ? '/skills' : '/context',
         cta: hasReusableLearning
           ? t('gettingStarted.steps.reuse.open')
           : t('gettingStarted.steps.reuse.review'),
-        Icon: WandSparkles,
       },
     ],
     [
       agentGroups,
       agents,
       cliExecutionAgent,
+      completion,
       executionCredentialPath,
       executionCredentialReady,
       firstAgent,
@@ -327,16 +320,8 @@ export function GettingStartedView() {
     }
   }, [taskGroupId])
 
-  const completeCount = steps.filter((step) => step.complete).length
-  const progress = Math.round((completeCount / steps.length) * 100)
   const nextStep = steps.find((step) => !step.complete) ?? steps[steps.length - 1]
-  const NextStepIcon = nextStep.Icon
-  const setupComplete = completeCount === steps.length
-  const actionTitle = setupComplete ? t('gettingStarted.steps.task.title') : nextStep.title
-  const actionSuccess = setupComplete ? t('gettingStarted.steps.task.success') : nextStep.success
-  const actionPath = setupComplete ? '/tasks' : nextStep.path
-  const actionCta = setupComplete ? t('gettingStarted.readyCta') : nextStep.cta
-  const ActionIcon = setupComplete ? ListTodo : NextStepIcon
+  const setupComplete = completeCount === stepCount
   const completedSteps = steps.filter((step) => step.complete)
   const laterSteps = setupComplete
     ? []
@@ -378,101 +363,37 @@ export function GettingStartedView() {
       data-testid="page-start"
       className="min-h-full overflow-y-auto bg-background-light px-4 py-5 dark:bg-background-dark sm:px-6"
     >
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-surface-dark">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-ui-caption font-semibold uppercase tracking-[0.08em] text-apple-blue">
-                {t('gettingStarted.eyebrow')}
-              </p>
-              <h2 className="mt-1 text-ui-doc-title text-foreground-light dark:text-foreground-dark">
-                {t('gettingStarted.title')}
-              </h2>
-              <p className="mt-1 max-w-2xl text-ui-body text-secondary-light dark:text-secondary-dark">
-                {t('gettingStarted.description')}
-              </p>
-              <button
-                type="button"
-                data-testid="getting-started-skip"
-                onClick={skipGuide}
-                disabled={skipSaving}
-                className="mt-2 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none disabled:cursor-wait disabled:opacity-60 dark:text-secondary-dark dark:hover:text-foreground-dark"
-              >
-                {skipSaving ? t('gettingStarted.skipSaving') : t('gettingStarted.skip')}
-              </button>
-              <p className="mt-1 max-w-2xl text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {t('gettingStarted.skipHint')}
-              </p>
-              {skipError && (
-                <p
-                  role="alert"
-                  aria-live="polite"
-                  className="mt-2 text-ui-caption font-medium text-apple-red"
-                >
-                  {skipError}
-                </p>
-              )}
-            </div>
-            <div className="shrink-0 rounded-card border border-black/[0.08] px-4 py-3 text-right dark:border-white/[0.1]">
-              <p className="text-ui-metric font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
-                {progress}%
-              </p>
-              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {t('gettingStarted.progressCount', {
-                  complete: completeCount,
-                  total: steps.length,
-                })}
-              </p>
-            </div>
-          </div>
-          {!setupComplete && (
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
-              <div
-                className="h-full rounded-full bg-apple-blue"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-surface-dark">
-          <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            {setupComplete ? t('gettingStarted.readyTitle') : t('gettingStarted.nextTitle')}
-          </p>
-          <p className="mt-1 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-            {actionTitle}
-          </p>
-          <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-            {setupComplete ? t('gettingStarted.readyDetail') : nextStep.why}
-          </p>
-          <div className="mt-3 rounded-card bg-black/[0.035] px-3 py-2 text-ui-caption text-secondary-light dark:bg-white/[0.05] dark:text-secondary-dark">
-            <span className="font-medium text-foreground-light dark:text-foreground-dark">
-              {t('gettingStarted.successLabel')}
-            </span>{' '}
-            {actionSuccess}
-          </div>
+      <header className="rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-surface-dark">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="min-w-0 text-ui-doc-title text-foreground-light dark:text-foreground-dark">
+            {t('gettingStarted.title')}
+          </h2>
+          <span
+            data-testid="getting-started-progress"
+            className="rounded-button bg-black/[0.05] px-2 py-1 text-ui-caption font-medium tabular-nums text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark"
+          >
+            {completeCount}/{stepCount}
+          </span>
           <button
             type="button"
-            onClick={() => go(actionPath)}
-            className={cn(
-              uiStyles.primaryButton,
-              'mt-4 w-full transition-transform active:scale-95'
-            )}
+            data-testid="getting-started-skip"
+            onClick={skipGuide}
+            disabled={skipSaving}
+            className="ml-auto text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-foreground-light hover:underline focus-visible:underline focus-visible:outline-none disabled:cursor-wait disabled:opacity-60 dark:text-secondary-dark dark:hover:text-foreground-dark"
           >
-            <ActionIcon width={14} height={14} aria-hidden="true" />
-            {actionCta}
-            <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
+            {skipSaving ? t('gettingStarted.skipSaving') : t('gettingStarted.skip')}
           </button>
-          <div className="mt-4 border-t border-black/[0.06] pt-3 dark:border-white/[0.08]">
-            <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              {t('gettingStarted.currentProject')}
-            </p>
-            <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-              {selectedProject?.name ?? t('gettingStarted.noProject')}
-            </p>
-          </div>
         </div>
-      </section>
+        {skipError && (
+          <p
+            role="alert"
+            aria-live="polite"
+            className="mt-2 text-ui-caption font-medium text-apple-red"
+          >
+            {skipError}
+          </p>
+        )}
+      </header>
 
       <section className="mt-4 grid gap-3">
         {!setupComplete && (
@@ -484,15 +405,16 @@ export function GettingStartedView() {
           />
         )}
         {completedSteps.length > 0 && (
-          <CompactSetupStepList
+          <SetupStepGroup
             title={t('gettingStarted.completedStepsTitle')}
             steps={completedSteps}
             allSteps={steps}
             testId="getting-started-completed-steps"
+            collapsed
           />
         )}
         {laterSteps.length > 0 && (
-          <CompactSetupStepList
+          <SetupStepGroup
             title={t('gettingStarted.laterStepsTitle')}
             steps={laterSteps}
             allSteps={steps}
@@ -502,31 +424,6 @@ export function GettingStartedView() {
       </section>
     </div>
   )
-}
-
-function summarizeTasks(tasks: TaskSummary[]): TaskSnapshot {
-  const byId = new Map<string, TaskSummary>()
-  for (const task of tasks) byId.set(task.id, task)
-
-  let assigned = 0
-  let completed = 0
-  let artifacts = 0
-  let appliedSkills = 0
-
-  for (const task of byId.values()) {
-    if (task.assignedTo || task.assignedAgentName) assigned += 1
-    if (task.state === 'completed') completed += 1
-    artifacts += taskResultArtifacts(task.result).length
-    appliedSkills += task.contextCounts?.appliedSkills ?? 0
-  }
-
-  return {
-    total: byId.size,
-    assigned,
-    completed,
-    artifacts,
-    appliedSkills,
-  }
 }
 
 function workLocationLabel(runtime: string, t: (key: string) => string): string {
@@ -559,8 +456,6 @@ function SetupStepItem({
   onNavigate: (path: string) => void
 }) {
   const { t } = useTranslation()
-  const StatusIcon = step.complete ? CheckCircle2 : Circle
-  const Icon = step.Icon
   const statusLabel = step.complete
     ? t('gettingStarted.stepStatus.done')
     : isNext
@@ -570,50 +465,43 @@ function SetupStepItem({
   return (
     <article
       data-testid="getting-started-expanded-step"
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark sm:flex-row sm:items-center sm:gap-4"
+      className="rounded-card border border-black/[0.08] bg-white px-4 py-3 dark:border-white/[0.1] dark:bg-surface-dark"
     >
-      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center sm:gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-          <Icon size={18} strokeWidth={2} aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <StatusIcon
-              size={16}
-              strokeWidth={2.25}
-              className={
-                step.complete ? 'text-apple-green' : 'text-secondary-light dark:text-secondary-dark'
-              }
-              aria-hidden="true"
-            />
-            <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
-                {index + 1}.
-              </span>
-              {step.title}
-            </h3>
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 shrink-0 rounded-full',
-                  step.complete
-                    ? 'bg-apple-green'
-                    : isNext
-                      ? 'bg-apple-blue'
-                      : 'bg-secondary-light/60 dark:bg-secondary-dark/60'
-                )}
-              />
-              {statusLabel}
-            </span>
-          </div>
-          <p className="mt-1 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
-            {step.detail}
-          </p>
-          {isNext && (
-            <p className="mt-1 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              {step.why}
-            </p>
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'mt-1.5 h-2 w-2 shrink-0 rounded-full',
+            step.complete
+              ? 'bg-apple-green'
+              : isNext
+                ? 'bg-apple-blue'
+                : 'bg-secondary-light/60 dark:bg-secondary-dark/60'
           )}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
+                  {index + 1}.
+                </span>
+                {step.title}
+                <span className="sr-only"> — {statusLabel}</span>
+              </h3>
+              <p className="mt-0.5 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
+                {step.detail}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate(step.path)}
+              className={cn(uiStyles.primaryButton, 'w-full shrink-0 px-4 sm:w-auto')}
+            >
+              <span>{step.cta}</span>
+              <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+          </div>
           <PreferenceGuideDisclosure
             guideKey={`getting-started-${step.id}-success`}
             icon={<CheckCircle2 />}
@@ -625,92 +513,66 @@ function SetupStepItem({
           </PreferenceGuideDisclosure>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => onNavigate(step.path)}
-        className={cn(
-          uiStyles.primaryButton,
-          'w-full shrink-0 px-4 text-center transition-transform active:scale-95 sm:w-auto'
-        )}
-      >
-        <span>{step.cta}</span>
-        <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
-      </button>
     </article>
   )
 }
 
-function CompactSetupStepList({
+function SetupStepGroup({
   title,
   steps,
   allSteps,
   testId,
+  collapsed = false,
 }: {
   title: string
   steps: SetupStep[]
   allSteps: SetupStep[]
   testId: string
+  collapsed?: boolean
 }) {
   const { t } = useTranslation()
 
   return (
-    <section
+    <details
+      open={!collapsed}
       data-testid={testId}
-      className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
+      className="group rounded-card border border-black/[0.08] bg-white dark:border-white/[0.1] dark:bg-surface-dark"
     >
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:hidden">
+        <span className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
           {title}
-        </h3>
+        </span>
         <span className="rounded-button bg-black/[0.04] px-2.5 py-1 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
           {steps.length}
         </span>
-      </div>
-      <ol className="mt-3 divide-y divide-black/[0.06] dark:divide-white/[0.08]">
+      </summary>
+      <ol className="divide-y divide-black/[0.06] border-t border-black/[0.06] px-4 dark:divide-white/[0.08] dark:border-white/[0.08]">
         {steps.map((step) => {
-          const Icon = step.Icon
-          const StatusIcon = step.complete ? CheckCircle2 : Circle
           const statusLabel = step.complete
             ? t('gettingStarted.stepStatus.done')
             : t('gettingStarted.stepStatus.later')
           const stepNumber = allSteps.findIndex((candidate) => candidate.id === step.id) + 1
 
           return (
-            <li key={step.id} className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark">
-                <Icon size={15} strokeWidth={2} aria-hidden="true" />
-              </div>
+            <li key={step.id} className="flex min-w-0 items-start gap-3 py-3">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'mt-1.5 h-2 w-2 shrink-0 rounded-full',
+                  step.complete
+                    ? 'bg-apple-green'
+                    : 'bg-secondary-light/60 dark:bg-secondary-dark/60'
+                )}
+              />
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <StatusIcon
-                    size={14}
-                    strokeWidth={2.25}
-                    className={
-                      step.complete
-                        ? 'text-apple-green'
-                        : 'text-secondary-light dark:text-secondary-dark'
-                    }
-                    aria-hidden="true"
-                  />
-                  <p className="min-w-0 text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                    <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
-                      {stepNumber}.
-                    </span>
-                    {step.title}
-                  </p>
-                  <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 shrink-0 rounded-full',
-                        step.complete
-                          ? 'bg-apple-green'
-                          : 'bg-secondary-light/60 dark:bg-secondary-dark/60'
-                      )}
-                    />
-                    {statusLabel}
+                <p className="truncate text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                  <span className="mr-1 tabular-nums text-secondary-light dark:text-secondary-dark">
+                    {stepNumber}.
                   </span>
-                </div>
-                <p className="mt-0.5 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  {step.title}
+                  <span className="sr-only"> — {statusLabel}</span>
+                </p>
+                <p className="mt-0.5 truncate text-ui-body text-secondary-light dark:text-secondary-dark">
                   {step.detail}
                 </p>
                 <PreferenceGuideDisclosure
@@ -727,6 +589,6 @@ function CompactSetupStepList({
           )
         })}
       </ol>
-    </section>
+    </details>
   )
 }

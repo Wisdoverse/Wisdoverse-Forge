@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { isGuideExpanded, shouldShowGuide } from '@app/shared/lib/guidePreference'
-import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
+import { shouldShowGuide } from '@app/shared/lib/guidePreference'
 import { GuideDisclosure } from '@app/shared/ui/GuideDisclosure'
 import { useSettingsStore } from '../model/settings.store'
 
@@ -35,11 +34,6 @@ export function PreferenceGuideDisclosure({
       title={title}
       className={className}
       dismissible={dismissible}
-      initialExpanded={isGuideExpanded(
-        guideKey,
-        preferences,
-        shouldShowGettingStarted(preferences)
-      )}
       onCollapsedChange={setGuideCollapsed}
       onDismiss={setGuideDismissed}
     >
@@ -55,15 +49,13 @@ function LoadedPreferenceGuideDisclosure({
   children,
   className,
   dismissible,
-  initialExpanded,
   onCollapsedChange,
   onDismiss,
 }: PreferenceGuideDisclosureProps & {
-  initialExpanded: boolean
   onCollapsedChange: (key: string, collapsed: boolean) => Promise<boolean>
   onDismiss: (key: string, dismissed: boolean) => Promise<boolean>
 }) {
-  const [expanded, setExpanded] = useState(initialExpanded)
+  const [expanded, setExpanded] = useState(false)
 
   function handleToggle() {
     const nextExpanded = !expanded

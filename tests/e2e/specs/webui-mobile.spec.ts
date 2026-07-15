@@ -193,7 +193,7 @@ test.describe('Mobile WebUI', () => {
 
     await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 30_000 })
     await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
-    await expect(page).toHaveURL(/\/(tasks|start)/)
+    await expect(page).toHaveURL(/\/tasks(?:[?#]|$)/)
     await expectNoHorizontalOverflow(page)
   })
 
@@ -209,6 +209,7 @@ test.describe('Mobile WebUI', () => {
 
     await page.getByRole('button', { name: 'Open navigation' }).click()
     await page.locator('[data-testid="sidebar"]').waitFor({ state: 'visible', timeout: 5000 })
+    await expect(page.getByTestId('setup-checklist-nav-badge')).toHaveText('4/8')
     await page.locator('[data-testid="sidebar-nav-inbox"]').click()
     await page.waitForURL('**/inbox')
     await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible()

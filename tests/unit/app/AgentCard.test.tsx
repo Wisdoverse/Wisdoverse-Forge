@@ -21,14 +21,31 @@ const mockAgent: AgentInfo = {
 }
 
 describe('AgentCard', () => {
-  test('explains when a ready agent can take work', () => {
+  test('uses the status dot without a duplicate ready banner', () => {
     render(<AgentCard agent={mockAgent} />)
 
     expect(screen.getByTestId('agent-status-agent-1').textContent).toContain('Ready')
-    expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe('Ready for a new task')
+    expect(screen.queryByTestId('agent-status-help-agent-1')).toBeNull()
     expect(screen.getByText('Finished')).toBeDefined()
     expect(screen.getByText('Running')).toBeDefined()
     expect(screen.getByText('Success')).toBeDefined()
+  })
+
+  test('hides an all-zero metric group', () => {
+    render(
+      <AgentCard
+        agent={{
+          ...mockAgent,
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        }}
+      />
+    )
+
+    expect(screen.queryByText('Finished')).toBeNull()
+    expect(screen.queryByText('Running')).toBeNull()
+    expect(screen.queryByText('Success')).toBeNull()
   })
 
   test('uses action-oriented status labels', () => {
@@ -201,9 +218,7 @@ describe('AgentCard', () => {
 
     render(<AgentCard agent={providerAgent} />)
 
-    expect(screen.getByTestId('agent-status-help-provider-agent-working').textContent).toBe(
-      'Answering a message now'
-    )
+    expect(screen.queryByTestId('agent-status-help-provider-agent-working')).toBeNull()
     expect(screen.queryByText('Running a task now')).toBeNull()
   })
 
@@ -241,7 +256,7 @@ describe('AgentCard', () => {
     expect(screen.queryByText('Check this agent before sending work')).toBeNull()
   })
 
-  test('keeps current task visible while explaining working state', () => {
+  test('keeps current task visible without a duplicate working banner', () => {
     render(
       <AgentCard
         agent={{ ...mockAgent, status: 'working', tasksInProgress: 1, currentTask: 'Run tests' }}
@@ -249,7 +264,7 @@ describe('AgentCard', () => {
     )
 
     expect(screen.getByText('Run tests')).toBeDefined()
-    expect(screen.getByTestId('agent-status-help-agent-1').textContent).toBe('Running a task now')
+    expect(screen.queryByTestId('agent-status-help-agent-1')).toBeNull()
   })
 
   test('hides stale task text on working chat-only cards', () => {
@@ -271,9 +286,7 @@ describe('AgentCard', () => {
     expect(screen.getByText('Shown in Console')).toBeDefined()
     expect(screen.queryByText('Run tests')).toBeNull()
     expect(screen.queryByText('Console')).toBeNull()
-    expect(screen.getByTestId('agent-status-help-provider-agent-working').textContent).toBe(
-      'Answering a message now'
-    )
+    expect(screen.queryByTestId('agent-status-help-provider-agent-working')).toBeNull()
   })
 
   test('opens the agent detail when clicked', () => {

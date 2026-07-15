@@ -12,14 +12,13 @@ import { Route as settingsRoute, SectionRoute as settingsSectionRoute } from './
 import { Route as billingRoute } from './routes/billing'
 import { Route as adminRoute } from './routes/admin'
 import { Route as analyticsRoute } from './routes/analytics'
-import { resolveLandingPath } from './routes/landing'
 import { RouteErrorFallback } from './shared/ui/RouteErrorFallback'
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: async () => {
-    throw redirect({ to: await resolveLandingPath() })
+  beforeLoad: () => {
+    throw redirect({ to: '/tasks' })
   },
 })
 

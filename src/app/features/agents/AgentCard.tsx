@@ -78,6 +78,12 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
   const statusKey = agentStatusKey(agent.status)
   const statusLabel = agentStatusLabel(agent.status)
   const statusHelp = agentCardStatusHelp(agent.status, agent)
+  const showStatusHelp =
+    statusKey === 'offline' ||
+    !statusKey ||
+    (statusKey === 'idle' && !agent.cliTool) ||
+    (statusKey !== 'idle' && statusKey !== 'working')
+  const showMetrics = agent.tasksCompleted > 0 || agent.tasksInProgress > 0 || ratePercent > 0
   const runtimeLabel = isHostCliAgent(agent)
     ? 'This computer'
     : agent.cliTool
@@ -155,26 +161,30 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
             {currentWorkLabel}
           </p>
         )}
-        <p
-          data-testid={`agent-status-help-${agent.id}`}
-          className={cn(
-            'mt-2 rounded-md px-2 py-1 text-ui-caption',
-            statusKey === 'offline'
-              ? 'bg-apple-red/10 text-apple-red'
-              : statusKey === 'working'
-                ? 'bg-apple-blue/10 text-secondary-light dark:text-secondary-dark'
-                : 'bg-apple-green/10 text-secondary-light dark:text-secondary-dark'
-          )}
-        >
-          {statusHelp}
-        </p>
+        {showStatusHelp && (
+          <p
+            data-testid={`agent-status-help-${agent.id}`}
+            className={cn(
+              'mt-2 rounded-md px-2 py-1 text-ui-caption',
+              statusKey === 'offline'
+                ? 'bg-apple-red/10 text-apple-red'
+                : statusKey === 'working'
+                  ? 'bg-apple-blue/10 text-secondary-light dark:text-secondary-dark'
+                  : 'bg-apple-green/10 text-secondary-light dark:text-secondary-dark'
+            )}
+          >
+            {statusHelp}
+          </p>
+        )}
       </div>
 
-      <div className="hidden shrink-0 grid-cols-3 gap-3 text-right sm:grid">
-        {metrics.map((metric) => (
-          <Metric key={metric.label} value={metric.value} label={metric.label} />
-        ))}
-      </div>
+      {showMetrics && (
+        <div className="hidden shrink-0 grid-cols-3 gap-3 text-right sm:grid">
+          {metrics.map((metric) => (
+            <Metric key={metric.label} value={metric.value} label={metric.label} />
+          ))}
+        </div>
+      )}
 
       <span
         data-testid={`agent-status-${agent.id}`}

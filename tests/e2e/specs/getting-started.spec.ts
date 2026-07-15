@@ -113,6 +113,8 @@ test.describe('First-use Start checklist', () => {
       page.getByRole('heading', { name: 'Set up your first agent safely' })
     ).toBeVisible()
     const completedSteps = startPage.getByTestId('getting-started-completed-steps')
+    await expect(completedSteps).not.toHaveAttribute('open', '')
+    await completedSteps.getByText('Already done', { exact: true }).click()
     const teamAndProjectStep = completedSteps
       .getByRole('listitem')
       .filter({ hasText: /^1\.Team and project/ })
@@ -121,23 +123,22 @@ test.describe('First-use Start checklist', () => {
       name: 'Success looks like:',
       exact: true,
     })
-    await expect(successDisclosure).toHaveAttribute('aria-expanded', 'true')
-    await expect(
-      teamAndProjectStep.getByText('A team and project exist, and the project is selected.')
-    ).toBeVisible()
-    await successDisclosure.click()
     await expect(successDisclosure).toHaveAttribute('aria-expanded', 'false')
     await expect(
       teamAndProjectStep.getByText('A team and project exist, and the project is selected.')
     ).toHaveCount(0)
+    await successDisclosure.click()
+    await expect(successDisclosure).toHaveAttribute('aria-expanded', 'true')
+    await expect(
+      teamAndProjectStep.getByText('A team and project exist, and the project is selected.')
+    ).toBeVisible()
     await expect(
       completedSteps.getByRole('listitem').filter({ hasText: /^4\.Agent/ })
     ).toBeVisible()
     await expect(
       completedSteps.getByRole('listitem').filter({ hasText: /^3\.Give agents a way to work/ })
     ).toBeVisible()
-    await expect(startPage.getByText('Wisdoverse Forge').first()).toBeVisible()
-    await expect(startPage.getByText(/\d+ of \d+/).first()).toBeVisible()
+    await expect(startPage.getByTestId('getting-started-progress')).toHaveText('6/8')
   })
 
   test('agent answer setup step navigates to settings', async ({ page, baseURL }) => {
@@ -155,7 +156,9 @@ test.describe('First-use Start checklist', () => {
     const workLocationStep = startPage
       .getByTestId('getting-started-expanded-step')
       .filter({ hasText: 'Work location' })
-    await expect(workLocationStep.getByRole('heading', { name: /Work location$/ })).toBeVisible()
+    await expect(
+      workLocationStep.getByRole('heading', { name: /Work location — Next$/ })
+    ).toBeVisible()
     const actionBtn = workLocationStep.getByRole('button', {
       name: 'Choose work location',
       exact: true,
@@ -190,8 +193,9 @@ test.describe('First-use Start checklist', () => {
     await expect(page.locator('[data-testid="sidebar-nav-start"]')).toHaveCount(0)
 
     await page.goto(`${baseURL}/start`)
-    await page.waitForURL(/\/tasks/)
-    await expect(page.locator('[data-testid="page-start"]')).toHaveCount(0)
+    await waitForAppReady(page)
+    await expect(page).toHaveURL(/\/start(?:[?#]|$)/)
+    await expect(page.locator('[data-testid="page-start"]')).toBeVisible()
 
     await page.locator('[data-testid="sidebar-nav-settings"]').click({ timeout: 30000 })
     await page.waitForURL(/\/settings/)

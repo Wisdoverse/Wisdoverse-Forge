@@ -68,10 +68,10 @@ describe('ResourcesSection', () => {
     render(<ResourcesSection />)
 
     const guide = await screen.findByTestId('resource-profile-guide')
-    expect(within(guide).getByRole('button', { name: 'Before choosing a size' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    )
+    const guideToggle = within(guide).getByRole('button', { name: 'Before choosing a size' })
+    expect(guideToggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(guideToggle)
+    expect(guideToggle).toHaveAttribute('aria-expanded', 'true')
     expect(within(guide).getByText('Pick the smallest size that can finish the work')).toBeDefined()
     expect(guide.textContent).toContain('Small is the smallest size')
     expect(within(guide).getByText('Before choosing a size')).toBeDefined()
@@ -110,6 +110,13 @@ describe('ResourcesSection', () => {
     const emptyState = await screen.findByTestId('resource-profiles-empty')
     expect(within(emptyState).getByText('Ask an owner or admin to add agent sizes')).toBeDefined()
     expect(within(emptyState).queryByText('No agent sizes are available yet')).toBeNull()
+    const guideToggle = within(emptyState).getByRole('button', {
+      name: 'Next step: ask an owner or admin to open Work limits and add one agent size.',
+      exact: true,
+    })
+    expect(guideToggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(guideToggle)
+    expect(guideToggle).toHaveAttribute('aria-expanded', 'true')
     expect(
       within(emptyState).getByText(
         'Agents need at least one size before users can choose safe work capacity.'
