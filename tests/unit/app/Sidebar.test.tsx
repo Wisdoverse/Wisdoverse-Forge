@@ -5,6 +5,8 @@ import { projectApi } from '@app/entities/navigation/project'
 import { teamApi } from '@app/entities/navigation/team'
 import { useNavigationStore } from '@app/entities/navigation'
 
+const themeState = vi.hoisted(() => ({ theme: 'light', toggleTheme: vi.fn() }))
+
 vi.mock('@app/entities/navigation/team', () => ({
   teamApi: {
     getTeams: vi.fn(),
@@ -38,6 +40,10 @@ vi.mock('@app/shared/model/auth.context', () => ({
     isAuthenticated: true,
     isLoading: false,
   }),
+}))
+
+vi.mock('@app/shared/model/theme.context', () => ({
+  useTheme: () => themeState,
 }))
 
 afterEach(cleanup)

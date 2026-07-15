@@ -203,6 +203,10 @@ test.describe('Mobile WebUI', () => {
   }) => {
     await openMobile(page, baseURL!)
 
+    const searchButton = page.getByTestId('top-bar-command-search')
+    await expect(searchButton).toBeVisible()
+    await expect(searchButton).toHaveText('')
+
     await page.getByRole('button', { name: 'Open navigation' }).click()
     await page.locator('[data-testid="sidebar"]').waitFor({ state: 'visible', timeout: 5000 })
     await page.locator('[data-testid="sidebar-nav-inbox"]').click()

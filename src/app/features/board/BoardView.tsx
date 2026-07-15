@@ -18,6 +18,7 @@ import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreview
 import type { ColumnId } from '@app/shared/model/board.types'
 import type { ContextPreviewResponse } from '@shared/types/context'
 import { AssignmentReadinessPanel, type BoardWorkloadSnapshot } from './AssignmentReadinessPanel'
+import { AgentGroupSelector } from './AgentGroupSelector'
 import {
   BoardToolbar,
   type BoardAssigneeFilter,
@@ -58,6 +59,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     upsertTask,
     setSelectedTask,
     selectedGroupId,
+    setSelectedGroupId,
     loading,
     error,
     setTasks,
@@ -65,6 +67,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     setError,
   } = useBoardStore()
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
+  const agentGroups = useNavigationStore((s) => s.agentGroups)
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
   const { status: wsStatus } = useWebSocket()
   const wsStatusRef = useRef(wsStatus)
@@ -372,6 +375,14 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
           onRefresh={() => void loadParticipants(true)}
         />
         <BoardToolbar
+          taskDestinationSelector={
+            <AgentGroupSelector
+              groups={agentGroups}
+              selectedGroupId={selectedGroupId}
+              selectedProjectId={selectedProjectId}
+              onSelectGroup={setSelectedGroupId}
+            />
+          }
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
           priorityFilter={priorityFilter}

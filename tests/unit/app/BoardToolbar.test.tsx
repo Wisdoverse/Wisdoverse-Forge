@@ -41,6 +41,20 @@ function renderToolbar(overrides: Partial<Parameters<typeof BoardToolbar>[0]> = 
 }
 
 describe('BoardToolbar', () => {
+  test('places the task destination selector before the filters', () => {
+    renderToolbar({
+      taskDestinationSelector: (
+        <select aria-label="Place for new tasks">
+          <option>Default place</option>
+        </select>
+      ),
+    })
+
+    const selector = screen.getByRole('combobox', { name: 'Place for new tasks' })
+    const filters = screen.getByRole('button', { name: /^filters$/i })
+    expect(selector.compareDocumentPosition(filters) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(4)
+  })
+
   test('keeps advanced task filters collapsed until the user asks for them', () => {
     renderToolbar()
 

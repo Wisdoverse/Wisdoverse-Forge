@@ -10,7 +10,7 @@ import { useNavigationStore } from '@app/entities/navigation'
 import { useTheme } from '@app/shared/model/theme.context'
 import { useSettingsStore } from '@app/entities/settings'
 import { CommandPalette } from '@app/features/cmdk'
-import { AgentGroupSelector, TaskFormModal, type TaskProjectOption } from '@app/features/board'
+import { TaskFormModal, type TaskProjectOption } from '@app/features/board'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 
 interface AppLayoutProps {
@@ -118,7 +118,6 @@ export function AppLayout({
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
   const selectedTaskId = useBoardStore((s) => s.selectedTaskId)
   const selectedGroupId = useBoardStore((s) => s.selectedGroupId)
-  const setSelectedGroupId = useBoardStore((s) => s.setSelectedGroupId)
   const setSelectedTask = useBoardStore((s) => s.setSelectedTask)
   const upsertTask = useBoardStore((s) => s.upsertTask)
   const navTeams = useNavigationStore((s) => s.teams)
@@ -338,16 +337,6 @@ export function AppLayout({
           onCreateTask={handleNewTaskAction}
           createTaskLabel={createTaskSetup.buttonLabel}
           createTaskTitle={createTaskSetup.description}
-          agentGroupSelector={
-            isTasksPage ? (
-              <AgentGroupSelector
-                groups={agentGroups}
-                selectedGroupId={selectedGroupId}
-                selectedProjectId={selectedProjectId}
-                onSelectGroup={setSelectedGroupId}
-              />
-            ) : undefined
-          }
           onCmdK={() => setCmdkOpen(true)}
         />
         {taskCreatedMessage && (

@@ -15,6 +15,7 @@ export interface BoardFilterCounts {
 }
 
 interface BoardToolbarProps {
+  taskDestinationSelector?: ReactNode
   searchQuery: string
   onSearchQueryChange: (value: string) => void
   priorityFilter: BoardPriorityFilter
@@ -47,6 +48,7 @@ const DISPLAY_OPTIONS: { value: BoardDisplayMode; label: string; ariaLabel: stri
 ]
 
 export function BoardToolbar({
+  taskDestinationSelector,
   searchQuery,
   onSearchQueryChange,
   priorityFilter,
@@ -72,6 +74,7 @@ export function BoardToolbar({
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
+            {taskDestinationSelector}
             <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
               <span className="sr-only">Search tasks</span>
               <Search
