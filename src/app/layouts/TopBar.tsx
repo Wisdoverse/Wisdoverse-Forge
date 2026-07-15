@@ -1,8 +1,6 @@
-import type { ReactNode } from 'react'
-import { Menu, Moon, Plus, Search, Sun } from 'lucide-react'
+import { Menu, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@app/shared/lib/utils'
-import { useTheme } from '@app/shared/model/theme.context'
 import type { ViewMode } from '@app/shared/model/board.types'
 
 interface TopBarProps {
@@ -15,7 +13,6 @@ interface TopBarProps {
   onCreateTask: () => void
   createTaskLabel?: string
   createTaskTitle?: string
-  agentGroupSelector?: ReactNode
   onCmdK?: () => void
 }
 
@@ -36,15 +33,11 @@ export function TopBar({
   onCreateTask,
   createTaskLabel,
   createTaskTitle,
-  agentGroupSelector,
   onCmdK,
 }: TopBarProps) {
   const { t } = useTranslation()
-  const { theme, toggleTheme } = useTheme()
   const taskLabel = createTaskLabel ?? t('commandPalette.taskSetup.ready.buttonLabel')
   const taskTitle = createTaskTitle ?? t('commandPalette.taskSetup.ready.description')
-  const themeLabel =
-    theme === 'dark' ? t('appLayout.topBar.switchToLight') : t('appLayout.topBar.switchToDark')
   return (
     <div
       data-testid="top-bar"
@@ -96,32 +89,16 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {showTaskControls && agentGroupSelector}
-
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label={themeLabel}
-          className="flex h-11 w-11 items-center justify-center rounded-button text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
-          title={themeLabel}
-        >
-          {theme === 'dark' ? (
-            <Sun size={15} strokeWidth={2} aria-hidden="true" />
-          ) : (
-            <Moon size={15} strokeWidth={2} aria-hidden="true" />
-          )}
-        </button>
         {onCmdK && (
           <button
             type="button"
             data-testid="top-bar-command-search"
             onClick={onCmdK}
             aria-label={t('appLayout.topBar.searchLabel')}
-            className="hidden h-8 items-center gap-1.5 whitespace-nowrap rounded-button border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:bg-black/[0.03] hover:text-foreground-light active:scale-95 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark sm:flex"
+            className="flex h-8 w-8 items-center justify-center rounded-button text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light active:scale-95 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
             title={t('appLayout.topBar.searchLabel')}
           >
-            <Search size={14} strokeWidth={2} aria-hidden="true" />
-            <span>{t('appLayout.topBar.search')}</span>
+            <Search size={15} strokeWidth={2} aria-hidden="true" />
           </button>
         )}
 

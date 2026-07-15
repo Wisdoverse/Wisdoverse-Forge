@@ -468,7 +468,10 @@ interface SettingsState {
 
   // User Preference actions
   loadPreferences: () => Promise<void>
+  updatePreferences: (patch: UserPreferences) => Promise<boolean>
   setGettingStartedDismissed: (dismissed: boolean) => Promise<boolean>
+  setGuideDismissed: (key: string, dismissed: boolean) => Promise<boolean>
+  setGuideCollapsed: (key: string, collapsed: boolean) => Promise<boolean>
 }
 
 // ============================================================================
@@ -743,7 +746,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   loadPreferences: async () => {
     // One successful load per session is enough — preferences only change
-    // through setGettingStartedDismissed (which updates state itself). A
+    // through the preference actions below (which update state themselves). A
     // failed load keeps preferencesLoaded=false so later callers retry.
     const { preferencesLoaded, preferencesLoading } = get()
     if (preferencesLoaded || preferencesLoading) return
@@ -765,21 +768,19 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ preferencesLoading: false })
   },
 
-  setGettingStartedDismissed: async (dismissed) => {
-    // Optimistic: the sidebar and Getting Started page react immediately;
-    // revert if the server rejects the patch.
+  updatePreferences: async (patch) => {
+    // Optimistic: preference-backed UI reacts immediately; revert if the
+    // server rejects the patch.
     const previous = get().preferences
-    set({ preferences: { ...(previous ?? {}), gettingStartedDismissed: dismissed } })
+    set({ preferences: { ...(previous ?? {}), ...patch } })
     try {
-      const result = await getAgentApi().updateUserPreferences({
-        gettingStartedDismissed: dismissed,
-      })
+      const result = await getAgentApi().updateUserPreferences(patch)
       if (result.ok) {
         // The server returns the full merged document — treat it as authoritative.
         set({
           preferences: result.preferences ?? {
             ...(previous ?? {}),
-            gettingStartedDismissed: dismissed,
+            ...patch,
           },
           preferencesLoaded: true,
         })
@@ -790,5 +791,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
     set({ preferences: previous })
     return false
+  },
+
+  setGettingStartedDismissed: (dismissed) =>
+    get().updatePreferences({ gettingStartedDismissed: dismissed }),
+
+  setGuideDismissed: (key, dismissed) => {
+    const dismissedGuides = new Set(get().preferences?.dismissedGuides ?? [])
+    if (dismissed) dismissedGuides.add(key)
+    else dismissedGuides.delete(key)
+    return get().updatePreferences({ dismissedGuides: [...dismissedGuides] })
+  },
+
+  setGuideCollapsed: (key, collapsed) => {
+    const collapsedGuides = new Set(get().preferences?.collapsedGuides ?? [])
+    if (collapsed) collapsedGuides.add(key)
+    else collapsedGuides.delete(key)
+    return get().updatePreferences({ collapsedGuides: [...collapsedGuides] })
   },
 }))

@@ -14,6 +14,8 @@ import {
   Settings,
   LogOut,
   Shield,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { useAuth } from '@app/shared/model/auth.context'
@@ -21,6 +23,7 @@ import { useContextFeaturesStore } from '@app/entities/context/model/context-fea
 import { useContextStore } from '@app/features/context'
 import { useSettingsStore } from '@app/entities/settings'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
+import { useTheme } from '@app/shared/model/theme.context'
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
 
@@ -117,6 +120,9 @@ export function SidebarNav({
   const { authManager, user } = useAuth()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { theme, toggleTheme } = useTheme()
+  const themeLabel =
+    theme === 'dark' ? t('appLayout.topBar.switchToLight') : t('appLayout.topBar.switchToDark')
   // Mirror the backend platform-admin gate (`AdminService::require_platform_admin`,
   // #881) and the /admin route guard: only a platform admin (`users.is_admin`)
   // reaches the admin console. The flag is hydrated from `/me` (it is not in the
@@ -199,6 +205,24 @@ export function SidebarNav({
           description: 'manage team spaces, people, and app health',
           path: '/admin',
         })}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={themeLabel}
+        className={cn(
+          'flex items-center gap-2.5 rounded-button text-ui-body transition-colors',
+          expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
+          'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
+        )}
+        title={themeLabel}
+      >
+        {theme === 'dark' ? (
+          <Sun size={16} strokeWidth={2} className="flex-shrink-0" aria-hidden="true" />
+        ) : (
+          <Moon size={16} strokeWidth={2} className="flex-shrink-0" aria-hidden="true" />
+        )}
+        {expanded && <span className="truncate font-medium">{t('settings.theme')}</span>}
+      </button>
       <button
         data-testid="sidebar-nav-logout"
         onClick={handleLogout}

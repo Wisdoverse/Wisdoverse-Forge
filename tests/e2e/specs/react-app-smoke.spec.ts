@@ -213,6 +213,10 @@ test.describe('React App Smoke Tests', () => {
       await expect(topBar.getByRole('button', { name: 'List' })).toBeVisible()
       await expect(topBar.getByRole('button', { name: 'Timeline' })).toBeVisible()
       await expect(topBar.getByRole('button', { name: 'Map' })).toBeVisible()
+      await expect(topBar.getByRole('combobox', { name: 'Place for new tasks' })).toHaveCount(0)
+      await expect(
+        page.getByTestId('board-toolbar').getByRole('combobox', { name: 'Place for new tasks' })
+      ).toBeVisible()
     })
 
     test('right panel shows Activity header', async ({ page }) => {
@@ -573,7 +577,10 @@ test.describe('React App Smoke Tests', () => {
     })
 
     test('top bar search button opens command palette', async ({ page }) => {
-      await page.getByTestId('top-bar-command-search').click()
+      const searchButton = page.getByTestId('top-bar-command-search')
+      await expect(searchButton).toHaveClass(/\bh-8\b/)
+      await expect(searchButton).toHaveText('')
+      await searchButton.click()
 
       await expect(page.getByPlaceholder(/Search what you want to do/)).toBeVisible({
         timeout: 5000,
@@ -620,17 +627,18 @@ test.describe('React App Smoke Tests', () => {
       await screenshot(page, '21-settings-page')
     })
 
-    test('theme toggle button in top bar flips label', async ({ page }) => {
-      // The theme toggle now lives in the top bar (not inside Settings body)
-      // and uses `aria-label="Switch to (dark|light) mode"`.
-      const themeBtn = page.getByRole('button', { name: /Switch to (dark|light) mode/i })
+    test('theme toggle row in the sidebar flips label', async ({ page }) => {
+      const sidebar = page.getByTestId('sidebar')
+      const themeBtn = sidebar.getByRole('button', { name: /Switch to (dark|light) mode/i })
       await expect(themeBtn).toBeVisible({ timeout: 5000 })
+      await expect(themeBtn).toContainText('Theme')
       const initialLabel = await themeBtn.getAttribute('aria-label')
 
       await themeBtn.click()
       await page.waitForTimeout(300)
 
       const newLabel = await page
+        .getByTestId('sidebar')
         .getByRole('button', { name: /Switch to (dark|light) mode/i })
         .getAttribute('aria-label')
       expect(newLabel).not.toBe(initialLabel)
@@ -908,32 +916,21 @@ test.describe('React App Smoke Tests', () => {
   // 20. Theme Persistence ────────────────────────────────────────────────────
 
   test.describe('20. Theme Persistence', () => {
-    // Theme toggle lives in the Account section of SettingsLayout, not at
-    // the top of the settings page (the old SettingsView did it inline).
-    // Navigate into Account before looking for the button.
     async function openThemeToggle(page: Page) {
-      await page.locator('[data-testid="sidebar-nav-settings"]').click()
-      await page.waitForURL('**/settings')
-      // Settings page nav is route-level lazy-loaded; on a cold CDN cache the
-      // Account button is in the DOM before the click handler is wired, so a
-      // 15s default action timeout flakes. Wait for the nav container to be
-      // fully mounted, then bump the click timeout to absorb the chunk load.
-      const nav = page.locator('[data-testid="settings-desktop-nav"]')
-      await nav.waitFor({ state: 'visible', timeout: 15000 })
-      await openSettingsGroup(page, 'team and project setup')
-      await nav.getByRole('link', { name: /^Account:/ }).click({ timeout: 30000 })
+      const toggle = page
+        .getByTestId('sidebar')
+        .getByRole('button', { name: /Switch to (dark|light) mode/i })
+      await expect(toggle).toBeVisible()
+      return toggle
     }
 
     test('dark theme adds dark class to document root', async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
-      await openThemeToggle(page)
+      const themeToggle = await openThemeToggle(page)
 
       const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
       if (!isDark) {
-        await page
-          .getByRole('button', { name: /Switch to (dark mode|Dark)/i })
-          .first()
-          .click()
+        await themeToggle.click()
       }
 
       await expect
@@ -944,9 +941,9 @@ test.describe('React App Smoke Tests', () => {
 
     test('theme persists to localStorage', async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
-      await openThemeToggle(page)
+      const themeToggle = await openThemeToggle(page)
 
-      await page.getByRole('button', { name: /Switch to (dark|light) mode/i }).click()
+      await themeToggle.click()
       await page.waitForTimeout(300)
 
       const stored = await page.evaluate(() => localStorage.getItem('agentforge-theme'))

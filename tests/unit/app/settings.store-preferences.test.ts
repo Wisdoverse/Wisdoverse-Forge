@@ -127,4 +127,43 @@ describe('settings store user preferences', () => {
     expect(ok).toBe(false)
     expect(useSettingsStore.getState().preferences).toEqual({ defaultCliTool: 'claude' })
   })
+
+  test('guide actions patch the same server preferences document', async () => {
+    useSettingsStore.setState({
+      preferences: {
+        dismissedGuides: ['settings-start-here'],
+        collapsedGuides: ['agents-picker'],
+      },
+      preferencesLoaded: true,
+    })
+    agentApiMock.updateUserPreferences
+      .mockResolvedValueOnce({
+        ok: true,
+        preferences: {
+          dismissedGuides: ['settings-start-here', 'inbox-next-step'],
+          collapsedGuides: ['agents-picker'],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        preferences: {
+          dismissedGuides: ['settings-start-here', 'inbox-next-step'],
+          collapsedGuides: [],
+        },
+      })
+
+    await expect(
+      useSettingsStore.getState().setGuideDismissed('inbox-next-step', true)
+    ).resolves.toBe(true)
+    await expect(
+      useSettingsStore.getState().setGuideCollapsed('agents-picker', false)
+    ).resolves.toBe(true)
+
+    expect(agentApiMock.updateUserPreferences).toHaveBeenNthCalledWith(1, {
+      dismissedGuides: ['settings-start-here', 'inbox-next-step'],
+    })
+    expect(agentApiMock.updateUserPreferences).toHaveBeenNthCalledWith(2, {
+      collapsedGuides: [],
+    })
+  })
 })

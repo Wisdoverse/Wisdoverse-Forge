@@ -111,7 +111,7 @@ impl UserPreferencesPolicy {
 
     pub(crate) fn unknown_preference_key(key: &str) -> AppError {
         ErrorKind::Validation(format!(
-            "unknown preference key: {key} (allowed: {DEFAULT_CLI_TOOL_PREFERENCE_KEY}, {GETTING_STARTED_DISMISSED_PREFERENCE_KEY})"
+            "unknown preference key: {key} (allowed: {DEFAULT_CLI_TOOL_PREFERENCE_KEY}, {GETTING_STARTED_DISMISSED_PREFERENCE_KEY}, {DISMISSED_GUIDES_PREFERENCE_KEY}, {COLLAPSED_GUIDES_PREFERENCE_KEY})"
         ))
         .into()
     }
@@ -123,10 +123,16 @@ impl UserPreferencesPolicy {
     pub(crate) fn preference_must_be_boolean(key: &str) -> AppError {
         ErrorKind::Validation(format!("preference {key} must be a boolean")).into()
     }
+
+    pub(crate) fn preference_must_be_string_array(key: &str) -> AppError {
+        ErrorKind::Validation(format!("preference {key} must be an array of strings")).into()
+    }
 }
 
 pub(crate) const DEFAULT_CLI_TOOL_PREFERENCE_KEY: &str = "defaultCliTool";
 pub(crate) const GETTING_STARTED_DISMISSED_PREFERENCE_KEY: &str = "gettingStartedDismissed";
+pub(crate) const DISMISSED_GUIDES_PREFERENCE_KEY: &str = "dismissedGuides";
+pub(crate) const COLLAPSED_GUIDES_PREFERENCE_KEY: &str = "collapsedGuides";
 
 /// Validated PATCH body for `/users/me/preferences`.
 ///
@@ -159,6 +165,15 @@ impl UserPreferencesPatch {
                 GETTING_STARTED_DISMISSED_PREFERENCE_KEY => {
                     if !value.is_boolean() {
                         return Err(UserPreferencesPolicy::preference_must_be_boolean(key));
+                    }
+                    patch.insert(key.clone(), value.clone());
+                }
+                DISMISSED_GUIDES_PREFERENCE_KEY | COLLAPSED_GUIDES_PREFERENCE_KEY => {
+                    let Some(values) = value.as_array() else {
+                        return Err(UserPreferencesPolicy::preference_must_be_string_array(key));
+                    };
+                    if values.iter().any(|value| !value.is_string()) {
+                        return Err(UserPreferencesPolicy::preference_must_be_string_array(key));
                     }
                     patch.insert(key.clone(), value.clone());
                 }
@@ -813,10 +828,20 @@ mod tests {
         let patch = UserPreferencesPatch::parse(&json!({
             "defaultCliTool": " Codex ",
             "gettingStartedDismissed": true,
+            "dismissedGuides": ["agents-picker"],
+            "collapsedGuides": ["settings-start-here"],
         }))
         .unwrap();
 
-        assert_eq!(patch.as_value(), &json!({ "defaultCliTool": "codex", "gettingStartedDismissed": true }));
+        assert_eq!(
+            patch.as_value(),
+            &json!({
+                "defaultCliTool": "codex",
+                "gettingStartedDismissed": true,
+                "dismissedGuides": ["agents-picker"],
+                "collapsedGuides": ["settings-start-here"],
+            })
+        );
     }
 
     #[test]
@@ -851,6 +876,14 @@ mod tests {
             tool_as_number.kind,
             ErrorKind::Validation(message) if message.contains("defaultCliTool must be a string")
         ));
+
+        for body in [json!({ "dismissedGuides": "agents-picker" }), json!({ "collapsedGuides": [7] })] {
+            let err = UserPreferencesPatch::parse(&body).unwrap_err();
+            assert!(matches!(
+                err.kind,
+                ErrorKind::Validation(message) if message.contains("must be an array of strings")
+            ));
+        }
 
         let unknown_tool = UserPreferencesPatch::parse(&json!({ "defaultCliTool": "unknown-tool" })).unwrap_err();
         assert!(matches!(

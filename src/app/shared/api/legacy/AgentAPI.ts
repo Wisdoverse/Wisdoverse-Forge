@@ -1319,6 +1319,8 @@ export interface UserPreferences {
   defaultCliTool?: CliTool
   /** True once the user skipped or completed the Getting Started guide. */
   gettingStartedDismissed?: boolean
+  dismissedGuides?: string[]
+  collapsedGuides?: string[]
 }
 
 export interface UserPreferencesResponse {

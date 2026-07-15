@@ -174,8 +174,9 @@ describe('AppLayout', () => {
 
     expect(screen.getByRole('heading', { name: '任务' })).toBeDefined()
     expect(screen.getByText('创建任务，并跟进智能体进度')).toBeDefined()
-    expect(screen.getByRole('button', { name: '搜索页面和可做的事' })).toBeDefined()
-    expect(screen.getByText('搜索')).toBeDefined()
+    const searchButton = screen.getByRole('button', { name: '搜索页面和可做的事' })
+    expect(searchButton).toBeDefined()
+    expect(within(searchButton).queryByText('搜索')).toBeNull()
     expect(screen.getByRole('button', { name: '切换到深色模式' })).toBeDefined()
     expect(screen.getByRole('button', { name: '看板' })).toBeDefined()
     expect(screen.getByRole('button', { name: '列表' })).toBeDefined()
@@ -217,7 +218,8 @@ describe('AppLayout', () => {
 
     const searchButton = screen.getByTestId('top-bar-command-search')
     expect(searchButton).toHaveAccessibleName('Search pages and things to do')
-    expect(screen.getByText('Search')).toBeDefined()
+    expect(searchButton).toHaveClass('h-8', 'w-8')
+    expect(within(searchButton).queryByText('Search')).toBeNull()
 
     fireEvent.click(searchButton)
 
@@ -225,6 +227,21 @@ describe('AppLayout', () => {
     expect(
       screen.queryByPlaceholderText(new RegExp(['search', 'commands'].join('\\s+'), 'i'))
     ).toBeNull()
+  })
+
+  test('keeps the theme toggle in the sidebar above Logout', () => {
+    render(<MemoryRouter />)
+
+    const topBar = screen.getByTestId('top-bar')
+    const sidebar = screen.getByTestId('sidebar')
+    expect(within(topBar).queryByRole('button', { name: /switch to dark mode/i })).toBeNull()
+
+    const themeButton = within(sidebar).getByRole('button', { name: /switch to dark mode/i })
+    const logoutButton = within(sidebar).getByRole('button', { name: /logout: sign out of Forge/i })
+    expect(themeButton).toHaveTextContent('Theme')
+    expect(
+      themeButton.compareDocumentPosition(logoutButton) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBe(4)
   })
 
   test('command palette New task action opens the task form', async () => {
@@ -585,14 +602,18 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/governance event/i)).toBeNull()
   })
 
-  test('does not expose task queue creation from the Tasks top bar', async () => {
+  test('does not expose task destination controls from the Tasks top bar', async () => {
     seedProjectNavigation('p1')
     useNavigationStore.setState({ agentGroups: [] })
 
     render(<MemoryRouter />)
 
     expect(screen.queryByRole('button', { name: /new task queue/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /place for new tasks/i })).toBeDisabled()
+    expect(
+      within(screen.getByTestId('top-bar')).queryByRole('combobox', {
+        name: /place for new tasks/i,
+      })
+    ).toBeNull()
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
 
@@ -839,9 +860,7 @@ describe('AppLayout', () => {
     expect(createButton).toBeEnabled()
     fireEvent.click(createButton)
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(
-      'Set up a place for new tasks before saving this task.'
-    )
+    expect(alert).toHaveTextContent('Set up a place for new tasks before saving this task.')
     expect(alert.textContent).not.toContain('task queue')
     expect(mockCreateGroup).not.toHaveBeenCalled()
     expect(mockCreateTask).not.toHaveBeenCalled()

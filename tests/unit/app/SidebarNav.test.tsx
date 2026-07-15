@@ -9,6 +9,7 @@ import { useSettingsStore } from '@app/entities/settings'
 const navigateMock = vi.fn()
 const logoutMock = vi.fn()
 const authState = vi.hoisted(() => ({ role: 'admin' as string, isAdmin: true }))
+const themeState = vi.hoisted(() => ({ theme: 'light' as 'light' | 'dark', toggleTheme: vi.fn() }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
@@ -25,10 +26,15 @@ vi.mock('@app/shared/model/auth.context', () => ({
   }),
 }))
 
+vi.mock('@app/shared/model/theme.context', () => ({
+  useTheme: () => themeState,
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   authState.role = 'admin'
   authState.isAdmin = true
+  themeState.theme = 'light'
   useContextFeaturesStore.setState({
     governance: true,
     preview: false,
@@ -117,7 +123,15 @@ describe('SidebarNav', () => {
 
     expect(screen.queryByRole('button', { name: /logout: sign out of this workspace/i })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: /logout: sign out of Forge/i }))
+    const themeButton = screen.getByRole('button', { name: 'Switch to dark mode' })
+    const logoutButton = screen.getByRole('button', { name: /logout: sign out of Forge/i })
+    expect(
+      themeButton.compareDocumentPosition(logoutButton) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBe(4)
+    fireEvent.click(themeButton)
+    expect(themeState.toggleTheme).toHaveBeenCalledOnce()
+
+    fireEvent.click(logoutButton)
 
     expect(logoutMock).toHaveBeenCalledTimes(1)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/login', search: {} })
