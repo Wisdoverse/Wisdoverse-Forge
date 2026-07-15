@@ -22,7 +22,7 @@ export function AgentGroupSelector({
   const selectTitle = disabledHelp ?? 'Choose where new tasks wait.'
 
   return (
-    <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
+    <div className="hidden items-center gap-2 rounded-button border border-black/[0.08] bg-white p-0.5 pl-3 dark:border-white/[0.1] dark:bg-white/[0.06] md:flex">
       <span className="shrink-0 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
         Place for new tasks
       </span>
@@ -35,7 +35,7 @@ export function AgentGroupSelector({
         }}
         disabled={!selectedProjectId || groups.length === 0}
         className={cn(
-          'h-8 min-w-40 rounded-full bg-transparent px-3 text-ui-caption outline-none',
+          'h-8 min-w-40 rounded-button bg-transparent px-3 text-ui-caption outline-none',
           'text-foreground-light dark:text-foreground-dark',
           'disabled:cursor-not-allowed disabled:text-secondary-light dark:disabled:text-secondary-dark'
         )}

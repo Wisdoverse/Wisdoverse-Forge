@@ -2,6 +2,7 @@ import { ArrowRight, RefreshCw, UserCheck } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { ParticipantSummary } from '@app/shared/api/orchestration'
 import { agentCanTakeTask, agentHasTaskCapability } from './model/agentTaskReadiness'
 
@@ -27,10 +28,10 @@ const STATUS_LABELS: Record<ParticipantSummary['status'], string> = {
   offline: 'Not connected',
 }
 
-const STATUS_STYLES: Record<ParticipantSummary['status'], string> = {
-  available: 'bg-apple-green text-white',
-  busy: 'bg-apple-orange text-white',
-  offline: 'bg-apple-gray-2 text-white',
+const STATUS_DOTS: Record<ParticipantSummary['status'], string> = {
+  available: 'bg-apple-green',
+  busy: 'bg-apple-orange',
+  offline: 'bg-apple-gray-2',
 }
 
 export function AssignmentReadinessPanel({
@@ -70,10 +71,7 @@ export function AssignmentReadinessPanel({
     workload.review === 0
 
   return (
-    <section
-      data-testid="assignment-readiness"
-      className="rounded-lg border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-    >
+    <section data-testid="assignment-readiness" className={cn(uiStyles.card, 'px-3 py-2')}>
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-start gap-2">
           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
@@ -101,10 +99,7 @@ export function AssignmentReadinessPanel({
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {needsAgentSetup && (
-            <a
-              href="/agents"
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue/10 px-3 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-            >
+            <a href="/agents" className={uiStyles.primaryButton}>
               <span>Open Agents</span>
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </a>
@@ -119,7 +114,7 @@ export function AssignmentReadinessPanel({
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/[0.05] hover:text-foreground-light disabled:opacity-50 dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+            className={cn(uiStyles.subtleButton, 'w-8 px-0')}
             aria-label="Check agent status"
             title="Check agent status"
           >
@@ -167,7 +162,7 @@ export function AssignmentReadinessPanel({
       {!isCompactHealthy && roster.length === 0 && !loading ? (
         <div
           data-testid="assignment-readiness-empty"
-          className="mt-2 rounded-lg border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
+          className="mt-2 rounded-card border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
         >
           <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
             Connect an agent before sending work
@@ -199,18 +194,16 @@ function MetricPill({
   tone?: 'default' | 'success' | 'warn'
   testId?: string
 }) {
+  const toneDot = tone === 'success' ? 'bg-apple-green' : tone === 'warn' ? 'bg-apple-orange' : null
+
   return (
     <span
       data-testid={testId ?? `assignment-metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
-      className={cn(
-        'inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-ui-caption',
-        tone === 'success'
-          ? 'bg-apple-green/10 text-apple-green'
-          : tone === 'warn'
-            ? 'bg-apple-orange/10 text-apple-orange'
-            : 'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
-      )}
+      className="inline-flex h-7 items-center gap-1.5 rounded-full bg-black/[0.04] px-2 text-ui-caption text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark"
     >
+      {toneDot ? (
+        <span className={cn('h-1.5 w-1.5 rounded-full', toneDot)} aria-hidden="true" />
+      ) : null}
       <span className="font-semibold tabular-nums text-foreground-light dark:text-foreground-dark">
         {value}
       </span>
@@ -274,12 +267,10 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
       ? capabilities || reason
       : joinDetails(reason, capabilities)
   const statusLabel = taskCapable ? STATUS_LABELS[participant.status] : 'Questions only'
-  const statusClassName = taskCapable
-    ? STATUS_STYLES[participant.status]
-    : 'bg-apple-gray-2 text-white'
+  const statusDotClassName = taskCapable ? STATUS_DOTS[participant.status] : 'bg-apple-gray-2'
 
   return (
-    <div className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
+    <div className="flex min-w-[180px] items-center justify-between gap-2 rounded-card bg-black/[0.03] px-2.5 py-2 dark:bg-white/[0.04]">
       <div className="min-w-0">
         <p className="truncate text-ui-button font-medium text-foreground-light dark:text-foreground-dark">
           {participant.name}
@@ -289,12 +280,10 @@ function ParticipantChip({ participant }: { participant: ParticipantSummary }) {
         </p>
       </div>
       <span
-        className={cn(
-          'shrink-0 rounded-full px-2 py-0.5 text-ui-caption font-medium',
-          statusClassName
-        )}
+        className="inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
         title={reason}
       >
+        <span className={cn('h-1.5 w-1.5 rounded-full', statusDotClassName)} aria-hidden="true" />
         {statusLabel}
       </span>
     </div>

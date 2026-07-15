@@ -16,6 +16,7 @@ import {
 import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { useAgentsStore, isTaskImageCapable } from '@app/entities/agent'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { boardActionErrorMessage } from './boardErrorMessages'
 import {
   agentCanTakeTask,
@@ -450,14 +451,14 @@ export function TaskFormModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+            className="flex h-7 w-7 items-center justify-center rounded-button text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           >
             <X size={14} strokeWidth={2} />
           </button>
         </div>
 
         {projects.length === 0 ? (
-          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+          <div className="mb-4 rounded-card border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
             <div className="flex gap-2">
               <AlertTriangle
                 size={14}
@@ -476,7 +477,7 @@ export function TaskFormModal({
               <button
                 type="button"
                 onClick={onOpenProjectSettings}
-                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-button border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
                 Open project settings
               </button>
@@ -484,10 +485,7 @@ export function TaskFormModal({
           </div>
         ) : (
           <div className="mb-4">
-            <label
-              htmlFor="task-project"
-              className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-            >
+            <label htmlFor="task-project" className={uiStyles.label}>
               Project
             </label>
             <select
@@ -498,7 +496,7 @@ export function TaskFormModal({
                 void handleProjectChange(event.target.value)
               }}
               disabled={isSubmitting || selectingProject}
-              className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus disabled:opacity-60 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+              className={cn(uiStyles.select, 'w-full disabled:opacity-60')}
             >
               <option value="">Select a project…</option>
               {projectGroups.map((group) => (
@@ -513,7 +511,7 @@ export function TaskFormModal({
             </select>
             <div
               className={cn(
-                'mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-ui-caption',
+                'mt-2 flex items-center gap-2 rounded-card px-3 py-2 text-ui-caption',
                 selectedProject
                   ? 'bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
                   : 'bg-apple-orange/10 text-apple-orange'
@@ -538,7 +536,7 @@ export function TaskFormModal({
         )}
 
         {agents.length === 0 && (
-          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+          <div className="mb-4 rounded-card border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
             <div className="flex gap-2">
               <AlertTriangle
                 size={14}
@@ -555,7 +553,7 @@ export function TaskFormModal({
               <button
                 type="button"
                 onClick={onOpenAgentSetup}
-                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-button border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
                 Open Agents
               </button>
@@ -564,7 +562,7 @@ export function TaskFormModal({
         )}
 
         {agents.length > 0 && assignableAgents.length === 0 && (
-          <div className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
+          <div className="mb-4 rounded-card border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange">
             <div className="flex gap-2">
               <AlertTriangle
                 size={14}
@@ -585,7 +583,7 @@ export function TaskFormModal({
               <button
                 type="button"
                 onClick={onOpenAgentSetup}
-                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-button border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
                 Open Agents
               </button>
@@ -597,7 +595,7 @@ export function TaskFormModal({
           <div
             data-testid="task-work-lane-readiness"
             className={cn(
-              'mb-4 rounded-lg border px-3 py-3 text-ui-caption',
+              'mb-4 rounded-card border px-3 py-3 text-ui-caption',
               workLaneReady
                 ? 'border-apple-blue/20 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
                 : 'border-apple-orange/20 bg-apple-orange/10 text-apple-orange'
@@ -637,7 +635,7 @@ export function TaskFormModal({
               <button
                 type="button"
                 onClick={onOpenTaskRouting}
-                className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
+                className="mt-3 inline-flex h-8 items-center justify-center rounded-button border border-apple-orange/30 bg-white px-3 text-ui-button font-medium text-apple-orange transition-colors hover:bg-apple-orange/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-orange/35 dark:bg-white/[0.06]"
               >
                 Set up place
               </button>
@@ -650,7 +648,7 @@ export function TaskFormModal({
             ref={errorBannerRef}
             role="alert"
             aria-live="polite"
-            className="mb-4 rounded-lg bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
+            className={cn(uiStyles.error, 'text-ui-caption')}
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">{submitError}</span>
@@ -658,7 +656,7 @@ export function TaskFormModal({
                 <button
                   type="button"
                   onClick={onOpenProjectSettings}
-                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-button border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
                 >
                   Open project settings
                 </button>
@@ -667,7 +665,7 @@ export function TaskFormModal({
                 <button
                   type="button"
                   onClick={onOpenTaskRouting}
-                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-button border border-apple-red/20 bg-white/70 px-2.5 text-ui-button font-medium text-apple-red transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/35 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
                 >
                   Set up place
                 </button>
@@ -680,7 +678,7 @@ export function TaskFormModal({
           <div
             role="status"
             data-testid="task-brief-confirmation"
-            className="mb-4 rounded-lg border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange"
+            className="mb-4 rounded-card border border-apple-orange/20 bg-apple-orange/10 px-3 py-2 text-ui-caption text-apple-orange"
           >
             <p className="font-semibold">Add missing details before this task starts.</p>
             <p className="mt-0.5">
@@ -691,7 +689,7 @@ export function TaskFormModal({
         )}
 
         <form noValidate onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-4">
-          <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+          <div className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
             <button
               type="button"
               aria-expanded={taskTemplatesOpen}
@@ -732,13 +730,13 @@ export function TaskFormModal({
                       onClick={() => applyTemplate(template)}
                       aria-pressed={selectedTemplateId === template.id}
                       className={cn(
-                        'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                        'flex min-h-16 items-center gap-3 rounded-card border px-3 py-2 text-left transition-colors',
                         selectedTemplateId === template.id
-                          ? 'border-apple-blue/40 bg-apple-blue/10 text-foreground-light dark:text-foreground-dark'
+                          ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
                           : 'border-black/[0.08] bg-white text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-black/20 dark:text-foreground-dark dark:hover:bg-white/[0.07]'
                       )}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-apple-blue shadow-sm dark:bg-black/20">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-button bg-white text-apple-blue dark:bg-black/20">
                         <template.Icon size={15} strokeWidth={2.25} aria-hidden="true" />
                       </span>
                       <span className="min-w-0">
@@ -750,7 +748,7 @@ export function TaskFormModal({
                     </button>
                   ))}
                 </div>
-                <div className="mt-3 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
+                <div className="mt-3 rounded-card border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
                   <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                     A clear task has three plain-language parts
                   </div>
@@ -760,7 +758,7 @@ export function TaskFormModal({
                         key={point.label}
                         className="min-w-0 rounded-md bg-black/[0.025] px-2 py-1.5 dark:bg-white/[0.04]"
                       >
-                        <span className="block text-[10px] font-medium text-secondary-light dark:text-secondary-dark">
+                        <span className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                           {point.label}
                         </span>
                         <span className="mt-0.5 block text-ui-caption text-foreground-light dark:text-foreground-dark">
@@ -775,10 +773,7 @@ export function TaskFormModal({
           </div>
 
           <div>
-            <label
-              htmlFor="task-title"
-              className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-            >
+            <label htmlFor="task-title" className={uiStyles.label}>
               What should the agent finish?
             </label>
             <input
@@ -787,7 +782,7 @@ export function TaskFormModal({
               {...register('title', { required: 'Add a short title so the agent knows the goal.' })}
               aria-invalid={errors.title ? 'true' : undefined}
               aria-describedby={errors.title ? 'task-title-error' : 'task-title-help'}
-              className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+              className={uiStyles.input}
               placeholder="For example: Fix the login error"
               autoFocus
             />
@@ -811,10 +806,7 @@ export function TaskFormModal({
           </div>
 
           <div>
-            <label
-              htmlFor="task-description"
-              className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-            >
+            <label htmlFor="task-description" className={uiStyles.label}>
               Details the agent should know
             </label>
             <textarea
@@ -822,12 +814,12 @@ export function TaskFormModal({
               autoComplete="off"
               {...register('description')}
               rows={3}
-              className="w-full resize-none rounded-[18px] border border-black/[0.08] bg-white px-4 py-3 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+              className={cn(uiStyles.input, 'h-auto resize-none py-2')}
               placeholder="Add background, files to check, what to avoid, and how you will know it is done."
             />
             <div
               data-testid="task-brief-checklist"
-              className="mt-2 rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
+              className="mt-2 rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]"
             >
               <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 Make this task easy to start
@@ -839,14 +831,14 @@ export function TaskFormModal({
                     data-testid={`task-brief-cue-${cue.id}`}
                     className="flex items-start gap-2 rounded-md bg-white px-2 py-1.5 dark:bg-black/20"
                   >
-                    <span
-                      className={cn(
-                        'mt-0.5 inline-flex h-5 min-w-12 items-center justify-center rounded-full px-2 text-[10px] font-semibold',
-                        cue.ready
-                          ? 'bg-apple-blue/10 text-apple-blue'
-                          : 'bg-apple-orange/10 text-apple-orange'
-                      )}
-                    >
+                    <span className="mt-0.5 inline-flex h-5 min-w-12 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          cue.ready ? 'bg-apple-blue' : 'bg-apple-orange'
+                        )}
+                        aria-hidden="true"
+                      />
                       {cue.ready ? 'Ready' : 'Add'}
                     </span>
                     <span className="min-w-0">
@@ -863,7 +855,7 @@ export function TaskFormModal({
             </div>
           </div>
 
-          <div className="rounded-lg border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
+          <div className="rounded-card border border-black/[0.06] bg-black/[0.025] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.04]">
             <button
               type="button"
               aria-expanded={taskOptionsOpen}
@@ -886,16 +878,13 @@ export function TaskFormModal({
             {taskOptionsOpen && (
               <div className="mt-3 flex flex-col gap-4 sm:flex-row">
                 <div className="flex-1">
-                  <label
-                    htmlFor="task-priority"
-                    className="mb-1 block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-                  >
+                  <label htmlFor="task-priority" className={uiStyles.label}>
                     Priority
                   </label>
                   <select
                     id="task-priority"
                     {...register('priority')}
-                    className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                    className={cn(uiStyles.select, 'w-full')}
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
@@ -909,10 +898,7 @@ export function TaskFormModal({
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <label
-                      htmlFor="task-assigned-to"
-                      className="block text-ui-caption font-medium text-secondary-light dark:text-secondary-dark"
-                    >
+                    <label htmlFor="task-assigned-to" className={cn(uiStyles.label, 'mb-0')}>
                       Who should start it?
                     </label>
                     <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
@@ -922,7 +908,7 @@ export function TaskFormModal({
                   <select
                     id="task-assigned-to"
                     {...register('assignedTo')}
-                    className="h-10 w-full rounded-full border border-black/[0.08] bg-white px-4 text-ui-body text-foreground-light outline-none focus:ring-2 focus:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark"
+                    className={cn(uiStyles.select, 'w-full')}
                   >
                     <option value="">Let the next agent start it</option>
                     {agents.map((a) => (
@@ -943,7 +929,7 @@ export function TaskFormModal({
 
           <div
             data-testid="task-submit-preview"
-            className="rounded-lg border border-apple-blue/20 bg-apple-blue/10 px-3 py-2.5 text-ui-caption text-foreground-light dark:text-foreground-dark"
+            className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2.5 text-ui-caption text-foreground-light dark:text-foreground-dark"
           >
             <p className="font-semibold text-apple-blue">What happens after this</p>
             <p className="mt-1 text-secondary-light dark:text-secondary-dark">{submitPreview}</p>
@@ -967,7 +953,7 @@ export function TaskFormModal({
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
                   disabled={uploadingImage}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] px-3 py-1.5 text-ui-caption text-secondary-light hover:bg-black/[0.03] disabled:opacity-50 dark:border-white/[0.1] dark:text-secondary-dark"
+                  className={cn(uiStyles.secondaryButton, 'text-ui-caption')}
                 >
                   <ImagePlus className="size-4" aria-hidden />
                   {uploadingImage ? 'Uploading…' : 'Attach image'}
@@ -1009,7 +995,7 @@ export function TaskFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-full bg-surface-pearl px-4 py-2 text-ui-button font-medium text-foreground-light ring-1 ring-black/[0.04] transition-transform active:scale-95 dark:bg-white/[0.06] dark:text-foreground-dark sm:w-auto"
+              className={cn(uiStyles.secondaryButton, 'w-full sm:w-auto')}
             >
               Cancel
             </button>
@@ -1017,7 +1003,7 @@ export function TaskFormModal({
               type="submit"
               disabled={isSubmitting || selectingProject || uploadingImage}
               aria-busy={isSubmitting || selectingProject || uploadingImage}
-              className="w-full rounded-full bg-apple-blue px-4 py-2 text-ui-button font-medium text-white transition-transform hover:bg-apple-blue-focus active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className={cn(uiStyles.primaryButton, 'w-full sm:w-auto')}
             >
               {uploadingImage
                 ? 'Uploading image...'

@@ -1,6 +1,7 @@
 import { LayoutGrid, ListFilter, Search } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 
 export type BoardPriorityFilter = 'all' | 'urgent' | 'high' | 'normal' | 'low'
 export type BoardAssigneeFilter = 'all' | 'assigned' | 'unassigned'
@@ -67,10 +68,7 @@ export function BoardToolbar({
     advancedFilterCount > 0 ? `Filters (${advancedFilterCount} active)` : 'Filters'
 
   return (
-    <section
-      data-testid="board-toolbar"
-      className="rounded-lg border border-black/[0.08] bg-white px-3 py-2 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-    >
+    <section data-testid="board-toolbar" className={cn(uiStyles.card, 'px-3 py-2')}>
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
@@ -89,7 +87,10 @@ export function BoardToolbar({
                 onChange={(event) => onSearchQueryChange(event.target.value)}
                 aria-describedby={searchHelpId}
                 placeholder="Search task names, agents, or help needed..."
-                className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
+                className={cn(
+                  uiStyles.input,
+                  'bg-black/[0.02] pl-9 pr-3 focus:bg-white dark:focus:bg-white/[0.06]'
+                )}
               />
               <span
                 id={searchHelpId}
@@ -105,10 +106,11 @@ export function BoardToolbar({
               aria-controls={filtersPanelId}
               onClick={() => setFiltersOpen((open) => !open)}
               className={cn(
-                'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
+                uiStyles.secondaryButton,
+                'shrink-0',
                 filtersOpen || advancedFilterCount > 0
-                  ? 'border-apple-blue/35 bg-apple-blue/10 text-apple-blue'
-                  : 'border-black/[0.08] bg-black/[0.02] text-foreground-light hover:border-apple-blue/30 hover:text-apple-blue dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                  ? 'bg-black/[0.06] dark:bg-white/[0.1]'
+                  : 'bg-black/[0.02] dark:bg-white/[0.04]'
               )}
             >
               <ListFilter size={15} strokeWidth={2} aria-hidden="true" />
@@ -125,11 +127,7 @@ export function BoardToolbar({
               Showing {counts.visible} of {counts.total} tasks
             </span>
             {hasActiveFilter && (
-              <button
-                type="button"
-                onClick={onClear}
-                className="inline-flex h-8 items-center justify-center rounded-lg px-2 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35"
-              >
+              <button type="button" onClick={onClear} className={uiStyles.subtleButton}>
                 Show all tasks
               </button>
             )}
@@ -186,7 +184,7 @@ function FilterGroup<T extends string>({
 }) {
   return (
     <div
-      className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
+      className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-button bg-black/[0.035] p-1 dark:bg-white/[0.05]"
       role="group"
       aria-label={ariaLabel}
     >
@@ -207,10 +205,10 @@ function FilterGroup<T extends string>({
             aria-label={countLabel ? `${option.ariaLabel}, ${countLabel}` : option.ariaLabel}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
+              'inline-flex h-7 shrink-0 items-center gap-1 rounded-button px-2 text-ui-caption font-medium transition-colors',
               selected
-                ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-                : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
+                ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
+                : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
             )}
           >
             <span>{option.label}</span>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, type LucideIcon } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import type { ToolCall } from './model/chat.store'
 
 const MAX_OUTPUT_LINES = 12
@@ -250,14 +251,12 @@ function toolOutcome(call: ToolCall): {
   label: string
   helper: string
   tone: 'success' | 'danger' | 'pending'
-  Icon: LucideIcon
 } {
   if (call.success === true) {
     return {
       label: 'Completed cleanly',
       helper: 'This step finished without a problem.',
       tone: 'success',
-      Icon: CheckCircle2,
     }
   }
 
@@ -266,7 +265,6 @@ function toolOutcome(call: ToolCall): {
       label: 'Check step',
       helper: 'This step found a problem. Check it before trusting the answer.',
       tone: 'danger',
-      Icon: AlertTriangle,
     }
   }
 
@@ -274,7 +272,6 @@ function toolOutcome(call: ToolCall): {
     label: 'Waiting for result',
     helper: 'The agent started this step. Wait for it to share what happened.',
     tone: 'pending',
-    Icon: Clock3,
   }
 }
 
@@ -306,14 +303,13 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
   const outputLines = outputText?.split('\n') ?? []
   const isTruncated = outputLines.length > MAX_OUTPUT_LINES
   const outcome = toolOutcome(call)
-  const OutcomeIcon = outcome.Icon
   const readableTool = toolDisplayName(call.tool)
 
   return (
     <div
       className={cn(
-        'rounded-lg border',
-        'border-black/5 dark:border-white/5',
+        'rounded-card border',
+        'border-black/[0.08] dark:border-white/[0.1]',
         'bg-black/[0.02] dark:bg-white/[0.02]'
       )}
     >
@@ -326,7 +322,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
         className={cn(
           'w-full flex items-center gap-2 px-3 py-2 text-left',
           'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]',
-          'transition-colors rounded-lg'
+          'rounded-card transition-colors'
         )}
       >
         <ChevronRight
@@ -336,27 +332,32 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
           className={cn('shrink-0 transition-transform', expanded && 'rotate-90')}
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-foreground-light dark:text-foreground-dark">
+          <p className="truncate text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
             Agent saved a work step
           </p>
-          <p className="truncate text-[10px] text-secondary-light dark:text-secondary-dark">
-            Work step: {readableTool}. {outcome.helper}
+          <p className="flex min-w-0 items-center gap-1 truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+            <span className={cn(uiStyles.chip, 'shrink-0')}>Work step: {readableTool}</span>
+            <span className="truncate">. {outcome.helper}</span>
           </p>
         </div>
         <span
           className={cn(
-            'inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-            outcome.tone === 'success' && 'bg-apple-green/12 text-apple-green',
-            outcome.tone === 'danger' && 'bg-apple-red/12 text-apple-red',
-            outcome.tone === 'pending' &&
-              'bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
+            'inline-flex shrink-0 items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark'
           )}
         >
-          <OutcomeIcon size={11} strokeWidth={2} aria-hidden="true" />
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full',
+              outcome.tone === 'success' && 'bg-apple-green',
+              outcome.tone === 'danger' && 'bg-apple-red',
+              outcome.tone === 'pending' && 'bg-apple-gray-2'
+            )}
+            aria-hidden="true"
+          />
           {outcome.label}
         </span>
         {call.duration !== undefined && (
-          <span className="hidden shrink-0 text-[10px] text-secondary-light dark:text-secondary-dark sm:inline">
+          <span className="hidden shrink-0 text-ui-caption text-secondary-light dark:text-secondary-dark sm:inline">
             Finished in {formatDuration(call.duration)}
           </span>
         )}
@@ -365,40 +366,40 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
       {/* Expanded content */}
       {expanded && (
         <div className="px-3 pb-3 flex flex-col gap-2">
-          <div className="rounded-md border border-black/[0.06] bg-white/60 px-3 py-2 text-[11px] leading-relaxed text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-secondary-dark">
+          <div className="rounded-md border border-black/[0.06] bg-white/60 px-3 py-2 text-ui-caption leading-relaxed text-secondary-light dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-secondary-dark">
             This is a read-only summary of one step the agent took. Check the result, then decide
             whether to continue, retry, or ask the agent to explain it.
           </div>
 
           {call.success === false && (
-            <div className="rounded-md border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-[11px] text-apple-red">
+            <div className="rounded-md border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red">
               Check this result before relying on the final answer.
             </div>
           )}
 
           {/* Request */}
           <div>
-            <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
+            <span className="text-ui-caption font-medium uppercase tracking-wide text-secondary-light dark:text-secondary-dark">
               Before this step
             </span>
-            <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+            <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
               What the agent was told or given before it ran this step.
             </p>
-            <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
+            <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-ui-caption leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
               {requestSummary}
             </p>
             <button
               type="button"
               aria-expanded={showRequestDetails}
               onClick={() => setShowRequestDetails((visible) => !visible)}
-              className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
+              className="mt-1 text-ui-caption font-medium text-apple-blue hover:underline"
             >
               {showRequestDetails ? 'Hide what the agent received' : 'Show what the agent received'}
             </button>
             {showRequestDetails && (
               <pre
                 className={cn(
-                  'mt-1 p-2 rounded-md text-[11px] leading-relaxed overflow-x-auto',
+                  'mt-1 overflow-x-auto rounded-md p-2 text-ui-caption leading-relaxed',
                   'bg-black/[0.04] dark:bg-white/[0.04]',
                   'text-foreground-light dark:text-foreground-dark',
                   'font-mono'
@@ -412,20 +413,20 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
           {/* Result */}
           {outputText ? (
             <div>
-              <span className="text-[10px] font-medium text-secondary-light dark:text-secondary-dark uppercase tracking-wide">
+              <span className="text-ui-caption font-medium uppercase tracking-wide text-secondary-light dark:text-secondary-dark">
                 After this step
               </span>
-              <p className="mt-0.5 text-[10px] text-secondary-light dark:text-secondary-dark">
+              <p className="mt-0.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 What the agent showed after this step finished.
               </p>
-              <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-[11px] leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
+              <p className="mt-1 rounded-md bg-black/[0.035] px-3 py-2 text-ui-caption leading-relaxed text-foreground-light dark:bg-white/[0.04] dark:text-foreground-dark">
                 {outputSummary}
               </p>
               <button
                 type="button"
                 aria-expanded={showResultDetails}
                 onClick={() => setShowResultDetails((visible) => !visible)}
-                className="mt-1 text-[10px] font-medium text-apple-blue hover:underline"
+                className="mt-1 text-ui-caption font-medium text-apple-blue hover:underline"
               >
                 {showResultDetails ? 'Hide what happened' : 'Show what happened'}
               </button>
@@ -433,7 +434,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                 <>
                   <pre
                     className={cn(
-                      'mt-1 p-2 rounded-md text-[11px] leading-relaxed overflow-x-auto',
+                      'mt-1 overflow-x-auto rounded-md p-2 text-ui-caption leading-relaxed',
                       'bg-black/[0.04] dark:bg-white/[0.04]',
                       'text-foreground-light dark:text-foreground-dark',
                       'font-mono'
@@ -447,7 +448,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
                     <button
                       type="button"
                       onClick={() => setShowFullOutput(true)}
-                      className="text-[10px] text-apple-blue hover:underline mt-1"
+                      className="mt-1 text-ui-caption text-apple-blue hover:underline"
                     >
                       Show the rest of what happened ({outputLines.length} lines)
                     </button>
@@ -456,7 +457,7 @@ export function ToolCallDetail({ call }: { call: ToolCall }) {
               )}
             </div>
           ) : (
-            <div className="rounded-md border border-black/[0.06] px-3 py-2 text-[11px] text-secondary-light dark:border-white/[0.08] dark:text-secondary-dark">
+            <div className="rounded-md border border-black/[0.06] px-3 py-2 text-ui-caption text-secondary-light dark:border-white/[0.08] dark:text-secondary-dark">
               This step does not have a result yet. Next: wait for another update before deciding
               whether to continue, retry, or ask the agent what is still running.
             </div>

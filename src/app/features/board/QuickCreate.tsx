@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 
 interface QuickCreateProps {
   columnId: string
@@ -99,7 +100,10 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
             setSavedMessage(null)
             setIsOpen(true)
           }}
-          className="inline-flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+          className={cn(
+            uiStyles.subtleButton,
+            'h-auto w-full justify-start px-3 py-2 text-left text-ui-caption'
+          )}
         >
           <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>Add task idea</span>
@@ -135,17 +139,13 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
           if (e.key === 'Escape') handleCancel()
         }}
         placeholder="Example: Fix the login error and show how to test it"
-        className={cn(
-          'h-10 w-full rounded-full border border-black/[0.08] px-4 text-ui-body outline-none',
-          'bg-white dark:border-white/[0.1] dark:bg-[#2c2c2e]',
-          'placeholder:text-secondary-light dark:placeholder:text-secondary-dark'
-        )}
+        className={uiStyles.input}
       />
       <p id={helpId} className="text-ui-caption text-secondary-light dark:text-secondary-dark">
         This saves the idea first. Next: open the card, add where to work and done when, then choose
         who should start it.
       </p>
-      <div className="rounded-lg bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+      <div className="rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
         <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
           Need a starting point?
         </p>
@@ -156,7 +156,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
               type="button"
               onClick={() => useExample(example)}
               disabled={submitting}
-              className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-ui-caption font-medium text-secondary-light transition-colors hover:border-apple-blue/30 hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-secondary-dark dark:hover:text-foreground-dark"
+              className="rounded-button border border-black/[0.08] bg-white px-2.5 py-1 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.03] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark"
             >
               {example}
             </button>
@@ -179,7 +179,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
           onClick={() => void handleSubmit()}
           disabled={!trimmedTitle || submitting}
           className={cn(
-            'inline-flex h-8 flex-1 items-center justify-center rounded-full px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
+            'inline-flex h-8 flex-1 items-center justify-center rounded-button px-3 text-ui-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
             trimmedTitle && !submitting
               ? 'bg-apple-blue text-white hover:bg-apple-blue-focus'
               : 'cursor-not-allowed bg-black/[0.04] text-secondary-light dark:bg-white/[0.06] dark:text-secondary-dark'
@@ -187,11 +187,7 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         >
           {submitting ? 'Saving task idea...' : 'Save for later'}
         </button>
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-secondary-light transition-colors hover:border-apple-blue/35 hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.1] dark:bg-[#2c2c2e] dark:text-secondary-dark dark:hover:text-foreground-dark"
-        >
+        <button type="button" onClick={handleCancel} className={uiStyles.secondaryButton}>
           Cancel
         </button>
       </div>

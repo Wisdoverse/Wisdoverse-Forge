@@ -158,7 +158,7 @@ function ColumnEmptyState({ columnId, label }: { columnId: string; label: string
   return (
     <div
       data-testid={`kanban-empty-${columnId}`}
-      className="rounded-lg border border-dashed border-black/10 px-3 py-4 text-center dark:border-white/10"
+      className="rounded-card border border-dashed border-black/10 px-3 py-4 text-center dark:border-white/10"
     >
       <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
         {emptyState.title}

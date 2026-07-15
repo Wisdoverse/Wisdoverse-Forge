@@ -12,31 +12,19 @@ import {
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
+import { uiStyles } from '@app/shared/lib/uiStyles'
 import { formatRelativeTime as formatDate } from '@app/shared/lib/time'
 import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 
-const PRIORITY_COLORS: Record<string, string> = {
-  low: 'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
-  normal:
-    'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-  high: 'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-  urgent: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  backlog:
-    'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
-  queued:
-    'border-black/[0.08] bg-white text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark',
-  working:
-    'border-foreground-light/20 bg-white text-foreground-light dark:border-white/[0.18] dark:bg-white/[0.04] dark:text-foreground-dark',
-  blocked: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
-  completed:
-    'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
-  failed: 'border-apple-red/20 bg-apple-red/10 text-apple-red',
-  canceled:
-    'border-black/[0.08] bg-white text-secondary-light dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark',
+const STATUS_DOTS: Record<string, string> = {
+  backlog: 'bg-apple-gray-2',
+  queued: 'bg-apple-gray-1',
+  working: 'bg-foreground-light dark:bg-foreground-dark',
+  blocked: 'bg-apple-red',
+  completed: 'bg-apple-gray-2',
+  failed: 'bg-apple-red',
+  canceled: 'bg-apple-gray-3',
 }
 
 const ROW_HEIGHT = 68
@@ -122,10 +110,7 @@ export function ListView() {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <section
-        data-testid="list-work-register"
-        className="rounded-lg border border-black/[0.08] bg-white px-3 py-3 dark:border-white/[0.1] dark:bg-[#2a2a2c]"
-      >
+      <section data-testid="list-work-register" className={cn(uiStyles.card, 'px-3 py-3')}>
         <div className="mb-3 flex items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-apple-blue/10 text-apple-blue">
             <ListChecks size={17} strokeWidth={2.1} aria-hidden="true" />
@@ -194,7 +179,10 @@ export function ListView() {
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search tasks, agents, or help needed…"
                   aria-describedby={searchHelpId}
-                  className="h-9 w-full rounded-lg border border-black/[0.08] bg-black/[0.02] pl-9 pr-3 text-ui-body text-foreground-light outline-none transition-colors placeholder:text-secondary-light focus:border-apple-blue/40 focus:bg-white focus:ring-2 focus:ring-apple-blue/20 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark dark:placeholder:text-secondary-dark dark:focus:bg-white/[0.06]"
+                  className={cn(
+                    uiStyles.input,
+                    'bg-black/[0.02] pl-9 pr-3 focus:bg-white dark:focus:bg-white/[0.06]'
+                  )}
                 />
               </label>
               <p
@@ -209,7 +197,7 @@ export function ListView() {
               role="group"
               aria-label="List task view choices"
               data-testid="list-task-filter"
-              className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-black/[0.035] p-1 dark:bg-white/[0.05]"
+              className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-button bg-black/[0.035] p-1 dark:bg-white/[0.05]"
             >
               {filterCounts.map((item) => (
                 <ListFilterButton
@@ -231,8 +219,13 @@ export function ListView() {
       </section>
 
       {/* Table header */}
-      <div className="flex-shrink-0 overflow-x-auto border-b border-black/[0.06] dark:border-white/[0.06]">
-        <div className="grid min-w-[720px] select-none grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] px-4 py-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+      <div className="flex-shrink-0 overflow-x-auto">
+        <div
+          className={cn(
+            uiStyles.tableHead,
+            'grid min-w-[720px] select-none grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] px-4 py-2'
+          )}
+        >
           <span>Task result</span>
           <span>Status</span>
           <span>Agent</span>
@@ -259,7 +252,7 @@ export function ListView() {
           <button
             type="button"
             onClick={() => setViewMode('board')}
-            className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-full bg-apple-blue px-3 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+            className={cn(uiStyles.primaryButton, 'mt-1')}
           >
             <span>Open board to create task</span>
             <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
@@ -285,7 +278,7 @@ export function ListView() {
                 setSearchQuery('')
                 setFilter('all')
               }}
-              className="rounded-full bg-apple-blue/10 px-3 py-1.5 text-ui-button font-medium text-apple-blue transition-colors hover:bg-apple-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              className={uiStyles.secondaryButton}
             >
               Show all tasks
             </button>
@@ -303,7 +296,6 @@ export function ListView() {
               const openTask = () => setSelectedTask(task.id)
               const nextAction = taskNextAction(task)
               const stateKey = taskMachineKey(task.state)
-              const priorityKey = taskMachineKey(task.priority)
               return (
                 <div
                   key={task.id}
@@ -316,7 +308,10 @@ export function ListView() {
                     right: 0,
                     height: ROW_HEIGHT,
                   }}
-                  className="grid cursor-pointer grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] items-center border-b border-black/[0.05] px-4 transition-colors hover:bg-black/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:border-white/[0.06] dark:hover:bg-white/[0.04]"
+                  className={cn(
+                    uiStyles.row,
+                    'grid cursor-pointer grid-cols-[minmax(220px,1fr)_120px_140px_96px_96px] items-center px-4 transition-colors hover:bg-black/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus dark:hover:bg-white/[0.04]'
+                  )}
                   role="button"
                   tabIndex={0}
                   aria-label={`Open ${task.params.task}. ${nextAction}`}
@@ -338,13 +333,15 @@ export function ListView() {
                     </span>
                   </span>
 
-                  {/* Status badge */}
-                  <span
-                    className={cn(
-                      'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                      STATUS_COLORS[stateKey] ?? STATUS_COLORS.backlog
-                    )}
-                  >
+                  {/* Status */}
+                  <span className="inline-flex w-fit items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        STATUS_DOTS[stateKey] ?? STATUS_DOTS.backlog
+                      )}
+                      aria-hidden="true"
+                    />
                     {taskStateLabel(task.state, { completedLabel: 'Done' })}
                   </span>
 
@@ -356,8 +353,9 @@ export function ListView() {
                   {/* Priority badge */}
                   <span
                     className={cn(
-                      'inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-ui-caption font-medium',
-                      PRIORITY_COLORS[priorityKey] ?? PRIORITY_COLORS.normal
+                      uiStyles.badge,
+                      'w-fit rounded-full',
+                      task.priority === 'urgent' && 'text-apple-red'
                     )}
                   >
                     {taskPriorityLabel(task.priority)}
@@ -402,7 +400,7 @@ function ListMetric({
   return (
     <div
       data-testid={testId}
-      className="flex min-h-14 items-center gap-2 rounded-lg bg-black/[0.025] px-2.5 py-2 dark:bg-white/[0.05]"
+      className="flex min-h-14 items-center gap-2 rounded-card bg-black/[0.025] px-2.5 py-2 dark:bg-white/[0.05]"
     >
       <span
         className={cn(
@@ -444,11 +442,11 @@ function ListFilterButton({
       aria-label={`${ariaLabel}, ${matchingTasksLabel(count)}`}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-ui-caption font-medium transition-colors',
+        'inline-flex h-7 shrink-0 items-center gap-1 rounded-button px-2 text-ui-caption font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
         active
-          ? 'bg-white text-foreground-light shadow-sm dark:bg-white/[0.12] dark:text-foreground-dark'
-          : 'text-secondary-light hover:text-foreground-light dark:text-secondary-dark dark:hover:text-foreground-dark'
+          ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
+          : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
       )}
     >
       <span>{label}</span>

@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
+import { uiStyles } from '@app/shared/lib/uiStyles'
+import { cn } from '@app/shared/lib/utils'
 import { useNavigationStore } from '@app/entities/navigation'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskCard, taskCardSearchText } from './TaskCard'
@@ -309,11 +311,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
           </p>
         </div>
         {action ? (
-          <button
-            type="button"
-            onClick={action}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-apple-blue px-4 text-ui-button font-semibold text-white transition-colors hover:bg-apple-blue-focus focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
-          >
+          <button type="button" onClick={action} className={cn(uiStyles.primaryButton, 'px-4')}>
             <span>{actionLabel}</span>
             <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
           </button>
@@ -350,7 +348,10 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
             <button
               type="button"
               onClick={() => void loadTasksForGroup(selectedGroupId, true)}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-apple-red/20 bg-white px-3 text-ui-button font-medium text-apple-red transition-colors hover:bg-apple-red/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-red/30 dark:bg-white/[0.04]"
+              className={cn(
+                uiStyles.dangerButton,
+                'gap-1.5 border border-apple-red/20 bg-white px-3 dark:bg-white/[0.04]'
+              )}
             >
               Check tasks again
             </button>
@@ -387,7 +388,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
             data-testid="board-action-error"
             role="alert"
             aria-live="polite"
-            className="rounded-lg border border-apple-red/20 bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+            className={cn(uiStyles.error, 'mb-0')}
           >
             {actionError}
           </div>
@@ -397,7 +398,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
             data-testid="board-filter-empty"
             role="status"
             aria-live="polite"
-            className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+            className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10"
           >
             <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
               {boardFilterEmpty.title}
@@ -408,11 +409,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
             <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
               {boardFilterEmpty.nextStep}
             </p>
-            <button
-              type="button"
-              onClick={clearBoardFilters}
-              className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-ui-button font-medium text-foreground-light transition-colors hover:border-apple-blue/35 hover:text-apple-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35 dark:border-white/[0.1] dark:bg-[#2a2a2c] dark:text-foreground-dark"
-            >
+            <button type="button" onClick={clearBoardFilters} className={uiStyles.secondaryButton}>
               Show all tasks
             </button>
           </div>
