@@ -166,13 +166,11 @@ test.describe('Inbox owner task notifications', () => {
     await expect(notification).not.toContainText('Waiting for owner approval')
 
     await notification.click()
-    await page.waitForURL('**/tasks')
-    await expect(page.locator('[data-testid="task-card-t-004"]')).toBeAttached({
-      timeout: 10_000,
-    })
-    await expect(page.locator('[data-testid="right-panel"]')).toContainText('Review PR #42', {
-      timeout: 5000,
-    })
+    await page.waitForURL('**/tasks/t-004')
+    await page
+      .getByRole('heading', { level: 1, name: 'Review PR #42' })
+      .waitFor({ state: 'visible', timeout: 30000 })
+    await expect(page.getByTestId('task-updates')).toBeVisible()
   })
 
   test('completed owner task update creates a linked Inbox notification', async ({
@@ -196,13 +194,10 @@ test.describe('Inbox owner task notifications', () => {
     await expect(notification).toContainText('Released to staging')
 
     await notification.click()
-    await page.waitForURL('**/tasks')
-    await expect(page.locator('[data-testid="task-card-t-005"]')).toBeAttached({
-      timeout: 10_000,
-    })
-    await expect(page.locator('[data-testid="right-panel"]')).toContainText(
-      'Deploy v2.1.0 to staging',
-      { timeout: 5000 }
-    )
+    await page.waitForURL('**/tasks/t-005')
+    await page
+      .getByRole('heading', { level: 1, name: 'Deploy v2.1.0 to staging' })
+      .waitFor({ state: 'visible', timeout: 30000 })
+    await expect(page.getByTestId('task-updates')).toBeVisible()
   })
 })

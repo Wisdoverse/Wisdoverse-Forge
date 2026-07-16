@@ -43,6 +43,7 @@ export default defineConfig({
     'context-preview.spec.ts',
     'approval-queue.spec.ts',
     'task-context-badges.spec.ts',
+    'task-document-page.spec.ts',
     'analytics-dashboard.spec.ts',
     'governance-audit.spec.ts',
   ],

@@ -1,60 +1,59 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/app-fixtures'
 
-async function setupAndNavigate(page: Page, baseURL: string): Promise<void> {
+async function setupAndNavigate(page: Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('af:onboarding:completed', 'true')
     localStorage.setItem('af:nav:orgId', 'org-1')
     localStorage.setItem('af:nav:projectId', 'proj-1')
     localStorage.setItem('af:nav:expandedTeams', '["team-1"]')
   })
-  await page.goto(`${baseURL}/tasks`, { waitUntil: 'domcontentloaded' })
+  await page.goto('/tasks', { waitUntil: 'domcontentloaded' })
   await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30000 })
-  await page.locator('[data-testid="main-content"]').waitFor({ state: 'attached', timeout: 15000 })
-
-  const expand = page.getByRole('button', { name: 'Show live task updates' })
-  if (await expand.isVisible().catch(() => false)) {
-    await expand.click()
-  }
+  await page.getByTestId('main-content').waitFor({ state: 'attached', timeout: 15000 })
 }
 
-test.describe('Task detail saved items tab', () => {
-  test('shows saved notes, instructions, evidence, provenance, and feedback controls', async ({
+async function openContextDocument(page: Page): Promise<void> {
+  const card = page.getByTestId('task-card-t-003')
+  await card.waitFor({ state: 'visible', timeout: 30000 })
+  await card.dispatchEvent('click')
+  await page.waitForURL('**/tasks/t-003')
+  await page
+    .getByRole('heading', { level: 1, name: 'Write unit tests for auth module' })
+    .waitFor({ state: 'visible', timeout: 30000 })
+}
+
+test.describe('Task document context rail', () => {
+  test('shows notes, instructions, evidence, provenance, and feedback controls', async ({
     page,
-    baseURL,
   }) => {
-    await setupAndNavigate(page, baseURL!)
-    await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
+    await setupAndNavigate(page)
+    await openContextDocument(page)
 
-    const rightPanel = page.locator('[data-testid="right-panel"]')
-    await expect(rightPanel.getByRole('button', { name: 'Context', exact: true })).toBeVisible({
-      timeout: 5000,
-    })
-    await rightPanel.getByRole('button', { name: 'Context', exact: true }).click()
+    const contextToggle = page.getByRole('button', { name: 'Context', exact: true })
+    await expect(contextToggle).toBeVisible()
+    await contextToggle.click()
+    const contextSection = contextToggle.locator('..')
 
-    await expect(rightPanel.getByText('Saved notes used')).toBeVisible()
+    await expect(contextSection.getByText('Saved notes used', { exact: true })).toBeVisible()
     await expect(
-      rightPanel.getByRole('heading', { name: 'Prod-ext validation memory' })
+      contextSection.getByRole('heading', { name: 'Prod-ext validation memory' })
     ).toBeVisible()
-    await expect(rightPanel.getByText('Guidance used', { exact: true })).toBeVisible()
-    await expect(rightPanel.getByText('Review checklist')).toBeVisible()
-    await expect(rightPanel.getByTestId('context-evidence')).toBeVisible()
-    await expect(rightPanel.getByTestId('context-provenance')).toBeVisible()
+    await expect(contextSection.getByText('Guidance used', { exact: true })).toBeVisible()
+    await expect(contextSection.getByText('Review checklist')).toBeVisible()
+    await expect(contextSection.getByTestId('context-evidence')).toBeVisible()
+    await expect(contextSection.getByTestId('context-provenance')).toBeVisible()
 
-    await rightPanel.getByRole('button', { name: 'Useful' }).first().click()
-    await expect(rightPanel.getByRole('button', { name: 'Useful' }).first()).toBeVisible()
+    await contextSection.getByRole('button', { name: 'Useful' }).first().click()
+    await expect(contextSection.getByRole('button', { name: 'Useful' }).first()).toBeVisible()
   })
 
-  test('is reachable on a 375px viewport', async ({ page, baseURL }) => {
+  test('keeps the document reachable at a 375px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
-    await setupAndNavigate(page, baseURL!)
-    await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
+    await setupAndNavigate(page)
+    await openContextDocument(page)
 
-    const panel = page.locator('[data-testid="right-panel"]')
-    await expect(panel.getByRole('button', { name: 'Context', exact: true })).toBeVisible({
-      timeout: 5000,
-    })
-    await panel.getByRole('button', { name: 'Context', exact: true }).click()
-    await expect(panel.getByRole('heading', { name: 'Prod-ext validation memory' })).toBeVisible()
+    await expect(page.getByTestId('task-next-action')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeHidden()
   })
 })
