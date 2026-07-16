@@ -1,4 +1,3 @@
-export { TaskDetailPanel } from './TaskDetailPanel'
 export { SECTION_LABEL, TaskDocumentBody } from './document/TaskDocumentBody'
 export { ContextTab } from './ContextTab'
 export { HistoryTab } from './HistoryTab'

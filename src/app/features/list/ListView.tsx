@@ -1,5 +1,6 @@
 import { useRef, useId, useMemo, useState } from 'react'
 import { useVirtualizer, type VirtualizerOptions } from '@tanstack/react-virtual'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, ListChecks, Search } from 'lucide-react'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { PreferenceGuideDisclosure } from '@app/entities/settings'
@@ -68,7 +69,8 @@ const observeElementRectFallback: VirtualizerOptions<
 }
 
 export function ListView() {
-  const { columns, setSelectedTask, setViewMode } = useBoardStore()
+  const { columns, setViewMode } = useBoardStore()
+  const navigate = useNavigate()
   const searchHelpId = useId()
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<ListTaskFilter>('all')
@@ -294,7 +296,8 @@ export function ListView() {
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const task = visibleTasks[virtualRow.index]
-              const openTask = () => setSelectedTask(task.id)
+              const openTask = () =>
+                void navigate({ to: '/tasks/$taskId', params: { taskId: task.id } })
               const nextAction = taskNextAction(task)
               const stateKey = taskMachineKey(task.state)
               return (

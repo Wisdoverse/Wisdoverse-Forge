@@ -4,10 +4,17 @@ import { ActivityFeed } from '@app/features/feed/ActivityFeed'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useFeedStore } from '@app/entities/feed'
 
+const navigate = vi.hoisted(() => vi.fn())
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigate,
+}))
+
 afterEach(cleanup)
 beforeEach(() => {
   useBoardStore.getState().reset()
   useFeedStore.getState().reset()
+  navigate.mockReset()
 })
 
 describe('ActivityFeed', () => {
@@ -63,7 +70,10 @@ describe('ActivityFeed', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /open task details/i }))
 
-    expect(useBoardStore.getState().selectedTaskId).toBe('t1')
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/tasks/$taskId',
+      params: { taskId: 't1' },
+    })
   })
 
   test('opens the task board when an attention item is not loaded locally', () => {

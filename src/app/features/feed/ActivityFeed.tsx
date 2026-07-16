@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Activity,
   AlertTriangle,
@@ -75,8 +76,8 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
   const attentionItems = useFeedStore((state) => state.attentionItems)
   const feedItems = useFeedStore((state) => state.feedItems)
   const boardColumns = useBoardStore((state) => state.columns)
-  const setSelectedTask = useBoardStore((state) => state.setSelectedTask)
   const removeAttentionItem = useFeedStore((state) => state.removeAttentionItem)
+  const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<FeedFilter>('all')
   const [attentionHelp, setAttentionHelp] = useState<string | null>(null)
 
@@ -185,7 +186,7 @@ export function ActivityFeed({ onOpenBoard }: ActivityFeedProps = {}) {
             .flat()
             .some((task) => task.id === taskId)
           if (taskExists) {
-            setSelectedTask(taskId)
+            void navigate({ to: '/tasks/$taskId', params: { taskId } })
             setAttentionHelp(null)
             return
           }

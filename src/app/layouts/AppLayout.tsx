@@ -116,9 +116,7 @@ export function AppLayout({
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [taskCreatedMessage, setTaskCreatedMessage] = useState<string | null>(null)
   const [participants, setParticipants] = useState<ParticipantSummary[]>([])
-  const selectedTaskId = useBoardStore((s) => s.selectedTaskId)
   const selectedGroupId = useBoardStore((s) => s.selectedGroupId)
-  const setSelectedTask = useBoardStore((s) => s.setSelectedTask)
   const upsertTask = useBoardStore((s) => s.upsertTask)
   const navTeams = useNavigationStore((s) => s.teams)
   const navProjects = useNavigationStore((s) => s.projects)
@@ -143,12 +141,6 @@ export function AppLayout({
       ),
     [navTeams, navProjects]
   )
-
-  // Auto-open task details when a task is selected; the updates area starts
-  // collapsed on first load, so selecting a card must reveal the task.
-  useEffect(() => {
-    if (selectedTaskId) setPanelCollapsed(false)
-  }, [selectedTaskId])
 
   useEffect(() => {
     if (!activePath.startsWith('/tasks')) setTaskCreatedMessage(null)
@@ -300,11 +292,6 @@ export function AppLayout({
   // On mobile, sidebar is hidden unless expanded (where it overlays content)
   const showSidebar = !isMobile || sidebarExpanded
   const sidebarAsOverlay = isMobile && sidebarExpanded
-  const closeMobileDetail = () => {
-    setSelectedTask(null)
-    setPanelCollapsed(true)
-  }
-
   return (
     <div className="relative flex h-[100dvh] overflow-hidden bg-background-light dark:bg-background-dark md:h-screen">
       {sidebarAsOverlay && (
@@ -376,24 +363,6 @@ export function AppLayout({
           onOpenBoard={() => handleNavigate('/tasks')}
         />
       ) : null}
-      {isMobile && selectedTaskId && !panelCollapsed && (
-        <>
-          <button
-            type="button"
-            aria-label="Close task detail"
-            onClick={closeMobileDetail}
-            className="absolute inset-0 z-30 bg-black/35 backdrop-blur-sm"
-          />
-          <div className="absolute inset-x-2 bottom-2 top-[60px] z-40">
-            <RightPanel
-              collapsed={false}
-              onToggle={closeMobileDetail}
-              onOpenBoard={() => handleNavigate('/tasks')}
-              variant="mobile"
-            />
-          </div>
-        </>
-      )}
       <CommandPalette
         isOpen={cmdkOpen}
         onClose={() => setCmdkOpen(false)}

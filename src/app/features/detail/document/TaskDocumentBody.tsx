@@ -1,6 +1,13 @@
 import { MarkdownContent } from '@app/shared/ui/markdown'
 import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
-import { HANDOFF_REVIEW_POINTS, missingBriefCopy, nextActionForTask } from '../model/taskGuidance'
+import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
+import { uiStyles } from '@app/shared/lib/uiStyles'
+import {
+  HANDOFF_REVIEW_POINTS,
+  assignmentSummary,
+  missingBriefCopy,
+  nextActionForTask,
+} from '../model/taskGuidance'
 
 export const SECTION_LABEL =
   'mb-2 mt-8 text-ui-caption font-medium uppercase tracking-wide text-secondary-light dark:text-secondary-dark'
@@ -8,6 +15,16 @@ export const SECTION_LABEL =
 export function TaskDocumentBody({ task }: { task: TaskSummary }) {
   const artifacts = taskResultArtifacts(task.result)
   const next = nextActionForTask(task, artifacts.length, task.contextCounts?.total ?? 0)
+  const assignment = assignmentSummary(task)
+  const blockedAssignment =
+    task.state === 'blocked' && task.blockedHint
+      ? taskBlockedPreview({
+          blockedHint: task.blockedHint,
+          blockedReason: task.blockedReason,
+          error: task.error,
+        })
+      : null
+  const canReview = task.state === 'completed' || task.state === 'failed'
   const brief = task.params.message.trim()
 
   return (
@@ -22,6 +39,34 @@ export function TaskDocumentBody({ task }: { task: TaskSummary }) {
         <span className="text-secondary-light dark:text-secondary-dark">{next.detail}</span>
       </div>
 
+      <section
+        aria-label="Assignment"
+        className="mt-3 rounded-card border border-black/[0.06] px-3 py-2 text-ui-body dark:border-white/[0.08]"
+      >
+        <p className="font-medium text-foreground-light dark:text-foreground-dark">
+          {assignment.label}
+        </p>
+        <p
+          data-testid="task-assignment-guidance"
+          className="mt-1 leading-relaxed text-secondary-light dark:text-secondary-dark"
+        >
+          {assignment.detail}
+        </p>
+        {!assignment.hasAgent && (
+          <a href="/agents" className={`${uiStyles.subtleButton} mt-2 w-fit`}>
+            Open Agents
+          </a>
+        )}
+        {blockedAssignment && (
+          <p
+            data-testid="task-assignment-blocked-guidance"
+            className="mt-2 rounded-card bg-apple-red/10 px-2 py-1.5 text-apple-red"
+          >
+            {blockedAssignment}
+          </p>
+        )}
+      </section>
+
       <h2 className={SECTION_LABEL}>Brief</h2>
       {brief ? (
         <MarkdownContent text={brief} />
@@ -34,38 +79,48 @@ export function TaskDocumentBody({ task }: { task: TaskSummary }) {
         </p>
       )}
 
-      {artifacts.length > 0 && (
+      {(artifacts.length > 0 || canReview) && (
         <>
           <h2 className={SECTION_LABEL}>Result</h2>
-          <div className="space-y-3">
-            {artifacts.map((artifact, i) => (
-              <div
-                key={i}
-                className="rounded-card border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-surface-dark"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
-                    {artifact.name}
-                  </span>
-                  <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    {resultFileKindLabel(artifact.mimeType)}
-                  </span>
+          {artifacts.length > 0 ? (
+            <div className="space-y-3">
+              {artifacts.map((artifact, i) => (
+                <div
+                  key={i}
+                  className="rounded-card border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-surface-dark"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+                      {artifact.name}
+                    </span>
+                    <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {resultFileKindLabel(artifact.mimeType)}
+                    </span>
+                  </div>
+                  <p className="mb-2 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
+                    Use this result to decide whether the task is done. If it does not answer the
+                    brief, go back to Work and decide whether to retry, check saved notes and
+                    guidance, or create a follow-up task.
+                  </p>
+                  {artifact.mimeType.trim().toLowerCase() === 'text/markdown' ? (
+                    <MarkdownContent text={artifact.data} />
+                  ) : (
+                    <pre className="max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words font-mono text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
+                      {artifact.data}
+                    </pre>
+                  )}
                 </div>
-                <p className="mb-2 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
-                  Use this result to decide whether the task is done. If it does not answer the
-                  brief, go back to Work and decide whether to retry, check saved notes and
-                  guidance, or create a follow-up task.
-                </p>
-                {artifact.mimeType.trim().toLowerCase() === 'text/markdown' ? (
-                  <MarkdownContent text={artifact.data} />
-                ) : (
-                  <pre className="max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words font-mono text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
-                    {artifact.data}
-                  </pre>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p
+              data-testid="task-result-empty"
+              className="text-ui-body text-secondary-light dark:text-secondary-dark"
+            >
+              No result files were saved. Use Next action above, then retry or create a follow-up
+              task if files are still needed.
+            </p>
+          )}
         </>
       )}
 

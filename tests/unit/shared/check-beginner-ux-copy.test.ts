@@ -4141,7 +4141,7 @@ function handleProjectChange() {
 
   it('flags task support reference copy that does not tell users where to reopen the task', () => {
     const cwd = fixture({
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function taskSupportReference() {
   return 'Support reference not reported'
 }
@@ -4173,15 +4173,15 @@ function taskUpdateGuide() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-support-reference-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+          location: 'src/app/pages/task-detail/index.tsx:3',
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:6',
+          location: 'src/app/pages/task-detail/index.tsx:6',
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:9',
+          location: 'src/app/pages/task-detail/index.tsx:9',
         }),
         expect.objectContaining({
           type: 'task-support-reference-copy',
@@ -4205,7 +4205,7 @@ function taskUpdateGuide() {
 
   it('accepts task support reference copy that tells users where to reopen the task', () => {
     const cwd = fixture({
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function taskSupportReference() {
   return 'Open this task again from the Tasks page to check the task help text.'
 }
@@ -4225,7 +4225,7 @@ function workAttemptReferenceLabel(id) {
 
   it('flags task detail no-agent copy that does not point users to agent setup', () => {
     const cwd = fixture({
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function emptyAgents() {
   return 'No available agent can take this task right now.'
 }
@@ -4244,7 +4244,7 @@ function noAgentError() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-detail-agent-setup-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+          location: 'src/app/pages/task-detail/index.tsx:3',
         }),
         expect.objectContaining({
           type: 'task-detail-agent-setup-copy',
@@ -4256,7 +4256,7 @@ function noAgentError() {
 
   it('accepts task detail no-agent copy that points users to agent setup', () => {
     const cwd = fixture({
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function emptyAgents() {
   return 'Open Agents to start or connect an agent, then open this task again from the Tasks page.'
 }
@@ -10740,7 +10740,7 @@ const ACTION_FALLBACKS = {
   loadQueue: 'Refresh the list so you see the latest saved items. Saved notes review could not load.',
 }
 `,
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 export function ResultHelp() {
   return <p>Go back to Work and decide whether to retry, review saved notes and instructions, or create a follow-up task.</p>
 }
@@ -10835,7 +10835,7 @@ const ACTION_FALLBACKS = {
   loadQueue: 'Choose Load context items again so you see the latest context items. Context items could not load.',
 }
 `,
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 export function ResultHelp() {
   return <p>Go back to Work and decide whether to retry, check saved notes and instructions, or create a follow-up task.</p>
 }
@@ -16626,7 +16626,7 @@ const ACTION_FALLBACKS = {
 
   it('flags task handoff agent capability copy that exposes raw capability labels', () => {
     const cwd = fixture({
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function AgentChoice({ participant }) {
   return <span>{participant.capabilities.join(', ')}</span>
 }
@@ -16645,7 +16645,7 @@ function ParticipantChip({ participant }) {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-agent-capability-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:3',
+          location: 'src/app/pages/task-detail/index.tsx:3',
         }),
         expect.objectContaining({
           type: 'task-agent-capability-copy',
@@ -16657,7 +16657,7 @@ function ParticipantChip({ participant }) {
 
   it('accepts task handoff agent capability copy that explains the action', () => {
     const cwd = fixture({
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function AgentChoice() {
   return <span>Can build the task and check the result</span>
 }
@@ -17585,8 +17585,8 @@ export const zh = {
 
   it('flags task result review copy that exposes evidence jargon', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
-function DescriptionTab() {
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
+function TaskDocumentBody() {
   return <>
     <ReviewSection title="Result files and evidence" />
     <p>1 result file ready for review.</p>
@@ -17599,7 +17599,7 @@ function DescriptionTab() {
   </>
 }
 `,
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function ResultReviewGuide() {
   return [
     'Use this result as evidence for the task outcome.',
@@ -17651,43 +17651,43 @@ function agentNextStep() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:4',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:4',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:5',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:5',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:6',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:6',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:7',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:7',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:8',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:8',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:9',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:9',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:10',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:10',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:11',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:11',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:4',
+          location: 'src/app/pages/task-detail/index.tsx:4',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
-          location: 'src/app/features/detail/TaskDetailPanel.tsx:5',
+          location: 'src/app/pages/task-detail/index.tsx:5',
         }),
         expect.objectContaining({
           type: 'task-detail-result-review-copy',
@@ -17731,12 +17731,12 @@ function agentNextStep() {
 
   it('accepts task result review copy that describes result files plainly', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
-function DescriptionTab() {
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
+function TaskDocumentBody() {
   return <ReviewSection title="Result files" />
 }
 `,
-      'src/app/features/detail/TaskDetailPanel.tsx': `
+      'src/app/pages/task-detail/index.tsx': `
 function ResultReviewGuide() {
   return [
     'Use this result to decide whether the task is done.',
@@ -20236,8 +20236,8 @@ const COLUMN_EMPTY_STATE = {
 
   it('flags task detail reuse copy that describes a save-for-next-time path', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
-function DescriptionTab() {
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
+function TaskDocumentBody() {
   return <p>The save-for-next-time path becomes available once useful work is completed.</p>
 }
 `,
@@ -20249,15 +20249,15 @@ function DescriptionTab() {
     expect(result.findings).toEqual([
       expect.objectContaining({
         type: 'task-reuse-path-copy',
-        location: 'src/app/features/detail/DescriptionTab.tsx:3',
+        location: 'src/app/features/detail/document/TaskDocumentBody.tsx:3',
       }),
     ])
   })
 
   it('accepts task detail reuse copy that describes a save-for-next-time option', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
-function DescriptionTab() {
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
+function TaskDocumentBody() {
   return <p>The save-for-next-time option becomes available once useful work is completed.</p>
 }
 `,
@@ -20273,7 +20273,7 @@ function taskNextAction() {
   return 'Open it, read the failure, then retry only after the cause is clear.'
 }
 `,
-      'src/app/features/detail/DescriptionTab.tsx': `
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
 function nextActionForTask() {
   return { title: 'Triage failure' }
 }
@@ -20291,7 +20291,7 @@ function nextActionForTask() {
         }),
         expect.objectContaining({
           type: 'task-recovery-status-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:3',
         }),
       ])
     )
@@ -20304,7 +20304,7 @@ function taskNextAction() {
   return 'Open it, read the recovery note, then retry only after the next step is clear.'
 }
 `,
-      'src/app/features/detail/DescriptionTab.tsx': `
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
 function nextActionForTask() {
   return { title: 'Check retry steps' }
 }
@@ -20316,7 +20316,7 @@ function nextActionForTask() {
 
   it('flags task detail empty copy that leaves beginners without a next step', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
 function Work() {
   return (
     <>
@@ -20335,11 +20335,11 @@ function Work() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-detail-empty-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:5',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:5',
         }),
         expect.objectContaining({
           type: 'task-detail-empty-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:6',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:6',
         }),
       ])
     )
@@ -20347,7 +20347,7 @@ function Work() {
 
   it('flags canceled task detail titles that describe a dead end', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
 function nextActionForTask() {
   return { title: 'No current work' }
 }
@@ -20366,7 +20366,7 @@ function taskCheckIn() {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'task-detail-empty-copy',
-          location: 'src/app/features/detail/DescriptionTab.tsx:3',
+          location: 'src/app/features/detail/document/TaskDocumentBody.tsx:3',
         }),
         expect.objectContaining({
           type: 'task-detail-empty-copy',
@@ -20378,7 +20378,7 @@ function taskCheckIn() {
 
   it('accepts task detail empty copy that points beginners to the next step', () => {
     const cwd = fixture({
-      'src/app/features/detail/DescriptionTab.tsx': `
+      'src/app/features/detail/document/TaskDocumentBody.tsx': `
 function Work() {
   return (
     <>

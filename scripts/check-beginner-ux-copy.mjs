@@ -3411,7 +3411,7 @@ function hasTaskFormQueueLoadFailureFirstCopy(relFile, line) {
 
 function hasTaskSupportReferenceDeadEndCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/pages/task-detail/index.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx')
   ) {
     return false
@@ -3433,7 +3433,7 @@ function hasSavedItemsCheckJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/board/boardErrorMessages.ts') &&
     !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
     !relFile.endsWith('src/app/features/context/approvalQueueErrorMessages.ts') &&
-    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx')
+    !relFile.endsWith('src/app/pages/task-detail/index.tsx')
   ) {
     return false
   }
@@ -3449,7 +3449,7 @@ function hasSavedItemsCheckJargonCopy(relFile, line) {
 
 function hasTaskAgentCapabilityJargonCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/pages/task-detail/index.tsx') &&
     !relFile.endsWith('src/app/features/board/AssignmentReadinessPanel.tsx')
   ) {
     return false
@@ -3460,7 +3460,7 @@ function hasTaskAgentCapabilityJargonCopy(relFile, line) {
 
 function hasTaskDetailAgentSetupDeadEndCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/pages/task-detail/index.tsx') &&
     !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts')
   ) {
     return false
@@ -3615,10 +3615,10 @@ function hasGettingStartedReviewActionCopy(relFile, line) {
 
 function hasTaskDetailEvidenceJargonCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/document/TaskDocumentBody.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/TaskMetadata.tsx') &&
-    !relFile.endsWith('src/app/features/detail/TaskDetailPanel.tsx') &&
+    !relFile.endsWith('src/app/pages/task-detail/index.tsx') &&
     !relFile.endsWith('src/app/features/list/ListView.tsx') &&
     !relFile.endsWith('src/app/widgets/agent-detail/AgentDetailView.tsx')
   ) {
@@ -5179,7 +5179,7 @@ function hasTaskPermissionPromptReviewCopy(relFile, line) {
 }
 
 function hasTaskReusePathJargonCopy(relFile, line) {
-  if (!relFile.endsWith('src/app/features/detail/DescriptionTab.tsx')) return false
+  if (!relFile.endsWith('src/app/features/detail/document/TaskDocumentBody.tsx')) return false
   if (isLikelyGuardOrParserLine(line)) return false
   return TASK_REUSE_PATH_JARGON_PATTERNS.some((pattern) => pattern.test(line))
 }
@@ -5192,7 +5192,7 @@ function hasTaskRecoveryStatusDeadEndCopy(relFile, line) {
     !relFile.endsWith('src/app/features/board/TaskCard.tsx') &&
     !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
     !relFile.endsWith('src/app/features/detail/ContextTab.tsx') &&
-    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/document/TaskDocumentBody.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx') &&
     !relFile.endsWith('src/app/features/feed/FeedItem.tsx') &&
     !relFile.endsWith('src/app/features/inbox/InboxItem.tsx') &&
@@ -5244,7 +5244,7 @@ function hasTaskRecoveryOpenDetailsDeadEndCopy(relFile, line) {
 
 function hasTaskDetailEmptyDeadEndCopy(relFile, line) {
   if (
-    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/document/TaskDocumentBody.tsx') &&
     !relFile.endsWith('src/app/features/detail/HistoryTab.tsx')
   ) {
     return false
@@ -5271,7 +5271,7 @@ function hasContextWorkHistoryJargonCopy(relFile, line) {
     !relFile.endsWith('src/app/features/detail/ContextTab.tsx') &&
     !relFile.endsWith('src/app/features/detail/ContextEvidenceList.tsx') &&
     !relFile.endsWith('src/app/features/detail/ContextCandidatesList.tsx') &&
-    !relFile.endsWith('src/app/features/detail/DescriptionTab.tsx') &&
+    !relFile.endsWith('src/app/features/detail/document/TaskDocumentBody.tsx') &&
     !relFile.endsWith('src/app/features/detail/taskDetailErrorMessages.ts') &&
     !relFile.endsWith('src/app/features/chat/ToolCallDetail.tsx') &&
     !relFile.endsWith('src/app/features/board/KanbanColumn.tsx') &&
