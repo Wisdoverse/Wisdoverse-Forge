@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { TaskDocumentBody } from '@app/features/detail'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
@@ -112,7 +113,7 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
           >
             {storeTask.params.task}
           </h1>
-          {/* M3 mounts <TaskDocumentBody task={storeTask} /> here */}
+          <TaskDocumentBody task={storeTask} />
           {/* M5 mounts the activity footer here */}
         </div>
       </div>
