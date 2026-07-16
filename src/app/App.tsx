@@ -2,7 +2,7 @@ import { createRouter, createRoute, redirect, RouterProvider } from '@tanstack/r
 import { Route as rootRoute } from './routes/__root'
 import { Route as loginRoute } from './routes/login'
 import { Route as startRoute } from './routes/start'
-import { Route as tasksRoute } from './routes/tasks'
+import { Route as tasksRoute, DetailRoute as tasksDetailRoute } from './routes/tasks'
 import { Route as inboxRoute } from './routes/inbox'
 import { Route as contextRoute } from './routes/context'
 import { Route as contextAuditRoute } from './routes/context-audit'
@@ -27,6 +27,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   startRoute,
   tasksRoute,
+  tasksDetailRoute,
   inboxRoute,
   contextRoute,
   contextAuditRoute,
