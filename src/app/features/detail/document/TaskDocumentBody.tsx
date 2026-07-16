@@ -2,7 +2,7 @@ import { MarkdownContent } from '@app/shared/ui/markdown'
 import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
 import { HANDOFF_REVIEW_POINTS, missingBriefCopy, nextActionForTask } from '../model/taskGuidance'
 
-const SECTION_LABEL =
+export const SECTION_LABEL =
   'mb-2 mt-8 text-ui-caption font-medium uppercase tracking-wide text-secondary-light dark:text-secondary-dark'
 
 export function TaskDocumentBody({ task }: { task: TaskSummary }) {
