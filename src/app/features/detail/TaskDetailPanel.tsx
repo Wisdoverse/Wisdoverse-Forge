@@ -14,22 +14,19 @@ import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
 import {
-  orchestrationApi,
   taskResultArtifacts,
   type ParticipantSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
-import type { ContextPreviewResponse } from '@shared/types/context'
 import { TaskMetadata } from './TaskMetadata'
 import { DescriptionTab } from './DescriptionTab'
 import { ContextTab } from './ContextTab'
 import { HistoryTab } from './HistoryTab'
 import { ReviewSnapshotPanel } from './ReviewSnapshotPanel'
 import { SkillDraftModal } from './SkillDraftModal'
-import { taskDetailErrorMessage } from './taskDetailErrorMessages'
+import { useTaskActions } from './model/useTaskActions'
 
 type TabId = 'description' | 'result' | 'context' | 'history' | 'review'
 
@@ -45,9 +42,7 @@ interface TaskDetailPanelProps {
 }
 
 export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
-  const upsertTask = useBoardStore((state) => state.upsertTask)
   const contextVisible = useContextFeaturesStore((s) => s.governance || s.injection)
-  const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
   const resultArtifacts = taskResultArtifacts(task.result)
   const hasResult = resultArtifacts.length > 0
   const failurePreview =
@@ -60,125 +55,35 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   // pre-dispatch waiting_approval button).
   const tabs = task.selfFix ? [...coreTabs, { id: 'review' as TabId, label: 'Review' }] : coreTabs
   const [activeTab, setActiveTab] = useState<TabId>('description')
-  const [participants, setParticipants] = useState<ParticipantSummary[]>([])
-  const [selectedAgentId, setSelectedAgentId] = useState('')
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [preview, setPreview] = useState<ContextPreviewResponse | null>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState<string | null>(null)
-  const [publishing, setPublishing] = useState(false)
   const [skillDraftOpen, setSkillDraftOpen] = useState(false)
-  const [recoveryAction, setRecoveryAction] = useState<'retry' | 'approve' | null>(null)
-  const [recoveryError, setRecoveryError] = useState<string | null>(null)
-  const [taskAction, setTaskAction] = useState<'block' | 'cancel' | null>(null)
-  const [taskActionError, setTaskActionError] = useState<string | null>(null)
-  const [confirmCancelTask, setConfirmCancelTask] = useState(false)
+  const {
+    showActions,
+    canAssign,
+    canRetry,
+    canApprove,
+    participants,
+    selectedAgentId,
+    setSelectedAgentId,
+    assign,
+    retry,
+    approve,
+    cancel,
+    pause,
+    previewState,
+    recoveryAction,
+    recoveryError,
+    taskAction,
+    taskActionError,
+    confirmCancelTask,
+    setConfirmCancelTask,
+  } = useTaskActions(task)
 
   useEffect(() => {
     if (!contextVisible && activeTab === 'context') setActiveTab('description')
   }, [activeTab, contextVisible])
 
-  const showActions = task.state === 'working' || task.state === 'queued'
-  const canAssign =
-    canPublishWithContext &&
-    (task.state === 'backlog' ||
-      task.state === 'queued' ||
-      (task.state === 'blocked' && task.blockedReason === 'waiting_agent'))
-  const canRetry = task.state === 'failed' || task.state === 'canceled'
-  const canApprove = task.state === 'blocked' && task.blockedReason === 'waiting_approval'
   const recoveryGuidance = taskRecoveryGuidance(canRetry, canApprove)
   const liveActionGuidance = taskLiveActionGuidance(task.state)
-
-  useEffect(() => {
-    if (!canAssign) return
-    let cancelled = false
-    orchestrationApi
-      .getParticipants('available')
-      .then((items) => {
-        if (cancelled) return
-        setParticipants(items)
-        setSelectedAgentId((current) => current || items[0]?.agentId || '')
-      })
-      .catch((err) => {
-        if (!cancelled) setPreviewError(taskDetailErrorMessage('loadAgents', err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [canAssign])
-
-  async function openContextPreview(agentId: string) {
-    if (!agentId) return
-    setPreviewOpen(true)
-    setPreview(null)
-    setPreviewError(null)
-    setPreviewLoading(true)
-    try {
-      setPreview(await orchestrationApi.previewContext(task.id, agentId))
-    } catch (err) {
-      setPreviewError(taskDetailErrorMessage('previewContext', err))
-    } finally {
-      setPreviewLoading(false)
-    }
-  }
-
-  async function publishWithContext(selection: { pinnedIds: string[]; removedIds: string[] }) {
-    if (!preview) return
-    setPublishing(true)
-    setPreviewError(null)
-    try {
-      const response = await orchestrationApi.publishWithContext(task.id, {
-        contextPreviewId: preview.contextPreviewId,
-        previewHash: preview.previewHash,
-        pinnedIds: selection.pinnedIds,
-        removedIds: selection.removedIds,
-      })
-      if (response.ok && response.task) upsertTask(response.task)
-      setPreviewOpen(false)
-    } catch (err) {
-      setPreviewError(taskDetailErrorMessage('publishTask', err))
-    } finally {
-      setPublishing(false)
-    }
-  }
-
-  async function handleRecovery(action: 'retry' | 'approve') {
-    setRecoveryAction(action)
-    setRecoveryError(null)
-    try {
-      const response =
-        action === 'retry'
-          ? await orchestrationApi.retryTask(task.id)
-          : await orchestrationApi.approveTask(task.id)
-      if (response.ok && response.task) upsertTask(response.task)
-    } catch (err) {
-      setRecoveryError(
-        taskDetailErrorMessage(action === 'retry' ? 'retryTask' : 'approveTask', err)
-      )
-    } finally {
-      setRecoveryAction(null)
-    }
-  }
-
-  async function handleTaskAction(action: 'block' | 'cancel') {
-    if (action === 'block') setConfirmCancelTask(false)
-    setTaskAction(action)
-    setTaskActionError(null)
-    try {
-      const response =
-        action === 'block'
-          ? await orchestrationApi.updateTask(task.id, { state: 'blocked' })
-          : await orchestrationApi.cancelTask(task.id)
-      if (response.ok && response.task) upsertTask(response.task)
-      if (action === 'cancel') setConfirmCancelTask(false)
-    } catch (err) {
-      setTaskActionError(
-        taskDetailErrorMessage(action === 'block' ? 'blockTask' : 'cancelTask', err)
-      )
-    } finally {
-      setTaskAction(null)
-    }
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -317,7 +222,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={() => void openContextPreview(selectedAgentId)}
+              onClick={() => void assign(selectedAgentId)}
               disabled={!selectedAgentId}
               className={uiStyles.primaryButton}
               aria-label={
@@ -367,7 +272,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             {canRetry && (
               <button
                 type="button"
-                onClick={() => void handleRecovery('retry')}
+                onClick={() => void retry()}
                 disabled={recoveryAction !== null}
                 className={cn(uiStyles.secondaryButton, 'flex-1 text-apple-blue')}
               >
@@ -378,7 +283,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             {canApprove && (
               <button
                 type="button"
-                onClick={() => void handleRecovery('approve')}
+                onClick={() => void approve()}
                 disabled={recoveryAction !== null}
                 className={cn(uiStyles.primaryButton, 'flex-1')}
               >
@@ -424,7 +329,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => void handleTaskAction('cancel')}
+                  onClick={() => void cancel()}
                   disabled={taskAction !== null}
                   className={cn(uiStyles.dangerConfirmButton, 'flex-1')}
                 >
@@ -444,7 +349,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => void handleTaskAction('block')}
+                onClick={() => void pause()}
                 disabled={taskAction !== null}
                 className={cn(
                   uiStyles.secondaryButton,
@@ -466,17 +371,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         </div>
       )}
 
-      <InjectionPreviewModal
-        isOpen={previewOpen}
-        preview={preview}
-        loading={previewLoading}
-        publishing={publishing}
-        error={previewError}
-        onClose={() => {
-          if (!publishing) setPreviewOpen(false)
-        }}
-        onConfirm={(selection) => void publishWithContext(selection)}
-      />
+      <InjectionPreviewModal {...previewState} />
       <SkillDraftModal
         open={skillDraftOpen}
         task={task}

@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { TaskDocumentBody } from '@app/features/detail'
+import {
+  ContextTab,
+  DetailsGroup,
+  PropertiesGroup,
+  RailSection,
+  TaskDocumentBody,
+  TaskStatus,
+} from '@app/features/detail'
+import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { taskPriorityLabel } from '@app/entities/task'
 import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -12,6 +21,7 @@ interface TaskDocumentPageProps {
 
 export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
   const navigate = useNavigate()
+  const contextVisible = useContextFeaturesStore((s) => s.governance || s.injection)
   const columns = useBoardStore((s) => s.columns)
   const upsertTask = useBoardStore((s) => s.upsertTask)
   const storeTask = useMemo(
@@ -106,6 +116,11 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
               {storeTask.params.task}
             </span>
           </nav>
+          <div className="mt-3 flex items-center gap-2 text-ui-caption text-secondary-light dark:text-secondary-dark lg:hidden">
+            <TaskStatus state={storeTask.state} />
+            <span aria-hidden="true">·</span>
+            <span>{taskPriorityLabel(storeTask.priority)} priority</span>
+          </div>
           <h1
             ref={titleRef}
             tabIndex={-1}
@@ -117,7 +132,17 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
           {/* M5 mounts the activity footer here */}
         </div>
       </div>
-      {/* M4 mounts the properties rail aside here */}
+      <aside className="hidden w-[280px] flex-shrink-0 flex-col border-l border-black/[0.08] bg-background-light dark:border-white/[0.1] dark:bg-background-dark min-h-0 overflow-hidden lg:flex">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <PropertiesGroup task={storeTask} />
+          {contextVisible && (
+            <RailSection title="Context" defaultOpen={false}>
+              <ContextTab taskId={storeTask.id} />
+            </RailSection>
+          )}
+          <DetailsGroup task={storeTask} />
+        </div>
+      </aside>
     </div>
   )
 }
