@@ -27,9 +27,9 @@ describe('SkillDetailModal', () => {
     render(<SkillDetailModal skill={baseSkill} onClose={() => {}} />)
 
     expect(screen.getByRole('dialog', { name: 'deploy-review' })).toBeInTheDocument()
-    expect(screen.getByText('Saved guidance the team can reuse.')).toBeInTheDocument()
+    expect(screen.getByText('A skill the team can reuse.')).toBeInTheDocument()
     const modalFrame = screen
-      .getByText('Saved guidance the team can reuse.')
+      .getByText('A skill the team can reuse.')
       .closest('[class*="max-w-md"]') as HTMLElement
     expect(modalFrame).toHaveClass('rounded-md', 'border', 'bg-transparent')
     expect(modalFrame.className).not.toContain('rounded-card')
@@ -43,7 +43,9 @@ describe('SkillDetailModal', () => {
     expect(closeButton.className).toContain('dark:hover:text-foreground-dark')
     expect(closeButton.className).not.toContain('hover:bg-black/[0.04]')
     expect(closeButton.className).not.toContain('dark:hover:bg-white/[0.06]')
-    expect(screen.queryByText('Reusable instructions agents can apply during task work.')).toBeNull()
+    expect(
+      screen.queryByText('Reusable instructions agents can apply during task work.')
+    ).toBeNull()
     expect(screen.getByText('Ready to use')).toBeInTheDocument()
     expect(screen.getByText('Best with file-editing app: Codex')).toBeInTheDocument()
     expect(screen.getByText('Best with file-editing app: Codex')).toHaveAttribute(
@@ -60,7 +62,7 @@ describe('SkillDetailModal', () => {
     expect(nextStepFrame.className).not.toContain('bg-apple-blue/[0.06]')
     expect(
       screen.getByText(
-        'Use this saved guidance when creating a task, or let matching words suggest it for similar work.'
+        'Use this skill when creating a task, or let matching words suggest it for similar work.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText('Saved in')).toBeInTheDocument()
@@ -83,7 +85,7 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Check deployment steps before release.')).toBeInTheDocument()
     expect(screen.getByText('When this helps')).toBeInTheDocument()
     expect(
-      screen.getByText('Use this saved guidance for tasks that include words like these.')
+      screen.getByText('Use this skill for tasks that include words like these.')
     ).toBeInTheDocument()
     expect(screen.getByText('deploy')).toBeInTheDocument()
     const triggerFrame = screen.getByText('deploy').closest('section') as HTMLElement
@@ -97,7 +99,7 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('Reusable guidance')).toBeInTheDocument()
     expect(screen.queryByText('Reusable instructions')).toBeNull()
     expect(
-      screen.getByText('Read these reusable steps before using this saved guidance.')
+      screen.getByText('Read these reusable steps before using this skill.')
     ).toBeInTheDocument()
     expect(
       screen.getByText('Verify health checks, rollback notes, and user-facing release status.')
@@ -135,38 +137,34 @@ describe('SkillDetailModal', () => {
     expect(screen.getByText('No specific tool needed')).toBeInTheDocument()
     expect(screen.getByText('No specific tool needed')).toHaveAttribute(
       'title',
-      'This saved guidance does not require a specific file editing tool.'
+      'This skill does not require a specific file editing tool.'
     )
     expect(screen.queryByText('Works with any agent')).toBeNull()
     expect(screen.queryByTitle('No specific work tool is required.')).toBeNull()
     expect(
-      screen.getByText(
-        'Ask an owner or admin to finish setup, then use this saved guidance in a task.'
-      )
+      screen.getByText('Ask an owner or admin to finish setup, then use this skill in a task.')
     ).toBeInTheDocument()
     expect(screen.queryByText(/install it/i)).toBeNull()
-    expect(screen.getByText('Saved guidance')).toBeInTheDocument()
+    expect(screen.getByText('Skills')).toBeInTheDocument()
     expect(screen.queryByText('Saved as saved guidance')).toBeNull()
     expect(screen.queryByText('Saved as a saved instruction')).toBeNull()
     expect(screen.queryByText('Saved instructions')).toBeNull()
-    expect(
-      screen.getByText('Open Saved guidance again to show who keeps this updated')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Open Skills again to show who keeps this updated')).toBeInTheDocument()
     expect(screen.queryByText('Unknown')).toBeNull()
     expect(screen.getByText('Latest saved copy')).toBeInTheDocument()
     expect(
-      screen.getByText('Check the reusable guidance below before using this saved guidance.')
+      screen.getByText('Check the reusable guidance below before using this skill.')
     ).toBeInTheDocument()
     expect(
       screen.queryByText('Check the reusable instructions below before using this saved guidance.')
     ).toBeNull()
     expect(
       screen.getByText(
-        'No reusable steps are saved yet. Add the steps agents should follow before using this saved guidance.'
+        'No reusable steps are saved yet. Add the steps agents should follow before using this skill.'
       )
     ).toBeInTheDocument()
     const noGuidanceNote = screen.getByText(
-      'No reusable steps are saved yet. Add the steps agents should follow before using this saved guidance.'
+      'No reusable steps are saved yet. Add the steps agents should follow before using this skill.'
     )
     expect(noGuidanceNote).toHaveClass('rounded-md', 'border', 'bg-transparent')
     expect(noGuidanceNote.className).not.toContain('rounded-card')
@@ -187,13 +185,13 @@ describe('SkillDetailModal', () => {
       />
     )
 
-    expect(screen.getByText('Saved guidance')).toBeInTheDocument()
+    expect(screen.getByText('Skills')).toBeInTheDocument()
     expect(screen.getByText('Check who can use this')).toBeInTheDocument()
     expect(screen.queryByText('Check saved guidance access')).toBeNull()
     expect(screen.getByText('Check the file-editing app in Settings')).toBeInTheDocument()
     expect(screen.getByText('Check the file-editing app in Settings')).toHaveAttribute(
       'title',
-      'Open Settings, check the file-editing app, then use this saved guidance.'
+      'Open Settings, check the file-editing app, then use this skill.'
     )
     expect(screen.queryByText('Check work tool in Settings')).toBeNull()
     expect(screen.queryByText('Check required tool in Settings')).toBeNull()

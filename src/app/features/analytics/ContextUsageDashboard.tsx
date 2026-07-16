@@ -29,25 +29,25 @@ const TASK_KIND_LABELS: Record<string, string> = {
 }
 
 const EMPTY_TOP_USEFUL = {
-  title: 'Mark useful saved items to rank them here',
+  title: 'Mark useful context items to rank them here',
   detail:
     'After a task uses a saved note or guidance, choose Useful in the task result to place it in this list.',
   nextStep:
-    'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.',
+    'Next: after reviewing a completed task, mark a helpful context item Useful so this list can rank it.',
 }
 
 const EMPTY_NEEDS_REVIEW = {
-  title: 'No saved items need checking',
+  title: 'No context items need checking',
   detail: 'Items appear here when teammates mark them as outdated, incorrect, or too sensitive.',
   nextStep:
-    'Next: no action is needed now; keep using task feedback so risky saved items appear here.',
+    'Next: no action is needed now; keep using task feedback so risky context items appear here.',
 }
 
 const EMPTY_STALE = {
-  title: 'No saved items look outdated',
-  detail: 'Saved notes and saved guidance appear here when they are old enough to check again.',
+  title: 'No context items look outdated',
+  detail: 'Saved notes and skills appear here when they are old enough to check again.',
   nextStep:
-    'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.',
+    'Next: no action is needed now; update context items when team guidance changes so old advice is easier to spot.',
 }
 
 function updatedAtLabel(timestamp: string): string {
@@ -76,9 +76,9 @@ function contextItemKindLabel(itemKind: string): string {
     case 'memory':
       return 'Saved note'
     case 'skill':
-      return 'Saved guidance'
+      return 'Skill'
     default:
-      return 'Saved item'
+      return 'Context item'
   }
 }
 
@@ -88,7 +88,7 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-            Saved item reuse
+            Context item reuse
           </h2>
           <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
             {data
@@ -129,14 +129,14 @@ export function ContextUsageDashboard({ data, loading = false }: ContextUsageDas
         <StatCard
           title="Success"
           value={data ? percent(data.summary.successRate) : '0%'}
-          subtitle="Completed work after saved items were used."
+          subtitle="Completed work after context items were used."
           loading={loading}
           accent="blue"
         />
         <StatCard
           title="Useful"
           value={data?.summary.feedbackUsefulCount ?? 0}
-          subtitle="Times users marked saved items helpful."
+          subtitle="Times users marked context items helpful."
           loading={loading}
           accent="blue"
         />

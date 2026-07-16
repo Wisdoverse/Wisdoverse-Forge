@@ -3625,7 +3625,7 @@ const EMPTY_TOP_USEFUL = {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_TOP_USEFUL = {
-  title: 'Mark useful saved items to rank them here',
+  title: 'Mark useful context items to rank them here',
   detail:
     'After a task uses a saved note or instruction, choose Useful in the task result to place it in this list.',
 }
@@ -3674,12 +3674,12 @@ const EMPTY_STALE = {
     const cwd = fixture({
       'src/app/features/analytics/ContextUsageDashboard.tsx': `
 const EMPTY_NEEDS_REVIEW = {
-  title: 'No saved items need checking',
+  title: 'No context items need checking',
   detail: 'Check these before agents reuse them because teammates marked them as outdated, incorrect, or sensitive.',
 }
 
 const EMPTY_STALE = {
-  title: 'No saved items look outdated',
+  title: 'No context items look outdated',
 }
 `,
     })
@@ -3843,7 +3843,7 @@ export function InjectionPreviewModal() {
     const cwd = fixture({
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
 export function InjectionPreviewModal() {
-  return <PreviewSection empty="More saved items appear here after tasks save helpful notes or instructions." />
+  return <PreviewSection empty="More context items appear here after tasks save helpful notes or instructions." />
 }
 `,
     })
@@ -6383,7 +6383,7 @@ function TaskCard() {
     <button aria-label={\`Preview and send task title\`} title="Preview and send" />
     <p>Open this card and add details before sending.</p>
     <p>Choose an agent, then preview and send.</p>
-    <p>Check saved items, then send.</p>
+    <p>Check context items, then send.</p>
     <p>Choose or free an agent, then send again.</p>
   </>
 }
@@ -10796,11 +10796,11 @@ export function ResultHelp() {
     )
   })
 
-  it('accepts task-send saved item checks that use Saved items and check wording', () => {
+  it('accepts task-send context item checks that use Context and check wording', () => {
     const cwd = fixture({
       'src/app/entities/context/ui/InjectionPreviewModal.tsx': `
 export function InjectionPreviewModal() {
-  return <div aria-label="Close saved items check">Check saved items before sending. Checking saved items...</div>
+  return <div aria-label="Close context items check">Check context items before sending. Checking context items...</div>
 }
 `,
       'src/app/features/detail/ContextCandidatesList.tsx': `
@@ -10810,7 +10810,7 @@ export function CandidateLink() {
       <h3>Suggested notes to check</h3>
       <h3>Suggested instructions to check</h3>
       <span>Needs your check</span>
-      <a aria-label="Open Saved items">Open Saved items</a>
+      <a aria-label="Open Context">Open Context</a>
     </section>
   )
 }
@@ -10822,7 +10822,7 @@ function candidateStateLabel(state) {
 `,
       'src/app/features/board/boardErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  previewContext: 'Choose an available agent, then check saved items again.',
+  previewContext: 'Choose an available agent, then check context items again.',
 }
 `,
       'src/app/features/detail/taskDetailErrorMessages.ts': `
@@ -10832,7 +10832,7 @@ const ACTION_FALLBACKS = {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
-  loadQueue: 'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
+  loadQueue: 'Choose Load context items again so you see the latest context items. Context items could not load.',
 }
 `,
       'src/app/features/detail/TaskDetailPanel.tsx': `
@@ -13879,8 +13879,8 @@ const NAV_COMMANDS = [
 const COMMAND_DISCOVERY_STEPS = ['Use Inbox to check updates that need a next step.']
 `,
       'src/app/routes/context.tsx': `
-export const title = 'Checking saved items'
-export const detail = 'We are checking whether saved items are available here.'
+export const title = 'Checking context items'
+export const detail = 'We are checking whether context items are available here.'
 `,
     })
 
@@ -14014,7 +14014,7 @@ export function taskBlockedPreview() {
   it('accepts concrete setup wording for beginner-facing recovery copy', () => {
     const cwd = fixture({
       'src/app/routes/context.tsx': `
-export const detail = 'Saved items are available here. Open Saved items again or ask an owner to check Saved items access.'
+export const detail = 'Context is available here. Open Context again or ask an owner to check Context access.'
 `,
       'src/app/routes/context-audit.tsx': `
 export const detail = 'Change history is available here. Open Change history again or ask an owner to check change history access.'
@@ -14048,10 +14048,39 @@ export function taskBlockedPreview() {
     expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
   })
 
+  it('flags retired surface names in user-visible copy', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+export const title = 'Saved guidance'
+`,
+    })
+
+    const result = checkBeginnerUxCopy({ cwd })
+    expect(result.ok).toBe(false)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        type: 'retired-surface-name-copy',
+        location: 'src/app/features/skills/SkillsView.tsx:2',
+      }),
+    ])
+  })
+
+  it('accepts current surface names and non-surface saved wording', () => {
+    const cwd = fixture({
+      'src/app/features/skills/SkillsView.tsx': `
+export const title = 'Skills'
+export const searchText = 'saved instructions skills 保存指引 保存指令'
+export const confirmLeave = '不保存就离开吗？未保存的更改会丢失。'
+`,
+    })
+
+    expect(checkBeginnerUxCopy({ cwd })).toEqual({ ok: true, findings: [] })
+  })
+
   it('flags route loading copy that tells beginners to refresh the page', () => {
     const cwd = fixture({
       'src/app/routes/context.tsx': `
-export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check Saved items access.'
+export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check Context access.'
 `,
       'src/app/routes/context-audit.tsx': `
 export const detail = 'If this takes more than a moment, refresh the page or ask an owner to check change history access.'
@@ -14087,7 +14116,7 @@ export function AuthShellLoadingState() {
   it('accepts route loading copy that names the page to open again', () => {
     const cwd = fixture({
       'src/app/routes/context.tsx': `
-export const detail = 'If this takes more than a moment, open Saved items again or ask an owner to check Saved items access.'
+export const detail = 'If this takes more than a moment, open Context again or ask an owner to check Context access.'
 `,
       'src/app/routes/context-audit.tsx': `
 export const detail = 'If this takes more than a moment, open Change history again or ask an owner to check change history access.'
@@ -16167,7 +16196,7 @@ function AuditLogView() {
     <button aria-label="Refresh change history">Refresh</button>
     <button>Show changes</button>
     <button>Show saved change name</button>
-    <Metric label="Protected saved items" />
+    <Metric label="Protected context items" />
     <SubjectLine label="Visible saved item" />
     <SubjectLine label="Protected saved item" />
     <span>{entry.scopeId ? \`Work area \${shortId(entry.scopeId)}\` : 'Work area hidden'}</span>
@@ -16766,7 +16795,7 @@ function QuickCreate() {
 const ACTION_FALLBACKS = {
   createTask: 'Check the project, task queue, and result, then create the task again. The task was not created.',
   moveTask: 'Refresh the board, then move the task again. The task was moved back because the board change was not saved.',
-  publishTask: 'Review the saved item preview, then send the task with selected saved items again. The task was not sent.',
+  publishTask: 'Review the context item preview, then send the task with selected context items again. The task was not sent.',
   selectProject: 'Choose the project again, then create the task. The project was not selected.',
 }
 `,
@@ -16829,7 +16858,7 @@ function ParticipantChip() {
     const cwd = fixture({
       'src/app/features/board/boardErrorMessages.ts': `
 function noAgentPreview() {
-  return 'No agent can prepare the saved item preview right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+  return 'No agent can prepare the context item preview right now. Open Agents to start or connect an agent, then open the Tasks page and check context items again.'
 }
 `,
       'src/app/features/board/AssignmentReadinessPanel.tsx': `
@@ -19486,7 +19515,7 @@ function serviceRecoveryMessage(action) {
 `,
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 function serviceRecoveryMessage(action) {
-  return 'Choose Load saved items again so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
+  return 'Choose Load context items again so you see the latest context items. Context items could not load. If it still fails, ask an owner or admin to check Context access.'
 }
 `,
       'src/app/entities/navigation/model/navigation.store.ts': `
@@ -19574,20 +19603,20 @@ function network() {
       'src/app/features/context/approvalQueueErrorMessages.ts': `
 const ACTION_FALLBACKS = {
   approveCandidate: 'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
-  loadQueue: 'Choose Load saved items again so you see the latest saved items. Saved items could not load.',
-  rejectCandidate: 'Choose Load saved items again, then choose Do not save again. The item stayed on the list.',
+  loadQueue: 'Choose Load context items again so you see the latest context items. Context items could not load.',
+  rejectCandidate: 'Choose Load context items again, then choose Do not save again. The item stayed on the list.',
 }
 function forbidden() {
   return 'Ask an owner or admin to let you save or skip saved notes and instructions, then retry this saved item action. You do not have permission right now.'
 }
 function missing() {
-  return 'Choose Load saved items again so you see the latest saved items. This item was not found.'
+  return 'Choose Load context items again so you see the latest context items. This item was not found.'
 }
 function conflict() {
-  return 'Choose Load saved items again, then open this item. It changed while you were checking it.'
+  return 'Choose Load context items again, then open this item. It changed while you were checking it.'
 }
 function busy() {
-  return 'Wait a moment, then try again. Saved items are busy.'
+  return 'Wait a moment, then try again. Context items are busy.'
 }
 function network() {
   return 'Check your connection, then try this saved item action again. Forge could not connect while saving your choice.'
@@ -19726,7 +19755,7 @@ function emptyState() {
 `,
       'src/app/entities/context/ui/FeedbackControls.tsx': `
 function feedbackHelp() {
-  return 'Your answer helps future tasks choose safer saved items.'
+  return 'Your answer helps future tasks choose safer context items.'
 }
 `,
       'src/app/features/inbox/InboxView.tsx': `

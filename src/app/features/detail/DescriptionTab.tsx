@@ -196,7 +196,7 @@ export function DescriptionTab({
           )}
           <p>
             {contextTotal > 0
-              ? `${contextTotal} saved item${contextTotal === 1 ? '' : 's'} helped this task.`
+              ? `${contextTotal} context item${contextTotal === 1 ? '' : 's'} helped this task.`
               : 'Saved notes, work history, and ideas to reuse next time appear here while the task is active.'}
           </p>
           {onOpenContext && (
@@ -225,7 +225,7 @@ export function DescriptionTab({
               )}
               {onDraftSkill && (
                 <button type="button" onClick={onDraftSkill} className={uiStyles.secondaryButton}>
-                  <span>Draft saved guidance</span>
+                  <span>Draft a skill</span>
                   <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               )}

@@ -92,7 +92,7 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal isOpen preview={review} onClose={() => {}} onConfirm={() => {}} />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Check saved items before sending' })).toBeDefined()
+    expect(screen.getByRole('dialog', { name: 'Check context items before sending' })).toBeDefined()
     expect(screen.getByText(/saved notes and guidance the agent will see next/i)).toBeDefined()
     expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
     expect(screen.getByText('2 items selected · Enough room for a few saved notes')).toBeDefined()
@@ -109,13 +109,11 @@ describe('InjectionPreviewModal', () => {
     expect(
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
-    expect(screen.getByText('More saved items you can include')).toBeDefined()
+    expect(screen.getByText('More context items you can include')).toBeDefined()
     expect(screen.getByText('These are not shared unless you add them.')).toBeDefined()
     expect(screen.getByText('Kept easy to reuse')).toBeDefined()
     expect(
-      screen.getByText(
-        'Choose the pin button on a saved item to keep it easy to reuse.'
-      )
+      screen.getByText('Choose the pin button on a context item to keep it easy to reuse.')
     ).toBeDefined()
     expect(screen.queryByText('Nothing will be shared yet.')).toBeNull()
     expect(
@@ -133,7 +131,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getAllByText('Team space').length).toBeGreaterThan(0)
     expect(screen.queryByText('Organization')).toBeNull()
     expect(screen.getAllByText('Internal').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Small saved item').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Small context item').length).toBeGreaterThan(0)
   })
 
   test('uses simple chat agent wording for provider context reviews', () => {
@@ -228,7 +226,7 @@ describe('InjectionPreviewModal', () => {
     )
 
     expect(screen.getByText('Unknown badge memory')).toBeDefined()
-    expect(screen.getByText('Check saved item')).toBeDefined()
+    expect(screen.getByText('Check context item')).toBeDefined()
     expect(screen.getByText('Check sharing setting')).toBeDefined()
     expect(screen.getByText('Check safety label')).toBeDefined()
     expect(screen.getByText('Check note limits')).toBeDefined()

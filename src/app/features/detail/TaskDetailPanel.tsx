@@ -35,7 +35,7 @@ type TabId = 'description' | 'result' | 'context' | 'history' | 'review'
 
 const BASE_TABS: { id: TabId; label: string }[] = [
   { id: 'description', label: 'Work' },
-  { id: 'context', label: 'Saved items' },
+  { id: 'context', label: 'Context' },
   { id: 'history', label: 'Updates' },
 ]
 

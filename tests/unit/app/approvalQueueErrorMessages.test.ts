@@ -11,14 +11,14 @@ describe('approvalQueueErrorMessage', () => {
   test('turns auth failures into a sign-in instruction', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('loadQueue', new Error('401 Unauthorized')),
-      'Sign in again, then choose Check saved items again.'
+      'Sign in again, then choose Check Context again.'
     )
   })
 
   test('explains network failures without exposing only a transport error', () => {
     const message = approvalQueueErrorMessage('loadQueue', new TypeError('Failed to fetch'))
 
-    expect(message).toContain('Check your connection, then choose Check saved items again')
+    expect(message).toContain('Check your connection, then choose Check Context again')
     expect(message).toContain('Forge could not connect while loading saved notes and guidance')
     expect(message).not.toContain('refresh Saved items')
     expect(message).not.toContain('API')
@@ -43,14 +43,14 @@ describe('approvalQueueErrorMessage', () => {
   test('gives a clear conflict recovery step', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('approveCandidate', new Error('409 conflict')),
-      'Choose Check saved items again, then open this item. It changed while you were checking it.'
+      'Choose Check Context again, then open this item. It changed while you were checking it.'
     )
   })
 
   test('gives a refresh step when the saved item is missing', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('rejectCandidate', new Error('404 not found')),
-      'Choose Check saved items again so you see the latest saved items. This item was not found.'
+      'Choose Check Context again so you see the latest context items. This item was not found.'
     )
   })
 
@@ -59,7 +59,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Check saved items again so you see the latest saved items. Saved items could not load. If it still fails, ask an owner or admin to check Saved items access.'
+      'Choose Check Context again so you see the latest context items. Context items could not load. If it still fails, ask an owner or admin to check Context access.'
     )
     expect(message).not.toContain('Refresh the list')
     expect(message).not.toContain('backend')
@@ -74,7 +74,7 @@ describe('approvalQueueErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Wait a few minutes, then choose Save item again. The item was not saved. If it still fails, ask an owner or admin to check Saved items access.'
+      'Wait a few minutes, then choose Save item again. The item was not saved. If it still fails, ask an owner or admin to check Context access.'
     )
     expect(message).not.toContain('Check who can reuse it')
     expect(message).not.toContain('database unavailable')
@@ -126,14 +126,14 @@ describe('approvalQueueErrorMessage', () => {
       approvalQueueErrorMessage('loadQueue', {
         detail: 'Scope ID is required',
       }),
-      'Choose Check saved items again, then check who can reuse the selected items. Saved items could not load.'
+      'Choose Check Context again, then check who can reuse the selected items. Context items could not load.'
     )
   })
 
   test('turns rate limits into a wait step first', () => {
     expectBeginnerMessage(
       approvalQueueErrorMessage('loadQueue', new Error('429 too many requests')),
-      'Wait a moment, then choose Check saved items again. Saved items are busy.'
+      'Wait a moment, then choose Check Context again. Context items are busy.'
     )
   })
 

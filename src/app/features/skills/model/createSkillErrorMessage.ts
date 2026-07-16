@@ -1,13 +1,13 @@
 const RAW_NETWORK_ERRORS = [/^Network error$/i, /^Failed to fetch$/i]
 const RAW_STATUS_ERRORS = [/^API\s+\d{3}/i, /^HTTP\s+\d{3}/i, /^Server error\s*\(\d{3}\)$/i]
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
-const SAVE_GUIDANCE_RETRY = 'choose Save guidance again'
+const SAVE_GUIDANCE_RETRY = 'choose Save skill again'
 const CREATE_NETWORK_MESSAGE = `Check your connection, then ${SAVE_GUIDANCE_RETRY}. Forge could not connect while saving it.`
-const CREATE_PERMISSION_MESSAGE = `Ask an owner or admin to update your Saved guidance access for this team space, then ${SAVE_GUIDANCE_RETRY}.`
-const CREATE_NOT_FOUND_MESSAGE = `Open Saved guidance again, then ${SAVE_GUIDANCE_RETRY}.`
-const CREATE_CONFLICT_MESSAGE = `Open Saved guidance to check for a similar item, then change the name or matching words and ${SAVE_GUIDANCE_RETRY}.`
-const CREATE_RATE_LIMIT_MESSAGE = `Wait a moment, then ${SAVE_GUIDANCE_RETRY}. Forge is busy with saved guidance right now.`
-const CREATE_SERVICE_MESSAGE = `Open Saved guidance again, then ${SAVE_GUIDANCE_RETRY}. If it still fails, ask your team to confirm Saved guidance is available for this team space.`
+const CREATE_PERMISSION_MESSAGE = `Ask an owner or admin to update your Skills access for this team space, then ${SAVE_GUIDANCE_RETRY}.`
+const CREATE_NOT_FOUND_MESSAGE = `Open Skills again, then ${SAVE_GUIDANCE_RETRY}.`
+const CREATE_CONFLICT_MESSAGE = `Open Skills to check for a similar item, then change the name or matching words and ${SAVE_GUIDANCE_RETRY}.`
+const CREATE_RATE_LIMIT_MESSAGE = `Wait a moment, then ${SAVE_GUIDANCE_RETRY}. Forge is busy with skills right now.`
+const CREATE_SERVICE_MESSAGE = `Open Skills again, then ${SAVE_GUIDANCE_RETRY}. If it still fails, ask your team to confirm Skills is available for this team space.`
 const CREATE_DEFAULT_MESSAGE = `Check the guidance name, matching words, and reusable guidance, then ${SAVE_GUIDANCE_RETRY}.`
 
 const USER_FACING_STARTS = [
@@ -23,10 +23,10 @@ const USER_FACING_STARTS = [
   'Check your connection',
   'Ask an owner or admin',
   'Open Saved instructions',
-  'Open Saved guidance',
+  'Open Skills',
   'Wait a moment',
   'Open Saved instructions',
-  'Open Saved guidance',
+  'Open Skills',
   'Check the required fields',
   'Check the guidance name',
 ]
@@ -197,7 +197,7 @@ function normalizeExistingSkillGuidance(detail: string): string {
   if (detail.startsWith('Check your connection, then save the instruction again.')) {
     return CREATE_NETWORK_MESSAGE
   }
-  if (detail.startsWith('Check your connection, then save the guidance again.')) {
+  if (detail.startsWith('Check your connection, then save the skill again.')) {
     return CREATE_NETWORK_MESSAGE
   }
   if (detail.startsWith('Ask an owner or admin to let you create saved instructions')) {
@@ -213,7 +213,7 @@ function normalizeExistingSkillGuidance(detail: string): string {
     return CREATE_SERVICE_MESSAGE
   }
   if (
-    detail.startsWith('Open Saved guidance again, then save the guidance again.') &&
+    detail.startsWith('Open Skills again, then save the skill again.') &&
     detail.includes('If it still fails')
   ) {
     return CREATE_SERVICE_MESSAGE
@@ -221,19 +221,19 @@ function normalizeExistingSkillGuidance(detail: string): string {
   if (detail.startsWith('Open Saved instructions again, then save the instruction again')) {
     return CREATE_NOT_FOUND_MESSAGE
   }
-  if (detail.startsWith('Open Saved guidance again, then save the guidance again')) {
+  if (detail.startsWith('Open Skills again, then save the skill again')) {
     return CREATE_NOT_FOUND_MESSAGE
   }
   if (detail.startsWith('Wait a moment, then save the instruction again.')) {
     return CREATE_RATE_LIMIT_MESSAGE
   }
-  if (detail.startsWith('Wait a moment, then save the guidance again.')) {
+  if (detail.startsWith('Wait a moment, then save the skill again.')) {
     return CREATE_RATE_LIMIT_MESSAGE
   }
   if (detail.startsWith('Check the required fields, then save the instruction again.')) {
     return CREATE_DEFAULT_MESSAGE
   }
-  if (detail.startsWith('Check the required fields, then save the guidance again.')) {
+  if (detail.startsWith('Check the required fields, then save the skill again.')) {
     return CREATE_DEFAULT_MESSAGE
   }
   if (detail.startsWith('Check the name, matching words, and reusable guidance')) {
@@ -265,5 +265,5 @@ function normalizeExistingSkillGuidance(detail: string): string {
   }
   return detail
     .replace(/\bsave the instruction again\b/g, SAVE_GUIDANCE_RETRY)
-    .replace(/\bsave the guidance again\b/g, SAVE_GUIDANCE_RETRY)
+    .replace(/\bsave the skill again\b/g, SAVE_GUIDANCE_RETRY)
 }

@@ -5,9 +5,9 @@ const RAW_SERVICE_DETAIL =
 const GENERIC_BODY_TEXT = /^(Unauthorized|Forbidden|Not Found|Internal Server Error)$/i
 const FEEDBACK_RETRY_STEP = 'choose the feedback option again'
 const FEEDBACK_OPTION_STEP =
-  'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item'
-const FEEDBACK_PERMISSION_MESSAGE = `Ask an owner or admin to give you access to this saved item, then ${FEEDBACK_RETRY_STEP}. You do not have permission to save feedback for this saved item.`
-const FEEDBACK_SERVICE_MESSAGE = `Open task details again, then ${FEEDBACK_RETRY_STEP}. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.`
+  'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this context item'
+const FEEDBACK_PERMISSION_MESSAGE = `Ask an owner or admin to give you access to this context item, then ${FEEDBACK_RETRY_STEP}. You do not have permission to save feedback for this context item.`
+const FEEDBACK_SERVICE_MESSAGE = `Open task details again, then ${FEEDBACK_RETRY_STEP}. Forge could not save feedback right now. If it still fails, ask an owner or admin to check context item feedback access.`
 
 export function feedbackErrorMessage(error?: unknown): string {
   const status = statusFromError(error)
@@ -35,10 +35,10 @@ export function feedbackErrorMessage(error?: unknown): string {
     return FEEDBACK_PERMISSION_MESSAGE
   }
   if (status === 404) {
-    return `Open task details again, choose this saved item again, then ${FEEDBACK_RETRY_STEP}. This saved item could not be found.`
+    return `Open task details again, choose this context item again, then ${FEEDBACK_RETRY_STEP}. This context item could not be found.`
   }
   if (status === 409) {
-    return `Open task details again, check this saved item, then ${FEEDBACK_RETRY_STEP}. This saved item changed while you were giving feedback.`
+    return `Open task details again, check this context item, then ${FEEDBACK_RETRY_STEP}. This context item changed while you were giving feedback.`
   }
   if (status === 400 || status === 422) {
     return validationMessage(detail)
@@ -145,7 +145,7 @@ function validationMessage(detail: string | null): string {
     return `${FEEDBACK_OPTION_STEP}, then choose it again.`
   }
   if (normalized.includes('context')) {
-    return `Open task details again, choose the saved item again, then ${FEEDBACK_RETRY_STEP}.`
+    return `Open task details again, choose the context item again, then ${FEEDBACK_RETRY_STEP}.`
   }
   return `${FEEDBACK_OPTION_STEP}, then choose it again.`
 }

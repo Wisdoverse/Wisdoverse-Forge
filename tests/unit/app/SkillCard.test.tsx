@@ -56,11 +56,11 @@ describe('SkillCard', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /release-review\. ready to reuse\. open details to check the reusable steps before using this saved guidance/i,
+        name: /release-review\. ready to reuse\. open details to check the reusable steps before using this skill/i,
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Open details to check the reusable steps before using this saved guidance.')
+      screen.getByText('Open details to check the reusable steps before using this skill.')
     ).toBeDefined()
     expect(
       screen.queryByText(
@@ -75,7 +75,7 @@ describe('SkillCard', () => {
       <SkillCard skill={{ ...baseSkill, plugin: '   ', pluginAuthor: '   ' }} onClick={() => {}} />
     )
 
-    expect(screen.getByText('Saved guidance')).toBeInTheDocument()
+    expect(screen.getByText('Skills')).toBeInTheDocument()
     expect(screen.queryByText('Saved as a saved instruction')).toBeNull()
     expect(screen.queryByText(/Saved in\s*$/)).toBeNull()
     expect(screen.queryByText(/by\s*$/)).toBeNull()

@@ -63,15 +63,15 @@ const DEFAULT_FILTERS: FilterState = {
 const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
   {
     id: 'all',
-    label: 'All saved item changes',
-    description: 'See every saved note and saved guidance change.',
+    label: 'All context item changes',
+    description: 'See every saved note and skill change.',
     Icon: Search,
     filters: {},
   },
   {
     id: 'skill-decisions',
-    label: 'Saved guidance decisions',
-    description: 'Check who saved or updated saved guidance.',
+    label: 'Skill decisions',
+    description: 'Check who saved or updated skills.',
     Icon: ClipboardCheck,
     filters: {
       eventPrefix: 'governance.context.skill.',
@@ -93,7 +93,7 @@ const QUICK_AUDIT_VIEWS: QuickAuditView[] = [
 const ITEM_KIND_OPTIONS: { value: ItemKindFilter; label: string }[] = [
   { value: 'all', label: 'All items' },
   { value: 'memory', label: 'Saved note' },
-  { value: 'skill', label: 'Saved guidance' },
+  { value: 'skill', label: 'Skill' },
 ]
 
 const SCOPE_KIND_OPTIONS: { value: ScopeKindFilter; label: string }[] = [
@@ -409,7 +409,7 @@ export function AuditLogView() {
             value={auditViewMetricLabel(data?.query.eventPrefix ?? filters.eventPrefix)}
             compact
           />
-          <Metric label="Protected saved items" value={protectedReferences} />
+          <Metric label="Protected context items" value={protectedReferences} />
           <Metric label="Hidden change-note rows" value={redactedRows} />
         </div>
 
@@ -434,7 +434,7 @@ export function AuditLogView() {
                       <BeginnerLoadingState
                         framed={false}
                         title="Checking change history"
-                        detail="Forge is checking saved note and saved guidance changes for this team space."
+                        detail="Forge is checking saved note and skill changes for this team space."
                         nextStep="If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access."
                         success="Success looks like history rows or a Show all change history step."
                       />
@@ -540,13 +540,13 @@ function AuditRow({ entry }: { entry: GovernanceAuditEntry }) {
           <SubjectLine
             testId="governance-audit-item-reference"
             icon="visible"
-            label="Visible saved item"
+            label="Visible context item"
           />
         ) : (
           <SubjectLine
             testId="governance-audit-protected-reference"
             icon="hash"
-            label="Protected saved item"
+            label="Protected context item"
           />
         )}
         {entry.detailsRedacted && (
@@ -738,8 +738,8 @@ function formatDate(value: string): string {
 function auditEventLabel(eventType: string): string {
   const labels: Record<string, string> = {
     'governance.context.feedback.recorded': 'Feedback saved',
-    'governance.context.skill.approved': 'Saved guidance saved for reuse',
-    'governance.context.skill.reviewed': 'Saved guidance checked',
+    'governance.context.skill.approved': 'Skill saved for reuse',
+    'governance.context.skill.reviewed': 'Skill checked',
     'governance.context.memory.updated': 'Saved note updated',
     'governance.context.memory.rejected': 'Saved note not saved',
   }
@@ -752,8 +752,8 @@ function auditEventLabel(eventType: string): string {
 }
 
 function auditViewMetricLabel(eventPrefix: string | undefined): string {
-  if (!eventPrefix || eventPrefix === 'governance.context.') return 'All saved item changes'
-  if (eventPrefix === 'governance.context.skill.') return 'Saved guidance changes'
+  if (!eventPrefix || eventPrefix === 'governance.context.') return 'All context item changes'
+  if (eventPrefix === 'governance.context.skill.') return 'Skill changes'
   if (eventPrefix === 'governance.context.memory.') return 'Saved note changes'
   return 'Custom change view'
 }
@@ -764,7 +764,7 @@ function shortEventType(eventType: string): string {
 
 function auditItemKindLabel(kind: GovernanceAuditItemKind | null | undefined): string {
   if (kind === 'memory') return 'Saved note'
-  if (kind === 'skill') return 'Saved guidance'
+  if (kind === 'skill') return 'Skill'
   return 'Item hidden for safety'
 }
 

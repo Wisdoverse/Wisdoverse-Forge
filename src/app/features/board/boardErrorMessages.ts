@@ -14,7 +14,7 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   loadTasks: 'Choose Check tasks again to load tasks.',
   moveTask:
     'Choose Check tasks again, then move the task again. The task was moved back because the board change was not saved.',
-  previewContext: 'Choose an agent, then check saved items again.',
+  previewContext: 'Choose an agent, then check context items again.',
   publishTask:
     'Check the saved notes, then send the task with selected saved notes again. The task was not sent.',
   selectProject: 'Choose the project again, then create the task. The project was not selected.',
@@ -25,7 +25,7 @@ const ACTION_RETRY_STEPS: Record<BoardErrorAction, string> = {
   loadReadiness: 'choose Check agent status',
   loadTasks: 'choose Check tasks again',
   moveTask: 'move the task again',
-  previewContext: 'open saved items from this task again',
+  previewContext: 'open context items from this task again',
   publishTask: 'send the task with selected saved notes again',
   selectProject: 'choose the project again',
 }
@@ -39,7 +39,7 @@ export function boardActionErrorMessage(action: BoardErrorAction, err: unknown):
   const status = errorStatus(err, normalized)
 
   if (/no available agent|no agent.*available/.test(normalized)) {
-    return 'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+    return 'No agent can check context items right now. Open Agents to start or connect an agent, then open the Tasks page and check context items again.'
   }
 
   if (isNetworkError(normalized)) {

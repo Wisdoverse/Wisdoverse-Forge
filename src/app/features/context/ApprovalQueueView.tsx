@@ -53,13 +53,13 @@ interface WsContextCandidateMessage {
 
 const STATE_FILTERS: Array<{ value: StateFilter; label: string }> = [
   { value: 'pending', label: 'Needs your check' },
-  { value: 'all', label: 'All saved items' },
+  { value: 'all', label: 'All context items' },
 ]
 
 const KIND_FILTERS: Array<{ value: KindFilter; label: string }> = [
   { value: 'all', label: 'All items' },
   { value: 'memory', label: 'Saved notes' },
-  { value: 'skill', label: 'Saved guidance' },
+  { value: 'skill', label: 'Skills' },
 ]
 
 const SCOPE_FILTERS: Array<{ value: ScopeFilter; label: string }> = [
@@ -83,7 +83,7 @@ const APPROVAL_PATH_STEPS = [
 ]
 
 const APPROVE_CHECKLIST = [
-  'The original task is complete and this saved item still helps.',
+  'The original task is complete and this context item still helps.',
   'Only the right people can reuse it.',
   'Sensitive details are hidden before saving.',
 ]
@@ -96,7 +96,7 @@ const REJECT_CHECKLIST = [
 const SOURCE_MISSING_LABEL = 'Task details need to load'
 const SOURCE_MISSING_DETAIL = 'Save unlocks after the original task details load.'
 const SOURCE_MISSING_NEXT_STEP =
-  'Check saved items again, then save after the original task details load.'
+  'Check Context again, then save after the original task details load.'
 
 interface ApprovalQueueEmptyState {
   title: string
@@ -117,7 +117,7 @@ function approvalQueueEmptyState({
 }): ApprovalQueueEmptyState {
   if (kindFilter !== 'all' || scopeFilter !== 'all') {
     return {
-      title: 'Filters are hiding saved items',
+      title: 'Filters are hiding context items',
       detail:
         'This view only shows the selected item type and reuse option. Clear filters before assuming there is nothing to check.',
       nextStep: 'Next: check the full list first, then narrow it again only if it is long.',
@@ -127,7 +127,7 @@ function approvalQueueEmptyState({
 
   if (stateFilter === 'all') {
     return {
-      title: 'Check the first saved item to start history',
+      title: 'Check the first context item to start history',
       detail:
         'Saved and not-saved notes or guidance appear here after someone checks the first suggestion.',
       nextStep:
@@ -137,9 +137,9 @@ function approvalQueueEmptyState({
   }
 
   return {
-    title: 'No saved items need checking',
+    title: 'No context items need checking',
     detail:
-      'When an agent suggests a saved note or saved guidance, it will appear here before anyone can reuse it.',
+      'When an agent suggests a saved note or skill, it will appear here before anyone can reuse it.',
     nextStep: 'Next: open Tasks and finish work that should teach future agents what helped.',
     actionLabel: 'Open task list',
     actionHref: '/tasks',
@@ -276,7 +276,7 @@ export function ApprovalQueueView() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-ui-caption font-semibold text-apple-blue">
               <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Saved items</span>
+              <span>Context</span>
             </div>
             <h2 className="mt-1 text-ui-doc-title font-medium">Check what agents can save</h2>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
@@ -287,7 +287,7 @@ export function ApprovalQueueView() {
             type="button"
             onClick={() => void loadCandidates()}
             className={uiStyles.secondaryButton}
-            title="Check saved items again"
+            title="Check Context again"
           >
             <RefreshCw
               size={15}
@@ -295,7 +295,7 @@ export function ApprovalQueueView() {
               className={cn(loading && 'animate-spin')}
               aria-hidden="true"
             />
-            <span>Check saved items again</span>
+            <span>Check Context again</span>
           </button>
         </section>
 
@@ -363,8 +363,8 @@ export function ApprovalQueueView() {
             <BeginnerLoadingState
               title="Checking saved notes and guidance"
               detail="Forge is checking which saved notes or guidance need your decision before agents can reuse them."
-              nextStep="If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access."
-              success="Success looks like saved items to check or a no-items-to-review message."
+              nextStep="If this takes more than a moment, open Context again or ask an owner or admin to check context item access."
+              success="Success looks like context items to check or a no-items-to-review message."
               testId="context-approval-loading"
               framed={false}
               className="h-64"
@@ -579,7 +579,7 @@ function DecisionPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close saved item check"
+        aria-label="Close context item check"
         className="hidden flex-1 md:block"
         onClick={onClose}
       />
@@ -971,7 +971,7 @@ function candidateTitle(candidate: ContextCandidateSummary): string {
 }
 
 function contextItemKindLabel(value: ContextCandidateKind): string {
-  return value === 'skill' ? 'Saved guidance' : 'Saved note'
+  return value === 'skill' ? 'Skill' : 'Saved note'
 }
 
 function reuseRangeLabel(value: ContextCandidateSummary['proposed_scope_kind']): string {

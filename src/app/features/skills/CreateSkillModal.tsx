@@ -292,7 +292,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               value={form.description}
               onChange={(event) => updateField('description', event.target.value)}
               className={uiStyles.input}
-              placeholder="Short summary shown in the saved guidance list"
+              placeholder="Short summary shown in the skills list"
             />
             <p
               id="skill-description-help"
@@ -369,7 +369,7 @@ export function CreateSkillModal({ open, onClose, onCreated }: CreateSkillModalP
               Close without saving
             </button>
             <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-              {submitting ? 'Saving guidance...' : 'Save guidance'}
+              {submitting ? 'Saving skill...' : 'Save skill'}
             </button>
           </div>
         </form>

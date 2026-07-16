@@ -98,14 +98,14 @@ test.describe('Governance audit log', () => {
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(2)
     await expect(page.getByTestId('governance-audit-item-reference')).toHaveText(
-      'Visible saved item'
+      'Visible context item'
     )
     await expect(page.getByTestId('governance-audit-protected-reference')).toHaveText(
-      'Protected saved item'
+      'Protected context item'
     )
     await expect(page.getByTestId('governance-audit-redacted')).toBeVisible()
     const auditView = page.getByTestId('governance-audit-view')
-    await expect(auditView.getByText('Protected saved items', { exact: true })).toBeVisible()
+    await expect(auditView.getByText('Protected context items', { exact: true })).toBeVisible()
     await expect(auditView.getByText('Hidden change-note rows', { exact: true })).toBeVisible()
     await expect(
       auditView.getByRole('columnheader', { name: 'Change notes', exact: true })
@@ -119,7 +119,7 @@ test.describe('Governance audit log', () => {
     await page.getByRole('button', { name: 'Show changes', exact: true }).click()
 
     await expect(page.getByTestId('governance-audit-row')).toHaveCount(1)
-    await expect(page.getByTestId('governance-audit-view')).toContainText('Saved guidance checked')
+    await expect(page.getByTestId('governance-audit-view')).toContainText('Skill checked')
 
     const download = page.waitForEvent('download')
     await page.getByTestId('governance-audit-export').click()

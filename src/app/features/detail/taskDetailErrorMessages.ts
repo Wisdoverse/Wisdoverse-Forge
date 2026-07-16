@@ -19,7 +19,7 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
   loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
   loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
   loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
-  previewContext: 'Choose an agent, then check saved items again.',
+  previewContext: 'Choose an agent, then check context items again.',
   publishTask:
     'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
   retryTask:

@@ -29,7 +29,7 @@ interface ContextTabProps {
 const EMPTY_CONTEXT_STEPS = [
   'Start the task first. If it is still waiting, open Work to choose an agent, or open Updates to check the latest activity.',
   'Review ideas from this task to keep useful notes for next time.',
-  'Mark which saved items helped so future tasks get better.',
+  'Mark which context items helped so future tasks get better.',
 ]
 
 export function ContextTab({
@@ -110,7 +110,7 @@ export function ContextTab({
         compact
         framed={false}
         title="Checking saved notes and guidance"
-        detail="Forge is checking which saved notes and saved guidance helped this task."
+        detail="Forge is checking which saved notes and skills helped this task."
         nextStep="If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access."
         success="Success looks like saved notes used, guidance used, or a start-the-task step."
       />
@@ -289,9 +289,8 @@ function ContextEmptyState() {
               Start the task to build work history
             </h3>
             <p className="mt-1 text-ui-body text-secondary-light dark:text-secondary-dark">
-              This page fills in after an agent uses saved notes, saved guidance, or work history
-              for this task. If nothing appears yet, make sure the task has an agent and has
-              started.
+              This page fills in after an agent uses saved notes, skills, or work history for this
+              task. If nothing appears yet, make sure the task has an agent and has started.
             </p>
           </div>
         </div>

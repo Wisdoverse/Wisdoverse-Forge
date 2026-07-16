@@ -164,6 +164,8 @@ const REVIEW_DECISION_JARGON_PATTERNS = [
 
 const REVIEW_HISTORY_DEAD_END_PATTERNS = [/\bNo saved item history yet\b/i]
 
+const RETIRED_SURFACE_NAME_PATTERNS = [/\bSaved items\b/, /\bSaved guidance\b/, /保存的指引/]
+
 const REVIEW_STATUS_JARGON_PATTERNS = [
   /\bFix review\b/i,
   /\bRefresh fix review\b/i,
@@ -3023,6 +3025,11 @@ function hasReviewHistoryDeadEndCopy(relFile, line) {
   return REVIEW_HISTORY_DEAD_END_PATTERNS.some((pattern) => pattern.test(line))
 }
 
+function hasRetiredSurfaceNameCopy(line) {
+  if (isLikelyGuardOrParserLine(line)) return false
+  return RETIRED_SURFACE_NAME_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 function hasReviewStatusJargonCopy(relFile, line) {
   if (
     !relFile.endsWith('src/app/features/detail/ReviewSnapshotPanel.tsx') &&
@@ -3871,13 +3878,11 @@ function hasAgentConfigDetailDeadEndCopy(relFile, line) {
 }
 
 function hasAgentConfigSaveFailureCopy(relFile, line) {
-  if (
-    !(
-      relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') ||
-      relFile.endsWith('src/app/shared/model/agents.store.ts') ||
-      relFile.endsWith('src/app/entities/agent/model/agents.store.ts')
-    )
-  ) {
+  if (!(
+    relFile.endsWith('src/app/features/agents/AgentConfigTab.tsx') ||
+    relFile.endsWith('src/app/shared/model/agents.store.ts') ||
+    relFile.endsWith('src/app/entities/agent/model/agents.store.ts')
+  )) {
     return false
   }
   if (isLikelyGuardOrParserLine(line)) return false
@@ -5728,6 +5733,16 @@ function scanFile(file, relFile) {
         location,
         message:
           'Saved-item review history empty states must tell beginners to review the first suggestion.',
+        sample: line.trim(),
+      })
+    }
+
+    if (hasRetiredSurfaceNameCopy(line)) {
+      findings.push({
+        type: 'retired-surface-name-copy',
+        location,
+        message:
+          'Use the current surface names Context and Skills instead of the retired Saved items / Saved guidance labels.',
         sample: line.trim(),
       })
     }

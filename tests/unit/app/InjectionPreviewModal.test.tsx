@@ -35,14 +35,14 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal isOpen preview={preview} onClose={() => {}} onConfirm={() => {}} />
     )
 
-    expect(screen.getByText('Check saved items before sending')).toBeDefined()
+    expect(screen.getByText('Check context items before sending')).toBeDefined()
     expect(screen.getByText(/saved notes and guidance the agent will see next/i)).toBeDefined()
     expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
     expect(
       screen.getByText('Checked items will be shared with the agent when you send the task.')
     ).toBeDefined()
     expect(
-      screen.getByText('More saved items appear here after tasks save helpful notes or guidance.')
+      screen.getByText('More context items appear here after tasks save helpful notes or guidance.')
     ).toBeDefined()
     expect(
       screen.queryByText(
@@ -52,7 +52,7 @@ describe('InjectionPreviewModal', () => {
     expect(screen.queryByText('No other saved items were found.')).toBeNull()
     expect(screen.getByRole('button', { name: 'Back to task' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Send task with selected notes' })).toBeDefined()
-    expect(screen.getAllByLabelText('Close saved items check')).toHaveLength(2)
+    expect(screen.getAllByLabelText('Close context items check')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /^Cancel$/ })).toBeNull()
     expect(screen.queryByText(/publish/i)).toBeNull()
     expect(screen.queryByText(/selected context/i)).toBeNull()
@@ -70,7 +70,7 @@ describe('InjectionPreviewModal', () => {
     )
     expect(screen.getByText('Note limits')).toBeDefined()
     expect(screen.getByText('No note limits right now')).toBeDefined()
-    expect(screen.getByText('Small saved item')).toBeDefined()
+    expect(screen.getByText('Small context item')).toBeDefined()
     expect(screen.getByLabelText('Remove Deploy checklist from this task')).toBeDefined()
     expect(screen.queryByText(new RegExp(['context', 'units'].join('\\s+'), 'i'))).toBeNull()
     expect(screen.queryByText(/units available/i)).toBeNull()
@@ -100,9 +100,9 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Small saved item')).toBeDefined()
-    expect(screen.getByText('Medium saved item')).toBeDefined()
-    expect(screen.getByText('Large saved item')).toBeDefined()
+    expect(screen.getByText('Small context item')).toBeDefined()
+    expect(screen.getByText('Medium context item')).toBeDefined()
+    expect(screen.getByText('Large context item')).toBeDefined()
     expect(screen.queryByText(/120 units/i)).toBeNull()
     expect(screen.queryByText(/500 units/i)).toBeNull()
     expect(screen.queryByText(/1,300 units/i)).toBeNull()
@@ -153,7 +153,7 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Checking saved items…')).toBeDefined()
+    expect(screen.getByText('Checking context items…')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Loading', 'context', 'review'].join('\\s+')))).toBeNull()
 
     cleanup()
@@ -162,7 +162,7 @@ describe('InjectionPreviewModal', () => {
 
     expect(
       screen.getByText(
-        'Saved items check is not ready yet. Close this window, choose an available agent, then try sending again.'
+        'Context items check is not ready yet. Close this window, choose an available agent, then try sending again.'
       )
     ).toBeDefined()
     expect(screen.queryByText(new RegExp(['No', 'context', 'review'].join('\\s+')))).toBeNull()
@@ -173,7 +173,7 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={null}
-        error="No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again."
+        error="No agent can check context items right now. Open Agents to start or connect an agent, then open the Tasks page and check context items again."
         onClose={() => {}}
         onConfirm={() => {}}
       />
@@ -181,7 +181,7 @@ describe('InjectionPreviewModal', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert.textContent).toContain('No agent can check saved items right now')
+    expect(alert.textContent).toContain('No agent can check context items right now')
     expect(alert.textContent).toContain('Open Agents to start or connect an agent')
     expect(screen.getByText(/choose an available agent, then try sending again/i)).toBeDefined()
     expect(screen.queryByText('No saved notes review is available yet.')).toBeNull()
@@ -192,7 +192,7 @@ describe('InjectionPreviewModal', () => {
       <InjectionPreviewModal
         isOpen
         preview={preview}
-        error="Saved items were not updated. Check the list, then send again."
+        error="Context items were not updated. Check the list, then send again."
         onClose={() => {}}
         onConfirm={() => {}}
       />
@@ -200,7 +200,9 @@ describe('InjectionPreviewModal', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Saved items were not updated. Check the list, then send again.')
+    expect(alert).toHaveTextContent(
+      'Context items were not updated. Check the list, then send again.'
+    )
     expect(screen.getByText('Deploy checklist')).toBeDefined()
   })
 
@@ -223,7 +225,7 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Check saved item')).toBeDefined()
+    expect(screen.getByText('Check context item')).toBeDefined()
     expect(screen.getByText('Notes meant only for helper agents will be skipped')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Subagent-specific', 'context'].join('\\s+')))).toBeNull()
     expect(
@@ -264,12 +266,12 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(screen.getByText('Skill')).toBeDefined()
     expect(screen.queryByText('Saved instruction')).toBeNull()
-    expect(screen.getByText('More saved items you can include')).toBeDefined()
+    expect(screen.getByText('More context items you can include')).toBeDefined()
     expect(screen.getByText('These are not shared unless you add them.')).toBeDefined()
     expect(screen.getByText('Kept easy to reuse')).toBeDefined()
-    expect(screen.getByText('These saved items stay easy to reuse for this task.')).toBeDefined()
+    expect(screen.getByText('These context items stay easy to reuse for this task.')).toBeDefined()
     expect(screen.getByLabelText('Keep Deploy checklist easy to reuse')).toBeDefined()
     expect(screen.getByLabelText('Stop keeping Kept checklist easy to reuse')).toBeDefined()
     expect(screen.queryByText(new RegExp(['Skill', 'instruction'].join('\\s+')))).toBeNull()
@@ -299,9 +301,11 @@ describe('InjectionPreviewModal', () => {
       />
     )
 
-    expect(screen.getByText('Add a saved item below, or send without notes if none fit.')).toBeDefined()
     expect(
-      screen.getByText('Choose the pin button on a saved item to keep it easy to reuse.')
+      screen.getByText('Add a context item below, or send without notes if none fit.')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Choose the pin button on a context item to keep it easy to reuse.')
     ).toBeDefined()
     expect(screen.queryByText(/No saved items will be included yet/i)).toBeNull()
     expect(screen.queryByText(/No saved items are pinned yet/i)).toBeNull()

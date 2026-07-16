@@ -4,14 +4,14 @@ const ACTION_FALLBACKS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate:
     'Check who can reuse it and the original task details, then save the item again. The item was not saved.',
   loadQueue:
-    'Choose Check saved items again so you see the latest saved items. Saved items could not load.',
+    'Choose Check Context again so you see the latest context items. Context items could not load.',
   rejectCandidate:
-    'Choose Check saved items again, then choose Do not save again. The item stayed on the list.',
+    'Choose Check Context again, then choose Do not save again. The item stayed on the list.',
 }
 
 const ACTION_RETRY_STEPS: Record<ApprovalQueueErrorAction, string> = {
   approveCandidate: 'choose Save item again',
-  loadQueue: 'choose Check saved items again',
+  loadQueue: 'choose Check Context again',
   rejectCandidate: 'choose Do not save again',
 }
 
@@ -37,11 +37,11 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 404) {
-    return 'Choose Check saved items again so you see the latest saved items. This item was not found.'
+    return 'Choose Check Context again so you see the latest context items. This item was not found.'
   }
 
   if (status === 409) {
-    return 'Choose Check saved items again, then open this item. It changed while you were checking it.'
+    return 'Choose Check Context again, then open this item. It changed while you were checking it.'
   }
 
   if (status === 422) {
@@ -49,7 +49,7 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
   }
 
   if (status === 429) {
-    return `Wait a moment, then ${ACTION_RETRY_STEPS[action]}. Saved items are busy.`
+    return `Wait a moment, then ${ACTION_RETRY_STEPS[action]}. Context items are busy.`
   }
 
   if (status && status >= 500) {
@@ -61,19 +61,19 @@ export function approvalQueueErrorMessage(action: ApprovalQueueErrorAction, err:
 
 function networkRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return 'Check your connection, then choose Check saved items again. Forge could not connect while loading saved notes and guidance.'
+    return 'Check your connection, then choose Check Context again. Forge could not connect while loading saved notes and guidance.'
   }
   return `Check your connection, then ${ACTION_RETRY_STEPS[action]}. Forge could not connect while saving your choice.`
 }
 
 function serviceRecoveryMessage(action: ApprovalQueueErrorAction): string {
   if (action === 'loadQueue') {
-    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
+    return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Context access.`
   }
   if (action === 'approveCandidate') {
-    return 'Wait a few minutes, then choose Save item again. The item was not saved. If it still fails, ask an owner or admin to check Saved items access.'
+    return 'Wait a few minutes, then choose Save item again. The item was not saved. If it still fails, ask an owner or admin to check Context access.'
   }
-  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Saved items access.`
+  return `${ACTION_FALLBACKS[action]} If it still fails, ask an owner or admin to check Context access.`
 }
 
 function errorDetail(err: unknown): string {
@@ -157,7 +157,7 @@ function validationMessage(action: ApprovalQueueErrorAction, detail: string): st
   const normalized = detail.toLowerCase()
   if (normalized.includes('scope')) {
     return action === 'loadQueue'
-      ? 'Choose Check saved items again, then check who can reuse the selected items. Saved items could not load.'
+      ? 'Choose Check Context again, then check who can reuse the selected items. Context items could not load.'
       : `Choose who can reuse it and check the original task details, then ${ACTION_RETRY_STEPS[action]}.`
   }
   if (normalized.includes('sensitivity')) {

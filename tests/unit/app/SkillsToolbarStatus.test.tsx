@@ -30,16 +30,14 @@ describe('Skills toolbar status', () => {
 
     render(<SkillsView />)
 
-    expect(await screen.findByText('Check saved guidance again to continue.')).toBeDefined()
+    expect(await screen.findByText('Check Skills again to continue.')).toBeDefined()
     expect(screen.queryByText('Saved instructions need attention')).toBeNull()
   })
 
   test('keeps the empty catalog status visible for first-time users', async () => {
     render(<SkillsView />)
 
-    await waitFor(() =>
-      expect(screen.getByText('Choose Save guidance to start.')).toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText('Choose Save skill to start.')).toBeInTheDocument())
     expect(screen.getByText(/Save steps your agents should repeat/i)).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions yet')).toBeNull()
     expect(screen.queryByText('Choose Save instruction or refresh this page.')).toBeNull()
@@ -66,28 +64,24 @@ describe('Skills toolbar status', () => {
     render(<SkillsView />)
 
     await screen.findByText('release-review')
-    fireEvent.change(screen.getByLabelText(/search saved guidance/i), {
+    fireEvent.change(screen.getByLabelText(/search skills/i), {
       target: { value: 'database' },
     })
 
-    expect(screen.getByText('Nothing matches your saved guidance search.')).toBeInTheDocument()
-    expect(screen.getByText('Nothing matches your saved guidance search')).toBeInTheDocument()
-    expect(
-      screen.getByText('Use Show all saved guidance to return to the full list.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Nothing matches your skills search.')).toBeInTheDocument()
+    expect(screen.getByText('Nothing matches your skills search')).toBeInTheDocument()
+    expect(screen.getByText('Use Show all skills to return to the full list.')).toBeInTheDocument()
     const emptyState = screen.getByTestId('saved-instructions-empty-state')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
-    expect(
-      within(emptyState).getByRole('button', { name: /show all saved guidance/i })
-    ).toBeInTheDocument()
+    expect(within(emptyState).getByRole('button', { name: /show all skills/i })).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions match search')).toBeNull()
     expect(screen.queryByText('No saved instructions match this view')).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /show all saved guidance/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all skills/i }))
 
     expect(screen.getByText('release-review')).toBeInTheDocument()
-    expect(screen.getByRole('searchbox', { name: /search saved guidance/i })).toHaveValue('')
+    expect(screen.getByRole('searchbox', { name: /search skills/i })).toHaveValue('')
   })
 
   test('explains when a filter hides every saved guidance item', async () => {
@@ -113,31 +107,27 @@ describe('Skills toolbar status', () => {
     await screen.findByText('release-review')
     fireEvent.click(
       screen.getByRole('button', {
-        name: /show saved guidance for one work tool, 0 matching saved guidance items/i,
+        name: /show skills for one work tool, 0 matching skills/i,
       })
     )
 
-    expect(screen.getByText('Nothing matches this saved guidance view.')).toBeInTheDocument()
-    expect(screen.getByText('Nothing matches this saved guidance view')).toBeInTheDocument()
-    expect(
-      screen.getByText('Use Show all saved guidance to return to the full list.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Nothing matches this skills view.')).toBeInTheDocument()
+    expect(screen.getByText('Nothing matches this skills view')).toBeInTheDocument()
+    expect(screen.getByText('Use Show all skills to return to the full list.')).toBeInTheDocument()
     const emptyState = screen.getByTestId('saved-instructions-empty-state')
     expect(emptyState).toHaveAttribute('role', 'status')
     expect(emptyState).toHaveAttribute('aria-live', 'polite')
-    expect(
-      within(emptyState).getByRole('button', { name: /show all saved guidance/i })
-    ).toBeInTheDocument()
+    expect(within(emptyState).getByRole('button', { name: /show all skills/i })).toBeInTheDocument()
     expect(screen.queryByText('No saved instructions match filter')).toBeNull()
     expect(screen.queryByText('Filter is hiding saved instructions')).toBeNull()
     expect(screen.queryByText('No saved instructions match this view')).toBeNull()
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: /show all saved guidance/i }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: /show all skills/i }))
 
     expect(screen.getByText('release-review')).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: /show all saved guidance, 1 matching saved guidance item/i,
+        name: /show all skills, 1 matching skill/i,
       })
     ).toHaveAttribute('aria-pressed', 'true')
   })

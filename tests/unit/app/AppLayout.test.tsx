@@ -596,7 +596,7 @@ describe('AppLayout', () => {
 
     render(<MemoryRouter />)
 
-    expect(screen.getByText('Saved item history')).toBeDefined()
+    expect(screen.getByText('Context history')).toBeDefined()
     expect(screen.getByText('See what was checked or reused')).toBeDefined()
     expect(screen.queryByText(/exports/i)).toBeNull()
     expect(screen.queryByText(/governance event/i)).toBeNull()

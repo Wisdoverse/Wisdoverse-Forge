@@ -131,7 +131,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
         : dirty
           ? 'Unsaved changes. Save to use these instructions on future work.'
           : hasPrompt
-            ? 'This agent already has saved guidance.'
+            ? 'This agent already has guidance saved.'
             : 'Choose a template or write instructions before saving.'
   const updatePromptValue = (nextValue: string) => {
     setValue(nextValue)
@@ -251,9 +251,7 @@ export function AgentConfigTab({ agentId }: AgentConfigTabProps) {
             onClick={() => updatePromptValue(initial)}
             disabled={!dirty}
             title={
-              dirty
-                ? 'Reset to the last saved guidance.'
-                : 'Make an edit before reset is available.'
+              dirty ? 'Reset to the last saved version.' : 'Make an edit before reset is available.'
             }
             className={cn(uiStyles.secondaryButton, 'h-9 gap-2')}
           >

@@ -59,7 +59,7 @@ export function ContextAppliedList({
 
 function appliedContextDescription(kind: ContextCandidateKind): string {
   if (kind === 'skill') {
-    return 'This saved guidance helped the agent before it worked on this task.'
+    return 'This skill helped the agent before it worked on this task.'
   }
   return 'These saved notes helped the agent before it worked on this task.'
 }
@@ -160,8 +160,8 @@ function AppliedContextCard({
 
       {item.degradationReason && (
         <p className="text-ui-caption text-apple-orange">
-          This saved item was shortened before the agent used it. Check the full item before relying
-          on it.
+          This context item was shortened before the agent used it. Check the full item before
+          relying on it.
         </p>
       )}
 

@@ -24,7 +24,7 @@ describe('skillDraftErrorMessage', () => {
     expect(
       skillDraftErrorMessage(
         new Error(
-          'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
+          'Ask an owner or admin to let you save reusable guidance for this team space, then save the skill again.'
         )
       )
     ).toBe(
@@ -64,7 +64,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('HTTP 404'))
 
     expect(message).toBe(
-      'Open this task again, then save the guidance again. Reusable guidance was not saved. Guidance access may have changed.'
+      'Open this task again, then save the skill again. Reusable guidance was not saved. Guidance access may have changed.'
     )
     expect(message).not.toContain('Refresh the task')
   })
@@ -134,7 +134,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('HTTP 500'))
 
     expect(message).toBe(
-      'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
+      'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check Skills access.'
     )
     expect(message).not.toContain('HTTP 500')
     expect(message).not.toContain('service is temporarily unavailable')
@@ -146,7 +146,7 @@ describe('skillDraftErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
+      'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check Skills access.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('Check the name')
@@ -156,7 +156,7 @@ describe('skillDraftErrorMessage', () => {
     const message = skillDraftErrorMessage(new Error('unexpected failure'))
 
     expect(message).toBe(
-      'Check the draft, then save again. Reusable guidance was not saved. If it still fails, ask an owner or admin to check saved guidance access.'
+      'Check the draft, then save again. Reusable guidance was not saved. If it still fails, ask an owner or admin to check Skills access.'
     )
     expect(message).not.toContain('Review the draft')
     expect(message).not.toContain('unexpected failure')

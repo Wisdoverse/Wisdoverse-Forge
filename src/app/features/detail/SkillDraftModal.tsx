@@ -274,7 +274,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
                 Close without saving
               </button>
               <button type="submit" disabled={submitting} className={uiStyles.primaryButton}>
-                {submitting ? 'Saving guidance...' : 'Save guidance'}
+                {submitting ? 'Saving skill...' : 'Save skill'}
               </button>
             </div>
           </form>
@@ -303,8 +303,8 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
         <NextReuseLink
           href="/skills"
           Icon={LibraryBig}
-          title="Open saved guidance"
-          detail="Find this saved guidance, then check the reusable steps before agents use them."
+          title="Open Skills"
+          detail="Find this skill, then check the reusable steps before agents use them."
         />
         <NextReuseLink
           href="/agents"

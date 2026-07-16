@@ -93,7 +93,7 @@ export function InjectionPreviewModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        aria-label="Close saved items check"
+        aria-label="Close context items check"
         onClick={() => {
           if (!publishing) onClose()
         }}
@@ -113,7 +113,7 @@ export function InjectionPreviewModal({
               id="context-preview-title"
               className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Check saved items before sending
+              Check context items before sending
             </h2>
             <p
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
@@ -130,7 +130,7 @@ export function InjectionPreviewModal({
             type="button"
             onClick={onClose}
             disabled={publishing}
-            aria-label="Close saved items check"
+            aria-label="Close context items check"
             className={cn(uiStyles.subtleButton, 'w-8 shrink-0 px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
@@ -141,7 +141,7 @@ export function InjectionPreviewModal({
           {loading ? (
             <div className="flex items-center gap-2 py-8 text-ui-body text-secondary-light dark:text-secondary-dark">
               <RefreshCw size={14} strokeWidth={2} className="animate-spin" aria-hidden="true" />
-              Checking saved items…
+              Checking context items…
             </div>
           ) : preview ? (
             <div className="space-y-4">
@@ -183,17 +183,17 @@ export function InjectionPreviewModal({
                 title="Will be included"
                 helper="Checked items will be shared with the agent when you send the task."
                 items={preview.items}
-                empty="Add a saved item below, or send without notes if none fit."
+                empty="Add a context item below, or send without notes if none fit."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
                 onTogglePinned={togglePinned}
               />
               <PreviewSection
-                title="More saved items you can include"
+                title="More context items you can include"
                 helper="These are not shared unless you add them."
                 items={preview.suggestedItems}
-                empty="More saved items appear here after tasks save helpful notes or guidance."
+                empty="More context items appear here after tasks save helpful notes or guidance."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
@@ -201,9 +201,9 @@ export function InjectionPreviewModal({
               />
               <PreviewSection
                 title="Kept easy to reuse"
-                helper="These saved items stay easy to reuse for this task."
+                helper="These context items stay easy to reuse for this task."
                 items={preview.previouslyPinned}
-                empty="Choose the pin button on a saved item to keep it easy to reuse."
+                empty="Choose the pin button on a context item to keep it easy to reuse."
                 selectedIds={selectedIds}
                 pinnedIds={pinnedIds}
                 onToggleSelected={toggleSelected}
@@ -228,7 +228,7 @@ export function InjectionPreviewModal({
                 </div>
               )}
               <p>
-                Saved items check is not ready yet. Close this window, choose an available agent,
+                Context items check is not ready yet. Close this window, choose an available agent,
                 then try sending again.
               </p>
             </div>
@@ -437,9 +437,9 @@ function budgetLabel(capability?: Record<string, unknown>): string {
 }
 
 function noteSizeLabel(estimatedTokens: number): string {
-  if (estimatedTokens >= 1000) return 'Large saved item'
-  if (estimatedTokens >= 300) return 'Medium saved item'
-  return 'Small saved item'
+  if (estimatedTokens >= 1000) return 'Large context item'
+  if (estimatedTokens >= 300) return 'Medium context item'
+  return 'Small context item'
 }
 
 function stringValue(value: unknown): string | null {
@@ -490,9 +490,9 @@ function itemKindLabel(kind: string): string {
     case 'memory':
       return 'Saved note'
     case 'skill':
-      return 'Saved guidance'
+      return 'Skill'
     default:
-      return 'Check saved item'
+      return 'Check context item'
   }
 }
 

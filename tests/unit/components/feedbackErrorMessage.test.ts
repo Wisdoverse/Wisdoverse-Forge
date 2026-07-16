@@ -16,7 +16,7 @@ describe('feedbackErrorMessage', () => {
     const message = feedbackErrorMessage(new Error('API 403: Forbidden'))
 
     expect(message).toContain('You do not have permission')
-    expect(message).toContain('this saved item')
+    expect(message).toContain('this context item')
     expect(message).toContain('Ask an owner or admin')
     expect(message).not.toContain('Code:')
     expect(message).not.toContain('API 403')
@@ -27,7 +27,7 @@ describe('feedbackErrorMessage', () => {
     const message = feedbackErrorMessage(new Error('HTTP 422: {"message":"Unknown label."}'))
 
     expect(message).toContain(
-      'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item'
+      'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this context item'
     )
     expect(message).not.toContain('Choose one feedback option')
     expect(message).not.toContain('Code:')

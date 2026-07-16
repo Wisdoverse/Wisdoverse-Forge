@@ -73,7 +73,7 @@ export function skillDraftErrorMessage(error: unknown): string {
   const code = statusCode(error)
 
   if (code === 401 || text.includes('unauthorized') || text.includes('sign in again')) {
-    return `Sign in again, reopen this task, and save the guidance again. ${failure}`
+    return `Sign in again, reopen this task, and save the skill again. ${failure}`
   }
   if (
     code === 403 ||
@@ -87,7 +87,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Ask an owner or admin to let you save reusable guidance, then save again. ${failure}`
   }
   if (code === 404) {
-    return `Open this task again, then save the guidance again. ${failure} Guidance access may have changed.`
+    return `Open this task again, then save the skill again. ${failure} Guidance access may have changed.`
   }
   if (
     code === 409 ||
@@ -98,7 +98,7 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Rename it, then save again. Reusable guidance with this name may already exist. ${failure}`
   }
   if (RAW_SERVICE_DETAIL.test(text)) {
-    return 'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
+    return 'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check Skills access.'
   }
   if (code === 422 || text.includes('validation')) {
     return `Check the name, matching words, and reusable guidance, then save again. ${failure}`
@@ -107,11 +107,11 @@ export function skillDraftErrorMessage(error: unknown): string {
     return `Wait a minute, then save again. Too many guidance changes are happening right now. ${failure}`
   }
   if (code != null && code >= 500) {
-    return 'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check saved guidance access.'
+    return 'Wait a few minutes, then save again. Forge could not save this guidance right now. If it still fails, ask an owner or admin to check Skills access.'
   }
   if (isNetworkError(error)) {
     return 'Check your connection, then save again. Forge could not connect while saving this guidance.'
   }
 
-  return `Check the draft, then save again. ${failure} If it still fails, ask an owner or admin to check saved guidance access.`
+  return `Check the draft, then save again. ${failure} If it still fails, ask an owner or admin to check Skills access.`
 }
