@@ -11,8 +11,7 @@ interface SkillCardProps {
 export function SkillCard({ skill, onClick }: SkillCardProps) {
   const statusLabel = skill.installed ? 'Ready to reuse' : 'Check before use'
   const summary =
-    skill.description ||
-    'Open details to check the reusable steps before using this saved guidance.'
+    skill.description || 'Open details to check the reusable steps before using this skill.'
   const author = skill.pluginAuthor.trim()
   const savedInLabel = savedInstructionCardAudienceLabel(skill.plugin, author)
   return (
@@ -61,6 +60,6 @@ export function SkillCard({ skill, onClick }: SkillCardProps) {
 }
 
 function savedInstructionCardAudienceLabel(source: string, author: string): string {
-  const audience = savedInstructionAudienceLabel(source, 'saved guidance')
+  const audience = savedInstructionAudienceLabel(source, 'skills')
   return author ? `${audience} by ${author}` : audience
 }

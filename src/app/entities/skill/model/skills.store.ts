@@ -103,10 +103,10 @@ function normalizeSkill(skill: ApiSkill): Skill {
     skill.scope_kind === 'project' ? 'project' : globalSkill ? 'global' : 'workspace'
   const source =
     skill.scope_kind === 'project'
-      ? 'Project saved guidance'
+      ? 'Project skills'
       : globalSkill
-        ? 'Global saved guidance'
-        : 'Team space saved guidance'
+        ? 'Global skills'
+        : 'Team space skills'
   return {
     id: skill.id,
     name,
@@ -165,16 +165,16 @@ export function skillHttpErrorMessage(
   data: Record<string, unknown> = {}
 ): string {
   const detail = errorDetail(data)
-  const actionText = action === 'create' ? 'save the guidance again' : 'open Saved guidance again'
+  const actionText = action === 'create' ? 'save the skill again' : 'open Skills again'
   const createPermissionMessage =
-    'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
+    'Ask an owner or admin to let you save reusable guidance for this team space, then save the skill again.'
   const createConflictMessage =
-    'Open Saved guidance to check for a similar item, then change the name or matching words and save the guidance again.'
+    'Open Skills to check for a similar item, then change the name or matching words and save the skill again.'
   const createRateLimitMessage =
-    'Wait a moment, then save the guidance again. Forge is busy with saved guidance right now.'
+    'Wait a moment, then save the skill again. Forge is busy with skills right now.'
   const createServiceMessage =
-    'Open Saved guidance again, then save the guidance again. If it still fails, ask an owner or admin to check saved guidance access.'
-  const createDefaultMessage = 'Check the required fields, then save the guidance again.'
+    'Open Skills again, then save the skill again. If it still fails, ask an owner or admin to check Skills access.'
+  const createDefaultMessage = 'Check the required fields, then save the skill again.'
 
   if (status === 401) {
     return `Sign in again, then ${actionText}.`
@@ -182,12 +182,12 @@ export function skillHttpErrorMessage(
   if (status === 403) {
     return action === 'create'
       ? createPermissionMessage
-      : 'Ask an owner or admin to update your team space access, then open Saved guidance again. You do not have access to saved guidance for this team space.'
+      : 'Ask an owner or admin to update your team space access, then open Skills again. You do not have access to skills for this team space.'
   }
   if (status === 404) {
     return action === 'create'
-      ? 'Open Saved guidance again, then save the guidance again.'
-      : 'Open Saved guidance again to load the list.'
+      ? 'Open Skills again, then save the skill again.'
+      : 'Open Skills again to load the list.'
   }
   if (status === 409) {
     return createConflictMessage
@@ -198,21 +198,19 @@ export function skillHttpErrorMessage(
   if (status === 429) {
     return action === 'create'
       ? createRateLimitMessage
-      : `Wait a moment, then ${actionText}. Forge is busy with saved guidance right now.`
+      : `Wait a moment, then ${actionText}. Forge is busy with skills right now.`
   }
   if (status >= 500) {
-    return action === 'create'
-      ? createServiceMessage
-      : 'Open Saved guidance again to load the list.'
+    return action === 'create' ? createServiceMessage : 'Open Skills again to load the list.'
   }
 
-  return action === 'create' ? createDefaultMessage : 'Open Saved guidance again to load the list.'
+  return action === 'create' ? createDefaultMessage : 'Open Skills again to load the list.'
 }
 
 function skillNetworkErrorMessage(action: SkillAction): string {
   return action === 'create'
-    ? 'Check your connection, then save the guidance again. Forge could not connect while saving it.'
-    : 'Check your connection, then open Saved guidance again to load the list.'
+    ? 'Check your connection, then save the skill again. Forge could not connect while saving it.'
+    : 'Check your connection, then open Skills again to load the list.'
 }
 
 function skillResponseErrorMessage(
@@ -231,24 +229,24 @@ function skillResponseErrorMessage(
   if (detail)
     return action === 'create'
       ? skillValidationMessage(detail)
-      : 'Open Saved guidance again to load the list.'
+      : 'Open Skills again to load the list.'
   return action === 'create'
-    ? 'Check the required fields, then save the guidance again.'
-    : 'Open Saved guidance again to load the list.'
+    ? 'Check the required fields, then save the skill again.'
+    : 'Open Skills again to load the list.'
 }
 
 function skillValidationMessage(detail: string | null): string {
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('trigger')) {
-    return 'Check the matching words, then save the guidance again.'
+    return 'Check the matching words, then save the skill again.'
   }
   if (normalized.includes('name')) {
-    return 'Enter a guidance name, then save the guidance again.'
+    return 'Enter a guidance name, then save the skill again.'
   }
   if (normalized.includes('content') || normalized.includes('instruction')) {
-    return 'Enter the reusable guidance, then save the guidance again.'
+    return 'Enter the reusable guidance, then save the skill again.'
   }
-  return 'Check the guidance name, matching words, and reusable guidance, then save the guidance again.'
+  return 'Check the guidance name, matching words, and reusable guidance, then save the skill again.'
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({

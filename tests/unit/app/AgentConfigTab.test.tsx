@@ -173,7 +173,7 @@ describe('AgentConfigTab', () => {
       screen.getByText(/start from a template or write everyday instructions/i)
     ).toBeInTheDocument()
     expect(instructions).toHaveAccessibleDescription(/tell this agent the outcome/i)
-    expect(screen.getByRole('status')).toHaveTextContent(/this agent already has saved guidance/i)
+    expect(screen.getByRole('status')).toHaveTextContent(/this agent already has guidance saved/i)
     expect(screen.queryByText(/this agent already has saved instructions/i)).toBeNull()
     expect(screen.queryByText(/system prompt/i)).toBeNull()
   })
@@ -224,7 +224,7 @@ describe('AgentConfigTab', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/unsaved changes/i)
     expect(screen.getByRole('button', { name: /reset/i })).toHaveAttribute(
       'title',
-      'Reset to the last saved guidance.'
+      'Reset to the last saved version.'
     )
     expect(screen.getByRole('button', { name: /reset/i })).not.toHaveAttribute(
       'title',
@@ -299,7 +299,9 @@ describe('AgentConfigTab', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(updateAgentSystemPrompt).toHaveBeenCalledWith('a1', 'new prompt'))
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/answer guidance saved/i))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(/answer guidance saved/i)
+    )
     expect(screen.getByRole('status')).not.toHaveTextContent(/agent instructions saved/i)
   })
 

@@ -86,7 +86,7 @@ describe('ContextTab', () => {
     })
     expect(loading).toHaveTextContent('Checking saved notes and guidance')
     expect(loading).toHaveTextContent(
-      'Forge is checking which saved notes and saved guidance helped this task.'
+      'Forge is checking which saved notes and skills helped this task.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, open this task again from Tasks or ask an owner or admin to check task access.'
@@ -118,9 +118,7 @@ describe('ContextTab', () => {
 
     const emptyState = await screen.findByTestId('context-empty-state')
     expect(within(emptyState).getByText('Start the task to build work history')).toBeDefined()
-    expect(
-      within(emptyState).getByText(/saved notes, saved guidance, or work history/i)
-    ).toBeDefined()
+    expect(within(emptyState).getByText(/saved notes, skills, or work history/i)).toBeDefined()
     expect(within(emptyState).queryByText(/saved instructions/i)).toBeNull()
     expect(within(emptyState).getByText(/future tasks get better/i)).toBeDefined()
     expect(within(emptyState).queryByText('No saved notes or run details yet')).toBeNull()
@@ -138,7 +136,7 @@ describe('ContextTab', () => {
     expect(within(emptyState).queryByText(/Context appears here/i)).toBeNull()
     expect(within(emptyState).queryByText(/choose memories and skills/i)).toBeNull()
     expect(within(emptyState).queryByText(/Run the task so Forge can choose/i)).toBeNull()
-    expect(within(emptyState).getByText(/Mark which saved items helped/i)).toBeDefined()
+    expect(within(emptyState).getByText(/Mark which context items helped/i)).toBeDefined()
     expect(within(emptyState).queryByText(/Use feedback on applied items/i)).toBeNull()
   })
 
@@ -264,7 +262,7 @@ describe('ContextTab', () => {
       screen.getByText('These saved notes helped the agent before it worked on this task.')
     ).toBeDefined()
     expect(
-      screen.getByText('This saved guidance helped the agent before it worked on this task.')
+      screen.getByText('This skill helped the agent before it worked on this task.')
     ).toBeDefined()
     expect(screen.queryByText(/saved instructions helped/i)).toBeNull()
     expect(screen.queryByText(/notes and skills/i)).toBeNull()
@@ -280,7 +278,7 @@ describe('ContextTab', () => {
     expect(screen.queryByText(/Source task/i)).toBeNull()
     expect(screen.queryByText(/Adapter claude/i)).toBeNull()
     expect(
-      screen.getByText(/This saved item was shortened before the agent used it/i)
+      screen.getByText(/This context item was shortened before the agent used it/i)
     ).toBeDefined()
     expect(screen.getByText(/Check the full item before relying on it/i)).toBeDefined()
     expect(screen.queryByText(/Review the full item before relying on it/i)).toBeNull()

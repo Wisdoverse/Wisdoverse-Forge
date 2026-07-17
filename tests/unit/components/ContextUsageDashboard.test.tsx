@@ -42,7 +42,7 @@ describe('ContextUsageDashboard', () => {
 
     render(<ContextUsageDashboard data={baseData} />)
 
-    expect(screen.getByText('Saved item reuse')).toBeDefined()
+    expect(screen.getByText('Context item reuse')).toBeDefined()
     expect(
       screen.getByText(
         'Use this view to keep saved notes and guidance that help work finish, and check items that may be outdated, incorrect, or too sensitive before agents reuse them.'
@@ -51,8 +51,8 @@ describe('ContextUsageDashboard', () => {
     expect(
       screen.getByText('Times saved notes or guidance were added to agent work.')
     ).toBeDefined()
-    expect(screen.getByText('Completed work after saved items were used.')).toBeDefined()
-    expect(screen.getByText('Times users marked saved items helpful.')).toBeDefined()
+    expect(screen.getByText('Completed work after context items were used.')).toBeDefined()
+    expect(screen.getByText('Times users marked context items helpful.')).toBeDefined()
     expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(
       screen.getByText(
@@ -74,7 +74,7 @@ describe('ContextUsageDashboard', () => {
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Next: after reviewing a completed task, mark a helpful saved item Useful so this list can rank it.'
+        'Next: after reviewing a completed task, mark a helpful context item Useful so this list can rank it.'
       )
     ).toBeDefined()
     expect(
@@ -85,17 +85,17 @@ describe('ContextUsageDashboard', () => {
     expect(screen.queryByText(/people report/i)).toBeNull()
     expect(
       screen.getByText(
-        'Next: no action is needed now; keep using task feedback so risky saved items appear here.'
+        'Next: no action is needed now; keep using task feedback so risky context items appear here.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Saved notes and saved guidance appear here when they are old enough to check again.'
+        'Saved notes and skills appear here when they are old enough to check again.'
       )
     ).toBeDefined()
     expect(
       screen.getByText(
-        'Next: no action is needed now; update saved items when team guidance changes so old advice is easier to spot.'
+        'Next: no action is needed now; update context items when team guidance changes so old advice is easier to spot.'
       )
     ).toBeDefined()
   })
@@ -166,7 +166,7 @@ describe('ContextUsageDashboard', () => {
     )
 
     expect(screen.getByText('Saved note')).toBeDefined()
-    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(screen.getByText('Skill')).toBeDefined()
     expect(screen.getByText('Planner Agent · Project files · Code change')).toBeDefined()
     expect(screen.getByText('Planner Agent · Simple chat agent · Result check task')).toBeDefined()
     expect(screen.getAllByText('Next: keep this available for similar tasks.')).toHaveLength(2)

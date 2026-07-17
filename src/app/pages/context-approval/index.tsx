@@ -10,8 +10,8 @@ export function ContextApprovalPage() {
     return (
       <FeatureRouteLoadingState
         testId="context-route-loading"
-        title="Checking saved items"
-        detail="We are checking whether saved items are available here. If this takes more than a moment, open Saved items again or ask an owner or admin to check Saved items access."
+        title="Checking context items"
+        detail="We are checking whether context items are available here. If this takes more than a moment, open Context again or ask an owner or admin to check Context access."
       />
     )
   }

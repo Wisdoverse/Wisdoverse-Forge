@@ -48,34 +48,34 @@ describe('ContextUsageDashboard', () => {
 
     render(<ContextUsageDashboard data={analytics()} />)
 
-    expect(screen.getByText('No saved items look outdated')).toBeDefined()
-    expect(
-      screen.getByText(/keep saved notes and guidance that help work finish/i)
-    ).toBeDefined()
+    expect(screen.getByText('No context items look outdated')).toBeDefined()
+    expect(screen.getByText(/keep saved notes and guidance that help work finish/i)).toBeDefined()
     expect(
       screen.getByText('Times saved notes or guidance were added to agent work.')
     ).toBeDefined()
-    expect(screen.queryByText(/keep saved notes and instructions that help work finish/i)).toBeNull()
+    expect(
+      screen.queryByText(/keep saved notes and instructions that help work finish/i)
+    ).toBeNull()
     expect(
       screen.queryByText('Times saved notes or instructions were added to agent work.')
     ).toBeNull()
     expect(
-      screen.getByText(/saved notes and saved guidance appear here when they are old enough/i)
+      screen.getByText(/saved notes and skills appear here when they are old enough/i)
     ).toBeDefined()
     expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
-    expect(screen.getByText('Mark useful saved items to rank them here')).toBeDefined()
+    expect(screen.getByText('Mark useful context items to rank them here')).toBeDefined()
     expect(screen.getByText(/choose Useful in the task result/i)).toBeDefined()
     expect(
-      screen.getByText(/mark a helpful saved item Useful so this list can rank it/i)
+      screen.getByText(/mark a helpful context item Useful so this list can rank it/i)
     ).toBeDefined()
     expect(screen.getByText(/old enough to check again/i)).toBeDefined()
-    expect(screen.getByText('No saved items need checking')).toBeDefined()
+    expect(screen.getByText('No context items need checking')).toBeDefined()
     expect(screen.getByText(/teammates mark them as outdated/i)).toBeDefined()
     expect(screen.getByText(/check these before agents reuse them/i)).toBeDefined()
     expect(
-      screen.getByText(/keep using task feedback so risky saved items appear here/i)
+      screen.getByText(/keep using task feedback so risky context items appear here/i)
     ).toBeDefined()
-    expect(screen.getByText(/update saved items when team guidance changes/i)).toBeDefined()
+    expect(screen.getByText(/update context items when team guidance changes/i)).toBeDefined()
     expect(screen.getByText('Check first')).toBeDefined()
     expect(screen.getByText('Items people marked for another look.')).toBeDefined()
     expect(screen.queryByText(previousSavedNotesCopy)).toBeNull()
@@ -175,7 +175,7 @@ describe('ContextUsageDashboard', () => {
     )
 
     const item = screen.getByTestId('context-usage-item')
-    expect(item.textContent).toContain('Saved item')
+    expect(item.textContent).toContain('Context item')
     expect(item.textContent).not.toContain(['Con', 'text item needs review'].join(''))
     expect(item.textContent).toContain('Builder Agent · Check work location · Check task type')
     expect(screen.queryByText(/future context kind/i)).toBeNull()

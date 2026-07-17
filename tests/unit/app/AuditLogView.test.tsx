@@ -82,7 +82,7 @@ describe('AuditLogView', () => {
     const loading = await screen.findByRole('status', { name: /checking change history/i })
     expect(loading).toHaveTextContent('Checking change history')
     expect(loading).toHaveTextContent(
-      'Forge is checking saved note and saved guidance changes for this team space.'
+      'Forge is checking saved note and skill changes for this team space.'
     )
     expect(loading).toHaveTextContent(
       'If this takes more than a moment, choose Check change history again or ask an owner or admin to check change history access.'
@@ -98,30 +98,31 @@ describe('AuditLogView', () => {
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(1))
     expect(screen.getByText('Start with what you need to check')).toBeDefined()
-    expect(screen.getByText('See every saved note and saved guidance change.')).toBeDefined()
+    expect(screen.getByText('See every saved note and skill change.')).toBeDefined()
     expect(screen.queryByText('See every saved note and saved instruction change.')).toBeNull()
-    expect(screen.getByText('Check who saved or updated saved guidance.')).toBeDefined()
+    expect(screen.getByText('Check who saved or updated skills.')).toBeDefined()
     expect(screen.queryByText('Check who saved or updated saved instructions.')).toBeNull()
-    expect(screen.getByText('Protected saved items')).toBeDefined()
+    expect(screen.getByText('Protected context items')).toBeDefined()
     expect(screen.queryByText('Hidden item codes')).toBeNull()
     expect(screen.queryByText('Hidden item IDs')).toBeNull()
     expect(screen.getByText('Selected view')).toBeDefined()
-    expect(screen.getAllByText('All saved item changes').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('All context item changes').length).toBeGreaterThan(0)
 
     const quickViews = screen.getByRole('group', { name: /common change views/i })
     expect(screen.queryByRole('group', { name: /common audit views/i })).toBeNull()
-    fireEvent.click(
-      within(quickViews).getByRole('button', { name: /saved guidance decisions/i })
-    )
+    fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
-    expect(
-      within(quickViews).getByRole('button', { name: /saved guidance decisions/i })
-    ).toHaveAttribute('aria-pressed', 'true')
+    expect(within(quickViews).getByRole('button', { name: /skill decisions/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
     expect(
       within(quickViews).queryByRole('button', { name: /saved instruction decisions/i })
     ).toBeNull()
-    expect(within(quickViews).queryByRole('button', { name: /skill decisions/i })).toBeNull()
+    expect(
+      within(quickViews).queryByRole('button', { name: /saved guidance decisions/i })
+    ).toBeNull()
     expect(fetchGovernanceAudit).toHaveBeenLastCalledWith(
       expect.objectContaining({
         eventPrefix: 'governance.context.skill.',
@@ -206,7 +207,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Feedback recorded')).toBeNull()
     expect(screen.queryByTitle('governance.context.feedback.recorded')).toBeNull()
     expect(screen.queryByTitle('governance.context.skill.approved')).toBeNull()
-    expect(screen.getByText('Saved guidance saved for reuse')).toBeDefined()
+    expect(screen.getByText('Skill saved for reuse')).toBeDefined()
     expect(screen.queryByText('Saved instruction saved for reuse')).toBeNull()
     expect(screen.queryByText('Saved instruction approved for reuse')).toBeNull()
     expect(screen.queryByText('Saved instruction saved')).toBeNull()
@@ -221,7 +222,7 @@ describe('AuditLogView', () => {
         new RegExp(['Saved note', ['Memory', 'item'].join('\\s+')].join('.*'), 'i')
       )
     ).toBeNull()
-    expect(screen.getByText('Saved guidance · Guidance details')).toBeDefined()
+    expect(screen.getByText('Skill · Guidance details')).toBeDefined()
     expect(screen.queryByText('Saved instruction · Instruction details')).toBeNull()
     expect(screen.queryByText('Saved instruction · Skill')).toBeNull()
     expect(screen.getAllByText('Changed item').length).toBeGreaterThan(0)
@@ -241,7 +242,7 @@ describe('AuditLogView', () => {
     expect(screen.queryByText('Support notes')).toBeNull()
     expect(screen.queryByText('Show support notes')).toBeNull()
     expect(screen.getByTestId('governance-audit-item-reference').textContent).toContain(
-      'Visible saved item'
+      'Visible context item'
     )
     expect(screen.getByTestId('governance-audit-item-reference').textContent).not.toContain(
       'Visible item code'
@@ -253,7 +254,7 @@ describe('AuditLogView', () => {
       '11111111'
     )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).toContain(
-      'Protected saved item'
+      'Protected context item'
     )
     expect(screen.getByTestId('governance-audit-protected-reference').textContent).not.toContain(
       'Hidden item code'

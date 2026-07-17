@@ -66,7 +66,7 @@ describe('boardActionErrorMessage', () => {
 
   test('gives a clear next step when no agent can preview context', () => {
     expect(boardActionErrorMessage('previewContext', new Error('No available agent'))).toBe(
-      'No agent can check saved items right now. Open Agents to start or connect an agent, then open the Tasks page and check saved items again.'
+      'No agent can check context items right now. Open Agents to start or connect an agent, then open the Tasks page and check context items again.'
     )
   })
 
@@ -126,7 +126,7 @@ describe('boardActionErrorMessage', () => {
   test('uses saved items recovery wording when preview fails', () => {
     const message = boardActionErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an agent, then check saved items again.')
+    expect(message).toContain('Choose an agent, then check context items again.')
     expect(message).not.toContain('available agent')
     expect(message).not.toMatch(new RegExp(['context', 'preview'].join('\\s+'), 'i'))
     expect(message).not.toContain('HTTP 500')
@@ -179,7 +179,7 @@ describe('boardActionErrorMessage', () => {
       boardActionErrorMessage('previewContext', {
         error: 'Agent is required',
       }),
-      'Choose an agent, then open saved items from this task again.'
+      'Choose an agent, then open context items from this task again.'
     )
   })
 })

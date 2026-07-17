@@ -119,8 +119,8 @@ describe('TaskDetailPanel', () => {
 
     render(<TaskDetailPanel task={mockTask} onClose={() => {}} />)
 
-    expect(screen.getByRole('button', { name: /saved items/i })).toBeDefined()
-    expect(screen.queryByRole('button', { name: /^context$/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /context/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /^saved items$/i })).toBeNull()
   })
 
   test('summarizes agent check-ins in task updates', async () => {

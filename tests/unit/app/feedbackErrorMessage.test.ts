@@ -20,7 +20,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to give you access to this saved item, then choose the feedback option again. You do not have permission to save feedback for this saved item.'
+      'Ask an owner or admin to give you access to this context item, then choose the feedback option again. You do not have permission to save feedback for this context item.'
     )
     expect(message).not.toContain('role')
     expect(message).not.toContain('HTTP 403')
@@ -32,7 +32,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to give you access to this saved item, then choose the feedback option again. You do not have permission to save feedback for this saved item.'
+      'Ask an owner or admin to give you access to this context item, then choose the feedback option again. You do not have permission to save feedback for this context item.'
     )
     expect(message).not.toContain('owner role required')
   })
@@ -42,7 +42,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this saved item, then choose it again.'
+      'Choose Useful, Outdated, Incorrect, Too sensitive, or Do not use again for this context item, then choose it again.'
     )
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('vote is required')
@@ -65,7 +65,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open task details again, then choose the feedback option again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
+      'Open task details again, then choose the feedback option again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check context item feedback access.'
     )
     expect(message).not.toContain('HTTP 503')
     expect(message).not.toContain('database unavailable')
@@ -78,7 +78,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open task details again, then choose the feedback option again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check saved item feedback access.'
+      'Open task details again, then choose the feedback option again. Forge could not save feedback right now. If it still fails, ask an owner or admin to check context item feedback access.'
     )
     expect(message).not.toContain('database unavailable')
     expect(message).not.toContain('Choose Useful')
@@ -87,7 +87,7 @@ describe('feedbackErrorMessage', () => {
   test('turns changed saved items into a task details retry step', () => {
     expectBeginnerMessage(
       feedbackErrorMessage({ status: 409 }),
-      'Open task details again, check this saved item, then choose the feedback option again. This saved item changed while you were giving feedback.'
+      'Open task details again, check this context item, then choose the feedback option again. This context item changed while you were giving feedback.'
     )
   })
 
@@ -96,7 +96,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open task details again, choose this saved item again, then choose the feedback option again. This saved item could not be found.'
+      'Open task details again, choose this context item again, then choose the feedback option again. This context item could not be found.'
     )
     expect(message).not.toContain('Refresh the task')
   })
@@ -106,7 +106,7 @@ describe('feedbackErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open task details again, choose the saved item again, then choose the feedback option again.'
+      'Open task details again, choose the context item again, then choose the feedback option again.'
     )
     expect(message).not.toContain('Refresh the task')
   })

@@ -16,8 +16,8 @@ const FEEDBACK_OPTIONS: {
   {
     label: 'useful',
     text: 'Useful',
-    description: 'Keep showing saved items like this.',
-    confirmation: 'future tasks will prefer saved items like this.',
+    description: 'Keep showing context items like this.',
+    confirmation: 'future tasks will prefer context items like this.',
   },
   {
     label: 'stale',
@@ -81,10 +81,10 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
     <div className="space-y-1.5">
       <div>
         <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
-          Was this saved item helpful?
+          Was this context item helpful?
         </p>
         <p className="mt-0.5 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
-          Your answer helps future tasks choose safer, more useful saved items.
+          Your answer helps future tasks choose safer, more useful context items.
         </p>
       </div>
       <div className="flex flex-wrap gap-1" aria-label={`Feedback for ${item.title}`}>

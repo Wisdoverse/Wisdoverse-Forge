@@ -342,7 +342,7 @@ function taskNextStep(task: TaskSummary, options: TaskNextStepOptions): string |
           : 'Choose an agent before this task can start.'
       }
       return options.canOpenPublishPreview
-        ? 'Check saved items, then send.'
+        ? 'Check context items, then send.'
         : 'Open this card, add details, then send it to an agent.'
     case 'queued':
       return options.hasAssignee
@@ -381,9 +381,7 @@ function formatContextCountsLabel(counts: TaskContextCounts): string {
     )
   }
   if (counts.appliedSkills > 0) {
-    parts.push(
-      `${counts.appliedSkills} saved guidance ${counts.appliedSkills === 1 ? 'item' : 'items'} added`
-    )
+    parts.push(`${counts.appliedSkills} skill${counts.appliedSkills === 1 ? '' : 's'} added`)
   }
   return parts.join(', ')
 }

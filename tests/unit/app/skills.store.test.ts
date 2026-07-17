@@ -32,14 +32,14 @@ describe('skillHttpErrorMessage', () => {
   test('turns unauthorized catalog loads into a sign-in step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 401),
-      'Sign in again, then open Saved guidance again.'
+      'Sign in again, then open Skills again.'
     )
   })
 
   test('turns create permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 403),
-      'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
+      'Ask an owner or admin to let you save reusable guidance for this team space, then save the skill again.'
     )
     expect(skillHttpErrorMessage('create', 403)).not.toContain('workspace instructions')
   })
@@ -47,7 +47,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns catalog permission failures into team space access guidance', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('load', 403),
-      'Ask an owner or admin to update your team space access, then open Saved guidance again. You do not have access to saved guidance for this team space.'
+      'Ask an owner or admin to update your team space access, then open Skills again. You do not have access to skills for this team space.'
     )
     expect(skillHttpErrorMessage('load', 403)).not.toContain('workspace instructions')
   })
@@ -55,7 +55,7 @@ describe('skillHttpErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     expectBeginnerMessage(
       skillHttpErrorMessage('create', 422, { error: { message: 'content is required' } }),
-      'Enter the reusable guidance, then save the guidance again.'
+      'Enter the reusable guidance, then save the skill again.'
     )
   })
 
@@ -64,7 +64,7 @@ describe('skillHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved guidance to check for a similar item, then change the name or matching words and save the guidance again.'
+      'Open Skills to check for a similar item, then change the name or matching words and save the skill again.'
     )
     expect(message).not.toContain('Review the existing instructions')
   })
@@ -74,7 +74,7 @@ describe('skillHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Wait a moment, then save the guidance again. Forge is busy with saved guidance right now.'
+      'Wait a moment, then save the skill again. Forge is busy with skills right now.'
     )
     expect(message).not.toContain('Instruction setup')
   })
@@ -84,7 +84,7 @@ describe('skillHttpErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Wait a moment, then open Saved guidance again. Forge is busy with saved guidance right now.'
+      'Wait a moment, then open Skills again. Forge is busy with skills right now.'
     )
     expect(message).not.toContain('Instruction setup')
   })
@@ -92,7 +92,7 @@ describe('skillHttpErrorMessage', () => {
   test('uses a check step for unknown create failures', () => {
     const message = skillHttpErrorMessage('create', 418)
 
-    expectBeginnerMessage(message, 'Check the required fields, then save the guidance again.')
+    expectBeginnerMessage(message, 'Check the required fields, then save the skill again.')
     expect(message).not.toContain('Review the fields')
   })
 })
@@ -116,7 +116,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     const [skill] = useSkillsStore.getState().skills
-    expect(skill?.plugin).toBe('Team space saved guidance')
+    expect(skill?.plugin).toBe('Team space skills')
     expect(skill?.plugin).not.toContain('Workspace')
   })
 
@@ -138,7 +138,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     const [skill] = useSkillsStore.getState().skills
-    expect(skill?.plugin).toBe('Team space saved guidance')
+    expect(skill?.plugin).toBe('Team space skills')
     expect(skill?.marketplace).toBe('workspace')
   })
 
@@ -160,7 +160,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     const [skill] = useSkillsStore.getState().skills
-    expect(skill?.plugin).toBe('Project saved guidance')
+    expect(skill?.plugin).toBe('Project skills')
     expect(skill?.marketplace).toBe('project')
   })
 
@@ -169,7 +169,7 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Open Saved guidance again to load the list.')
+    expect(useSkillsStore.getState().error).toBe('Open Skills again to load the list.')
     expect(useSkillsStore.getState().error).not.toContain('service is temporarily unavailable')
     expect(useSkillsStore.getState().error).not.toContain('database unavailable')
   })
@@ -180,7 +180,7 @@ describe('useSkillsStore errors', () => {
     await useSkillsStore.getState().loadSkills()
 
     expect(useSkillsStore.getState().error).toBe(
-      'Check your connection, then open Saved guidance again to load the list.'
+      'Check your connection, then open Skills again to load the list.'
     )
     expect(useSkillsStore.getState().error).not.toContain('Failed to fetch')
   })
@@ -190,7 +190,7 @@ describe('useSkillsStore errors', () => {
 
     await useSkillsStore.getState().loadSkills()
 
-    expect(useSkillsStore.getState().error).toBe('Open Saved guidance again to load the list.')
+    expect(useSkillsStore.getState().error).toBe('Open Skills again to load the list.')
     expect(useSkillsStore.getState().error).not.toContain('database parser detail')
   })
 
@@ -203,7 +203,7 @@ describe('useSkillsStore errors', () => {
         trigger_pattern: '[',
         content: 'Review the task',
       })
-    ).rejects.toThrow('Check the matching words, then save the guidance again.')
+    ).rejects.toThrow('Check the matching words, then save the skill again.')
   })
 
   test('throws access guidance when saved guidance create responses carry role details', async () => {
@@ -215,7 +215,7 @@ describe('useSkillsStore errors', () => {
         content: 'Check release notes',
       })
     ).rejects.toThrow(
-      'Ask an owner or admin to let you save reusable guidance for this team space, then save the guidance again.'
+      'Ask an owner or admin to let you save reusable guidance for this team space, then save the skill again.'
     )
   })
 
@@ -228,7 +228,7 @@ describe('useSkillsStore errors', () => {
         content: 'Review the task',
       })
     ).rejects.toThrow(
-      'Check your connection, then save the guidance again. Forge could not connect while saving it.'
+      'Check your connection, then save the skill again. Forge could not connect while saving it.'
     )
   })
 })

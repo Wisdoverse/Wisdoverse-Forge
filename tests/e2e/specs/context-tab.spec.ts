@@ -27,10 +27,10 @@ test.describe('Task detail saved items tab', () => {
     await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
 
     const rightPanel = page.locator('[data-testid="right-panel"]')
-    await expect(rightPanel.getByRole('button', { name: 'Saved items', exact: true })).toBeVisible({
+    await expect(rightPanel.getByRole('button', { name: 'Context', exact: true })).toBeVisible({
       timeout: 5000,
     })
-    await rightPanel.getByRole('button', { name: 'Saved items', exact: true }).click()
+    await rightPanel.getByRole('button', { name: 'Context', exact: true }).click()
 
     await expect(rightPanel.getByText('Saved notes used')).toBeVisible()
     await expect(
@@ -51,10 +51,10 @@ test.describe('Task detail saved items tab', () => {
     await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
 
     const panel = page.locator('[data-testid="right-panel"]')
-    await expect(panel.getByRole('button', { name: 'Saved items', exact: true })).toBeVisible({
+    await expect(panel.getByRole('button', { name: 'Context', exact: true })).toBeVisible({
       timeout: 5000,
     })
-    await panel.getByRole('button', { name: 'Saved items', exact: true }).click()
+    await panel.getByRole('button', { name: 'Context', exact: true }).click()
     await expect(panel.getByRole('heading', { name: 'Prod-ext validation memory' })).toBeVisible()
   })
 })

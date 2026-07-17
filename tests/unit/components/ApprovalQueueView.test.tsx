@@ -142,7 +142,7 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
     await screen.findByText('Prod deploy memory')
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'All saved items' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'All context items' }))
     await userEvent.setup().selectOptions(screen.getByLabelText('Item type'), 'skill')
     await userEvent.setup().selectOptions(screen.getByLabelText('Who can reuse it'), 'team')
 

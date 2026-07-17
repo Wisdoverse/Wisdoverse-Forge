@@ -99,9 +99,7 @@ describe('TaskCard', () => {
     expect(badge).toBeDefined()
     expect(badge.textContent).toContain('2')
     expect(badge.textContent).toContain('1')
-    expect(badge.getAttribute('aria-label')).toBe(
-      '2 saved notes added, 1 saved guidance item added'
-    )
+    expect(badge.getAttribute('aria-label')).toBe('2 saved notes added, 1 skill added')
     expect(badge.getAttribute('aria-label')).not.toContain('saved instruction')
   })
 
@@ -156,9 +154,9 @@ describe('TaskCard', () => {
       />
     )
 
-    expect(screen.getByTestId('task-next-step').textContent).toBe('Check saved items, then send.')
+    expect(screen.getByTestId('task-next-step').textContent).toBe('Check context items, then send.')
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('when ready')
-    expect(screen.getByTestId('task-next-step').textContent).not.toContain('context')
+    expect(screen.getByTestId('task-next-step').textContent).not.toContain('saved items')
     expect(screen.getByTestId('task-next-step').textContent).not.toContain('publish')
   })
 

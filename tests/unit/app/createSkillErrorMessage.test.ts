@@ -10,10 +10,10 @@ describe('createSkillErrorMessage', () => {
 
   test('normalizes existing beginner guidance from the skills store to the save button', () => {
     const message =
-      'Check your connection, then save the guidance again. Forge could not connect while saving it.'
+      'Check your connection, then save the skill again. Forge could not connect while saving it.'
 
     expect(createSkillErrorMessage(new Error(message))).toBe(
-      'Check your connection, then choose Save guidance again. Forge could not connect while saving it.'
+      'Check your connection, then choose Save skill again. Forge could not connect while saving it.'
     )
   })
 
@@ -23,7 +23,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'Check your connection, then choose Save guidance again. Forge could not connect while saving it.'
+      'Check your connection, then choose Save skill again. Forge could not connect while saving it.'
     )
   })
 
@@ -33,7 +33,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       createSkillErrorMessage(new Error(message)),
-      'Ask an owner or admin to update your Saved guidance access for this team space, then choose Save guidance again.'
+      'Ask an owner or admin to update your Skills access for this team space, then choose Save skill again.'
     )
     expect(createSkillErrorMessage(new Error(message))).not.toContain('workspace instructions')
     expect(createSkillErrorMessage(new Error(message))).not.toContain('Saved instructions')
@@ -43,8 +43,8 @@ describe('createSkillErrorMessage', () => {
     const message = createSkillErrorMessage(new Error('Failed to fetch'))
 
     expect(message).toContain('Check your connection')
-    expect(message).toContain('choose Save guidance again')
-    expect(message).not.toContain('save the guidance again')
+    expect(message).toContain('choose Save skill again')
+    expect(message).not.toContain('save the skill again')
     expect(message).not.toContain('create the instruction again')
     expect(message).not.toContain('Failed to fetch')
     expect(message).not.toContain('app could not reach')
@@ -55,8 +55,8 @@ describe('createSkillErrorMessage', () => {
     const message = createSkillErrorMessage(new Error('API 403: Forbidden'))
 
     expect(message).toContain('Ask an owner or admin')
-    expect(message).toContain('Saved guidance access for this team space')
-    expect(message).toContain('choose Save guidance again')
+    expect(message).toContain('Skills access for this team space')
+    expect(message).toContain('choose Save skill again')
     expect(message).not.toContain('create the instruction again')
     expect(message).not.toContain('workspace instructions')
     expect(message).not.toContain('Saved instructions')
@@ -71,7 +71,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Ask an owner or admin to update your Saved guidance access for this team space, then choose Save guidance again.'
+      'Ask an owner or admin to update your Skills access for this team space, then choose Save skill again.'
     )
     expect(message).not.toContain('owner role required')
   })
@@ -79,14 +79,14 @@ describe('createSkillErrorMessage', () => {
   test('maps missing saved instruction routes to a page refresh step', () => {
     expectBeginnerMessage(
       createSkillErrorMessage(new Error('HTTP 404: Not Found')),
-      'Open Saved guidance again, then choose Save guidance again.'
+      'Open Skills again, then choose Save skill again.'
     )
   })
 
   test('treats status-code wording as missing saved-guidance recovery guidance', () => {
     const message = createSkillErrorMessage('GraphQL returned status code 404')
 
-    expectBeginnerMessage(message, 'Open Saved guidance again, then choose Save guidance again.')
+    expectBeginnerMessage(message, 'Open Skills again, then choose Save skill again.')
     expect(message).not.toContain('GraphQL')
     expect(message).not.toContain('status code')
   })
@@ -96,7 +96,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved guidance to check for a similar item, then change the name or matching words and choose Save guidance again.'
+      'Open Skills to check for a similar item, then change the name or matching words and choose Save skill again.'
     )
     expect(message).not.toContain('Review the existing instructions')
   })
@@ -104,7 +104,7 @@ describe('createSkillErrorMessage', () => {
   test('turns validation details into a field-specific next step', () => {
     const message = createSkillErrorMessage(new Error('HTTP 422: {"message":"trigger is invalid"}'))
 
-    expectBeginnerMessage(message, 'Check the matching words, then choose Save guidance again.')
+    expectBeginnerMessage(message, 'Check the matching words, then choose Save skill again.')
     expect(message).not.toContain('HTTP 422')
     expect(message).not.toContain('trigger is invalid')
     expect(message).not.toContain('try again')
@@ -113,7 +113,7 @@ describe('createSkillErrorMessage', () => {
   test('does not treat validation numbers as status codes', () => {
     const message = createSkillErrorMessage('guidance name must be between 1 and 100 characters')
 
-    expectBeginnerMessage(message, 'Enter a guidance name, then choose Save guidance again.')
+    expectBeginnerMessage(message, 'Enter a guidance name, then choose Save skill again.')
     expect(message).not.toContain('100')
   })
 
@@ -122,7 +122,7 @@ describe('createSkillErrorMessage', () => {
       serverError: 'trigger words are required',
     })
 
-    expectBeginnerMessage(message, 'Check the matching words, then choose Save guidance again.')
+    expectBeginnerMessage(message, 'Check the matching words, then choose Save skill again.')
     expect(message).not.toContain('trigger words are required')
   })
 
@@ -131,7 +131,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved guidance again, then choose Save guidance again. If it still fails, ask your team to confirm Saved guidance is available for this team space.'
+      'Open Skills again, then choose Save skill again. If it still fails, ask your team to confirm Skills is available for this team space.'
     )
     expect(message).not.toContain('owner or admin')
     expect(message).not.toContain('access')
@@ -145,7 +145,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Open Saved guidance again, then choose Save guidance again. If it still fails, ask your team to confirm Saved guidance is available for this team space.'
+      'Open Skills again, then choose Save skill again. If it still fails, ask your team to confirm Skills is available for this team space.'
     )
     expect(message).not.toContain('Check the instruction name')
     expect(message).not.toContain('owner or admin')
@@ -158,7 +158,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Wait a moment, then choose Save guidance again. Forge is busy with saved guidance right now.'
+      'Wait a moment, then choose Save skill again. Forge is busy with skills right now.'
     )
     expect(message).not.toContain('Instruction setup')
   })
@@ -168,7 +168,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Wait a moment, then choose Save guidance again. Forge is busy with saved guidance right now.'
+      'Wait a moment, then choose Save skill again. Forge is busy with skills right now.'
     )
     expect(message).not.toContain('Rate limit')
     expect(message).not.toContain('provider')
@@ -181,7 +181,7 @@ describe('createSkillErrorMessage', () => {
 
     expectBeginnerMessage(
       message,
-      'Check the guidance name, matching words, and reusable guidance, then choose Save guidance again.'
+      'Check the guidance name, matching words, and reusable guidance, then choose Save skill again.'
     )
     expect(message).not.toContain('Review the fields')
     expect(message).not.toContain('required fields')

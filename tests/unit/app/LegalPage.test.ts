@@ -31,7 +31,7 @@ describe('LegalPage', () => {
     expect(text).toContain(
       'Agent controls for creating, starting, stopping, and reviewing agents that handle team tasks'
     )
-    expect(text).toContain('Saved results, saved notes, and saved guidance')
+    expect(text).toContain('Saved results, saved notes, and skills')
     expect(text).not.toContain('Saved results, saved notes, and saved instructions')
     expect(text).not.toContain('Result records')
     expect(text).toContain(

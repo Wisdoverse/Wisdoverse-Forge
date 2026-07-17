@@ -635,10 +635,10 @@ function AssignmentFitCard({
         />
         <ProfileSummaryRow label="Where it works" value={runtime} />
         <ProfileSummaryRow
-          label="Saved guidance"
+          label="Skills"
           value={
             appliedSkillCount > 0
-              ? `${appliedSkillCount} saved guidance item${appliedSkillCount === 1 ? '' : 's'} used in recent ${chatOnly ? 'replies' : 'work'}`
+              ? `${appliedSkillCount} skill${appliedSkillCount === 1 ? '' : 's'} used in recent ${chatOnly ? 'replies' : 'work'}`
               : chatOnly
                 ? 'Save useful chat notes after a reply.'
                 : 'Finish a task, then save useful steps.'

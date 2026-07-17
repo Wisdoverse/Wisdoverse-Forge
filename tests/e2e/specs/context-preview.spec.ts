@@ -60,7 +60,7 @@ test.describe('Context injection preview', () => {
       .click()
 
     const dialog = page.getByRole('dialog', {
-      name: 'Check saved items before sending',
+      name: 'Check context items before sending',
       exact: true,
     })
     await expect(dialog).toBeVisible()
@@ -95,7 +95,7 @@ test.describe('Context injection preview', () => {
       .click()
 
     const dialog = page.getByRole('dialog', {
-      name: 'Check saved items before sending',
+      name: 'Check context items before sending',
       exact: true,
     })
     await expect(dialog).toBeVisible()

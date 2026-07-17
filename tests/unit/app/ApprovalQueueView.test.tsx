@@ -87,10 +87,10 @@ describe('ApprovalQueueView', () => {
       'Forge is checking which saved notes or guidance need your decision before agents can reuse them.'
     )
     expect(loading).toHaveTextContent(
-      'If this takes more than a moment, open Saved items again or ask an owner or admin to check saved item access.'
+      'If this takes more than a moment, open Context again or ask an owner or admin to check context item access.'
     )
     expect(loading).toHaveTextContent(
-      'Success looks like saved items to check or a no-items-to-review message.'
+      'Success looks like context items to check or a no-items-to-review message.'
     )
     expect(loading).not.toHaveTextContent('Checking saved notes and instructions...')
   })
@@ -105,7 +105,7 @@ describe('ApprovalQueueView', () => {
     expect(screen.getByText(/choose who can reuse it/i)).toBeDefined()
     expect(await screen.findByText('Use stable credentials')).toBeDefined()
     expect(screen.getByText('Saved note')).toBeDefined()
-    expect(screen.getByRole('option', { name: 'Saved guidance' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Skills' })).toBeDefined()
     expect(screen.queryByRole('option', { name: 'Saved instructions' })).toBeNull()
     expect(screen.getAllByText('Needs your check').length).toBeGreaterThan(0)
     expect(screen.queryByText(/Saved\s+memory/i)).toBeNull()
@@ -127,7 +127,7 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).getByTestId('context-decision-checklist')).toBeDefined()
     expect(within(dialog).getByText('Save only when')).toBeDefined()
     expect(screen.queryByText('Approve only when')).toBeNull()
-    expect(within(dialog).getByText(/this saved item still helps/i)).toBeDefined()
+    expect(within(dialog).getByText(/this context item still helps/i)).toBeDefined()
     expect(within(dialog).getByText(/only the right people can reuse it/i)).toBeDefined()
     expect(within(dialog).getByText(/sensitive details are hidden before saving/i)).toBeDefined()
     expect(within(dialog).getByText('Who can reuse it')).toBeDefined()
@@ -137,7 +137,7 @@ describe('ApprovalQueueView', () => {
     expect(within(dialog).queryByText(/support reference from Settings/i)).toBeNull()
     expect(within(dialog).getByText('Team only')).toBeDefined()
     expect(within(dialog).getByRole('button', { name: 'Check later' })).toBeDefined()
-    expect(screen.getByLabelText('Close saved item check')).toBeDefined()
+    expect(screen.getByLabelText('Close context item check')).toBeDefined()
     expect(screen.queryByLabelText(/review panel/i)).toBeNull()
     expect(within(dialog).queryByRole('button', { name: /^Cancel$/ })).toBeNull()
 
@@ -178,7 +178,7 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     const row = await screen.findByTestId('context-candidate-candidate-guidance')
-    expect(within(row).getByText('Saved guidance')).toBeDefined()
+    expect(within(row).getByText('Skill')).toBeDefined()
     expect(within(row).queryByText('Saved instruction')).toBeNull()
   })
 
@@ -256,7 +256,7 @@ describe('ApprovalQueueView', () => {
     expect(saveButton).toBeDisabled()
     expect(saveButton).toHaveAttribute(
       'title',
-      'Check saved items again, then save after the original task details load.'
+      'Check Context again, then save after the original task details load.'
     )
   })
 
@@ -267,10 +267,10 @@ describe('ApprovalQueueView', () => {
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
     const emptyState = await screen.findByTestId('context-approval-empty')
-    expect(within(emptyState).getByText('No saved items need checking')).toBeDefined()
+    expect(within(emptyState).getByText('No context items need checking')).toBeDefined()
     expect(
       within(emptyState).getByText(
-        /when an agent suggests a saved note or saved guidance, it will appear here/i
+        /when an agent suggests a saved note or skill, it will appear here/i
       )
     ).toBeDefined()
     expect(within(emptyState).getByText(/open Tasks and finish work/i)).toBeDefined()
@@ -295,7 +295,7 @@ describe('ApprovalQueueView', () => {
     await user.selectOptions(screen.getByLabelText('Item type'), 'skill')
 
     const emptyState = await screen.findByTestId('context-approval-empty')
-    expect(within(emptyState).getByText('Filters are hiding saved items')).toBeDefined()
+    expect(within(emptyState).getByText('Filters are hiding context items')).toBeDefined()
     expect(
       within(emptyState).getByText(/clear filters before assuming there is nothing to check/i)
     ).toBeDefined()
@@ -315,11 +315,11 @@ describe('ApprovalQueueView', () => {
     render(<ApprovalQueueView />)
 
     await waitFor(() => expect(listContextCandidates).toHaveBeenCalled())
-    await user.click(screen.getByRole('button', { name: 'All saved items' }))
+    await user.click(screen.getByRole('button', { name: 'All context items' }))
 
     const emptyState = await screen.findByTestId('context-approval-empty')
     expect(
-      within(emptyState).getByText('Check the first saved item to start history')
+      within(emptyState).getByText('Check the first context item to start history')
     ).toBeDefined()
     expect(
       within(emptyState).getByText(/appear here after someone checks the first suggestion/i)
@@ -335,9 +335,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('data-testid', 'context-approval-error')
-    expect(error.textContent).toContain(
-      'Check your connection, then choose Check saved items again'
-    )
+    expect(error.textContent).toContain('Check your connection, then choose Check Context again')
     expect(error.textContent).toContain(
       'Forge could not connect while loading saved notes and guidance'
     )
@@ -356,7 +354,7 @@ describe('ApprovalQueueView', () => {
 
     const error = await screen.findByRole('alert')
     expect(error).toHaveAttribute('data-testid', 'context-approval-error')
-    expect(error.textContent).toContain('Choose Check saved items again, then open this item')
+    expect(error.textContent).toContain('Choose Check Context again, then open this item')
     expect(error.textContent).toContain('It changed while you were checking it')
     expect(error.textContent).not.toContain('Refresh the list')
     expect(error.textContent).not.toContain('Code:')

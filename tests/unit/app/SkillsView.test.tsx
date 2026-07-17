@@ -41,20 +41,20 @@ describe('SkillsView', () => {
     // Title is rendered by TopBar outside SkillsView — verify the
     // toolbar count replaces the old duplicate page heading.
     render(<SkillsView />)
-    const search = screen.getByRole('searchbox', { name: /search saved guidance/i })
+    const search = screen.getByRole('searchbox', { name: /search skills/i })
     expect(search).toHaveAccessibleDescription(
-      'Search only narrows this list. Use Show all saved guidance to return to the full list.'
+      'Search only narrows this list. Use Show all skills to return to the full list.'
     )
   })
 
   test('shows search input', () => {
     render(<SkillsView />)
-    expect(screen.getByPlaceholderText(/search saved guidance/i)).toBeDefined()
+    expect(screen.getByPlaceholderText(/search skills/i)).toBeDefined()
   })
 
   test('shows a create saved guidance entry point', () => {
     render(<SkillsView />)
-    expect(screen.getAllByRole('button', { name: /save guidance/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /save skill/i }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /save instruction/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /new instruction/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /new skill/i })).toBeNull()
@@ -64,7 +64,7 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const templates = screen.getByRole('group', { name: /guidance templates/i })
     expect(
       screen.getByText(
@@ -93,7 +93,7 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const templates = screen.getByRole('group', { name: /guidance templates/i })
     await user.click(within(templates).getByRole('button', { name: /result check/i }))
 
@@ -114,7 +114,7 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const templates = screen.getByRole('group', { name: /guidance templates/i })
     await user.click(within(templates).getByRole('button', { name: /check work status/i }))
 
@@ -150,7 +150,7 @@ describe('SkillsView', () => {
     const user = userEvent.setup()
     render(<SkillsView />)
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const dialog = screen.getByRole('dialog', { name: /save reusable guidance/i })
 
     expect(within(dialog).getByRole('button', { name: 'Close without saving' })).toBeDefined()
@@ -170,7 +170,7 @@ describe('SkillsView', () => {
   test('shows empty state after load with no skills', async () => {
     render(<SkillsView />)
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
     expect(screen.getByText(/checking work before sharing it/i)).toBeDefined()
@@ -184,14 +184,14 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
-    fireEvent.change(screen.getByLabelText(/search saved guidance/i), {
+    fireEvent.change(screen.getByLabelText(/search skills/i), {
       target: { value: 'release handoff' },
     })
 
-    expect(screen.getByText('No saved guidance matches that search yet')).toBeDefined()
-    expect(screen.getByText(/choose save guidance and add it now/i)).toBeDefined()
+    expect(screen.getByText('No skills match that search yet')).toBeDefined()
+    expect(screen.getByText(/choose save skill and add it now/i)).toBeDefined()
     expect(screen.queryByText('No saved instruction matches that search yet')).toBeNull()
     expect(screen.queryByText('No saved instructions match your search')).toBeNull()
   })
@@ -217,20 +217,20 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await screen.findByText('release-draft')
-    fireEvent.change(screen.getByLabelText(/search saved guidance/i), {
+    fireEvent.change(screen.getByLabelText(/search skills/i), {
       target: { value: 'handoff checklist' },
     })
 
     const emptyState = screen.getByTestId('saved-instructions-empty-state')
-    expect(screen.getByText('Nothing matches your saved guidance search.')).toBeDefined()
-    expect(emptyState).toHaveTextContent('Nothing matches your saved guidance search')
-    expect(emptyState).toHaveTextContent('Use Show all saved guidance to return to the full list.')
+    expect(screen.getByText('Nothing matches your skills search.')).toBeDefined()
+    expect(emptyState).toHaveTextContent('Nothing matches your skills search')
+    expect(emptyState).toHaveTextContent('Use Show all skills to return to the full list.')
     expect(emptyState).not.toHaveTextContent('Nothing matches your saved instruction search')
     expect(emptyState).not.toHaveTextContent('Clear search to see saved instructions')
 
-    fireEvent.click(within(emptyState).getByRole('button', { name: 'Show all saved guidance' }))
+    fireEvent.click(within(emptyState).getByRole('button', { name: 'Show all skills' }))
 
-    expect(screen.getByLabelText(/search saved guidance/i)).toHaveValue('')
+    expect(screen.getByLabelText(/search skills/i)).toHaveValue('')
     expect(screen.getByText('release-draft')).toBeDefined()
   })
 
@@ -257,18 +257,18 @@ describe('SkillsView', () => {
     await screen.findByText('release-draft')
     fireEvent.click(
       screen.getByRole('button', {
-        name: /show saved guidance that is ready to use/i,
+        name: /show skills that are ready to use/i,
       })
     )
-    fireEvent.change(screen.getByLabelText(/search saved guidance/i), {
+    fireEvent.change(screen.getByLabelText(/search skills/i), {
       target: { value: 'handoff checklist' },
     })
 
     const emptyState = screen.getByTestId('saved-instructions-empty-state')
-    expect(screen.getByText('Nothing matches this saved guidance view.')).toBeDefined()
-    expect(emptyState).toHaveTextContent('Nothing matches this saved guidance view')
+    expect(screen.getByText('Nothing matches this skills view.')).toBeDefined()
+    expect(emptyState).toHaveTextContent('Nothing matches this skills view')
     expect(emptyState).toHaveTextContent(
-      'Use Show all saved guidance before assuming nothing useful is saved.'
+      'Use Show all skills before assuming nothing useful is saved.'
     )
     expect(emptyState).not.toHaveTextContent('Nothing matches this saved instruction view')
     expect(emptyState).not.toHaveTextContent('hiding')
@@ -308,7 +308,7 @@ describe('SkillsView', () => {
     expect(screen.queryByText('Saved in Global skills')).toBeNull()
     expect(screen.queryByText(/^Source:/i)).toBeNull()
     expect(screen.queryByText(/Suggested for:/i)).toBeNull()
-    expect(screen.getByText('1 saved guidance item')).toBeDefined()
+    expect(screen.getByText('1 skill')).toBeDefined()
   })
 
   test('hides raw saved-instruction source names on cards', async () => {
@@ -333,7 +333,7 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await screen.findByText('handoff-check')
-    expect(screen.getByText('Saved guidance')).toBeDefined()
+    expect(screen.getByText('Skills')).toBeDefined()
     expect(screen.queryByText('Saved in saved instructions')).toBeNull()
     expect(screen.queryByText('Saved as a saved instruction')).toBeNull()
     expect(screen.queryByText('@example/team_skill_pack')).toBeNull()
@@ -377,28 +377,28 @@ describe('SkillsView', () => {
     expect(within(summary).queryByText('Needs setup')).toBeNull()
     expect(within(summary).queryByText('Needs install')).toBeNull()
     expect(within(summary).getAllByText('For one work tool').length).toBeGreaterThan(0)
-    expect(within(summary).getByText('Show saved guidance')).toBeDefined()
-    expect(within(summary).queryByText('Show skills')).toBeNull()
+    expect(within(summary).getByText('Show skills')).toBeDefined()
+    expect(within(summary).queryByText('Show saved guidance')).toBeNull()
     expect(within(summary).queryByText('Tool-specific')).toBeNull()
     expect(within(summary).queryByText('Reuse view')).toBeNull()
     expect(within(summary).queryByText(/C[L]I scoped/)).toBeNull()
 
     const filters = within(summary).getByRole('group', {
-      name: /saved guidance view choices/i,
+      name: /skills view choices/i,
     })
     expect(
       within(filters).getByRole('button', {
-        name: /show saved guidance to check before use, 1 matching saved guidance item/i,
+        name: /show skills to check before use, 1 matching skill/i,
       })
     ).toBeDefined()
     expect(
       within(filters).queryByRole('button', {
-        name: /show saved guidance that need install first/i,
+        name: /show skills that need install first/i,
       })
     ).toBeNull()
     fireEvent.click(
       within(filters).getByRole('button', {
-        name: /show saved guidance for one work tool, 1 matching saved guidance item/i,
+        name: /show skills for one work tool, 1 matching skill/i,
       })
     )
 
@@ -435,10 +435,10 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const dialog = screen.getByRole('dialog', { name: /save reusable guidance/i })
     expect(within(dialog).getByText(/check before saving/i)).toBeDefined()
     expect(screen.getByText('Keep private details out')).toBeDefined()
@@ -456,9 +456,9 @@ describe('SkillsView', () => {
       screen.getByLabelText(/^steps for the agent$/i),
       'Check UI states and regressions'
     )
-    await user.click(within(dialog).getByRole('button', { name: /save guidance/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save skill/i }))
 
-    expect(within(dialog).getByRole('button', { name: /saving guidance/i })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: /saving skill/i })).toBeDisabled()
     expect(within(dialog).queryByRole('button', { name: /^Saving\.\.\.$/i })).toBeNull()
 
     createRequest.resolve(createdSkillResponse)
@@ -497,14 +497,14 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const dialog = screen.getByRole('dialog', { name: /save reusable guidance/i })
     expect(within(dialog).getByText(/safe enough for this team space/i)).toBeDefined()
     expect(within(dialog).queryByText(/safe enough for the workspace/i)).toBeNull()
-    await user.click(within(dialog).getByRole('button', { name: /save guidance/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save skill/i }))
 
     const nameAlert = screen.getByRole('alert')
     expect(nameAlert).toHaveTextContent('Name this guidance before saving it.')
@@ -514,13 +514,13 @@ describe('SkillsView', () => {
     await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(0))
     const callsAfterFirstSubmit = scrollSpy.mock.calls.length
 
-    await user.click(within(dialog).getByRole('button', { name: /save guidance/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save skill/i }))
     await waitFor(() => expect(scrollSpy.mock.calls.length).toBeGreaterThan(callsAfterFirstSubmit))
 
     await user.type(screen.getByLabelText(/^guidance name$/i), 'frontend-review')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
-    await user.click(within(dialog).getByRole('button', { name: /save guidance/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save skill/i }))
 
     const stepsAlert = screen.getByRole('alert')
     expect(stepsAlert).toHaveTextContent('Add the steps the agent should follow before saving.')
@@ -542,18 +542,18 @@ describe('SkillsView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Open Saved guidance again to load the list.')
-    expect(alert).toHaveTextContent('Choose Check saved guidance again to load the list.')
+    expect(alert).toHaveTextContent('Open Skills again to load the list.')
+    expect(alert).toHaveTextContent('Choose Check Skills again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
-    expect(screen.getByRole('button', { name: /check saved guidance again/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /check skills again/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /^retry$/i })).toBeNull()
   })
 
   test('turns raw saved-instruction load errors into retry guidance', async () => {
     render(<SkillsView />)
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
     act(() => {
@@ -568,8 +568,8 @@ describe('SkillsView', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent('Saved guidance needs to load again.')
-    expect(alert).toHaveTextContent('Choose Check saved guidance again to load the list.')
+    expect(alert).toHaveTextContent('Skills need to load again.')
+    expect(alert).toHaveTextContent('Choose Check Skills again to load the list.')
     expect(alert).not.toHaveTextContent('HTTP 500')
     expect(alert).not.toHaveTextContent('database unavailable')
   })
@@ -577,7 +577,7 @@ describe('SkillsView', () => {
   test('hides backend details without status codes when saved instructions fail to load', async () => {
     render(<SkillsView />)
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
     act(() => {
@@ -591,15 +591,15 @@ describe('SkillsView', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Saved guidance needs to load again.')
-    expect(alert).toHaveTextContent('Choose Check saved guidance again to load the list.')
+    expect(alert).toHaveTextContent('Skills need to load again.')
+    expect(alert).toHaveTextContent('Choose Check Skills again to load the list.')
     expect(alert).not.toHaveTextContent('database unavailable')
   })
 
   test('shows access recovery when saved instructions fail from a role error', async () => {
     render(<SkillsView />)
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
     act(() => {
@@ -633,22 +633,22 @@ describe('SkillsView', () => {
     render(<SkillsView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/create your first saved guidance/i)).toBeDefined()
+      expect(screen.getByText(/create your first skill/i)).toBeDefined()
     })
 
-    await user.click(screen.getAllByRole('button', { name: /save guidance/i })[0])
+    await user.click(screen.getAllByRole('button', { name: /save skill/i })[0])
     const dialog = screen.getByRole('dialog', { name: /save reusable guidance/i })
     await user.type(screen.getByLabelText(/^guidance name$/i), 'frontend-review')
     await user.type(
       screen.getByLabelText(/^steps for the agent$/i),
       'Check UI states and regressions'
     )
-    await user.click(within(dialog).getByRole('button', { name: /save guidance/i }))
+    await user.click(within(dialog).getByRole('button', { name: /save skill/i }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
     expect(alert).toHaveTextContent(
-      'Ask an owner or admin to update your Saved guidance access for this team space, then choose Save guidance again.'
+      'Ask an owner or admin to update your Skills access for this team space, then choose Save skill again.'
     )
     expect(alert.textContent).not.toContain('workspace instructions')
     expect(alert.textContent).not.toContain('Code:')
@@ -659,6 +659,6 @@ describe('SkillsView', () => {
   test('shows loading state while fetching', () => {
     useSkillsStore.setState({ loading: true })
     render(<SkillsView />)
-    expect(screen.getByText('Checking saved guidance...')).toBeDefined()
+    expect(screen.getByText('Checking skills...')).toBeDefined()
   })
 })

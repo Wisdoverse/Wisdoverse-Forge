@@ -10,21 +10,21 @@ import { SkillDetailModal } from './SkillDetailModal'
 type SkillFilter = 'all' | 'installed' | 'available' | 'cli'
 
 const SKILL_FILTERS: { value: SkillFilter; label: string; ariaLabel: string }[] = [
-  { value: 'all', label: 'All', ariaLabel: 'Show all saved guidance' },
+  { value: 'all', label: 'All', ariaLabel: 'Show all skills' },
   {
     value: 'installed',
     label: 'Ready to use',
-    ariaLabel: 'Show saved guidance that is ready to use',
+    ariaLabel: 'Show skills that are ready to use',
   },
   {
     value: 'available',
     label: 'Check before use',
-    ariaLabel: 'Show saved guidance to check before use',
+    ariaLabel: 'Show skills to check before use',
   },
   {
     value: 'cli',
     label: 'For one work tool',
-    ariaLabel: 'Show saved guidance for one work tool',
+    ariaLabel: 'Show skills for one work tool',
   },
 ]
 
@@ -114,7 +114,7 @@ export function SkillsView() {
         </p>
         <div className="flex min-w-0 items-center gap-2">
           <label htmlFor="skill-search" className="sr-only">
-            Search saved guidance
+            Search skills
           </label>
           <div className="relative">
             <Search
@@ -127,7 +127,7 @@ export function SkillsView() {
               id="skill-search"
               type="search"
               aria-describedby={searchHelpId}
-              placeholder="Search saved guidance..."
+              placeholder="Search skills..."
               value={searchQuery}
               onChange={(e) => updateSearchQuery(e.target.value)}
               className={cn(uiStyles.input, 'w-40 shrink pl-9 sm:w-56')}
@@ -137,7 +137,7 @@ export function SkillsView() {
             id={searchHelpId}
             className="hidden max-w-[14rem] text-ui-caption text-secondary-light dark:text-secondary-dark lg:block"
           >
-            Search only narrows this list. Use Show all saved guidance to return to the full list.
+            Search only narrows this list. Use Show all skills to return to the full list.
           </p>
           <button
             type="button"
@@ -145,7 +145,7 @@ export function SkillsView() {
             className={uiStyles.primaryButton}
           >
             <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-            <span>Save guidance</span>
+            <span>Save skill</span>
           </button>
         </div>
       </div>
@@ -166,13 +166,9 @@ export function SkillsView() {
             <div className={cn(uiStyles.card, 'p-3')}>
               <div className="mb-2 flex items-center gap-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                 <Filter size={14} strokeWidth={2.25} aria-hidden="true" />
-                <span>Show saved guidance</span>
+                <span>Show skills</span>
               </div>
-              <div
-                role="group"
-                aria-label="Saved guidance view choices"
-                className="flex flex-wrap gap-1.5"
-              >
+              <div role="group" aria-label="Skills view choices" className="flex flex-wrap gap-1.5">
                 {SKILL_FILTERS.map((filter) => (
                   <SkillFilterButton
                     key={filter.value}
@@ -191,7 +187,7 @@ export function SkillsView() {
         {loading && (
           <div className="flex h-full items-center justify-center">
             <p className="text-ui-body text-secondary-light dark:text-secondary-dark">
-              Checking saved guidance...
+              Checking skills...
             </p>
           </div>
         )}
@@ -215,7 +211,7 @@ export function SkillsView() {
               onClick={() => void loadSkills()}
               className={uiStyles.primaryButton}
             >
-              Check saved guidance again
+              Check Skills again
             </button>
           </div>
         )}
@@ -248,9 +244,7 @@ export function SkillsView() {
               {emptyState.action === 'create' && (
                 <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
               )}
-              <span>
-                {emptyState.action === 'reset' ? 'Show all saved guidance' : 'Save guidance'}
-              </span>
+              <span>{emptyState.action === 'reset' ? 'Show all skills' : 'Save skill'}</span>
             </button>
           </div>
         )}
@@ -282,25 +276,25 @@ export function SkillsView() {
 }
 
 function savedInstructionsLoadErrorMessage(error: string): string {
-  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Saved guidance needs to load again.' : error
+  return RAW_LOAD_ERROR_PATTERN.test(error) ? 'Skills need to load again.' : error
 }
 
 function savedInstructionsLoadRecoveryMessage(error: string): string {
   const normalized = error.toLowerCase()
   if (normalized.includes('sign in')) {
-    return 'After signing in, choose Check saved guidance again.'
+    return 'After signing in, choose Check Skills again.'
   }
   if (
     normalized.includes('permission') ||
     normalized.includes('access') ||
     normalized.includes('role required')
   ) {
-    return 'After an owner or admin updates your access, choose Check saved guidance again.'
+    return 'After an owner or admin updates your access, choose Check Skills again.'
   }
   if (normalized.includes('connect') || normalized.includes('connection')) {
-    return 'Check your connection, then choose Check saved guidance again.'
+    return 'Check your connection, then choose Check Skills again.'
   }
-  return 'Choose Check saved guidance again to load the list.'
+  return 'Choose Check Skills again to load the list.'
 }
 
 function savedInstructionsEmptyState({
@@ -317,38 +311,38 @@ function savedInstructionsEmptyState({
 
   if (hasCatalogSkills && hasSearch && hasFilter) {
     return {
-      title: 'Nothing matches this saved guidance view',
-      detail: 'Use Show all saved guidance before assuming nothing useful is saved.',
+      title: 'Nothing matches this skills view',
+      detail: 'Use Show all skills before assuming nothing useful is saved.',
       action: 'reset',
     }
   }
 
   if (hasCatalogSkills && hasSearch) {
     return {
-      title: 'Nothing matches your saved guidance search',
-      detail: 'Use Show all saved guidance to return to the full list.',
+      title: 'Nothing matches your skills search',
+      detail: 'Use Show all skills to return to the full list.',
       action: 'reset',
     }
   }
 
   if (hasCatalogSkills && hasFilter) {
     return {
-      title: 'Nothing matches this saved guidance view',
-      detail: 'Use Show all saved guidance to return to the full list.',
+      title: 'Nothing matches this skills view',
+      detail: 'Use Show all skills to return to the full list.',
       action: 'reset',
     }
   }
 
   if (hasSearch) {
     return {
-      title: 'No saved guidance matches that search yet',
-      detail: 'If this is reusable guidance your team needs, choose Save guidance and add it now.',
+      title: 'No skills match that search yet',
+      detail: 'If this is reusable guidance your team needs, choose Save skill and add it now.',
       action: 'create',
     }
   }
 
   return {
-    title: 'Create your first saved guidance',
+    title: 'Create your first skill',
     detail:
       'Save steps your agents should repeat, like checking work before sharing it or writing a short update.',
     action: 'create',
@@ -397,16 +391,16 @@ function skillToolbarStatus({
   loading: boolean
   error: string | null
 }) {
-  if (loading) return 'Checking saved guidance'
-  if (error) return 'Check saved guidance again to continue.'
+  if (loading) return 'Checking skills'
+  if (error) return 'Check Skills again to continue.'
   if (visibleCount > 0) {
-    return `${visibleCount} saved guidance item${visibleCount === 1 ? '' : 's'}`
+    return `${visibleCount} skill${visibleCount === 1 ? '' : 's'}`
   }
-  if (totalCount === 0) return 'Choose Save guidance to start.'
-  if (searchQuery.trim() && filter !== 'all') return 'Nothing matches this saved guidance view.'
-  if (searchQuery.trim()) return 'Nothing matches your saved guidance search.'
-  if (filter !== 'all') return 'Nothing matches this saved guidance view.'
-  return 'Choose Save guidance to add reusable guidance.'
+  if (totalCount === 0) return 'Choose Save skill to start.'
+  if (searchQuery.trim() && filter !== 'all') return 'Nothing matches this skills view.'
+  if (searchQuery.trim()) return 'Nothing matches your skills search.'
+  if (filter !== 'all') return 'Nothing matches this skills view.'
+  return 'Choose Save skill to add reusable guidance.'
 }
 
 function SkillStat({
@@ -448,7 +442,7 @@ function SkillFilterButton({
   count: number
   onClick: () => void
 }) {
-  const countLabel = `${count} matching saved guidance item${count === 1 ? '' : 's'}`
+  const countLabel = `${count} matching skill${count === 1 ? '' : 's'}`
 
   return (
     <button

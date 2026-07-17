@@ -56,7 +56,7 @@ const NAV_COMMANDS = [
     id: 'nav:context',
     labelKey: 'commandPalette.commands.nav.context.label',
     descriptionKey: 'commandPalette.commands.nav.context.description',
-    searchText: 'saved items context notes instructions 保存内容 保存项 上下文 笔记 指令',
+    searchText: 'context notes instructions 上下文 笔记 指令',
   },
   {
     id: 'nav:agents',
@@ -68,8 +68,7 @@ const NAV_COMMANDS = [
     id: 'nav:skills',
     labelKey: 'commandPalette.commands.nav.skills.label',
     descriptionKey: 'commandPalette.commands.nav.skills.description',
-    searchText:
-      'saved guidance saved instructions skills reusable steps 保存指引 保存指令 技能 复用步骤',
+    searchText: 'saved instructions skills reusable steps 保存指引 保存指令 技能 复用步骤',
   },
   {
     id: 'nav:settings',

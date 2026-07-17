@@ -63,10 +63,7 @@ test.describe('Task context badges', () => {
 
     const badge = page.locator('[data-testid="task-context-badge"]')
     await expect(badge).toBeVisible()
-    await expect(badge).toHaveAttribute(
-      'aria-label',
-      '2 saved notes added, 1 saved guidance item added'
-    )
+    await expect(badge).toHaveAttribute('aria-label', '2 saved notes added, 1 skill added')
     await expect(badge).toContainText('2')
     await expect(badge).toContainText('1')
   })
@@ -78,9 +75,6 @@ test.describe('Task context badges', () => {
 
     const badge = page.locator('[data-testid="task-context-badge"]')
     await expect(badge).toBeVisible()
-    await expect(badge).toHaveAttribute(
-      'aria-label',
-      '2 saved notes added, 1 saved guidance item added'
-    )
+    await expect(badge).toHaveAttribute('aria-label', '2 saved notes added, 1 skill added')
   })
 })

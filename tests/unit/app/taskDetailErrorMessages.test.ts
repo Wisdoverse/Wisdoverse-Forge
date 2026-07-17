@@ -80,7 +80,7 @@ describe('taskDetailErrorMessage', () => {
   test('uses saved items wording when the saved item check cannot load', () => {
     const message = taskDetailErrorMessage('previewContext', new Error('HTTP 500'))
 
-    expect(message).toContain('Choose an agent, then check saved items again.')
+    expect(message).toContain('Choose an agent, then check context items again.')
     expect(message).not.toContain('available agent')
     expect(message).not.toMatch(new RegExp(['context', 'review'].join('\\s+'), 'i'))
   })

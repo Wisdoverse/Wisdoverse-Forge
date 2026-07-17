@@ -700,14 +700,12 @@ test.describe('React App Smoke Tests', () => {
       await page.locator('[data-testid="sidebar-nav-skills"]').click()
       await page.waitForURL('**/skills')
 
-      await expect(page.getByRole('searchbox', { name: /Search saved guidance/ })).toBeVisible({
+      await expect(page.getByRole('searchbox', { name: /Search skills/ })).toBeVisible({
         timeout: 5000,
       })
       // The store may still be fetching saved guidance; accept the current
       // empty-state copy or the loading indicator.
-      const emptyOrLoading = page
-        .getByText(/Create your first saved guidance|Checking saved guidance/i)
-        .first()
+      const emptyOrLoading = page.getByText(/Create your first skill|Checking skills/i).first()
       await expect(emptyOrLoading).toBeVisible()
       await screenshot(page, '25-skills-page')
     })
