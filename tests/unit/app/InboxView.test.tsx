@@ -3,7 +3,6 @@ import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-li
 import { userEvent } from '@testing-library/user-event'
 import { InboxView } from '@app/features/inbox/InboxView'
 import { useFeedStore } from '@app/entities/feed'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
 
 const { navigateMock, orchestrationApiMock } = vi.hoisted(() => ({
@@ -54,7 +53,6 @@ afterEach(() => {
 })
 beforeEach(() => {
   useFeedStore.getState().reset()
-  useBoardStore.getState().reset()
   useSettingsStore.getState().setActiveSection('providers')
   useSettingsStore.setState({
     preferences: {},
@@ -713,8 +711,10 @@ describe('InboxView', () => {
         'task-owner:t1:blocked'
       )
     )
-    expect(useBoardStore.getState().selectedTaskId).toBe('t1')
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/tasks' })
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/tasks/$taskId',
+      params: { taskId: 't1' },
+    })
   })
 
   test('shows a recovery note when opening an item cannot save read status', async () => {

@@ -41,4 +41,26 @@ describe('DetailsGroup', () => {
     expect(screen.queryByText('Created by')).toBeNull()
     expect(screen.getByText('Created')).toBeDefined()
   })
+
+  test('hides a bare machine id in the Created by row', () => {
+    render(
+      <DetailsGroup
+        task={
+          {
+            id: 't',
+            state: 'queued',
+            method: 'work',
+            params: { task: 'x', message: '' },
+            priority: 'normal',
+            progress: 0,
+            createdBy: '3fac3a61-0b0a-4f8e-a5d6-e994ad09607b',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            attempt: 1,
+          } as never
+        }
+      />
+    )
+    expect(screen.queryByText('Created by')).toBeNull()
+  })
 })

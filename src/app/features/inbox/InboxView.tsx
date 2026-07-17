@@ -3,7 +3,6 @@ import { Inbox as InboxIcon, RefreshCw } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { orchestrationApi } from '@app/shared/api/orchestration'
 import { useFeedStore, type Notification } from '@app/entities/feed'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import { useAdminStore } from '@app/entities/admin'
 import { cn } from '@app/shared/lib/utils'
@@ -65,7 +64,6 @@ function InboxLoadError({ loading, onRetry }: { loading: boolean; onRetry: () =>
 
 export function InboxView() {
   const { notifications, addNotification, markRead, markAllRead } = useFeedStore()
-  const setSelectedTask = useBoardStore((s) => s.setSelectedTask)
   const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all')
   const [loadError, setLoadError] = useState(false)
@@ -157,8 +155,7 @@ export function InboxView() {
       setReadError(READ_STATUS_SAVE_ERROR)
     })
     if (notification.taskHref === '/tasks') {
-      setSelectedTask(notification.taskId)
-      void navigate({ to: '/tasks' })
+      void navigate({ to: '/tasks/$taskId', params: { taskId: notification.taskId } })
     } else if (
       notification.type === 'credential_expired' ||
       notification.taskHref === '/settings/work-tool-sign-ins'

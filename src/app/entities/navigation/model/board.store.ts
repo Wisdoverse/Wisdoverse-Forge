@@ -6,7 +6,6 @@ interface BoardState {
   columns: Record<ColumnId, TaskSummary[]>
   viewMode: ViewMode
   groupBy: GroupBy
-  selectedTaskId: string | null
   selectedGroupId: string | null
   loading: boolean
   error: string | null
@@ -25,7 +24,6 @@ interface BoardState {
   ) => void
   setViewMode: (mode: ViewMode) => void
   setGroupBy: (group: GroupBy) => void
-  setSelectedTask: (id: string | null) => void
   setSelectedGroupId: (id: string | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
@@ -79,7 +77,6 @@ const initialState = {
   } as Record<ColumnId, TaskSummary[]>,
   viewMode: 'board' as ViewMode,
   groupBy: 'status' as GroupBy,
-  selectedTaskId: null as string | null,
   selectedGroupId: null as string | null,
   loading: false,
   error: null as string | null,
@@ -163,7 +160,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
   setViewMode: (viewMode) => set({ viewMode }),
   setGroupBy: (groupBy) => set({ groupBy }),
-  setSelectedTask: (selectedTaskId) => set({ selectedTaskId }),
   setSelectedGroupId: (selectedGroupId) => set({ selectedGroupId }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),

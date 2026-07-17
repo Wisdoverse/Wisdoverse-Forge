@@ -224,27 +224,33 @@ test.describe('Mobile WebUI', () => {
     await expectNoHorizontalOverflow(page)
   })
 
-  test('mobile task cards open task detail as an overlay', async ({ page, baseURL }, testInfo) => {
+  test('mobile task cards open the task document route', async ({ page, baseURL }, testInfo) => {
     await openMobile(page, baseURL!, '/tasks')
     await page.locator('[data-testid="column-count-working"]').waitFor({
       state: 'attached',
       timeout: 10_000,
     })
 
-    await page.locator('[data-testid="task-card-t-003"]').click()
+    await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
+    await page.waitForURL('**/tasks/t-003')
 
-    const detail = page.locator('[data-testid="right-panel"]')
-    await expect(detail).toBeVisible({ timeout: 5000 })
-    await expect(detail).toContainText('Write unit tests for auth module')
-    await expect(detail).toContainText('Work')
+    await page
+      .getByRole('heading', { level: 1, name: 'Write unit tests for auth module' })
+      .waitFor({ state: 'visible', timeout: 30000 })
+    await expect(page.getByTestId('task-next-action')).toBeVisible()
+    await expect(page.getByTestId('task-updates')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await page.screenshot({
       path: testInfo.outputPath('mobile-task-detail-390x844.png'),
       fullPage: true,
     })
 
-    await page.locator('[data-testid="detail-close"]').click()
-    await expect(detail).toBeHidden({ timeout: 3000 })
+    await page
+      .getByRole('navigation', { name: 'Breadcrumb' })
+      .getByRole('button', { name: 'Tasks', exact: true })
+      .click()
+    await page.waitForURL('**/tasks')
+    await expect(page.getByTestId('page-tasks')).toBeVisible({ timeout: 30000 })
   })
 
   test('mobile agent list opens agent detail at large-phone viewport', async ({

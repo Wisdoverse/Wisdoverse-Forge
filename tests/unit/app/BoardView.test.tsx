@@ -11,6 +11,12 @@ const mockGetTasks = vi.fn().mockResolvedValue([])
 const mockCreateTask = vi.fn().mockResolvedValue({ ok: true, task: null })
 const mockUpdateTask = vi.fn().mockResolvedValue({ ok: true })
 const mockGetParticipants = vi.fn().mockResolvedValue([])
+const navigate = vi.hoisted(() => vi.fn())
+
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  useNavigate: () => navigate,
+}))
 
 vi.mock('@app/shared/model/websocket.context', () => ({
   useWebSocket: () => ({
@@ -36,6 +42,7 @@ beforeEach(() => {
   mockCreateTask.mockClear().mockResolvedValue({ ok: true, task: null })
   mockUpdateTask.mockClear()
   mockGetParticipants.mockClear().mockResolvedValue([])
+  navigate.mockReset()
 })
 
 afterEach(() => {
@@ -323,6 +330,31 @@ describe('BoardView', () => {
       expect(screen.getByText('Task A')).toBeDefined()
     })
     expect(screen.getByText('Task B')).toBeDefined()
+  })
+
+  test('opens a task card on its document route', async () => {
+    mockGetTasks.mockResolvedValueOnce([
+      {
+        id: 'document-task',
+        state: 'backlog',
+        method: 'tasks/send',
+        params: { task: 'Open task document', message: 'Read the full brief' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        attempt: 1,
+      },
+    ] as never)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+
+    render(<BoardView />)
+    fireEvent.click(await screen.findByText('Open task document'))
+
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/tasks/$taskId',
+      params: { taskId: 'document-task' },
+    })
   })
 
   test('filters board cards by task search and clears empty results', async () => {

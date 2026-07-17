@@ -617,26 +617,13 @@ describe('AppLayout', () => {
     expect(mockCreateGroup).not.toHaveBeenCalled()
   })
 
-  test('mobile keeps selected task detail accessible as an overlay', () => {
+  test('mobile leaves task details to the document route instead of an overlay', () => {
     Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true })
-    useBoardStore.getState().setTasks([
-      {
-        id: 'mobile-task',
-        state: 'working',
-        method: 'tasks/send',
-        params: { task: 'Mobile task detail', message: 'Visible on mobile' },
-        priority: 'normal',
-        progress: 20,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as any,
-    ])
-    useBoardStore.getState().setSelectedTask('mobile-task')
 
     render(<MemoryRouter />)
 
-    expect(screen.getByTestId('right-panel')).toBeDefined()
-    expect(screen.getByText('Mobile task detail')).toBeDefined()
+    expect(screen.queryByTestId('right-panel')).toBeNull()
+    expect(screen.queryByLabelText('Close task detail')).toBeNull()
   })
 
   test('adds a task returned from the New Task modal to the board store', async () => {

@@ -1,4 +1,5 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, FolderKanban } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
@@ -57,7 +58,6 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     columns,
     moveTask,
     upsertTask,
-    setSelectedTask,
     selectedGroupId,
     setSelectedGroupId,
     loading,
@@ -66,6 +66,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     setLoading,
     setError,
   } = useBoardStore()
+  const navigate = useNavigate()
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const agentGroups = useNavigationStore((s) => s.agentGroups)
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
@@ -204,7 +205,9 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     const currentCol = COLUMN_ORDER.find((c) => columns[c].some((t) => t.id === taskId))
     if (currentCol === colId) {
       const movedDistance = Math.hypot(event.delta.x, event.delta.y)
-      if (movedDistance <= TAP_DRAG_DISTANCE_PX) setSelectedTask(taskId)
+      if (movedDistance <= TAP_DRAG_DISTANCE_PX) {
+        void navigate({ to: '/tasks/$taskId', params: { taskId } })
+      }
       return
     }
 
@@ -431,7 +434,9 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
                 key={colId}
                 columnId={colId}
                 tasks={visibleColumns[colId]}
-                onTaskClick={setSelectedTask}
+                onTaskClick={(taskId) =>
+                  void navigate({ to: '/tasks/$taskId', params: { taskId } })
+                }
                 onTaskPublish={
                   canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
                 }

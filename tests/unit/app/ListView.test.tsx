@@ -1,8 +1,15 @@
-import { describe, test, expect, afterEach, beforeEach } from 'vitest'
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ListView } from '@app/features/list/ListView'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
+
+const navigate = vi.hoisted(() => vi.fn())
+
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  useNavigate: () => navigate,
+}))
 
 function expandDisclosure(container: HTMLElement) {
   const toggle = within(container)
@@ -22,6 +29,7 @@ afterEach(() => {
   })
 })
 beforeEach(() => {
+  navigate.mockReset()
   useBoardStore.getState().reset()
   useSettingsStore.setState({
     preferences: {},
@@ -69,6 +77,11 @@ describe('ListView', () => {
       screen.getByText('Choose an agent or where this task should wait, then send it.')
     ).toBeDefined()
     expect(screen.queryByText(/task queue/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /open task a/i }))
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/tasks/$taskId',
+      params: { taskId: '1' },
+    })
   })
 
   test('explains task agent fallbacks without placeholder symbols or raw ids', () => {

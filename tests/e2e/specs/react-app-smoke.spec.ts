@@ -130,6 +130,16 @@ async function openBoardFilters(page: Page) {
   return toolbar
 }
 
+async function openTaskDocument(page: Page, taskId: string, title: string): Promise<void> {
+  const card = page.getByTestId(`task-card-${taskId}`)
+  await card.waitFor({ state: 'visible', timeout: 30000 })
+  await card.dispatchEvent('click')
+  await page.waitForURL(`**/tasks/${taskId}`)
+  await page
+    .getByRole('heading', { level: 1, name: title })
+    .waitFor({ state: 'visible', timeout: 30000 })
+}
+
 async function openSettingsGroup(
   page: Page,
   group: 'team and project setup' | 'more setup'
@@ -283,16 +293,14 @@ test.describe('React App Smoke Tests', () => {
       const initialWidth = await sidebar.evaluate((el) => el.getBoundingClientRect().width)
 
       await page.keyboard.press('Control+\\')
-      await page.waitForTimeout(400)
-
-      const collapsedWidth = await sidebar.evaluate((el) => el.getBoundingClientRect().width)
-      expect(collapsedWidth).not.toBe(initialWidth)
+      await expect
+        .poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width))
+        .not.toBe(initialWidth)
 
       await page.keyboard.press('Control+\\')
-      await page.waitForTimeout(400)
-
-      const restoredWidth = await sidebar.evaluate((el) => el.getBoundingClientRect().width)
-      expect(restoredWidth).toBeCloseTo(initialWidth, -1)
+      await expect
+        .poll(() => sidebar.evaluate((el) => el.getBoundingClientRect().width))
+        .toBeCloseTo(initialWidth, -1)
       await screenshot(page, '10-sidebar-toggle')
     })
   })
@@ -474,9 +482,9 @@ test.describe('React App Smoke Tests', () => {
     })
   })
 
-  // 8. Task Detail Panel ─────────────────────────────────────────────────────
+  // 8. Task Document Page ───────────────────────────────────────────────────
 
-  test.describe('8. Task Detail Panel', () => {
+  test.describe('8. Task Document Page', () => {
     test.beforeEach(async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
       await page
@@ -487,55 +495,44 @@ test.describe('React App Smoke Tests', () => {
         .waitFor({ state: 'attached', timeout: 10000 })
     })
 
-    test('clicking task card opens detail panel in right panel', async ({ page }) => {
-      const taskCard = page.locator('[data-testid="task-card-t-003"]')
-      await expect(taskCard).toBeAttached({ timeout: 10000 })
-      // Use dispatchEvent to bypass dnd-kit drag listener interception
-      await taskCard.dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('clicking a task card opens its document route', async ({ page }) => {
+      await openTaskDocument(page, 't-003', 'Write unit tests for auth module')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Write unit tests for auth module', { timeout: 5000 })
-      await expect(rightPanel).toContainText('Work')
-      await expect(rightPanel).toContainText('Updates')
+      await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Tasks')
+      await expect(page.getByTestId('task-next-action')).toBeVisible()
+      await expect(page.getByTestId('task-updates')).toBeVisible()
       await screenshot(page, '18-task-detail')
     })
 
-    test('task detail has action buttons for working tasks', async ({ page }) => {
-      await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('working task actions live in the properties rail', async ({ page }) => {
+      await openTaskDocument(page, 't-003', 'Write unit tests for auth module')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel.getByRole('button', { name: 'Needs help' })).toBeVisible({
+      const properties = page.getByRole('button', { name: 'Properties', exact: true }).locator('..')
+      await expect(properties.getByRole('button', { name: 'Needs help' })).toBeVisible({
         timeout: 5000,
       })
-      await expect(rightPanel.getByRole('button', { name: 'Cancel' })).toBeVisible()
+      await expect(properties.getByRole('button', { name: 'Cancel' })).toBeVisible()
     })
 
-    test('close button closes detail panel and shows activity feed', async ({ page }) => {
-      await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('activity feed remains the right-side tenant', async ({ page }) => {
+      await openTaskDocument(page, 't-003', 'Write unit tests for auth module')
 
-      const closeBtn = page.locator('[data-testid="detail-close"]')
-      await expect(closeBtn).toBeVisible({ timeout: 5000 })
-      await closeBtn.click()
-
-      await expect(
-        page.locator('[data-testid="right-panel"]').getByText('Live task updates', { exact: true })
-      ).toBeVisible({ timeout: 5000 })
+      const activityFeed = page.getByTestId('right-panel')
+      await expect(activityFeed.getByRole('heading', { name: 'Live task updates' })).toBeVisible({
+        timeout: 5000,
+      })
     })
 
-    test('task detail tab switching (Description / History)', async ({ page }) => {
-      await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('breadcrumb returns to the task board', async ({ page }) => {
+      await openTaskDocument(page, 't-003', 'Write unit tests for auth module')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      const historyTab = rightPanel.getByText('Updates', { exact: true })
-      await expect(historyTab).toBeVisible({ timeout: 5000 })
-      await historyTab.click()
+      await page
+        .getByRole('navigation', { name: 'Breadcrumb' })
+        .getByRole('button', { name: 'Tasks', exact: true })
+        .click()
 
-      // Switch back to Work
-      await rightPanel.getByText('Work', { exact: true }).click()
+      await page.waitForURL('**/tasks')
+      await expect(page.getByTestId('page-tasks')).toBeVisible({ timeout: 30000 })
     })
   })
 
@@ -635,13 +632,14 @@ test.describe('React App Smoke Tests', () => {
       const initialLabel = await themeBtn.getAttribute('aria-label')
 
       await themeBtn.click()
-      await page.waitForTimeout(300)
-
-      const newLabel = await page
-        .getByTestId('sidebar')
-        .getByRole('button', { name: /Switch to (dark|light) mode/i })
-        .getAttribute('aria-label')
-      expect(newLabel).not.toBe(initialLabel)
+      await expect
+        .poll(() =>
+          page
+            .getByTestId('sidebar')
+            .getByRole('button', { name: /Switch to (dark|light) mode/i })
+            .getAttribute('aria-label')
+        )
+        .not.toBe(initialLabel)
       await screenshot(page, '22-settings-theme-toggled')
     })
   })
@@ -711,29 +709,29 @@ test.describe('React App Smoke Tests', () => {
     })
   })
 
-  // 14. Right Panel Collapse/Expand ──────────────────────────────────────────
+  // 14. Activity Feed Side Rail ──────────────────────────────────────────────
 
-  test.describe('14. Right Panel Collapse/Expand', () => {
-    test('close button collapses right panel, expand button restores it', async ({
-      page,
-      baseURL,
-    }) => {
+  test.describe('14. Activity Feed Side Rail', () => {
+    test('collapses and restores the live updates feed', async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
 
-      await expect(page.locator('[data-testid="right-panel"]')).toBeVisible()
+      const activityFeed = page.getByTestId('right-panel')
+      await expect(activityFeed.getByRole('heading', { name: 'Live task updates' })).toBeVisible()
 
       // Close button carries a readable aria-label; icon is an SVG
       // (lucide X) with no text content, so text-filter locators miss it.
       await page.getByRole('button', { name: 'Hide live task updates' }).click()
 
       // Panel collapses — expand button appears
-      await expect(page.locator('[data-testid="right-panel"]')).toBeHidden({ timeout: 3000 })
+      await expect(activityFeed).toBeHidden({ timeout: 3000 })
       const expandBtn = page.getByRole('button', { name: 'Show live task updates' })
       await expect(expandBtn).toBeVisible()
 
       // Click expand to restore
       await expandBtn.click()
-      await expect(page.locator('[data-testid="right-panel"]')).toBeVisible({ timeout: 3000 })
+      await expect(activityFeed.getByRole('heading', { name: 'Live task updates' })).toBeVisible({
+        timeout: 3000,
+      })
       await screenshot(page, '26-right-panel-toggle')
     })
   })
@@ -756,7 +754,7 @@ test.describe('React App Smoke Tests', () => {
       await screenshot(page, '27-list-view-content')
     })
 
-    test('clicking list row selects task and shows detail panel', async ({ page }) => {
+    test('clicking a list row opens the task document', async ({ page }) => {
       const topBar = page.locator('[data-testid="top-bar"]')
       await topBar.getByRole('button', { name: 'List' }).click()
 
@@ -765,8 +763,11 @@ test.describe('React App Smoke Tests', () => {
       await expect(taskRow).toBeVisible({ timeout: 5000 })
       await taskRow.click()
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Implement login flow', { timeout: 5000 })
+      await page.waitForURL('**/tasks/t-001')
+      await page
+        .getByRole('heading', { level: 1, name: 'Implement login flow' })
+        .waitFor({ state: 'visible', timeout: 30000 })
+      await expect(page.getByTestId('task-updates')).toBeVisible()
       await screenshot(page, '28-list-row-detail')
     })
   })
@@ -915,12 +916,12 @@ test.describe('React App Smoke Tests', () => {
 
       // Click the second project
       await sidebar.locator('[data-testid="project-proj-2"]').click()
-      await page.waitForTimeout(500)
 
       // Verify it becomes selected (blue highlight)
-      const classes = await page.locator('[data-testid="project-proj-2"]').getAttribute('class')
       // Selected row uses tinted `bg-apple-blue/10` (ProjectTree.tsx).
-      expect(classes).toMatch(/\bbg-apple-blue\/10\b/)
+      await expect
+        .poll(() => page.locator('[data-testid="project-proj-2"]').getAttribute('class'))
+        .toMatch(/\bbg-apple-blue\/10\b/)
       await screenshot(page, '33-project-selection')
     })
   })
@@ -956,11 +957,9 @@ test.describe('React App Smoke Tests', () => {
       const themeToggle = await openThemeToggle(page)
 
       await themeToggle.click()
-      await page.waitForTimeout(300)
-
-      const stored = await page.evaluate(() => localStorage.getItem('agentforge-theme'))
-      expect(stored).toBeTruthy()
-      expect(['light', 'dark']).toContain(stored)
+      await expect
+        .poll(() => page.evaluate(() => localStorage.getItem('agentforge-theme')))
+        .toMatch(/^(light|dark)$/)
     })
   })
 
@@ -1084,9 +1083,9 @@ test.describe('React App Smoke Tests', () => {
     })
   })
 
-  // 23. Task Detail Metadata ─────────────────────────────────────────────────
+  // 23. Task Document Properties ─────────────────────────────────────────────
 
-  test.describe('23. Task Detail Metadata', () => {
+  test.describe('23. Task Document Properties', () => {
     test.beforeEach(async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
       await page
@@ -1094,41 +1093,37 @@ test.describe('React App Smoke Tests', () => {
         .waitFor({ state: 'attached', timeout: 10000 })
     })
 
-    test('detail panel shows state and priority badges', async ({ page }) => {
-      // Click blocked task (t-004)
-      await page.locator('[data-testid="task-card-t-004"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('properties show task state and priority', async ({ page }) => {
+      await openTaskDocument(page, 't-004', 'Review PR #42')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Needs help', { timeout: 5000 })
-      await expect(rightPanel).toContainText('High')
+      const properties = page.getByRole('button', { name: 'Properties', exact: true }).locator('..')
+      await expect(properties).toContainText('Needs help', { timeout: 5000 })
+      await expect(properties).toContainText('High')
+      await expect(page.getByTestId('task-updates')).toBeVisible()
     })
 
-    test('detail panel shows assigned agent', async ({ page }) => {
-      await page.locator('[data-testid="task-card-t-003"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('properties show the assigned agent', async ({ page }) => {
+      await openTaskDocument(page, 't-003', 'Write unit tests for auth module')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Claude', { timeout: 5000 })
+      const properties = page.getByRole('button', { name: 'Properties', exact: true }).locator('..')
+      await expect(properties).toContainText('Claude', { timeout: 5000 })
     })
 
-    test('detail panel shows "No description" for empty message', async ({ page }) => {
-      await page.locator('[data-testid="task-card-t-001"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+    test('document explains an empty brief', async ({ page }) => {
+      await openTaskDocument(page, 't-001', 'Implement login flow')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Only the task title was saved', { timeout: 5000 })
+      await expect(page.getByTestId('task-brief-empty')).toContainText(
+        'Only the task title was saved',
+        { timeout: 5000 }
+      )
     })
 
     test('blocked task does NOT show action buttons', async ({ page }) => {
-      // t-004 is "blocked" — only working/queued show actions
-      await page.locator('[data-testid="task-card-t-004"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
+      await openTaskDocument(page, 't-004', 'Review PR #42')
 
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Review PR #42', { timeout: 5000 })
-      // Cancel button should NOT be visible for blocked tasks (Block/Cancel only shown for working/queued)
-      await expect(rightPanel.getByText('Cancel', { exact: true })).toBeHidden()
+      const properties = page.getByRole('button', { name: 'Properties', exact: true }).locator('..')
+      await expect(properties.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
+      await expect(properties.getByRole('button', { name: 'Needs help' })).toHaveCount(0)
     })
   })
 
@@ -1303,7 +1298,6 @@ test.describe('React App Smoke Tests', () => {
 
       // Collapse sidebar
       await page.keyboard.press('Control+\\')
-      await page.waitForTimeout(400)
 
       // Nav items should still be attached (as icon-only buttons)
       await expect(page.locator('[data-testid="sidebar-nav-tasks"]')).toBeAttached()
@@ -1316,7 +1310,6 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+\\')
-      await page.waitForTimeout(400)
 
       // PROJECTS label and tree should be hidden when collapsed
       await expect(page.getByText('PROJECTS')).toBeHidden()
@@ -1327,7 +1320,6 @@ test.describe('React App Smoke Tests', () => {
       await setupAndNavigate(page, baseURL!)
 
       await page.keyboard.press('Control+\\')
-      await page.waitForTimeout(400)
 
       // Click agents nav (icon only)
       await page.locator('[data-testid="sidebar-nav-agents"]').click()
@@ -1357,9 +1349,9 @@ test.describe('React App Smoke Tests', () => {
     })
   })
 
-  // 31. Multiple Task Selection ──────────────────────────────────────────────
+  // 31. Multiple Task Documents ──────────────────────────────────────────────
 
-  test.describe('31. Task Selection Flow', () => {
+  test.describe('31. Task Document Navigation', () => {
     test.beforeEach(async ({ page, baseURL }) => {
       await setupAndNavigate(page, baseURL!)
       await page
@@ -1367,19 +1359,19 @@ test.describe('React App Smoke Tests', () => {
         .waitFor({ state: 'attached', timeout: 10000 })
     })
 
-    test('selecting different task replaces detail panel content', async ({ page }) => {
-      // Select first task
-      await page.locator('[data-testid="task-card-t-001"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
-      const rightPanel = page.locator('[data-testid="right-panel"]')
-      await expect(rightPanel).toContainText('Implement login flow', { timeout: 5000 })
+    test('opening different cards routes to their documents', async ({ page }) => {
+      await openTaskDocument(page, 't-001', 'Implement login flow')
 
-      // Select a different task
-      await page.locator('[data-testid="task-card-t-002"]').dispatchEvent('click')
-      await page.waitForTimeout(300)
-      await expect(rightPanel).toContainText('Fix database migration', { timeout: 5000 })
-      // Previous task should no longer be in the panel
-      await expect(rightPanel).not.toContainText('Implement login flow')
+      await page
+        .getByRole('navigation', { name: 'Breadcrumb' })
+        .getByRole('button', { name: 'Tasks', exact: true })
+        .click()
+      await page.waitForURL('**/tasks')
+
+      await openTaskDocument(page, 't-002', 'Fix database migration')
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Implement login flow' })
+      ).toHaveCount(0)
       await screenshot(page, '41-task-switch')
     })
   })
