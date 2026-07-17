@@ -1,2 +1,6 @@
 export { TaskDetailPanel } from './TaskDetailPanel'
 export { TaskDocumentBody } from './document/TaskDocumentBody'
+export { ContextTab } from './ContextTab'
+export { DetailsGroup } from './rail/DetailsGroup'
+export { PropertiesGroup, TaskStatus } from './rail/PropertiesGroup'
+export { RailSection } from './rail/RailSection'
