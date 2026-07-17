@@ -415,6 +415,11 @@ export const orchestrationApi = {
     )
     return res.data
   },
+  getTask: async (taskId: string): Promise<TaskSummary> => {
+    const res = await apiFetch<{ ok: boolean; task: TaskSummary }>(`/tasks/${taskId}`)
+    return res.task
+  },
+
   getTaskRuns: async (taskId: string): Promise<TaskRunSummary[]> => {
     const res = await apiFetch<{ ok: boolean; runs: TaskRunSummary[] }>(`/tasks/${taskId}/runs`)
     return res.runs
