@@ -4,9 +4,11 @@ import '@app/i18n'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { TaskDocumentPage } from '@app/pages/task-detail'
 
-const { navigateSpy, getTask } = vi.hoisted(() => ({
+const { navigateSpy, getTask, getTaskRuns, getSelfFixReview } = vi.hoisted(() => ({
   navigateSpy: vi.fn(),
   getTask: vi.fn(),
+  getTaskRuns: vi.fn(),
+  getSelfFixReview: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -21,6 +23,8 @@ vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
     orchestrationApi: {
       ...actual.orchestrationApi,
       getTask: (...args: unknown[]) => getTask(...args),
+      getTaskRuns: (...args: unknown[]) => getTaskRuns(...args),
+      getSelfFixReview: (...args: unknown[]) => getSelfFixReview(...args),
     },
   }
 })
@@ -43,6 +47,17 @@ function seedTask(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   useBoardStore.getState().reset()
+  getTaskRuns.mockResolvedValue([])
+  getSelfFixReview.mockResolvedValue({
+    taskId: 'task-1',
+    prNumber: 42,
+    prUrl: 'https://github.com/o/r/pull/42',
+    diffUrl: 'https://github.com/o/r/pull/42/files',
+    headSha: 'deadbeef',
+    checksGreen: true,
+    sensitive: false,
+    reviewStatus: 'in_review',
+  })
 })
 
 afterEach(() => {
@@ -74,5 +89,17 @@ describe('TaskDocumentPage', () => {
       expect(screen.getByText('This task is not on the board anymore.')).toBeDefined()
     )
     expect(screen.getByRole('button', { name: 'Open the task board' })).toBeDefined()
+  })
+
+  test('shows the review section only for self-fix tasks', () => {
+    useBoardStore.getState().setTasks([seedTask({ selfFix: true })] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+    expect(screen.getByTestId('review-snapshot-panel')).toBeDefined()
+  })
+
+  test('renders the activity footer', () => {
+    useBoardStore.getState().setTasks([seedTask()] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+    expect(screen.getByTestId('task-updates')).toBeDefined()
   })
 })

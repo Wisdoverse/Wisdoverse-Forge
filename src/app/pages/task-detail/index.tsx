@@ -3,8 +3,11 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   ContextTab,
   DetailsGroup,
+  HistoryTab,
   PropertiesGroup,
   RailSection,
+  ReviewSnapshotPanel,
+  SECTION_LABEL,
   TaskDocumentBody,
   TaskStatus,
 } from '@app/features/detail'
@@ -129,12 +132,18 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
             {storeTask.params.task}
           </h1>
           <TaskDocumentBody task={storeTask} />
-          {/* M5 mounts the activity footer here */}
+          <h2 className={SECTION_LABEL}>Activity</h2>
+          <HistoryTab task={storeTask} />
         </div>
       </div>
       <aside className="hidden w-[280px] flex-shrink-0 flex-col border-l border-black/[0.08] bg-background-light dark:border-white/[0.1] dark:bg-background-dark min-h-0 overflow-hidden lg:flex">
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <PropertiesGroup task={storeTask} />
+          {storeTask.selfFix && (
+            <RailSection title="Review">
+              <ReviewSnapshotPanel task={storeTask} />
+            </RailSection>
+          )}
           {contextVisible && (
             <RailSection title="Context" defaultOpen={false}>
               <ContextTab taskId={storeTask.id} />
