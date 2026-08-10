@@ -448,6 +448,7 @@ mod tests {
     #[sqlx::test(migrations = "../db/migrations")]
     async fn production_registration_requires_setup_token_only_for_the_first_admin(pool: PgPool) {
         const SETUP_TOKEN: &str = "bootstrap-token-that-is-at-least-thirty-two-characters";
+        let password = Uuid::new_v4().to_string();
         let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
         let mut config = crate::test_support::test_app_config("postgres://localhost/agentforge_test");
         config.environment = "production".to_string();
@@ -459,12 +460,10 @@ mod tests {
             &config,
         );
 
-        let missing = service
-            .register("missing@example.com", "StrongPassword1!", None, None)
-            .await
-            .expect_err("missing token must fail");
+        let missing =
+            service.register("missing@example.com", &password, None, None).await.expect_err("missing token must fail");
         let wrong = service
-            .register("wrong@example.com", "StrongPassword1!", None, Some("wrong-token"))
+            .register("wrong@example.com", &password, None, Some("wrong-token"))
             .await
             .expect_err("wrong token must fail");
         for err in [missing, wrong] {
@@ -478,15 +477,15 @@ mod tests {
         assert_eq!(rejected_count, 0);
 
         service
-            .register("admin@example.com", "StrongPassword1!", None, Some(SETUP_TOKEN))
+            .register("admin@example.com", &password, None, Some(SETUP_TOKEN))
             .await
             .expect("correct token creates first admin");
         service
-            .register("member@example.com", "StrongPassword1!", None, None)
+            .register("member@example.com", &password, None, None)
             .await
             .expect("later registrations do not require the setup token");
         service
-            .register("replay@example.com", "StrongPassword1!", None, Some(SETUP_TOKEN))
+            .register("replay@example.com", &password, None, Some(SETUP_TOKEN))
             .await
             .expect("token replay after bootstrap is an ordinary registration");
 
