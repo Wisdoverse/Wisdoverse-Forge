@@ -23,6 +23,25 @@ services:
       redis:
         condition: service_healthy
 
+  temporal:
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'temporal',
+          'operator',
+          'namespace',
+          'describe',
+          'default',
+          '--address',
+          'temporal-internal:7233',
+        ]
+
+  orchestrator:
+    depends_on:
+      temporal:
+        condition: service_healthy
+
   backup:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}
