@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useNavigationStore } from '@app/entities/navigation'
 import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
-import { agentAiServiceLabel, isHostCliAgent, useAgentsStore } from '@app/entities/agent'
+import {
+  agentAiServiceLabel,
+  isApiAgent,
+  isHostCliAgent,
+  useAgentsStore,
+} from '@app/entities/agent'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
@@ -75,7 +80,7 @@ export function GettingStartedView() {
     () => summarizeGettingStartedTasks([...localTasks, ...loadedTasks]),
     [loadedTasks, localTasks]
   )
-  const firstAgent = useMemo(() => agents[0] ?? null, [agents])
+  const firstTaskAgent = useMemo(() => agents.find((agent) => !isApiAgent(agent)) ?? null, [agents])
   const cliExecutionAgent = useMemo(
     () =>
       agents.find(
@@ -120,14 +125,14 @@ export function GettingStartedView() {
         hasWorkspace: teams.length > 0 && projects.length > 0,
         runtimeReady,
         executionCredentialReady,
-        hasAgent: agents.length > 0,
+        hasAgent: Boolean(firstTaskAgent),
         hasRouting: Boolean(taskGroupId),
         taskSnapshot,
         hasReusableLearning,
       }),
     [
-      agents.length,
       executionCredentialReady,
+      firstTaskAgent,
       hasReusableLearning,
       projects.length,
       runtimeReady,
@@ -210,15 +215,14 @@ export function GettingStartedView() {
       {
         id: 'agent',
         title: t('gettingStarted.steps.agent.title'),
-        detail: firstAgent?.name ?? t('gettingStarted.steps.agent.empty'),
+        detail: firstTaskAgent?.name ?? t('gettingStarted.steps.agent.empty'),
         why: t('gettingStarted.steps.agent.why'),
         success: t('gettingStarted.steps.agent.success'),
         complete: completion.agent,
         path: '/agents',
-        cta:
-          agents.length > 0
-            ? t('gettingStarted.steps.agent.review')
-            : t('gettingStarted.steps.agent.create'),
+        cta: firstTaskAgent
+          ? t('gettingStarted.steps.agent.review')
+          : t('gettingStarted.steps.agent.create'),
       },
       {
         id: 'routing',
@@ -286,12 +290,11 @@ export function GettingStartedView() {
     ],
     [
       agentGroups,
-      agents,
       cliExecutionAgent,
       completion,
       executionCredentialPath,
       executionCredentialReady,
-      firstAgent,
+      firstTaskAgent,
       firstTaskCta,
       firstTaskPath,
       projects,

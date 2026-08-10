@@ -21,7 +21,7 @@ import { cn } from '@app/shared/lib/utils'
 import { useAuth } from '@app/shared/model/auth.context'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { useContextStore } from '@app/features/context'
-import { useAgentsStore } from '@app/entities/agent'
+import { isApiAgent, useAgentsStore } from '@app/entities/agent'
 import { useNavigationStore } from '@app/entities/navigation'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useSettingsStore } from '@app/entities/settings'
@@ -164,7 +164,7 @@ export function SidebarNav({
     executionCredentialReady:
       providers.some((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ||
       agents.some((agent) => agent.cliTool),
-    hasAgent: agents.length > 0,
+    hasAgent: agents.some((agent) => !isApiAgent(agent)),
     hasRouting: Boolean(selectedGroupId ?? agentGroups[0]?.id),
     taskSnapshot,
     hasReusableLearning: skills.length > 0 || taskSnapshot.appliedSkills > 0,

@@ -99,7 +99,7 @@ export function TaskDocumentBody({ task }: { task: TaskSummary }) {
                   </div>
                   <p className="mb-2 text-ui-caption leading-relaxed text-secondary-light dark:text-secondary-dark">
                     Use this result to decide whether the task is done. If it does not answer the
-                    brief, go back to Work and decide whether to retry, check saved notes and
+                    brief, check the Brief above and decide whether to retry, check saved notes and
                     guidance, or create a follow-up task.
                   </p>
                   {artifact.mimeType.trim().toLowerCase() === 'text/markdown' ? (

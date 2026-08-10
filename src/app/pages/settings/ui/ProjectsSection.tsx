@@ -9,6 +9,7 @@ import {
   resourceMemberSelectionLostMessage,
 } from '@app/features/manage-members'
 import { CreateProjectForm, EditableProjectRow } from '@app/features/manage-project'
+import { useNavigationStore } from '@app/entities/navigation'
 import {
   projectApi,
   type CloneSummary,
@@ -125,6 +126,8 @@ export function ProjectsSection() {
     setError(null)
     try {
       const project = await projectApi.createProject(teamId, { name, repositoryUrl })
+      await useNavigationStore.getState().loadOrgs()
+      await useNavigationStore.getState().selectProject(project.id)
       const team = teams.find((t) => t.id === teamId)
       setProjectsWithTeam((prev) => [...prev, { project, teamName: team?.name ?? '' }])
       setCreatedProjectName(project.name || name)

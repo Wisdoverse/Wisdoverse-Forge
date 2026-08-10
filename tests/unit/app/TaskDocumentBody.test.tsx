@@ -62,5 +62,7 @@ describe('TaskDocumentBody', () => {
       await screen.findByRole('heading', { name: 'Result notes' }, { timeout: 5_000 })
     ).toBeDefined()
     expect(screen.getByText('{"ok":true}').closest('pre')).not.toBeNull()
+    expect(screen.getAllByText(/check the Brief above/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/go back to Work/i)).toBeNull()
   })
 })

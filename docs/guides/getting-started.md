@@ -96,30 +96,33 @@ and can be shown again later from Settings.
 1. Create a team and project.
    - Open **Settings -> Teams** to create a team if one is missing.
    - Open **Settings -> Projects** to create a project inside that team.
-2. Add an AI service.
-   - Open **Settings -> AI services**.
-   - Choose **Add AI service**.
-   - Pick the service you use, paste the service access key, save it, then
-     choose **Check connection**.
-   - Success looks like: the service shows **Ready**.
-3. Create the first agent.
+2. Prepare project-file work.
+   - Open **Settings -> Where agents work** and choose the work location and
+     code tool.
+   - Open **Settings -> Sign in to code tools** and connect that tool.
+   - Success looks like: the work location is ready and the code tool is signed
+     in.
+3. Create a task-capable agent.
    - Open **Agents -> New Agent**.
-   - Choose **Simple chat agent** for the fastest first proof.
-   - Use **Project files** later when you want an agent to edit shared files.
-   - Use **This computer** later when work must stay on your local machine.
-4. Create one small task.
+   - Choose **Project files** when the task needs shared project files.
+   - Choose **This computer** when work must stay on your local machine.
+   - **Simple chat agent** answers in Chat only and cannot receive Tasks.
+4. Set up a place for new tasks.
+   - In **New Agent**, choose **Set up place** when no place exists. If places
+     already exist, choose one under **Place for new tasks**.
+   - Success looks like: the selected project has a named place for new tasks.
+5. Create one small task.
    - Select the project in the left menu.
    - Open **Tasks** and choose **Add Task**.
    - Start with one clear request, such as "summarize this project setup" or
      "review the README for confusing steps."
-5. Check the result.
-   - Open the task detail panel.
-   - Use **Work**, **Result**, **Context**, and **Updates** to understand what
-     happened.
-   - When the result is useful, save reusable instructions from the review flow.
-
-The New Agent dialog can create a starter place where tasks wait when a project
-is selected.
+6. Check the result.
+   - Open the task from the board.
+   - Read **Brief** and **Result** in the main document, then check **Activity**
+     below. On wide screens, **Context** and **Details** appear in the right rail.
+7. Save useful steps.
+   - When the result is useful, review reusable guidance in **Context** or
+     **Skills** and keep only steps that should apply to future work.
 
 ### Add file-working agents later
 

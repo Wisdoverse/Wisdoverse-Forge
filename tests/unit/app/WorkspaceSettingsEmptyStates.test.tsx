@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useNavigationStore } from '@app/entities/navigation'
 import { ProjectsSection } from '@app/pages/settings/ui/ProjectsSection'
 import { TeamsSection } from '@app/pages/settings/ui/TeamsSection'
 
@@ -13,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   createProject: vi.fn(),
   updateProject: vi.fn(),
   deleteProject: vi.fn(),
+  loadOrgs: vi.fn(),
+  selectProject: vi.fn(),
 }))
 
 vi.mock('@app/shared/model/auth.context', () => ({
@@ -137,6 +140,9 @@ const teamAlpha = {
   description: '',
 }
 
+const originalLoadOrgs = useNavigationStore.getState().loadOrgs
+const originalSelectProject = useNavigationStore.getState().selectProject
+
 describe('workspace settings empty states', () => {
   beforeEach(() => {
     mocks.user = { orgId: 'org-1', role: 'owner' }
@@ -151,11 +157,21 @@ describe('workspace settings empty states', () => {
       color: '#007AFF',
       description: '',
     })
+    mocks.loadOrgs.mockResolvedValue(undefined)
+    mocks.selectProject.mockResolvedValue(true)
+    useNavigationStore.setState({
+      loadOrgs: mocks.loadOrgs,
+      selectProject: mocks.selectProject,
+    })
   })
 
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+    useNavigationStore.setState({
+      loadOrgs: originalLoadOrgs,
+      selectProject: originalSelectProject,
+    })
   })
 
   it('explains team loading before the first setup list appears', async () => {
@@ -375,6 +391,11 @@ describe('workspace settings empty states', () => {
     expect(within(status).getByRole('link', { name: /create first task/i })).toHaveAttribute(
       'href',
       '/tasks'
+    )
+    expect(mocks.loadOrgs).toHaveBeenCalledOnce()
+    expect(mocks.selectProject).toHaveBeenCalledWith('project-1')
+    expect(mocks.loadOrgs.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.selectProject.mock.invocationCallOrder[0]!
     )
     expect(screen.getByText('Existing project row')).toBeInTheDocument()
   })
