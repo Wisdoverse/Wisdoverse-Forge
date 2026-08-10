@@ -6,6 +6,9 @@ use agentforge_auth::JwtManager;
 use agentforge_core::{AppConfig, AppResult, TenantScope, UserId};
 use agentforge_db::entities::User;
 use chrono::{Duration, Utc};
+use hmac::{Hmac, KeyInit, Mac};
+use secrecy::ExposeSecret;
+use sha2::Sha256;
 use sqlx::PgPool;
 
 pub(crate) use crate::domain::user::{
@@ -18,7 +21,8 @@ pub(crate) use crate::domain::user::{
 use crate::domain::user::{
     AuthRefreshCookiePolicy, GeneratedPasswordResetToken, PASSWORD_RESET_TTL_MINUTES, PasswordResetRequestEmail,
     PasswordResetToken, RefreshSessionPolicy, RefreshedAccessToken, UserAccessPolicy, UserAccountPolicy, UserEmail,
-    UserListPage, UserPassword, UserPreferencesPatch, derive_username, email_domain_for_log, password_reset_email_body,
+    UserListPage, UserPassword, UserPreferencesPatch, UserRepositoryPolicy, derive_username, email_domain_for_log,
+    password_reset_email_body,
 };
 pub use crate::domain::user::{AuthenticatedUser, LoginResult};
 use crate::repositories::user::{OrgUserSearchResult, UserRepository};
@@ -46,6 +50,8 @@ pub struct UserService {
     /// OFF; enabled only outside production so the compat window is closed in
     /// prod (where a migration force-resets any remaining SHA-256 rows).
     allow_legacy_sha256_login: bool,
+    bootstrap_admin_token: Option<secrecy::SecretString>,
+    allow_unprotected_admin_bootstrap: bool,
 }
 
 impl UserService {
@@ -56,6 +62,8 @@ impl UserService {
             password_reset_delivery: None,
             refresh_cookie_policy: AuthRefreshCookiePolicy::new(false),
             allow_legacy_sha256_login: false,
+            bootstrap_admin_token: None,
+            allow_unprotected_admin_bootstrap: false,
         }
     }
 
@@ -73,6 +81,9 @@ impl UserService {
             .with_password_reset_delivery(email_sender, config.app_url.clone())
             .with_refresh_cookie_policy(AuthRefreshCookiePolicy::new(config.is_production()));
         service.allow_legacy_sha256_login = !config.is_production();
+        service.bootstrap_admin_token = config.bootstrap_admin_token.clone();
+        service.allow_unprotected_admin_bootstrap =
+            config.allow_unprotected_admin_bootstrap && matches!(config.environment.as_str(), "development" | "test");
         service
     }
 
@@ -150,14 +161,29 @@ impl UserService {
     }
 
     /// Register a new user account.
-    pub async fn register(&self, email: &str, password: &str, display_name: Option<&str>) -> AppResult<LoginResult> {
+    pub async fn register(
+        &self,
+        email: &str,
+        password: &str,
+        display_name: Option<&str>,
+        setup_token: Option<&str>,
+    ) -> AppResult<LoginResult> {
         let email = UserEmail::parse(email)?;
         let password = UserPassword::parse(password)?;
+
+        let admin_bootstrap_authorized = self.allow_unprotected_admin_bootstrap
+            || self
+                .bootstrap_admin_token
+                .as_ref()
+                .is_some_and(|expected| setup_token_matches(expected.expose_secret(), setup_token));
+        if !admin_bootstrap_authorized && !self.repo.has_active_platform_admin().await? {
+            return Err(UserRepositoryPolicy::setup_token_required_or_invalid());
+        }
 
         let hash = agentforge_auth::password::hash_password(password.value())
             .map_err(UserAccountPolicy::password_hashing_failed)?;
 
-        let user = self.repo.create(email.value(), &hash, display_name).await?;
+        let user = self.repo.create(email.value(), &hash, display_name, admin_bootstrap_authorized).await?;
         let (org_id, role) =
             self.repo.find_default_org(user.id).await?.ok_or_else(UserAccountPolicy::missing_default_org_membership)?;
 
@@ -361,6 +387,19 @@ impl UserService {
     }
 }
 
+fn setup_token_matches(expected: &str, candidate: Option<&str>) -> bool {
+    let Some(candidate) = candidate else { return false };
+    const CONTEXT: &[u8] = b"agentforge first administrator setup";
+
+    let mut candidate_mac = Hmac::<Sha256>::new_from_slice(candidate.as_bytes()).expect("HMAC accepts any key length");
+    candidate_mac.update(CONTEXT);
+    let candidate_tag = candidate_mac.finalize().into_bytes();
+
+    let mut expected_mac = Hmac::<Sha256>::new_from_slice(expected.as_bytes()).expect("HMAC accepts any key length");
+    expected_mac.update(CONTEXT);
+    expected_mac.verify_slice(&candidate_tag).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,6 +408,101 @@ mod tests {
     use uuid::Uuid;
 
     const TEST_SECRET: &str = "refresh-session-live-role-test-secret-32bytes!!";
+
+    #[test]
+    fn setup_token_comparison_requires_an_exact_match() {
+        assert!(setup_token_matches("a-very-long-deployment-setup-token", Some("a-very-long-deployment-setup-token")));
+        assert!(!setup_token_matches("a-very-long-deployment-setup-token", Some("wrong-token")));
+        assert!(!setup_token_matches("a-very-long-deployment-setup-token", None));
+    }
+
+    #[tokio::test]
+    async fn unprotected_admin_bootstrap_requires_explicit_local_mode() {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://localhost/agentforge_test")
+            .expect("lazy test pool");
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+
+        for (environment, opted_in, allowed) in [
+            ("development", false, false),
+            ("development", true, true),
+            ("test", true, true),
+            ("production", true, false),
+            ("prod", true, false),
+            ("staging", true, false),
+            ("Production", true, false),
+        ] {
+            let mut config = crate::test_support::test_app_config("postgres://localhost/agentforge_test");
+            config.environment = environment.to_string();
+            config.allow_unprotected_admin_bootstrap = opted_in;
+            let service = UserService::from_app_config(
+                pool.clone(),
+                jwt.clone(),
+                Arc::new(crate::services::email::DisabledEmailSender),
+                &config,
+            );
+            assert_eq!(service.allow_unprotected_admin_bootstrap, allowed, "environment={environment}");
+        }
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn production_registration_requires_setup_token_only_for_the_first_admin(pool: PgPool) {
+        const SETUP_TOKEN: &str = "bootstrap-token-that-is-at-least-thirty-two-characters";
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let mut config = crate::test_support::test_app_config("postgres://localhost/agentforge_test");
+        config.environment = "production".to_string();
+        config.bootstrap_admin_token = Some(secrecy::SecretString::from(SETUP_TOKEN.to_string()));
+        let service = UserService::from_app_config(
+            pool.clone(),
+            jwt,
+            Arc::new(crate::services::email::DisabledEmailSender),
+            &config,
+        );
+
+        let missing = service
+            .register("missing@example.com", "StrongPassword1!", None, None)
+            .await
+            .expect_err("missing token must fail");
+        let wrong = service
+            .register("wrong@example.com", "StrongPassword1!", None, Some("wrong-token"))
+            .await
+            .expect_err("wrong token must fail");
+        for err in [missing, wrong] {
+            assert!(matches!(
+                err.kind,
+                agentforge_core::ErrorKind::ForbiddenWithCode { code: "SETUP_TOKEN_REQUIRED_OR_INVALID", .. }
+            ));
+        }
+        let rejected_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM users").fetch_one(&pool).await.expect("count rejected users");
+        assert_eq!(rejected_count, 0);
+
+        service
+            .register("admin@example.com", "StrongPassword1!", None, Some(SETUP_TOKEN))
+            .await
+            .expect("correct token creates first admin");
+        service
+            .register("member@example.com", "StrongPassword1!", None, None)
+            .await
+            .expect("later registrations do not require the setup token");
+        service
+            .register("replay@example.com", "StrongPassword1!", None, Some(SETUP_TOKEN))
+            .await
+            .expect("token replay after bootstrap is an ordinary registration");
+
+        let roles: Vec<(String, bool)> = sqlx::query_as("SELECT email, is_admin FROM users ORDER BY email")
+            .fetch_all(&pool)
+            .await
+            .expect("read registered users");
+        assert_eq!(
+            roles,
+            vec![
+                ("admin@example.com".to_string(), true),
+                ("member@example.com".to_string(), false),
+                ("replay@example.com".to_string(), false),
+            ]
+        );
+    }
 
     /// Seed an org (+ user), optionally with an `organization_members` row.
     async fn seed_member(pool: &PgPool, role: Option<&str>) -> (Uuid, Uuid) {

@@ -130,6 +130,17 @@ make quickstart-selfhost-pull DOMAIN=localhost HTTP_PORT=18080 HTTPS_PORT=18443
 
 Open `https://localhost:18443` for that trial.
 
+The first production account also needs the one-time setup token generated in
+`docker/.env`. On the deployment host, read it without writing it to a URL or
+browser storage:
+
+```bash
+sed -n 's/^BOOTSTRAP_ADMIN_TOKEN=//p' docker/.env
+```
+
+Enter that value in **Deployment setup token** when creating the first account.
+After a platform administrator exists, new accounts leave this field blank.
+
 This starts the Rust API, frontend artifact service, Caddy, PostgreSQL, Redis,
 NATS, Temporal, and the orchestrator, then checks the final Caddy HTTPS URL plus
 API readiness through the public ingress.

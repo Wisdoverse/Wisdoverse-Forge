@@ -321,6 +321,7 @@ require_prod_env() {
     POSTGRES_PASSWORD \
     REDIS_PASSWORD \
     JWT_SECRET \
+    BOOTSTRAP_ADMIN_TOKEN \
     MCP_TOKEN \
     API_KEY_SALT \
     LLM_ENCRYPTION_KEY \
@@ -405,6 +406,7 @@ fill_selfhost_env() {
   ensure_generated_env_value POSTGRES_PASSWORD "$(random_hex 24)"
   ensure_generated_env_value REDIS_PASSWORD "$(random_hex 24)"
   ensure_generated_env_value JWT_SECRET "$(random_base64 64)"
+  ensure_generated_env_value BOOTSTRAP_ADMIN_TOKEN "$(random_hex 32)"
   ensure_generated_env_value MCP_TOKEN "$(random_hex 32)"
   ensure_generated_env_value API_KEY_SALT "$(random_base64 32)"
   ensure_generated_env_value LLM_ENCRYPTION_KEY "$(random_hex 32)"
@@ -478,6 +480,10 @@ Next self-host commands:
 
 Open:
   $(public_url "$DOMAIN")
+
+Read the first-account setup token from $ENV_FILE, then enter it in
+Deployment setup token:
+  sed -n 's/^BOOTSTRAP_ADMIN_TOKEN=//p' "$ENV_FILE"
 
 Build from source instead of GHCR images:
   make prod

@@ -77,6 +77,9 @@ function authRegisterErrorMessage(result: AuthFailure): string {
   if (networkFailed) {
     return 'Check your connection, then create the account again. Forge could not reach account creation.'
   }
+  if (code.includes('SETUP_TOKEN') || lowerDetail.includes('deployment setup token')) {
+    return 'Copy BOOTSTRAP_ADMIN_TOKEN from docker/.env into Deployment setup token, then choose Create account and continue again. If you do not have server access, ask the person who installed Forge.'
+  }
   if (
     code.includes('RATE') ||
     code.includes('TOO_MANY') ||
@@ -445,6 +448,11 @@ export class AuthPage {
           </div>
           <span class="auth-hint">Type it again so you know what to use next time you sign in.</span>
         </div>
+        <div class="auth-field">
+          <label class="auth-label" for="register-setup-token">Deployment setup token <span class="auth-optional">(first self-host account only)</span></label>
+          <input class="auth-input" id="register-setup-token" type="password" autocomplete="off">
+          <span class="auth-hint">For the first production account, copy BOOTSTRAP_ADMIN_TOKEN from docker/.env. Leave this blank after an administrator exists.</span>
+        </div>
         <button class="auth-submit" type="submit" id="register-submit">
           <span class="auth-submit-text">Create account and continue</span>
           <span class="auth-submit-spinner" hidden></span>
@@ -598,6 +606,7 @@ export class AuthPage {
     const password = this.getInput('register-password')
     const confirm = this.getInput('register-confirm')
     const username = this.getInput('register-username') || undefined
+    const setupToken = this.getInput('register-setup-token') || undefined
     if (!email || !password || !confirm) {
       this.setError(
         'Enter an email address and type the new password twice, then choose Create account and continue.'
@@ -622,7 +631,9 @@ export class AuthPage {
     }
     this.setLoading('register-submit', true)
     this.setError('')
-    const result = await this.authManager.register(email, password, username)
+    const result = await this.authManager.register(email, password, username, setupToken)
+    const setupTokenInput = this.container?.querySelector<HTMLInputElement>('#register-setup-token')
+    if (setupTokenInput) setupTokenInput.value = ''
     this.setLoading('register-submit', false)
     if (result.ok) {
       if (result.tokens) {

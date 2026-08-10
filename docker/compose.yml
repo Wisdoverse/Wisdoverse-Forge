@@ -64,6 +64,7 @@ services:
       # Core (Rust AppConfig fields)
       - DATABASE_URL=${DATABASE_URL:-}
       - JWT_SECRET=${JWT_SECRET:-}
+      - BOOTSTRAP_ADMIN_TOKEN=${BOOTSTRAP_ADMIN_TOKEN:-}
       - PORT=4003
       - HOST=0.0.0.0
       - ENVIRONMENT=${NODE_ENV:-production}

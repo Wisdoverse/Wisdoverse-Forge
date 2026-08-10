@@ -232,7 +232,7 @@ export class AuthManager {
         return {
           ok: false,
           error: data.message || data.error || AUTH_LOGIN_FALLBACK,
-          errorCode: data.details?.code,
+          errorCode: data.details?.code || data.error,
         }
       }
       this.accessToken = data.tokens.accessToken
@@ -258,17 +258,26 @@ export class AuthManager {
     }
   }
 
-  async register(email: string, password: string, username?: string): Promise<LoginResult> {
+  async register(
+    email: string,
+    password: string,
+    username?: string,
+    setupToken?: string
+  ): Promise<LoginResult> {
     try {
       const res = await fetch(`${this.apiUrl}/auth/register`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, username }),
+        body: JSON.stringify({ email, password, username, setupToken }),
       })
       const data = await res.json()
       if (!data.ok) {
-        return { ok: false, error: data.message || data.error || AUTH_REGISTER_FALLBACK }
+        return {
+          ok: false,
+          error: data.message || data.error || AUTH_REGISTER_FALLBACK,
+          errorCode: data.details?.code || data.error,
+        }
       }
       // Check if tokens are present (dev mode) or email verification required
       if (data.tokens) {

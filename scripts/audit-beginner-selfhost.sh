@@ -66,6 +66,7 @@ Provider audit env:
   BASE_URL                  Public app URL, e.g. https://forge.example.com
   E2E_EMAIL                 Login email
   E2E_PASSWORD              Login password
+  BOOTSTRAP_ADMIN_TOKEN     Required only when the audit creates the first production account
   BEGINNER_PROVIDER         Provider key, e.g. openai, openrouter, or ollama
   BEGINNER_MODEL            Model name accepted by that provider
   BEGINNER_API_KEY          Real provider API key; not required for ollama
@@ -238,6 +239,7 @@ check_temp_bootstrap() {
     POSTGRES_PASSWORD \
     REDIS_PASSWORD \
     JWT_SECRET \
+    BOOTSTRAP_ADMIN_TOKEN \
     MCP_TOKEN \
     API_KEY_SALT \
     LLM_ENCRYPTION_KEY \
@@ -366,7 +368,7 @@ provider_audit() {
 
   register_body="$tmp_dir/register.json"
   status="$(curl_json POST '/auth/register' '' \
-    "{\"email\":$(json_string "$E2E_EMAIL"),\"password\":$(json_string "$E2E_PASSWORD"),\"username\":\"beginner-audit\"}" \
+    "{\"email\":$(json_string "$E2E_EMAIL"),\"password\":$(json_string "$E2E_PASSWORD"),\"username\":\"beginner-audit\",\"setupToken\":$(json_string "${BOOTSTRAP_ADMIN_TOKEN:-}")}" \
     "$register_body")"
   case "$status" in
     201|409) ;;
