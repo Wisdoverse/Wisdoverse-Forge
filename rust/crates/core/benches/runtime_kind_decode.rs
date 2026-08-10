@@ -13,7 +13,9 @@
 //! 3. `as_str`         — round-trip (encode path): `RuntimeKind::as_str()`.
 //! 4. `baseline_int`   — trivial integer comparison to contextualize overhead.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use std::hint::black_box;
+
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 
 use agentforge_core::runtime_capability::{CliToolKind, RuntimeKind};
 
