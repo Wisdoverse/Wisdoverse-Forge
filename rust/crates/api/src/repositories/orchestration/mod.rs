@@ -98,16 +98,41 @@ pub(crate) const UNBLOCK_CHILDREN_SQL: &str = r#"UPDATE orchestration_tasks
                  AND blocked_reason = 'waiting_dependency'
                RETURNING *"#;
 
-/// `count_by_status`: tenant-scoped participant counts that exclude stale
-/// `offline` rows (heartbeat older than 24h). The 24h window protects the
-/// pool-status hint from showing phantom participants — see
-/// `test_count_by_status_sql_excludes_stale_offline`.
-pub(crate) const PARTICIPANT_COUNT_SQL: &str = r#"SELECT status, COUNT(*) AS n FROM participants
-               WHERE organization_id = $1
-                 AND (status <> 'offline'
-                      OR (last_heartbeat_at IS NOT NULL
-                          AND last_heartbeat_at > NOW() - INTERVAL '24 hours'))
-               GROUP BY status"#;
+/// `count_by_status`: task-route-scoped participant counts that exclude stale
+/// `offline` rows (heartbeat older than 24h). A participant only counts when its
+/// live agent can execute inside the task project's workspace and advertises at
+/// least one non-empty task capability.
+pub(crate) const PARTICIPANT_COUNT_SQL: &str = r#"SELECT participant.status, COUNT(*) AS n
+                 FROM participants participant
+                 JOIN agents agent
+                   ON agent.id = participant.agent_id
+                  AND agent.organization_id = participant.organization_id
+                 JOIN orchestration_tasks task
+                   ON task.id = $2
+                  AND task.organization_id = $1
+                 JOIN groups task_group
+                   ON task_group.id = task.group_id
+                  AND task_group.organization_id = task.organization_id
+                  AND task_group.deleted_at IS NULL
+                 JOIN projects task_project
+                   ON task_project.id = task_group.project_id
+                  AND task_project.organization_id = task.organization_id
+                  AND task_project.deleted_at IS NULL
+                 JOIN workspaces task_workspace
+                   ON task_workspace.id = task_project.workspace_id
+                  AND task_workspace.organization_id = task.organization_id
+                  AND task_workspace.deleted_at IS NULL
+                WHERE participant.organization_id = $1
+                  AND agent.workspace_id = task_project.workspace_id
+                  AND EXISTS (
+                        SELECT 1
+                          FROM unnest(participant.capabilities) capability
+                         WHERE btrim(capability) <> ''
+                      )
+                  AND (participant.status <> 'offline'
+                       OR (participant.last_heartbeat_at IS NOT NULL
+                           AND participant.last_heartbeat_at > NOW() - INTERVAL '24 hours'))
+                GROUP BY participant.status"#;
 
 /// Snapshot of orchestration task counts grouped by kanban state.
 /// Returned to the UI as `{ byState: { backlog, queued, working, blocked, ... } }`.
@@ -736,30 +761,58 @@ impl OrchestrationTaskRepository {
     /// Highest priority first, FIFO within priority.
     pub async fn next_dispatchable(&self, scope: &TenantScope) -> AppResult<Option<OrchestrationTask>> {
         let task = sqlx::query_as::<_, OrchestrationTask>(
-            r#"SELECT * FROM orchestration_tasks
-               WHERE organization_id = $1
-                 AND status IN ('queued', 'blocked')
-                 AND (blocked_reason IS NULL OR blocked_reason = 'waiting_agent')
-                 AND assigned_agent_id IS NULL
+            r#"SELECT task.*
+                 FROM orchestration_tasks task
+                 JOIN groups task_group
+                   ON task_group.id = task.group_id
+                  AND task_group.organization_id = task.organization_id
+                  AND task_group.deleted_at IS NULL
+                 JOIN projects task_project
+                   ON task_project.id = task_group.project_id
+                  AND task_project.organization_id = task.organization_id
+                  AND task_project.deleted_at IS NULL
+                 JOIN workspaces task_workspace
+                   ON task_workspace.id = task_project.workspace_id
+                  AND task_workspace.organization_id = task.organization_id
+                  AND task_workspace.deleted_at IS NULL
+                WHERE task.organization_id = $1
+                 AND task.status IN ('queued', 'blocked')
+                 AND (task.blocked_reason IS NULL OR task.blocked_reason = 'waiting_agent')
+                 AND task.assigned_agent_id IS NULL
                  -- Image tasks are PUSH-only to an explicitly chosen vision-capable
                  -- container agent (the self-claim/auto-dispatch lanes can't
                  -- materialize images). Excluding them here also keeps a blocked
                  -- image task off the head of the sweep so it can't starve later
                  -- plain queued tasks. Mirrors jobs::NEXT_DISPATCHABLE_SQL.
                  AND COALESCE(
-                       CASE WHEN jsonb_typeof(params -> 'imageAttachmentIds') = 'array'
-                            THEN jsonb_array_length(params -> 'imageAttachmentIds')
+                       CASE WHEN jsonb_typeof(task.params -> 'imageAttachmentIds') = 'array'
+                            THEN jsonb_array_length(task.params -> 'imageAttachmentIds')
                             ELSE 0 END,
                        0) = 0
+                 AND EXISTS (
+                       SELECT 1
+                         FROM participants participant
+                         JOIN agents agent
+                           ON agent.id = participant.agent_id
+                          AND agent.organization_id = participant.organization_id
+                        WHERE participant.organization_id = task.organization_id
+                          AND participant.status = 'available'
+                          AND agent.workspace_id = task_project.workspace_id
+                          AND EXISTS (
+                                SELECT 1
+                                  FROM unnest(participant.capabilities) capability
+                                 WHERE btrim(capability) <> ''
+                              )
+                     )
                ORDER BY
-                 CASE priority
+                 CASE task.priority
                    WHEN 'urgent' THEN 0
                    WHEN 'high'   THEN 1
                    WHEN 'normal' THEN 2
                    WHEN 'low'    THEN 3
                    ELSE 4
                  END,
-                 created_at ASC
+                 task.created_at ASC
                LIMIT 1"#,
         )
         .bind(scope.org_id().as_uuid())
@@ -876,9 +929,12 @@ impl ParticipantRepository {
     ///   never heartbeat'd is not meaningfully "about to come back").
     ///
     /// `available` / `busy` rows are always counted regardless of heartbeat age.
-    pub async fn count_by_status(&self, scope: &TenantScope) -> AppResult<(i64, i64, i64)> {
-        let rows: Vec<(String, i64)> =
-            sqlx::query_as(PARTICIPANT_COUNT_SQL).bind(scope.org_id().as_uuid()).fetch_all(&self.pool).await?;
+    pub async fn count_by_status(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<(i64, i64, i64)> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(PARTICIPANT_COUNT_SQL)
+            .bind(scope.org_id().as_uuid())
+            .bind(task_id)
+            .fetch_all(&self.pool)
+            .await?;
         let (mut available, mut busy, mut offline) = (0, 0, 0);
         for (status, n) in rows {
             match status.as_str() {
@@ -899,31 +955,146 @@ impl ParticipantRepository {
         Ok(participant)
     }
 
+    /// Lock participant -> agent so callers can safely acquire task/FK locks
+    /// later in the same transaction without reversing the dispatch lock order.
     pub async fn find_by_agent_id_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
         agent_id: AgentId,
     ) -> AppResult<Participant> {
-        sqlx::query_as::<_, Participant>("SELECT * FROM participants WHERE agent_id = $1 AND organization_id = $2")
-            .bind(agent_id.as_uuid())
-            .bind(scope.org_id().as_uuid())
-            .fetch_optional(&mut **tx)
-            .await?
-            .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
+        sqlx::query_as::<_, Participant>(
+            r#"SELECT participant.*
+                 FROM participants participant
+                 JOIN agents agent
+                   ON agent.id = participant.agent_id
+                  AND agent.organization_id = participant.organization_id
+                WHERE participant.agent_id = $1
+                  AND participant.organization_id = $2
+                  FOR UPDATE OF participant, agent"#,
+        )
+        .bind(agent_id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
     }
 
-    /// Find first available participant (tenant-scoped).
-    pub async fn find_available(&self, scope: &TenantScope) -> AppResult<Option<Participant>> {
+    /// Find the best available participant inside a task's live workspace route.
+    pub async fn find_available(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<Option<Participant>> {
         let participant = sqlx::query_as::<_, Participant>(
-            r#"SELECT * FROM participants
-               WHERE organization_id = $1 AND status = 'available'
-               ORDER BY last_heartbeat_at DESC NULLS LAST
+            r#"SELECT participant.*
+                 FROM participants participant
+                 JOIN agents agent
+                   ON agent.id = participant.agent_id
+                  AND agent.organization_id = participant.organization_id
+                 JOIN orchestration_tasks task
+                   ON task.id = $2
+                  AND task.organization_id = $1
+                 JOIN groups task_group
+                   ON task_group.id = task.group_id
+                  AND task_group.organization_id = task.organization_id
+                  AND task_group.deleted_at IS NULL
+                 JOIN projects task_project
+                   ON task_project.id = task_group.project_id
+                  AND task_project.organization_id = task.organization_id
+                  AND task_project.deleted_at IS NULL
+                 JOIN workspaces task_workspace
+                   ON task_workspace.id = task_project.workspace_id
+                  AND task_workspace.organization_id = task.organization_id
+                  AND task_workspace.deleted_at IS NULL
+                WHERE participant.organization_id = $1
+                  AND participant.status = 'available'
+                  AND agent.workspace_id = task_project.workspace_id
+                  AND EXISTS (
+                        SELECT 1
+                          FROM unnest(participant.capabilities) capability
+                         WHERE btrim(capability) <> ''
+                      )
+               ORDER BY CASE WHEN agent.project_id = task_project.id THEN 0 ELSE 1 END,
+                        CASE WHEN participant.last_heartbeat_at IS NULL THEN 1 ELSE 0 END,
+                        participant.last_heartbeat_at DESC
                LIMIT 1"#,
         )
         .bind(scope.org_id().as_uuid())
+        .bind(task_id)
         .fetch_optional(&self.pool)
         .await?;
         Ok(participant)
+    }
+
+    /// Atomically reserve a participant for a task while revalidating the live
+    /// task route and the caller's task snapshot. Locks participant -> agent ->
+    /// task so API and jobs claims share one order; snapshot drift fails closed.
+    pub async fn claim_for_task_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        expected_task: &OrchestrationTask,
+        agent_id: AgentId,
+    ) -> AppResult<Participant> {
+        sqlx::query_as::<_, Participant>(
+            r#"WITH locked_participant AS MATERIALIZED (
+                   SELECT participant.id,
+                          agent.workspace_id AS agent_workspace_id
+                     FROM participants participant
+                     JOIN agents agent
+                       ON agent.id = participant.agent_id
+                      AND agent.organization_id = participant.organization_id
+                    WHERE participant.agent_id = $3
+                      AND participant.organization_id = $1
+                      FOR UPDATE OF participant, agent
+               ),
+               locked_task AS MATERIALIZED (
+                   SELECT task.id,
+                          task.organization_id,
+                          task.group_id
+                     FROM orchestration_tasks task
+                     JOIN locked_participant locked ON TRUE
+                    WHERE task.id = $2
+                      AND task.organization_id = $1
+                      AND task.status = $4
+                      AND task.blocked_reason IS NOT DISTINCT FROM $5
+                      AND task.assigned_agent_id IS NOT DISTINCT FROM $6
+                      FOR UPDATE OF task
+               )
+               UPDATE participants participant
+                  SET status = 'busy'
+                 FROM locked_participant locked,
+                      locked_task task,
+                      groups task_group,
+                      projects task_project,
+                      workspaces task_workspace
+                WHERE participant.agent_id = $3
+                  AND participant.organization_id = $1
+                  AND participant.status = 'available'
+                  AND participant.id = locked.id
+                  AND task.id = $2
+                  AND task.organization_id = participant.organization_id
+                  AND task_group.id = task.group_id
+                  AND task_group.organization_id = task.organization_id
+                  AND task_group.deleted_at IS NULL
+                  AND task_project.id = task_group.project_id
+                  AND task_project.organization_id = task.organization_id
+                  AND task_project.deleted_at IS NULL
+                  AND task_workspace.id = task_project.workspace_id
+                  AND task_workspace.organization_id = task.organization_id
+                  AND task_workspace.deleted_at IS NULL
+                  AND locked.agent_workspace_id = task_project.workspace_id
+                  AND EXISTS (
+                        SELECT 1
+                          FROM unnest(participant.capabilities) capability
+                         WHERE btrim(capability) <> ''
+                      )
+            RETURNING participant.*"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(expected_task.id)
+        .bind(agent_id.as_uuid())
+        .bind(&expected_task.status)
+        .bind(expected_task.blocked_reason.as_deref())
+        .bind(expected_task.assigned_agent_id.map(|assigned| assigned.as_uuid()))
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
     }
 
     /// Update participant status (tenant-scoped).
@@ -991,6 +1162,357 @@ mod participant_list_runtime_tests {
     use crate::test_support::tenant_scope_for_ids;
     use uuid::Uuid;
 
+    struct DispatchFixture {
+        org_id: Uuid,
+        user_id: Uuid,
+        workspace_a: Uuid,
+        workspace_b: Uuid,
+        project_a: Uuid,
+        project_a_fallback: Uuid,
+        project_b: Uuid,
+        group_a: Uuid,
+        group_a_fallback: Uuid,
+        group_b: Uuid,
+    }
+
+    async fn seed_dispatch_fixture(pool: &sqlx::PgPool) -> DispatchFixture {
+        let fixture = DispatchFixture {
+            org_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            workspace_a: Uuid::new_v4(),
+            workspace_b: Uuid::new_v4(),
+            project_a: Uuid::new_v4(),
+            project_a_fallback: Uuid::new_v4(),
+            project_b: Uuid::new_v4(),
+            group_a: Uuid::new_v4(),
+            group_a_fallback: Uuid::new_v4(),
+            group_b: Uuid::new_v4(),
+        };
+        let team_id = Uuid::new_v4();
+
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Dispatch Org', $2)")
+            .bind(fixture.org_id)
+            .bind(format!("dispatch-{}", fixture.org_id))
+            .execute(pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(fixture.user_id)
+            .bind(format!("u-{}@example.com", fixture.user_id))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        sqlx::query("INSERT INTO teams (id, organization_id, name, slug) VALUES ($1, $2, 'Dispatch', $3)")
+            .bind(team_id)
+            .bind(fixture.org_id)
+            .bind(format!("dispatch-{team_id}"))
+            .execute(pool)
+            .await
+            .expect("seed team");
+        for (workspace_id, name) in [(fixture.workspace_a, "Workspace A"), (fixture.workspace_b, "Workspace B")] {
+            sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $2, $3)")
+                .bind(workspace_id)
+                .bind(fixture.org_id)
+                .bind(name)
+                .execute(pool)
+                .await
+                .expect("seed workspace");
+        }
+        for (project_id, workspace_id, name) in [
+            (fixture.project_a, fixture.workspace_a, "Project A"),
+            (fixture.project_a_fallback, fixture.workspace_a, "Project A fallback"),
+            (fixture.project_b, fixture.workspace_b, "Project B"),
+        ] {
+            sqlx::query(
+                "INSERT INTO projects (id, organization_id, workspace_id, team_id, name, slug) \
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(project_id)
+            .bind(fixture.org_id)
+            .bind(workspace_id)
+            .bind(team_id)
+            .bind(name)
+            .bind(format!("project-{project_id}"))
+            .execute(pool)
+            .await
+            .expect("seed project");
+        }
+        for (group_id, project_id, name) in [
+            (fixture.group_a, fixture.project_a, "Group A"),
+            (fixture.group_a_fallback, fixture.project_a_fallback, "Group A fallback"),
+            (fixture.group_b, fixture.project_b, "Group B"),
+        ] {
+            sqlx::query(
+                "INSERT INTO groups (id, organization_id, project_id, name, created_by) VALUES ($1, $2, $3, $4, $5)",
+            )
+            .bind(group_id)
+            .bind(fixture.org_id)
+            .bind(project_id)
+            .bind(name)
+            .bind(fixture.user_id)
+            .execute(pool)
+            .await
+            .expect("seed group");
+        }
+        fixture
+    }
+
+    async fn seed_participant(
+        pool: &sqlx::PgPool,
+        fixture: &DispatchFixture,
+        workspace_id: Uuid,
+        project_id: Option<Uuid>,
+        capabilities: &[&str],
+    ) -> Uuid {
+        let agent_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, status) \
+             VALUES ($1, $2, $3, $4, $5, 'dispatch-agent', 'idle')",
+        )
+        .bind(agent_id)
+        .bind(fixture.org_id)
+        .bind(workspace_id)
+        .bind(project_id)
+        .bind(fixture.user_id)
+        .execute(pool)
+        .await
+        .expect("seed agent");
+        let capabilities: Vec<String> = capabilities.iter().map(|capability| (*capability).to_owned()).collect();
+        sqlx::query(
+            "INSERT INTO participants (organization_id, agent_id, name, capabilities, status, last_heartbeat_at) \
+             VALUES ($1, $2, 'dispatch-agent', $3, 'available', NOW())",
+        )
+        .bind(fixture.org_id)
+        .bind(agent_id)
+        .bind(&capabilities)
+        .execute(pool)
+        .await
+        .expect("seed participant");
+        agent_id
+    }
+
+    async fn seed_task(pool: &sqlx::PgPool, fixture: &DispatchFixture, group_id: Option<Uuid>, title: &str) -> Uuid {
+        let task_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO orchestration_tasks (id, organization_id, group_id, title, status, priority, created_by) \
+             VALUES ($1, $2, $3, $4, 'queued', 'normal', $5)",
+        )
+        .bind(task_id)
+        .bind(fixture.org_id)
+        .bind(group_id)
+        .bind(title)
+        .bind(fixture.user_id)
+        .execute(pool)
+        .await
+        .expect("seed task");
+        task_id
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn route_aware_participant_selection_enforces_workspace_capability_and_exact_project(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let task_id = seed_task(&pool, &fixture, Some(fixture.group_a), "Task A").await;
+        let exact_empty = seed_participant(&pool, &fixture, fixture.workspace_a, Some(fixture.project_a), &[]).await;
+        let fallback =
+            seed_participant(&pool, &fixture, fixture.workspace_a, Some(fixture.project_a_fallback), &["codex"]).await;
+        let _cross = seed_participant(&pool, &fixture, fixture.workspace_b, Some(fixture.project_b), &["codex"]).await;
+        let repo = ParticipantRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(fixture.org_id, fixture.user_id);
+
+        let selected = repo.find_available(&scope, task_id).await.expect("find fallback").expect("fallback exists");
+        assert_eq!(
+            selected.agent_id.as_uuid(),
+            fallback,
+            "empty-capability exact agent must not hide workspace fallback"
+        );
+        assert_eq!(repo.count_by_status(&scope, task_id).await.expect("route count"), (1, 0, 0));
+
+        sqlx::query("UPDATE participants SET capabilities = ARRAY['codex'] WHERE agent_id = $1")
+            .bind(exact_empty)
+            .execute(&pool)
+            .await
+            .expect("enable exact agent");
+        let selected = repo.find_available(&scope, task_id).await.expect("find exact").expect("exact exists");
+        assert_eq!(selected.agent_id.as_uuid(), exact_empty, "exact project must win over workspace fallback");
+
+        sqlx::query("UPDATE agents SET workspace_id = $1 WHERE id = $2")
+            .bind(fixture.workspace_b)
+            .bind(exact_empty)
+            .execute(&pool)
+            .await
+            .expect("move exact agent across workspace boundary");
+        sqlx::query("UPDATE projects SET deleted_at = NOW() WHERE id = $1")
+            .bind(fixture.project_a_fallback)
+            .execute(&pool)
+            .await
+            .expect("soft-delete fallback agent primary project");
+        let selected = repo.find_available(&scope, task_id).await.expect("find after move").expect("fallback remains");
+        assert_eq!(selected.agent_id.as_uuid(), fallback, "workspace eligibility must ignore a stale primary project");
+
+        sqlx::query("UPDATE participants SET capabilities = '{}' WHERE agent_id = $1")
+            .bind(fallback)
+            .execute(&pool)
+            .await
+            .expect("make fallback chat-only");
+        assert!(repo.find_available(&scope, task_id).await.expect("find none").is_none());
+        assert_eq!(repo.count_by_status(&scope, task_id).await.expect("empty route count"), (0, 0, 0));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn shared_assignment_claim_fails_closed_outside_task_route(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let task_id = seed_task(&pool, &fixture, Some(fixture.group_a), "Task A").await;
+        let cross = seed_participant(&pool, &fixture, fixture.workspace_b, Some(fixture.project_b), &["codex"]).await;
+        let empty = seed_participant(&pool, &fixture, fixture.workspace_a, Some(fixture.project_a), &[]).await;
+        let fallback =
+            seed_participant(&pool, &fixture, fixture.workspace_a, Some(fixture.project_a_fallback), &["codex"]).await;
+        let scope = tenant_scope_for_ids(fixture.org_id, fixture.user_id);
+        let task_repo = OrchestrationTaskRepository::new(pool.clone());
+        let task = task_repo.find_by_id(&scope, task_id).await.expect("load task snapshot");
+
+        for rejected in [cross, empty] {
+            let mut tx = pool.begin().await.expect("begin rejected claim");
+            assert!(
+                ParticipantRepository::claim_for_task_in_tx(&mut tx, &scope, &task, AgentId::from(rejected))
+                    .await
+                    .is_err(),
+                "cross-workspace and empty-capability explicit assignment must fail closed"
+            );
+            tx.rollback().await.expect("rollback rejected claim");
+        }
+
+        let mut tx = pool.begin().await.expect("begin fallback claim");
+        let claimed = ParticipantRepository::claim_for_task_in_tx(&mut tx, &scope, &task, AgentId::from(fallback))
+            .await
+            .expect("same-workspace fallback claim");
+        assert_eq!(claimed.agent_id.as_uuid(), fallback);
+        assert_eq!(claimed.status, "busy");
+        let update_pool = pool.clone();
+        let blocked_update = tokio::spawn(async move {
+            let mut update_tx = update_pool.begin().await.expect("begin concurrent task update");
+            sqlx::query("SET LOCAL lock_timeout = '250ms'").execute(&mut *update_tx).await.expect("set lock timeout");
+            sqlx::query("UPDATE orchestration_tasks SET status = 'canceled' WHERE id = $1")
+                .bind(task_id)
+                .execute(&mut *update_tx)
+                .await
+        })
+        .await
+        .expect("join concurrent task update");
+        let lock_error = blocked_update.expect_err("claim must hold the task lock until assignment commits");
+        assert_eq!(
+            lock_error.as_database_error().and_then(|error| error.code()).as_deref(),
+            Some("55P03"),
+            "concurrent task mutation must wait behind the participant -> agent -> task claim lock order"
+        );
+        tx.rollback().await.expect("rollback fallback claim");
+
+        let winner = seed_participant(&pool, &fixture, fixture.workspace_a, None, &["codex"]).await;
+        let loser = seed_participant(&pool, &fixture, fixture.workspace_a, None, &["codex"]).await;
+        let race_task_id = seed_task(&pool, &fixture, Some(fixture.group_a), "Serialized assignment").await;
+        let race_task = task_repo.find_by_id(&scope, race_task_id).await.expect("load race task snapshot");
+        let mut winner_tx = pool.begin().await.expect("begin winning claim");
+        ParticipantRepository::claim_for_task_in_tx(&mut winner_tx, &scope, &race_task, AgentId::from(winner))
+            .await
+            .expect("winning claim");
+        OrchestrationTaskRepository::assign_agent_in_tx(
+            &mut winner_tx,
+            &scope,
+            race_task.id,
+            AgentId::from(winner),
+            Uuid::now_v7(),
+            900,
+        )
+        .await
+        .expect("commit winning assignment");
+        winner_tx.commit().await.expect("commit winning claim");
+
+        let mut loser_tx = pool.begin().await.expect("begin losing claim");
+        assert!(
+            ParticipantRepository::claim_for_task_in_tx(&mut loser_tx, &scope, &race_task, AgentId::from(loser))
+                .await
+                .is_err(),
+            "a serialized second claimant must not overwrite the committed assignee"
+        );
+        loser_tx.rollback().await.expect("rollback losing claim");
+
+        let service = crate::services::orchestration::OrchestrationService::new(
+            OrchestrationTaskRepository::new(pool.clone()),
+            ParticipantRepository::new(pool.clone()),
+        )
+        .with_context_injection_enabled(false);
+        for (title, rejected) in [("Cross-workspace assigned create", cross), ("Empty-cap assigned create", empty)] {
+            assert!(
+                service
+                    .create_task(
+                        &scope,
+                        title,
+                        None,
+                        None,
+                        None,
+                        Some(fixture.group_a),
+                        Some(AgentId::from(rejected)),
+                        None,
+                        false,
+                    )
+                    .await
+                    .is_err(),
+                "explicit assigned create must use the same route-aware claim"
+            );
+        }
+        let rejected_tasks: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM orchestration_tasks WHERE organization_id = $1 AND title LIKE '%assigned create'",
+        )
+        .bind(fixture.org_id)
+        .fetch_one(&pool)
+        .await
+        .expect("count rolled-back assigned creates");
+        assert_eq!(rejected_tasks, 0, "rejected assigned creates must roll back task insertion");
+
+        let created = service
+            .create_task(
+                &scope,
+                "Same-workspace assigned create",
+                None,
+                None,
+                None,
+                Some(fixture.group_a),
+                Some(AgentId::from(fallback)),
+                Some(task_id),
+                false,
+            )
+            .await
+            .expect("same-workspace fallback assigned create");
+        assert_eq!(created.assigned_agent_id, Some(AgentId::from(fallback)));
+        assert_eq!(created.status, "working");
+        assert_eq!(created.parent_task_id, Some(task_id));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn next_dispatchable_skips_unrouteable_and_unserved_workspaces(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        seed_participant(&pool, &fixture, fixture.workspace_b, Some(fixture.project_b), &["codex"]).await;
+        let unrouteable = seed_task(&pool, &fixture, None, "No group").await;
+        let unserved = seed_task(&pool, &fixture, Some(fixture.group_a), "Workspace A").await;
+        let served = seed_task(&pool, &fixture, Some(fixture.group_b), "Workspace B").await;
+        sqlx::query("UPDATE orchestration_tasks SET priority = 'urgent', created_at = NOW() - INTERVAL '2 hours' WHERE id = ANY($1)")
+            .bind([unrouteable, unserved])
+            .execute(&pool)
+            .await
+            .expect("prioritize blocked routes");
+
+        let repo = OrchestrationTaskRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(fixture.org_id, fixture.user_id);
+        let next = repo.next_dispatchable(&scope).await.expect("next dispatchable").expect("served task");
+        assert_eq!(next.id, served, "workspace A and unrouteable heads must not starve workspace B");
+
+        sqlx::query("UPDATE groups SET deleted_at = NOW() WHERE id = $1")
+            .bind(fixture.group_b)
+            .execute(&pool)
+            .await
+            .expect("soft-delete route");
+        assert!(repo.next_dispatchable(&scope).await.expect("deleted route").is_none());
+    }
+
     // The participant list LEFT JOINs agents so each row carries the agent's
     // typed runtime_kind, which the task form uses to gate image upload. Verify
     // the JOIN executes and FromRow maps the joined column onto the
@@ -1051,32 +1573,20 @@ mod participant_list_runtime_tests {
     // image task sits at the head of every sweep and starves later plain tasks.
     #[sqlx::test(migrations = "../db/migrations")]
     async fn next_dispatchable_skips_image_tasks(pool: sqlx::PgPool) {
-        let org_id = Uuid::new_v4();
-        let user_id = Uuid::new_v4();
-        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
-            .bind(org_id)
-            .bind("Img Org")
-            .bind(format!("img-{org_id}"))
-            .execute(&pool)
-            .await
-            .expect("seed org");
-        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
-            .bind(user_id)
-            .bind(format!("u-{user_id}@example.com"))
-            .execute(&pool)
-            .await
-            .expect("seed user");
+        let fixture = seed_dispatch_fixture(&pool).await;
+        seed_participant(&pool, &fixture, fixture.workspace_a, Some(fixture.project_a), &["codex"]).await;
 
         // Image task: unassigned + queued + sorted FIRST (urgent) — must be skipped.
         let image_task = Uuid::new_v4();
         sqlx::query(
             r#"INSERT INTO orchestration_tasks
-               (id, organization_id, title, status, priority, created_by, params, created_at, updated_at)
-               VALUES ($1, $2, 'Image', 'queued', 'urgent', $3, $4::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
+               (id, organization_id, group_id, title, status, priority, created_by, params, created_at, updated_at)
+               VALUES ($1, $2, $3, 'Image', 'queued', 'urgent', $4, $5::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
         )
         .bind(image_task)
-        .bind(org_id)
-        .bind(user_id)
+        .bind(fixture.org_id)
+        .bind(fixture.group_a)
+        .bind(fixture.user_id)
         .bind(serde_json::json!({ "imageAttachmentIds": ["11111111-1111-1111-1111-111111111111"] }))
         .execute(&pool)
         .await
@@ -1086,18 +1596,19 @@ mod participant_list_runtime_tests {
         let plain_task = Uuid::new_v4();
         sqlx::query(
             r#"INSERT INTO orchestration_tasks
-               (id, organization_id, title, status, priority, created_by, created_at, updated_at)
-               VALUES ($1, $2, 'Plain', 'queued', 'normal', $3, NOW(), NOW())"#,
+               (id, organization_id, group_id, title, status, priority, created_by, created_at, updated_at)
+               VALUES ($1, $2, $3, 'Plain', 'queued', 'normal', $4, NOW(), NOW())"#,
         )
         .bind(plain_task)
-        .bind(org_id)
-        .bind(user_id)
+        .bind(fixture.org_id)
+        .bind(fixture.group_a)
+        .bind(fixture.user_id)
         .execute(&pool)
         .await
         .expect("seed plain task");
 
         let repo = OrchestrationTaskRepository::new(pool.clone());
-        let scope = tenant_scope_for_ids(org_id, user_id);
+        let scope = tenant_scope_for_ids(fixture.org_id, fixture.user_id);
         let next = repo.next_dispatchable(&scope).await.expect("next_dispatchable");
         // Despite urgent priority + earlier created_at, the image task is skipped.
         assert_eq!(next.map(|t| t.id), Some(plain_task), "next_dispatchable must skip image tasks");

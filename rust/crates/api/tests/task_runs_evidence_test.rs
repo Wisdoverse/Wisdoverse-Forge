@@ -9,9 +9,12 @@ use agentforge_core::{AgentId, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-async fn seed_org_user_agent(pool: &PgPool, participant_status: &str) -> (Uuid, Uuid, Uuid) {
+async fn seed_org_user_agent(pool: &PgPool, participant_status: &str) -> (Uuid, Uuid, Uuid, Uuid) {
     let org_id = Uuid::new_v4();
     let user_id = Uuid::new_v4();
+    let team_id = Uuid::new_v4();
+    let project_id = Uuid::new_v4();
+    let group_id = Uuid::new_v4();
     let agent_id = Uuid::new_v4();
 
     sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
@@ -32,6 +35,35 @@ async fn seed_org_user_agent(pool: &PgPool, participant_status: &str) -> (Uuid, 
         .execute(pool)
         .await
         .expect("seed user");
+    sqlx::query("INSERT INTO teams (id, organization_id, name, slug) VALUES ($1, $2, 'Platform', $3)")
+        .bind(team_id)
+        .bind(org_id)
+        .bind(format!("platform-{team_id}"))
+        .execute(pool)
+        .await
+        .expect("seed team");
+    sqlx::query(
+        "INSERT INTO projects (id, organization_id, workspace_id, team_id, name, slug)
+         VALUES ($1, $2, $2, $3, 'Task runs', $4)",
+    )
+    .bind(project_id)
+    .bind(org_id)
+    .bind(team_id)
+    .bind(format!("task-runs-{project_id}"))
+    .execute(pool)
+    .await
+    .expect("seed project");
+    sqlx::query(
+        "INSERT INTO groups (id, organization_id, project_id, name, created_by)
+         VALUES ($1, $2, $3, 'Task run evidence', $4)",
+    )
+    .bind(group_id)
+    .bind(org_id)
+    .bind(project_id)
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .expect("seed group");
     sqlx::query(
         "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status)
          VALUES ($1, $2, $2, $3, 'run-agent', 'idle')",
@@ -53,7 +85,7 @@ async fn seed_org_user_agent(pool: &PgPool, participant_status: &str) -> (Uuid, 
     .await
     .expect("seed participant");
 
-    (org_id, user_id, agent_id)
+    (org_id, user_id, agent_id, group_id)
 }
 
 fn scope_for(org_id: Uuid, user_id: Uuid) -> TenantScope {
@@ -64,10 +96,10 @@ fn orchestration_service(pool: PgPool) -> OrchestrationService {
     OrchestrationService::new(OrchestrationTaskRepository::new(pool.clone()), ParticipantRepository::new(pool))
 }
 
-async fn create_and_dispatch(pool: &PgPool, scope: &TenantScope) -> uuid::Uuid {
+async fn create_and_dispatch(pool: &PgPool, scope: &TenantScope, group_id: Uuid) -> uuid::Uuid {
     let service = orchestration_service(pool.clone());
     let task = service
-        .create_task(scope, "run task", Some("collect evidence"), None, None, None, None, None, false)
+        .create_task(scope, "run task", Some("collect evidence"), None, None, Some(group_id), None, None, false)
         .await
         .expect("create task");
     let working =
@@ -78,9 +110,9 @@ async fn create_and_dispatch(pool: &PgPool, scope: &TenantScope) -> uuid::Uuid {
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn assignment_creates_run_and_completion_closes_it(pool: PgPool) {
-    let (org_id, user_id, _agent_id) = seed_org_user_agent(&pool, "available").await;
+    let (org_id, user_id, _agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
     let scope = scope_for(org_id, user_id);
-    let task_id = create_and_dispatch(&pool, &scope).await;
+    let task_id = create_and_dispatch(&pool, &scope, group_id).await;
 
     let run_repo = TaskRunRepository::new(pool.clone());
     let runs = run_repo.list_by_task(&scope, task_id).await.expect("list task runs");
@@ -111,9 +143,9 @@ async fn assignment_creates_run_and_completion_closes_it(pool: PgPool) {
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn retry_creates_a_second_run(pool: PgPool) {
-    let (org_id, user_id, _agent_id) = seed_org_user_agent(&pool, "available").await;
+    let (org_id, user_id, _agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
     let scope = scope_for(org_id, user_id);
-    let task_id = create_and_dispatch(&pool, &scope).await;
+    let task_id = create_and_dispatch(&pool, &scope, group_id).await;
     let service = orchestration_service(pool.clone());
 
     service
@@ -136,9 +168,9 @@ async fn retry_creates_a_second_run(pool: PgPool) {
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn run_evidence_projects_events_messages_and_attachments(pool: PgPool) {
-    let (org_id, user_id, agent_id) = seed_org_user_agent(&pool, "available").await;
+    let (org_id, user_id, agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
     let scope = scope_for(org_id, user_id);
-    let task_id = create_and_dispatch(&pool, &scope).await;
+    let task_id = create_and_dispatch(&pool, &scope, group_id).await;
     let run = TaskRunRepository::new(pool.clone())
         .list_by_task(&scope, task_id)
         .await
@@ -191,7 +223,7 @@ async fn run_evidence_projects_events_messages_and_attachments(pool: PgPool) {
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn legacy_events_remain_visible_without_a_run(pool: PgPool) {
-    let (org_id, user_id, agent_id) = seed_org_user_agent(&pool, "available").await;
+    let (org_id, user_id, agent_id, _group_id) = seed_org_user_agent(&pool, "available").await;
     let scope = scope_for(org_id, user_id);
 
     sqlx::query(
