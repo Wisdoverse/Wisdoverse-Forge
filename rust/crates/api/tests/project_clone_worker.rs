@@ -281,6 +281,10 @@ fn projects_root(seed: &Seed) -> PathBuf {
         .join("projects")
 }
 
+fn staging_root(seed: &Seed) -> PathBuf {
+    projects_root(seed).with_file_name(".clone-staging")
+}
+
 async fn attempt_row(
     pool: &PgPool,
     project_id: Uuid,
@@ -443,7 +447,7 @@ async fn ready_outcome_materializes_project_and_records_event(pool: PgPool) {
     let dir_name = project_dir_name(&pool, project_id).await;
     let target = projects_root(&seed).join(&dir_name);
     assert!(target.join("README.md").exists(), "cloned repo must be live at the project dir");
-    let staging = projects_root(&seed).join(".clone-staging");
+    let staging = staging_root(&seed);
     if staging.exists() {
         let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
         assert!(entries.next_entry().await.expect("next").is_none(), "staging dir must be empty after success");
@@ -510,7 +514,7 @@ async fn failed_outcome_redacts_and_schedules_bounded_retry(pool: PgPool) {
     assert_eq!(count_audit(&pool, "clone.retry", project_id).await, 1);
 
     // Staging removed (no partial left behind).
-    let staging = projects_root(&seed).join(".clone-staging");
+    let staging = staging_root(&seed);
     if staging.exists() {
         let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
         assert!(entries.next_entry().await.expect("next").is_none(), "staging dir must be empty after failure");
@@ -612,7 +616,7 @@ async fn ready_refuses_to_overwrite_an_existing_target_dir(pool: PgPool) {
         "the existing file content must be preserved"
     );
     // No partial staging left.
-    let staging = projects_root(&seed).join(".clone-staging");
+    let staging = staging_root(&seed);
     if staging.exists() {
         let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
         assert!(entries.next_entry().await.expect("next").is_none());
@@ -1028,7 +1032,7 @@ async fn deleted_project_mid_flight_cancels_without_publishing(pool: PgPool) {
     assert!(!target.exists(), "NO directory may be published for a project deleted mid-flight");
     assert_eq!(count_audit(&pool, "clone.cancelled", project_id).await, 1, "a clone.cancelled event is emitted");
     // Staging is cleaned (no orphan left behind).
-    let staging = projects_root(&seed).join(".clone-staging");
+    let staging = staging_root(&seed);
     if staging.exists() {
         let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
         assert!(entries.next_entry().await.expect("next").is_none(), "staging must be empty");
@@ -1057,7 +1061,7 @@ async fn runner_error_cleans_staging_and_schedules_bounded_retry(pool: PgPool) {
     assert_eq!(count_audit(&pool, "clone.started", project_id).await, 1);
     assert_eq!(count_attempts(&pool, project_id).await, 2, "a bounded retry was scheduled");
     assert_eq!(attempt_status(&pool, project_id, 2).await, "queued");
-    let staging = projects_root(&seed).join(".clone-staging");
+    let staging = staging_root(&seed);
     if staging.exists() {
         let mut entries = tokio::fs::read_dir(&staging).await.expect("read staging");
         assert!(entries.next_entry().await.expect("next").is_none(), "staging must be empty after a runtime error");

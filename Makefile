@@ -42,6 +42,8 @@ EXTERNAL_NETWORK_NAME ?= $(shell sh -c 'if [ -n "$$EXTERNAL_NETWORK" ]; then pri
 OAUTH_MOUNT_DIR_NAME ?= $(shell sh -c 'if [ -n "$$OAUTH_MOUNT_DIR" ]; then printf "%s" "$$OAUTH_MOUNT_DIR"; elif [ -f docker/.env ]; then val=$$(sed -n "s/^OAUTH_MOUNT_DIR=//p" docker/.env | tail -n 1 | tr -d "\r"); if [ -n "$$val" ]; then printf "%s" "$$val"; else printf "/tmp/agentforge/oauth-mounts"; fi; else printf "/tmp/agentforge/oauth-mounts"; fi')
 OAUTH_MOUNT_UID ?= 100
 OAUTH_MOUNT_GID ?= 101
+_WORKSPACE_ROOT_DIR := $(or $(AGENTFORGE_WORKSPACE_ROOT),$(shell sed -n 's/^AGENTFORGE_WORKSPACE_ROOT=//p' "$(COMPOSE_ENV_FILE)" 2>/dev/null | tail -n 1 | tr -d '\r'),/data/agentforge/workspaces)
+_WORKSPACE_GID := $(or $(CLAUDE_GID),$(shell sed -n 's/^CLAUDE_GID=//p' "$(COMPOSE_ENV_FILE)" 2>/dev/null | tail -n 1 | tr -d '\r'),1012)
 
 # =============================================================================
 # Setup (one-time)
@@ -91,9 +93,14 @@ quickstart-selfhost-pull: setup ## Prepare, pull GHCR images, start, and verify 
 
 .PHONY: setup
 setup: ## Ensure external Docker networks exist
+	@case "$(_WORKSPACE_ROOT_DIR)" in /*) [ "$(_WORKSPACE_ROOT_DIR)" != "/" ] ;; *) false ;; esac || { echo "AGENTFORGE_WORKSPACE_ROOT must be an absolute path other than /" >&2; exit 1; }
+	@case "$(_WORKSPACE_ROOT_DIR)" in *//*|*/./*|*/../*|*/.|*/..) echo "AGENTFORGE_WORKSPACE_ROOT must not contain ambiguous path components" >&2; exit 1 ;; esac
+	@workspace_path="$(_WORKSPACE_ROOT_DIR)"; current=; old_ifs=$$IFS; IFS=/; set -f; for component in $$workspace_path; do [ -n "$$component" ] || continue; current="$$current/$$component"; [ ! -L "$$current" ] || { echo "AGENTFORGE_WORKSPACE_ROOT must not contain symbolic links" >&2; exit 1; }; done; IFS=$$old_ifs; set +f
+	@case "$(_WORKSPACE_GID)" in ''|*[!0-9]*) echo "CLAUDE_GID must be numeric" >&2; exit 1 ;; esac
 	@docker network create agentforge-agents 2>/dev/null || true
 	@mkdir -p "$(OAUTH_MOUNT_DIR_NAME)"
 	@docker run --rm --user 0:0 -v "$(OAUTH_MOUNT_DIR_NAME):/oauth-mount-dir" alpine:3.21 sh -c 'chown $(OAUTH_MOUNT_UID):$(OAUTH_MOUNT_GID) /oauth-mount-dir && chmod 700 /oauth-mount-dir' >/dev/null
+	@workspace_path="$(_WORKSPACE_ROOT_DIR)"; current=; old_ifs=$$IFS; IFS=/; set -f; for component in $$workspace_path; do [ -n "$$component" ] || continue; current="$$current/$$component"; [ ! -L "$$current" ] || { echo "AGENTFORGE_WORKSPACE_ROOT must not contain symbolic links" >&2; exit 1; }; done; IFS=$$old_ifs; set +f; docker run --rm --user 0:0 -v "$$workspace_path:/workspace-root" alpine:3.21 sh -c 'chgrp $(_WORKSPACE_GID) /workspace-root && chmod 2775 /workspace-root' >/dev/null
 
 .PHONY: setup-external
 setup-external: setup ## Create networks for external profile

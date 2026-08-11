@@ -5,6 +5,7 @@
 //! credential injection, container metadata persistence, orchestration
 //! participant updates, and best-effort NATS connection revocation.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use agentforge_core::{AgentId, AppConfig, AppResult, TenantScope};
@@ -23,8 +24,9 @@ use crate::repositories::orchestration::{OrchestrationTaskRepository, Participan
 use crate::services::agent::AgentService;
 use crate::services::agent_container_credentials::AgentContainerCredentialService;
 use crate::services::agent_workspace::{
-    AgentWorkspaceService, CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, host_path_for_container_cwd,
-    resolve_agent_workspace_paths, workspace_root_from_env,
+    AgentWorkspaceService, CONTAINER_WORKSPACE_ROOT, WorkspaceMountScope, ensure_agent_working_directory,
+    ensure_shared_workspace_directory, host_path_for_container_cwd, resolve_agent_workspace_paths,
+    workspace_root_from_env,
 };
 use crate::services::auth_callout::AuthCalloutService;
 use crate::services::orchestration::OrchestrationService;
@@ -421,12 +423,13 @@ impl AgentContainerControlService {
         self.workspaces.ensure_workspace_belongs_to_org(workspace_scope.org_id, workspace_scope.workspace_id).await?;
         let workspace_paths =
             resolve_agent_workspace_paths(&self.settings.workspace_root, workspace_scope, agent.cwd.as_deref())?;
-        tokio::fs::create_dir_all(&workspace_paths.host_projects_root).await.map_err(|err| {
+        let workspace_root = Path::new(&self.settings.workspace_root);
+        ensure_shared_workspace_directory(workspace_root, &workspace_paths.host_projects_root).map_err(|err| {
             AgentContainerRuntimePolicy::prepare_workspace_failed(workspace_paths.host_projects_root.display(), err)
         })?;
         let container_cwd_host_path =
             host_path_for_container_cwd(&workspace_paths.host_projects_root, &workspace_paths.container_cwd)?;
-        tokio::fs::create_dir_all(&container_cwd_host_path).await.map_err(|err| {
+        ensure_agent_working_directory(workspace_root, &container_cwd_host_path).map_err(|err| {
             AgentContainerRuntimePolicy::prepare_working_directory_failed(container_cwd_host_path.display(), err)
         })?;
         Ok(workspace_paths)

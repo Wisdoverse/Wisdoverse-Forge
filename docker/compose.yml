@@ -51,6 +51,7 @@ services:
       - ALL
     group_add:
       - '${DOCKER_GID:-998}'
+      - '${CLAUDE_GID:-1012}'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     read_only: true

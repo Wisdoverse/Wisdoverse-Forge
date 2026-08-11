@@ -64,13 +64,15 @@ use sqlx::PgPool;
 use tokio::sync::watch;
 use uuid::Uuid;
 
-use crate::domain::agent_workspace::{WorkspaceMountScope, resolve_agent_workspace_paths};
 use crate::domain::project_clone::{
     CloneAttemptStatus, CloneErrorClass, CloneEvent, CloneOutboxPayload, CloneWorkerError, WorkspaceDirName,
     decode_outbox_payload, redact,
 };
 use crate::repositories::project_clone::{
     CloneFailure, CloneSuccess, ProjectCloneRepository, PublishOutcome, ReconcileCandidate,
+};
+use crate::services::agent_workspace::{
+    WorkspaceMountScope, ensure_shared_workspace_directory, resolve_agent_workspace_paths,
 };
 use crate::services::audit::AuditService;
 use crate::services::git_credential::GitCredentialService;
@@ -454,9 +456,9 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             }
         };
 
-        // Create the per-clone staging dir on the SAME filesystem as the projects
-        // root, asserting the device id matches so the later rename is atomic.
-        let staging_dir = projects_root.join(CLONE_STAGING_SUBDIR).join(attempt.id.to_string());
+        // Keep server-managed staging beside, not inside, the agent-writable
+        // projects mount. It remains on the same filesystem for atomic publish.
+        let staging_dir = clone_staging_root(&projects_root).join(attempt.id.to_string());
         if let Err(err) = self.prepare_staging(&projects_root, &staging_dir).await {
             return self.fail_internal(attempt, format!("staging preparation failed: {err}")).await;
         }
@@ -624,7 +626,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         // Ensure the parent (projects root) exists; the rename is atomic only
         // because staging is on the same filesystem (asserted in `prepare_staging`).
         if let Some(parent) = target_dir.parent()
-            && let Err(err) = tokio::fs::create_dir_all(parent).await
+            && let Err(err) = ensure_shared_workspace_directory(Path::new(&self.config.workspace_root), parent)
         {
             let _ = self.cleanup_staging(staging_dir).await;
             return self.fail_internal(attempt, format!("failed to ensure projects root: {err}")).await;
@@ -1229,18 +1231,11 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     async fn prepare_staging(&self, projects_root: &Path, staging_dir: &Path) -> AppResult<()> {
         // Remove any leftover from a previous attempt with this id (idempotent).
         let _ = tokio::fs::remove_dir_all(staging_dir).await;
-        let staging_parent = staging_dir.parent().unwrap_or(staging_dir);
-        tokio::fs::create_dir_all(staging_parent)
-            .await
-            .map_err(|err| internal(format!("create staging parent {}: {err}", staging_parent.display())))?;
-        tokio::fs::create_dir_all(staging_dir)
-            .await
-            .map_err(|err| internal(format!("create staging dir {}: {err}", staging_dir.display())))?;
-
-        // The projects root must exist before we can stat its device.
-        tokio::fs::create_dir_all(projects_root)
-            .await
+        let workspace_root = Path::new(&self.config.workspace_root);
+        ensure_shared_workspace_directory(workspace_root, projects_root)
             .map_err(|err| internal(format!("ensure projects root {}: {err}", projects_root.display())))?;
+        ensure_shared_workspace_directory(workspace_root, staging_dir)
+            .map_err(|err| internal(format!("create staging dir {}: {err}", staging_dir.display())))?;
 
         #[cfg(unix)]
         {
@@ -1282,7 +1277,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         let scope = WorkspaceMountScope::for_workspace(candidate.organization_id, candidate.workspace_id);
         match resolve_agent_workspace_paths(&self.config.workspace_root, scope, None) {
             Ok(paths) => {
-                let staging = paths.host_projects_root.join(CLONE_STAGING_SUBDIR).join(candidate.id.to_string());
+                let staging = clone_staging_root(&paths.host_projects_root).join(candidate.id.to_string());
                 let _ = self.cleanup_staging(&staging).await;
             }
             Err(err) => tracing::warn!(
@@ -1293,10 +1288,10 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         }
     }
 
-    /// GC leaked `.clone-staging/<attempt_id>` directories whose attempt is gone or
+    /// GC leaked workspace `.clone-staging/<attempt_id>` directories whose attempt is gone or
     /// terminal (#9). A crashed worker can leave a staging dir behind even after
     /// its container is reaped; this sweep removes any staging dir under every
-    /// known tenant's projects root that does NOT correspond to a still-in-flight
+    /// known tenant's workspace root that does NOT correspond to a still-in-flight
     /// (`queued`/`cloning`) attempt. Best-effort: a non-UUID entry or an unreadable
     /// dir is skipped, never fatal.
     async fn sweep_orphan_staging(&self) {
@@ -1328,7 +1323,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             let Ok(paths) = resolve_agent_workspace_paths(&self.config.workspace_root, scope, None) else {
                 continue;
             };
-            let staging_root = paths.host_projects_root.join(CLONE_STAGING_SUBDIR);
+            let staging_root = clone_staging_root(&paths.host_projects_root);
             let Ok(mut entries) = tokio::fs::read_dir(&staging_root).await else {
                 continue; // no staging dir for this root yet — nothing to sweep
             };
@@ -1426,6 +1421,10 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
             tracing::warn!(error = %err, %subject, "failed to publish clone status broadcast");
         }
     }
+}
+
+fn clone_staging_root(projects_root: &Path) -> PathBuf {
+    projects_root.with_file_name(CLONE_STAGING_SUBDIR)
 }
 
 /// Derive the bare host of an https repo URL for credential matching. Mirrors the
@@ -1548,6 +1547,12 @@ pub fn register_metrics() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clone_staging_stays_outside_the_agent_projects_mount() {
+        let projects = Path::new("/data/workspaces/org/workspaces/ws/projects");
+        assert_eq!(clone_staging_root(projects), Path::new("/data/workspaces/org/workspaces/ws/.clone-staging"));
+    }
 
     #[test]
     fn repo_url_host_extracts_bare_host() {
