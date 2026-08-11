@@ -17,6 +17,7 @@ import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
+  agentCredentialRecovery,
   LOCAL_AGENT_SETUP_APP_LABEL,
   localAgentSetupPasteHint,
   useAgentsStore,
@@ -407,6 +408,7 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
   const errorBannerRef = useRef<HTMLDivElement>(null)
   const providersRequestedRef = useRef(false)
   const displayedError = formError ?? error
+  const credentialRecovery = agentCredentialRecovery(displayedError)
   const joinCommand = localEnrollment?.enrollment?.joinCommand ?? ''
   const joinCommandPowershell = localEnrollment?.enrollment?.joinCommandPowershell ?? ''
   const selectedJoinCommand = joinOs === 'posix' ? joinCommand : joinCommandPowershell
@@ -743,6 +745,18 @@ export function CreateAgentModal({ onOpenProjectsSetup }: CreateAgentModalProps 
                   )}
                 >
                   <span>Open Where agents work</span>
+                  <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
+                </a>
+              )}
+              {credentialRecovery && (
+                <a
+                  href={credentialRecovery.path}
+                  className={cn(
+                    uiStyles.dangerButton,
+                    'h-7 shrink-0 gap-1 border border-apple-red/20 bg-white/70 dark:bg-white/[0.08]'
+                  )}
+                >
+                  <span>{credentialRecovery.label}</span>
                   <ArrowRight size={12} strokeWidth={2.25} aria-hidden="true" />
                 </a>
               )}

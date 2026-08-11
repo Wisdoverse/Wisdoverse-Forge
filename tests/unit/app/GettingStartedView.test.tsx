@@ -862,6 +862,78 @@ describe('GettingStartedView', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
   })
 
+  test('does not treat an offline Codex agent as completed work access', async () => {
+    useNavigationStore.setState({
+      teams: [
+        {
+          id: 'team-1',
+          orgId: 'org-1',
+          name: 'Launch Team',
+          slug: 'launch-team',
+          visibility: 'open',
+          description: '',
+        },
+      ],
+      projects: {
+        'team-1': [
+          {
+            id: 'project-1',
+            teamId: 'team-1',
+            name: 'Launch Project',
+            slug: 'launch-project',
+            color: '#007AFF',
+            description: '',
+          },
+        ],
+      },
+      selectedProjectId: 'project-1',
+    })
+    useSettingsStore.setState({
+      providers: [],
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent:codex',
+            version: '1.0.0',
+            imagePresent: true,
+            versionSource: 'docker-label',
+          },
+        ],
+      },
+    })
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'offline-codex',
+          name: 'Offline Codex',
+          provider: 'OpenAI',
+          model: 'Codex',
+          cliTool: 'codex',
+          runtimeKind: 'container',
+          status: 'offline',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    const currentStep = await screen.findByTestId('getting-started-expanded-step')
+    expect(currentStep).toHaveTextContent('Give agents a way to work')
+    expect(currentStep).not.toHaveTextContent('Offline Codex is ready')
+    fireEvent.click(
+      within(currentStep).getByRole('button', { name: /open sign in to code tools/i })
+    )
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/work-tool-sign-ins' })
+  })
+
   test('does not complete provider step until connection test has passed', async () => {
     useNavigationStore.setState({
       teams: [

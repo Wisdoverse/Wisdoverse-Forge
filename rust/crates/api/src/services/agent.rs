@@ -153,9 +153,13 @@ impl AgentService {
     /// receive a uniform 403 that does not disclose the agent's runtime kind.
     /// Cross-org access returns 404 (existing behavior via the tenant-scoped fetch).
     pub async fn delete(&self, scope: &TenantScope, id: AgentId) -> AppResult<()> {
-        let owner_id = self.repo.fetch_owner_id(scope, id.as_uuid()).await?;
-        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), owner_id)?;
+        self.require_owner(scope, id).await?;
         self.repo.delete(scope, id).await
+    }
+
+    pub(crate) async fn require_owner(&self, scope: &TenantScope, id: AgentId) -> AppResult<()> {
+        let owner_id = self.repo.fetch_owner_id(scope, id.as_uuid()).await?;
+        AgentOwnerPolicy::require_owner(scope.user_id().as_uuid(), owner_id)
     }
 
     pub(crate) async fn set_container(

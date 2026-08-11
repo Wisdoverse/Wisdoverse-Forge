@@ -192,6 +192,8 @@ impl AgentContainerControlService {
         let mut mounts: Vec<Mount> =
             vec![Mount { source: workspace_host_path, target: CONTAINER_WORKSPACE_ROOT.to_string(), read_only: false }];
 
+        // Fail closed before Docker create or participant registration when
+        // the selected Container CLI has no usable runtime credentials.
         self.credentials
             .inject_runtime_credentials(
                 scope,
@@ -201,7 +203,7 @@ impl AgentContainerControlService {
                 &mut env,
                 &mut mounts,
             )
-            .await;
+            .await?;
 
         let config = ContainerConfig {
             image: image.clone(),

@@ -26,7 +26,13 @@ export {
   agentServiceLabel,
   agentToolLabel,
 } from './model/display-labels'
-export { agentActionErrorMessage, useAgentsStore } from './model/agents.store'
+export {
+  agentCredentialRecovery,
+  agentActionErrorMessage,
+  useAgentsStore,
+  AI_SERVICE_CONNECTIONS_PATH,
+  WORK_TOOL_SIGN_INS_PATH,
+} from './model/agents.store'
 export type { AgentCreateInitialKind } from './model/agents.store'
 export { createAgentAPI, extractApiError } from './api/AgentAPI'
 export type {

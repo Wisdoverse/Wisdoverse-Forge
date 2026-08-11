@@ -770,9 +770,28 @@ impl ContainerCliCredentialPolicy {
     }
 
     pub(crate) fn stored_oauth_decrypt_failed(cli_tool: &str) -> ErrorKind {
-        ErrorKind::Validation(format!(
-            "stored {cli_tool} credentials cannot be decrypted — reconnect via /api/v1/cli-auth-proxy or /api/v1/cli-credentials"
-        ))
+        Self::runtime_credentials_required(cli_tool)
+    }
+
+    pub(crate) fn runtime_credentials_required(cli_tool: &str) -> ErrorKind {
+        let message = match CliToolKind::parse_legacy(cli_tool).ok() {
+            Some(CliToolKind::Codex) => {
+                "Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again."
+            }
+            Some(CliToolKind::Claude | CliToolKind::Opencode) => {
+                "Open Settings > AI service connections, add or test the Anthropic connection, then start this agent again."
+            }
+            Some(CliToolKind::Gemini) => {
+                "Open Settings > AI service connections, add or test the Google connection, then start this agent again."
+            }
+            None => {
+                "Open Settings > AI service connections, add or test the connection for this code tool, then start this agent again."
+            }
+        };
+        ErrorKind::ValidationWithCode {
+            code: "errors.agent.lifecycle.cli_credentials_required",
+            message: message.to_string(),
+        }
     }
 }
 
@@ -1658,7 +1677,11 @@ mod tests {
         );
         assert!(
             format!("{}", ContainerCliCredentialPolicy::stored_oauth_decrypt_failed("codex"))
-                .contains("stored codex credentials cannot be decrypted")
+                .contains("Work tool sign-ins")
+        );
+        assert!(
+            format!("{}", ContainerCliCredentialPolicy::runtime_credentials_required("claude"))
+                .contains("AI service connections")
         );
         assert!(format!("{}", GitCredentialEncryptionPolicy::missing_decrypt_key()).contains("cannot decrypt"));
         assert!(format!("{}", GitCredentialEncryptionPolicy::missing_storage_key()).contains("plaintext git tokens"));

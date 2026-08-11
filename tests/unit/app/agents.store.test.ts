@@ -180,6 +180,34 @@ describe('Agents Store', () => {
     expect(message).not.toContain('File work')
   })
 
+  test('routes Codex credential failures to work tool sign-in', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('start', {
+        ok: false,
+        error: {
+          code: 'errors.agent.lifecycle.cli_credentials_required',
+          message:
+            'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again.',
+        },
+      }),
+      'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again.'
+    )
+  })
+
+  test('routes non-Codex credential failures to AI service connections on restart', () => {
+    expectBeginnerError(
+      agentActionErrorMessage('restart', {
+        ok: false,
+        error: {
+          code: 'errors.agent.lifecycle.cli_credentials_required',
+          message:
+            'Open Settings > AI service connections, add or test the Anthropic connection, then start this agent again.',
+        },
+      }),
+      'Open Settings > AI service connections, add or test the Anthropic connection, then start this agent again.'
+    )
+  })
+
   test('starts unknown action failures with an Agents page step', () => {
     const message = agentActionErrorMessage('restart', apiError(418, { message: 'teapot' }))
 
@@ -467,6 +495,53 @@ describe('Agents Store', () => {
     expect(state.error).not.toContain('workspace is not ready')
     expect(state.error).not.toContain('the place where it runs')
     expect(state.error).not.toContain('file work')
+  })
+
+  test('keeps a created Codex agent offline and points both start paths to sign-in', async () => {
+    useAgentsStore.setState({ createModalOpen: true })
+    agentApiMock.createAgent.mockResolvedValue({
+      ok: true,
+      agent: managedAgent({ id: 'codex-1', cliTool: 'codex', model: null, provider: null }),
+    })
+    agentApiMock.startAgent.mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'errors.agent.lifecycle.cli_credentials_required',
+        message:
+          'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again.',
+      },
+    })
+
+    const created = await useAgentsStore.getState().createAgent({
+      name: 'Codex Agent',
+      kind: 'cli',
+      cliTool: 'codex',
+    })
+
+    const state = useAgentsStore.getState()
+    expect(created).toBe(true)
+    expect(state.createModalOpen).toBe(true)
+    expect(state.agents).toHaveLength(1)
+    expect(state.agents[0]?.status).toBe('offline')
+    expectBeginnerError(
+      state.error,
+      'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again. Agent was created and will stay offline in the list.'
+    )
+
+    agentApiMock.startAgent.mockClear()
+    agentApiMock.startAgent.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'errors.agent.lifecycle.cli_credentials_required',
+        message:
+          'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again.',
+      },
+    })
+    expect(await useAgentsStore.getState().startAgent('codex-1')).toBe(false)
+    expectBeginnerError(
+      useAgentsStore.getState().error,
+      'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again.'
+    )
   })
 
   test('closes the create modal when the managed workspace starts', async () => {

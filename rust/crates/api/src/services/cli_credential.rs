@@ -9,8 +9,9 @@
 //!    extracts `chatgpt_account_id` from the JWT and bakes it into `auth.json`.
 //! 3. System-wide fallback API key from `AppConfig.container_*_api_key`.
 //!
-//! Falls silently through each tier; ultimate "nothing matched" is the caller's
-//! concern (container will run but the Container CLI will refuse to auth).
+//! Falls through the three tiers; ultimate "nothing matched" remains the
+//! caller's concern. Container startup rejects an empty result rather than
+//! booting a worker that cannot authenticate.
 
 use std::path::{Path, PathBuf};
 
@@ -181,9 +182,10 @@ impl CliCredentialService {
         self.cli_creds.delete(scope, tool).await
     }
 
-    /// Resolve the credential set for an agent container. Never returns an
-    /// error for "no credentials" — that's a normal outcome (e.g. unauthed
-    /// smoke agent). `Err` is only returned for infra failures (DB, FS).
+    /// Resolve the credential set for an agent container. An empty injection
+    /// means none of the three tiers matched; the container-start boundary
+    /// decides whether that runtime requires credentials. `Err` is reserved
+    /// for resolver failures (DB, decryption, FS).
     pub async fn resolve(
         &self,
         scope: &TenantScope,

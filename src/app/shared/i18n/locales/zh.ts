@@ -792,6 +792,11 @@ export const zh: TranslationKeys = {
           title: '你不能管理这个智能体',
           detail: '你只能管理你拥有的智能体。如需访问请联系智能体所有者。',
         },
+        cli_credentials_required: {
+          title: '请连接代码工具',
+          detail:
+            'Codex 请使用“工作工具登录”，其他代码工具请使用“AI 服务连接”，然后重新启动该智能体。',
+        },
       },
       create: {
         missing_cli_tool_for_container: {

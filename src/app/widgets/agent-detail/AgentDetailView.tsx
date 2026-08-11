@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Info, Terminal } from 'lucide-
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
+  agentCredentialRecovery,
   agentStatusKey,
   agentStatusLabel,
   agentAvatarInitial,
@@ -726,6 +727,8 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
   }
 
   const showStartProblem = Boolean(error || startFailed)
+  const credentialRecovery = agentCredentialRecovery(error)
+  const credentialError = credentialRecovery ? error : null
 
   return (
     <div
@@ -762,8 +765,17 @@ function PendingTerminal({ agent }: { agent: AgentInfo }) {
           aria-live="polite"
           className="rounded-card bg-apple-red/10 px-3 py-2 text-ui-caption text-apple-red"
         >
-          Check the agent status, then choose Start project files again. If it keeps failing, ask an
-          owner or admin to check this agent's connection and access in Agents.
+          {credentialError ?? (
+            <>
+              Check the agent status, then choose Start project files again. If it keeps failing,
+              ask an owner or admin to check this agent's connection and access in Agents.
+            </>
+          )}
+          {credentialRecovery && (
+            <a href={credentialRecovery.path} className="ml-1 font-medium underline">
+              {credentialRecovery.label}
+            </a>
+          )}
         </div>
       )}
       {agent.cliTool && (

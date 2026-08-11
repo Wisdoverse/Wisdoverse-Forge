@@ -185,6 +185,41 @@ function agentErrorDetail(error: unknown): string | null {
   return raw
 }
 
+export const WORK_TOOL_SIGN_INS_PATH = '/settings/work-tool-sign-ins'
+export const AI_SERVICE_CONNECTIONS_PATH = '/settings/providers'
+
+const CODEX_CREDENTIAL_RECOVERY =
+  'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again.'
+
+export function agentCredentialRecovery(message: string | null): {
+  path: string
+  label: string
+} | null {
+  const normalized = message?.toLowerCase() ?? ''
+  if (normalized.includes('ai service connections')) {
+    return { path: AI_SERVICE_CONNECTIONS_PATH, label: 'Open AI service connections' }
+  }
+  if (normalized.includes('work tool sign-ins')) {
+    return { path: WORK_TOOL_SIGN_INS_PATH, label: 'Open Work tool sign-ins' }
+  }
+  return null
+}
+
+function isCliCredentialStartError(error: unknown, detail: string | null): boolean {
+  if (error && typeof error === 'object') {
+    const nested = (error as { error?: { code?: unknown } }).error
+    if (nested?.code === 'errors.agent.lifecycle.cli_credentials_required') return true
+  }
+  return agentCredentialRecovery(detail) !== null
+}
+
+function cliCredentialRecoveryMessage(detail: string | null): string {
+  if (detail && agentCredentialRecovery(detail)) return detail
+  return detail?.toLowerCase().includes('codex')
+    ? CODEX_CREDENTIAL_RECOVERY
+    : 'Open Settings > AI service connections, add or test the connection for this code tool, then start this agent again.'
+}
+
 function agentErrorStatus(error: unknown): number | null {
   if (error && typeof error === 'object') {
     const value = error as {
@@ -268,6 +303,13 @@ export function agentActionErrorMessage(action: AgentErrorAction, error?: unknow
   const actionPhrase = agentActionPhrase(action)
   const status = agentErrorStatus(error)
   const detail = agentErrorDetail(error)
+
+  if (
+    (action === 'start' || action === 'restart' || action === 'create') &&
+    isCliCredentialStartError(error, detail)
+  ) {
+    return cliCredentialRecoveryMessage(detail)
+  }
 
   if (!status) {
     if (action === 'enrollLocal' && isAgentServiceUnavailable(detail)) {
@@ -401,6 +443,9 @@ function agentRuntimeRecoveryMessage(detail: string | null): string {
 
 function agentCreatedStartFailureMessage(error?: unknown): string {
   const detail = agentErrorDetail(error)
+  if (isCliCredentialStartError(error, detail)) {
+    return `${cliCredentialRecoveryMessage(detail)} Agent was created and will stay offline in the list.`
+  }
   const normalized = detail?.toLowerCase() ?? ''
   if (normalized.includes('docker')) {
     return 'Ask an owner or admin to check Where agents work in Settings, then start this agent from the card. Agent was created, but project files are not ready yet. It will stay in the list.'
@@ -607,6 +652,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
             // Keep the modal open: it is the only surface that renders this
             // store's error, so closing it here would throw the message away
             // and leave the user staring at an unexplained offline agent.
+            newAgent = { ...newAgent, status: 'offline' }
             set((state) => ({
               agents: [...state.agents, newAgent],
               loading: false,

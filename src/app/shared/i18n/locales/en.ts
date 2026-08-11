@@ -815,6 +815,11 @@ export const en = {
           title: 'You cannot manage this agent',
           detail: 'You can manage only agents you own. Contact the agent owner if you need access.',
         },
+        cli_credentials_required: {
+          title: 'Connect the code tool',
+          detail:
+            'Use Work tool sign-ins for Codex, or AI service connections for another code tool, then start this agent again.',
+        },
       },
       create: {
         missing_cli_tool_for_container: {
