@@ -76,7 +76,16 @@ export function GettingStartedView() {
     [loadedTasks, localTasks]
   )
   const firstAgent = useMemo(() => agents[0] ?? null, [agents])
-  const cliExecutionAgent = useMemo(() => agents.find((agent) => agent.cliTool) ?? null, [agents])
+  const cliExecutionAgent = useMemo(
+    () =>
+      agents.find(
+        (agent) =>
+          agent.cliTool &&
+          agent.status !== 'offline' &&
+          (isHostCliAgent(agent) || Boolean(agent.containerId))
+      ) ?? null,
+    [agents]
+  )
   const verifiedProvider = useMemo(
     () =>
       providers.find((provider) => provider.isEnabled && provider.lastTestStatus === 'passed') ??

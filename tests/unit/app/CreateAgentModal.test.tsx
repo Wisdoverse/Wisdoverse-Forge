@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { CreateAgentModal } from '@app/features/agents/CreateAgentModal'
 import { useAgentsStore } from '@app/entities/agent'
@@ -86,6 +86,39 @@ describe('CreateAgentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /choose a starter template/i }))
     return screen.getByRole('group', { name: /agent starter templates/i })
   }
+
+  test('links a Codex start failure to Work tool sign-ins', () => {
+    render(<CreateAgentModal />)
+
+    act(() => {
+      useAgentsStore.setState({
+        error:
+          'Open Settings > Work tool sign-ins, sign in to Codex, then start this agent again. Agent was created and will stay offline in the list.',
+      })
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('sign in to Codex')
+    expect(screen.getByRole('link', { name: /open work tool sign-ins/i })).toHaveAttribute(
+      'href',
+      '/settings/work-tool-sign-ins'
+    )
+  })
+
+  test('links a non-Codex start failure to AI service connections', () => {
+    render(<CreateAgentModal />)
+
+    act(() => {
+      useAgentsStore.setState({
+        error:
+          'Open Settings > AI service connections, add or test the Anthropic connection, then start this agent again. Agent was created and will stay offline in the list.',
+      })
+    })
+
+    expect(screen.getByRole('link', { name: /open ai service connections/i })).toHaveAttribute(
+      'href',
+      '/settings/providers'
+    )
+  })
 
   test('puts the agent type choice first and keeps detailed runtime help collapsed', () => {
     render(<CreateAgentModal />)
@@ -440,9 +473,7 @@ describe('CreateAgentModal', () => {
           'Starter place for this project. New tasks wait here until an agent can take them.',
       })
     )
-    expect(screen.getByRole('combobox', { name: /place for new tasks/i })).toHaveValue(
-      'group-new'
-    )
+    expect(screen.getByRole('combobox', { name: /place for new tasks/i })).toHaveValue('group-new')
     expect(screen.getByTestId('agent-work-readiness')).toHaveTextContent(/project ready/i)
     expect(
       screen.getByText(/new tasks wait here until an available agent can take them/i)

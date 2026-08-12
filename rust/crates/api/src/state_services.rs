@@ -12,7 +12,6 @@ use crate::health::AppState;
 use crate::services::admin::AdminService;
 use crate::services::agent::AgentService;
 use crate::services::agent_container_control::AgentContainerControlService;
-use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_enrollment::HostAgentEnrollmentService;
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::AgentPromptService;
@@ -114,10 +113,6 @@ impl AppState {
             self.nats.clone(),
             self.inflight_prompts.clone(),
         )
-    }
-
-    pub(crate) fn agent_container_lifecycle_service(&self) -> AgentContainerLifecycleService {
-        AgentContainerLifecycleService::from_runtime(self.pool.clone(), self.docker.clone())
     }
 
     pub(crate) fn agent_container_control_service(&self) -> AgentContainerControlService {

@@ -28,7 +28,6 @@ use crate::services::agent::{
     agent_git_status_response, agent_list_response, agent_messages_deleted_response, agent_messages_response,
     agent_permission_response, agent_prompt_sent_response, agent_response, agent_status_response,
 };
-use crate::services::agent_container_lifecycle::AgentContainerLifecycleService;
 use crate::services::agent_enrollment::{HostAgentEnrollmentInput, HostAgentEnrollmentService};
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
@@ -134,10 +133,6 @@ fn make_message_service(state: &AppState) -> AgentMessageService {
 
 fn make_prompt_service(state: &AppState) -> AgentPromptService {
     state.agent_prompt_service()
-}
-
-fn make_container_lifecycle_service(state: &AppState) -> AgentContainerLifecycleService {
-    state.agent_container_lifecycle_service()
 }
 
 fn make_host_enrollment_service(state: &AppState) -> HostAgentEnrollmentService {
@@ -387,7 +382,10 @@ async fn restart_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    make_container_lifecycle_service(&state).restart(&auth.scope, AgentId::from(id)).await?;
+    make_service(&state).require_owner(&auth.scope, AgentId::from(id)).await?;
+    let service = state.agent_container_control_service();
+    service.stop(&auth.scope, AgentId::from(id)).await?;
+    service.start(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("restarted")))
 }
 
@@ -397,7 +395,10 @@ async fn resume_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    make_container_lifecycle_service(&state).resume(&auth.scope, AgentId::from(id)).await?;
+    make_service(&state).require_owner(&auth.scope, AgentId::from(id)).await?;
+    let service = state.agent_container_control_service();
+    service.stop(&auth.scope, AgentId::from(id)).await?;
+    service.start(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("resumed")))
 }
 

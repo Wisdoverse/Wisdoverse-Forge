@@ -270,7 +270,8 @@ impl AgentRepository {
             .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
-    /// Create a new agent with `idle` status.
+    /// Create provider agents ready for chat and Container CLI agents offline
+    /// until their container has actually started.
     ///
     /// `runtime_kind` must be derived via
     /// [`crate::domain::agent::AgentCreateRuntimePolicy`] so the row satisfies
@@ -295,7 +296,9 @@ impl AgentRepository {
                          ORDER BY created_at ASC
                          LIMIT 1)
                    ),
-                   $3, $4, $5, $6, $7, $8, $9, 'idle', $10, $11
+                   $3, $4, $5, $6, $7, $8, $9,
+                   CASE WHEN $11 = 'container' THEN 'offline'::agent_status ELSE 'idle'::agent_status END,
+                   $10, $11
                )
                RETURNING *"#,
         )
@@ -929,6 +932,7 @@ mod tests {
         let enriched = repo.find_with_owner_by_id(&scope, created.id).await.expect("find_with_owner");
         assert_eq!(enriched.runtime_kind, RuntimeKind::Container);
         assert_eq!(enriched.cli_tool.as_deref(), Some("claude"));
+        assert_eq!(enriched.status, AgentStatus::Offline);
     }
 
     #[sqlx::test(migrations = "../db/migrations")]
@@ -952,6 +956,7 @@ mod tests {
 
         let enriched = repo.find_with_owner_by_id(&scope, created.id).await.expect("find_with_owner");
         assert_eq!(enriched.runtime_kind, RuntimeKind::Api);
+        assert_eq!(enriched.status, AgentStatus::Idle);
     }
 
     /// The MCP bridge inserts container-backed rows; they must carry both

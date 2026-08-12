@@ -14,7 +14,13 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { isHostCliAgent, isImageCapable, useAgentsStore, type AgentInfo } from '@app/entities/agent'
+import {
+  agentCredentialRecovery,
+  isHostCliAgent,
+  isImageCapable,
+  useAgentsStore,
+  type AgentInfo,
+} from '@app/entities/agent'
 
 const LOCAL_AGENT_CONTROL_FAILURE = {
   sendInstruction: 'local-send-instruction-failed',
@@ -74,6 +80,7 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
   const readyActionInfo = getReadyActionInfo(agent, { hostCli })
   const ControlSummaryIcon = controlSummary.Icon
   const controlError = error ?? localActionError
+  const credentialRecovery = agentCredentialRecovery(controlError)
   const messageAvailability = getMessageAvailability(agent, { canStartContainer, hostCli })
   // Block sending while an image upload is still in flight, otherwise the prompt
   // goes out with the not-yet-appended id array and the upload is orphaned.
@@ -271,6 +278,11 @@ export function AgentControlPanel({ agent, onDeleted }: AgentControlPanelProps) 
             <span className="font-medium">Action did not finish</span>
             <span>Read the next line, then run the agent action again.</span>
             <span>{agentControlErrorMessage(controlError, { chatOnlyAgent })}</span>
+            {credentialRecovery && (
+              <a href={credentialRecovery.path} className="font-medium underline">
+                {credentialRecovery.label}
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -791,6 +803,7 @@ function agentControlErrorMessage(
   error: string,
   { chatOnlyAgent = false }: { chatOnlyAgent?: boolean } = {}
 ): string {
+  if (agentCredentialRecovery(error)) return error
   if (error === LOCAL_AGENT_CONTROL_FAILURE.sendInstruction) {
     if (chatOnlyAgent) {
       return 'Open Agents, choose this agent again, confirm it still shows Ready, then resend the message. If it still fails, choose Check connection for this AI service or ask an owner or admin to check agent messaging.'
