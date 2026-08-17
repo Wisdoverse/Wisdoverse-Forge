@@ -119,7 +119,7 @@ url = "2"
 temporalio-client = "0.4.0"
 temporalio-sdk = "0.4.0"
 temporalio-macros = "0.5.0"
-temporalio-sdk-core = "0.4.0"
+temporalio-sdk-core = "0.6.0"
 temporalio-common = "0.4.0"
 
 # Docker
