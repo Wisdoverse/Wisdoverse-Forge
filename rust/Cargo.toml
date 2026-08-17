@@ -130,7 +130,7 @@ tar = "0.4"
 
 # Infrastructure
 redis = { version = "1", features = ["tokio-comp", "connection-manager"] }
-async-nats = "0.47"
+async-nats = "0.50"
 aws-credential-types = "1"
 aws-sdk-s3 = { version = "1.131.0", default-features = false, features = [
     "default-https-client",
