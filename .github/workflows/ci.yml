@@ -214,7 +214,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup component add clippy rustfmt --toolchain stable
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         with:
           workspaces: rust
       - name: Check Rust formatting
@@ -282,7 +282,7 @@ jobs:
       - name: Install Rust toolchain
         working-directory: rust
         run: rustup toolchain install stable --profile minimal
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         with:
           workspaces: rust
       - name: Build server (debug)
