@@ -349,8 +349,8 @@ async fn hostile_project_names_yield_safe_dir_names(pool: PgPool) {
 }
 
 /// The WORKER half: a project created with a path-traversal name clones into the
-/// derived safe directory under the projects root — and the staging dir the
-/// runner was handed lives under that same root, never at a sibling/parent path.
+/// derived safe directory under the projects root — while the staging dir the
+/// runner was handed stays in the server-owned workspace sibling.
 /// (Proves the worker's `WorkspaceDirName::parse` + `resolve_under` keep the
 /// clone inside the tenant's projects root end-to-end.)
 #[sqlx::test(migrations = "../db/migrations")]
@@ -406,10 +406,12 @@ async fn worker_resolves_hostile_named_clone_inside_projects_root(pool: PgPool) 
          dir name escaped the projects root. Found: {readmes:?}"
     );
 
-    // The staging dir the runner was handed is also under the projects root (the
-    // container mounts only a per-clone staging dir, never a parent or sibling).
+    // The container mounts only a per-clone staging dir from the protected
+    // workspace sibling, never the agent-writable projects root.
     let staging = runner.last_staging().expect("runner was called");
-    assert!(staging.starts_with(&root), "staging dir must be under the projects root, got {staging:?}");
+    let staging_root = root.with_file_name(".clone-staging");
+    assert!(staging.starts_with(&staging_root), "staging dir must be under {staging_root:?}, got {staging:?}");
+    assert!(!staging.starts_with(&root), "staging dir must stay outside the projects mount, got {staging:?}");
     assert!(!staging.to_string_lossy().contains(".."), "staging path must contain no parent token, got {staging:?}");
 }
 
