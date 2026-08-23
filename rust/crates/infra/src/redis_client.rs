@@ -132,6 +132,8 @@ mod tests {
             nats_callout: agentforge_core::NatsCalloutConfig::default(),
             stripe: agentforge_core::StripeConfig::default(),
             jwt_secret: test_jwt_secret(),
+            bootstrap_admin_token: None,
+            allow_unprotected_admin_bootstrap: false,
             jwt_expiry_seconds: 900,
             environment: "development".to_string(),
             log_level: "info".to_string(),

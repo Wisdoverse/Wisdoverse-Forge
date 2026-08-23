@@ -84,6 +84,14 @@ impl UserRepositoryPolicy {
         ErrorKind::Conflict("email already registered".into()).into()
     }
 
+    pub(crate) fn setup_token_required_or_invalid() -> AppError {
+        ErrorKind::ForbiddenWithCode {
+            code: "SETUP_TOKEN_REQUIRED_OR_INVALID",
+            message: "The deployment setup token is required or invalid".into(),
+        }
+        .into()
+    }
+
     pub(crate) fn personal_org_slug_allocation_failed() -> AppError {
         ErrorKind::Internal(anyhow::anyhow!("failed to allocate unique personal organization slug")).into()
     }
@@ -341,9 +349,7 @@ pub(crate) fn auth_error_response_contract(
             AuthErrorResponseContract::new(401, "UNAUTHORIZED", unauthorized_message.unwrap_or("Unauthorized"))
         }
         ErrorKind::Forbidden(_) => AuthErrorResponseContract::new(403, "FORBIDDEN", "Forbidden"),
-        ErrorKind::ForbiddenWithCode { message, .. } => {
-            AuthErrorResponseContract::new(403, "FORBIDDEN", message.clone())
-        }
+        ErrorKind::ForbiddenWithCode { code, message } => AuthErrorResponseContract::new(403, code, message.clone()),
         ErrorKind::Validation(message) => AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone()),
         ErrorKind::ValidationWithCode { message, .. } => {
             AuthErrorResponseContract::new(400, "VALIDATION_ERROR", message.clone())
@@ -665,6 +671,10 @@ mod tests {
             ErrorKind::Conflict(message) if message == "email already registered"
         ));
         assert!(matches!(
+            UserRepositoryPolicy::setup_token_required_or_invalid().kind,
+            ErrorKind::ForbiddenWithCode { code: "SETUP_TOKEN_REQUIRED_OR_INVALID", .. }
+        ));
+        assert!(matches!(
             UserRepositoryPolicy::personal_org_slug_allocation_failed().kind,
             ErrorKind::Internal(message) if message.to_string().contains("personal organization slug")
         ));
@@ -814,6 +824,10 @@ mod tests {
         assert_eq!(validation.status(), 400);
         assert_eq!(validation.code(), "VALIDATION_ERROR");
         assert_eq!(validation.message(), "bad input");
+
+        let setup = auth_error_response_contract(&UserRepositoryPolicy::setup_token_required_or_invalid(), None);
+        assert_eq!(setup.status(), 403);
+        assert_eq!(setup.code(), "SETUP_TOKEN_REQUIRED_OR_INVALID");
 
         let internal =
             auth_error_response_contract(&ErrorKind::Internal(anyhow::anyhow!("database unavailable")).into(), None);

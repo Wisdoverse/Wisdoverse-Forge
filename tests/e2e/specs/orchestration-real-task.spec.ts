@@ -17,7 +17,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, '../../..')
 const rustRoot = path.join(repoRoot, 'rust')
 
-const DEFAULT_LOCAL_PASSWORD = 'DevPass123!'
+const DEFAULT_LOCAL_PASSWORD = 'DevPass1234!'
 const STABLE_E2E_EMAIL = 'dev@example.com'
 const REAL_E2E_ENABLED = process.env.ORCHESTRATION_REAL_E2E === '1'
 const REAL_CLI_E2E = process.env.ORCHESTRATION_REAL_CLI_E2E === '1'
@@ -215,7 +215,12 @@ async function login(
   const api = await playwrightRequest.newContext({ baseURL })
 
   const register = await api.post('/api/v1/auth/register', {
-    data: { email, password, username: 'dev' },
+    data: {
+      email,
+      password,
+      username: 'dev',
+      setupToken: process.env.BOOTSTRAP_ADMIN_TOKEN || undefined,
+    },
     failOnStatusCode: false,
   })
   if (![201, 409].includes(register.status())) {

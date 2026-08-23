@@ -73,7 +73,12 @@ async function globalSetup(config: FullConfig): Promise<void> {
   const apiBaseURL = process.env.E2E_API_BASE_URL ?? baseURL
   const api = await request.newContext({ baseURL: apiBaseURL })
   const registerResp = await api.post('/api/v1/auth/register', {
-    data: { email: E2E_EMAIL, password: E2E_PASSWORD, username: 'dev' },
+    data: {
+      email: E2E_EMAIL,
+      password: E2E_PASSWORD,
+      username: 'dev',
+      setupToken: process.env.BOOTSTRAP_ADMIN_TOKEN || undefined,
+    },
     failOnStatusCode: false,
   })
   if (![201, 409].includes(registerResp.status())) {

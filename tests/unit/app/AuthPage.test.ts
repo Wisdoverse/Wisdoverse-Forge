@@ -99,6 +99,13 @@ describe('AuthPage beginner guidance', () => {
     expect(document.querySelector('#register-form')?.textContent).toContain(
       'Type it again so you know what to use next time you sign in.'
     )
+    expect(document.querySelector('#register-form')?.textContent).toContain(
+      'Deployment setup token'
+    )
+    expect(document.querySelector('#register-form')?.textContent).toContain(
+      'BOOTSTRAP_ADMIN_TOKEN from docker/.env'
+    )
+    expect(document.querySelector<HTMLInputElement>('#register-setup-token')?.type).toBe('password')
     expect(document.querySelector('#register-form')?.textContent).not.toContain('workspace account')
     expect(document.querySelector('#register-submit')?.textContent).toContain(
       'Create account and continue'
@@ -399,6 +406,67 @@ describe('AuthPage beginner guidance', () => {
       document.activeElement
     )
     expect(register).not.toHaveBeenCalled()
+  })
+
+  test('passes the deployment setup token once and clears it after submission', async () => {
+    const register = vi.fn().mockResolvedValue({ ok: false })
+    const page = new AuthPage(createAuthManager({ register }))
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const emailInput = document.querySelector<HTMLInputElement>('#register-email')
+    const passwordInput = document.querySelector<HTMLInputElement>('#register-password')
+    const confirmInput = document.querySelector<HTMLInputElement>('#register-confirm')
+    const setupTokenInput = document.querySelector<HTMLInputElement>('#register-setup-token')
+    if (emailInput) emailInput.value = 'new@example.com'
+    if (passwordInput) passwordInput.value = 'LongPassword123!'
+    if (confirmInput) confirmInput.value = 'LongPassword123!'
+    if (setupTokenInput) setupTokenInput.value = 'b'.repeat(64)
+
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(register).toHaveBeenCalledWith(
+      'new@example.com',
+      'LongPassword123!',
+      undefined,
+      'b'.repeat(64)
+    )
+    expect(setupTokenInput?.value).toBe('')
+  })
+
+  test('turns a rejected first-admin setup token into an operator action', async () => {
+    const page = new AuthPage(
+      createAuthManager({
+        register: vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: 'SETUP_TOKEN_REQUIRED_OR_INVALID',
+          error: 'The deployment setup token is required or invalid',
+        }),
+      })
+    )
+
+    await page.show()
+    document.querySelector<HTMLButtonElement>('[data-tab="register"]')?.click()
+    const values: Record<string, string> = {
+      'register-email': 'new@example.com',
+      'register-password': 'LongPassword123!',
+      'register-confirm': 'LongPassword123!',
+    }
+    for (const [id, value] of Object.entries(values)) {
+      const input = document.querySelector<HTMLInputElement>(`#${id}`)
+      if (input) input.value = value
+    }
+    document
+      .querySelector<HTMLFormElement>('#register-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushAsyncWork()
+
+    expect(bodyText()).toContain('Copy BOOTSTRAP_ADMIN_TOKEN from docker/.env')
+    expect(bodyText()).toContain('ask the person who installed Forge')
+    expect(bodyText()).not.toContain('required or invalid')
   })
 
   test('checks account creation password rules before calling the backend', async () => {

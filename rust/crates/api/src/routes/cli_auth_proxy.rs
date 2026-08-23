@@ -57,6 +57,8 @@ fn default_test_config() -> agentforge_core::AppConfig {
         nats_callout: agentforge_core::NatsCalloutConfig::default(),
         stripe: agentforge_core::StripeConfig::default(),
         jwt_secret: secrecy::SecretString::from("a".repeat(32)),
+        bootstrap_admin_token: None,
+        allow_unprotected_admin_bootstrap: false,
         jwt_expiry_seconds: 900,
         environment: "test".into(),
         log_level: "info".into(),

@@ -223,9 +223,9 @@ impl StripeConfig {
 /// Required variables: `DATABASE_URL`, `JWT_SECRET`.
 /// All others have sensible defaults.
 ///
-/// Secret-bearing fields (`jwt_secret`, `llm_encryption_key`, the three
-/// `container_*_api_key` fields, and `cli_auth_proxy_openai_client_secret`)
-/// are wrapped in [`SecretString`] so the derived `Debug` emits
+/// Secret-bearing fields (`jwt_secret`, `bootstrap_admin_token`,
+/// `llm_encryption_key`, the three `container_*_api_key` fields, and
+/// `cli_auth_proxy_openai_client_secret`) are wrapped in [`SecretString`] so the derived `Debug` emits
 /// `[REDACTED alloc::string::String]` instead of the secret material.
 /// Any code that needs the underlying bytes must call `.expose_secret()`
 /// at the use site so the leak surface is searchable.
@@ -312,6 +312,16 @@ pub struct AppConfig {
     /// JWT signing secret (required). Wrapped in `SecretString` so the
     /// derived `Debug` redacts it; reach the bytes with `.expose_secret()`.
     pub jwt_secret: SecretString,
+
+    /// One-time setup key required when a production deployment has no active
+    /// platform administrator. Existing deployments with an administrator do
+    /// not need it, so the field remains optional for upgrade compatibility.
+    pub bootstrap_admin_token: Option<SecretString>,
+
+    /// Explicit local-only opt-in for creating the first administrator without
+    /// a setup token. Ignored outside `development` and `test` modes.
+    #[serde(default)]
+    pub allow_unprotected_admin_bootstrap: bool,
 
     /// JWT token expiry in seconds (default: 900 = 15 min).
     #[serde(default = "default_jwt_expiry")]
@@ -653,6 +663,11 @@ impl AppConfig {
         if cfg.jwt_secret.expose_secret().len() < 32 {
             return Err(config::ConfigError::Message("JWT_SECRET must be at least 32 characters".to_string()));
         }
+        if cfg.bootstrap_admin_token.as_ref().is_some_and(|token| token.expose_secret().len() < 32) {
+            return Err(config::ConfigError::Message(
+                "BOOTSTRAP_ADMIN_TOKEN must be at least 32 characters".to_string(),
+            ));
+        }
 
         if cfg.cli_auth_proxy_revoke_threshold < 1 {
             return Err(config::ConfigError::Message("CLI_AUTH_PROXY_REVOKE_THRESHOLD must be at least 1".to_string()));
@@ -830,6 +845,8 @@ mod tests {
                 ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
                 // Clear any ambient optional vars to make assertions deterministic.
+                ("BOOTSTRAP_ADMIN_TOKEN", None),
+                ("ALLOW_UNPROTECTED_ADMIN_BOOTSTRAP", None),
                 ("REDIS_URL", None),
                 ("NATS_URL", None),
                 ("NATS_AGENT_URL", None),
@@ -885,6 +902,8 @@ mod tests {
                 let cfg = cfg.unwrap();
                 assert_eq!(cfg.database_url, "postgres://localhost/agentforge_test");
                 assert_eq!(cfg.jwt_secret.expose_secret(), "test-secret-key-min-32-chars-long!!");
+                assert!(cfg.bootstrap_admin_token.is_none());
+                assert!(!cfg.allow_unprotected_admin_bootstrap);
                 assert_eq!(cfg.port, 4003);
                 assert_eq!(cfg.host, "0.0.0.0");
                 assert_eq!(cfg.jwt_expiry_seconds, 900);
@@ -952,6 +971,8 @@ mod tests {
             nats_callout: NatsCalloutConfig::default(),
             stripe: StripeConfig::default(),
             jwt_secret: test_jwt_secret(),
+            bootstrap_admin_token: None,
+            allow_unprotected_admin_bootstrap: false,
             jwt_expiry_seconds: 900,
             environment: "production".to_string(),
             log_level: "info".to_string(),
@@ -1258,6 +1279,23 @@ mod tests {
     }
 
     #[test]
+    fn bootstrap_admin_token_too_short_rejected() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("BOOTSTRAP_ADMIN_TOKEN", Some("too-short")),
+            ],
+            || {
+                let err = AppConfig::from_env().expect_err("short setup key must fail closed").to_string();
+                assert!(err.contains("BOOTSTRAP_ADMIN_TOKEN"), "error was: {err}");
+                assert!(err.contains("at least 32 characters"), "error was: {err}");
+            },
+        );
+    }
+
+    #[test]
     fn from_env_accepts_custom_cli_auth_proxy_revoke_threshold() {
         temp_env::with_vars(
             [
@@ -1456,6 +1494,8 @@ mod tests {
                 stripe_publishable_key: Some("pk_test_publishable".to_string()),
             },
             jwt_secret: SecretString::from("jwt-supersecret-value-min-32-chars!!".to_string()),
+            bootstrap_admin_token: Some(SecretString::from("bootstrap-supersecret-value-min-32-chars".to_string())),
+            allow_unprotected_admin_bootstrap: false,
             jwt_expiry_seconds: 900,
             environment: "development".to_string(),
             log_level: "info".to_string(),
@@ -1519,6 +1559,7 @@ mod tests {
         let dbg = format!("{cfg:?}");
         for needle in [
             "jwt-supersecret-value-min-32-chars!!",
+            "bootstrap-supersecret-value-min-32-chars",
             "enc-key-supersecret",
             "sk-ant-supersecret",
             "goog-supersecret",

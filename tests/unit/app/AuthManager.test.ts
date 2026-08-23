@@ -119,6 +119,40 @@ describe('AuthManager beginner-safe errors', () => {
     manager.dispose()
   })
 
+  it('sends the deployment setup token only in the registration body', async () => {
+    const manager = makeManager()
+    const fetchSpy = vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
+        ok: false,
+        error: 'SETUP_TOKEN_REQUIRED_OR_INVALID',
+        message: 'The deployment setup token is required or invalid',
+      }),
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const result = await manager.register(
+      'dev@example.com',
+      'LongPassword123!',
+      'Dev',
+      'a'.repeat(64)
+    )
+
+    expect(fetchSpy).toHaveBeenCalledOnce()
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://localhost:4003/auth/register')
+    expect(url).not.toContain('setupToken')
+    expect(url).not.toContain('a'.repeat(64))
+    expect(JSON.parse(String(init.body))).toEqual({
+      email: 'dev@example.com',
+      password: 'LongPassword123!',
+      username: 'Dev',
+      setupToken: 'a'.repeat(64),
+    })
+    expect(localStorage).toHaveLength(0)
+    expect(result.errorCode).toBe('SETUP_TOKEN_REQUIRED_OR_INVALID')
+    manager.dispose()
+  })
+
   it('throws actionable account-recovery fallbacks when the server gives no message', async () => {
     const manager = makeManager()
     mockAuthFailure()

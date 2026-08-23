@@ -41,6 +41,8 @@ pub struct RegisterRequest {
     pub password: String,
     #[serde(default, alias = "display_name", alias = "displayName")]
     pub username: Option<String>,
+    #[serde(default, alias = "setup_token", alias = "setupToken")]
+    pub setup_token: Option<String>,
 }
 
 /// Forgot-password request body.
@@ -89,7 +91,7 @@ pub async fn login(State(state): State<AppState>, Json(req): Json<LoginRequest>)
 /// `POST /api/v1/auth/register` — register a new user account.
 pub async fn register(State(state): State<AppState>, Json(req): Json<RegisterRequest>) -> Response {
     let service = make_service(&state);
-    match service.register(&req.email, &req.password, req.username.as_deref()).await {
+    match service.register(&req.email, &req.password, req.username.as_deref(), req.setup_token.as_deref()).await {
         Ok(result) => auth_success_response(StatusCode::CREATED, &service, result),
         Err(err) => auth_error_response(err, None),
     }
@@ -279,12 +281,14 @@ mod tests {
 
     #[test]
     fn register_request_deserialization() {
-        let req: RegisterRequest =
-            serde_json::from_str(r#"{"email":"dev@example.com","password":"securepass","username":"Dev User"}"#)
-                .unwrap();
+        let req: RegisterRequest = serde_json::from_str(
+            r#"{"email":"dev@example.com","password":"securepass","username":"Dev User","setupToken":"setup-secret"}"#,
+        )
+        .unwrap();
         assert_eq!(req.email, "dev@example.com");
         assert_eq!(req.password, "securepass");
         assert_eq!(req.username.as_deref(), Some("Dev User"));
+        assert_eq!(req.setup_token.as_deref(), Some("setup-secret"));
     }
 
     #[test]
@@ -300,6 +304,7 @@ mod tests {
         let req: RegisterRequest =
             serde_json::from_str(r#"{"email":"dev@example.com","password":"securepass"}"#).unwrap();
         assert!(req.username.is_none());
+        assert!(req.setup_token.is_none());
     }
 
     #[test]

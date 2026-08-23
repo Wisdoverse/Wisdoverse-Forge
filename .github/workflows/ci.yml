@@ -265,6 +265,7 @@ jobs:
       # Throwaway, non-secret value for this ephemeral CI stack (>=32 chars).
       # Never used outside the job; real secrets are deployment-managed.
       JWT_SECRET: ci-e2e-smoke-only-jwt-secret-0123456789abcdef
+      BOOTSTRAP_ADMIN_TOKEN: ci-e2e-smoke-only-bootstrap-token-0123456789abcdef
       BASE_URL: http://localhost:4002
       E2E_EMAIL: dev@example.com
       # >= 12 chars to satisfy the backend register rule (auth validation).

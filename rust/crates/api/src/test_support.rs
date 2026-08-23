@@ -55,6 +55,8 @@ pub(crate) fn test_app_config(database_url: &str) -> AppConfig {
         nats_callout: NatsCalloutConfig::default(),
         stripe: StripeConfig::default(),
         jwt_secret: SecretString::from(TEST_JWT_SECRET.to_string()),
+        bootstrap_admin_token: None,
+        allow_unprotected_admin_bootstrap: true,
         jwt_expiry_seconds: 3600,
         environment: "test".to_string(),
         log_level: "warn".to_string(),
