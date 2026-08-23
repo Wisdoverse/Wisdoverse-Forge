@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -16,13 +17,15 @@ use temporalio_client::{
 use temporalio_common::data_converters::{
     GenericPayloadConverter, PayloadConverter, SerializationContext, SerializationContextData,
 };
+use temporalio_common::protos::temporal::api::common::v1::Payloads;
 use temporalio_common::protos::temporal::api::common::v1::RetryPolicy;
-use temporalio_common::protos::temporal::api::common::v1::{Payload, Payloads};
 use temporalio_common::protos::temporal::api::enums::v1::{WorkflowIdConflictPolicy, WorkflowIdReusePolicy};
 use temporalio_common::{HasWorkflowDefinition, WorkflowDefinition};
-use temporalio_sdk::workflows::{WorkflowError as TemporalWorkflowError, WorkflowImplementation, WorkflowImplementer};
+use temporalio_sdk::workflow_interceptors::WorkflowOutputValue;
+use temporalio_sdk::workflows::{WorkflowError as TemporalWorkflowError, WorkflowImplementation};
 use temporalio_sdk::workflows::{join_all, select};
 use temporalio_sdk::{ActivityOptions, CancellableFuture, WorkflowContext, WorkflowResult, WorkflowTermination};
+use temporalio_workflow::runtime::types::WorkflowDefinitionDescriptor;
 use url::Url;
 
 use crate::config::Config;
@@ -40,6 +43,10 @@ pub const SIGNAL_HUMAN_REVIEW: &str = "human-review-decision";
 pub const ORCHESTRATOR_WORKFLOW_NAME: &str = "OrchestratorWorkflow";
 
 const DEFAULT_HUMAN_REVIEW_TIMEOUT_SECS: u64 = 24 * 60 * 60;
+
+fn human_review_node_id(signal_name: &str) -> Option<&str> {
+    signal_name.strip_prefix(SIGNAL_HUMAN_REVIEW)?.strip_prefix('-')
+}
 
 /// Deterministic helper: reads `reviewTimeoutSecs` from node config (replayed-safe,
 /// no env/clock access). Returns the configured value clamped to a minimum of 60
@@ -234,12 +241,6 @@ impl HasWorkflowDefinition for OrchestratorWorkflowRun {
     type Run = Self;
 }
 
-impl WorkflowImplementer for OrchestratorWorkflow {
-    fn register_all(defs: &mut temporalio_sdk::workflows::WorkflowDefinitions) {
-        defs.register_workflow_run::<Self>();
-    }
-}
-
 impl WorkflowImplementation for OrchestratorWorkflow {
     type Run = OrchestratorWorkflowRun;
 
@@ -248,6 +249,17 @@ impl WorkflowImplementation for OrchestratorWorkflow {
 
     fn name() -> &'static str {
         ORCHESTRATOR_WORKFLOW_NAME
+    }
+
+    fn definition() -> WorkflowDefinitionDescriptor {
+        WorkflowDefinitionDescriptor {
+            workflow_type: Self::name().to_string(),
+            has_init: false,
+            init_takes_input: false,
+            signals: Vec::new(),
+            queries: Vec::new(),
+            updates: Vec::new(),
+        }
     }
 
     fn init(
@@ -260,7 +272,7 @@ impl WorkflowImplementation for OrchestratorWorkflow {
     fn run(
         ctx: WorkflowContext<Self>,
         input: Option<<Self::Run as WorkflowDefinition>::Input>,
-    ) -> LocalBoxFuture<'static, std::result::Result<Payload, WorkflowTermination>> {
+    ) -> LocalBoxFuture<'static, std::result::Result<Box<dyn WorkflowOutputValue>, WorkflowTermination>> {
         async move {
             // A missing input means a framework/contract mismatch. Surface it as
             // an explicit terminal failure instead of panicking — a panic here
@@ -269,59 +281,82 @@ impl WorkflowImplementation for OrchestratorWorkflow {
             let Some(input) = input else {
                 return Err(anyhow!("orchestrator workflow received no input").into());
             };
-            let payload_converter = ctx.payload_converter().clone();
-            let result = run_orchestrator_workflow(ctx, input).await;
-            match result {
-                Ok(()) => payload_converter
-                    .to_payload(
-                        &SerializationContext {
-                            data: &SerializationContextData::Workflow,
-                            converter: &payload_converter,
-                        },
-                        &(),
-                    )
-                    .map_err(WorkflowTermination::from),
-                Err(err) => Err(err),
-            }
+            run_orchestrator_workflow(ctx, input).await?;
+            Ok(Box::new(()) as Box<dyn WorkflowOutputValue>)
         }
         .boxed_local()
+    }
+
+    fn decode_signal_input(
+        name: &str,
+        payloads: Payloads,
+        converter: &PayloadConverter,
+    ) -> std::result::Result<Option<Box<dyn Any>>, TemporalWorkflowError> {
+        if human_review_node_id(name).is_none() {
+            return Ok(None);
+        }
+        let signal = converter.from_payloads::<HumanReviewSignalPayload>(
+            &SerializationContext { data: &SerializationContextData::Workflow, converter },
+            payloads.payloads,
+        )?;
+        Ok(Some(Box::new(signal)))
     }
 
     fn dispatch_signal(
         ctx: WorkflowContext<Self>,
         name: &str,
-        payloads: Payloads,
-        converter: &PayloadConverter,
-    ) -> Option<LocalBoxFuture<'static, std::result::Result<(), TemporalWorkflowError>>> {
-        let node_id = name.strip_prefix(&format!("{SIGNAL_HUMAN_REVIEW}-"))?.to_string();
-        let signal = match converter.from_payloads::<HumanReviewSignalPayload>(
-            &SerializationContext { data: &SerializationContextData::Workflow, converter },
-            payloads.payloads,
-        ) {
-            Ok(signal) => signal,
-            Err(err) => return Some(async move { Err(err.into()) }.boxed_local()),
-        };
+        input: Box<dyn Any>,
+    ) -> LocalBoxFuture<'static, std::result::Result<(), TemporalWorkflowError>> {
+        let node_id =
+            human_review_node_id(name).expect("typed signal dispatch called for unknown signal handler").to_string();
+        let signal = *input
+            .downcast::<HumanReviewSignalPayload>()
+            .expect("typed signal dispatch received input with wrong concrete type");
 
-        Some(
-            async move {
-                let buffered = HumanReviewSignalPayload {
-                    node_id: if signal.node_id.is_empty() { node_id.clone() } else { signal.node_id.clone() },
-                    decision: signal.decision,
-                    comment: signal.comment,
-                };
-                ctx.state_mut(|workflow| {
-                    if let Some(waiter) = workflow.waiting_review_nodes.remove(&node_id) {
-                        if waiter.send(buffered.clone()).is_err() {
-                            workflow.pending_review_decisions.insert(node_id.clone(), buffered);
-                        }
-                    } else {
+        async move {
+            let buffered = HumanReviewSignalPayload {
+                node_id: if signal.node_id.is_empty() { node_id.clone() } else { signal.node_id.clone() },
+                decision: signal.decision,
+                comment: signal.comment,
+            };
+            ctx.state_mut(|workflow| {
+                if let Some(waiter) = workflow.waiting_review_nodes.remove(&node_id) {
+                    if waiter.send(buffered.clone()).is_err() {
                         workflow.pending_review_decisions.insert(node_id.clone(), buffered);
                     }
-                });
-                Ok(())
-            }
-            .boxed_local(),
-        )
+                } else {
+                    workflow.pending_review_decisions.insert(node_id.clone(), buffered);
+                }
+            });
+            Ok(())
+        }
+        .boxed_local()
+    }
+
+    fn dispatch_query(
+        &self,
+        _ctx: temporalio_sdk::WorkflowContextView,
+        name: &str,
+        _input: Box<dyn Any>,
+    ) -> std::result::Result<Box<dyn WorkflowOutputValue>, TemporalWorkflowError> {
+        unreachable!("typed query dispatch called for unknown query handler '{name}'")
+    }
+
+    fn dispatch_update(
+        _ctx: WorkflowContext<Self>,
+        name: &str,
+        _input: Box<dyn Any>,
+    ) -> LocalBoxFuture<'static, std::result::Result<Box<dyn WorkflowOutputValue>, TemporalWorkflowError>> {
+        unreachable!("typed update dispatch called for unknown update handler '{name}'")
+    }
+
+    fn validate_update(
+        &self,
+        _ctx: temporalio_sdk::WorkflowContextView,
+        name: &str,
+        _input: Box<dyn Any>,
+    ) -> std::result::Result<(), TemporalWorkflowError> {
+        unreachable!("typed update validation called for unknown update handler '{name}'")
     }
 }
 
@@ -385,7 +420,7 @@ fn execute_node(
         match node.node_type {
             NodeType::AgentTask => {
                 let result = ctx
-                    .start_activity(
+                    .execute_activity(
                         WorkflowActivities::execute_agent_task,
                         ExecuteAgentTaskInput {
                             node_id: node.id.clone(),
@@ -403,7 +438,7 @@ fn execute_node(
             }
             NodeType::Gate => {
                 let result = ctx
-                    .start_activity(
+                    .execute_activity(
                         WorkflowActivities::evaluate_gate,
                         GateInput {
                             node_id: node.id.clone(),
@@ -423,7 +458,7 @@ fn execute_node(
             }
             NodeType::HumanReview => {
                 let timeout_secs = human_review_timeout_secs(&node.config);
-                let review_activity = ctx.start_activity(
+                let review_activity = ctx.execute_activity(
                     WorkflowActivities::wait_for_human_review,
                     HumanReviewInput {
                         node_id: node.id.clone(),
@@ -483,7 +518,7 @@ async fn finalize_workflow_status(
     input: &OrchestratorWorkflowInput,
     status: WorkflowStatus,
 ) -> std::result::Result<(), WorkflowTermination> {
-    ctx.start_activity(
+    ctx.execute_activity(
         WorkflowActivities::finalize_workflow_status,
         FinalizeWorkflowStatusInput { workflow_id: input.workflow_id.clone(), org_id: input.org_id.clone(), status },
         finalize_activity_options(),
@@ -592,5 +627,37 @@ mod tests {
         let warn_90 = timeout_secs * 9 / 10;
         assert_eq!(warn_50, 3600);
         assert_eq!(warn_90, 6480);
+    }
+
+    #[test]
+    fn human_review_signal_name_extracts_node_id() {
+        assert_eq!(human_review_node_id("human-review-decision-node-42"), Some("node-42"));
+        assert_eq!(human_review_node_id("other-node-42"), None);
+    }
+
+    #[test]
+    fn workflow_definition_decodes_dynamic_human_review_signal() {
+        let converter = PayloadConverter::default();
+        let context = SerializationContext { data: &SerializationContextData::Workflow, converter: &converter };
+        let expected = HumanReviewSignalPayload {
+            node_id: "node-42".to_string(),
+            decision: Decision::Approve,
+            comment: Some("looks good".to_string()),
+        };
+        let payloads = Payloads { payloads: converter.to_payloads(&context, &expected).unwrap() };
+
+        let decoded = OrchestratorWorkflow::decode_signal_input("human-review-decision-node-42", payloads, &converter)
+            .unwrap()
+            .unwrap()
+            .downcast::<HumanReviewSignalPayload>()
+            .unwrap();
+
+        assert_eq!(decoded.node_id, expected.node_id);
+        assert!(matches!(decoded.decision, Decision::Approve));
+        assert_eq!(decoded.comment, expected.comment);
+        assert!(
+            OrchestratorWorkflow::decode_signal_input("unknown", Payloads::default(), &converter).unwrap().is_none()
+        );
+        assert!(OrchestratorWorkflow::definition().signals.is_empty());
     }
 }

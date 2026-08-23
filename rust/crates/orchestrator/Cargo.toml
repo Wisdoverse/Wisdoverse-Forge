@@ -37,6 +37,7 @@ temporalio-sdk.workspace = true
 temporalio-macros.workspace = true
 temporalio-sdk-core.workspace = true
 temporalio-common.workspace = true
+temporalio-workflow.workspace = true
 
 [dev-dependencies]
 temp-env.workspace = true
