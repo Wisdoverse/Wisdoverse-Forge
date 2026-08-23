@@ -105,7 +105,7 @@ impl WorkflowActivities {
         let mut warned_statuses: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         loop {
-            ctx.record_heartbeat(Vec::new());
+            let _ = ctx.record_heartbeat(()).await;
             tokio::select! {
                 _ = ctx.cancelled() => return Err(ActivityError::cancelled()),
                 _ = tokio::time::sleep(Duration::from_secs(5)) => {}
@@ -268,7 +268,7 @@ impl WorkflowActivities {
             tokio::select! {
                 _ = ctx.cancelled() => return Err(ActivityError::cancelled()),
                 _ = ticker.tick() => {
-                    ctx.record_heartbeat(Vec::new());
+                    let _ = ctx.record_heartbeat(()).await;
 
                     let elapsed_secs = started_at.elapsed().as_secs();
 

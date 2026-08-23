@@ -199,6 +199,7 @@ pub fn start_worker(
             let worker_options = WorkerOptions::new(TASK_QUEUE.to_string())
                 .register_activities(activities)
                 .register_workflow::<OrchestratorWorkflow>()
+                .context("register orchestrator workflow")?
                 .build();
             let mut worker = Worker::new(&core_runtime, client, worker_options)
                 .map_err(|err| anyhow!(err.to_string()))
