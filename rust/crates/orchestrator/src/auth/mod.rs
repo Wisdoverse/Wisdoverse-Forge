@@ -87,6 +87,7 @@ pub(crate) fn require_org_context(state: &AppState, headers: &HeaderMap) -> Resu
     }
 }
 
+#[allow(clippy::result_large_err)]
 pub(crate) async fn require_request_identity(
     state: &AppState,
     headers: &HeaderMap,

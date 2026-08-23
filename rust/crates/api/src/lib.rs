@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 //! Wisdoverse Forge API — Axum HTTP routes, request handlers, and WebSocket gateway.
 //!
 //! Defines the REST API surface and real-time WebSocket connections for the

@@ -83,6 +83,7 @@ fn map_verdict_error(err: VerdictError) -> Response {
 /// Emit an audit log entry. Returns `Err(Response)` if the store is present but the write fails
 /// (fail-closed). When no audit store is configured this is a no-op (best-effort callers can
 /// ignore the return value with `let _ =`).
+#[allow(clippy::result_large_err)]
 async fn record_audit(
     state: &AppState,
     action: AuditAction,
