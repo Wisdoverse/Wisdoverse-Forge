@@ -229,8 +229,8 @@ check_temp_bootstrap() {
   bootstrap_out="$AUDIT_TMP_DIR/selfhost-bootstrap.out"
   check_out="$AUDIT_TMP_DIR/selfhost-check.out"
 
-  ENV_FILE="$tmp_env" "$ROOT_DIR/scripts/bootstrap-selfhost.sh" --domain "$DOMAIN" >"$bootstrap_out"
-  ENV_FILE="$tmp_env" "$ROOT_DIR/scripts/bootstrap-selfhost.sh" --check --domain "$DOMAIN" >"$check_out"
+  ENV_FILE="$tmp_env" bash "$ROOT_DIR/scripts/bootstrap-selfhost.sh" --domain "$DOMAIN" >"$bootstrap_out"
+  ENV_FILE="$tmp_env" bash "$ROOT_DIR/scripts/bootstrap-selfhost.sh" --check --domain "$DOMAIN" >"$check_out"
 
   for key in \
     APP_HOST \
@@ -277,7 +277,7 @@ check_live() {
   live_out="$AUDIT_TMP_DIR/live-health.out"
 
   require_cmd curl
-  "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain "$DOMAIN" --public-ingress >"$live_out" ||
+  bash "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain "$DOMAIN" --public-ingress >"$live_out" ||
     fail "live self-host health failed; see $live_out"
   if [ -n "${BEGINNER_ORIGIN_IP:-${ORIGIN_IP:-}}" ]; then
     pass "live origin ingress has :80 redirect, trusted :443 TLS, and app health"
@@ -311,7 +311,7 @@ local_smoke() {
   health_out="$AUDIT_TMP_DIR/local-smoke-health.out"
 
   log "starting isolated localhost self-host smoke stack ($LOCAL_SMOKE_PROJECT)"
-  if ! smoke_env ENV_FILE="$LOCAL_SMOKE_ENV_FILE" "$ROOT_DIR/scripts/bootstrap-selfhost.sh" \
+  if ! smoke_env ENV_FILE="$LOCAL_SMOKE_ENV_FILE" bash "$ROOT_DIR/scripts/bootstrap-selfhost.sh" \
     --domain localhost >"$bootstrap_out"; then
     fail "local smoke bootstrap failed; see $bootstrap_out"
   fi
@@ -327,7 +327,7 @@ local_smoke() {
 
   if ! smoke_env ENV_FILE="$LOCAL_SMOKE_ENV_FILE" \
     BASE_URL="https://localhost:$LOCAL_SMOKE_HTTPS_PORT" \
-    "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain localhost --insecure >"$health_out"; then
+    bash "$ROOT_DIR/scripts/check-selfhost-runtime.sh" --wait --domain localhost --insecure >"$health_out"; then
     fail "local smoke runtime health failed; see $health_out"
   fi
 

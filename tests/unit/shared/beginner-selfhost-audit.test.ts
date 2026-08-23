@@ -9,6 +9,13 @@ const auditScript = fs.readFileSync(
 )
 
 describe('beginner self-host audit', () => {
+  it('runs checked-in helper scripts through bash', () => {
+    expect(auditScript.match(/bash "\$ROOT_DIR\/scripts\/bootstrap-selfhost\.sh"/g)).toHaveLength(3)
+    expect(
+      auditScript.match(/bash "\$ROOT_DIR\/scripts\/check-selfhost-runtime\.sh"/g)
+    ).toHaveLength(2)
+  })
+
   it('can verify Provider+Prompt using an existing verified provider', () => {
     expect(auditScript).toContain('BEGINNER_USE_EXISTING_PROVIDER')
     expect(auditScript).toContain('no enabled provider with persisted passed test status was found')
