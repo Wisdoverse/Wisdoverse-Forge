@@ -26,9 +26,10 @@ Usage:
   scripts/check-selfhost-runtime.sh --domain localhost --insecure
   HTTPS_PORT=18443 scripts/check-selfhost-runtime.sh --domain localhost --insecure
 
-Checks the public Caddy URL, API liveness, API readiness, and the internal
-Temporal container when it exists. Localhost uses --insecure automatically
-because Caddy's local CA is usually not trusted by the host browser or curl.
+Checks the public Caddy URL, API liveness/readiness, Docker access, the
+orchestrator workflow runtime, NATS, and Temporal. Localhost uses --insecure
+automatically because Caddy's local CA is usually not trusted by the host browser
+or curl.
 Use --public-ingress on real public domains to verify default :80 redirects to
 HTTPS and default :443 presents a publicly trusted TLS certificate.
 If the domain is behind a CDN, pass --origin-ip or ORIGIN_IP to check the VPS
@@ -177,6 +178,12 @@ case "$DOMAIN" in
 esac
 
 BASE_URL="${BASE_URL:-$(public_url "$DOMAIN")}"
+ORCHESTRATOR_PORT="$(env_or_file_value ORCHESTRATOR_PORT)"
+ORCHESTRATOR_PORT="${ORCHESTRATOR_PORT:-4010}"
+NATS_MONITOR_PORT="$(env_or_file_value NATS_MONITOR_PORT)"
+NATS_MONITOR_PORT="${NATS_MONITOR_PORT:-8222}"
+ORCHESTRATOR_BASE_URL="${ORCHESTRATOR_BASE_URL:-http://127.0.0.1:${ORCHESTRATOR_PORT}}"
+NATS_MONITOR_URL="${NATS_MONITOR_URL:-http://127.0.0.1:${NATS_MONITOR_PORT}}"
 CURL_ARGS=(-fsS --max-time 8)
 if [ "$INSECURE" -eq 1 ]; then
   CURL_ARGS+=(-k)
@@ -239,8 +246,26 @@ run_probe_once() {
     api-readiness)
       body="$(curl_body "${BASE_URL}/api/health" 2>&1)" || return 1
       compact="$(printf '%s' "$body" | tr -d '[:space:]')"
+      if [[ "$compact" == *'"status":"ready"'* && "$compact" == *'"docker":true'* ]]; then
+        return 0
+      fi
+      printf '%s' "$body"
+      return 1
+      ;;
+    orchestrator)
+      body="$(curl_body "${ORCHESTRATOR_BASE_URL}/health/ready" 2>&1)" || return 1
+      compact="$(printf '%s' "$body" | tr -d '[:space:]')"
+      if [[ "$compact" == *'"ok":true'* && "$compact" == *'"workflowRuntime":"up"'* ]]; then
+        return 0
+      fi
+      printf '%s' "$body"
+      return 1
+      ;;
+    nats)
+      body="$(curl_body "${NATS_MONITOR_URL}/healthz" 2>&1)" || return 1
+      compact="$(printf '%s' "$body" | tr -d '[:space:]')"
       case "$compact" in
-        *'"status":"ready"'*) return 0 ;;
+        *'"status":"ok"'*) return 0 ;;
       esac
       printf '%s' "$body"
       return 1
@@ -347,6 +372,8 @@ else
   wait_for_probe api-liveness "Rust API /health through configured ingress"
   wait_for_probe api-readiness "Rust API /api/health through configured ingress"
 fi
+wait_for_probe orchestrator "Rust orchestrator workflow runtime"
+wait_for_probe nats "NATS messaging"
 wait_for_probe temporal "Temporal cluster health"
 
 if [ "$FAILURES" -gt 0 ]; then

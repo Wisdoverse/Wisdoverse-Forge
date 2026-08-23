@@ -13,6 +13,19 @@ const beginnerAuditScript = fs.readFileSync(
 )
 
 describe('self-host runtime check', () => {
+  it('requires the container and internal work runtimes before reporting ready', () => {
+    expect(runtimeCheckScript).toContain('"docker":true')
+    expect(runtimeCheckScript).toContain('ORCHESTRATOR_PORT="${ORCHESTRATOR_PORT:-4010}"')
+    expect(runtimeCheckScript).toContain('NATS_MONITOR_PORT="${NATS_MONITOR_PORT:-8222}"')
+    expect(runtimeCheckScript).toContain('${ORCHESTRATOR_BASE_URL}/health/ready')
+    expect(runtimeCheckScript).toContain('"workflowRuntime":"up"')
+    expect(runtimeCheckScript).toContain('${NATS_MONITOR_URL}/healthz')
+    expect(runtimeCheckScript).toContain(
+      'wait_for_probe orchestrator "Rust orchestrator workflow runtime"'
+    )
+    expect(runtimeCheckScript).toContain('wait_for_probe nats "NATS messaging"')
+  })
+
   it('can verify the public default ingress ports explicitly', () => {
     expect(runtimeCheckScript).toContain('--public-ingress')
     expect(runtimeCheckScript).toContain('Public HTTP :80 redirects to HTTPS')
