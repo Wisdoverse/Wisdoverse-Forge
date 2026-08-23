@@ -11,11 +11,9 @@
     "isolatedModules": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
-      "@app/*": ["src/app/*"],
-      "@shared/*": ["shared/*"]
+      "@app/*": ["./src/app/*"],
+      "@shared/*": ["./shared/*"]
     },
     "jsx": "react-jsx",
     "jsxImportSource": "react"
