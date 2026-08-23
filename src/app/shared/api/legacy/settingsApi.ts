@@ -295,7 +295,7 @@ function extractRuntimeSettings(data: Record<string, unknown>): RuntimeSettings 
     availableRuntimes: Array.isArray(payload.availableRuntimes)
       ? (payload.availableRuntimes as RuntimeType[])
       : ['container', 'api'],
-    defaultCliTool: (payload.defaultCliTool as CliTool) || 'claude',
+    defaultCliTool: (payload.defaultCliTool as CliTool) || 'codex',
     availableCliTools,
     cliToolDetails:
       rawDetails.length > 0

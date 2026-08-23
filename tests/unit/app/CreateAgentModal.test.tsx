@@ -194,7 +194,7 @@ describe('CreateAgentModal', () => {
     expect(screen.queryByText('Fills in the name and first task')).toBeNull()
     expect(screen.queryByText('Updates the work and checks it')).toBeNull()
     expect(screen.queryByText('Builds changes and checks them')).toBeNull()
-    expect(screen.getAllByText(/claude with project files/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/codex with project files/i).length).toBeGreaterThan(0)
     expect(screen.queryByText('Project files are included')).toBeNull()
     expect(screen.queryByText('Shared project folder')).toBeNull()
     expect(screen.queryByText('Check Where agents work in Settings')).toBeNull()
@@ -252,7 +252,7 @@ describe('CreateAgentModal', () => {
     expect(within(review).getByText('After creation')).toBeInTheDocument()
     expect(within(review).queryByText('Work style')).toBeNull()
     expect(within(review).queryByText('Created state')).toBeNull()
-    expect(within(review).getByText(/claude with project files/i)).toBeInTheDocument()
+    expect(within(review).getByText(/codex with project files/i)).toBeInTheDocument()
     expect(within(review).getByText('Choose a project before sending tasks.')).toBeInTheDocument()
     expect(within(review).queryByText('No project selected yet')).toBeNull()
     expect(
@@ -1359,7 +1359,7 @@ describe('CreateAgentModal', () => {
     expect(payload).toMatchObject({
       kind: 'cli',
       name: 'CLI Worker',
-      cliTool: 'claude',
+      cliTool: 'codex',
       cwd: '/workspace',
       workspaceId: 'w1',
       projectId: 'p1',

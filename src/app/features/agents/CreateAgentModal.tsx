@@ -250,7 +250,7 @@ function buildDefaultValues(
   return {
     name: '',
     kind: initialKind ?? (provider ? 'provider' : 'cli'),
-    cliTool: 'claude',
+    cliTool: 'codex',
     providerId: provider?.id ?? '',
     model: provider?.model ?? '',
     cwd: DEFAULT_AGENT_CWD,

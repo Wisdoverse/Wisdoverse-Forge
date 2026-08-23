@@ -184,6 +184,21 @@ describe('Legacy API adapter — URL prefixes', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/v1/'), expect.any(Object))
   })
 
+  it('defaults a missing runtime CLI tool to Codex', async () => {
+    initLegacyApis(makeAuthManager(), () => {})
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve({ ok: true, data: { defaultRuntime: 'container' } }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const settings = await getSettingsApi().getRuntimeSettings()
+
+    expect(settings.defaultCliTool).toBe('codex')
+  })
+
   it('BillingAPI calls /api prefix (not /api/v1)', async () => {
     const am = makeAuthManager()
     initLegacyApis(am, () => {})

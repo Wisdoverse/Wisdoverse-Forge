@@ -297,7 +297,7 @@ impl RuntimeSettingsPolicy {
     }
 
     pub(crate) fn default_cli_tool() -> &'static str {
-        CliToolKind::Claude.as_str()
+        CliToolKind::Codex.as_str()
     }
 
     pub(crate) fn available_runtimes() -> Vec<String> {
@@ -530,7 +530,7 @@ mod tests {
     #[test]
     fn runtime_settings_policy_exposes_defaults_and_available_values() {
         assert_eq!(RuntimeSettingsPolicy::default_runtime(), "container");
-        assert_eq!(RuntimeSettingsPolicy::default_cli_tool(), "claude");
+        assert_eq!(RuntimeSettingsPolicy::default_cli_tool(), "codex");
         assert_eq!(
             RuntimeSettingsPolicy::available_runtimes(),
             vec!["container".to_string(), "cli".to_string(), "api".to_string()]
@@ -558,7 +558,7 @@ mod tests {
     fn runtime_settings_defaults_are_frontend_contract() {
         let defaults = RuntimeSettings::default();
         assert_eq!(defaults.default_runtime, "container");
-        assert_eq!(defaults.default_cli_tool, "claude");
+        assert_eq!(defaults.default_cli_tool, "codex");
         assert!(defaults.available_runtimes.contains(&"api".to_string()));
         assert!(defaults.available_cli_tools.contains(&"claude".to_string()));
     }
@@ -622,7 +622,7 @@ mod tests {
         let value = runtime_settings_persistence_value(&runtime).unwrap();
 
         assert_eq!(value["defaultRuntime"], "container");
-        assert_eq!(value["defaultCliTool"], "claude");
+        assert_eq!(value["defaultCliTool"], "codex");
         assert!(value.get("ok").is_none());
     }
 
