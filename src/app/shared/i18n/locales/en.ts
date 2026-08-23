@@ -156,9 +156,10 @@ export const en = {
       },
       agent: {
         title: 'Agent',
-        empty: 'Create one simple agent: Simple chat agent, Project files, or this computer.',
-        why: 'Agents receive tasks and return results. Start with one simple agent.',
-        success: 'At least one agent appears in the Agents page.',
+        empty:
+          'Create one task agent with Project files or this computer. Simple chat agents are for Chat only.',
+        why: 'Task agents receive tasks and return results. Simple chat agents answer in Chat.',
+        success: 'At least one Project files or this computer agent appears in the Agents page.',
         create: 'Add agent',
         review: 'Open agents',
       },

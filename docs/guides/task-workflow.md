@@ -11,10 +11,11 @@ The primary workflow is:
 1. Prepare workspace routing.
 2. Confirm runtime readiness.
 3. Add a provider or Container CLI credential.
-4. Create an agent.
-5. Create and assign a task.
-6. Review execution, artifacts, evidence, and context.
-7. Save reusable learning as a skill draft when completed work is durable.
+4. Create a task-capable agent.
+5. Set up a place for new tasks in the selected project.
+6. Create and assign a task.
+7. Review execution, artifacts, evidence, and context.
+8. Save reusable learning when completed work is durable.
 
 ## Prerequisites
 
@@ -37,9 +38,10 @@ product:
 | Workspace              | Settings -> Projects                         | A team and project exist for task routing.                                                          |
 | Runtime                | Settings -> Runtime                          | At least one runtime and one Container CLI option are available.                                    |
 | Provider or credential | Settings -> Providers or Settings -> Runtime | Provider-backed agents have a tested provider, or Container CLI agents have a connected credential. |
-| Agent                  | Agents                                       | An agent exists with a runtime, model or CLI tool, and project context.                             |
+| Agent                  | Agents                                       | A Project files or This computer agent exists. Simple chat agents remain Chat-only.                 |
+| Place for new tasks    | Agents                                       | The selected project has a place where new tasks can wait.                                          |
 | First task             | Tasks                                        | A task is created in the selected project task group.                                               |
-| Review                 | Tasks -> task detail                         | The Work, Result, Context, and Updates tabs show the task lifecycle.                                |
+| Review                 | Tasks -> task document                       | Brief, Result, Activity, Context, and Details show the task lifecycle.                              |
 | Reusable learning      | Skills or Context                            | Completed work can be reviewed and drafted as a skill.                                              |
 
 ## Runtime Readiness
@@ -144,17 +146,15 @@ Troubleshooting:
 
 ## Task Review
 
-Open a task from the board to review the work. The detail panel is the primary
-review surface:
+Open a task from the board to review the work. The task document shows:
 
-| Tab     | Purpose                                                                                   |
-| ------- | ----------------------------------------------------------------------------------------- |
-| Work    | Brief, assignment, execution state, artifacts/evidence summary, and final review actions. |
-| Result  | Completed task artifacts rendered from the task result payload.                           |
-| Context | Context candidates and injection state when governance or injection features are enabled. |
-| Updates | Execution attempts from task runs plus lifecycle status.                                  |
+- **Brief** and assignment guidance in the main document.
+- **Result** files below the brief when output exists.
+- **Activity** below the document, including execution attempts and lifecycle
+  status.
+- **Context** (when enabled) and **Details** in the right rail on wide screens.
 
-The Updates tab reads real execution attempts from:
+Activity reads real execution attempts from:
 
 ```text
 GET /api/v1/orchestration/tasks/{id}/runs
@@ -165,14 +165,10 @@ a failed retry path.
 
 ## Reusable Learning
 
-When a task is completed, the Work tab can open the skill draft flow. The draft
-is prefilled from the task title, task body, result artifacts, and evidence or
-context hints. Review the draft before publishing so transient task details do
-not become reusable instructions.
-
-After publishing, attach the skill to the agents that should reuse it. The
-agent profile shows recent task activity and applied skill counts so reviewers
-can confirm whether the agent is actually using reusable learning.
+When completed work reveals reusable guidance, open Context or Skills and keep
+only durable steps. After publishing a skill, attach it to the agents that
+should reuse it. The agent profile shows recent task activity and applied skill
+counts so reviewers can confirm whether the agent is using that learning.
 
 ## Validation
 
@@ -183,7 +179,7 @@ npm run fsd:check
 npm run lint
 npm run format:check
 npm run typecheck
-npm run test:unit -- --run tests/unit/app/GettingStartedView.test.tsx tests/unit/app/BoardView.test.tsx tests/unit/app/TaskDetailPanel.test.tsx tests/unit/app/AgentDetailView.test.tsx
+npm run test:unit -- --run tests/unit/app/GettingStartedView.test.tsx tests/unit/app/BoardView.test.tsx tests/unit/app/TaskDocumentBody.test.tsx tests/unit/app/TaskDocumentPage.test.tsx tests/unit/app/AgentDetailView.test.tsx
 ```
 
 For Rust API changes in runtime settings or orchestration task runs, also run:

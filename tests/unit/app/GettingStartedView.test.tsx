@@ -417,6 +417,28 @@ describe('GettingStartedView', () => {
     expect(screen.queryByText(/simple chat is ready for agent work/i)).toBeNull()
   })
 
+  test('does not count a chat-only agent as ready for Tasks', async () => {
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'chat-agent',
+          name: 'Chat Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          runtimeKind: 'api',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<GettingStartedView />)
+
+    expect(await screen.findByTestId('getting-started-progress')).toHaveTextContent('0/8')
+  })
+
   test('explains where tasks wait without queue wording', async () => {
     useNavigationStore.setState({
       teams: [

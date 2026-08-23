@@ -118,6 +118,28 @@ describe('SidebarNav', () => {
     ).not.toBeInTheDocument()
   })
 
+  test('does not count a chat-only agent in setup progress', () => {
+    useAgentsStore.setState({
+      agents: [
+        {
+          id: 'chat-agent',
+          name: 'Chat Agent',
+          provider: 'model-service',
+          model: 'general-model',
+          runtimeKind: 'api',
+          status: 'idle',
+          tasksCompleted: 0,
+          tasksInProgress: 0,
+          successRate: 0,
+        },
+      ],
+    })
+
+    render(<SidebarNav expanded={false} activePath="/tasks" onNavigate={() => {}} />)
+
+    expect(screen.getByTestId('setup-checklist-nav-badge')).toHaveTextContent('0/8')
+  })
+
   test('labels secondary navigation and signs out of Forge', () => {
     render(
       <SidebarNav
