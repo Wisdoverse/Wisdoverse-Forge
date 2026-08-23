@@ -431,7 +431,23 @@ export function AppLayout({
             ...(data.assignedTo ? { assignedTo: data.assignedTo } : {}),
           })
           if (response.ok && response.task) {
-            upsertTask(response.task)
+            let task = response.task
+            if (!data.assignedTo) {
+              try {
+                const startResponse = await orchestrationApi.updateTask(task.id, {
+                  state: 'queued',
+                })
+                if (!startResponse.ok || !startResponse.task) throw startResponse
+                task = startResponse.task
+              } catch {
+                upsertTask(task)
+                setTaskCreatedMessage(
+                  'Task saved but not started. Move it to Waiting to start to retry.'
+                )
+                return
+              }
+            }
+            upsertTask(task)
             setTaskCreatedMessage(
               'Task saved on the board. Watch it there for progress, then open it when it is ready to check.'
             )

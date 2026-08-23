@@ -7,6 +7,7 @@ import { useSettingsStore } from '@app/entities/settings'
 
 const mockGetParticipants = vi.fn()
 const mockCreateTask = vi.fn()
+const mockUpdateTask = vi.fn()
 const mockGetGroups = vi.fn()
 const mockCreateGroup = vi.fn()
 const routerState = vi.hoisted(() => ({ path: '/tasks' }))
@@ -32,6 +33,7 @@ vi.mock('@app/shared/api/orchestration', () => ({
   orchestrationApi: {
     getParticipants: (...args: unknown[]) => mockGetParticipants(...args),
     createTask: (...args: unknown[]) => mockCreateTask(...args),
+    updateTask: (...args: unknown[]) => mockUpdateTask(...args),
   },
 }))
 
@@ -58,7 +60,23 @@ beforeEach(() => {
     task: {
       id: 'modal-task-1',
       groupId: 'group-1',
-      state: 'backlog',
+      state: 'working',
+      method: 'tasks/send',
+      params: { task: 'Modal task', message: 'Details' },
+      assignedTo: 'agent-1',
+      assignedAgentName: 'Agent One',
+      priority: 'high',
+      progress: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  })
+  mockUpdateTask.mockResolvedValue({
+    ok: true,
+    task: {
+      id: 'modal-task-1',
+      groupId: 'group-1',
+      state: 'working',
       method: 'tasks/send',
       params: { task: 'Modal task', message: 'Details' },
       assignedTo: 'agent-1',
@@ -658,15 +676,106 @@ describe('AppLayout', () => {
       })
     )
     await waitFor(() => {
-      expect(useBoardStore.getState().columns.backlog.map((task) => task.id)).toContain(
+      expect(useBoardStore.getState().columns.working.map((task) => task.id)).toContain(
         'modal-task-1'
       )
     })
+    expect(mockUpdateTask).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
     const status = screen.getByTestId('task-created-status')
     expect(status).toHaveAttribute('role', 'status')
     expect(status).toHaveTextContent(
       'Task saved on the board. Watch it there for progress, then open it when it is ready to check.'
+    )
+  })
+
+  test('starts an unassigned task created from the New Task modal', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockCreateTask.mockResolvedValueOnce({
+      ok: true,
+      task: {
+        id: 'modal-task-1',
+        groupId: 'group-1',
+        state: 'backlog',
+        method: 'tasks/send',
+        params: {
+          task: 'Start this task',
+          message: 'Where to work:\n- Forge\n\nDone when:\n- it starts',
+        },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Start this task' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: { value: 'Where to work:\n- Forge\n\nDone when:\n- it starts' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+
+    await waitFor(() =>
+      expect(mockUpdateTask).toHaveBeenCalledWith('modal-task-1', { state: 'queued' })
+    )
+    expect(useBoardStore.getState().columns.working.map((task) => task.id)).toContain(
+      'modal-task-1'
+    )
+    expect(useBoardStore.getState().columns.backlog.map((task) => task.id)).not.toContain(
+      'modal-task-1'
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  test('keeps a created task when starting it fails', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    mockCreateTask.mockResolvedValueOnce({
+      ok: true,
+      task: {
+        id: 'modal-task-1',
+        groupId: 'group-1',
+        state: 'backlog',
+        method: 'tasks/send',
+        params: {
+          task: 'Saved task',
+          message: 'Where to work:\n- Forge\n\nDone when:\n- it starts',
+        },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+    mockUpdateTask.mockRejectedValueOnce(new Error('start failed'))
+
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Saved task' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: { value: 'Where to work:\n- Forge\n\nDone when:\n- it starts' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }))
+
+    await waitFor(() => expect(mockUpdateTask).toHaveBeenCalledTimes(1))
+    expect(mockCreateTask).toHaveBeenCalledTimes(1)
+    expect(useBoardStore.getState().columns.backlog.map((task) => task.id)).toContain(
+      'modal-task-1'
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('task-created-status')).toHaveTextContent(
+      'Task saved but not started. Move it to Waiting to start to retry.'
     )
   })
 
