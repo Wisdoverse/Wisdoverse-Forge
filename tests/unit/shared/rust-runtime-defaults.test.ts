@@ -205,8 +205,14 @@ describe('rust runtime defaults', () => {
     const compose = parseCompose(prodComposePath)
     const services = compose.services ?? {}
     const rustApi = services['agentforge-server'] as { depends_on?: unknown; environment?: unknown }
+    const orchestrator = services.orchestrator as {
+      depends_on?: Record<string, { condition?: string }>
+    }
+    const temporal = services.temporal as { healthcheck?: { test?: unknown } }
 
     expect(services).toHaveProperty('agentforge-server')
+    expect(services).toHaveProperty('orchestrator')
+    expect(services).toHaveProperty('temporal')
     expect(services).toHaveProperty('backup')
     for (const legacyService of legacyServiceNames) {
       expect(services).not.toHaveProperty(legacyService)
@@ -217,6 +223,17 @@ describe('rust runtime defaults', () => {
 
     expectDependsOnService(rustApi.depends_on, 'db')
     expectDependsOnService(rustApi.depends_on, 'redis')
+    expect(temporal.healthcheck?.test).toEqual([
+      'CMD',
+      'temporal',
+      'operator',
+      'namespace',
+      'describe',
+      'default',
+      '--address',
+      'temporal-internal:7233',
+    ])
+    expect(orchestrator.depends_on?.temporal?.condition).toBe('service_healthy')
 
     const rustApiStrings = collectStrings(rustApi.environment)
     expect(rustApiStrings).toContain(
