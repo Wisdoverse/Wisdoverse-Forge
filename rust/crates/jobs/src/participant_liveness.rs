@@ -159,58 +159,128 @@ pub(crate) const RECONCILE_ORPHANED_BUSY_SQL: &str = r#"UPDATE participants
            )
         RETURNING *"#;
 
-pub(crate) const LOCK_PARTICIPANT_SQL: &str = r#"SELECT *
-          FROM participants
-         WHERE agent_id = $1
-         FOR UPDATE"#;
+pub(crate) const LOCK_PARTICIPANT_SQL: &str = r#"SELECT participant.*
+          FROM participants participant
+          JOIN agents agent
+            ON agent.id = participant.agent_id
+           AND agent.organization_id = participant.organization_id
+         WHERE participant.agent_id = $1
+         FOR UPDATE OF participant, agent"#;
 
-pub(crate) const NEXT_DISPATCHABLE_SQL: &str = r#"SELECT *
-          FROM orchestration_tasks
-         WHERE organization_id = $1
-           AND status IN ('queued', 'blocked')
-           AND (blocked_reason IS NULL OR blocked_reason = 'waiting_agent')
-           AND assigned_agent_id IS NULL
+pub(crate) const NEXT_DISPATCHABLE_SQL: &str = r#"SELECT task.*
+          FROM orchestration_tasks task
+          JOIN groups task_group
+            ON task_group.id = task.group_id
+           AND task_group.organization_id = task.organization_id
+           AND task_group.deleted_at IS NULL
+          JOIN projects task_project
+            ON task_project.id = task_group.project_id
+           AND task_project.organization_id = task.organization_id
+           AND task_project.deleted_at IS NULL
+          JOIN workspaces task_workspace
+            ON task_workspace.id = task_project.workspace_id
+           AND task_workspace.organization_id = task.organization_id
+           AND task_workspace.deleted_at IS NULL
+          JOIN participants participant
+            ON participant.agent_id = $2
+           AND participant.organization_id = task.organization_id
+          JOIN agents agent
+            ON agent.id = participant.agent_id
+           AND agent.organization_id = participant.organization_id
+         WHERE task.organization_id = $1
+           AND task.status IN ('queued', 'blocked')
+           AND (task.blocked_reason IS NULL OR task.blocked_reason = 'waiting_agent')
+           AND task.assigned_agent_id IS NULL
+           AND participant.status = 'available'
+           AND agent.workspace_id = task_project.workspace_id
+           AND EXISTS (
+                 SELECT 1
+                   FROM unnest(participant.capabilities) capability
+                  WHERE btrim(capability) <> ''
+               )
            -- Image tasks are bound to a specific vision-capable container agent
            -- and need server-side image materialization that this self-claim
            -- lane cannot perform; never auto-dispatch one here (it would run the
            -- CLI without its images and bypass the vision/workspace gates).
            AND COALESCE(
-                 CASE WHEN jsonb_typeof(params -> 'imageAttachmentIds') = 'array'
-                      THEN jsonb_array_length(params -> 'imageAttachmentIds')
+                 CASE WHEN jsonb_typeof(task.params -> 'imageAttachmentIds') = 'array'
+                      THEN jsonb_array_length(task.params -> 'imageAttachmentIds')
                       ELSE 0 END,
                  0) = 0
          ORDER BY
-           CASE priority
+           CASE WHEN agent.project_id = task_project.id THEN 0 ELSE 1 END,
+           CASE task.priority
              WHEN 'urgent' THEN 0
              WHEN 'high'   THEN 1
              WHEN 'normal' THEN 2
              WHEN 'low'    THEN 3
              ELSE 4
            END,
-           created_at ASC
-         FOR UPDATE SKIP LOCKED
+           task.created_at ASC
+         FOR UPDATE OF task SKIP LOCKED
          LIMIT 1"#;
 
-pub(crate) const AVAILABLE_PARTICIPANTS_SQL: &str = r#"SELECT agent_id
-          FROM participants
-         WHERE status = 'available'
+pub(crate) const AVAILABLE_PARTICIPANTS_SQL: &str = r#"SELECT participant.agent_id
+          FROM participants participant
+          JOIN agents agent
+            ON agent.id = participant.agent_id
+           AND agent.organization_id = participant.organization_id
+         WHERE participant.status = 'available'
+           AND EXISTS (
+                 SELECT 1
+                   FROM unnest(participant.capabilities) capability
+                  WHERE btrim(capability) <> ''
+               )
          ORDER BY last_heartbeat_at DESC NULLS LAST"#;
 
-pub(crate) const CLAIM_TASK_SQL: &str = r#"UPDATE orchestration_tasks
+pub(crate) const CLAIM_TASK_SQL: &str = r#"UPDATE orchestration_tasks task
            SET assigned_agent_id = $3,
                status = 'working',
                blocked_reason = NULL,
                blocked_metadata = NULL,
-               started_at = COALESCE(started_at, NOW()),
-               attempt = attempt + 1,
+               started_at = COALESCE(task.started_at, NOW()),
+               attempt = task.attempt + 1,
                lease_expires_at = NOW() + ($5::text || ' seconds')::interval,
                last_assignment_id = $4,
                failure_code = NULL,
                retryable = FALSE,
                updated_at = NOW()
-         WHERE id = $1
-           AND organization_id = $2
-         RETURNING *"#;
+          FROM groups task_group,
+               projects task_project,
+               workspaces task_workspace,
+               agents agent,
+               participants participant
+         WHERE task.id = $1
+           AND task.organization_id = $2
+           AND task.status IN ('queued', 'blocked')
+           AND (task.blocked_reason IS NULL OR task.blocked_reason = 'waiting_agent')
+           AND task.assigned_agent_id IS NULL
+           AND task_group.id = task.group_id
+           AND task_group.organization_id = task.organization_id
+           AND task_group.deleted_at IS NULL
+           AND task_project.id = task_group.project_id
+           AND task_project.organization_id = task.organization_id
+           AND task_project.deleted_at IS NULL
+           AND task_workspace.id = task_project.workspace_id
+           AND task_workspace.organization_id = task.organization_id
+           AND task_workspace.deleted_at IS NULL
+           AND agent.id = $3
+           AND agent.organization_id = task.organization_id
+           AND agent.workspace_id = task_project.workspace_id
+           AND participant.agent_id = agent.id
+           AND participant.organization_id = task.organization_id
+           AND participant.status = 'available'
+           AND EXISTS (
+                 SELECT 1
+                   FROM unnest(participant.capabilities) capability
+                  WHERE btrim(capability) <> ''
+               )
+           AND COALESCE(
+                 CASE WHEN jsonb_typeof(task.params -> 'imageAttachmentIds') = 'array'
+                      THEN jsonb_array_length(task.params -> 'imageAttachmentIds')
+                      ELSE 0 END,
+                 0) = 0
+         RETURNING task.*"#;
 
 pub(crate) const INSERT_TASK_RUN_SQL: &str = r#"INSERT INTO task_runs
            (id, organization_id, workspace_id, orchestration_task_id, agent_id,
@@ -807,13 +877,16 @@ async fn claim_next_task_for_participant(
         return Ok(None);
     };
 
-    if participant.status != "available" {
+    if participant.status != "available"
+        || !participant.capabilities.iter().any(|capability| !capability.trim().is_empty())
+    {
         tx.commit().await?;
         return Ok(None);
     }
 
     let Some(task) = sqlx::query_as::<_, OrchestrationTask>(NEXT_DISPATCHABLE_SQL)
         .bind(participant.organization_id.as_uuid())
+        .bind(agent_id)
         .fetch_optional(&mut *tx)
         .await?
     else {
@@ -822,7 +895,7 @@ async fn claim_next_task_for_participant(
     };
 
     let delivery_id = Uuid::now_v7();
-    let claimed_task = sqlx::query_as::<_, OrchestrationTask>(CLAIM_TASK_SQL)
+    let Some(claimed_task) = sqlx::query_as::<_, OrchestrationTask>(CLAIM_TASK_SQL)
         .bind(task.id)
         .bind(participant.organization_id.as_uuid())
         .bind(agent_id)
@@ -830,7 +903,10 @@ async fn claim_next_task_for_participant(
         .bind(DEFAULT_ASSIGNMENT_LEASE_SECS.to_string())
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| anyhow!("failed to claim task {}", task.id))?;
+    else {
+        tx.commit().await?;
+        return Ok(None);
+    };
 
     let delivery_id = claimed_task
         .last_assignment_id
@@ -972,6 +1048,144 @@ fn participant_status_for_ws(status: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct DispatchFixture {
+        org_id: Uuid,
+        user_id: Uuid,
+        workspace_a: Uuid,
+        workspace_b: Uuid,
+        project_a: Uuid,
+        project_a_fallback: Uuid,
+        project_b: Uuid,
+        group_a: Uuid,
+        group_a_fallback: Uuid,
+        group_b: Uuid,
+    }
+
+    async fn seed_dispatch_fixture(pool: &PgPool) -> DispatchFixture {
+        let fixture = DispatchFixture {
+            org_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            workspace_a: Uuid::new_v4(),
+            workspace_b: Uuid::new_v4(),
+            project_a: Uuid::new_v4(),
+            project_a_fallback: Uuid::new_v4(),
+            project_b: Uuid::new_v4(),
+            group_a: Uuid::new_v4(),
+            group_a_fallback: Uuid::new_v4(),
+            group_b: Uuid::new_v4(),
+        };
+        let team_id = Uuid::new_v4();
+
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Dispatch Org', $2)")
+            .bind(fixture.org_id)
+            .bind(format!("dispatch-{}", fixture.org_id))
+            .execute(pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(fixture.user_id)
+            .bind(format!("u-{}@example.com", fixture.user_id))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        sqlx::query("INSERT INTO teams (id, organization_id, name, slug) VALUES ($1, $2, 'Dispatch', $3)")
+            .bind(team_id)
+            .bind(fixture.org_id)
+            .bind(format!("dispatch-{team_id}"))
+            .execute(pool)
+            .await
+            .expect("seed team");
+        for (workspace_id, name) in [(fixture.workspace_a, "Workspace A"), (fixture.workspace_b, "Workspace B")] {
+            sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $2, $3)")
+                .bind(workspace_id)
+                .bind(fixture.org_id)
+                .bind(name)
+                .execute(pool)
+                .await
+                .expect("seed workspace");
+        }
+        for (project_id, workspace_id, name) in [
+            (fixture.project_a, fixture.workspace_a, "Project A"),
+            (fixture.project_a_fallback, fixture.workspace_a, "Project A fallback"),
+            (fixture.project_b, fixture.workspace_b, "Project B"),
+        ] {
+            sqlx::query(
+                "INSERT INTO projects (id, organization_id, workspace_id, team_id, name, slug) \
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(project_id)
+            .bind(fixture.org_id)
+            .bind(workspace_id)
+            .bind(team_id)
+            .bind(name)
+            .bind(format!("project-{project_id}"))
+            .execute(pool)
+            .await
+            .expect("seed project");
+        }
+        for (group_id, project_id, name) in [
+            (fixture.group_a, fixture.project_a, "Group A"),
+            (fixture.group_a_fallback, fixture.project_a_fallback, "Group A fallback"),
+            (fixture.group_b, fixture.project_b, "Group B"),
+        ] {
+            sqlx::query(
+                "INSERT INTO groups (id, organization_id, project_id, name, created_by) VALUES ($1, $2, $3, $4, $5)",
+            )
+            .bind(group_id)
+            .bind(fixture.org_id)
+            .bind(project_id)
+            .bind(name)
+            .bind(fixture.user_id)
+            .execute(pool)
+            .await
+            .expect("seed group");
+        }
+        fixture
+    }
+
+    async fn seed_agent_participant(pool: &PgPool, fixture: &DispatchFixture) -> Uuid {
+        let agent_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, status) \
+             VALUES ($1, $2, $3, $4, $5, 'dispatch-agent', 'idle')",
+        )
+        .bind(agent_id)
+        .bind(fixture.org_id)
+        .bind(fixture.workspace_a)
+        .bind(fixture.project_a)
+        .bind(fixture.user_id)
+        .execute(pool)
+        .await
+        .expect("seed agent");
+        sqlx::query(
+            "INSERT INTO participants (organization_id, agent_id, name, capabilities, status, last_heartbeat_at) \
+             VALUES ($1, $2, 'dispatch-agent', ARRAY['codex'], 'available', NOW())",
+        )
+        .bind(fixture.org_id)
+        .bind(agent_id)
+        .execute(pool)
+        .await
+        .expect("seed participant");
+        agent_id
+    }
+
+    async fn seed_dispatch_task(pool: &PgPool, fixture: &DispatchFixture, group_id: Option<Uuid>, title: &str) -> Uuid {
+        let task_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO orchestration_tasks (id, organization_id, group_id, title, status, priority, created_by) \
+             VALUES ($1, $2, $3, $4, 'queued', 'normal', $5)",
+        )
+        .bind(task_id)
+        .bind(fixture.org_id)
+        .bind(group_id)
+        .bind(title)
+        .bind(fixture.user_id)
+        .execute(pool)
+        .await
+        .expect("seed task");
+        task_id
+    }
 
     // -------------------------------------------------------------------------
     // heartbeat_is_degraded tests (issue #808)
@@ -1168,11 +1382,88 @@ mod tests {
     }
 
     #[test]
+    fn dispatch_sql_locks_only_the_routed_task_row() {
+        assert!(NEXT_DISPATCHABLE_SQL.contains("SELECT task.*"));
+        assert!(NEXT_DISPATCHABLE_SQL.contains("FOR UPDATE OF task SKIP LOCKED"));
+        assert!(NEXT_DISPATCHABLE_SQL.contains("agent.workspace_id = task_project.workspace_id"));
+        assert!(CLAIM_TASK_SQL.contains("agent.workspace_id = task_project.workspace_id"));
+    }
+
+    #[test]
     fn participant_status_maps_to_ws_contract() {
         assert_eq!(participant_status_for_ws("available"), "online");
         assert_eq!(participant_status_for_ws("busy"), "busy");
         assert_eq!(participant_status_for_ws("offline"), "offline");
         assert_eq!(participant_status_for_ws("unknown"), "online");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_prefers_exact_then_falls_back_within_workspace_and_rechecks_live_route(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let exact = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "Exact").await;
+        let fallback = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a_fallback), "Fallback").await;
+        sqlx::query(
+            "UPDATE orchestration_tasks SET priority = 'urgent', created_at = NOW() - INTERVAL '1 hour' WHERE id = $1",
+        )
+        .bind(fallback)
+        .execute(&pool)
+        .await
+        .expect("prioritize fallback");
+
+        let (claimed, _) =
+            claim_next_task_for_participant(&pool, agent_id).await.expect("claim exact").expect("exact claim");
+        assert_eq!(claimed.id, exact, "exact project must win before task priority");
+
+        sqlx::query("UPDATE participants SET status = 'available' WHERE agent_id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("release participant");
+        sqlx::query("UPDATE projects SET deleted_at = NOW() WHERE id = $1")
+            .bind(fixture.project_a)
+            .execute(&pool)
+            .await
+            .expect("soft-delete agent primary project");
+        let (claimed, _) = claim_next_task_for_participant(&pool, agent_id)
+            .await
+            .expect("claim fallback")
+            .expect("workspace fallback");
+        assert_eq!(claimed.id, fallback, "same-workspace alternate project must be eligible");
+
+        sqlx::query("UPDATE participants SET status = 'available' WHERE agent_id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("release participant again");
+        sqlx::query("UPDATE agents SET workspace_id = $1, project_id = $2 WHERE id = $3")
+            .bind(fixture.workspace_b)
+            .bind(fixture.project_b)
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("move agent to workspace B");
+        let unrouteable = seed_dispatch_task(&pool, &fixture, None, "No route").await;
+        let workspace_a = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "Workspace A").await;
+        let workspace_b = seed_dispatch_task(&pool, &fixture, Some(fixture.group_b), "Workspace B").await;
+        sqlx::query("UPDATE orchestration_tasks SET priority = 'urgent', created_at = NOW() - INTERVAL '2 hours' WHERE id = ANY($1)")
+            .bind([unrouteable, workspace_a])
+            .execute(&pool)
+            .await
+            .expect("prioritize invalid heads");
+        let (claimed, _) = claim_next_task_for_participant(&pool, agent_id)
+            .await
+            .expect("claim after workspace move")
+            .expect("workspace B claim");
+        assert_eq!(claimed.id, workspace_b, "unrouteable and cross-workspace tasks must not starve a valid route");
+
+        sqlx::query("UPDATE participants SET status = 'available', capabilities = '{}' WHERE agent_id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("make participant chat-only");
+        seed_dispatch_task(&pool, &fixture, Some(fixture.group_b), "Chat-only must skip").await;
+        assert!(claim_next_task_for_participant(&pool, agent_id).await.expect("chat-only claim").is_none());
     }
 
     // An image task is bound to a specific vision-capable container agent and
@@ -1182,34 +1473,20 @@ mod tests {
     // vision/workspace gates are bypassed. See task_image_materializer.
     #[sqlx::test(migrations = "../db/migrations")]
     async fn next_dispatchable_excludes_image_tasks(pool: sqlx::PgPool) {
-        use uuid::Uuid;
-
-        let org_id = Uuid::new_v4();
-        let user_id = Uuid::new_v4();
-        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
-            .bind(org_id)
-            .bind("Img Test Org")
-            .bind(format!("img-org-{org_id}"))
-            .execute(&pool)
-            .await
-            .expect("seed org");
-        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
-            .bind(user_id)
-            .bind(format!("u-{user_id}@example.com"))
-            .execute(&pool)
-            .await
-            .expect("seed user");
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
 
         // Image task: unassigned + queued + sorted FIRST (earlier created_at).
         let image_task = Uuid::new_v4();
         sqlx::query(
             r#"INSERT INTO orchestration_tasks
-               (id, organization_id, title, status, created_by, params, created_at, updated_at)
-               VALUES ($1, $2, 'Image', 'queued', $3, $4::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
+               (id, organization_id, group_id, title, status, created_by, params, created_at, updated_at)
+               VALUES ($1, $2, $3, 'Image', 'queued', $4, $5::jsonb, NOW() - INTERVAL '1 hour', NOW())"#,
         )
         .bind(image_task)
-        .bind(org_id)
-        .bind(user_id)
+        .bind(fixture.org_id)
+        .bind(fixture.group_a)
+        .bind(fixture.user_id)
         .bind(serde_json::json!({ "imageAttachmentIds": ["11111111-1111-1111-1111-111111111111"] }))
         .execute(&pool)
         .await
@@ -1219,18 +1496,20 @@ mod tests {
         let plain_task = Uuid::new_v4();
         sqlx::query(
             r#"INSERT INTO orchestration_tasks
-               (id, organization_id, title, status, created_by, created_at, updated_at)
-               VALUES ($1, $2, 'Plain', 'queued', $3, NOW(), NOW())"#,
+               (id, organization_id, group_id, title, status, created_by, created_at, updated_at)
+               VALUES ($1, $2, $3, 'Plain', 'queued', $4, NOW(), NOW())"#,
         )
         .bind(plain_task)
-        .bind(org_id)
-        .bind(user_id)
+        .bind(fixture.org_id)
+        .bind(fixture.group_a)
+        .bind(fixture.user_id)
         .execute(&pool)
         .await
         .expect("seed plain task");
 
         let claimed = sqlx::query_as::<_, OrchestrationTask>(NEXT_DISPATCHABLE_SQL)
-            .bind(org_id)
+            .bind(fixture.org_id)
+            .bind(agent_id)
             .fetch_optional(&pool)
             .await
             .expect("query dispatchable");
@@ -1245,7 +1524,8 @@ mod tests {
             .await
             .expect("del");
         let none = sqlx::query_as::<_, OrchestrationTask>(NEXT_DISPATCHABLE_SQL)
-            .bind(org_id)
+            .bind(fixture.org_id)
+            .bind(agent_id)
             .fetch_optional(&pool)
             .await
             .expect("query dispatchable again");

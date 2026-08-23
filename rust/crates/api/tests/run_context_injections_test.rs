@@ -39,6 +39,7 @@ async fn seed_base(pool: &PgPool, task_text: &str) -> InjectionSeed {
     let user_id = Uuid::new_v4();
     let team_id = Uuid::new_v4();
     let project_id = Uuid::new_v4();
+    let group_id = Uuid::new_v4();
     let agent_id = Uuid::new_v4();
     let task_id = Uuid::new_v4();
 
@@ -99,6 +100,17 @@ async fn seed_base(pool: &PgPool, task_text: &str) -> InjectionSeed {
         .await
         .expect("seed project member");
     sqlx::query(
+        "INSERT INTO groups (id, organization_id, project_id, name, created_by)
+         VALUES ($1, $2, $3, 'Context tasks', $4)",
+    )
+    .bind(group_id)
+    .bind(org_id)
+    .bind(project_id)
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .expect("seed group");
+    sqlx::query(
         "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status, runtime_kind)
          VALUES ($1, $2, $3, $4, $5, 'injection-agent', 'claude', 'idle', 'container')",
     )
@@ -120,11 +132,12 @@ async fn seed_base(pool: &PgPool, task_text: &str) -> InjectionSeed {
     .await
     .expect("seed participant");
     sqlx::query(
-        "INSERT INTO orchestration_tasks (id, organization_id, title, description, status, created_by)
-         VALUES ($1, $2, 'Ship governed context', $3, 'queued', $4)",
+        "INSERT INTO orchestration_tasks (id, organization_id, group_id, title, description, status, created_by)
+         VALUES ($1, $2, $3, 'Ship governed context', $4, 'queued', $5)",
     )
     .bind(task_id)
     .bind(org_id)
+    .bind(group_id)
     .bind(task_text)
     .bind(user_id)
     .execute(pool)

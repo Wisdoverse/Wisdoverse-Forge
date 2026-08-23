@@ -474,10 +474,9 @@ impl OrchestrationService {
         // re-run; the auto-sweep keeps the stricter `can_enter_dispatch`.
         BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
 
-        let participant =
-            self.participant_repo.find_available(scope).await?.ok_or_else(|| -> agentforge_core::AppError {
-                BlockedTaskPolicy::no_available_participants_error().into()
-            })?;
+        let participant = self.participant_repo.find_available(scope, task.id).await?.ok_or_else(
+            || -> agentforge_core::AppError { BlockedTaskPolicy::no_available_participants_error().into() },
+        )?;
 
         self.assign_to_participant(scope, &task, &participant).await
     }
@@ -497,7 +496,7 @@ impl OrchestrationService {
         // patched to queued/unassigned) would just churn on failed dispatch.
         // Block it instead so the operator re-assigns a vision-capable agent.
         if !crate::domain::orchestration::task_image_attachment_ids(task.params.as_ref()).is_empty() {
-            let (available, busy, offline) = self.participant_repo.count_by_status(scope).await?;
+            let (available, busy, offline) = self.participant_repo.count_by_status(scope, task.id).await?;
             let metadata = BlockedTaskPolicy::waiting_agent_metadata(available, busy, offline);
             tracing::info!(task_id = %task.id, "Image task without assignee — blocked pending vision-capable assignment");
             return self
@@ -505,10 +504,10 @@ impl OrchestrationService {
                 .mark_blocked(scope, task.id, BlockedTaskPolicy::waiting_agent_reason(), metadata)
                 .await;
         }
-        match self.participant_repo.find_available(scope).await? {
+        match self.participant_repo.find_available(scope, task.id).await? {
             Some(participant) => self.assign_to_participant(scope, &task, &participant).await,
             None => {
-                let (available, busy, offline) = self.participant_repo.count_by_status(scope).await?;
+                let (available, busy, offline) = self.participant_repo.count_by_status(scope, task.id).await?;
                 let metadata = BlockedTaskPolicy::waiting_agent_metadata(available, busy, offline);
                 tracing::info!(task_id = %task.id, busy, offline, "No available participant — task blocked on waiting_agent");
                 self.task_repo.mark_blocked(scope, task.id, BlockedTaskPolicy::waiting_agent_reason(), metadata).await
@@ -623,7 +622,8 @@ impl OrchestrationService {
             .begin()
             .await
             .map_err(|err| OrchestrationTransactionPolicy::begin_failed("assignment", err))?;
-        ParticipantRepository::update_status_in_tx(&mut tx, scope, participant.agent_id, "busy").await?;
+        let participant =
+            ParticipantRepository::claim_for_task_in_tx(&mut tx, scope, task, participant.agent_id).await?;
         let task = match OrchestrationTaskRepository::assign_agent_in_tx(
             &mut tx,
             scope,
@@ -646,7 +646,7 @@ impl OrchestrationService {
         let idempotency_key = delivery_id.to_string();
         let resolved_context = match previewed_context {
             Some(resolved_context) => Some(resolved_context),
-            None => match self.resolve_assignment_context(scope, &task, participant).await {
+            None => match self.resolve_assignment_context(scope, &task, &participant).await {
                 Ok(resolved_context) => resolved_context,
                 Err(err) => {
                     let _ = tx.rollback().await;
@@ -788,11 +788,6 @@ impl OrchestrationService {
     pub async fn sweep_dispatchable(&self, scope: &TenantScope) -> AppResult<usize> {
         let mut claimed = 0;
         loop {
-            // Stop once there are no available participants — avoids one
-            // wasted query per pending task.
-            if self.participant_repo.find_available(scope).await?.is_none() {
-                break;
-            }
             let Some(task) = self.task_repo.next_dispatchable(scope).await? else {
                 break;
             };
@@ -1154,7 +1149,8 @@ impl OrchestrationService {
             return Err(err);
         }
 
-        ParticipantRepository::update_status_in_tx(&mut tx, scope, agent_id, "busy").await?;
+        // The lookup above locks participant -> agent before any task FK lock.
+        // Keep the uncommitted insert unassigned; the claim below owns assignment.
         let task = OrchestrationTaskRepository::create_in_tx(
             &mut tx,
             scope,
@@ -1164,9 +1160,9 @@ impl OrchestrationService {
                 description,
                 priority,
                 params: params.as_ref(),
-                assigned_agent_id: Some(agent_id),
+                assigned_agent_id: None,
                 parent_task_id,
-                initial_status: "working",
+                initial_status: "queued",
                 initial_blocked_reason: None,
                 initial_blocked_metadata: None,
                 requires_approval: false,
@@ -1174,6 +1170,7 @@ impl OrchestrationService {
             },
         )
         .await?;
+        let participant = ParticipantRepository::claim_for_task_in_tx(&mut tx, scope, &task, agent_id).await?;
         let task = OrchestrationTaskRepository::assign_agent_in_tx(
             &mut tx,
             scope,

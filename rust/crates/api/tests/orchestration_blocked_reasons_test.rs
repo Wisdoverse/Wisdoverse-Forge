@@ -50,8 +50,8 @@ async fn seed_participant(pool: &PgPool, org_id: Uuid, user_id: Uuid, status: &s
     .await
     .expect("seed agent");
     sqlx::query(
-        r#"INSERT INTO participants (organization_id, agent_id, name, status, last_heartbeat_at)
-           VALUES ($1, $2, 'blocked-reason-agent', $3, NOW())"#,
+        r#"INSERT INTO participants (organization_id, agent_id, name, capabilities, status, last_heartbeat_at)
+           VALUES ($1, $2, 'blocked-reason-agent', ARRAY['task'], $3, NOW())"#,
     )
     .bind(org_id)
     .bind(agent_id)
@@ -60,6 +60,42 @@ async fn seed_participant(pool: &PgPool, org_id: Uuid, user_id: Uuid, status: &s
     .await
     .expect("seed participant");
     agent_id
+}
+
+async fn seed_group(pool: &PgPool, org_id: Uuid, user_id: Uuid) -> Uuid {
+    let team_id = Uuid::new_v4();
+    let project_id = Uuid::new_v4();
+    let group_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO teams (id, organization_id, name, slug) VALUES ($1, $2, 'Platform', $3)")
+        .bind(team_id)
+        .bind(org_id)
+        .bind(format!("platform-{team_id}"))
+        .execute(pool)
+        .await
+        .expect("seed team");
+    sqlx::query(
+        "INSERT INTO projects (id, organization_id, workspace_id, team_id, name, slug)
+         VALUES ($1, $2, $2, $3, 'Blocked reasons', $4)",
+    )
+    .bind(project_id)
+    .bind(org_id)
+    .bind(team_id)
+    .bind(format!("blocked-reasons-{project_id}"))
+    .execute(pool)
+    .await
+    .expect("seed project");
+    sqlx::query(
+        "INSERT INTO groups (id, organization_id, project_id, name, created_by)
+         VALUES ($1, $2, $3, 'Blocked reason tasks', $4)",
+    )
+    .bind(group_id)
+    .bind(org_id)
+    .bind(project_id)
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .expect("seed group");
+    group_id
 }
 
 async fn seed_working_task(pool: &PgPool, org_id: Uuid, user_id: Uuid, agent_id: Option<Uuid>) -> Uuid {
@@ -130,10 +166,11 @@ async fn create_task_blocks_on_missing_required_inputs(pool: PgPool) {
 async fn approve_task_unblocks_and_dispatches_when_agent_available(pool: PgPool) {
     let (org_id, user_id) = seed_org_user(&pool).await;
     let agent_id = seed_participant(&pool, org_id, user_id, "available").await;
+    let group_id = seed_group(&pool, org_id, user_id).await;
     let scope = scope_for(org_id, user_id);
 
     let task = service(pool.clone())
-        .create_task(&scope, "Ship guarded change", None, None, None, None, None, None, true)
+        .create_task(&scope, "Ship guarded change", None, None, None, Some(group_id), None, None, true)
         .await
         .expect("create approval task");
     assert_eq!(task.status, "blocked");
