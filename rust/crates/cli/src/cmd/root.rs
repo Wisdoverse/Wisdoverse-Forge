@@ -32,6 +32,8 @@ pub enum Subcommand {
     Verify(crate::cmd::verify::VerifyArgs),
     /// Verify a published container image against its Sigstore cosign signature.
     VerifyImage(crate::cmd::verify_image::VerifyImageArgs),
+    /// TUF-style trusted metadata for offline release bundles (init/sign/verify/rotate).
+    Tuf(crate::cmd::tuf::TufArgs),
     Health,
     Whoami,
     Version,
@@ -129,6 +131,15 @@ impl Cli {
             }
             Some(Subcommand::Verify(_)) => "verify".into(),
             Some(Subcommand::VerifyImage(_)) => "verify-image".into(),
+            Some(Subcommand::Tuf(a)) => {
+                use crate::cmd::tuf::TufSubcommand;
+                match &a.command {
+                    TufSubcommand::Init(_) => "tuf/init".into(),
+                    TufSubcommand::Sign(_) => "tuf/sign".into(),
+                    TufSubcommand::Verify(_) => "tuf/verify".into(),
+                    TufSubcommand::Rotate(_) => "tuf/rotate".into(),
+                }
+            }
             Some(Subcommand::Health) => "health".into(),
             Some(Subcommand::Whoami) => "whoami".into(),
             Some(Subcommand::Version) => "version".into(),

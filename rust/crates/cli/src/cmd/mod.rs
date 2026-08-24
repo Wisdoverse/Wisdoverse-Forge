@@ -9,6 +9,7 @@ pub mod health;
 pub mod migrate;
 pub mod prelude;
 pub mod root;
+pub mod tuf;
 pub mod verify;
 pub mod verify_image;
 pub mod version;

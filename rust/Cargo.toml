@@ -179,6 +179,8 @@ opentelemetry = { version = "0.32", features = ["trace"] }
 opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "http-proto", "trace"] }
 tracing-opentelemetry = "0.33"
+ed25519-dalek = { version = "2.2", features = ["pkcs8"] }
+pkcs8 = { version = "0.10", features = ["pem"] }
 
 agentforge-cli = { path = "crates/cli" }
 tokio-util = { version = "0.7", features = ["rt"] }

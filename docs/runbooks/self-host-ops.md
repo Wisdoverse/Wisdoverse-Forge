@@ -16,6 +16,7 @@ links to its full guide; this page is the *checklist*.
 | Provision/deprovision webhooks | `AUTH_SSO__DEPROVISION_TOKEN` (+ `POST /api/v1/auth/sso/provision`, `POST /api/v1/auth/deprovision`) | [configuration](../guides/configuration.md) |
 | SCIM 2.0 Users | same token; `GET|POST /api/v1/auth/sso/scim/Users`, `GET|DELETE /Users/{id}` (paged list, create, deactivate) | [configuration](../guides/configuration.md) |
 | OTLP trace export | `OTEL_EXPORTER_OTLP_ENDPOINT` (+ `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_SERVICE_NAME`) | [configuration](../guides/configuration.md) |
+| Offline bundle signing | `BUNDLE_SIGNING_KEY` (Ed25519 PEM) + `agentforge tuf` (root pinning, rotation) | [offline install](../guides/offline-install.md) |
 | Container CLI model | `CODEX_DEFAULT_MODEL`, `CONTAINER_*_API_KEY` | [configuration](../guides/configuration.md) |
 
 ## Weekly checklist
@@ -34,6 +35,9 @@ links to its full guide; this page is the *checklist*.
 6. **OTLP export (when configured)** — after any request, the collector logs
    trace batches with `service.name = agentforge-server`; knob changes need a
    restart.
+7. **Bundle signing** — offline bundles carry `metadata/` (TUF chain) plus
+   `SHA256SUMS.sig`; the host pin (`/etc/agentforge/tuf/root.json`) exists and
+   after a `tuf rotate` every host re-pins at the NEXT rotation.
 
 ## Incident pointers
 
@@ -48,6 +52,9 @@ links to its full guide; this page is the *checklist*.
   not writable by the API process; fix permissions.
 - **`recurring task sweep failed`** — usually a task row FK problem; the log's
   `recurring_task_id` identifies the schedule to pause first.
+- **`tuf verify` rejects the root** — the bundle root was signed by a key
+  that is not your pin (forged/unknown bundle) or downgraded; restore the
+  bundle from the connected host. Rotation must be done with `tuf rotate`.
 - **No traces in the collector** — the server logs
   `agentforge-telemetry: OTLP exporter init failed` on boot when the endpoint
   is unreachable; export is disabled (not fatal). Check the endpoint and

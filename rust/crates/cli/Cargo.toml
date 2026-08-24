@@ -41,6 +41,8 @@ tracing-opentelemetry.workspace = true
 tokio-util.workspace = true
 humantime.workspace = true
 sqlx.workspace = true
+ed25519-dalek.workspace = true
+pkcs8.workspace = true
 
 [dev-dependencies]
 tempfile = "3"

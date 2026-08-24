@@ -30,6 +30,57 @@ Then run the builder with `BUNDLE_SIGNING_KEY=bundle-signing.key`. The bundle
 carries `SHA256SUMS.sig` (raw-in signature over the checksums file); the
 private key never travels. Unsigned bundles warn loudly instead of failing.
 
+When the `agentforge` CLI is on PATH (`cd rust && cargo build -p
+agentforge-cli-bin`), the builder ALSO emits a TUF-style metadata chain under
+`metadata/` — `root.json`, `targets.json`, `snapshot.json`, `timestamp.json` —
+signed by the same Ed25519 key. The chain pins file hashes + sizes (targets),
+hashes targets (snapshot), and hashes snapshot (timestamp); every verify walks
+root → signature → timestamp → snapshot → targets → on-disk file bytes.
+
+### Root pinning (one time per host)
+
+On the connected host, copy the root metadata once **per host** that will load
+bundles (this is the trust anchor; the root file is public — keep a durable
+copy of it somewhere safe):
+
+```bash
+tar -xzf dist/offline-bundle-0.1.15.tar.gz -C /tmp/bundle && \
+  install -d /etc/agentforge/tuf && \
+  cp /tmp/bundle/metadata/root.json /etc/agentforge/tuf/root.json
+```
+
+Or pass `TUF_PIN=<path>` to the loader on first run; after that the pin is
+checked on every load. **Do not** copy a new root from every bundle — a newer
+root is only accepted when at least one PINNED key signed it (key rotation),
+and a downgrade is always rejected.
+
+### Verifying on the air-gapped host
+
+`scripts/load-offline-bundle.sh dist/offline-bundle-*.tar.gz` verifies the TUF
+chain automatically when `metadata/root.json` is present, the `agentforge`
+CLI is installed, and a pin exists (abort otherwise). Manually:
+
+```bash
+agentforge tuf verify --dir dist/offline-bundle-loaded --pin /etc/agentforge/tuf/root.json
+# TUF chain verified: root v1 (pinned), N targets, signatures + hash chain OK.
+```
+
+### Key rotation
+
+Sign a NEW root with the old and new private keys (the old key proves the
+rotation; the new key becomes primary with a grace period where both are
+trusted), then start issuing bundles with the new key:
+
+```bash
+openssl genpkey -algorithm ed25519 -out bundle-signing-new.key
+agentforge tuf rotate --dir dist/offline-bundle --new-key bundle-signing-new.key --old-key bundle-signing.key
+BUNDLE_SIGNING_KEY=bundle-signing-new.key scripts/offline-bundle.sh --full-stack
+```
+
+Hosts with the OLD pin accept the new root (signed by the pinned old key), so
+you can rotate at your cadence without an all-hosts re-pin; re-pin only after
+the next rotation (when the current root becomes the old key of record).
+
 ## 3. Package the bundle
 
 ```bash

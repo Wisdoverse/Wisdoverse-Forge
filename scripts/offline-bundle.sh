@@ -85,6 +85,17 @@ if [ "$DRY_RUN" = 0 ]; then
     fi
     ( cd "$OUT_DIR/offline-bundle" && openssl pkeyutl -sign -rawin -in SHA256SUMS -inkey "$BUNDLE_SIGNING_KEY" -out SHA256SUMS.sig )
     echo "Bundle checksums signed (SHA256SUMS.sig)."
+    # TUF-style metadata chain (root/targets/snapshot/timestamp). Requires the
+    # agentforge CLI on PATH (build: cd rust && cargo build -p agentforge-cli-bin).
+    if command -v agentforge >/dev/null 2>&1; then
+      if [ -f "$OUT_DIR/offline-bundle/metadata/root.json" ]; then
+        ( cd "$OUT_DIR/offline-bundle" && agentforge tuf sign --dir . --key "$BUNDLE_SIGNING_KEY" )
+      else
+        ( cd "$OUT_DIR/offline-bundle" && agentforge tuf init --dir . --key "$BUNDLE_SIGNING_KEY" )
+      fi
+    else
+      echo "agentforge CLI not found; TUF metadata skipped (legacy SHA256SUMS.sig still present)." >&2
+    fi
   else
     echo "No BUNDLE_SIGNING_KEY set; bundle is checksummed but unsigned." >&2
   fi

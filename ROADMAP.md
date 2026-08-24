@@ -410,8 +410,9 @@ of 10–50 runs it daily. Proposed investment areas, in priority order:
    on the air-gapped host, and Ed25519 bundle signing (`BUNDLE_SIGNING_KEY` →
    `SHA256SUMS.sig`, verified with the public key; pkeyutl raw-in) provides a
    TUF-style chain-of-trust starter — see `docs/guides/offline-install.md`.
-   OpenTelemetry trace export shipped (item 8 below); Next: full TUF
-   metadata (key rotation, root pinning). Operator-facing consolidation also
+   Full TUF-style metadata shipped (item 9 below): root pinning + key rotation
+   via the operator CLI. OpenTelemetry trace export shipped (item 8).
+   Operator-facing consolidation also
    shipped: a one-page
    self-host runbook (`docs/runbooks/self-host-ops.md`) with every config knob,
    a weekly checklist, incident pointers, and rotation/upgrade steps.
@@ -425,6 +426,14 @@ of 10–50 runs it daily. Proposed investment areas, in priority order:
    API → NATS → sidecar → container-CLI hops into one trace (see
    `docs/guides/configuration.md`). Prometheus `/metrics` stays the metrics
    path; Next: OTLP metrics + logs export.
+9. **Supply-chain trust (offline bundles)** — full TUF-style metadata shipped:
+   `agentforge tuf` (init/sign/verify/rotate) writes a root → targets →
+   snapshot → timestamp chain under `metadata/`, signed with the bundle
+   Ed25519 key; `verify` enforces root pinning (byte-identical same version,
+   signed-by-pinned-key rotation, rollback rejection) and checks every payload
+   file hash+size; `rotate` re-signs a new root with old+new keys (grace
+   period). The bundle scripts call it automatically when the CLI is on PATH
+   (see `docs/guides/offline-install.md`).
 
 Each area keeps the P3/P4 guardrails: beginner-audit green, activation E2E,
 evidence completeness, and no phone-home. P5 begins only after the P4 exit
