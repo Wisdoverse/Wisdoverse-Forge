@@ -410,10 +410,21 @@ of 10–50 runs it daily. Proposed investment areas, in priority order:
    on the air-gapped host, and Ed25519 bundle signing (`BUNDLE_SIGNING_KEY` →
    `SHA256SUMS.sig`, verified with the public key; pkeyutl raw-in) provides a
    TUF-style chain-of-trust starter — see `docs/guides/offline-install.md`.
-   Next: full TUF metadata (key rotation, root pinning) and OpenTelemetry
-   telemetry export. Operator-facing consolidation also shipped: a one-page
+   OpenTelemetry trace export shipped (item 8 below); Next: full TUF
+   metadata (key rotation, root pinning). Operator-facing consolidation also
+   shipped: a one-page
    self-host runbook (`docs/runbooks/self-host-ops.md`) with every config knob,
    a weekly checklist, incident pointers, and rotation/upgrade steps.
+
+8. **Observability & platform telemetry** — OpenTelemetry trace export
+   shipped: `OTEL_EXPORTER_OTLP_ENDPOINT` (unset = zero-cost no-op) exports
+   spans from the API server and orchestrator over OTLP gRPC (default) or
+   `http/protobuf` (`OTEL_EXPORTER_OTLP_PROTOCOL`) with the standard SDK
+   sampling knobs (`OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`) and
+   `OTEL_SERVICE_NAME` resource override; W3C `traceparent` contexts join the
+   API → NATS → sidecar → container-CLI hops into one trace (see
+   `docs/guides/configuration.md`). Prometheus `/metrics` stays the metrics
+   path; Next: OTLP metrics + logs export.
 
 Each area keeps the P3/P4 guardrails: beginner-audit green, activation E2E,
 evidence completeness, and no phone-home. P5 begins only after the P4 exit

@@ -16,7 +16,7 @@ use opentelemetry::propagation::{Extractor, Injector};
 use opentelemetry::trace::{TraceContextExt, TracerProvider as _};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
-use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 use tracing::Subscriber;
 use tracing_subscriber::Layer;
 use tracing_subscriber::registry::LookupSpan;
@@ -26,10 +26,74 @@ use tracing_subscriber::registry::LookupSpan;
 /// the same way they would for any OTLP-aware service.
 pub const OTLP_ENDPOINT_ENV: &str = "OTEL_EXPORTER_OTLP_ENDPOINT";
 
+/// Standard OTLP wire protocol: `grpc` (default) or `http/protobuf`.
+pub const OTLP_PROTOCOL_ENV: &str = "OTEL_EXPORTER_OTLP_PROTOCOL";
+
+/// Standard sampler knob: always_on, always_off, traceidratio or
+/// parentbased_traceidratio (with `OTEL_TRACES_SAMPLER_ARG` as ratio).
+pub const OTLP_TRACES_SAMPLER_ENV: &str = "OTEL_TRACES_SAMPLER";
+
+/// Sampling ratio (0.0 = none, 1.0 = all) for the `*traceidratio` samplers.
+pub const OTLP_TRACES_SAMPLER_ARG_ENV: &str = "OTEL_TRACES_SAMPLER_ARG";
+
+/// Resource service-name override; defaults to the binary name.
+pub const OTLP_SERVICE_NAME_ENV: &str = "OTEL_SERVICE_NAME";
+
 /// True when OTLP export is requested — the endpoint env var is set and not
 /// blank. Used to gate the exporter so an unconfigured deployment stays a no-op.
 pub fn is_enabled() -> bool {
     std::env::var(OTLP_ENDPOINT_ENV).ok().is_some_and(|value| !value.trim().is_empty())
+}
+
+/// Sampling policy parsed from the standard OTLP env knobs. Unknown sampler
+/// names fall back to always-on so a typo cannot silently drop all traces.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SamplePolicy {
+    AlwaysOn,
+    AlwaysOff,
+    ParentBasedRatio(f64),
+    TraceIdRatio(f64),
+}
+
+impl SamplePolicy {
+    pub(crate) fn from_env() -> Self {
+        let kind = std::env::var(OTLP_TRACES_SAMPLER_ENV).unwrap_or_default().trim().to_string();
+        let ratio = std::env::var(OTLP_TRACES_SAMPLER_ARG_ENV)
+            .ok()
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .unwrap_or(1.0)
+            .clamp(0.0, 1.0);
+        match kind.as_str() {
+            "always_off" => Self::AlwaysOff,
+            "parentbased_traceidratio" => Self::ParentBasedRatio(ratio),
+            "traceidratio" => Self::TraceIdRatio(ratio),
+            // also covers: "", "always_on", "parentbased_always_on"
+            _ => Self::AlwaysOn,
+        }
+    }
+
+    pub(crate) fn to_sampler(self) -> Sampler {
+        match self {
+            Self::AlwaysOn => Sampler::AlwaysOn,
+            Self::AlwaysOff => Sampler::AlwaysOff,
+            Self::ParentBasedRatio(ratio) => Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(ratio))),
+            Self::TraceIdRatio(ratio) => Sampler::TraceIdRatioBased(ratio),
+        }
+    }
+}
+
+/// Build the OTLP span exporter for the wire protocol from
+/// `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc` default, `http/protobuf`). An
+/// unknown value falls back to gRPC with a warning — never a hard error.
+fn build_exporter(protocol: &str) -> Result<opentelemetry_otlp::SpanExporter, opentelemetry_otlp::ExporterBuildError> {
+    match protocol.trim() {
+        "" | "grpc" => opentelemetry_otlp::SpanExporter::builder().with_tonic().build(),
+        "http/protobuf" | "http" => opentelemetry_otlp::SpanExporter::builder().with_http().build(),
+        other => {
+            eprintln!("agentforge-telemetry: unknown OTEL_EXPORTER_OTLP_PROTOCOL {other:?}, falling back to grpc");
+            opentelemetry_otlp::SpanExporter::builder().with_tonic().build()
+        }
+    }
 }
 
 /// Serialize the currently-active span context as a W3C `traceparent` string,
@@ -160,7 +224,8 @@ where
         return None;
     }
 
-    let exporter = match opentelemetry_otlp::SpanExporter::builder().with_tonic().build() {
+    let protocol = std::env::var(OTLP_PROTOCOL_ENV).unwrap_or_default();
+    let exporter = match build_exporter(&protocol) {
         Ok(exporter) => exporter,
         Err(err) => {
             // Never fail process start-up because a collector is unreachable;
@@ -170,19 +235,29 @@ where
         }
     };
 
+    // Leak once at startup: the SDK needs a `&'static str`, and this runs a
+    // single time per process, so the tiny allocation lives for the lifetime.
+    let effective_service_name: &'static str = match std::env::var(OTLP_SERVICE_NAME_ENV) {
+        Ok(value) if !value.trim().is_empty() => Box::leak(value.into_boxed_str()),
+        _ => service_name,
+    };
     let resource = Resource::builder_empty()
-        .with_service_name(service_name.to_string())
+        .with_service_name(effective_service_name.to_string())
         .with_attribute(KeyValue::new("service.version", version.to_string()))
         .build();
 
-    let provider = SdkTracerProvider::builder().with_batch_exporter(exporter).with_resource(resource).build();
+    let provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(resource)
+        .with_sampler(SamplePolicy::from_env().to_sampler())
+        .build();
 
     // W3C `traceparent` propagation so a span started in one service continues
     // in the next hop instead of each service rooting a disconnected trace.
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
     opentelemetry::global::set_tracer_provider(provider.clone());
 
-    let tracer = provider.tracer(service_name);
+    let tracer = provider.tracer(effective_service_name);
     let layer = tracing_opentelemetry::layer().with_tracer(tracer).boxed();
     Some((layer, OtelGuard(provider)))
 }
@@ -206,6 +281,39 @@ mod tests {
 
     // Both env states are checked in one test (not two) because cargo runs
     // tests in parallel and they mutate the same process-global env var.
+    #[test]
+    fn sampler_env_follows_standard_knobs_and_clamps_ratio() {
+        let sampler_previous = std::env::var(OTLP_TRACES_SAMPLER_ENV).ok();
+        let arg_previous = std::env::var(OTLP_TRACES_SAMPLER_ARG_ENV).ok();
+        // SAFETY: this test owns the two env vars for its duration and restores them.
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "parentbased_traceidratio") };
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "0.25") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::ParentBasedRatio(0.25));
+
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "2.0") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::ParentBasedRatio(1.0), "ratios clamp to 1.0");
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "-3") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::ParentBasedRatio(0.0), "ratios clamp to 0.0");
+
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "always_off") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOff);
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "traceidratio") };
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "0.5") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::TraceIdRatio(0.5));
+
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "not-a-sampler") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOn, "unknown sampler falls back to always-on");
+
+        match sampler_previous {
+            Some(value) => unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, value) },
+            None => unsafe { std::env::remove_var(OTLP_TRACES_SAMPLER_ENV) },
+        }
+        match arg_previous {
+            Some(value) => unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, value) },
+            None => unsafe { std::env::remove_var(OTLP_TRACES_SAMPLER_ARG_ENV) },
+        }
+    }
+
     #[test]
     fn export_is_disabled_and_noop_when_endpoint_is_unset_or_blank() {
         let previous = std::env::var(OTLP_ENDPOINT_ENV).ok();

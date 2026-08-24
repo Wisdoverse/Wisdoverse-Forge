@@ -15,6 +15,7 @@ links to its full guide; this page is the *checklist*.
 | SSO | `AUTH_SSO__*` (`ENABLED`, OIDC, `ROLE_CLAIM`, `ADMIN_GROUPS`, `ORG_GROUP_MAP`, `TEAM_GROUP_MAP`, `DEPROVISION`) | [configuration](../guides/configuration.md) |
 | Provision/deprovision webhooks | `AUTH_SSO__DEPROVISION_TOKEN` (+ `POST /api/v1/auth/sso/provision`, `POST /api/v1/auth/deprovision`) | [configuration](../guides/configuration.md) |
 | SCIM 2.0 Users | same token; `GET|POST /api/v1/auth/sso/scim/Users`, `GET|DELETE /Users/{id}` (paged list, create, deactivate) | [configuration](../guides/configuration.md) |
+| OTLP trace export | `OTEL_EXPORTER_OTLP_ENDPOINT` (+ `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_SERVICE_NAME`) | [configuration](../guides/configuration.md) |
 | Container CLI model | `CODEX_DEFAULT_MODEL`, `CONTAINER_*_API_KEY` | [configuration](../guides/configuration.md) |
 
 ## Weekly checklist
@@ -30,6 +31,9 @@ links to its full guide; this page is the *checklist*.
    (`orchestration_tasks` newest rows); the runner ticks every 60 s.
 5. **LLM pricing** — when `LLM_PRICING` is set, Analytics usage rows show
    `≈ $…` estimates (missing models show nothing by design).
+6. **OTLP export (when configured)** — after any request, the collector logs
+   trace batches with `service.name = agentforge-server`; knob changes need a
+   restart.
 
 ## Incident pointers
 
@@ -44,6 +48,10 @@ links to its full guide; this page is the *checklist*.
   not writable by the API process; fix permissions.
 - **`recurring task sweep failed`** — usually a task row FK problem; the log's
   `recurring_task_id` identifies the schedule to pause first.
+- **No traces in the collector** — the server logs
+  `agentforge-telemetry: OTLP exporter init failed` on boot when the endpoint
+  is unreachable; export is disabled (not fatal). Check the endpoint and
+  `OTEL_EXPORTER_OTLP_PROTOCOL`, then restart.
 - **Bundle verification fails** — re-transfer; `SHA256SUMS` is authoritative
   (see [offline install](../guides/offline-install.md)).
 

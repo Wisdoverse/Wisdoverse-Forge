@@ -442,6 +442,69 @@ server-side hard-refused from in-platform merge and routed to a human maintainer
 | `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                                                                             |
 | `MINIO_*`                    | MinIO/S3 settings when using the `storage` profile                                                                           |
 
+## Telemetry Export (OpenTelemetry, optional)
+
+Both the API server and the orchestrator export **spans** over OTLP when you
+point them at an OpenTelemetry Collector (or any OTLP receiver). Unset, the
+binaries keep their JSON/pretty logs and **no exporter code runs** — verdict
+logs and metrics are unaffected, and an unreachable collector can never stop
+a service from starting (export falls back to logs and retries in batches).
+Standard OpenTelemetry SDK variables are used, so any existing collector
+pipeline works unchanged.
+
+| Variable                       | Default                | Purpose                                                                                                      |
+| ------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`  | none (export disabled) | Collector URL, e.g. `http://otel-collector:4317` (gRPC) or `http://otel-collector:4318` (HTTP)                  |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`  | `grpc`                 | `grpc` or `http/protobuf`. Unknown values warn and fall back to `grpc`                                        |
+| `OTEL_TRACES_SAMPLER`          | `always_on`            | `always_on`, `always_off`, `traceidratio`, `parentbased_traceidratio`                                          |
+| `OTEL_TRACES_SAMPLER_ARG`      | `1.0`                  | Sampling ratio (0.0–1.0, clamped) for the `*traceidratio` samplers                                             |
+| `OTEL_SERVICE_NAME`            | binary name            | Resource `service.name` (`agentforge-server`, `agentforge-orchestrator` by default)                            |
+
+W3C `traceparent` contexts are propagated across the API → NATS → sidecar →
+container-CLI hops, so one user request shows up as a single trace end to end.
+
+### Minimal collector (Docker Compose)
+
+```yaml
+otel-collector:
+  image: otel/opentelemetry-collector-contrib:0.102.0
+  command: ["--config=/etc/otelcol/otel-collector-config.yaml"]
+  volumes:
+    - ./otel-collector-config.yaml:/etc/otelcol/otel-collector-config.yaml:ro
+  ports: ["4317:4317", "4318:4318"]
+```
+
+`otel-collector-config.yaml` — export every trace to the console (replace the
+`debug` exporter with your backend — Tempo, Jaeger or a vendor endpoint):
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+processors:
+  batch: {}
+exporters:
+  debug: { verbosity: detailed }
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+```
+
+Then set `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` (default
+gRPC) or `...:4318` with `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, and
+restart the stack. **Success looks like** span batches in the collector logs
+after the first traced request (export batches every few seconds), with
+`service.name = agentforge-server` or `agentforge-orchestrator`.
+
+> Sampling: start at `OTEL_TRACES_SAMPLER=always_on`, then set e.g.
+> `OTEL_TRACES_SAMPLER=parentbased_traceidratio` + `OTEL_TRACES_SAMPLER_ARG=0.1`
+> for 10% of traces (parent traces always sampled).
+
 ## Mainstream China-Region LLM Providers
 
 The LLM gateway ships first-class entries for the mainstream Chinese model
