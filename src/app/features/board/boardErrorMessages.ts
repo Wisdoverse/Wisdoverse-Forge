@@ -1,5 +1,7 @@
 export type BoardErrorAction =
   | 'createTask'
+  | 'exportTasks'
+  | 'retireStaleTasks'
   | 'loadReadiness'
   | 'loadTasks'
   | 'moveTask'
@@ -10,6 +12,10 @@ export type BoardErrorAction =
 const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
   createTask:
     'Add the task result, choose a project and a place for new tasks, then create the task again. The task was not created.',
+  exportTasks:
+    'Check the connection, then export the task history again. The CSV file was not downloaded.',
+  retireStaleTasks:
+    'Check the connection and that you are an owner or admin, then retire stale tasks again. Nothing was retired.',
   loadReadiness: 'Choose Check agent status before sending work.',
   loadTasks: 'Choose Check tasks again to load tasks.',
   moveTask:
@@ -22,6 +28,8 @@ const ACTION_FALLBACKS: Record<BoardErrorAction, string> = {
 
 const ACTION_RETRY_STEPS: Record<BoardErrorAction, string> = {
   createTask: 'create the task again',
+  exportTasks: 'export the task history again',
+  retireStaleTasks: 'retire stale tasks again',
   loadReadiness: 'choose Check agent status',
   loadTasks: 'choose Check tasks again',
   moveTask: 'move the task again',

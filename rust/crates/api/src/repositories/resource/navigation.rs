@@ -486,3 +486,47 @@ impl LegacyNavigationRepository {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::tenant_scope_for_ids;
+
+    /// A fresh install's schema has no `organizations.plan` column; the orgs
+    /// list must still resolve through the `'free'` fallback or `/api/v1/orgs`
+    /// 500s and the whole navigation switcher is dead for a new workspace.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn list_orgs_works_on_fresh_schema(pool: sqlx::PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Fresh Org', $2)")
+            .bind(org_id)
+            .bind(format!("fresh-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+        sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'owner')")
+            .bind(org_id)
+            .bind(user_id)
+            .execute(&pool)
+            .await
+            .expect("seed membership");
+
+        let repo = LegacyNavigationRepository::new(pool.clone());
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let rows = repo.list_orgs(&scope).await.expect("list orgs on fresh schema");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].plan, "free");
+        assert_eq!(rows[0].role, "owner");
+
+        let one = repo.fetch_org_for_user(&scope, org_id).await.expect("fetch org");
+        assert_eq!(one.id, org_id);
+        assert_eq!(one.plan, "free");
+    }
+}

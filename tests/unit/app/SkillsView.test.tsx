@@ -7,6 +7,20 @@ import userEvent from '@testing-library/user-event'
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
 
+// Analytics events are best-effort side-channel data; keep skill tests
+// focused on the skills flow.
+vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/shared/api/orchestration')>()
+  return {
+    ...actual,
+    orchestrationApi: {
+      ...actual.orchestrationApi,
+      trackProductEvent: vi.fn().mockResolvedValue(undefined),
+      listAnalyticsEvents: vi.fn().mockResolvedValue([]),
+    },
+  }
+})
+
 import { SkillsView } from '@app/features/skills/SkillsView'
 import { useSkillsStore } from '@app/entities/skill'
 

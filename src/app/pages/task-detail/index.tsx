@@ -6,6 +6,7 @@ import {
   HistoryTab,
   PropertiesGroup,
   RailSection,
+  ReviewChecklist,
   ReviewSnapshotPanel,
   SECTION_LABEL,
   TaskDocumentBody,
@@ -132,6 +133,9 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
             {storeTask.params.task}
           </h1>
           <TaskDocumentBody task={storeTask} />
+          {(storeTask.state === 'completed' || storeTask.state === 'failed') && (
+            <ReviewChecklist taskId={storeTask.id} />
+          )}
           <h2 className={SECTION_LABEL}>Activity</h2>
           <HistoryTab task={storeTask} />
         </div>

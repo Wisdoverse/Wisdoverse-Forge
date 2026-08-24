@@ -50,12 +50,32 @@ export interface CreateSkillInput {
   content: string
 }
 
+/** An agent attached to a skill (attach-back management). */
+export interface LinkedAgent {
+  agentId: string
+  name: string
+  attachedAt: string
+}
+
+/** How often a skill was actually applied inside task runs. */
+export interface SkillUsage {
+  injectionCount: number
+  runCount: number
+  lastUsedAt?: string
+}
+
 interface SkillsState {
   skills: Skill[]
   installedSkills: InstalledSkill[]
   loading: boolean
   error: string | null
   searchQuery: string
+
+  /** Attached agents per skill id (attach-back management). */
+  skillAgents: Record<string, LinkedAgent[]>
+
+  /** Usage facts per skill id (applied inside task runs). */
+  skillUsage: Record<string, SkillUsage>
 
   // Computed (derived from skills + searchQuery)
   filteredSkills: () => Skill[]
@@ -64,6 +84,10 @@ interface SkillsState {
   setSearchQuery: (query: string) => void
   loadSkills: () => Promise<void>
   createSkill: (input: CreateSkillInput) => Promise<Skill>
+  loadSkillAgents: (skillId: string) => Promise<void>
+  attachSkillToAgent: (skillId: string, agentId: string) => Promise<void>
+  detachSkillFromAgent: (skillId: string, agentId: string) => Promise<void>
+  loadSkillUsage: (skillId: string) => Promise<void>
   reset: () => void
 }
 
@@ -94,6 +118,8 @@ const initialState = {
   loading: false,
   error: null as string | null,
   searchQuery: '',
+  skillAgents: {} as Record<string, LinkedAgent[]>,
+  skillUsage: {} as Record<string, SkillUsage>,
 }
 
 function normalizeSkill(skill: ApiSkill): Skill {
@@ -332,6 +358,56 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     } catch (err) {
       if (err instanceof SkillUserFacingError) throw err
       throw new Error(skillNetworkErrorMessage('create'), { cause: err })
+    }
+  },
+
+  loadSkillAgents: async (skillId) => {
+    try {
+      const res = await authFetch(`/api/v1/skills/${encodeURIComponent(skillId)}/agents`)
+      if (!res.ok) return
+      const data = (await res.json()) as { ok?: boolean; agents?: LinkedAgent[] }
+      if (data.ok && Array.isArray(data.agents)) {
+        set((state) => ({ skillAgents: { ...state.skillAgents, [skillId]: data.agents ?? [] } }))
+      }
+    } catch {
+      // Attach management surfaces degrade to "no attachments" rather than
+      // blocking the skills list.
+    }
+  },
+
+  attachSkillToAgent: async (skillId, agentId) => {
+    const res = await authFetch(
+      `/api/v1/skills/${encodeURIComponent(skillId)}/agents/${encodeURIComponent(agentId)}`,
+      { method: 'PUT' }
+    )
+    if (!res.ok) {
+      throw new Error(`Attach failed (${res.status})`)
+    }
+    await get().loadSkillAgents(skillId)
+  },
+
+  detachSkillFromAgent: async (skillId, agentId) => {
+    const res = await authFetch(
+      `/api/v1/skills/${encodeURIComponent(skillId)}/agents/${encodeURIComponent(agentId)}`,
+      { method: 'DELETE' }
+    )
+    if (!res.ok) {
+      throw new Error(`Detach failed (${res.status})`)
+    }
+    await get().loadSkillAgents(skillId)
+  },
+
+  loadSkillUsage: async (skillId) => {
+    try {
+      const res = await authFetch(`/api/v1/skills/${encodeURIComponent(skillId)}/usage`)
+      if (!res.ok) return
+      const data = (await res.json()) as { ok?: boolean; usage?: SkillUsage }
+      const usage = data.usage
+      if (data.ok && usage) {
+        set((state) => ({ skillUsage: { ...state.skillUsage, [skillId]: usage } }))
+      }
+    } catch {
+      // Usage is a progressive detail; degrades to "no usage data yet".
     }
   },
 

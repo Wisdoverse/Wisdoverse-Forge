@@ -58,18 +58,132 @@ pub(crate) struct AnalyticsListPage {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct AnalyticsTopEvent {
     pub(crate) event_name: String,
     pub(crate) count: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct AnalyticsSummary {
     pub(crate) total_events: i64,
     pub(crate) unique_users: i64,
     pub(crate) top_events: Vec<AnalyticsTopEvent>,
+}
+
+/// Per-agent work reliability over a rolling window: finished runs only
+/// (`completed` + `failed`), so the rate is the share of runs an agent
+/// finished successfully.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentReliabilityItem {
+    pub(crate) agent_id: AgentId,
+    pub(crate) name: Option<String>,
+    pub(crate) total: i64,
+    pub(crate) succeeded: i64,
+    pub(crate) failed: i64,
+    pub(crate) success_rate: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentReliabilityReport {
+    pub(crate) window_hours: i64,
+    pub(crate) agents: Vec<AgentReliabilityItem>,
+}
+
+/// Per-agent LLM usage over a rolling window: assistant replies with token
+/// usage recorded by the prompt stream, plus each agent's share of the
+/// window's total tokens (honest cost proxy — no provider pricing assumed).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentUsageItem {
+    pub(crate) agent_id: AgentId,
+    pub(crate) name: Option<String>,
+    pub(crate) requests: i64,
+    pub(crate) tokens_in: i64,
+    pub(crate) tokens_out: i64,
+    pub(crate) total_tokens: i64,
+    pub(crate) share: f64,
+    pub(crate) estimated_cost: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentUsageReport {
+    pub(crate) window_hours: i64,
+    pub(crate) pricing_configured: bool,
+    pub(crate) agents: Vec<AgentUsageItem>,
+}
+
+/// USD-per-1M-token rate for one model, keyed case-insensitively by the
+/// model string recorded on assistant messages.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ModelRate {
+    pub(crate) input_usd_per_m: f64,
+    pub(crate) output_usd_per_m: f64,
+}
+
+/// Parsed `LLM_PRICING` table; missing models simply get no estimate.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct PricingTable {
+    rates: std::collections::HashMap<String, ModelRate>,
+}
+
+impl PricingTable {
+    pub(crate) fn parse(json_text: &str) -> AppResult<Self> {
+        let value: serde_json::Value = serde_json::from_str(json_text)
+            .map_err(|err| ErrorKind::Validation(format!("LLM_PRICING is not valid JSON: {err}")))?;
+        let object = value.as_object().ok_or_else(|| {
+            ErrorKind::Validation("LLM_PRICING must be a JSON object of model -> { input, output }.".to_string())
+        })?;
+        let mut rates = std::collections::HashMap::new();
+        for (model, rate) in object {
+            let input = rate
+                .get("input")
+                .and_then(|value| value.as_f64())
+                .ok_or_else(|| ErrorKind::Validation(format!("LLM_PRICING[{model}].input must be a number")))?;
+            let output = rate
+                .get("output")
+                .and_then(|value| value.as_f64())
+                .ok_or_else(|| ErrorKind::Validation(format!("LLM_PRICING[{model}].output must be a number")))?;
+            if input < 0.0 || output < 0.0 {
+                return Err(ErrorKind::Validation(format!("LLM_PRICING[{model}] rates must be >= 0")).into());
+            }
+            rates.insert(model.trim().to_lowercase(), ModelRate { input_usd_per_m: input, output_usd_per_m: output });
+        }
+        Ok(Self { rates })
+    }
+
+    pub(crate) fn cost_usd(&self, model: Option<&str>, tokens_in: i64, tokens_out: i64) -> Option<f64> {
+        let rate = self.rates.get(&model?.trim().to_lowercase())?;
+        Some(
+            rate.input_usd_per_m * (tokens_in as f64 / 1_000_000.0)
+                + rate.output_usd_per_m * (tokens_out as f64 / 1_000_000.0),
+        )
+    }
+}
+
+/// Rolling-window bounds for per-agent reliability queries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AgentReliabilityWindow {
+    hours: i64,
+}
+
+impl AgentReliabilityWindow {
+    pub(crate) const DEFAULT_HOURS: i64 = 720;
+    const MIN_HOURS: i64 = 1;
+    const MAX_HOURS: i64 = 8_760;
+
+    pub(crate) fn normalize(hours: Option<i64>) -> Self {
+        let hours = hours.unwrap_or(Self::DEFAULT_HOURS).clamp(Self::MIN_HOURS, Self::MAX_HOURS);
+        Self { hours }
+    }
+
+    pub(crate) fn hours(self) -> i64 {
+        self.hours
+    }
 }
 
 impl AnalyticsListPage {

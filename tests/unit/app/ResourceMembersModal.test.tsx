@@ -81,6 +81,10 @@ function renderMembersModal({
   })
   const onClose = vi.fn()
 
+  const inviteMember = vi
+    .fn<(email: string, role?: string) => Promise<{ pending: boolean; inviteUrl?: string }>>()
+    .mockResolvedValue({ pending: true, inviteUrl: 'https://forge.example.com/login?invite=TOKEN' })
+
   render(
     <ResourceMembersModal
       resourceLabel={resourceLabel}
@@ -88,16 +92,30 @@ function renderMembersModal({
       loadMembers={loadMembers}
       loadUsers={loadUsers}
       addMember={addMember}
+      inviteMember={inviteMember}
       updateMember={updateMember}
       removeMember={removeMember}
       onClose={onClose}
     />
   )
 
-  return { addMember, loadMembers, loadUsers, onClose, removeMember, updateMember }
+  return { addMember, inviteMember, loadMembers, loadUsers, onClose, removeMember, updateMember }
 }
 
 describe('ResourceMembersModal', () => {
+  test('invites a person by email and shows the shareable link', async () => {
+    const { inviteMember } = renderMembersModal({ resourceLabel: 'Team' })
+
+    fireEvent.change(screen.getByLabelText('Invite email'), { target: { value: 'new@example.com' } })
+    fireEvent.click(screen.getByTestId('member-invite-button'))
+
+    await waitFor(() => expect(inviteMember).toHaveBeenCalledWith('new@example.com', 'member'))
+    await screen.findByTestId('member-invite-link')
+    expect(screen.getByLabelText('Invite link')).toHaveValue(
+      'https://forge.example.com/login?invite=TOKEN'
+    )
+  })
+
   test('explains member loading as access checking', () => {
     renderMembersModal()
 
@@ -134,10 +152,11 @@ describe('ResourceMembersModal', () => {
     expect(screen.getByLabelText('New member access level')).toHaveAccessibleDescription(
       'Start with Member access. Choose Can change work, Admin access, or Owner access only when this person needs to change work or manage access.'
     )
-    expect(screen.getByRole('option', { name: 'Member access' })).toBeDefined()
-    expect(screen.getByRole('option', { name: 'Can change work' })).toBeDefined()
-    expect(screen.getByRole('option', { name: 'Admin access' })).toBeDefined()
-    expect(screen.getByRole('option', { name: 'Owner access' })).toBeDefined()
+    const memberSelect = screen.getByLabelText('New member access level')
+    expect(within(memberSelect).getByRole('option', { name: 'Member access' })).toBeDefined()
+    expect(within(memberSelect).getByRole('option', { name: 'Can change work' })).toBeDefined()
+    expect(within(memberSelect).getByRole('option', { name: 'Admin access' })).toBeDefined()
+    expect(within(memberSelect).getByRole('option', { name: 'Owner access' })).toBeDefined()
     expect(screen.queryByRole('option', { name: 'Maintainer' })).toBeNull()
     expect(screen.getByText('Add people already in your team space')).toBeDefined()
     expect(screen.getByText('People with access')).toBeDefined()

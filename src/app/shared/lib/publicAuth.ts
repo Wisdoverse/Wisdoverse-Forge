@@ -28,6 +28,23 @@ export function getResetTokenFromLocation(location: ResetTokenLocation): string 
   return null
 }
 
+export function getInviteTokenFromLocation(location: ResetTokenLocation): string | null {
+  if (location.searchStr) {
+    const token = new URLSearchParams(location.searchStr).get('invite')
+    if (nonEmptyString(token)) return token
+  }
+  if (location.href) {
+    const query = location.href.includes('?') ? location.href.slice(location.href.indexOf('?')) : ''
+    const token = new URLSearchParams(query).get('invite')
+    if (nonEmptyString(token)) return token
+  }
+  if (location.search && typeof location.search === 'object' && !Array.isArray(location.search)) {
+    const value = (location.search as Record<string, unknown>).invite
+    if (nonEmptyString(value)) return value
+  }
+  return null
+}
+
 export function buildResetPasswordLoginHref(resetToken: string): string {
   return `/login?reset_token=${encodeURIComponent(resetToken)}`
 }

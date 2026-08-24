@@ -6,18 +6,30 @@
 //! reads are impossible by construction.
 
 pub mod context_link;
+#[cfg(test)]
+mod dependency_tests;
+#[cfg(test)]
+mod retire_stale_tests;
 pub mod run_context_injection;
+pub mod task_comment;
 pub mod task_context;
+pub mod task_review_check;
 pub mod task_run;
+#[cfg(test)]
+mod task_wait_tests;
 
 pub use context_link::{ContextLinkRepository, ContextLinkedRunRow, CreateContextLinkRecord};
 pub use run_context_injection::{ContextAppliedRunRow, ContextInjectionCounts, RunContextInjectionRepository};
+pub use task_comment::{HumanMarkerRow, TaskCommentRepository, TaskCommentWithAuthorRow};
 pub use task_context::{AppliedContextRow, TaskContextRepository};
+pub use task_review_check::{TaskReviewCheckRepository, TaskReviewCheckRow};
 pub use task_run::{RunEvidenceRow, TaskRunRepository};
 
 use agentforge_core::{AgentId, AppResult, TenantScope, UserId};
 use agentforge_db::entities::{OrchestrationTask, Participant};
-use sqlx::{PgPool, Postgres, Transaction};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::domain::agent::AgentRepositoryPolicy;
@@ -34,6 +46,17 @@ use crate::domain::orchestration::OrchestrationRepositoryPolicy;
 /// `set_result`: stamp terminal status + result/error on a single task,
 /// tenant-scoped. Used by both the pool-bound shim and the in-tx variant
 /// (issue #37 transactionalization of `complete_task`).
+/// Median completed-task duration query (30-day window appended at call
+/// site; widened to all history when the recent window is empty).
+pub(crate) const TYPICAL_WAIT_SQL: &str = concat!(
+    "SELECT COALESCE(percentile_cont(0.5) WITHIN GROUP ",
+    "(ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at))), 0)::float8 ",
+    "FROM orchestration_tasks ",
+    "WHERE organization_id = $1 AND status = 'completed' ",
+    "AND started_at IS NOT NULL AND completed_at IS NOT NULL ",
+    "AND (completed_at - started_at) > INTERVAL '5 seconds'"
+);
+
 pub(crate) const SET_RESULT_SQL: &str = r#"UPDATE orchestration_tasks
                SET status = $3,
                    result = CASE WHEN $3 = 'completed' THEN $4 ELSE result END,
@@ -134,6 +157,24 @@ pub(crate) const PARTICIPANT_COUNT_SQL: &str = r#"SELECT participant.status, COU
                            AND participant.last_heartbeat_at > NOW() - INTERVAL '24 hours'))
                 GROUP BY participant.status"#;
 
+/// One task-history export row (compliance export).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, FromRow)]
+pub struct TaskHistoryExportRow {
+    pub id: Uuid,
+    pub title: String,
+    pub status: String,
+    pub priority: String,
+    pub progress: i16,
+    pub creator_name: Option<String>,
+    pub assigned_agent_name: Option<String>,
+    pub runs_count: i64,
+    pub created_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
+    pub blocked_reason: Option<String>,
+    pub requires_approval: bool,
+}
+
 /// Snapshot of orchestration task counts grouped by kanban state.
 /// Returned to the UI as `{ byState: { backlog, queued, working, blocked, ... } }`.
 #[derive(Debug, Clone, Default)]
@@ -151,6 +192,16 @@ pub struct OrchestrationTaskStats {
 /// isolation via `WHERE organization_id = $N`.
 pub struct OrchestrationTaskRepository {
     pool: PgPool,
+}
+
+/// A waiting (queued) task's dispatch-order key — the queue snapshot used by
+/// queued-time prediction. Order matches the real dispatch order.
+#[derive(Debug, Clone, FromRow)]
+pub struct QueuedTaskKey {
+    pub id: Uuid,
+    pub assigned_agent_id: Option<AgentId>,
+    pub priority: String,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Fields used to insert a new orchestration task.
@@ -200,6 +251,73 @@ impl OrchestrationTaskRepository {
     /// crashed unblock can't leave children stuck on `waiting_dependency`.
     pub fn pool(&self) -> &PgPool {
         &self.pool
+    }
+
+    /// Queued (waiting) tasks of the org in real dispatch order — priority
+    /// (urgent..normal) then age. The basis for queued-time prediction.
+    pub async fn queued_tasks_ordered(&self, scope: &TenantScope) -> AppResult<Vec<QueuedTaskKey>> {
+        sqlx::query_as::<_, QueuedTaskKey>(
+            r#"SELECT id, assigned_agent_id, priority, created_at FROM orchestration_tasks
+               WHERE organization_id = $1 AND status = 'queued'
+               ORDER BY CASE priority
+                          WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
+                          WHEN 'normal' THEN 2 ELSE 3
+                        END, created_at"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    /// Batch-retire stale (never-started) tasks in a group: `backlog`/`queued`
+    /// tasks with `progress = 0` untouched for at least `older_days` become
+    /// `canceled`. Returns the retired task ids (capped by `batch_limit`).
+    pub async fn retire_stale_tasks(
+        &self,
+        scope: &TenantScope,
+        group_id: Uuid,
+        older_days: i32,
+        batch_limit: i64,
+    ) -> AppResult<Vec<Uuid>> {
+        let ids: Vec<Uuid> = sqlx::query_scalar::<_, Uuid>(
+            r#"UPDATE orchestration_tasks
+                 SET status = 'canceled',
+                     canceled_at = NOW(),
+                     progress = 0,
+                     updated_at = NOW()
+               WHERE id IN (
+                   SELECT id FROM orchestration_tasks
+                    WHERE organization_id = $1 AND group_id = $2
+                      AND status IN ('backlog', 'queued')
+                      AND progress = 0
+                      AND updated_at < NOW() - ($3 || ' days')::interval
+                    ORDER BY updated_at ASC
+                    LIMIT $4
+               )
+               RETURNING id"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(group_id)
+        .bind(older_days)
+        .bind(batch_limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(agentforge_core::AppError::from)?;
+        Ok(ids)
+    }
+
+    /// Median completed-task duration (seconds) for this org: the last 30 days
+    /// first, widening to all history when the recent window is empty.
+    pub async fn typical_wait_seconds(&self, scope: &TenantScope) -> AppResult<Option<u32>> {
+        for window in [" AND completed_at > NOW() - INTERVAL '30 days'", ""] {
+            let sql = format!("{TYPICAL_WAIT_SQL}{window}");
+            let median: f64 = sqlx::query_scalar(&sql).bind(scope.org_id().as_uuid()).fetch_one(&self.pool).await?;
+            if median > 0.0 {
+                return Ok(Some(median.round() as u32));
+            }
+        }
+        Ok(None)
     }
 
     /// Create a new orchestration task with full kanban metadata.
@@ -348,6 +466,31 @@ impl OrchestrationTaskRepository {
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+    }
+
+    /// Task history for compliance exports: newest first, tenant-scoped, with
+    /// creator / assigned agent names and a run count per task.
+    pub async fn export_task_history(&self, scope: &TenantScope, limit: i64) -> AppResult<Vec<TaskHistoryExportRow>> {
+        let rows = sqlx::query_as::<_, TaskHistoryExportRow>(
+            r#"SELECT t.id, t.title, t.status, t.priority, t.progress,
+                      cu.display_name AS creator_name,
+                      a.name AS assigned_agent_name,
+                      (SELECT COUNT(*)::bigint FROM task_runs r
+                        WHERE r.orchestration_task_id = t.id AND r.organization_id = t.organization_id) AS runs_count,
+                      t.created_at, t.completed_at, t.updated_at,
+                      t.blocked_reason, t.requires_approval
+                 FROM orchestration_tasks t
+                 LEFT JOIN users cu ON cu.id = t.created_by
+                 LEFT JOIN agents a ON a.id = t.assigned_agent_id
+                WHERE t.organization_id = $1
+                ORDER BY t.created_at DESC
+                LIMIT $2"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
     }
 
     /// Update a task's status (tenant-scoped).
@@ -753,6 +896,23 @@ impl OrchestrationTaskRepository {
             .fetch_all(&mut **tx)
             .await?;
         Ok(rows)
+    }
+
+    /// Blocked tasks that declare the completed task in `params.dependency_ids`
+    /// (candidates for prerequisite release; the service re-checks siblings).
+    pub async fn dependent_task_ids(&self, scope: &TenantScope, completed_id: Uuid) -> AppResult<Vec<Uuid>> {
+        let rows: Vec<(Uuid,)> = sqlx::query_as(
+            r#"SELECT id FROM orchestration_tasks
+               WHERE organization_id = $1
+                 AND status = 'blocked'
+                 AND assigned_agent_id IS NULL
+                 AND params->'dependency_ids' ? $2::text"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(completed_id.to_string())
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|(id,)| id).collect())
     }
 
     /// Find the next dispatchable task — `queued` or `blocked-on-agent` only.
@@ -1621,5 +1781,84 @@ mod participant_list_runtime_tests {
             .expect("del");
         let none = repo.next_dispatchable(&scope).await.expect("next_dispatchable again");
         assert!(none.is_none(), "an image-only queue must not auto-dispatch");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn export_task_history_lists_rows_with_names_and_run_counts(pool: sqlx::PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Export Org', $2)")
+            .bind(org_id)
+            .bind(format!("export-org-{org_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email, display_name) VALUES ($1, $2, 'Creator')")
+            .bind(user_id)
+            .bind(format!("u-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(org_id)
+            .execute(&pool)
+            .await
+            .expect("seed workspace");
+        let task_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO agents (id, organization_id, workspace_id, user_id, name)
+                     VALUES ($1, $2, $2, $3, 'Audit Agent')",
+        )
+        .bind(agent_id)
+        .bind(org_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed agent");
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, priority, created_by, assigned_agent_id,
+                requires_approval, created_at, updated_at)
+               VALUES ($1, $2, 'Audit, me', 'completed', 'high', $3, $4, TRUE, NOW(), NOW())"#,
+        )
+        .bind(task_id)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("seed task");
+        let run_id = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO task_runs (id, organization_id, workspace_id, orchestration_task_id, agent_id,
+                                      idempotency_key, status, started_at)
+               VALUES ($1, $2, $2, $3, $4, 'idem-1', 'completed', NOW())"#,
+        )
+        .bind(run_id)
+        .bind(org_id)
+        .bind(task_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("seed run");
+
+        let scope = tenant_scope_for_ids(org_id, user_id);
+        let other_scope = tenant_scope_for_ids(Uuid::new_v4(), user_id);
+        let repo = OrchestrationTaskRepository::new(pool.clone());
+
+        let rows = repo.export_task_history(&scope, 100).await.expect("export");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].title, "Audit, me");
+        assert_eq!(rows[0].creator_name.as_deref(), Some("Creator"));
+        assert_eq!(rows[0].assigned_agent_name.as_deref(), Some("Audit Agent"));
+        assert_eq!(rows[0].runs_count, 1);
+        assert!(rows[0].requires_approval);
+
+        let cross = repo.export_task_history(&other_scope, 100).await.expect("cross export");
+        assert!(cross.is_empty(), "cross-tenant export must be empty");
+
+        let capped = repo.export_task_history(&other_scope, 0).await.expect("zero limit");
+        assert!(capped.is_empty(), "zero limit is a safe no-op");
     }
 }

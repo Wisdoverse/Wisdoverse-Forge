@@ -26,6 +26,52 @@ pub(crate) fn skill_audit_event(
     ContextAuditEvent { action, resource_type: skill_audit_resource_type(), resource_id, payload, ip_address: None }
 }
 
+/// Agent attachment projection for the UI (attach / detach management).
+#[derive(Debug, Clone, Serialize)]
+pub struct LinkedSkillAgentSummary {
+    #[serde(rename = "agentId")]
+    pub agent_id: Uuid,
+    pub name: String,
+    #[serde(rename = "attachedAt")]
+    pub attached_at: String,
+}
+
+/// One skill an agent follows (agent-side attach-back view).
+#[derive(Debug, Clone, Serialize)]
+pub struct FollowedSkillSummary {
+    #[serde(rename = "skillId")]
+    pub skill_id: Uuid,
+    pub name: String,
+    pub state: String,
+}
+
+/// How often a skill was actually applied inside task runs.
+#[derive(Debug, Clone, Serialize)]
+pub struct SkillUsageSummary {
+    #[serde(rename = "injectionCount")]
+    pub injection_count: i64,
+    #[serde(rename = "runCount")]
+    pub run_count: i64,
+    #[serde(rename = "lastUsedAt", skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<String>,
+}
+
+pub(crate) fn skill_agents_response(agents: &[LinkedSkillAgentSummary]) -> Value {
+    json!({ "ok": true, "agents": agents })
+}
+
+pub(crate) fn skill_usage_response(usage: &SkillUsageSummary) -> Value {
+    json!({ "ok": true, "usage": usage })
+}
+
+pub(crate) fn agent_skills_response(skills: &[FollowedSkillSummary]) -> Value {
+    json!({ "ok": true, "skills": skills })
+}
+
+pub(crate) fn skill_agent_response(agent: &LinkedSkillAgentSummary) -> Value {
+    json!({ "ok": true, "agent": agent })
+}
+
 pub(crate) fn skill_data_response<T: Serialize>(data: T) -> Value {
     json!({ "ok": true, "data": data })
 }
@@ -170,6 +216,14 @@ impl SkillRepositoryPolicy {
 
     pub(crate) fn version_not_found(skill_id: SkillId, version: i32) -> AppError {
         ErrorKind::NotFound(format!("skill {skill_id} version {version}")).into()
+    }
+
+    pub(crate) fn agent_for_skill_link_not_found(agent_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("agent for skill link {agent_id}")).into()
+    }
+
+    pub(crate) fn skill_agent_link_not_found(skill_id: Uuid, agent_id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("skill {skill_id} is not attached to agent {agent_id}")).into()
     }
 }
 

@@ -101,6 +101,10 @@ pub fn task_summary(task: &OrchestrationTask, assigned_agent_name: Option<&str>)
         context_counts: TaskContextCounts::default(),
         attempt: task.attempt,
         lease_expires_at: task.lease_expires_at.map(|t| t.to_rfc3339()),
+        // Wait predictions are computed by the API service on its list-task
+        // read path (org queue snapshot); the realtime projector keeps the
+        // field absent so broadcast frames stay cheap and fixtures stable.
+        wait_estimate: None,
     }
 }
 

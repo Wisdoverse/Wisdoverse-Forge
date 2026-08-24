@@ -1,9 +1,41 @@
+/**
+ * Extra note for tasks that have already been retried: the user should know
+ * this failure is the Nth try, not the first. `null` for the first attempt.
+ */
+export function taskAttemptNote(attempt?: number): string | null {
+  const count = attempt ?? 1
+  if (count < 2) return null
+  return `Earlier tries also stopped (attempt ${count}). Check what changed, then retry or create a clearer follow-up task.`
+}
+
+/** Default preview when a task fails because its agent ran out of context. */
+export const CONTEXT_OVERFLOW_FAILURE_PREVIEW =
+  'Ran out of context window before finishing. Open the task details and trim what the agent loads, then retry.'
+
+/** Detailed guidance for the task detail view (task failed with context overflow). */
+export const CONTEXT_OVERFLOW_FAILURE_GUIDE =
+  'This task stopped because the agent ran out of context window: it was carrying more saved notes, skill guidance, or file content than it could read at once. Open the task context, remove items it does not need, then retry or create a shorter follow-up task.'
+
+/** Whether a failure message points at the agent's context window running full. */
+export function isContextOverflowFailure(error?: string | null): boolean {
+  const message = (error ?? '').toLowerCase()
+  if (!message) return false
+  return (
+    /context (window|length|limit|is too long|exceeded)/.test(message) ||
+    /(input|prompt) is too long/.test(message) ||
+    /context.*(too long|too large)/.test(message)
+  )
+}
+
 export function taskFailurePreview(error?: string | null): string {
   const message = error?.trim() ?? ''
   if (!message)
     return 'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
 
   const lowerMessage = message.toLowerCase()
+  if (isContextOverflowFailure(message)) {
+    return CONTEXT_OVERFLOW_FAILURE_PREVIEW
+  }
   if (lowerMessage.includes('rate limit') || /\b429\b/.test(message)) {
     return 'Stopped because the AI service is busy. Wait a minute, then open the task details and try again.'
   }

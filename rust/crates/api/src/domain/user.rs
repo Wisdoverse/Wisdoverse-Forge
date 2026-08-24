@@ -297,8 +297,8 @@ pub(crate) fn auth_me_response(user_id: Uuid, org_id: Uuid, role: impl Serialize
     })
 }
 
-pub(crate) fn auth_providers_response() -> Value {
-    json!({ "ok": true, "providers": Vec::<Value>::new() })
+pub(crate) fn auth_providers_response(providers: &[crate::domain::sso::SsoProvider]) -> Value {
+    json!({ "ok": true, "providers": providers })
 }
 
 pub(crate) fn auth_error_response_body(code: &str, message: &str) -> Value {

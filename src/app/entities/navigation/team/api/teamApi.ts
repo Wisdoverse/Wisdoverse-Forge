@@ -58,6 +58,37 @@ export const teamApi = {
     )
   },
 
+  /** Invite a person by email: existing members are added; everyone else
+   *  receives a one-time invite link (72 h) to finish signing up. */
+  inviteMember: async (
+    orgId: string,
+    teamId: string,
+    email: string,
+    role?: string
+  ): Promise<{ pending: boolean; inviteUrl?: string }> => {
+    const res = await apiFetch<{
+      ok: boolean
+      pending?: boolean
+      inviteUrl?: string
+      member?: unknown
+    }>(`/api/v1/orgs/${orgId}/teams/${teamId}/invites`, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    })
+    return { pending: res.pending === true, inviteUrl: res.inviteUrl }
+  },
+
+  /** Redeem a one-time team invite with the signed-in account. */
+  redeemInvite: async (token: string): Promise<{ ok: boolean }> => {
+    const res = await apiFetch<{ ok: boolean }>(
+      `/api/v1/invites/${encodeURIComponent(token)}/redeem`,
+      {
+        method: 'POST',
+      }
+    )
+    return { ok: res.ok === true }
+  },
+
   addMember: async (
     orgId: string,
     teamId: string,

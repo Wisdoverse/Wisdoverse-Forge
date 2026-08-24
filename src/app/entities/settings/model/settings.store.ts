@@ -33,6 +33,7 @@ export const SETTINGS_SECTIONS = [
   'work-tool-sign-ins',
   'account',
   'teams',
+  'task-templates',
   'projects',
   'about',
 ] as const

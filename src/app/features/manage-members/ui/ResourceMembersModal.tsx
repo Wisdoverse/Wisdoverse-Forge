@@ -59,6 +59,8 @@ interface ResourceMembersModalProps {
   addMember: (input: AddResourceMemberInput) => Promise<ResourceMember>
   updateMember: (userId: string, input: UpdateResourceMemberInput) => Promise<ResourceMember>
   removeMember: (userId: string) => Promise<void>
+  /** Invite-by-email: people without an account get a one-time link instead. */
+  inviteMember?: (email: string, role?: string) => Promise<{ pending: boolean; inviteUrl?: string }>
   onClose: () => void
 }
 
@@ -70,6 +72,7 @@ export function ResourceMembersModal({
   addMember,
   updateMember,
   removeMember,
+  inviteMember,
   onClose,
 }: ResourceMembersModalProps) {
   const [members, setMembers] = useState<ResourceMember[]>([])
@@ -82,6 +85,11 @@ export function ResourceMembersModal({
   const [error, setError] = useState<string | null>(null)
   const [errorAttempt, setErrorAttempt] = useState(0)
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<ResourceMemberRole>('member')
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [inviting, setInviting] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -170,6 +178,28 @@ export function ResourceMembersModal({
       setErrorAttempt((current) => current + 1)
     } finally {
       setBusyKey(null)
+    }
+  }
+
+  async function handleInviteByEmail() {
+    const email = inviteEmail.trim()
+    if (!inviteMember || !email) return
+    setInviting(true)
+    setInviteError(null)
+    setInviteLink(null)
+    try {
+      const result = await inviteMember(email, inviteRole)
+      if (result.pending) {
+        setInviteLink(result.inviteUrl ?? null)
+        setInviteEmail('')
+      } else {
+        setMembers(await loadMembers())
+        setInviteEmail('')
+      }
+    } catch (err) {
+      setInviteError(resourceMemberErrorMessage('add', resourceLabel, err))
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -363,6 +393,71 @@ export function ResourceMembersModal({
               when this person needs to change work or manage access.
             </p>
           </div>
+
+          {inviteMember && (
+            <div className="rounded-card border border-black/[0.08] bg-black/[0.015] px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.025]">
+              <p className="text-ui-caption font-medium text-foreground-light dark:text-foreground-dark">
+                No account yet? Invite them by email
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder="teammate@example.com"
+                  aria-label="Invite email"
+                  className={cn(uiStyles.input, 'min-w-0 flex-1')}
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(event) => setInviteRole(event.target.value as ResourceMemberRole)}
+                  aria-label="Invite access level"
+                  className={uiStyles.select}
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  data-testid="member-invite-button"
+                  onClick={() => void handleInviteByEmail()}
+                  disabled={inviting || inviteEmail.trim().length === 0}
+                  className={uiStyles.subtleButton}
+                >
+                  {inviting ? 'Inviting…' : 'Invite'}
+                </button>
+              </div>
+              {inviteLink && (
+                <div className="mt-2">
+                  <p
+                    data-testid="member-invite-link"
+                    className="text-ui-caption text-secondary-light dark:text-secondary-dark"
+                  >
+                    Share this link with them — it stays valid for 3 days:
+                  </p>
+                  <input
+                    readOnly
+                    value={inviteLink}
+                    aria-label="Invite link"
+                    onFocus={(event) => event.currentTarget.select()}
+                    className={cn(uiStyles.input, 'mt-1 text-ui-caption')}
+                  />
+                </div>
+              )}
+              {inviteError && (
+                <p
+                  role="alert"
+                  aria-live="assertive"
+                  className="mt-2 text-ui-caption font-medium text-apple-red"
+                >
+                  {inviteError}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white dark:border-white/[0.08] dark:bg-black/10">
             <div className="flex items-center justify-between border-b border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.025]">

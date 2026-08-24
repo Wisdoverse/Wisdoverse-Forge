@@ -12,6 +12,7 @@ import { KanbanColumn } from './KanbanColumn'
 import { TaskCard, taskCardSearchText } from './TaskCard'
 import {
   orchestrationApi,
+  type HumanMark,
   type ParticipantSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
@@ -29,6 +30,7 @@ import {
 } from './BoardToolbar'
 import { boardActionErrorMessage } from './boardErrorMessages'
 import { useWebSocket } from '@app/shared/model/websocket.context'
+import { staleTaskCount } from './model/staleTasks'
 
 const COLUMN_ORDER: ColumnId[] = [
   'backlog',
@@ -86,7 +88,13 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   const [priorityFilter, setPriorityFilter] = useState<BoardPriorityFilter>('all')
   const [assigneeFilter, setAssigneeFilter] = useState<BoardAssigneeFilter>('all')
   const [displayMode, setDisplayMode] = useState<BoardDisplayMode>('comfortable')
+  const [humanMarks, setHumanMarks] = useState<Record<string, HumanMark>>({})
+  const [exporting, setExporting] = useState(false)
+  const [retireConfirmOpen, setRetireConfirmOpen] = useState(false)
+  const [retiring, setRetiring] = useState(false)
+  const [actionNotice, setActionNotice] = useState<string | null>(null)
   const workload = useMemo(() => summarizeWorkload(columns), [columns])
+  const staleCount = useMemo(() => staleTaskCount(Object.values(columns).flat()), [columns])
   const boardFilters = useMemo(
     () => ({
       searchQuery,
@@ -150,6 +158,83 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
       window.clearInterval(fallbackRefresh)
     }
   }, [loadTasksForGroup, selectedGroupId])
+
+  // Batch retire: owner/admin only; confirm first because it is destructive.
+  async function handleRetireStale() {
+    if (retiring || !selectedGroupId) return
+    setRetireConfirmOpen(false)
+    setRetiring(true)
+    setActionError(null)
+    try {
+      const result = await orchestrationApi.retireStaleTasks(selectedGroupId)
+      setActionNotice(
+        result.count === 0
+          ? 'No stale tasks to retire — everything in this queue is still active.'
+          : `Retired ${result.count} stale task${result.count === 1 ? '' : 's'}. The queue now shows only active work.`
+      )
+      await loadTasksForGroup(selectedGroupId, true)
+    } catch (err) {
+      setActionError(boardActionErrorMessage('retireStaleTasks', err))
+    } finally {
+      setRetiring(false)
+    }
+  }
+
+  // Compliance export: download the latest task history as a local CSV file.
+  async function handleExportTasks() {
+    if (exporting) return
+    setExporting(true)
+    setActionError(null)
+    try {
+      const content = await orchestrationApi.exportTaskHistoryCsv(500)
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const date = new Date().toISOString().slice(0, 10)
+      link.href = url
+      link.download = `wisdoverse-task-history-${date}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setActionError(boardActionErrorMessage('exportTasks', err))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Board badges for human blocker signals: fetch the latest blocker/unblock
+  // mark for every task currently in the store whenever the task set changes.
+  useEffect(() => {
+    const taskIds = Object.values(columns)
+      .flat()
+      .map((task) => task.id)
+    if (taskIds.length === 0) {
+      setHumanMarks({})
+      return
+    }
+    let cancelled = false
+    orchestrationApi
+      .getLatestHumanMarks(taskIds)
+      .then((marks) => {
+        if (cancelled) return
+        const list = Array.isArray(marks) ? marks : []
+        setHumanMarks(
+          Object.fromEntries(
+            list
+              .filter((mark) => mark.kind === 'blocker' || mark.kind === 'unblock')
+              .map((mark) => [mark.taskId, mark])
+          )
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setHumanMarks({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [columns])
 
   async function loadParticipants(showLoading = true) {
     try {
@@ -368,7 +453,8 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <>
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex h-full flex-col gap-3 p-1">
         <AssignmentReadinessPanel
           participants={participants}
@@ -396,6 +482,10 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
           onDisplayModeChange={setDisplayMode}
           counts={filterCounts}
           onClear={clearBoardFilters}
+          onExportTasks={() => void handleExportTasks()}
+          exporting={exporting}
+          onRetireStale={() => setRetireConfirmOpen(true)}
+          retiring={retiring}
         />
         {actionError ? (
           <div
@@ -405,6 +495,15 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
             className={cn(uiStyles.error, 'mb-0')}
           >
             {actionError}
+          </div>
+        ) : actionNotice ? (
+          <div
+            data-testid="board-action-notice"
+            role="status"
+            aria-live="polite"
+            className="mb-0 rounded-card border border-apple-green/25 bg-apple-green/[0.07] px-3 py-2 text-ui-caption font-medium text-apple-green"
+          >
+            {actionNotice}
           </div>
         ) : null}
         {hasActiveBoardFilter && filterCounts.visible === 0 ? (
@@ -442,6 +541,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
                 }
                 onQuickCreate={handleQuickCreate}
                 displayMode={displayMode}
+                humanMarks={humanMarks}
               />
             ))}
           </div>
@@ -463,6 +563,57 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
         onConfirm={(selection) => void publishPreview(selection)}
       />
     </DndContext>
+    {retireConfirmOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-4">
+        <button
+          type="button"
+          aria-label="Close retire confirmation"
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={() => setRetireConfirmOpen(false)}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="retire-stale-title"
+          className="relative w-full max-w-md rounded-panel border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
+        >
+          <h2
+            id="retire-stale-title"
+            className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
+          >
+            Retire stale tasks?
+          </h2>
+          <p className="mt-2 text-ui-body text-secondary-light dark:text-secondary-dark" data-testid="retire-stale-summary">
+            {staleCount === 0
+              ? 'No stale tasks in this queue right now — everything is still active.'
+              : `${staleCount} stale task${staleCount === 1 ? '' : 's'}: backlog or queued work that has not changed for at least 7 days and was never started. Closed tasks stay in history, and you can retry one later from its task page.`}
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              className={uiStyles.secondaryButton}
+              onClick={() => setRetireConfirmOpen(false)}
+            >
+              Keep them
+            </button>
+            <button
+              type="button"
+              data-testid="board-retire-confirm"
+              className={uiStyles.primaryButton}
+              onClick={() => void handleRetireStale()}
+              disabled={retiring || staleCount === 0}
+            >
+              {retiring
+                ? 'Retiring...'
+                : staleCount === 0
+                  ? 'Queue is clean'
+                  : 'Retire stale tasks'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

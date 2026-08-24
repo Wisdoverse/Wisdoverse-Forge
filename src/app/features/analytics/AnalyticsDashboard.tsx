@@ -3,6 +3,7 @@ import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { useAnalyticsStore, type DateRange } from './model/analytics.store'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { ContextSafetyInsight } from './ContextSafetyInsight'
 import { ContextUsageDashboard } from './ContextUsageDashboard'
 import { StatCard, type BarPoint } from './StatCard'
 
@@ -153,6 +154,28 @@ function buildAnalyticsGuidance({
   }
 }
 
+function formatUsd(cost: number): string {
+  if (cost >= 0.01) return `$${cost.toFixed(2)}`
+  return '<$0.01'
+}
+
+function formatTokenCount(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}m`
+  if (count >= 1_000) return `${Math.round(count / 1_000)}k`
+  return String(count)
+}
+
+function reliabilityRangeLabel(range: DateRange): string {
+  switch (range) {
+    case 'today':
+      return 'last 24 hours'
+    case '7d':
+      return 'last 7 days'
+    case '30d':
+      return 'last 30 days'
+  }
+}
+
 export function AnalyticsDashboard() {
   const {
     dateRange,
@@ -160,6 +183,9 @@ export function AnalyticsDashboard() {
     tools,
     hourly,
     agentStats,
+    agentReliability,
+    agentUsage,
+    usagePricingConfigured,
     contextUsage,
     loading,
     error,
@@ -270,6 +296,128 @@ export function AnalyticsDashboard() {
               loading={loading}
               accent="red"
             />
+          </div>
+        </section>
+
+        {/* Work reliability per agent */}
+        <section className="mb-6">
+          <h2 className="mb-3 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            Work reliability
+          </h2>
+          <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark">
+            {agentReliability.length === 0 ? (
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Run tasks to see each agent's success rate over the{' '}
+                {reliabilityRangeLabel(dateRange)}.
+              </p>
+            ) : (
+              <ul
+                className="divide-y divide-black/[0.06] dark:divide-white/[0.08]"
+                data-testid="agent-reliability-list"
+              >
+                {agentReliability.map((entry, index) => {
+                  const percent = Math.round(entry.successRate * 100)
+                  const tone =
+                    percent >= 75
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : percent >= 50
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-red-600 dark:text-red-400'
+                  return (
+                    <li
+                      key={entry.agentId}
+                      data-testid={`agent-reliability-${index}`}
+                      className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <span className="block truncate font-medium text-foreground-light dark:text-foreground-dark">
+                          {entry.name ?? 'Unnamed agent'}
+                        </span>
+                        <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                          {entry.succeeded} of {entry.total} finished · {entry.failed} failed
+                        </span>
+                      </div>
+                      <div className="flex w-full items-center gap-3 sm:w-56">
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.08] dark:bg-white/[0.12]">
+                          <div
+                            className={cn(
+                              'h-full rounded-full',
+                              percent >= 75
+                                ? 'bg-emerald-500'
+                                : percent >= 50
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                            )}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                        <span className={`w-12 text-right text-sm font-semibold ${tone}`}>
+                          {percent}%
+                        </span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* Agent usage per agent */}
+        <section className="mb-6">
+          <h2 className="mb-3 text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+            Agent usage
+          </h2>
+          {agentUsage.length > 0 && !usagePricingConfigured && (
+            <p className="mb-2 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Token counts only. Set LLM price rates for your models to see cost estimates.
+            </p>
+          )}
+          <div className="rounded-card border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark">
+            {agentUsage.length === 0 ? (
+              <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                Token usage appears after an agent answers a question or finishes a run in the{' '}
+                {reliabilityRangeLabel(dateRange)}.
+              </p>
+            ) : (
+              <ul
+                className="divide-y divide-black/[0.06] dark:divide-white/[0.08]"
+                data-testid="agent-usage-list"
+              >
+                {agentUsage.map((entry, index) => (
+                  <li
+                    key={entry.agentId}
+                    data-testid={`agent-usage-${index}`}
+                    className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <span className="block truncate font-medium text-foreground-light dark:text-foreground-dark">
+                        {entry.name ?? 'Unnamed agent'}
+                      </span>
+                      <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {entry.requests} run{entry.requests === 1 ? '' : 's'} ·{' '}
+                        {formatTokenCount(entry.tokensIn)} tokens in ·{' '}
+                        {formatTokenCount(entry.tokensOut)} tokens out
+                        {usagePricingConfigured && entry.estimatedCost != null
+                          ? ` · ≈ ${formatUsd(entry.estimatedCost)}`
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="flex w-full items-center gap-3 sm:w-56">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/[0.08] dark:bg-white/[0.12]">
+                        <div
+                          className="h-full rounded-full bg-apple-blue"
+                          style={{ width: `${Math.round(entry.share * 100)}%` }}
+                        />
+                      </div>
+                      <span className="w-24 text-right text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {Math.round(entry.share * 100)}% of tokens
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 
@@ -388,6 +536,8 @@ export function AnalyticsDashboard() {
         )}
 
         {contextAnalyticsEnabled && <ContextUsageDashboard data={contextUsage} loading={loading} />}
+
+        <ContextSafetyInsight />
       </div>
     </div>
   )

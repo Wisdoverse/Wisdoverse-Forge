@@ -9,6 +9,8 @@ const agentApiMock = vi.hoisted(() => ({
 
 const getAgentApiMock = vi.hoisted(() => vi.fn(() => agentApiMock))
 const fetchContextUsageAnalyticsMock = vi.hoisted(() => vi.fn())
+const fetchAgentReliabilityMock = vi.hoisted(() => vi.fn())
+const fetchAgentUsageMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@app/shared/api/legacy', () => ({
   getAgentApi: getAgentApiMock,
@@ -17,6 +19,8 @@ vi.mock('@app/shared/api/legacy', () => ({
 vi.mock('@app/shared/api/orchestration', () => ({
   orchestrationApi: {
     fetchContextUsageAnalytics: fetchContextUsageAnalyticsMock,
+    fetchAgentReliability: fetchAgentReliabilityMock,
+    fetchAgentUsage: fetchAgentUsageMock,
   },
 }))
 
@@ -46,6 +50,10 @@ beforeEach(() => {
   useContextFeaturesStore.getState().reset()
   getAgentApiMock.mockReturnValue(agentApiMock)
   fetchContextUsageAnalyticsMock.mockReset()
+  fetchAgentReliabilityMock.mockReset()
+  fetchAgentReliabilityMock.mockResolvedValue({ windowHours: 720, agents: [] })
+  fetchAgentUsageMock.mockReset()
+  fetchAgentUsageMock.mockResolvedValue({ windowHours: 720, pricingConfigured: false, agents: [] })
   Object.values(agentApiMock).forEach((mock) => mock.mockReset())
 })
 

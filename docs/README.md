@@ -38,7 +38,7 @@ part of this documentation set.
 | Operators (deploy / run)     | [Deployment](guides/deployment.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md)        |
 | Self-fix loop operators      | [Self-Fix Loop](guides/self-fix-loop.md), [Self-Fix Security Model](security/self-fix-loop.md)                                                                                            |
 | CLI and local-agent users    | [CLI Platform Support](guides/cli-platform-support.md), [Host CLI Agent Enrollment](runbooks/host-cli-agent-enrollment.md), [Getting Started](guides/getting-started.md)                  |
-| Product reviewers            | [Product UX Direction](architecture/product-ux-direction.md), [Task Workflow Guide](guides/task-workflow.md)                                                                              |
+| Product reviewers            | [Product Roadmap](../ROADMAP.md), [Product UX Direction](architecture/product-ux-direction.md), [Task Workflow Guide](guides/task-workflow.md)                                       |
 | Contributors                 | [Contributing](../CONTRIBUTING.md), [PR Status Summary](guides/pr-status-summary.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                        |
 | API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                             |
 
@@ -81,6 +81,7 @@ operator, security, or API contract.
 ## Related Files
 
 - [../README.md](../README.md) — repository entry point
+- [../ROADMAP.md](../ROADMAP.md) — long-term product roadmap
 - [../SPEC.md](../SPEC.md) — service contract for the Wisdoverse Forge runtime model
 - [../CONTRIBUTING.md](../CONTRIBUTING.md) — engineering workflow
 - [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) — community standards

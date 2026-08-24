@@ -1,23 +1,35 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   Bot,
   CheckCircle2,
   CircleDot,
   Clock3,
+  Flag,
+  MessageSquarePlus,
   Send,
+  Trash2,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import {
+  CONTEXT_OVERFLOW_FAILURE_GUIDE,
+  isContextOverflowFailure,
+  taskAttemptNote,
+  taskBlockedPreview,
+  taskFailurePreview,
+} from '@app/shared/lib/taskFailureCopy'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { taskStateLabel } from '@app/entities/task'
 import {
   orchestrationApi,
   taskResultArtifacts,
+  type TaskComment,
+  type TaskCommentKind,
   type TaskRunSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
@@ -68,6 +80,8 @@ export function HistoryTab({ task }: HistoryTabProps) {
             {taskUpdateGuide(task)}
           </p>
         </section>
+
+        <HumanUpdates task={task} />
 
         <section className="space-y-2">
           <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -205,6 +219,269 @@ function CheckInMetric({ label, value }: { label: string; value: string }) {
       </p>
     </div>
   )
+}
+
+const TASK_COMMENT_KINDS: TaskCommentKind[] = ['comment', 'blocker', 'unblock']
+
+function commentKindMeta(kind: TaskCommentKind): {
+  label: string
+  Icon: LucideIcon
+  dotClass: string
+} {
+  switch (kind) {
+    case 'blocker':
+      return { label: 'Block', Icon: Flag, dotClass: 'bg-apple-red' }
+    case 'unblock':
+      return { label: 'Unblock', Icon: CheckCircle2, dotClass: 'bg-apple-green' }
+    case 'comment':
+    default:
+      return { label: 'Note', Icon: MessageSquarePlus, dotClass: 'bg-apple-blue' }
+  }
+}
+
+function HumanUpdates({ task }: { task: TaskSummary }) {
+  const { t } = useTranslation()
+  const [comments, setComments] = useState<TaskComment[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    orchestrationApi
+      .getTaskComments(task.id)
+      .then((items) => {
+        if (!cancelled) setComments(Array.isArray(items) ? items : [])
+      })
+      .catch((err) => {
+        if (!cancelled) setError(taskDetailErrorMessage('loadComments', err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [task.id])
+
+  function handlePosted(comment: TaskComment) {
+    setComments((prev) => [...prev, comment])
+  }
+
+  function handleDeleted(commentId: string) {
+    setComments((prev) => prev.filter((comment) => comment.id !== commentId))
+  }
+
+  return (
+    <section className="space-y-2" data-testid="task-human-updates">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+          {t('taskComments.title')}
+        </p>
+      </div>
+      {loading && (
+        <BeginnerLoadingState
+          compact
+          framed={false}
+          title={t('taskComments.loadingTitle')}
+          detail={t('taskComments.loadingDetail')}
+          nextStep={t('taskComments.loadingNext')}
+          success={t('taskComments.loadingSuccess')}
+        />
+      )}
+      {error && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="rounded-card bg-apple-red/10 px-3 py-2 text-ui-body text-apple-red"
+        >
+          {error}
+        </div>
+      )}
+      {!loading && !error && comments.length === 0 && (
+        <div className="rounded-card border border-dashed border-black/[0.1] px-3 py-2 text-ui-body text-secondary-light dark:border-white/[0.12] dark:text-secondary-dark">
+          {t('taskComments.empty')}
+        </div>
+      )}
+      {comments.map((comment) => (
+        <CommentRow key={comment.id} comment={comment} onDeleted={handleDeleted} />
+      ))}
+      <CommentComposer taskId={task.id} onPosted={handlePosted} />
+    </section>
+  )
+}
+
+function CommentRow({
+  comment,
+  onDeleted,
+}: {
+  comment: TaskComment
+  onDeleted: (commentId: string) => void
+}) {
+  const { t } = useTranslation()
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const kind = commentKindMeta(comment.kind)
+  const isMine = currentUserId() === comment.author.id
+
+  async function handleDelete() {
+    if (!confirming) {
+      setConfirming(true)
+      return
+    }
+    setDeleting(true)
+    try {
+      await orchestrationApi.deleteTaskComment(comment.taskId, comment.id)
+      onDeleted(comment.id)
+    } catch (err) {
+      setConfirming(false)
+      window.alert(taskDetailErrorMessage('deleteComment', err))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="flex gap-2 rounded-card bg-apple-gray-6/70 px-3 py-2 dark:bg-white/[0.035]">
+      <span
+        aria-hidden="true"
+        className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', kind.dotClass)}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <p className="text-ui-body font-medium text-foreground-light dark:text-foreground-dark">
+            {comment.author.name || t('taskComments.unknownAuthor')}
+          </p>
+          <span className="rounded-button bg-black/[0.05] px-1.5 py-0.5 text-ui-caption font-medium text-secondary-light dark:bg-white/[0.08] dark:text-secondary-dark">
+            {kind.label}
+          </span>
+          <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+            {formatRelativeTime(comment.createdAt)}
+          </p>
+        </div>
+        <p className="mt-1 whitespace-pre-wrap text-ui-body leading-relaxed text-foreground-light dark:text-foreground-dark">
+          {comment.body}
+        </p>
+        {isMine && (
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={deleting}
+            className="mt-1 inline-flex items-center gap-1 rounded-button px-1.5 py-0.5 text-ui-caption font-medium text-secondary-light underline-offset-2 transition-colors hover:text-apple-red disabled:cursor-wait disabled:opacity-60 dark:text-secondary-dark"
+            aria-label={t('taskComments.deleteLabel')}
+          >
+            <Trash2 size={13} strokeWidth={2} aria-hidden="true" />
+            {deleting
+              ? t('taskComments.deleting')
+              : confirming
+                ? t('taskComments.confirmDelete')
+                : t('taskComments.delete')}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CommentComposer({
+  taskId,
+  onPosted,
+}: {
+  taskId: string
+  onPosted: (comment: TaskComment) => void
+}) {
+  const { t } = useTranslation()
+  const [kind, setKind] = useState<TaskCommentKind>('comment')
+  const [body, setBody] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    const text = body.trim()
+    if (!text || posting) return
+    setPosting(true)
+    setError(null)
+    try {
+      const comment = await orchestrationApi.createTaskComment(taskId, { kind, body: text })
+      onPosted(comment)
+      setBody('')
+      setKind('comment')
+    } catch (err) {
+      setError(taskDetailErrorMessage('postComment', err))
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  return (
+    <form
+      data-testid="task-comment-composer"
+      onSubmit={(event) => void handleSubmit(event)}
+      className="space-y-2 rounded-card border border-black/[0.08] px-3 py-2.5 dark:border-white/[0.1]"
+    >
+      <label className="flex flex-col gap-1">
+        <span className="sr-only">{t('taskComments.inputLabel')}</span>
+        <textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={2}
+          placeholder={t('taskComments.placeholder')}
+          className="w-full resize-y rounded-button border border-black/[0.08] bg-white px-2.5 py-2 text-ui-body text-foreground-light outline-none placeholder:text-secondary-light focus-visible:outline-2 focus-visible:outline-[rgb(var(--ring))] dark:border-white/[0.1] dark:bg-surface-dark dark:text-foreground-dark"
+        />
+      </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          role="radiogroup"
+          aria-label={t('taskComments.kindLabel')}
+          className="flex items-center gap-1"
+        >
+          {TASK_COMMENT_KINDS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={kind === option}
+              onClick={() => setKind(option)}
+              className={cn(
+                'rounded-button px-2.5 py-1 text-ui-caption font-medium transition-colors',
+                kind === option
+                  ? 'bg-apple-blue text-white'
+                  : 'bg-black/[0.04] text-secondary-light hover:bg-black/[0.07] dark:bg-white/[0.06] dark:text-secondary-dark dark:hover:bg-white/[0.09]'
+              )}
+            >
+              {commentKindMeta(option).label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="submit"
+          disabled={!body.trim() || posting}
+          className="inline-flex items-center gap-1.5 rounded-button bg-apple-blue px-3 py-1.5 text-ui-caption font-semibold text-white transition-colors hover:bg-apple-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Send size={13} strokeWidth={2.25} aria-hidden="true" />
+          {posting ? t('taskComments.posting') : t('taskComments.post')}
+        </button>
+      </div>
+      {error && (
+        <p role="alert" aria-live="polite" className="text-ui-caption font-medium text-apple-red">
+          {error}
+        </p>
+      )}
+    </form>
+  )
+}
+
+function currentUserId(): string | null {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('af:auth:user') : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { id?: unknown }
+    return typeof parsed.id === 'string' ? parsed.id : null
+  } catch {
+    return null
+  }
 }
 
 function TaskRunRow({ run }: { run: TaskRunSummary }) {
@@ -512,8 +789,13 @@ function taskUpdateGuide(task: TaskSummary): string {
       return 'The task needs your input. Read the reason, decide what to provide, then allow it to continue or update the task.'
     case 'completed':
       return 'Open Results next. Check the answer, then accept it, save repeatable steps, or create a follow-up task.'
-    case 'failed':
-      return 'Read the latest update, fix the cause if you can, then retry or create a clearer follow-up task.'
+    case 'failed': {
+      const attemptNote = taskAttemptNote(task.attempt)
+      const guide = isContextOverflowFailure(task.error)
+        ? CONTEXT_OVERFLOW_FAILURE_GUIDE
+        : 'Read the latest update, fix the cause if you can, then retry or create a clearer follow-up task.'
+      return attemptNote ? `${attemptNote} ${guide}` : guide
+    }
     case 'canceled':
       return 'No one is working on this task now. Reopen it or create follow-up work if it still matters.'
     default:

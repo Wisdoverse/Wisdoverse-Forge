@@ -22,28 +22,37 @@ use uuid::Uuid;
 use crate::domain::context::{ContextFeature, ContextFeatureFlags};
 use crate::domain::context_resolver::{ContextTaskSnapshot, ResolvedContext};
 use crate::domain::orchestration::{
-    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, OrchestrationTransactionPolicy,
-    ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName, ParticipantStatusPolicy,
-    QuotaBlockPolicy, TaskAssignmentPolicy, TaskAssignmentSnapshot, TaskCreationPolicy, TaskLifecyclePolicy,
-    TaskListPage, TaskPatchAction, TaskPatchPolicy, TaskPriority, TaskRunCapabilityProfile, TaskStatusPolicy,
-    TaskTitle,
+    BlockedTaskPolicy, DispatchSweepDecision, DispatchSweepPolicy, OrchestrationRepositoryPolicy,
+    OrchestrationTransactionPolicy, ParticipantAvailabilityAction, ParticipantAvailabilityPolicy, ParticipantName,
+    ParticipantStatusPolicy, QuotaBlockPolicy, ReviewGatePolicy, TaskAssignmentPolicy, TaskAssignmentSnapshot,
+    TaskCreationPolicy, TaskDependencyPolicy, TaskLifecyclePolicy, TaskListPage, TaskPatchAction, TaskPatchPolicy,
+    TaskPriority, TaskRetirePolicy, TaskRunCapabilityProfile, TaskStatusPolicy, TaskTitle, TaskWaitEstimate,
+    TaskWaitEstimatePolicy,
 };
 pub(crate) use crate::domain::orchestration::{
-    CreateTaskParamsInput, create_task_request_parts, orchestration_delete_response,
-    orchestration_participant_response, orchestration_participants_response, orchestration_stats_response,
-    orchestration_task_context_response, orchestration_task_response, orchestration_task_runs_response,
-    orchestration_tasks_response, task_update_broadcast_payload, task_update_broadcast_subject,
+    CreateTaskParamsInput, TaskHistoryExportRowProjection, create_task_request_parts, orchestration_delete_response,
+    orchestration_human_marks_response, orchestration_participant_response, orchestration_participants_response,
+    orchestration_stats_response, orchestration_task_comment_response, orchestration_task_comments_response,
+    orchestration_task_context_response, orchestration_task_export_response, orchestration_task_response,
+    orchestration_task_review_check_response, orchestration_task_review_checks_response,
+    orchestration_task_review_gates_response, orchestration_task_runs_response, orchestration_tasks_response,
+    task_history_csv, task_update_broadcast_payload, task_update_broadcast_subject,
 };
 pub use crate::domain::orchestration::{
-    ParticipantSummary, TaskContextCounts, TaskRunSummary, TaskStatsResponse, TaskSummary,
+    HumanMarkerSummary, ParticipantSummary, ReviewGateStatus, TaskCommentAuthor, TaskCommentSummary, TaskContextCounts,
+    TaskReviewCheckSummary, TaskRunSummary, TaskStatsResponse, TaskSummary,
 };
 use crate::domain::self_fix::self_fix_pr_job_payload;
 use crate::repositories::orchestration::run_context_injection::{
     ContextInjectionCounts, RunContextInjectionRepository,
 };
+use crate::repositories::orchestration::task_comment::{
+    HumanMarkerRow, TaskCommentRepository, TaskCommentWithAuthorRow,
+};
 use crate::repositories::orchestration::task_run::TaskRunRepository;
 use crate::repositories::orchestration::{
-    CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, UpdateTaskRow,
+    CreateTaskRow, OrchestrationTaskRepository, OrchestrationTaskStats, ParticipantRepository, TaskHistoryExportRow,
+    TaskReviewCheckRepository, TaskReviewCheckRow, UpdateTaskRow,
 };
 use crate::services::context_envelope::ContextEnvelopeService;
 use crate::services::context_resolver::ContextResolverService;
@@ -81,6 +90,54 @@ pub fn task_run_summary(run: TaskRun) -> TaskRunSummary {
 
 fn string_value(value: &serde_json::Value, key: &str) -> Option<String> {
     value.get(key).and_then(serde_json::Value::as_str).map(str::to_owned)
+}
+
+/// Project a persisted comment row onto TaskCommentSummary.
+pub fn task_comment_summary(row: TaskCommentWithAuthorRow) -> TaskCommentSummary {
+    TaskCommentSummary {
+        id: row.id,
+        task_id: row.task_id,
+        kind: row.kind,
+        body: row.body,
+        author: TaskCommentAuthor { id: row.author_user_id.as_uuid(), name: row.author_name.unwrap_or_default() },
+        created_at: row.created_at.to_rfc3339(),
+        updated_at: row.updated_at.to_rfc3339(),
+    }
+}
+
+/// Map a persisted export row onto the domain CSV projection.
+pub(crate) fn task_history_projection(row: TaskHistoryExportRow) -> TaskHistoryExportRowProjection {
+    TaskHistoryExportRowProjection {
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        priority: row.priority,
+        progress: row.progress,
+        creator_name: row.creator_name,
+        assigned_agent_name: row.assigned_agent_name,
+        runs_count: row.runs_count,
+        created_at: row.created_at,
+        completed_at: row.completed_at,
+        updated_at: row.updated_at,
+        blocked_reason: row.blocked_reason,
+        requires_approval: row.requires_approval,
+    }
+}
+
+/// Project a review-check row onto TaskReviewCheckSummary.
+pub fn task_review_check_summary(row: TaskReviewCheckRow) -> TaskReviewCheckSummary {
+    TaskReviewCheckSummary { check_key: row.check_key, done: row.done, updated_at: row.updated_at.to_rfc3339() }
+}
+
+/// Project the latest blocker/unblock signal onto HumanMarkerSummary.
+pub fn human_marker_summary(row: HumanMarkerRow) -> HumanMarkerSummary {
+    HumanMarkerSummary {
+        task_id: row.task_id,
+        kind: row.kind,
+        body: row.body,
+        author_name: row.author_name,
+        created_at: row.created_at.to_rfc3339(),
+    }
 }
 
 /// Borrow the assignment-relevant fields of an `OrchestrationTask` row into the
@@ -138,6 +195,8 @@ pub struct OrchestrationService {
     task_repo: OrchestrationTaskRepository,
     participant_repo: ParticipantRepository,
     task_run_repo: TaskRunRepository,
+    task_comment_repo: TaskCommentRepository,
+    task_review_check_repo: TaskReviewCheckRepository,
     /// Agent lookups for image dispatch (workspace resolution). Held as a field so
     /// service methods don't construct repositories from `self` (DDD boundary).
     agents: crate::repositories::agent::AgentRepository,
@@ -155,12 +214,16 @@ pub struct OrchestrationService {
 impl OrchestrationService {
     pub fn new(task_repo: OrchestrationTaskRepository, participant_repo: ParticipantRepository) -> Self {
         let task_run_repo = TaskRunRepository::new(task_repo.pool().clone());
+        let task_comment_repo = TaskCommentRepository::new(task_repo.pool().clone());
+        let task_review_check_repo = TaskReviewCheckRepository::new(task_repo.pool().clone());
         let agents = crate::repositories::agent::AgentRepository::new(task_repo.pool().clone());
         let context_injections = RunContextInjectionRepository::new(task_repo.pool().clone());
         Self {
             task_repo,
             participant_repo,
             task_run_repo,
+            task_comment_repo,
+            task_review_check_repo,
             agents,
             context_injections,
             context_resolver: None,
@@ -259,6 +322,7 @@ impl OrchestrationService {
             return Err(crate::domain::instruction_image::images_require_assigned_vision_agent());
         }
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
+        let dependencies = TaskDependencyPolicy::from_params(params.as_ref());
         // Parent status gates child creation on waiting_dependency. Missing
         // parents become validation errors; infrastructure failures propagate.
         let parent_status = if let Some(parent_id) = parent_task_id {
@@ -287,8 +351,12 @@ impl OrchestrationService {
                 .await;
         }
 
-        let initial_state =
-            TaskCreationPolicy::initial_unassigned_state(&missing_inputs, requires_approval, parent_status.as_deref());
+        let initial_state = TaskCreationPolicy::initial_unassigned_state(
+            &missing_inputs,
+            requires_approval,
+            parent_status.as_deref(),
+            &dependencies,
+        );
 
         let task = self
             .task_repo
@@ -342,6 +410,22 @@ impl OrchestrationService {
             TaskStatusPolicy::validate_filter(s)?;
         }
         self.task_repo.list_by_group(scope, group_id, status).await
+    }
+
+    /// Batch-retire stale, never-started tasks in a group (`backlog`/`queued`,
+    /// `progress = 0`, untouched for `older_than_days`). Governor action: the
+    /// route requires an org admin and audits the operation.
+    pub async fn retire_stale_tasks(
+        &self,
+        scope: &TenantScope,
+        group_id: Uuid,
+        older_than_days: Option<i32>,
+        batch_limit: Option<i64>,
+    ) -> AppResult<(i64, Vec<uuid::Uuid>)> {
+        let (days, batch) = TaskRetirePolicy::validate(older_than_days, batch_limit)?;
+        let ids = self.task_repo.retire_stale_tasks(scope, group_id, days, batch).await?;
+        let count = ids.len() as i64;
+        Ok((count, ids))
     }
 
     pub async fn task_stats_by_group(&self, scope: &TenantScope, group_id: Uuid) -> AppResult<TaskStatsResponse> {
@@ -469,6 +553,9 @@ impl OrchestrationService {
     /// auto-dispatcher invoked on create / heartbeat.
     pub async fn dispatch_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
+        if self.prerequisites_unresolved(scope, &task).await? {
+            return Ok(task);
+        }
 
         // Explicit operator dispatch: tolerates a #793/#875 waiting_verification
         // re-run; the auto-sweep keeps the stricter `can_enter_dispatch`.
@@ -481,11 +568,71 @@ impl OrchestrationService {
         self.assign_to_participant(scope, &task, &participant).await
     }
 
+    /// Release blocked tasks whose declared prerequisites are now all
+    /// completed; returns how many were promoted to `queued`. Best-effort:
+    /// a failure only delays the promotion, not the completion itself.
+    async fn release_prerequisites(&self, scope: &TenantScope, completed_id: Uuid) -> AppResult<usize> {
+        let candidates = self.task_repo.dependent_task_ids(scope, completed_id).await?;
+        let mut released = 0;
+        for id in candidates {
+            let Ok(task) = self.task_repo.find_by_id(scope, id).await else { continue };
+            let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
+            let mut statuses: Vec<(uuid::Uuid, String)> = Vec::new();
+            for dependency in &dependencies {
+                match self.task_repo.find_by_id(scope, *dependency).await {
+                    Ok(dep) => statuses.push((*dependency, dep.status.clone())),
+                    Err(_) => statuses.push((*dependency, "missing".to_string())),
+                }
+            }
+            if TaskDependencyPolicy::unresolved(&dependencies, &statuses) {
+                continue;
+            }
+            let updated = self
+                .task_repo
+                .patch(
+                    scope,
+                    id,
+                    UpdateTaskRow {
+                        status: Some("queued".to_string()),
+                        blocked_reason: Some(None),
+                        blocked_metadata: Some(None),
+                        progress: None,
+                        priority: None,
+                        assigned_agent_id: None,
+                    },
+                )
+                .await?;
+            released += 1;
+            let _ = self.try_auto_dispatch(scope, updated).await?;
+        }
+        Ok(released)
+    }
+
+    /// True when the task declares prerequisites that are not all completed
+    /// (params `dependency_ids`); such tasks must not dispatch.
+    async fn prerequisites_unresolved(&self, scope: &TenantScope, task: &OrchestrationTask) -> AppResult<bool> {
+        let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
+        if dependencies.is_empty() {
+            return Ok(false);
+        }
+        let mut statuses: Vec<(uuid::Uuid, String)> = Vec::new();
+        for dependency in &dependencies {
+            match self.task_repo.find_by_id(scope, *dependency).await {
+                Ok(dep) => statuses.push((*dependency, dep.status.clone())),
+                Err(_) => statuses.push((*dependency, "missing".to_string())),
+            }
+        }
+        Ok(TaskDependencyPolicy::unresolved(&dependencies, &statuses))
+    }
+
     /// Try to dispatch a task to an available participant. If no participant is
     /// available the task is marked `blocked/waiting_agent` with metadata that
     /// powers the "还差 X 个 agent" hint. Returns the updated task either way.
     async fn try_auto_dispatch(&self, scope: &TenantScope, task: OrchestrationTask) -> AppResult<OrchestrationTask> {
         if !BlockedTaskPolicy::can_enter_dispatch(&task.status, task.blocked_reason.as_deref()) {
+            return Ok(task);
+        }
+        if self.prerequisites_unresolved(scope, &task).await? {
             return Ok(task);
         }
         // An image task must be PUSH-dispatched to an explicitly chosen
@@ -888,6 +1035,11 @@ impl OrchestrationService {
         if let Err(err) = self.sweep_dispatchable(scope).await {
             tracing::error!(error = ?err, task_id = %task_id, "Post-completion sweep failed");
         }
+        // Prerequisite release: promote blocked dependents whose declared
+        // prerequisites are all completed (best-effort, post-commit).
+        if let Err(err) = self.release_prerequisites(scope, task_id).await {
+            tracing::error!(error = ?err, task_id = %task_id, "Prerequisite release sweep failed");
+        }
         Ok(updated)
     }
 
@@ -1035,6 +1187,7 @@ impl OrchestrationService {
         let names = self.task_repo.resolve_agent_names(scope, &agent_ids).await?;
         let task_ids: Vec<Uuid> = tasks.iter().map(|task| task.id).collect();
         let mut context_counts = self.context_injections.count_by_tasks(scope, &task_ids).await?;
+        let wait_estimates = self.queued_wait_estimates(scope, &task_ids).await?;
         Ok(tasks
             .into_iter()
             .map(|t| {
@@ -1043,9 +1196,45 @@ impl OrchestrationService {
                 if let Some(counts) = context_counts.remove(&summary.id) {
                     summary.context_counts = counts.into();
                 }
+                if let Some(estimate) = wait_estimates.get(&summary.id) {
+                    summary.wait_estimate = Some(estimate.clone());
+                }
                 summary
             })
             .collect())
+    }
+
+    /// Org-scoped queued-wait predictions for the given task ids.
+    ///
+    /// One queue snapshot + one median-duration query per read. Position is
+    /// measured inside the task's own dispatch lane — the same agent for
+    /// assigned tasks, the shared pool for unassigned ones — matching the
+    /// order the auto-dispatcher actually drains (`urgent` first, then age).
+    async fn queued_wait_estimates(
+        &self,
+        scope: &TenantScope,
+        task_ids: &[Uuid],
+    ) -> AppResult<HashMap<Uuid, TaskWaitEstimate>> {
+        if task_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let queue = self.task_repo.queued_tasks_ordered(scope).await?;
+        if queue.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let typical = self.task_repo.typical_wait_seconds(scope).await?;
+        let wanted: std::collections::HashSet<Uuid> = task_ids.iter().copied().collect();
+        let mut positions: HashMap<Option<Uuid>, u32> = HashMap::new();
+        let mut estimates = HashMap::new();
+        for key in &queue {
+            let lane = key.assigned_agent_id.map(|a| a.as_uuid());
+            let position = positions.entry(lane).or_insert(0);
+            *position += 1;
+            if wanted.contains(&key.id) {
+                estimates.insert(key.id, TaskWaitEstimatePolicy::estimate(*position, typical));
+            }
+        }
+        Ok(estimates)
     }
 
     /// Single-task summary helper that resolves the assigned agent name lazily.
@@ -1060,6 +1249,9 @@ impl OrchestrationService {
         if let Some(counts) = self.context_injections.count_by_tasks(scope, &[summary.id]).await?.remove(&summary.id) {
             summary.context_counts = counts.into();
         }
+        if let Some(estimate) = self.queued_wait_estimates(scope, &[summary.id]).await?.remove(&summary.id) {
+            summary.wait_estimate = Some(estimate);
+        }
         Ok(summary)
     }
 
@@ -1067,6 +1259,146 @@ impl OrchestrationService {
         self.task_repo.find_by_id(scope, task_id).await?;
         let runs = self.task_run_repo.list_by_task(scope, task_id).await?;
         Ok(runs.into_iter().map(task_run_summary).collect())
+    }
+
+    /// Human updates for a task, oldest first. Independent of execution
+    /// attempts and lifecycle state.
+    pub async fn list_task_comments(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<Vec<TaskCommentSummary>> {
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let rows = self.task_comment_repo.list_by_task(scope, task_id).await?;
+        Ok(rows.into_iter().map(task_comment_summary).collect())
+    }
+
+    /// Add a human update (comment / blocker / unblock) to a task.
+    pub async fn create_task_comment(
+        &self,
+        scope: &TenantScope,
+        task_id: Uuid,
+        kind: Option<&str>,
+        body: &str,
+    ) -> AppResult<TaskCommentSummary> {
+        let kind = kind.unwrap_or("comment");
+        if !matches!(kind, "comment" | "blocker" | "unblock") {
+            return Err(OrchestrationRepositoryPolicy::invalid_task_comment_kind(kind));
+        }
+        if body.trim().is_empty() {
+            return Err(OrchestrationRepositoryPolicy::empty_task_comment_body());
+        }
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let row = self
+            .task_comment_repo
+            .create(scope, task_id, scope.user_id(), kind, body.trim())
+            .await?
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(task_id))?;
+        Ok(task_comment_summary(row))
+    }
+
+    /// Latest blocker / unblock signals for a set of tasks (board badges).
+    /// Bounded: the board never sends more than 300 task ids.
+    pub async fn latest_human_marks(
+        &self,
+        scope: &TenantScope,
+        task_ids: &[Uuid],
+    ) -> AppResult<Vec<HumanMarkerSummary>> {
+        if task_ids.len() > 300 {
+            return Err(OrchestrationRepositoryPolicy::task_marker_list_too_large(300));
+        }
+        Ok(self
+            .task_comment_repo
+            .latest_marker_by_tasks(scope, task_ids)
+            .await?
+            .into_iter()
+            .map(human_marker_summary)
+            .collect())
+    }
+
+    /// Human review checklist for a task (the current user's ticks).
+    pub async fn list_task_review_checks(
+        &self,
+        scope: &TenantScope,
+        task_id: Uuid,
+    ) -> AppResult<Vec<TaskReviewCheckSummary>> {
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let rows = self.task_review_check_repo.list_by_task(scope, task_id, scope.user_id()).await?;
+        Ok(rows.into_iter().map(task_review_check_summary).collect())
+    }
+
+    /// Required-acceptance gates for a task: which keys are required and
+    /// whether they are all ticked by any reviewer.
+    pub async fn review_gate_status(
+        &self,
+        scope: &TenantScope,
+        task_id: Uuid,
+        required: &[String],
+    ) -> AppResult<ReviewGateStatus> {
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let missing = self.task_review_check_repo.undone_required_gates(scope, task_id, required).await?;
+        Ok(ReviewGateStatus { required_keys: required.to_vec(), satisfied: missing.is_empty(), missing })
+    }
+
+    /// Refuse a human 'mark completed' until every required review gate is
+    /// ticked (a key ticked by any reviewer counts for the task).
+    pub async fn assert_review_gates(&self, scope: &TenantScope, task_id: Uuid, required: &[String]) -> AppResult<()> {
+        if required.is_empty() {
+            return Ok(());
+        }
+        let missing = self.task_review_check_repo.undone_required_gates(scope, task_id, required).await?;
+        if missing.is_empty() {
+            return Ok(());
+        }
+        Err(ReviewGatePolicy::incomplete_error(&missing).into())
+    }
+
+    /// Set (or unset) one review check for the current user.
+    pub async fn set_task_review_check(
+        &self,
+        scope: &TenantScope,
+        task_id: Uuid,
+        check_key: &str,
+        done: bool,
+    ) -> AppResult<TaskReviewCheckSummary> {
+        let key = check_key.trim();
+        if key.is_empty() || key.len() > 64 {
+            return Err(OrchestrationRepositoryPolicy::invalid_task_review_check_key(check_key));
+        }
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let row = self
+            .task_review_check_repo
+            .set_check(scope, task_id, scope.user_id(), key, done)
+            .await?
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(task_id))?;
+        Ok(task_review_check_summary(row))
+    }
+
+    /// Compliance export of task history as CSV (newest first, capped).
+    pub async fn export_task_history_csv(&self, scope: &TenantScope, limit: Option<i64>) -> AppResult<(String, usize)> {
+        let limit = limit.unwrap_or(500).clamp(1, 1000);
+        let rows = self.task_repo.export_task_history(scope, limit).await?;
+        let projections: Vec<TaskHistoryExportRowProjection> = rows.into_iter().map(task_history_projection).collect();
+        let raw_count = projections.len();
+        Ok((task_history_csv(&projections), raw_count))
+    }
+
+    /// Delete the caller's own comment on a task. 404 when the comment is
+    /// missing (or belongs to another task); 403 when it belongs to another
+    /// person.
+    pub async fn delete_task_comment(&self, scope: &TenantScope, task_id: Uuid, comment_id: Uuid) -> AppResult<()> {
+        self.task_repo.find_by_id(scope, task_id).await?;
+        let row = self
+            .task_comment_repo
+            .find_with_author(scope, comment_id)
+            .await?
+            .ok_or_else(|| OrchestrationRepositoryPolicy::task_comment_not_found(comment_id))?;
+        if row.task_id != task_id {
+            return Err(OrchestrationRepositoryPolicy::task_comment_not_found(comment_id));
+        }
+        if row.author_user_id != scope.user_id() {
+            return Err(OrchestrationRepositoryPolicy::forbidden());
+        }
+        if !self.task_comment_repo.delete(scope, comment_id).await? {
+            return Err(OrchestrationRepositoryPolicy::task_comment_not_found(comment_id));
+        }
+        Ok(())
     }
 
     pub(crate) async fn broadcast_task_update(&self, scope: &TenantScope, action: &str, task: &TaskSummary) {

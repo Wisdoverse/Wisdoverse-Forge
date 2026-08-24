@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Package a self-hosted offline bundle: server + agent-base images as one
+# verifiable tar for air-gapped hosts.
+#
+# Prereqs (on an internet-connected host):
+#   make build-agent-base   # builds the agent base image
+#   make prod-ext           # builds the server image (or docker compose build)
+#
+# Usage:
+#   scripts/offline-bundle.sh            # writes dist/offline-bundle-<version>.tar.gz
+#   scripts/offline-bundle.sh --dry-run  # print the commands without running them
+#   VERSION=0.1.15 scripts/offline-bundle.sh
+set -euo pipefail
+
+DRY_RUN=0
+FULL_STACK=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    --full-stack) FULL_STACK=1 ;;
+    -h|--help) grep '^#' "$0" | sed 's/^# //' | head -20; exit 0 ;;
+    *) echo "Unknown argument: $arg (use --dry-run)" >&2; exit 2 ;;
+  esac
+done
+
+VERSION="${VERSION:-$(node -p 'require("./package.json").version' 2>/dev/null || echo latest)}"
+SERVER_IMAGE="${AGENTFORGE_SERVER_IMAGE:-agentforge-server:${VERSION}}"
+AGENT_IMAGE="${AGENT_BASE_IMAGE:-agentforge/agent-base:${VERSION}}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT_DIR="${OUT_DIR:-$ROOT/dist}"
+BUNDLE="$OUT_DIR/offline-bundle-${VERSION}.tar.gz"
+
+# Optional: include the whole compose stack (db, redis, nats, temporal) so a
+# fully air-gapped host needs no registry access at all.
+IMAGES="$SERVER_IMAGE $AGENT_IMAGE"
+if [ "$FULL_STACK" = 1 ]; then
+  # Pinned platform services from docker/compose.yml; override with
+  # STACK_IMAGES="..." when your stack differs.
+  STACK_IMAGES="${STACK_IMAGES:-agentforge-frontend:${VERSION} postgres:18-alpine redis:8-alpine nats:2.12.7-alpine temporalio/auto-setup:1.26 minio/minio:latest}"
+  IMAGES="$IMAGES $STACK_IMAGES"
+fi
+
+say() { [ "$DRY_RUN" = 1 ] && echo "[dry-run] $*" || echo "$*"; }
+run() { if [ "$DRY_RUN" = 1 ]; then say "$*"; else "$@"; fi }
+
+if [ "$DRY_RUN" = 0 ]; then
+  rm -rf "$OUT_DIR/offline-bundle"
+  mkdir -p "$OUT_DIR/offline-bundle"
+fi
+
+for image in $IMAGES; do
+  if [ "$DRY_RUN" = 0 ] && ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "Image not found locally: $image" >&2
+    echo "Build/bring it first: make build-agent-base; make prod-ext (or docker compose build; docker pull)" >&2
+    exit 1
+  fi
+  say "Using image: $image"
+done
+
+if [ "$DRY_RUN" = 0 ]; then
+  printf '%s\n' $IMAGES > "$OUT_DIR/offline-bundle/images.txt"
+  cat > "$OUT_DIR/offline-bundle/README.txt" <<EOF
+Wisdoverse Forge offline bundle $VERSION
+
+Contents:
+  images.tar  - docker save output (server + agent base)
+  images.txt  - the image tags inside the bundle
+  SHA256SUMS  - integrity checksums for this directory
+
+On the air-gapped host:
+  scripts/load-offline-bundle.sh $BUNDLE
+  then follow docs/guides/offline-install.md.
+EOF
+fi
+
+say "Saving images..."
+run docker save -o "$OUT_DIR/offline-bundle/images.tar" $IMAGES
+
+if [ "$DRY_RUN" = 0 ]; then
+  ( cd "$OUT_DIR/offline-bundle" && sha256sum images.tar images.txt README.txt > SHA256SUMS )
+  if [ -n "${BUNDLE_SIGNING_KEY:-}" ]; then
+    if [ ! -f "$BUNDLE_SIGNING_KEY" ]; then
+      echo "Signing key not found: $BUNDLE_SIGNING_KEY" >&2
+      exit 1
+    fi
+    ( cd "$OUT_DIR/offline-bundle" && openssl pkeyutl -sign -rawin -in SHA256SUMS -inkey "$BUNDLE_SIGNING_KEY" -out SHA256SUMS.sig )
+    echo "Bundle checksums signed (SHA256SUMS.sig)."
+  else
+    echo "No BUNDLE_SIGNING_KEY set; bundle is checksummed but unsigned." >&2
+  fi
+  tar -C "$OUT_DIR/offline-bundle" -czf "$BUNDLE" .
+  echo "Created: $BUNDLE"
+  ls -lh "$BUNDLE"
+else
+  say "docker save -o ... images.tar $IMAGES"
+  say "sha256sum images.tar images.txt README.txt > SHA256SUMS"
+  say "tar -C $OUT_DIR/offline-bundle -czf $BUNDLE ."
+fi

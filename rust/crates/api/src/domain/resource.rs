@@ -30,6 +30,16 @@ pub(crate) fn resource_delete_response() -> Value {
     json!({ "ok": true })
 }
 
+/// Response for redeeming a one-time team invite with the current account.
+pub(crate) fn redeem_team_invite_response(org_id: Uuid, team_id: Uuid) -> Value {
+    json!({ "ok": true, "orgId": org_id, "teamId": team_id })
+}
+
+/// Response for an invite that sent an email link (pending acceptance).
+pub(crate) fn invite_pending_response(invite_url: &str) -> Value {
+    json!({ "ok": true, "pending": true, "inviteUrl": invite_url })
+}
+
 /// Legacy project-scoped group projection consumed by the tree-pane frontend.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -431,6 +441,41 @@ impl ResourceMemberPolicy {
     }
 }
 
+/// One-time team invite policy: token format, hashing, expiry, and redeem
+/// rules. The invite only grants the invitee's OWN email address — a
+/// different account can never consume someone else's invite.
+pub(crate) struct TeamInvitePolicy;
+
+impl TeamInvitePolicy {
+    pub(crate) const TTL_HOURS: i64 = 72;
+
+    pub(crate) fn generate_token() -> String {
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use rand::Rng;
+        let mut bytes = [0u8; 24];
+        rand::rng().fill_bytes(&mut bytes);
+        URL_SAFE_NO_PAD.encode(bytes)
+    }
+
+    pub(crate) fn hash_token(token: &str) -> String {
+        use sha2::{Digest, Sha256};
+        let digest = Sha256::digest(token.as_bytes());
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub(crate) fn invalid_or_expired() -> ErrorKind {
+        ErrorKind::Validation(
+            "This invite has expired or was already used. Ask the team lead to invite you again.".into(),
+        )
+    }
+
+    pub(crate) fn email_mismatch() -> ErrorKind {
+        ErrorKind::Validation(
+            "This invite is for a different email address. Sign in with the invited email to join.".into(),
+        )
+    }
+}
 pub(crate) struct ResourceRepositoryPolicy;
 
 impl ResourceRepositoryPolicy {

@@ -8,6 +8,20 @@ import type { TaskSummary } from '@app/shared/api/orchestration'
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
 
+// Analytics events are best-effort side-channel data; keep draft tests
+// focused on the modal flow.
+vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/shared/api/orchestration')>()
+  return {
+    ...actual,
+    orchestrationApi: {
+      ...actual.orchestrationApi,
+      trackProductEvent: vi.fn().mockResolvedValue(undefined),
+      listAnalyticsEvents: vi.fn().mockResolvedValue([]),
+    },
+  }
+})
+
 const completedTask: TaskSummary = {
   id: 'task-1',
   groupId: 'group-1',
@@ -127,9 +141,11 @@ describe('SkillDraftModal', () => {
     expect(screen.getByText('refactor-database-migration')).toBeDefined()
 
     const openSkills = screen.getByRole('link', { name: /open skills/i })
-    const chooseAgent = screen.getByRole('link', { name: /choose agent/i })
     expect(openSkills.getAttribute('href')).toBe('/skills')
-    expect(chooseAgent.getAttribute('href')).toBe('/agents')
+    // Attach-back is now inline: the published state offers the agent picker
+    // instead of a plain link to /agents.
+    expect(screen.queryByRole('link', { name: /choose agent/i })).toBeNull()
+    expect(screen.getByTestId('skill-draft-agent-picker')).toBeDefined()
     expect(screen.queryByRole('link', { name: /open saved instructions/i })).toBeNull()
     expect(
       screen.getByText('Find this skill, then check the reusable steps before agents use them.')

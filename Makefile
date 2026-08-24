@@ -62,6 +62,14 @@ quickstart-local: ## Prepare local env, start backend stack, and wait for health
 local-health: ## Check local backend runtime health
 	@bash scripts/check-local-runtime.sh --wait
 
+.PHONY: product
+product: ## Start the full product locally (stack + browser app) in one command
+	@bash scripts/start-product.sh
+
+.PHONY: product-down
+product-down: ## Stop the local product stack started by `make product`
+	@$(MAKE) dev-down
+
 .PHONY: bootstrap-selfhost
 bootstrap-selfhost: ## Prepare self-contained production profile
 	@$(SELFHOST_ENV) bash scripts/bootstrap-selfhost.sh $(if $(DOMAIN),--domain "$(DOMAIN)")

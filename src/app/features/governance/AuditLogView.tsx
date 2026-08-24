@@ -126,6 +126,7 @@ export function AuditLogView() {
   const [data, setData] = useState<GovernanceAuditResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [taskExporting, setTaskExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
 
@@ -198,6 +199,27 @@ export function AuditLogView() {
       setError(governanceAuditErrorMessage('exportAudit', err))
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function exportTaskHistory() {
+    setTaskExporting(true)
+    setError(null)
+    try {
+      const content = await orchestrationApi.exportTaskHistoryCsv(500)
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `wisdoverse-task-history-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(governanceAuditErrorMessage('exportTasks', err))
+    } finally {
+      setTaskExporting(false)
     }
   }
 
@@ -330,6 +352,17 @@ export function AuditLogView() {
               aria-label="Export change history"
               className={cn(uiStyles.secondaryButton, 'w-8 px-0')}
               title="Export change history"
+            >
+              <Download size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              data-testid="governance-task-export"
+              onClick={() => void exportTaskHistory()}
+              disabled={taskExporting}
+              aria-label="Export task history"
+              className={cn(uiStyles.secondaryButton, 'w-8 px-0')}
+              title="Export task history (CSV)"
             >
               <Download size={15} aria-hidden="true" />
             </button>

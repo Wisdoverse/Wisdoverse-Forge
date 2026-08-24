@@ -1,9 +1,10 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { HistoryTab } from '@app/features/detail/HistoryTab'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 
 const getTaskRunsMock = vi.hoisted(() => vi.fn())
+const getTaskCommentsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@app/shared/api/orchestration')>()
@@ -11,6 +12,7 @@ vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
     ...actual,
     orchestrationApi: {
       ...actual.orchestrationApi,
+      getTaskComments: getTaskCommentsMock,
       getTaskRuns: getTaskRunsMock,
     },
   }
@@ -20,6 +22,9 @@ afterEach(cleanup)
 
 beforeEach(() => {
   getTaskRunsMock.mockReset()
+  getTaskCommentsMock.mockReset()
+  // Human updates render in the same tab; keep them out of these history tests.
+  getTaskCommentsMock.mockResolvedValue([])
 })
 
 function makeTask(overrides: Partial<TaskSummary> = {}): TaskSummary {
@@ -55,6 +60,43 @@ describe('HistoryTab', () => {
       'Success looks like an agent work row or a note that no work history is available yet.'
     )
     expect(loading).not.toHaveTextContent('Loading work history')
+  })
+
+  test('mentions earlier retries in the failed guide', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'failed',
+          progress: 0,
+          attempt: 3,
+          error: 'timed out mid-step',
+        })}
+      />
+    )
+
+    const guide = within(await screen.findByTestId('task-updates-guide'))
+    expect(guide.getByText(/Earlier tries also stopped \(attempt 3\)/i)).toBeInTheDocument()
+  })
+
+  test('explains a context overflow failure with a trim-and-retry step', async () => {
+    getTaskRunsMock.mockResolvedValue([])
+
+    render(
+      <HistoryTab
+        task={makeTask({
+          state: 'failed',
+          progress: 0,
+          error: 'invalid_request_error: prompt is too long: 201k tokens',
+        })}
+      />
+    )
+
+    const guide = within(await screen.findByTestId('task-updates-guide'))
+    expect(guide.getByText(/ran out of context window/i)).toBeInTheDocument()
+    expect(guide.getByText(/remove items it does not need/i)).toBeInTheDocument()
+    expect(guide.queryByText(/Read the latest update, fix the cause/i)).toBeNull()
   })
 
   test('gives assigned backlog tasks a direct start step', async () => {

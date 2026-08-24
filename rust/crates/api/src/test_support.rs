@@ -14,6 +14,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use agentforge_auth::JwtManager;
+use agentforge_core::config::SsoConfig;
 use agentforge_core::{
     AgentId, AppConfig, AppResult, NatsCalloutConfig, OrgId, ProjectId, StripeConfig, TeamId, TenantScope, UserId,
     WorkspaceId, crypto,
@@ -41,7 +42,7 @@ impl AgentCommandBus for NoopCommandBus {
 }
 
 /// Build a minimal `AppConfig` wired for tests (no NATS, no Redis).
-pub(crate) fn test_app_config(database_url: &str) -> AppConfig {
+pub fn test_app_config(database_url: &str) -> AppConfig {
     AppConfig {
         port: 4003,
         host: "0.0.0.0".to_string(),
@@ -54,6 +55,7 @@ pub(crate) fn test_app_config(database_url: &str) -> AppConfig {
         nats_container_url: None,
         nats_callout: NatsCalloutConfig::default(),
         stripe: StripeConfig::default(),
+        auth_sso: SsoConfig::default(),
         jwt_secret: SecretString::from(TEST_JWT_SECRET.to_string()),
         bootstrap_admin_token: None,
         allow_unprotected_admin_bootstrap: true,
@@ -71,6 +73,12 @@ pub(crate) fn test_app_config(database_url: &str) -> AppConfig {
         container_google_api_key: None,
         container_openai_api_key: None,
         codex_default_model: "gpt-5.5".to_string(),
+        llm_pricing: None,
+        review_required_gates: None,
+        compliance_export_interval_hours: 0,
+        compliance_export_dir: None,
+        analytics_retention_days: 0,
+        run_retention_days: 0,
         oauth_mount_dir: None,
         storage_provider: "local".to_string(),
         storage_local_path: std::env::temp_dir()
@@ -184,6 +192,7 @@ pub async fn app_state_with_mock_provider_and_email_sender(
         mcp_internal_token: None,
         encryption_key: Some(TEST_LLM_ENCRYPTION_KEY),
         cli_auth_memory_store: Arc::new(MemoryStateStore::default()),
+        auth_sso_memory_store: Arc::new(crate::services::sso::SsoMemoryStateStore::default()),
         prometheus_handle,
         auth_callout: None,
         llm_factory: Arc::new(LlmProviderFactory::with_mock(mock_provider_name, mock_reply)),

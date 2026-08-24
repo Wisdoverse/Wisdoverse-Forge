@@ -44,6 +44,18 @@ pub struct ContextUsageQueryParams {
     pub negative_rate: Option<f64>,
 }
 
+/// Query parameters for per-agent reliability trends.
+#[derive(Deserialize)]
+pub struct AgentReliabilityQuery {
+    pub hours: Option<i64>,
+}
+
+/// Query parameters for per-agent usage trends.
+#[derive(Deserialize)]
+pub struct AgentUsageQuery {
+    pub hours: Option<i64>,
+}
+
 /// Build an AnalyticsService from shared state.
 fn make_service(state: &AppState) -> AnalyticsService {
     state.analytics_service()
@@ -86,6 +98,29 @@ async fn summary(State(state): State<AppState>, auth: AuthUser) -> AppResult<Jso
     Ok(Json(analytics_data_response(summary)))
 }
 
+/// `GET /analytics/agent-reliability` — per-agent work success trends.
+async fn agent_reliability(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(q): Query<AgentReliabilityQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let report = service.agent_reliability(&auth.scope, q.hours).await?;
+    Ok(Json(analytics_data_response(report)))
+}
+
+/// `GET /analytics/agent-usage` — per-agent LLM token usage and cost trends.
+async fn agent_usage(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(q): Query<AgentUsageQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let pricing = state.analytics_pricing()?;
+    let report = service.agent_usage(&auth.scope, q.hours, pricing.as_ref()).await?;
+    Ok(Json(analytics_data_response(report)))
+}
+
 /// `GET /analytics/context-usage` — governed context usage analytics snapshot.
 async fn context_usage(
     State(state): State<AppState>,
@@ -115,6 +150,8 @@ pub fn analytics_routes() -> Router<AppState> {
         .route("/analytics/events", post(track_event).get(list_events))
         .route("/analytics/summary", get(summary))
         .route("/analytics/context-usage", get(context_usage))
+        .route("/analytics/agent-reliability", get(agent_reliability))
+        .route("/analytics/agent-usage", get(agent_usage))
 }
 
 #[cfg(test)]

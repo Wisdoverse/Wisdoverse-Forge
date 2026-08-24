@@ -12,6 +12,7 @@ import {
   BookOpenCheck,
   CreditCard,
   Settings,
+  Activity,
   LogOut,
   Shield,
   Moon,
@@ -246,6 +247,13 @@ export function SidebarNav({
       className={cn('flex flex-col gap-0.5', expanded ? 'px-2 pb-2' : 'px-1.5 pb-2 items-center')}
     >
       {BOTTOM_ITEMS.map(renderItem)}
+      {renderItem({
+        id: 'operations',
+        Icon: Activity,
+        labelKey: 'nav.operations',
+        description: 'see runtime, services, agents, and queues',
+        path: '/operations',
+      })}
       {isAdmin &&
         renderItem({
           id: 'admin',

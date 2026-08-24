@@ -192,6 +192,7 @@ async fn team_and_project_member_management_requires_resource_manager(pool: PgPo
     let service = ResourceMemberService::new(
         ResourceMemberRepository::new(pool.clone()),
         ResourcePermissionRepository::new(pool.clone()),
+        agentforge_api::repositories::resource::invite::TeamInviteRepository::new(pool.clone()),
     );
 
     let forbidden = service

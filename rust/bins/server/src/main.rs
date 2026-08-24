@@ -316,6 +316,89 @@ async fn main() -> Result<()> {
         })
     });
 
+    // Recurring task runner — creates a task from each due schedule row.
+    // A 60 s tick with at-most-once claiming keeps a single server simple;
+    // duplicate servers would each claim disjoint rows via the same update.
+    let _recurring_task_handle = {
+        let pool = pool.clone();
+        let mut worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move {
+            let service = agentforge_api::services::recurring_task::RecurringTaskService::from_pool(pool);
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tokio::select! {
+                    _ = tick.tick() => {
+                        if let Err(err) = service.run_due().await {
+                            tracing::error!(error = %err, "recurring task sweep failed");
+                        }
+                    }
+                    _ = worker_shutdown.changed() => break,
+                }
+            }
+        })
+    };
+
+    // Scheduled compliance exports — per-org CSV snapshots on a cadence.
+    let _compliance_export_handle = {
+        let pool = pool.clone();
+        let dir = config.compliance_export_dir.clone();
+        let interval_secs = config.compliance_export_interval_hours * 3600;
+        let mut worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move {
+            if dir.is_none() || interval_secs <= 0 {
+                return;
+            }
+            let service = agentforge_api::services::compliance_export::ComplianceExportService::from_pool(pool);
+            let dir = dir.expect("checked above");
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tokio::select! {
+                    _ = tick.tick() => {
+                        match service.sweep(std::path::Path::new(&dir), interval_secs).await {
+                            Ok(rows) if rows > 0 => tracing::info!(rows, "scheduled compliance export written"),
+                            Ok(_) => {}
+                            Err(err) => tracing::error!(error = %err, "compliance export sweep failed"),
+                        }
+                    }
+                    _ = worker_shutdown.changed() => break,
+                }
+            }
+        })
+    };
+
+    // Retention purge — boots due, then re-checks every 6 h.
+    let _retention_handle = {
+        let pool = pool.clone();
+        let days = config.analytics_retention_days;
+        let run_days = config.run_retention_days;
+        let mut worker_shutdown = shutdown_rx.clone();
+        tokio::spawn(async move {
+            if days <= 0 && run_days <= 0 {
+                return;
+            }
+            let service = agentforge_api::services::retention::RetentionService::from_pool(pool);
+            let mut last = std::time::Instant::now() - std::time::Duration::from_secs(6 * 3600);
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tokio::select! {
+                    _ = tick.tick() => {
+                        if last.elapsed() < std::time::Duration::from_secs(6 * 3600) {
+                            continue;
+                        }
+                        if let Err(err) = service.sweep(days).await {
+                            tracing::error!(error = %err, "retention sweep failed");
+                        }
+                        if let Err(err) = service.sweep_runs(run_days).await {
+                            tracing::error!(error = %err, "run retention sweep failed");
+                        }
+                        last = std::time::Instant::now();
+                    }
+                    _ = worker_shutdown.changed() => break,
+                }
+            }
+        })
+    };
+
     // Orchestration result consumer — drains durable JetStream task outcomes
     // into DB complete/fail so a short backend outage does not drop the sidecar
     // result on the floor.
@@ -685,6 +768,7 @@ async fn main() -> Result<()> {
     };
 
     let cli_auth_memory_store = Arc::new(agentforge_api::services::cli_auth_proxy::MemoryStateStore::new());
+    let auth_sso_memory_store = Arc::new(agentforge_api::services::sso::SsoMemoryStateStore::new());
 
     let llm_factory = Arc::new(agentforge_llm::LlmProviderFactory::new(config.ollama_base_url.clone()));
     let inflight_prompts = Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
@@ -705,6 +789,7 @@ async fn main() -> Result<()> {
         mcp_internal_token: live_mcp.as_ref().map(|(token, _)| token.clone()),
         encryption_key,
         cli_auth_memory_store: cli_auth_memory_store.clone(),
+        auth_sso_memory_store: auth_sso_memory_store.clone(),
         prometheus_handle,
         auth_callout: auth_callout_service,
         llm_factory,

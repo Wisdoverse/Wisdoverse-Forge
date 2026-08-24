@@ -131,6 +131,15 @@ export function TeamsSection() {
     [membersTeam, user?.orgId]
   )
 
+  const inviteSelectedTeamMember = useCallback(
+    async (email: string, role?: string) => {
+      const orgId = user?.orgId
+      if (!orgId || !membersTeam) throw new Error(resourceMemberSelectionLostMessage('Team'))
+      return teamApi.inviteMember(orgId, membersTeam.id, email, role)
+    },
+    [membersTeam, user?.orgId]
+  )
+
   const updateSelectedTeamMember = useCallback(
     async (userId: string, input: Parameters<typeof teamApi.updateMember>[3]) => {
       const orgId = user?.orgId
@@ -277,6 +286,7 @@ export function TeamsSection() {
           loadMembers={loadSelectedTeamMembers}
           loadUsers={loadOrgUsers}
           addMember={addSelectedTeamMember}
+          inviteMember={inviteSelectedTeamMember}
           updateMember={updateSelectedTeamMember}
           removeMember={removeSelectedTeamMember}
           onClose={() => setMembersTeam(null)}

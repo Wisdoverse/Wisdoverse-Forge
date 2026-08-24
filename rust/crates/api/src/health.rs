@@ -54,6 +54,10 @@ pub struct AppState {
     /// `CliAuthProxyService::new`) so `authorize` and the later
     /// `complete_manual` / `server_callback` requests hit the same store.
     pub cli_auth_memory_store: Arc<crate::services::cli_auth_proxy::MemoryStateStore>,
+    /// Shared in-memory SSO state store (same duality as the CLI auth store:
+    /// Redis when configured, memory otherwise). Must live on `AppState` so the
+    /// authorize put and the callback take hit the same store.
+    pub auth_sso_memory_store: Arc<crate::services::sso::SsoMemoryStateStore>,
     /// Prometheus metrics handle. Render output via `handle.render()` to serve
     /// the `/metrics` scrape endpoint. Wrapped in `Arc` so sub-state extraction
     /// via [`FromRef`] stays cheap and the handle can be shared with background

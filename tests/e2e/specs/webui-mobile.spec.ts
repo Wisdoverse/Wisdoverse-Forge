@@ -193,7 +193,9 @@ test.describe('Mobile WebUI', () => {
 
     await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 30_000 })
     await page.locator('#root > *').first().waitFor({ state: 'attached', timeout: 30_000 })
-    await expect(page).toHaveURL(/\/tasks(?:[?#]|$)/)
+    // Fresh fixture accounts land on the setup checklist (/start); returning
+    // users land on the board. Both are the authenticated shell.
+    await expect(page).toHaveURL(/\/(tasks|start)(?:[?#]|$)/)
     await expectNoHorizontalOverflow(page)
   })
 

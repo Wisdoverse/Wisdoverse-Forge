@@ -1,6 +1,7 @@
 export { SECTION_LABEL, TaskDocumentBody } from './document/TaskDocumentBody'
 export { ContextTab } from './ContextTab'
 export { HistoryTab } from './HistoryTab'
+export { ReviewChecklist } from './ReviewChecklist'
 export { ReviewSnapshotPanel } from './ReviewSnapshotPanel'
 export { DetailsGroup } from './rail/DetailsGroup'
 export { PropertiesGroup, TaskStatus } from './rail/PropertiesGroup'

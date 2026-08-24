@@ -158,6 +158,14 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("082_runtime_capabilities_image.sql", include_str!("../migrations/082_runtime_capabilities_image.sql")),
     ("083_attachment_image_metadata.sql", include_str!("../migrations/083_attachment_image_metadata.sql")),
     ("084_task_images_cleanup_state.sql", include_str!("../migrations/084_task_images_cleanup_state.sql")),
+    ("085_task_comments.sql", include_str!("../migrations/085_task_comments.sql")),
+    ("086_skill_agent_links.sql", include_str!("../migrations/086_skill_agent_links.sql")),
+    ("087_task_review_checks.sql", include_str!("../migrations/087_task_review_checks.sql")),
+    ("088_organizations_plan.sql", include_str!("../migrations/088_organizations_plan.sql")),
+    ("089_team_invites.sql", include_str!("../migrations/089_team_invites.sql")),
+    ("090_task_templates.sql", include_str!("../migrations/090_task_templates.sql")),
+    ("091_recurring_tasks.sql", include_str!("../migrations/091_recurring_tasks.sql")),
+    ("092_task_templates_project.sql", include_str!("../migrations/092_task_templates_project.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

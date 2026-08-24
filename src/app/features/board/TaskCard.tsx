@@ -1,16 +1,30 @@
-import { useRef, type MouseEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, type MouseEvent, type PointerEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDraggable } from '@dnd-kit/core'
-import { Brain, Send, WandSparkles } from 'lucide-react'
+import { Brain, Clock3, Send, WandSparkles } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
-import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
+import {
+  CONTEXT_OVERFLOW_FAILURE_PREVIEW,
+  isContextOverflowFailure,
+  taskAttemptNote,
+  taskBlockedPreview,
+  taskFailurePreview,
+} from '@app/shared/lib/taskFailureCopy'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import {
   taskResultArtifacts,
+  trackProductEvent,
+  type HumanMark,
   type TaskContextCounts,
   type TaskSummary,
+  type TaskWaitEstimate,
 } from '@app/shared/api/orchestration'
+
+// One best-effort event per task per browser session: overflow failures are
+// rare, but re-renders are not, so the emitted signal must be idempotent.
+const emittedOverflowTaskIds = new Set<string>()
 
 const STATE_DOTS: Record<string, string> = {
   backlog: 'bg-apple-gray-2',
@@ -27,9 +41,18 @@ interface TaskCardProps {
   onClick?: () => void
   onPublish?: (task: TaskSummary) => void
   displayMode?: 'comfortable' | 'compact'
+  /** Latest human blocker/unblock signal for the task (board badge). */
+  humanMark?: HumanMark
 }
 
-export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable' }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onClick,
+  onPublish,
+  displayMode = 'comfortable',
+  humanMark,
+}: TaskCardProps) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   })
@@ -63,7 +86,13 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         resultCount: resultArtifacts.length,
       })
   const failurePreview =
-    task.state === 'failed' && task.error ? taskFailurePreview(task.error) : null
+    task.state === 'failed' && task.error
+      ? [taskFailurePreview(task.error), taskAttemptNote(task.attempt)].filter(Boolean).join(' ')
+      : null
+  const overflowPreview =
+    task.state === 'failed' && isContextOverflowFailure(task.error)
+      ? [CONTEXT_OVERFLOW_FAILURE_PREVIEW, taskAttemptNote(task.attempt)].filter(Boolean).join(' ')
+      : null
   const blockedPreview =
     task.state === 'blocked' && task.blockedHint
       ? taskBlockedPreview({
@@ -73,6 +102,13 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         })
       : null
   const showPriorityBadge = priorityKey !== 'normal'
+
+  useEffect(() => {
+    if (task.state !== 'failed' || !isContextOverflowFailure(task.error)) return
+    if (emittedOverflowTaskIds.has(task.id)) return
+    emittedOverflowTaskIds.add(task.id)
+    void trackProductEvent('context_overflow_failure', { taskId: task.id })
+  }, [task.state, task.error, task.id])
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
@@ -132,6 +168,19 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
           <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
             {stateLabel}
           </span>
+          {humanMark?.kind === 'blocker' && (
+            <span
+              data-testid={`human-block-${task.id}`}
+              title={
+                humanMark.authorName
+                  ? `${humanMark.body} — ${humanMark.authorName}`
+                  : humanMark.body
+              }
+              className="inline-flex items-center gap-1 rounded-full bg-apple-red/10 px-1.5 py-0.5 text-ui-caption font-medium text-apple-red"
+            >
+              Blocked by a person
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {showPriorityBadge && (
@@ -184,13 +233,13 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
         </div>
       )}
 
-      {failurePreview && (
+      {(failurePreview || overflowPreview) && (
         <p
           data-testid="task-error-preview"
           className="mb-1.5 line-clamp-1 text-ui-caption font-medium text-apple-red"
-          title={failurePreview}
+          title={overflowPreview ?? failurePreview ?? undefined}
         >
-          {failurePreview}
+          {overflowPreview ?? failurePreview}
         </p>
       )}
 
@@ -211,6 +260,21 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
           className="mb-1.5 line-clamp-2 text-ui-caption text-secondary-light dark:text-secondary-dark"
         >
           {nextStep}
+        </p>
+      )}
+
+      {task.state === 'queued' && task.waitEstimate && (
+        <p
+          data-testid={`task-wait-estimate-${task.id}`}
+          className="mb-1.5 flex items-center gap-1 text-ui-caption font-medium text-apple-blue"
+          title={waitEstimateHint(task.waitEstimate, t)}
+        >
+          <Clock3 size={12} strokeWidth={2} aria-hidden="true" />
+          <span>
+            {t('waitEstimate.startsIn', {
+              min: Math.max(1, Math.round(task.waitEstimate.estimatedSeconds / 60)),
+            })}
+          </span>
         </p>
       )}
 
@@ -258,6 +322,21 @@ export function TaskCard({ task, onClick, onPublish, displayMode = 'comfortable'
       </div>
     </div>
   )
+}
+
+/** Human hint for a wait prediction: the queue basis plus how to affect it. */
+export function waitEstimateHint(
+  estimate: TaskWaitEstimate,
+  t: (key: string, values?: Record<string, unknown>) => string
+): string {
+  const basis = t(
+    estimate.typicalSeconds > 0 ? 'waitEstimate.basis' : 'waitEstimate.noHistory',
+    {
+      position: estimate.position,
+      typicalMin: Math.max(1, Math.round(estimate.typicalSeconds / 60)),
+    }
+  )
+  return `${basis} ${t('waitEstimate.changeHint')}`
 }
 
 export function taskCardSearchText(

@@ -2,9 +2,12 @@ export type TaskDetailErrorAction =
   | 'approveTask'
   | 'blockTask'
   | 'cancelTask'
+  | 'deleteComment'
   | 'loadAgents'
+  | 'loadComments'
   | 'loadContext'
   | 'loadRuns'
+  | 'postComment'
   | 'previewContext'
   | 'publishTask'
   | 'retryTask'
@@ -16,9 +19,14 @@ const ACTION_FALLBACKS: Record<TaskDetailErrorAction, string> = {
     'Open this task again from the Tasks page, then choose Needs help again. The task was not marked as needing help.',
   cancelTask:
     'Open this task again from the Tasks page, then choose Cancel again. The task was not canceled.',
+  deleteComment:
+    'Open the task again from the Tasks page, then delete the note again. The note was not deleted.',
   loadAgents: 'Open this task again from the Tasks page before choosing an agent.',
+  loadComments:
+    'Open Updates for this task again to check the conversation. The notes did not load.',
   loadContext: 'Open this task again from the Tasks page to load saved notes and work history.',
   loadRuns: 'Open Updates for this task again before deciding whether to retry this task.',
+  postComment: 'Check the note text, then post it again. The note was not added.',
   previewContext: 'Choose an agent, then check context items again.',
   publishTask:
     'Check the selected saved notes, then send the task again. The task was not sent with selected notes.',
@@ -53,7 +61,12 @@ export function taskDetailErrorMessage(action: TaskDetailErrorAction, err: unkno
     normalized.includes('forbidden') ||
     normalized.includes('role required')
   ) {
-    if (action === 'loadAgents' || action === 'loadContext' || action === 'loadRuns') {
+    if (
+      action === 'loadAgents' ||
+      action === 'loadComments' ||
+      action === 'loadContext' ||
+      action === 'loadRuns'
+    ) {
       return 'Ask an owner or admin to give you access to this task, then open it again from the Tasks page. You do not have permission to view this task.'
     }
     const fallback = ACTION_FALLBACKS[action]
