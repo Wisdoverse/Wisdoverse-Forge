@@ -18,8 +18,8 @@
 //!   host (`/etc/agentforge/tuf/root.json`). Every later verify compares the
 //!   bundle root against that pin:
 //!   - same version => must be byte-identical;
-//!   - higher version => must be signed by at least one pinned key (rotation),
-//!     and becomes the new pin;
+//!   - the next version => must meet both the pinned and candidate root
+//!     thresholds, then becomes the new pin after the full bundle verifies;
 //!   - lower version => rejected (rollback protection).
 //! - **Key rotation:** `agentforge tuf rotate` signs a NEW root with the old and
 //!   new private keys, keeps the old key id in the role list during a grace
@@ -33,7 +33,7 @@
 //! `SHA256SUMS.sig`); signatures are 64-byte raw-Ed25519 over the canonical
 //! JSON encoding of the `signed` object.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -281,24 +281,48 @@ fn check_expiry(expires: &str, name: &str) -> CliResult<()> {
     Ok(())
 }
 
-fn verify_signatures(signed: &SignedMeta, keys: &BTreeMap<String, Key>) -> CliResult<()> {
+fn verify_role(signed: &SignedMeta, root: &RootMetadata, role_name: &str) -> CliResult<()> {
+    let role =
+        root.roles.get(role_name).ok_or_else(|| CliError::Other(format!("root.json has no {role_name} role")))?;
+    let authorized: BTreeSet<&str> = role.keyids.iter().map(String::as_str).collect();
+    let threshold = role.threshold as usize;
+    if threshold == 0 || threshold > authorized.len() {
+        return Err(CliError::Other(format!(
+            "invalid {role_name} threshold {} for {} unique authorized keys",
+            role.threshold,
+            authorized.len()
+        )));
+    }
+    for keyid in &authorized {
+        let key = root
+            .keys
+            .get(*keyid)
+            .ok_or_else(|| CliError::Other(format!("{role_name} role references missing key {keyid}")))?;
+        raw_public_key(key)?;
+    }
+
     let payload = canonical_runtime(&signed.signed)?;
-    let mut valid = 0usize;
-    for signature in &signed.signatures {
-        let Some(key) = keys.get(&signature.keyid) else {
+    let mut valid = BTreeSet::new();
+    for signature_entry in &signed.signatures {
+        if !authorized.contains(signature_entry.keyid.as_str()) || valid.contains(signature_entry.keyid.as_str()) {
+            continue;
+        }
+        let key = &root.keys[&signature_entry.keyid];
+        let Ok(raw) = hex::decode(&signature_entry.sig) else {
             continue;
         };
-        let raw = hex::decode(&signature.sig).map_err(|e| CliError::Other(format!("signature hex decode: {e}")))?;
-        let signature = EdSignature::from_slice(&raw).map_err(|e| CliError::Other(format!("signature parse: {e}")))?;
+        let Ok(signature) = EdSignature::from_slice(&raw) else {
+            continue;
+        };
         let public = raw_public_key(key)?;
         if public.verify(&payload, &signature).is_ok() {
-            valid += 1;
+            valid.insert(signature_entry.keyid.as_str());
         }
     }
-    let threshold = 1usize;
-    if valid < threshold {
+    if valid.len() < threshold {
         return Err(CliError::Other(format!(
-            "signature verification failed: {valid} of {threshold} required signatures valid"
+            "{role_name} signature verification failed: {} of {threshold} required unique signatures valid",
+            valid.len()
         )));
     }
     Ok(())
@@ -312,6 +336,12 @@ fn canonical_runtime(value: &serde_json::Value) -> CliResult<Vec<u8>> {
 /// Extract the raw Ed25519 public bytes from a key entry (base64 in `keyval`).
 fn raw_public_key(key: &Key) -> CliResult<VerifyingKey> {
     use base64::Engine as _;
+    if key.keytype != KEY_TYPE || key.scheme != KEY_TYPE {
+        return Err(CliError::Other(format!(
+            "unsupported key type/scheme: {}/{} (expected ed25519/ed25519)",
+            key.keytype, key.scheme
+        )));
+    }
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&key.keyval.public_key)
         .map_err(|e| CliError::Other(format!("keyval.public base64 decode: {e}")))?;
@@ -363,13 +393,13 @@ fn load_manifest_targets(dir: &Path) -> CliResult<BTreeMap<String, TargetEntry>>
     Ok(targets)
 }
 
-fn read_root_file(path: &Path) -> CliResult<(Vec<u8>, RootMetadata)> {
+fn read_root_file(path: &Path) -> CliResult<(Vec<u8>, SignedMeta, RootMetadata)> {
     let bytes = fs::read(path).map_err(|e| CliError::Other(format!("cannot read {}: {e}", path.display())))?;
     let envelope: SignedMeta =
         serde_json::from_slice(&bytes).map_err(|e| CliError::Other(format!("cannot parse root.json: {e}")))?;
-    let root: RootMetadata = serde_json::from_value(envelope.signed)
+    let root: RootMetadata = serde_json::from_value(envelope.signed.clone())
         .map_err(|e| CliError::Other(format!("root.json is not a TUF root: {e}")))?;
-    Ok((bytes, root))
+    Ok((bytes, envelope, root))
 }
 
 fn metadata_dir(dir: &Path) -> CliResult<PathBuf> {
@@ -387,11 +417,15 @@ fn entry_for(bytes: &[u8]) -> TargetEntry {
     TargetEntry { sha256: sha256_hex(bytes), size: bytes.len() as u64 }
 }
 
-fn versions_from(dir: &Path) -> (u64, u64, u64) {
-    let read_version = |name: &str| -> u64 {
-        read_envelope(dir, name).ok().and_then(|e| e.signed.get("version").and_then(|v| v.as_u64())).unwrap_or(0)
+fn versions_from(dir: &Path) -> CliResult<(u64, u64, u64)> {
+    let read_version = |name: &str| -> CliResult<u64> {
+        read_envelope(dir, name)?
+            .signed
+            .get("version")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| CliError::Other(format!("{name}.json has no valid version")))
     };
-    (read_version("targets"), read_version("snapshot"), read_version("timestamp"))
+    Ok((read_version("targets")?, read_version("snapshot")?, read_version("timestamp")?))
 }
 
 // ── commands ────────────────────────────────────────────────────────────────
@@ -411,7 +445,7 @@ fn init(args: InitArgs) -> CliResult<()> {
     let root = RootMetadata::new(1, expires.clone(), &key);
     let targets = load_manifest_targets(&args.dir)?;
     let keyid = keyid_for(&key.verifying_key());
-    write_chain(&args.dir, &root, &[(keyid.clone(), key)], &targets, &expires)?;
+    write_chain(&args.dir, &root, &[(keyid.clone(), key)], &targets, &expires, (0, 0, 0))?;
     println!(
         "TUF metadata initialized (root v1, {} targets).\nPin this root ONCE on every host before loading bundles:\n  cp {}/metadata/root.json /etc/agentforge/tuf/root.json\nRoot key id: {keyid}",
         targets.len(),
@@ -422,29 +456,28 @@ fn init(args: InitArgs) -> CliResult<()> {
 
 fn sign(args: SignArgs) -> CliResult<()> {
     let key = load_signing_key(&args.key)?;
-    let (_, root) = read_root_file(&args.dir.join(METADATA_DIR).join("root.json")).map_err(|_| {
+    let (_, root_env, root) = read_root_file(&args.dir.join(METADATA_DIR).join("root.json")).map_err(|_| {
         CliError::Other("no existing metadata — run `agentforge tuf init --dir <dir> --key <key>` first".to_string())
     })?;
+    verify_role(&root_env, &root, "root")?;
     let signer_keyid = keyid_for(&key.verifying_key());
     if !root.key_ids().contains(&signer_keyid) {
         return Err(CliError::Other(format!(
             "signing key {signer_keyid} is not a trusted root key; rotation requires `tuf rotate`"
         )));
     }
+    let versions = versions_from(&args.dir)?;
     let targets = load_manifest_targets(&args.dir)?;
     let expires = expiry(DEFAULT_EXPIRY_DAYS);
-    let mut root_meta = root;
-    root_meta.version += 1;
-    root_meta.expires = expires.clone();
-    write_chain(&args.dir, &root_meta, &[(signer_keyid.clone(), key)], &targets, &expires)?;
-    println!("TUF metadata refreshed: root v{}, {} targets, expiry {expires}", root_meta.version, targets.len());
+    write_child_chain(&args.dir, &root, &[(signer_keyid, key)], &targets, &expires, versions)?;
+    println!("TUF metadata refreshed: root v{}, {} targets, expiry {expires}", root.version, targets.len());
     Ok(())
 }
 
 fn verify(args: VerifyArgs) -> CliResult<()> {
     let meta_dir = metadata_dir(&args.dir)?;
-    let (pin_bytes, pin) = read_root_file(&args.pin)?;
-    let pinned_keyids = pin.key_ids();
+    let (pin_bytes, pin_env, pin) = read_root_file(&args.pin)?;
+    verify_role(&pin_env, &pin, "root")?;
 
     // 1. Root metadata vs PIN (pinning + rotation + rollback).
     let root_path = meta_dir.join("root.json");
@@ -468,21 +501,23 @@ fn verify(args: VerifyArgs) -> CliResult<()> {
                 "root mismatch: bundle root v{version} differs from the pinned root".to_string(),
             ));
         }
-    } else if !root_env.signatures.iter().any(|sig| pinned_keyids.contains(&sig.keyid)) {
-        return Err(CliError::Other(format!(
-            "root rotation rejected: v{} is not signed by any pinned key ({})",
-            root.version,
-            pinned_keyids.join(",")
-        )));
+    } else {
+        if root.version != pin.version + 1 {
+            return Err(CliError::Other(format!(
+                "root rotation rejected: bundle root v{} must advance exactly one version from pinned root v{}",
+                root.version, pin.version
+            )));
+        }
+        verify_role(&root_env, &pin, "root")?;
     }
 
-    // 2. Signatures of all roles with the bundle root's key set.
-    verify_signatures(&root_env, &root.keys)?;
+    // 2. The candidate root must authorize itself; each child uses its own role.
+    verify_role(&root_env, &root, "root")?;
     for name in ["targets", "snapshot", "timestamp"] {
         let envelope = read_envelope(&args.dir, name)?;
         let expires = envelope.signed.get("expires").and_then(|v| v.as_str()).unwrap_or_default();
         check_expiry(expires, &format!("{name}.json"))?;
-        verify_signatures(&envelope, &root.keys)?;
+        verify_role(&envelope, &root, name)?;
     }
 
     // 3. Hash chain: timestamp -> snapshot -> targets.
@@ -540,6 +575,10 @@ fn verify(args: VerifyArgs) -> CliResult<()> {
         }
     }
 
+    if root.version > pin.version {
+        persist_pin(&args.pin, &root_bytes)?;
+    }
+
     println!(
         "TUF chain verified: root v{} (pinned), {} targets, signatures + hash chain OK.",
         root.version,
@@ -551,7 +590,8 @@ fn verify(args: VerifyArgs) -> CliResult<()> {
 fn rotate(args: RotateArgs) -> CliResult<()> {
     let old_key = load_signing_key(&args.old_key)?;
     let new_key = load_signing_key(&args.new_key)?;
-    let (_, root) = read_root_file(&args.dir.join(METADATA_DIR).join("root.json"))?;
+    let (_, root_env, root) = read_root_file(&args.dir.join(METADATA_DIR).join("root.json"))?;
+    verify_role(&root_env, &root, "root")?;
     let old_keyid = keyid_for(&old_key.verifying_key());
     if !root.key_ids().contains(&old_keyid) {
         return Err(CliError::Other(format!("old key {old_keyid} is not a trusted root key; rotation refused")));
@@ -566,11 +606,15 @@ fn rotate(args: RotateArgs) -> CliResult<()> {
     }
     root_meta.keys.insert(old_keyid.clone(), key_entry_for(&old_key));
 
-    let targets = load_manifest_targets(&args.dir)?;
+    let versions = versions_from(&args.dir)?;
+    let targets_env = read_envelope(&args.dir, "targets")?;
+    verify_role(&targets_env, &root, "targets")?;
+    let targets: TargetsMetadata =
+        serde_json::from_value(targets_env.signed).map_err(|e| CliError::Other(format!("parse targets.json: {e}")))?;
     let chain_keys = vec![(new_keyid.clone(), new_key), (old_keyid.clone(), old_key)];
-    write_chain(&args.dir, &root_meta, &chain_keys, &targets, &expires)?;
+    write_chain(&args.dir, &root_meta, &chain_keys, &targets.targets, &expires, versions)?;
     println!(
-        "Root rotated to v{} (keys: {} + {}). Hosts with the OLD pin accept it; re-pin once at next rotation.",
+        "Root rotated to v{} (keys: {} + {}). Hosts advance their pin after the complete rotated bundle verifies.",
         root_meta.version, old_keyid, new_keyid
     );
     Ok(())
@@ -584,29 +628,57 @@ fn write_chain(
     root_keys: &[(String, SigningKey)],
     targets: &BTreeMap<String, TargetEntry>,
     expires: &str,
+    versions: (u64, u64, u64),
 ) -> CliResult<()> {
-    write_metadata(dir, "root", &sign_object(root, root_keys)?)?;
-    let (targets_version, snapshot_version, timestamp_version) = versions_from(dir);
+    let root_bytes = sign_object(root, root_keys)?;
+    verify_role(&serde_json::from_slice(&root_bytes).expect("signed root round trip"), root, "root")?;
+    write_metadata(dir, "root", &root_bytes)?;
+    write_child_chain(dir, root, root_keys, targets, expires, versions)
+}
+
+fn write_child_chain(
+    dir: &Path,
+    root: &RootMetadata,
+    signing_keys: &[(String, SigningKey)],
+    targets: &BTreeMap<String, TargetEntry>,
+    expires: &str,
+    (targets_version, snapshot_version, timestamp_version): (u64, u64, u64),
+) -> CliResult<()> {
     let targets_meta =
         TargetsMetadata { version: targets_version + 1, expires: expires.to_string(), targets: targets.clone() };
-    let targets_bytes = sign_object(&targets_meta, root_keys)?;
-    write_metadata(dir, "targets", &targets_bytes)?;
+    let targets_bytes = sign_object(&targets_meta, signing_keys)?;
+    verify_role(&serde_json::from_slice(&targets_bytes).expect("signed targets round trip"), root, "targets")?;
 
     let snapshot_meta = SnapshotMetadata {
         version: snapshot_version + 1,
         expires: expires.to_string(),
         targets: entry_for(&targets_bytes),
     };
-    let snapshot_bytes = sign_object(&snapshot_meta, root_keys)?;
-    write_metadata(dir, "snapshot", &snapshot_bytes)?;
+    let snapshot_bytes = sign_object(&snapshot_meta, signing_keys)?;
+    verify_role(&serde_json::from_slice(&snapshot_bytes).expect("signed snapshot round trip"), root, "snapshot")?;
 
     let timestamp_meta = TimestampMetadata {
         version: timestamp_version + 1,
         expires: expires.to_string(),
         snapshot: entry_for(&snapshot_bytes),
     };
-    let timestamp_bytes = sign_object(&timestamp_meta, root_keys)?;
+    let timestamp_bytes = sign_object(&timestamp_meta, signing_keys)?;
+    verify_role(&serde_json::from_slice(&timestamp_bytes).expect("signed timestamp round trip"), root, "timestamp")?;
+
+    write_metadata(dir, "targets", &targets_bytes)?;
+    write_metadata(dir, "snapshot", &snapshot_bytes)?;
     write_metadata(dir, "timestamp", &timestamp_bytes)?;
+    Ok(())
+}
+
+fn persist_pin(path: &Path, bytes: &[u8]) -> CliResult<()> {
+    let temporary = path.with_extension(format!("json.tmp-{}", std::process::id()));
+    fs::write(&temporary, bytes)
+        .map_err(|e| CliError::Other(format!("cannot write updated root pin {}: {e}", temporary.display())))?;
+    if let Err(error) = fs::rename(&temporary, path) {
+        let _ = fs::remove_file(&temporary);
+        return Err(CliError::Other(format!("cannot replace root pin {}: {error}", path.display())));
+    }
     Ok(())
 }
 
@@ -700,7 +772,64 @@ mod tests {
         fs::write(dir.join(METADATA_DIR).join("root.json"), bytes).unwrap();
 
         let err = verify(VerifyArgs { dir: dir.to_path_buf(), pin }).unwrap_err();
-        assert!(err.to_string().contains("not signed by any pinned key"), "got: {err}");
+        assert!(err.to_string().contains("root signature verification failed"), "got: {err}");
+    }
+
+    #[test]
+    fn verify_rejects_forged_pinned_key_label() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        setup_bundle(dir);
+        let trusted = test_key(13);
+        let attacker = test_key(14);
+        init(InitArgs { dir: dir.to_path_buf(), key: key_pem_path(dir, &trusted), expires_days: 365 }).unwrap();
+        let pin = dir.join("host-pin-root.json");
+        fs::copy(dir.join(METADATA_DIR).join("root.json"), &pin).unwrap();
+
+        let trusted_id = keyid_for(&trusted.verifying_key());
+        let mut forged = RootMetadata::new(2, expiry(30), &attacker);
+        forged.keys = BTreeMap::from([(trusted_id.clone(), key_entry_for(&attacker))]);
+        for role in forged.roles.values_mut() {
+            role.keyids = vec![trusted_id.clone()];
+        }
+        let bytes = sign_object(&forged, &[(trusted_id, attacker)]).unwrap();
+        fs::write(dir.join(METADATA_DIR).join("root.json"), bytes).unwrap();
+
+        let err = verify(VerifyArgs { dir: dir.to_path_buf(), pin }).unwrap_err();
+        assert!(err.to_string().contains("root signature verification failed"), "got: {err}");
+    }
+
+    #[test]
+    fn role_threshold_counts_unique_authorized_keys() {
+        let trusted = test_key(15);
+        let second = test_key(16);
+        let trusted_id = keyid_for(&trusted.verifying_key());
+        let second_id = keyid_for(&second.verifying_key());
+        let mut root = RootMetadata::new(1, expiry(30), &trusted);
+        root.keys.insert(second_id.clone(), key_entry_for(&second));
+        root.roles.get_mut("root").unwrap().keyids.push(second_id);
+        root.roles.get_mut("root").unwrap().threshold = 2;
+        let bytes = sign_object(&root, &[(trusted_id, trusted)]).unwrap();
+        let mut envelope: SignedMeta = serde_json::from_slice(&bytes).unwrap();
+        envelope.signatures.push(envelope.signatures[0].clone());
+
+        let err = verify_role(&envelope, &root, "root").unwrap_err();
+        assert!(err.to_string().contains("1 of 2 required unique signatures"), "got: {err}");
+    }
+
+    #[test]
+    fn sign_preserves_root_bytes_and_version() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        setup_bundle(dir);
+        let key = test_key(17);
+        let key_path = key_pem_path(dir, &key);
+        init(InitArgs { dir: dir.to_path_buf(), key: key_path.clone(), expires_days: 365 }).unwrap();
+        let before = read_metadata(dir, "root").unwrap();
+
+        sign(SignArgs { dir: dir.to_path_buf(), key: key_path }).unwrap();
+
+        assert_eq!(read_metadata(dir, "root").unwrap(), before);
     }
 
     #[test]
@@ -711,7 +840,8 @@ mod tests {
         let key_a = test_key(21);
         let key_b = test_key(22);
         init(InitArgs { dir: dir.to_path_buf(), key: key_pem_path(dir, &key_a), expires_days: 365 }).unwrap();
-        let pin = dir.join(METADATA_DIR).join("root.json");
+        let pin = dir.join("host-pin-root.json");
+        fs::copy(dir.join(METADATA_DIR).join("root.json"), &pin).unwrap();
 
         rotate(RotateArgs {
             dir: dir.to_path_buf(),
@@ -720,9 +850,10 @@ mod tests {
         })
         .unwrap();
 
-        // Old pin (root v1) accepts root v2 because a pinned key signed it; the
-        // new root also works as a pin for everything after the next rotation.
+        // Old pin accepts v2 only after both root thresholds verify, then the
+        // verifier persists v2 so the next load uses the new trust root.
         verify(VerifyArgs { dir: dir.to_path_buf(), pin: pin.clone() }).unwrap();
+        assert_eq!(fs::read(&pin).unwrap(), read_metadata(dir, "root").unwrap());
         verify(VerifyArgs { dir: dir.to_path_buf(), pin }).unwrap();
     }
 }

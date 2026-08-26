@@ -5,8 +5,9 @@
 //! service; this module stays pure so the policy is unit-testable without a
 //! provider.
 
-use agentforge_core::{AppError, ErrorKind};
-use serde::Serialize;
+use agentforge_core::{AppError, AppResult, ErrorKind, UserId};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Public description of one configured sign-in provider (login-page button).
 #[derive(Debug, Clone, Serialize)]
@@ -14,6 +15,30 @@ pub struct SsoProvider {
     pub name: String,
     #[serde(rename = "displayName")]
     pub display_name: String,
+}
+
+/// Short-lived identity snapshot stored behind an opaque exchange code.
+#[derive(Debug, Deserialize, Serialize)]
+pub(crate) struct SsoExchangeRecord {
+    pub(crate) user_id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) issued_at: i64,
+}
+
+impl SsoExchangeRecord {
+    pub(crate) fn new(user_id: UserId, organization_id: Uuid, issued_at: i64) -> Self {
+        Self { user_id: user_id.as_uuid(), organization_id, issued_at }
+    }
+
+    pub(crate) fn to_storage(&self) -> AppResult<String> {
+        serde_json::to_string(self).map_err(|err| {
+            SsoPolicy::sso_unavailable(&format!("could not encode the sign-in transaction: {err}")).into()
+        })
+    }
+
+    pub(crate) fn from_storage(value: &str) -> Option<Self> {
+        serde_json::from_str(value).ok()
+    }
 }
 
 /// Policy errors for the SSO flow. All messages are written for the person at
@@ -40,6 +65,19 @@ impl SsoPolicy {
     pub fn missing_email() -> ErrorKind {
         ErrorKind::Validation(
             "Your sign-in provider did not return an email address, so Forge cannot create your account here.".into(),
+        )
+    }
+
+    pub fn unverified_email() -> ErrorKind {
+        ErrorKind::Validation(
+            "Your sign-in provider did not verify this email address. Ask your administrator to verify it before signing in."
+                .into(),
+        )
+    }
+
+    pub fn access_not_assigned() -> ErrorKind {
+        ErrorKind::Validation(
+            "Your sign-in account is not assigned to this Forge instance. Ask your administrator for access.".into(),
         )
     }
 
@@ -138,5 +176,19 @@ mod tests {
         let value = serde_json::to_value(provider).expect("provider serializes");
         assert_eq!(value["name"], "oidc");
         assert_eq!(value["displayName"], "Single sign-on");
+    }
+
+    #[test]
+    fn exchange_record_storage_round_trips_and_rejects_garbage() {
+        let user_id = UserId::from(Uuid::new_v4());
+        let organization_id = Uuid::new_v4();
+        let encoded =
+            SsoExchangeRecord::new(user_id, organization_id, 42).to_storage().expect("encode exchange record");
+        let decoded = SsoExchangeRecord::from_storage(&encoded).expect("decode exchange record");
+
+        assert_eq!(decoded.user_id, user_id.as_uuid());
+        assert_eq!(decoded.organization_id, organization_id);
+        assert_eq!(decoded.issued_at, 42);
+        assert!(SsoExchangeRecord::from_storage("not-json").is_none());
     }
 }

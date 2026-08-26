@@ -1,15 +1,15 @@
 //! Integration tests for SSO org provisioning + deprovisioning (group map).
 //!
-//! Covers: adding a member/admin to a mapped org on sign-in, deprovisioning a
-//! member whose group left, and the last-membership safety gate.
+//! Covers mapped membership/role sync, group-loss access denial, and instant
+//! deprovisioning.
 
 use std::sync::Arc;
 
 use agentforge_api::services::sso::{SsoMemoryStateStore, SsoService, SsoStateStore};
 use agentforge_api::services::user::UserService;
 use agentforge_auth::JwtManager;
-use agentforge_core::AppConfig;
 use agentforge_core::config::SsoConfig;
+use agentforge_core::{AppConfig, AppResult};
 use axum::{
     Router,
     routing::{get, post},
@@ -60,7 +60,11 @@ async fn spawn_idp(groups: &[&str]) -> Idp {
             get(move || {
                 let groups_value = groups_value.clone();
                 async move {
-                    let mut value = serde_json::json!({"email": "sso-user@example.com", "name": "SSO User"});
+                    let mut value = serde_json::json!({
+                        "email": "sso-user@example.com",
+                        "email_verified": true,
+                        "name": "SSO User"
+                    });
                     value["groups"] = serde_json::json!(groups_value);
                     axum::response::Response::builder()
                         .status(200)
@@ -107,11 +111,7 @@ fn config_with_provisioning(idp_base: &str, org_map: &str, deprovision: bool) ->
 }
 
 fn sso_service(_pool: &PgPool, config: AppConfig) -> SsoService {
-    SsoService::new(
-        Arc::new(config),
-        Arc::new(JwtManager::new(TEST_SECRET, 3600)),
-        SsoStateStore::Memory(Arc::new(SsoMemoryStateStore::new())),
-    )
+    SsoService::new(Arc::new(config), SsoStateStore::Memory(Arc::new(SsoMemoryStateStore::new())))
 }
 
 fn user_service(pool: &PgPool) -> UserService {
@@ -152,6 +152,14 @@ async fn seed_user(pool: &PgPool) -> Uuid {
     user
 }
 
+async fn seed_platform_admin(pool: &PgPool) {
+    sqlx::query("INSERT INTO users (id, email, is_admin) VALUES ($1, 'platform-admin@example.com', true)")
+        .bind(Uuid::new_v4())
+        .execute(pool)
+        .await
+        .expect("seed platform admin");
+}
+
 async fn seed_personal_org_owner(pool: &PgPool, user: Uuid) {
     let org = Uuid::new_v4();
     sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Personal', $2)")
@@ -169,6 +177,10 @@ async fn seed_personal_org_owner(pool: &PgPool, user: Uuid) {
 }
 
 async fn run_callback(pool: &PgPool, _idp: &Idp, config: AppConfig) {
+    run_callback_result(pool, config).await.expect("callback");
+}
+
+async fn run_callback_result(pool: &PgPool, config: AppConfig) -> AppResult<String> {
     let service = sso_service(pool, config);
     let users = user_service(pool);
     let (url, state) =
@@ -183,11 +195,25 @@ async fn run_callback(pool: &PgPool, _idp: &Idp, config: AppConfig) {
             &users,
         )
         .await
-        .expect("callback");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn admin_group_cannot_bootstrap_platform_admin(pool: PgPool) {
+    let idp = spawn_idp(&["team-apps", "forge-admins"]).await;
+    seed_org_by_slug(&pool, "team-org").await;
+    let config = config_with_provisioning(&idp.base, "team-org=team-apps", false);
+
+    run_callback_result(&pool, config).await.expect_err("IdP groups cannot authorize global bootstrap");
+    let user = agentforge_api::repositories::user::UserRepository::new(pool.clone())
+        .find_by_email("sso-user@example.com")
+        .await
+        .expect("find user");
+    assert!(user.is_none(), "failed bootstrap must not persist an account");
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn callback_provisions_member_into_mapped_org(pool: PgPool) {
+    seed_platform_admin(&pool).await;
     let idp = spawn_idp(&["team-apps"]).await;
     let org = seed_org_by_slug(&pool, "team-org").await;
     let config = config_with_provisioning(&idp.base, "team-org=team-apps", false);
@@ -207,6 +233,7 @@ async fn callback_provisions_member_into_mapped_org(pool: PgPool) {
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn callback_provisions_admin_into_mapped_org(pool: PgPool) {
+    seed_platform_admin(&pool).await;
     let idp = spawn_idp(&["team-apps", "forge-admins"]).await;
     let org = seed_org_by_slug(&pool, "team-org").await;
     let config = config_with_provisioning(&idp.base, "team-org=team-apps", false);
@@ -219,10 +246,19 @@ async fn callback_provisions_admin_into_mapped_org(pool: PgPool) {
         Some("admin"),
         "admin group + mapped group provisions as admin"
     );
+
+    let member_idp = spawn_idp(&["team-apps"]).await;
+    let member_config = config_with_provisioning(&member_idp.base, "team-org=team-apps", false);
+    run_callback(&pool, &member_idp, member_config).await;
+    assert_eq!(
+        membership_role(&pool, org, user.id.as_uuid()).await.as_deref(),
+        Some("member"),
+        "removing the admin group demotes the mapped role"
+    );
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
-async fn callback_deprovisions_member_whose_group_left(pool: PgPool) {
+async fn callback_denies_group_loss_without_removing_retained_membership(pool: PgPool) {
     let idp = spawn_idp(&["other-group"]).await;
     let org = seed_org_by_slug(&pool, "team-org").await;
     let user = seed_user(&pool).await;
@@ -235,17 +271,18 @@ async fn callback_deprovisions_member_whose_group_left(pool: PgPool) {
         .expect("seed team membership");
 
     let config = config_with_provisioning(&idp.base, "team-org=team-apps", true);
-    run_callback(&pool, &idp, config).await;
+    let error = run_callback_result(&pool, config).await.expect_err("missing mapped group must deny sign-in");
+    assert!(error.to_string().contains("not assigned"), "unexpected error: {error}");
 
     assert_eq!(
-        membership_role(&pool, org, user).await,
-        None,
-        "deprovisioning removes the membership when the group left"
+        membership_role(&pool, org, user).await.as_deref(),
+        Some("member"),
+        "retaining a membership must not turn access denial into destructive cleanup"
     );
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
-async fn callback_never_deprovisions_the_last_membership(pool: PgPool) {
+async fn callback_denies_group_loss_even_when_it_is_the_last_membership(pool: PgPool) {
     let idp = spawn_idp(&["other-group"]).await;
     let org = seed_org_by_slug(&pool, "team-org").await;
     let user = seed_user(&pool).await;
@@ -257,12 +294,12 @@ async fn callback_never_deprovisions_the_last_membership(pool: PgPool) {
         .expect("seed team membership");
 
     let config = config_with_provisioning(&idp.base, "team-org=team-apps", true);
-    run_callback(&pool, &idp, config).await;
+    run_callback_result(&pool, config).await.expect_err("retained last membership must not grant sign-in");
 
     assert_eq!(
         membership_role(&pool, org, user).await.as_deref(),
         Some("member"),
-        "the last remaining membership is protected"
+        "the last membership remains stored while sign-in is denied"
     );
 }
 
@@ -296,11 +333,42 @@ async fn callback_grants_and_deprovisions_mapped_team_membership(pool: PgPool) {
         .expect("team role");
     assert_eq!(role.as_deref(), Some("admin"), "mapped group + admin group grants team admin");
 
-    // Sign in again without the mapped group: deprovisioning removes it.
+    let member_idp = spawn_idp(&["team-apps"]).await;
+    let mut member_config = config_with_provisioning(&member_idp.base, "team-org=team-apps", false);
+    member_config.auth_sso.team_group_map = Some("Builders=team-apps".to_string());
+    run_callback(&pool, &member_idp, member_config).await;
+    let role: Option<String> = sqlx::query_scalar("SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2")
+        .bind(team)
+        .bind(user)
+        .fetch_optional(&pool)
+        .await
+        .expect("team role after demotion");
+    assert_eq!(role.as_deref(), Some("member"), "removing the admin group demotes the team role");
+
+    sqlx::query("UPDATE team_members SET role = 'owner' WHERE team_id = $1 AND user_id = $2")
+        .bind(team)
+        .bind(user)
+        .execute(&pool)
+        .await
+        .expect("promote team owner");
+    let owner_idp = spawn_idp(&["team-apps"]).await;
+    let mut owner_config = config_with_provisioning(&owner_idp.base, "team-org=team-apps", true);
+    owner_config.auth_sso.team_group_map = Some("Builders=builders-group".to_string());
+    run_callback(&pool, &owner_idp, owner_config).await;
+    let role: Option<String> = sqlx::query_scalar("SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2")
+        .bind(team)
+        .bind(user)
+        .fetch_optional(&pool)
+        .await
+        .expect("team owner after deprovision");
+    assert_eq!(role.as_deref(), Some("owner"), "SSO deprovisioning must not remove a team owner");
+
+    // Sign in again without the mapped org group: access is denied before any
+    // retained membership can be treated as authorization.
     let idp2 = spawn_idp(&["other-group"]).await;
     let mut config2 = config_with_provisioning(&idp2.base, "team-org=team-apps", true);
     config2.auth_sso.team_group_map = Some("Builders=team-apps".to_string());
-    run_callback(&pool, &idp2, config2).await;
+    run_callback_result(&pool, config2).await.expect_err("missing mapped group must deny sign-in");
 
     let role: Option<String> = sqlx::query_scalar("SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2")
         .bind(team)
@@ -308,7 +376,7 @@ async fn callback_grants_and_deprovisions_mapped_team_membership(pool: PgPool) {
         .fetch_optional(&pool)
         .await
         .expect("team role after deprovision");
-    assert_eq!(role, None, "deprovisioning removes the mapped team membership");
+    assert_eq!(role.as_deref(), Some("owner"), "denied sign-in leaves existing membership unchanged");
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
@@ -353,6 +421,13 @@ async fn instant_deprovision_removes_non_owner_memberships(pool: PgPool) {
         Some("owner"),
         "owners are never auto-removed"
     );
+    let floor: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar("SELECT sessions_invalid_before FROM users WHERE id = $1")
+            .bind(user)
+            .fetch_one(&pool)
+            .await
+            .expect("session floor");
+    assert!(floor.is_some(), "deprovisioning blocks refresh even when an owner row is retained");
 
     let (found, _) = users.deprovision_user("nobody@example.com").await.expect("unknown email");
     assert!(!found);
@@ -360,6 +435,7 @@ async fn instant_deprovision_removes_non_owner_memberships(pool: PgPool) {
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn scim_provision_creates_account_and_memberships(pool: PgPool) {
+    seed_platform_admin(&pool).await;
     let org = Uuid::new_v4();
     let org_admin = Uuid::new_v4();
     sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Scim', 'scim-org'), ($2, 'Scim Admins', 'scim-admins')")

@@ -91,6 +91,13 @@ async fn scim_delete_strips_memberships_and_deactivates_account(pool: PgPool) {
     let (found, removed) = service.scim_delete_user(agentforge_core::UserId::from(user)).await.expect("delete");
     assert!(found);
     assert_eq!(removed, 1, "team membership stripped");
+    let floor: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar("SELECT sessions_invalid_before FROM users WHERE id = $1")
+            .bind(user)
+            .fetch_one(&pool)
+            .await
+            .expect("session floor");
+    assert!(floor.is_some(), "SCIM deletion invalidates renewable sessions");
 
     assert!(
         service.scim_user_by_id(agentforge_core::UserId::from(user)).await.expect("lookup").is_none(),

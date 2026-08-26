@@ -79,42 +79,43 @@ a first-time sign-in with a provider email creates the account and its own
 team space automatically (SSO accounts have no password — they sign in
 through the provider only).
 
-| Variable                        | Default                | Required     | Purpose
-| ------------------------------- | ---------------------- | ------------ | ------
-| `AUTH_SSO__ENABLED`             | `false`                | No           | Master switch for the SSO button and flow
-| `AUTH_SSO__OIDC_DISCOVERY_URL`  | none                   | When enabled | Discovery document, e.g. `https://casdoor.example.com/.well-known/openid-configuration`
-| `AUTH_SSO__OIDC_CLIENT_ID`      | none                   | When enabled | OIDC client id for this instance
-| `AUTH_SSO__OIDC_CLIENT_SECRET`  | none                   | When enabled | OIDC client secret
-| `AUTH_SSO__OIDC_SCOPES`         | `openid profile email` | No           | Space-separated OIDC scopes
-| `AUTH_SSO__DISPLAY_NAME`        | `Single sign-on`       | No           | Login-page button label
-| `AUTH_SSO__SPA_BASE_URL`        | none                   | When enabled | Public base URL of the app (login page)
-| `AUTH_SSO__ROLE_CLAIM`          | none (mapping off)      | Paired        | Userinfo claim holding the user's groups (e.g. `groups`)
-| `AUTH_SSO__ADMIN_GROUPS`        | none (mapping off)      | Paired        | Comma-separated groups that grant the org `admin` role
-| `AUTH_SSO__ORG_GROUP_MAP`        | none (off)               | With claim    | `orgSlug=group;…` — a matching group adds the user to that org (`member`, or `admin` with an admin group)
-| `AUTH_SSO__TEAM_GROUP_MAP`       | none (off)               | With claim    | `teamName=group;…` — a matching group adds the user to that team (`member`, or `admin` with an admin group)
-| `AUTH_SSO__DEPROVISION`          | `false`                  | No            | Remove mapped-org memberships when the group no longer applies (owners + last membership protected)
+| Variable                       | Default                | Required     | Purpose                                                                                                     |
+| ------------------------------ | ---------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `AUTH_SSO__ENABLED`            | `false`                | No           | Master switch for the SSO button and flow                                                                   |
+| `AUTH_SSO__OIDC_DISCOVERY_URL` | none                   | When enabled | Discovery document, e.g. `https://casdoor.example.com/.well-known/openid-configuration`                     |
+| `AUTH_SSO__OIDC_CLIENT_ID`     | none                   | When enabled | OIDC client id for this instance                                                                            |
+| `AUTH_SSO__OIDC_CLIENT_SECRET` | none                   | When enabled | OIDC client secret                                                                                          |
+| `AUTH_SSO__OIDC_SCOPES`        | `openid profile email` | No           | Space-separated OIDC scopes                                                                                 |
+| `AUTH_SSO__DISPLAY_NAME`       | `Single sign-on`       | No           | Login-page button label                                                                                     |
+| `AUTH_SSO__SPA_BASE_URL`       | none                   | When enabled | Public base URL of the app (login page)                                                                     |
+| `AUTH_SSO__ROLE_CLAIM`         | none (mapping off)     | Paired       | Userinfo claim holding the user's groups (e.g. `groups`)                                                    |
+| `AUTH_SSO__ADMIN_GROUPS`       | none (mapping off)     | Paired       | Comma-separated groups that grant the org `admin` role                                                      |
+| `AUTH_SSO__ORG_GROUP_MAP`      | none (off)             | With claim   | `orgSlug=group;…` — a matching group adds the user to that org (`member`, or `admin` with an admin group)   |
+| `AUTH_SSO__TEAM_GROUP_MAP`     | none (off)             | With claim   | `teamName=group;…` — a matching group adds the user to that team (`member`, or `admin` with an admin group) |
+| `AUTH_SSO__DEPROVISION`        | `false`                | No           | Deny sign-in when no mapped org group applies; remove other stale mapped memberships when safe              |
 
 Flow: the login button redirects to the provider; the provider redirects back
 to `/api/v1/auth/sso/oidc/callback`; the backend validates the state (cookie
-+ single-use store), exchanges the code, reads the email, and returns the
-browser to `SPA_BASE_URL/login?auth_code=…`. The one-time `auth_code` is
-signed for 120 seconds and redeemed at `/api/v1/auth/sso/exchange`. Register
-the provider's redirect URI as
-`https://your-host/api/v1/auth/sso/oidc/callback`. SSO state lives in Redis
-when `REDIS_URL` is set, otherwise in the API process (single-replica).
+
+- single-use store), exchanges the code, reads the email, and returns the
+  browser to `SPA_BASE_URL/login?auth_code=…`. The opaque one-time `auth_code`
+  expires after 120 seconds and is redeemed at `/api/v1/auth/sso/exchange`. Register
+  the provider's redirect URI as
+  `https://your-host/api/v1/auth/sso/oidc/callback`. SSO state lives in Redis
+  when `REDIS_URL` is set, otherwise in the API process (single-replica).
 
 Role mapping (optional): set `AUTH_SSO__ROLE_CLAIM` (a userinfo claim with the
 user's group list, e.g. `groups`) plus `AUTH_SSO__ADMIN_GROUPS` (comma-separated
 group names). On each sign-in, a member whose groups include an admin group is
-upgraded to the org `admin` role in their default team space — existing members
-benefit immediately, owners are never touched, and nothing is ever demoted.
+assigned the org `admin` role in their default team space; other mapped members
+are assigned `member`. Owners are never changed.
 
 Org provisioning (optional): `AUTH_SSO__ORG_GROUP_MAP` (`orgSlug=group;…`) adds a
 user to the mapped org whenever their provider groups contain the mapped group
 (`member`, or `admin` when also in an admin group). `AUTH_SSO__DEPROVISION=true`
-additionally removes that membership when the group no longer applies — owners
-are never removed, and the user's last remaining membership is always kept so
-sign-in cannot lock out.
+denies sign-in when none of the mapped groups apply. If at least one applies,
+other stale mapped memberships are removed when safe. Owners and the user's
+last org membership remain stored, but that retention does not grant sign-in.
 
 Instant-off deprovisioning (optional): set `AUTH_SSO__DEPROVISION_TOKEN` (a
 shared secret) to enable `POST /api/v1/auth/deprovision` — provider/IdP
@@ -129,15 +130,14 @@ slugs — unknown slugs are skipped. Unset = both endpoints are disabled (404).
 
 SCIM 2.0 Users (same token, `x-forge-deprovision-token` header):
 
-| Method   | Path                                    | Behavior                                                                                                        |
-| -------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `GET`    | `/api/v1/auth/sso/scim/Users`           | Paged list — `startIndex` (1-based, min 1) and `count` (clamped 1..=100, default 50); SCIM ListResponse with `totalResults`; oldest-first order; deactivated accounts excluded |
-| `GET`    | `/api/v1/auth/sso/scim/Users/{id}`      | Single User resource (404 SCIM error body when unknown/deactivated)                                             |
-| `POST`   | `/api/v1/auth/sso/scim/Users`           | Ensure account: body `{userName, displayName?, groups?: [{value: orgSlug}], active?}`; creates when missing, adds non-owner memberships for each group slug (unknown slugs skipped); returns 201 |
-| `DELETE` | `/api/v1/auth/sso/scim/Users/{id}`      | 204; strips non-owner memberships and deactivates the account (subsequent GET/list 404). Re-provisioning the same `userName` later creates a fresh account |
+| Method   | Path                               | Behavior                                                                                                                                                                                         |
+| -------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/api/v1/auth/sso/scim/Users`      | Paged list — `startIndex` (1-based, min 1) and `count` (clamped 1..=100, default 50); SCIM ListResponse with `totalResults`; oldest-first order; deactivated accounts excluded                   |
+| `GET`    | `/api/v1/auth/sso/scim/Users/{id}` | Single User resource (404 SCIM error body when unknown/deactivated)                                                                                                                              |
+| `POST`   | `/api/v1/auth/sso/scim/Users`      | Ensure account: body `{userName, displayName?, groups?: [{value: orgSlug}], active?}`; creates when missing, adds non-owner memberships for each group slug (unknown slugs skipped); returns 201 |
+| `DELETE` | `/api/v1/auth/sso/scim/Users/{id}` | 204; strips non-owner memberships and deactivates the account (subsequent GET/list 404). Re-provisioning the same `userName` later creates a fresh account                                       |
 
-The `active` field on POST is accepted for SCIM client compatibility but not
-yet enforced; protect a directory-removed user with `DELETE`. SCIM errors use
+`POST` rejects `active: false`; use `DELETE` to deactivate an account. SCIM errors use
 the SCIM 2.0 Error schema (`urn:ietf:params:scim:api:messages:2.0:Error`).
 
 Team provisioning (optional): `AUTH_SSO__TEAM_GROUP_MAP` (`teamName=group;…`) adds
@@ -199,8 +199,8 @@ Analytics can estimate per-agent LLM cost from token usage when price rates
 are configured. Rates are USD per 1M tokens, keyed by the model string
 recorded on assistant messages (matching is case-insensitive):
 
-| Variable      | Default | Required | Purpose |
-| ------------- | ------- | -------- | ------- |
+| Variable      | Default | Required | Purpose                                                                                                                                           |
+| ------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `LLM_PRICING` | none    | No       | JSON object `{ "model": { "input": 2.5, "output": 10.0 } }`; invalid JSON or negative rates fail startup. Missing models simply show no estimate. |
 
 Example: `LLM_PRICING={"gpt-4o":{"input":2.5,"output":10.0},"claude-sonnet-4-20250514":{"input":3.0,"output":15.0}}`.
@@ -452,13 +452,13 @@ a service from starting (export falls back to logs and retries in batches).
 Standard OpenTelemetry SDK variables are used, so any existing collector
 pipeline works unchanged.
 
-| Variable                       | Default                | Purpose                                                                                                      |
-| ------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`  | none (export disabled) | Collector URL, e.g. `http://otel-collector:4317` (gRPC) or `http://otel-collector:4318` (HTTP)                  |
-| `OTEL_EXPORTER_OTLP_PROTOCOL`  | `grpc`                 | `grpc` or `http/protobuf`. Unknown values warn and fall back to `grpc`                                        |
-| `OTEL_TRACES_SAMPLER`          | `always_on`            | `always_on`, `always_off`, `traceidratio`, `parentbased_traceidratio`                                          |
-| `OTEL_TRACES_SAMPLER_ARG`      | `1.0`                  | Sampling ratio (0.0–1.0, clamped) for the `*traceidratio` samplers                                             |
-| `OTEL_SERVICE_NAME`            | binary name            | Resource `service.name` (`agentforge-server`, `agentforge-orchestrator` by default)                            |
+| Variable                      | Default                | Purpose                                                                                        |
+| ----------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none (export disabled) | Collector URL, e.g. `http://otel-collector:4317` (gRPC) or `http://otel-collector:4318` (HTTP) |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc`                 | `grpc` or `http/protobuf`. Unknown values warn and fall back to `grpc`                         |
+| `OTEL_TRACES_SAMPLER`         | `always_on`            | `always_on`, `always_off`, `traceidratio`, `parentbased_traceidratio`                          |
+| `OTEL_TRACES_SAMPLER_ARG`     | `1.0`                  | Sampling ratio (0.0–1.0); invalid values disable sampling rather than exporting unexpectedly   |
+| `OTEL_SERVICE_NAME`           | binary name            | Resource `service.name` (`agentforge-server`, `agentforge-orchestrator` by default)            |
 
 W3C `traceparent` contexts are propagated across the API → NATS → sidecar →
 container-CLI hops, so one user request shows up as a single trace end to end.
@@ -468,10 +468,10 @@ container-CLI hops, so one user request shows up as a single trace end to end.
 ```yaml
 otel-collector:
   image: otel/opentelemetry-collector-contrib:0.102.0
-  command: ["--config=/etc/otelcol/otel-collector-config.yaml"]
+  command: ['--config=/etc/otelcol/otel-collector-config.yaml']
   volumes:
     - ./otel-collector-config.yaml:/etc/otelcol/otel-collector-config.yaml:ro
-  ports: ["4317:4317", "4318:4318"]
+  ports: ['4317:4317', '4318:4318']
 ```
 
 `otel-collector-config.yaml` — export every trace to the console (replace the

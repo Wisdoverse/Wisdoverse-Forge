@@ -1,6 +1,6 @@
 //! Skill service — validation and governance management.
 
-use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AgentId, AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -20,11 +20,13 @@ pub(crate) use crate::domain::skill::{
     agent_skills_response, skill_agent_response, skill_agents_response, skill_data_response, skill_delete_response,
     skill_usage_response,
 };
+use crate::repositories::agent::AgentRepository;
 use crate::repositories::resource::permission::ResourcePermissionRepository;
 use crate::repositories::skill::{
     CreateSkillRecord, FollowedSkillRow, LinkedAgentRow, SkillAgentLinkRepository, SkillRepository,
     SkillUsageRepository, SkillUsageRow, SkillVersionRepository, UpdateSkillRecord,
 };
+use crate::services::agent::AgentService;
 use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
@@ -91,6 +93,7 @@ pub struct SkillService {
     permissions: ResourcePermissionRepository,
     agent_links: SkillAgentLinkRepository,
     usage: SkillUsageRepository,
+    agents: AgentService,
 }
 
 impl SkillService {
@@ -98,7 +101,8 @@ impl SkillService {
         let permissions = ResourcePermissionRepository::new(repo.pool().clone());
         let agent_links = SkillAgentLinkRepository::new(repo.pool().clone());
         let usage = SkillUsageRepository::new(repo.pool().clone());
-        Self { repo, permissions, agent_links, usage }
+        let agents = AgentService::new(AgentRepository::new(repo.pool().clone()));
+        Self { repo, permissions, agent_links, usage, agents }
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
@@ -136,7 +140,10 @@ impl SkillService {
         skill_id: Uuid,
         agent_id: Uuid,
     ) -> AppResult<LinkedSkillAgentSummary> {
-        self.get(scope, skill_id).await?;
+        self.reject_outside_boundary_mutation(scope, skill_id, "attach_agent").await?;
+        let skill = self.get(scope, skill_id).await?;
+        self.require_owner_or_manager(scope, &skill).await?;
+        self.agents.authorize_action(scope, AgentId::from(agent_id), "edit").await?;
         let row = self
             .agent_links
             .attach(scope, skill_id, agent_id, Some(scope.user_id().as_uuid()))
@@ -147,7 +154,10 @@ impl SkillService {
 
     /// Detach a skill from an agent; 404 when the link does not exist.
     pub async fn detach_linked_agent(&self, scope: &TenantScope, skill_id: Uuid, agent_id: Uuid) -> AppResult<()> {
-        self.get(scope, skill_id).await?;
+        self.reject_outside_boundary_mutation(scope, skill_id, "detach_agent").await?;
+        let skill = self.get(scope, skill_id).await?;
+        self.require_owner_or_manager(scope, &skill).await?;
+        self.agents.authorize_action(scope, AgentId::from(agent_id), "edit").await?;
         if !self.agent_links.detach(scope, skill_id, agent_id).await? {
             return Err(SkillRepositoryPolicy::skill_agent_link_not_found(skill_id, agent_id));
         }

@@ -124,6 +124,10 @@ pub(crate) fn recurring_task_not_found(id: Uuid) -> ErrorKind {
     ErrorKind::NotFound(format!("Recurring task {id} was not found in this team space."))
 }
 
+pub(crate) fn recurring_task_target_invalid() -> ErrorKind {
+    ErrorKind::Validation("Choose a live place inside the selected project.".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

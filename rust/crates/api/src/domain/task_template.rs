@@ -4,7 +4,7 @@
 //! writing a task and manage from Settings. Only the template's creator or an
 //! owner/admin may delete one.
 
-use agentforge_core::{AppResult, ErrorKind, UserId};
+use agentforge_core::{AppResult, ErrorKind, ProjectId, ScopedRead, UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -56,8 +56,12 @@ impl TaskTemplatePolicy {
         Ok(())
     }
 
-    pub(crate) fn delete_allowed(role: &str, created_by: &UserId, requester: &UserId) -> bool {
-        matches!(role, "owner" | "admin") || created_by == requester
+    pub(crate) fn require_readable_project(proof: &ScopedRead, project_id: Uuid) -> AppResult<()> {
+        if proof.contains_project(ProjectId::from(project_id)) {
+            Ok(())
+        } else {
+            Err(ErrorKind::Forbidden("You do not have access to that project.".to_string()).into())
+        }
     }
 }
 
@@ -117,8 +121,8 @@ pub(crate) fn template_not_found(id: Uuid) -> ErrorKind {
     ErrorKind::NotFound(format!("Task template {id} was not found in this team space."))
 }
 
-pub(crate) fn template_delete_forbidden() -> ErrorKind {
-    ErrorKind::Forbidden("Only the person who saved the template or an owner/admin can remove it.".to_string())
+pub(crate) fn template_project_invalid() -> ErrorKind {
+    ErrorKind::Validation("Choose a live project in this organization.".into())
 }
 
 /// Audit payload for template create/delete (names the template).
@@ -143,13 +147,13 @@ mod tests {
     }
 
     #[test]
-    fn template_delete_allows_creator_or_owner_admin() {
-        let creator = UserId::from(Uuid::new_v4());
-        let other = UserId::from(Uuid::new_v4());
-        assert!(TaskTemplatePolicy::delete_allowed("member", &creator, &creator));
-        assert!(!TaskTemplatePolicy::delete_allowed("member", &creator, &other));
-        assert!(TaskTemplatePolicy::delete_allowed("owner", &creator, &other));
-        assert!(TaskTemplatePolicy::delete_allowed("admin", &creator, &other));
-        assert!(!TaskTemplatePolicy::delete_allowed("analyst", &creator, &other));
+    fn project_template_requires_a_validated_read_membership() {
+        let org = agentforge_core::OrgId::from(Uuid::new_v4());
+        let user = UserId::from(Uuid::new_v4());
+        let allowed = ProjectId::from(Uuid::new_v4());
+        let denied = Uuid::new_v4();
+        let proof = ScopedRead::from_validated_memberships(org, user, [], [], [allowed]);
+        assert!(TaskTemplatePolicy::require_readable_project(&proof, allowed.as_uuid()).is_ok());
+        assert!(TaskTemplatePolicy::require_readable_project(&proof, denied).is_err());
     }
 }

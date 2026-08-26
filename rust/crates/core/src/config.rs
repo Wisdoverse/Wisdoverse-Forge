@@ -292,8 +292,8 @@ pub struct SsoConfig {
     pub spa_base_url: Option<String>,
     /// Userinfo claim holding the user's group/role list (e.g. `groups`).
     /// When set together with `admin_groups`, sign-ins sync the org role:
-    /// members found in an admin group are upgraded to `admin` (never lowered,
-    /// never overwrites `owner`).
+    /// members found in an admin group become `admin`; members outside those
+    /// groups become `member`. Owners are never overwritten.
     pub role_claim: Option<String>,
     /// Comma-separated group names that grant the org `admin` role.
     pub admin_groups: Option<String>,
@@ -309,10 +309,9 @@ pub struct SsoConfig {
     /// `admin_groups`. With `deprovision`, a missing group removes the team
     /// membership. Requires `role_claim`.
     pub team_group_map: Option<String>,
-    /// Deprovisioning policy: when `true`, sign-ins also REMOVE memberships in
-    /// mapped orgs whose group the user no longer has (owners and the user's
-    /// last remaining membership are never removed). Default `false` —
-    /// provisioning only adds; nothing is ever taken away automatically.
+    /// Deprovisioning policy: when `true`, sign-in is denied when none of the
+    /// mapped org groups apply; otherwise memberships for other missing groups
+    /// are removed when safe. Owners and the last org membership are retained.
     #[serde(default)]
     pub deprovision: bool,
     /// Shared secret that protects the instant-off deprovisioning endpoint

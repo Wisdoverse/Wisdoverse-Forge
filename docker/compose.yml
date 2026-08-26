@@ -152,6 +152,34 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-}
       - SMTP_SECURE=${SMTP_SECURE:-false}
+      # Enterprise sign-in. Keep these in the base service so dev, prod, and
+      # external profiles all expose the same AppConfig surface.
+      - AUTH_SSO__ENABLED=${AUTH_SSO__ENABLED:-false}
+      - AUTH_SSO__OIDC_DISCOVERY_URL=${AUTH_SSO__OIDC_DISCOVERY_URL:-}
+      - AUTH_SSO__OIDC_CLIENT_ID=${AUTH_SSO__OIDC_CLIENT_ID:-}
+      - AUTH_SSO__OIDC_CLIENT_SECRET=${AUTH_SSO__OIDC_CLIENT_SECRET:-}
+      - AUTH_SSO__OIDC_SCOPES=${AUTH_SSO__OIDC_SCOPES:-}
+      - AUTH_SSO__DISPLAY_NAME=${AUTH_SSO__DISPLAY_NAME:-}
+      - AUTH_SSO__SPA_BASE_URL=${AUTH_SSO__SPA_BASE_URL:-}
+      - AUTH_SSO__ROLE_CLAIM=${AUTH_SSO__ROLE_CLAIM:-}
+      - AUTH_SSO__ADMIN_GROUPS=${AUTH_SSO__ADMIN_GROUPS:-}
+      - AUTH_SSO__ORG_GROUP_MAP=${AUTH_SSO__ORG_GROUP_MAP:-}
+      - AUTH_SSO__TEAM_GROUP_MAP=${AUTH_SSO__TEAM_GROUP_MAP:-}
+      - AUTH_SSO__DEPROVISION_TOKEN=${AUTH_SSO__DEPROVISION_TOKEN:-}
+      - AUTH_SSO__DEPROVISION=${AUTH_SSO__DEPROVISION:-false}
+      # Product analytics, review policy, retention, and scheduled exports.
+      - LLM_PRICING=${LLM_PRICING:-}
+      - REVIEW_REQUIRED_GATES=${REVIEW_REQUIRED_GATES:-}
+      - COMPLIANCE_EXPORT_INTERVAL_HOURS=${COMPLIANCE_EXPORT_INTERVAL_HOURS:-0}
+      - COMPLIANCE_EXPORT_DIR=${COMPLIANCE_EXPORT_DIR:-}
+      - ANALYTICS_RETENTION_DAYS=${ANALYTICS_RETENTION_DAYS:-0}
+      - RUN_RETENTION_DAYS=${RUN_RETENTION_DAYS:-0}
+      # Optional OpenTelemetry export (blank endpoint keeps it disabled).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      - OTEL_TRACES_SAMPLER=${OTEL_TRACES_SAMPLER:-always_on}
+      - OTEL_TRACES_SAMPLER_ARG=${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-}
       - CLI_AUTH_PROXY_OPENAI_CLIENT_ID=${CLI_AUTH_PROXY_OPENAI_CLIENT_ID:-}
       - CLI_AUTH_PROXY_OPENAI_CLIENT_SECRET=${CLI_AUTH_PROXY_OPENAI_CLIENT_SECRET:-}
       - CLI_AUTH_PROXY_OPENAI_AUTH_ENDPOINT=${CLI_AUTH_PROXY_OPENAI_AUTH_ENDPOINT:-}
@@ -220,6 +248,8 @@ services:
       # Keep the Rust API root filesystem read-only while giving local
       # attachment object storage a durable writable mount.
       - agentforge-uploads:${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}
+      # Scheduled exports need a writable target under the read-only rootfs.
+      - agentforge-compliance:${COMPLIANCE_EXPORT_DIR:-/var/lib/agentforge/compliance}
 
     depends_on:
       nats:
@@ -838,6 +868,11 @@ services:
       - ORCHESTRATOR_TEMPORAL_ENABLED=true
       - ORCHESTRATOR_TEMPORAL_HOST=temporal-internal:7233
       - ORCHESTRATOR_TEMPORAL_NAMESPACE=default
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      - OTEL_TRACES_SAMPLER=${OTEL_TRACES_SAMPLER:-always_on}
+      - OTEL_TRACES_SAMPLER_ARG=${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-}
     depends_on:
       agentforge-server:
         condition: service_started
@@ -928,4 +963,6 @@ volumes:
   orchestrator-pgdata:
     driver: local
   agentforge-uploads:
+    driver: local
+  agentforge-compliance:
     driver: local

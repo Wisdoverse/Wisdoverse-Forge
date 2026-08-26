@@ -56,7 +56,7 @@ async fn delete_template(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    make_service(&state).delete(&auth.scope, id, &auth.role).await?;
+    make_service(&state).delete(&auth.scope, id).await?;
     Ok(Json(resource_delete_response()))
 }
 

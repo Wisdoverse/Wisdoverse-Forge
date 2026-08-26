@@ -9,32 +9,31 @@
 //! 3. Provider redirects to `/api/v1/auth/sso/oidc/callback?code&state` — the
 //!    callback validates state (store take + cookie match), exchanges the code,
 //!    reads the user's email, provisions/locates the account, then redirects
-//!    the browser to `SPA_BASE/login?auth_code=<120s signed code>`.
+//!    the browser to `SPA_BASE/login?auth_code=<120s opaque code>`.
 //! 4. `POST /api/v1/auth/sso/exchange {code}` — the login page redeems the
-//!    signed code for a normal access token + refresh cookie.
-//!
-//! The one-time code is a signed JWT (HS256, 120 s) so a restart cannot orphan
-//! an in-flight sign-in; a per-process spent-code cache makes it single-use.
+//!    opaque code for a normal access token + refresh cookie.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use chrono::Utc;
 use redis::AsyncCommands;
 use secrecy::ExposeSecret;
 
-use agentforge_auth::JwtManager;
 use agentforge_core::{AppConfig, AppError, AppResult, UserId};
 use agentforge_infra::RedisClient;
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
-use crate::domain::sso::{SsoPolicy, SsoProvider};
+use crate::domain::sso::{SsoExchangeRecord, SsoPolicy, SsoProvider};
 use crate::services::user::UserService;
 
 const SSO_STATE_TTL_SECS: u64 = 300;
 const SSO_EXCHANGE_CODE_TTL_SECS: u64 = 120;
-const SSO_REDIS_KEY_PREFIX: &str = "agentforge:sso-state:";
+const SSO_STATE_REDIS_KEY_PREFIX: &str = "agentforge:sso-state:";
+const SSO_EXCHANGE_REDIS_KEY_PREFIX: &str = "agentforge:sso-exchange:";
+const SSO_MEMORY_MAX_ENTRIES: usize = 10_000;
 
 /// OIDC discovery document fields this flow needs.
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -57,16 +56,22 @@ impl SsoMemoryStateStore {
         Self::default()
     }
 
-    async fn put(&self, state: &str, ttl: Duration) {
+    async fn put(&self, key: &str, value: &str, ttl: Duration) -> AppResult<()> {
         let mut guard = self.inner.lock().await;
-        guard.insert(state.to_string(), (state.to_string(), SystemTime::now() + ttl));
+        let now = SystemTime::now();
+        guard.retain(|_, (_, expires)| *expires >= now);
+        if guard.len() >= SSO_MEMORY_MAX_ENTRIES && !guard.contains_key(key) {
+            return Err(SsoPolicy::sso_unavailable("the in-memory sign-in store is full").into());
+        }
+        guard.insert(key.to_string(), (value.to_string(), now + ttl));
+        Ok(())
     }
 
-    async fn take(&self, state: &str) -> bool {
+    async fn take(&self, key: &str) -> Option<String> {
         let mut guard = self.inner.lock().await;
-        match guard.remove(state) {
-            Some((value, expires)) if expires >= SystemTime::now() => value == state,
-            _ => false,
+        match guard.remove(key) {
+            Some((value, expires)) if expires >= SystemTime::now() => Some(value),
+            _ => None,
         }
     }
 }
@@ -79,67 +84,75 @@ pub enum SsoStateStore {
 }
 
 impl SsoStateStore {
-    async fn put(&self, state: &str) -> AppResult<()> {
+    async fn put_value(&self, prefix: &str, key: &str, value: &str, ttl_secs: u64) -> AppResult<()> {
         match self {
             Self::Redis(client) => {
-                let key = format!("{SSO_REDIS_KEY_PREFIX}{state}");
+                let key = format!("{prefix}{key}");
                 let mut guard = client.write().await;
                 let conn = guard
                     .connection_mut()
                     .ok_or_else(|| SsoPolicy::sso_unavailable("shared state store is unavailable"))?;
-                let _: () = conn.set_ex(&key, state, SSO_STATE_TTL_SECS).await.map_err(|err| -> AppError {
-                    tracing::warn!(error = %err, "SSO state Redis SET_EX failed");
-                    SsoPolicy::sso_unavailable("could not store the sign-in state").into()
+                let _: () = conn.set_ex(&key, value, ttl_secs).await.map_err(|err| -> AppError {
+                    tracing::warn!(error = %err, "SSO Redis SET_EX failed");
+                    SsoPolicy::sso_unavailable("could not store the sign-in transaction").into()
                 })?;
                 Ok(())
             }
-            Self::Memory(memory) => {
-                memory.put(state, Duration::from_secs(SSO_STATE_TTL_SECS)).await;
-                Ok(())
-            }
+            Self::Memory(memory) => memory.put(key, value, Duration::from_secs(ttl_secs)).await,
         }
     }
 
-    async fn take(&self, state: &str) -> AppResult<bool> {
+    async fn take_value(&self, prefix: &str, key: &str) -> AppResult<Option<String>> {
         match self {
             Self::Redis(client) => {
-                let key = format!("{SSO_REDIS_KEY_PREFIX}{state}");
+                let key = format!("{prefix}{key}");
                 let mut guard = client.write().await;
                 let conn = guard
                     .connection_mut()
                     .ok_or_else(|| SsoPolicy::sso_unavailable("shared state store is unavailable"))?;
                 let raw: Option<String> =
                     redis::cmd("GETDEL").arg(&key).query_async(conn).await.map_err(|err| -> AppError {
-                        tracing::warn!(error = %err, "SSO state Redis GETDEL failed");
-                        SsoPolicy::sso_unavailable("could not read the sign-in state").into()
+                        tracing::warn!(error = %err, "SSO Redis GETDEL failed");
+                        SsoPolicy::sso_unavailable("could not read the sign-in transaction").into()
                     })?;
-                Ok(raw.as_deref() == Some(state))
+                Ok(raw)
             }
-            Self::Memory(memory) => Ok(memory.take(state).await),
+            Self::Memory(memory) => Ok(memory.take(key).await),
         }
+    }
+
+    async fn put_state(&self, state: &str) -> AppResult<()> {
+        self.put_value(SSO_STATE_REDIS_KEY_PREFIX, state, state, SSO_STATE_TTL_SECS).await
+    }
+
+    async fn take_state(&self, state: &str) -> AppResult<bool> {
+        Ok(self.take_value(SSO_STATE_REDIS_KEY_PREFIX, state).await?.as_deref() == Some(state))
+    }
+
+    async fn put_exchange(&self, code: &str, user_id: UserId, organization_id: Uuid) -> AppResult<()> {
+        let value = SsoExchangeRecord::new(user_id, organization_id, Utc::now().timestamp()).to_storage()?;
+        self.put_value(SSO_EXCHANGE_REDIS_KEY_PREFIX, code, &value, SSO_EXCHANGE_CODE_TTL_SECS).await
+    }
+
+    async fn take_exchange(&self, code: &str) -> AppResult<Option<SsoExchangeRecord>> {
+        Ok(self
+            .take_value(SSO_EXCHANGE_REDIS_KEY_PREFIX, code)
+            .await?
+            .and_then(|value| SsoExchangeRecord::from_storage(&value)))
     }
 }
 
 /// Business logic layer for the OIDC sign-in flow.
 pub struct SsoService {
     config: Arc<AppConfig>,
-    jwt: Arc<JwtManager>,
     store: SsoStateStore,
     client: reqwest::Client,
     discovery: Mutex<Option<OidcDiscovery>>,
-    spent_codes: Mutex<Vec<(String, SystemTime)>>,
 }
 
 impl SsoService {
-    pub fn new(config: Arc<AppConfig>, jwt: Arc<JwtManager>, store: SsoStateStore) -> Self {
-        Self {
-            config,
-            jwt,
-            store,
-            client: reqwest::Client::new(),
-            discovery: Mutex::new(None),
-            spent_codes: Mutex::new(Vec::new()),
-        }
+    pub fn new(config: Arc<AppConfig>, store: SsoStateStore) -> Self {
+        Self { config, store, client: reqwest::Client::new(), discovery: Mutex::new(None) }
     }
 
     /// Configured sign-in providers (empty = SSO disabled for this instance).
@@ -164,7 +177,7 @@ impl SsoService {
         let sso = &self.config.auth_sso;
         let discovery = self.fetch_discovery().await?;
         let state = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
-        self.store.put(&state).await?;
+        self.store.put_state(&state).await?;
         let mut url = discovery.authorization_endpoint;
         url = append_query(&url, "response_type", "code");
         url = append_query(&url, "client_id", sso.oidc_client_id.as_deref().unwrap_or_default());
@@ -188,7 +201,7 @@ impl SsoService {
         if self.providers().is_empty() {
             return Err(SsoPolicy::not_configured().into());
         }
-        if cookie_state != Some(state) || !self.store.take(state).await? {
+        if cookie_state != Some(state) || !self.store.take_state(state).await? {
             return Err(SsoPolicy::invalid_state().into());
         }
         let sso = &self.config.auth_sso;
@@ -248,27 +261,34 @@ impl SsoService {
             .await
             .map_err(|err| SsoPolicy::into_app_error(SsoPolicy::authorization_failed(err.to_string())))?;
 
+        if userinfo.get("email_verified").and_then(serde_json::Value::as_bool) != Some(true) {
+            return Err(SsoPolicy::unverified_email().into());
+        }
         let email = userinfo
             .get("email")
             .and_then(serde_json::Value::as_str)
             .filter(|value| !value.is_empty())
             .ok_or_else(|| SsoPolicy::into_app_error(SsoPolicy::missing_email()))?;
         let display_name = userinfo.get("name").and_then(serde_json::Value::as_str).map(str::to_owned);
-
-        let user = user_service.ensure_sso_user(email, display_name.as_deref()).await?;
-        let (org_id, role) = user_service.default_membership(user.id).await?;
-
-        // Role mapping from the provider's groups: a member in an admin group
-        // is upgraded to `admin` for their default org (never lowered; owners
-        // untouched). No-op unless role_claim + admin_groups are configured.
         let groups = provider_group_claim(&userinfo, sso.role_claim.as_deref());
         let admin_groups = csv_list(sso.admin_groups.as_deref());
+        let org_map = parse_org_group_map(sso.org_group_map.as_deref());
+        if sso.deprovision
+            && !org_map.is_empty()
+            && !org_map.iter().any(|(_, required_group)| groups.contains(required_group))
+        {
+            return Err(SsoPolicy::access_not_assigned().into());
+        }
+        let user = user_service.ensure_sso_user(email, display_name.as_deref(), false).await?;
+        let (org_id, _) = user_service.default_membership(user.id).await?;
+
+        // When configured, the IdP group mapping is authoritative in both
+        // directions. Owners remain protected by the repository predicate.
         if user_service.sync_sso_role(org_id, user.id, &groups, &admin_groups).await? {
-            tracing::info!(user_id = %user.id, "SSO role mapping: member upgraded to admin");
+            tracing::info!(user_id = %user.id, "SSO role mapping updated");
         }
 
         // Org provisioning (and optional deprovisioning) from the group map.
-        let org_map = parse_org_group_map(sso.org_group_map.as_deref());
         if !org_map.is_empty() {
             user_service.sync_sso_org_memberships(&org_map, &groups, &admin_groups, user.id, sso.deprovision).await?;
         }
@@ -279,36 +299,28 @@ impl SsoService {
             user_service.sync_sso_team_memberships(&team_map, &groups, &admin_groups, user.id, sso.deprovision).await?;
         }
 
-        // 120 s signed one-time code; redeeming it issues the real session.
-        let exchange_code = self
-            .jwt
-            .create_token_with_expiry(user.id.as_uuid(), org_id, &role, SSO_EXCHANGE_CODE_TTL_SECS)
-            .map_err(|err| SsoPolicy::into_app_error(SsoPolicy::sso_unavailable(&err.to_string())))?;
+        // Opaque, destructive-read code: it cannot be replayed or used as a
+        // bearer token against authenticated API routes.
+        let (exchange_org_id, _) = user_service.default_membership(user.id).await?;
+        let exchange_code = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+        self.store.put_exchange(&exchange_code, user.id, exchange_org_id).await?;
 
         let spa_base = sso.spa_base_url.as_deref().unwrap_or("http://localhost:4002").trim_end_matches('/');
         Ok(format!("{spa_base}/login?auth_code={}", urlencode(&exchange_code)))
     }
 
-    /// Redeem a 120 s signed code for a full session (access token + refresh).
+    /// Redeem a 120 s opaque code for a full session (access token + refresh).
     pub async fn exchange(
         &self,
         code: &str,
         user_service: &UserService,
     ) -> AppResult<crate::services::user::LoginResult> {
-        let claims =
-            self.jwt.verify_token(code).map_err(|_| SsoPolicy::into_app_error(SsoPolicy::invalid_exchange_code()))?;
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        // Reject codes older than the intended lifetime even if `exp` allows a
-        // few seconds of clock skew.
-        if claims.exp.saturating_sub(now) > SSO_EXCHANGE_CODE_TTL_SECS
-            || now.saturating_sub(claims.iat) > SSO_EXCHANGE_CODE_TTL_SECS + 30
-        {
-            return Err(SsoPolicy::into_app_error(SsoPolicy::invalid_exchange_code()));
-        }
-        if self.mark_spent(code).await? {
-            return Err(SsoPolicy::into_app_error(SsoPolicy::invalid_exchange_code()));
-        }
-        user_service.sso_sign_in(UserId::from(claims.sub)).await
+        let record = self
+            .store
+            .take_exchange(code)
+            .await?
+            .ok_or_else(|| SsoPolicy::into_app_error(SsoPolicy::invalid_exchange_code()))?;
+        user_service.sso_sign_in(UserId::from(record.user_id), record.organization_id, record.issued_at).await
     }
 
     async fn fetch_discovery(&self) -> AppResult<OidcDiscovery> {
@@ -339,18 +351,6 @@ impl SsoService {
             .map_err(|err| SsoPolicy::into_app_error(SsoPolicy::discovery_failed(err.to_string())))?;
         *self.discovery.lock().await = Some(discovery.clone());
         Ok(discovery)
-    }
-
-    /// Single-use enforcement for the 120 s exchange code.
-    async fn mark_spent(&self, code: &str) -> AppResult<bool> {
-        let mut guard = self.spent_codes.lock().await;
-        let now = SystemTime::now();
-        guard.retain(|(_, expires)| *expires > now);
-        if guard.iter().any(|(value, _)| value == code) {
-            return Ok(true);
-        }
-        guard.push((code.to_string(), now + Duration::from_secs(SSO_EXCHANGE_CODE_TTL_SECS)));
-        Ok(false)
     }
 }
 

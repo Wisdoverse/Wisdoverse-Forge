@@ -80,11 +80,13 @@ impl ResourceMemberService {
         role: Option<&str>,
         app_url: Option<&str>,
     ) -> AppResult<InviteOutcome> {
+        ResourceOrganizationPolicy::ensure_current_org(scope, org_id)?;
+        self.permissions.require_team_manager(scope, team_id).await?;
+        let role = ResourceMemberRole::normalize(role)?.as_str().to_string();
         if let Some(user_id) = self.repo.find_org_user_by_email(scope, email).await? {
-            let member = self.add_team_member(scope, org_id, team_id, user_id, role).await?;
+            let member = self.repo.add_team_member(scope, org_id, team_id, user_id, &role).await?;
             return Ok(InviteOutcome::Added(member));
         }
-        let role = ResourceMemberRole::normalize(role)?.as_str().to_string();
         let normalized = email.trim().to_lowercase();
         let token = TeamInvitePolicy::generate_token();
         let expires_at = chrono::Utc::now() + chrono::Duration::hours(TeamInvitePolicy::TTL_HOURS);

@@ -635,6 +635,13 @@ pub(crate) fn orchestration_task_review_gates_response(status: &ReviewGateStatus
 /// quote, or line break; doubles embedded quotes per RFC 4180.
 fn csv_cell(value: impl AsRef<str>) -> String {
     let value = value.as_ref();
+    let neutralized;
+    let value = if matches!(value.as_bytes().first(), Some(b'=' | b'+' | b'-' | b'@' | b'\t' | b'\r')) {
+        neutralized = format!("'{value}");
+        &neutralized
+    } else {
+        value
+    };
     if value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r') {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
@@ -1218,6 +1225,15 @@ mod tests {
         assert!(csv.contains("\"Build, \"\"G\"\"\""), "quotes must double up");
         assert!(csv.contains(",true\n"));
         assert!(!csv.contains("\n\n"), "no blank lines");
+    }
+
+    #[test]
+    fn csv_cell_neutralizes_spreadsheet_formulas() {
+        for value in ["=1+1", "+cmd", "-2+3", "@SUM(A1:A2)", "\t=1"] {
+            assert!(csv_cell(value).starts_with('\''), "dangerous cell was not neutralized: {value:?}");
+        }
+        assert_eq!(csv_cell("\r=1"), "\"'\r=1\"");
+        assert_eq!(csv_cell("ordinary"), "ordinary");
     }
 
     #[test]

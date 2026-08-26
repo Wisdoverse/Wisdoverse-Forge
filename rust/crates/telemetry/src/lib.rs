@@ -45,8 +45,8 @@ pub fn is_enabled() -> bool {
     std::env::var(OTLP_ENDPOINT_ENV).ok().is_some_and(|value| !value.trim().is_empty())
 }
 
-/// Sampling policy parsed from the standard OTLP env knobs. Unknown sampler
-/// names fall back to always-on so a typo cannot silently drop all traces.
+/// Sampling policy parsed from the standard OTLP env knobs. Invalid explicit
+/// values fail closed so a typo cannot unexpectedly export every trace.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SamplePolicy {
     AlwaysOn,
@@ -58,17 +58,25 @@ pub enum SamplePolicy {
 impl SamplePolicy {
     pub(crate) fn from_env() -> Self {
         let kind = std::env::var(OTLP_TRACES_SAMPLER_ENV).unwrap_or_default().trim().to_string();
-        let ratio = std::env::var(OTLP_TRACES_SAMPLER_ARG_ENV)
-            .ok()
-            .and_then(|value| value.trim().parse::<f64>().ok())
-            .unwrap_or(1.0)
-            .clamp(0.0, 1.0);
+        let ratio = match std::env::var(OTLP_TRACES_SAMPLER_ARG_ENV) {
+            Ok(value) => match value.trim().parse::<f64>() {
+                Ok(value) if (0.0..=1.0).contains(&value) => value,
+                _ => {
+                    eprintln!("agentforge-telemetry: invalid OTEL_TRACES_SAMPLER_ARG; sampling disabled");
+                    return Self::AlwaysOff;
+                }
+            },
+            Err(_) => 1.0,
+        };
         match kind.as_str() {
             "always_off" => Self::AlwaysOff,
             "parentbased_traceidratio" => Self::ParentBasedRatio(ratio),
             "traceidratio" => Self::TraceIdRatio(ratio),
-            // also covers: "", "always_on", "parentbased_always_on"
-            _ => Self::AlwaysOn,
+            "" | "always_on" | "parentbased_always_on" => Self::AlwaysOn,
+            other => {
+                eprintln!("agentforge-telemetry: unknown OTEL_TRACES_SAMPLER {other:?}; sampling disabled");
+                Self::AlwaysOff
+            }
         }
     }
 
@@ -282,7 +290,7 @@ mod tests {
     // Both env states are checked in one test (not two) because cargo runs
     // tests in parallel and they mutate the same process-global env var.
     #[test]
-    fn sampler_env_follows_standard_knobs_and_clamps_ratio() {
+    fn sampler_env_follows_standard_knobs_and_rejects_invalid_values() {
         let sampler_previous = std::env::var(OTLP_TRACES_SAMPLER_ENV).ok();
         let arg_previous = std::env::var(OTLP_TRACES_SAMPLER_ARG_ENV).ok();
         // SAFETY: this test owns the two env vars for its duration and restores them.
@@ -291,9 +299,13 @@ mod tests {
         assert_eq!(SamplePolicy::from_env(), SamplePolicy::ParentBasedRatio(0.25));
 
         unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "2.0") };
-        assert_eq!(SamplePolicy::from_env(), SamplePolicy::ParentBasedRatio(1.0), "ratios clamp to 1.0");
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOff);
         unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "-3") };
-        assert_eq!(SamplePolicy::from_env(), SamplePolicy::ParentBasedRatio(0.0), "ratios clamp to 0.0");
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOff);
+
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "always_on") };
+        unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ARG_ENV, "not-a-ratio") };
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOff);
 
         unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "always_off") };
         assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOff);
@@ -302,7 +314,7 @@ mod tests {
         assert_eq!(SamplePolicy::from_env(), SamplePolicy::TraceIdRatio(0.5));
 
         unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, "not-a-sampler") };
-        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOn, "unknown sampler falls back to always-on");
+        assert_eq!(SamplePolicy::from_env(), SamplePolicy::AlwaysOff);
 
         match sampler_previous {
             Some(value) => unsafe { std::env::set_var(OTLP_TRACES_SAMPLER_ENV, value) },

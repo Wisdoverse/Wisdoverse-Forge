@@ -291,7 +291,7 @@ impl UserRepository {
     /// elevate members, never demote or take over an owner's org.
     pub async fn set_membership_role(&self, org_id: uuid::Uuid, user_id: UserId, role: &str) -> AppResult<bool> {
         let result = sqlx::query(
-            "UPDATE organization_members SET role = $3 WHERE organization_id = $1 AND user_id = $2 AND role <> 'owner'",
+            "UPDATE organization_members SET role = $3 WHERE organization_id = $1 AND user_id = $2 AND role <> 'owner' AND role <> $3",
         )
         .bind(org_id)
         .bind(user_id.as_uuid())
@@ -360,12 +360,13 @@ impl UserRepository {
         .map_err(Into::into)
     }
 
-    /// Add a team membership (SSO team provisioning). Returns `false` when the
-    /// membership already exists with the same role — nothing is demoted.
+    /// Add or authoritatively sync an SSO team membership. Team owners are
+    /// never overwritten. Returns whether a row was inserted or changed.
     pub async fn add_team_membership(&self, team_id: uuid::Uuid, user_id: UserId, role: &str) -> AppResult<bool> {
         let result = sqlx::query(
-            "INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)\
-             ON CONFLICT (team_id, user_id) DO NOTHING",
+            r#"INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
+               ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role
+               WHERE team_members.role <> 'owner' AND team_members.role <> EXCLUDED.role"#,
         )
         .bind(team_id)
         .bind(user_id.as_uuid())
@@ -377,7 +378,7 @@ impl UserRepository {
 
     /// Remove a team membership (SSO deprovisioning).
     pub async fn remove_team_membership(&self, team_id: uuid::Uuid, user_id: UserId) -> AppResult<bool> {
-        let result = sqlx::query("DELETE FROM team_members WHERE team_id = $1 AND user_id = $2")
+        let result = sqlx::query("DELETE FROM team_members WHERE team_id = $1 AND user_id = $2 AND role <> 'owner'")
             .bind(team_id)
             .bind(user_id.as_uuid())
             .execute(&self.pool)
@@ -387,10 +388,12 @@ impl UserRepository {
 
     pub async fn find_membership_role(&self, user_id: UserId, org_id: uuid::Uuid) -> AppResult<Option<String>> {
         sqlx::query_scalar::<_, String>(
-            r#"SELECT role
-               FROM organization_members
-              WHERE organization_id = $1
-                AND user_id = $2
+            r#"SELECT om.role
+               FROM organization_members om
+               JOIN organizations o ON o.id = om.organization_id
+              WHERE om.organization_id = $1
+                AND om.user_id = $2
+                AND o.deleted_at IS NULL
               LIMIT 1"#,
         )
         .bind(org_id)
@@ -444,19 +447,31 @@ impl UserRepository {
         Ok(rows)
     }
 
-    /// The user's session-invalidation floor (F004): refresh/switch tokens whose
-    /// `iat` predates this instant must be rejected. `None` means the row is
-    /// absent or the column is NULL (never invalidated). Set by a password reset
+    /// The active user's session-invalidation floor (F004): refresh/switch
+    /// tokens whose `iat` predates this instant must be rejected. The outer
+    /// `Option` distinguishes an active user from a missing/deactivated one; the
+    /// inner `Option` is NULL when the account was never invalidated. Set by a password reset
     /// and by the operator-gated legacy SHA-256 force-reset. Unlike a sentinel
     /// hash check, this stays in force after the user resets their password, so a
     /// copied refresh token inside its multi-day lifetime cannot revive a session.
-    pub async fn session_floor(&self, user_id: UserId) -> AppResult<Option<DateTime<Utc>>> {
-        sqlx::query_scalar::<_, Option<DateTime<Utc>>>(r#"SELECT sessions_invalid_before FROM users WHERE id = $1"#)
-            .bind(user_id.as_uuid())
-            .fetch_optional(&self.pool)
-            .await
-            .map(Option::flatten)
-            .map_err(Into::into)
+    pub async fn active_session_floor(&self, user_id: UserId) -> AppResult<Option<Option<DateTime<Utc>>>> {
+        sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+            r#"SELECT sessions_invalid_before FROM users WHERE id = $1 AND deleted_at IS NULL"#,
+        )
+        .bind(user_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn invalidate_sessions(&self, user_id: UserId) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE users SET sessions_invalid_before = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(user_id.as_uuid())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Force-reset every remaining legacy unsalted SHA-256 hash (F004): replace

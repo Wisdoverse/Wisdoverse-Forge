@@ -386,7 +386,7 @@ impl AppState {
         } else {
             crate::services::sso::SsoStateStore::Memory(self.auth_sso_memory_store.clone())
         };
-        crate::services::sso::SsoService::new(self.config.clone(), self.jwt.clone(), store)
+        crate::services::sso::SsoService::new(self.config.clone(), store)
     }
 
     pub(crate) fn voice_service(&self) -> VoiceService {

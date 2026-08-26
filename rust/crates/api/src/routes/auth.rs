@@ -154,13 +154,8 @@ fn make_sso_service(state: &AppState) -> crate::services::sso::SsoService {
 /// Sends the user to the provider's authorization page. The state value is
 /// bound to an httpOnly cookie so the callback can reject cross-site state
 /// injection even before the single-use state store check.
-pub async fn sso_authorize(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    let Some(redirect_uri) = sso_callback_uri(&headers) else {
-        return auth_error_response(
-            SsoPolicy::into_app_error(SsoPolicy::sso_unavailable("could not determine the public callback URL")),
-            None,
-        );
-    };
+pub async fn sso_authorize(State(state): State<AppState>) -> Response {
+    let redirect_uri = sso_callback_uri(&state);
     match make_sso_service(&state).authorize_url(&redirect_uri).await {
         Ok((location, state_value)) => {
             let mut response_headers = HeaderMap::new();
@@ -188,9 +183,7 @@ pub async fn sso_callback(
     headers: HeaderMap,
     Query(query): Query<SsoCallbackQuery>,
 ) -> Response {
-    let Some(redirect_uri) = sso_callback_uri(&headers) else {
-        return sso_spa_fallback(&state, "Could not read the callback URL. Start sign-in again.");
-    };
+    let redirect_uri = sso_callback_uri(&state);
     if let Some(error) = query.error.as_deref() {
         let reason = match error {
             "access_denied" => "Sign-in was cancelled at the provider.",
@@ -206,7 +199,7 @@ pub async fn sso_callback(
     };
     let cookie_state = read_cookie(&headers, crate::domain::sso::SSO_STATE_COOKIE_NAME);
     match make_sso_service(&state)
-        .handle_callback(code, state_value, cookie_state.as_deref(), &redirect_uri, &state.user_service())
+        .handle_callback(code, state_value, cookie_state.as_deref(), &redirect_uri, &state.auth_user_service())
         .await
     {
         Ok(location) => Redirect::to(&location).into_response(),
@@ -224,7 +217,7 @@ pub struct SsoExchangeRequest {
 }
 
 pub async fn sso_exchange(State(state): State<AppState>, Json(req): Json<SsoExchangeRequest>) -> Response {
-    let user_service = state.user_service();
+    let user_service = state.auth_user_service();
     match make_sso_service(&state).exchange(&req.code, &user_service).await {
         Ok(result) => auth_success_response(StatusCode::OK, &user_service, result),
         Err(err) => auth_error_response(err, None),
@@ -349,19 +342,9 @@ fn read_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
         .next()
 }
 
-/// Public callback URL for the OIDC provider, derived from the request Host so
-/// the same config works behind the SPA proxy and a production ingress.
-fn sso_callback_uri(headers: &HeaderMap) -> Option<String> {
-    let host = headers.get(header::HOST)?.to_str().ok()?;
-    let scheme = headers
-        .get("x-forwarded-proto")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .map(str::trim)
-        .filter(|value| *value == "https")
-        .map(|_| "https")
-        .unwrap_or("http");
-    Some(format!("{scheme}://{host}/api/v1/auth/sso/oidc/callback"))
+/// Public callback URL comes from trusted configuration, never request Host.
+fn sso_callback_uri(state: &AppState) -> String {
+    format!("{}/api/v1/auth/sso/oidc/callback", state.sso_spa_base())
 }
 
 fn sso_spa_fallback(state: &AppState, message: &str) -> Response {
@@ -390,7 +373,7 @@ pub async fn deprovision(
 ) -> AppResult<Json<serde_json::Value>> {
     let provided = headers.get("x-forge-deprovision-token").map(|value| value.as_bytes()).unwrap_or(&[]);
     state.sso_deprovision_guard(provided)?;
-    let (user_found, removed) = state.user_service().deprovision_user(&req.email).await?;
+    let (user_found, removed) = state.auth_user_service().deprovision_user(&req.email).await?;
     Ok(Json(SsoPolicy::deprovision_response(user_found, removed)))
 }
 /// Body for the SCIM-style provisioning endpoint.
@@ -417,7 +400,7 @@ pub async fn sso_provision(
     let provided = headers.get("x-forge-deprovision-token").map(|value| value.as_bytes()).unwrap_or(&[]);
     state.sso_deprovision_guard(provided)?;
     let user = state
-        .user_service()
+        .auth_user_service()
         .provision_user(&req.email, req.display_name.as_deref(), &req.org_slugs, &req.roles)
         .await?;
     Ok(Json(SsoPolicy::provision_response(user.id.as_uuid())))

@@ -29,6 +29,7 @@ AGENT_IMAGE="${AGENT_BASE_IMAGE:-agentforge/agent-base:${VERSION}}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-$ROOT/dist}"
 BUNDLE="$OUT_DIR/offline-bundle-${VERSION}.tar.gz"
+TUF_STATE_DIR="${TUF_STATE_DIR:-$OUT_DIR/offline-bundle-tuf}"
 
 # Optional: include the whole compose stack (db, redis, nats, temporal) so a
 # fully air-gapped host needs no registry access at all.
@@ -44,8 +45,22 @@ say() { [ "$DRY_RUN" = 1 ] && echo "[dry-run] $*" || echo "$*"; }
 run() { if [ "$DRY_RUN" = 1 ]; then say "$*"; else "$@"; fi }
 
 if [ "$DRY_RUN" = 0 ]; then
-  rm -rf "$OUT_DIR/offline-bundle"
-  mkdir -p "$OUT_DIR/offline-bundle"
+  if [ -z "${BUNDLE_SIGNING_KEY:-}" ] || [ ! -f "$BUNDLE_SIGNING_KEY" ]; then
+    echo "Set BUNDLE_SIGNING_KEY to an Ed25519 private key before building." >&2
+    exit 1
+  fi
+  SIGNING_KEY="$(cd "$(dirname "$BUNDLE_SIGNING_KEY")" && pwd)/$(basename "$BUNDLE_SIGNING_KEY")"
+  if ! command -v agentforge >/dev/null 2>&1; then
+    echo "agentforge CLI is required to create trusted offline metadata." >&2
+    echo "Build it with: cd rust && cargo build -p agentforge-cli-bin" >&2
+    exit 1
+  fi
+  mkdir -p "$OUT_DIR"
+  WORK_DIR="$(mktemp -d "$OUT_DIR/.offline-bundle.XXXXXX")"
+  trap 'rm -rf "$WORK_DIR"' EXIT
+  if [ -d "$TUF_STATE_DIR/metadata" ]; then
+    cp -R "$TUF_STATE_DIR/metadata" "$WORK_DIR/"
+  fi
 fi
 
 for image in $IMAGES; do
@@ -58,8 +73,8 @@ for image in $IMAGES; do
 done
 
 if [ "$DRY_RUN" = 0 ]; then
-  printf '%s\n' $IMAGES > "$OUT_DIR/offline-bundle/images.txt"
-  cat > "$OUT_DIR/offline-bundle/README.txt" <<EOF
+  printf '%s\n' $IMAGES > "$WORK_DIR/images.txt"
+  cat > "$WORK_DIR/README.txt" <<EOF
 Wisdoverse Forge offline bundle $VERSION
 
 Contents:
@@ -74,32 +89,20 @@ EOF
 fi
 
 say "Saving images..."
-run docker save -o "$OUT_DIR/offline-bundle/images.tar" $IMAGES
+run docker save -o "${WORK_DIR:-$OUT_DIR/offline-bundle}/images.tar" $IMAGES
 
 if [ "$DRY_RUN" = 0 ]; then
-  ( cd "$OUT_DIR/offline-bundle" && sha256sum images.tar images.txt README.txt > SHA256SUMS )
-  if [ -n "${BUNDLE_SIGNING_KEY:-}" ]; then
-    if [ ! -f "$BUNDLE_SIGNING_KEY" ]; then
-      echo "Signing key not found: $BUNDLE_SIGNING_KEY" >&2
-      exit 1
-    fi
-    ( cd "$OUT_DIR/offline-bundle" && openssl pkeyutl -sign -rawin -in SHA256SUMS -inkey "$BUNDLE_SIGNING_KEY" -out SHA256SUMS.sig )
-    echo "Bundle checksums signed (SHA256SUMS.sig)."
-    # TUF-style metadata chain (root/targets/snapshot/timestamp). Requires the
-    # agentforge CLI on PATH (build: cd rust && cargo build -p agentforge-cli-bin).
-    if command -v agentforge >/dev/null 2>&1; then
-      if [ -f "$OUT_DIR/offline-bundle/metadata/root.json" ]; then
-        ( cd "$OUT_DIR/offline-bundle" && agentforge tuf sign --dir . --key "$BUNDLE_SIGNING_KEY" )
-      else
-        ( cd "$OUT_DIR/offline-bundle" && agentforge tuf init --dir . --key "$BUNDLE_SIGNING_KEY" )
-      fi
-    else
-      echo "agentforge CLI not found; TUF metadata skipped (legacy SHA256SUMS.sig still present)." >&2
-    fi
+  ( cd "$WORK_DIR" && sha256sum images.tar images.txt README.txt > SHA256SUMS )
+  ( cd "$WORK_DIR" && openssl pkeyutl -sign -rawin -in SHA256SUMS -inkey "$SIGNING_KEY" -out SHA256SUMS.sig )
+  echo "Bundle checksums signed (SHA256SUMS.sig)."
+  if [ -f "$WORK_DIR/metadata/root.json" ]; then
+    ( cd "$WORK_DIR" && agentforge tuf sign --dir . --key "$SIGNING_KEY" )
   else
-    echo "No BUNDLE_SIGNING_KEY set; bundle is checksummed but unsigned." >&2
+    ( cd "$WORK_DIR" && agentforge tuf init --dir . --key "$SIGNING_KEY" )
   fi
-  tar -C "$OUT_DIR/offline-bundle" -czf "$BUNDLE" .
+  mkdir -p "$TUF_STATE_DIR"
+  cp -R "$WORK_DIR/metadata" "$TUF_STATE_DIR/"
+  tar -C "$WORK_DIR" -czf "$BUNDLE" .
   echo "Created: $BUNDLE"
   ls -lh "$BUNDLE"
 else

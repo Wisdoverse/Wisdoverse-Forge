@@ -201,12 +201,13 @@ impl UserService {
         &self,
         email: &str,
         display_name: Option<&str>,
+        admin_bootstrap_authorized: bool,
     ) -> AppResult<agentforge_db::entities::User> {
         let email = UserEmail::parse(email)?;
         if let Some(user) = self.repo.find_by_email(email.value()).await? {
             return Ok(user);
         }
-        self.repo.create(email.value(), None, display_name, true).await
+        self.repo.create(email.value(), None, display_name, admin_bootstrap_authorized).await
     }
 
     /// SCIM-style provisioning from a provider webhook: ensure the account
@@ -219,7 +220,7 @@ impl UserService {
         org_slugs: &[String],
         roles: &[String],
     ) -> AppResult<agentforge_db::entities::User> {
-        let user = self.ensure_sso_user(email, display_name).await?;
+        let user = self.ensure_sso_user(email, display_name, false).await?;
         let is_admin = roles.iter().any(|role| role == "admin");
         for slug in org_slugs {
             let Some(org_id) = self.repo.find_org_id_by_slug(slug).await? else {
@@ -267,10 +268,8 @@ impl UserService {
         Ok((true, removed))
     }
 
-    /// Map the provider's groups onto the org membership role: a member found
-    /// in an admin group is upgraded to `admin`. Nothing is ever lowered or
-    /// demoted, and an owner's org is never touched. Returns true when the
-    /// role changed.
+    /// Map configured provider groups authoritatively onto the org role.
+    /// Owners are never touched. Returns true when the role changed.
     pub async fn sync_sso_role(
         &self,
         org_id: uuid::Uuid,
@@ -281,17 +280,15 @@ impl UserService {
         if admin_groups.is_empty() {
             return Ok(false);
         }
-        let is_admin = groups.iter().any(|group| admin_groups.iter().any(|admin| admin == group));
-        if !is_admin {
-            return Ok(false);
-        }
+        let desired =
+            if groups.iter().any(|group| admin_groups.iter().any(|admin| admin == group)) { "admin" } else { "member" };
         let Some(role) = self.repo.find_membership_role(user_id, org_id).await? else {
             return Ok(false);
         };
-        if role != "member" {
+        if role == "owner" || role == desired {
             return Ok(false);
         }
-        self.repo.set_membership_role(org_id, user_id, "admin").await
+        self.repo.set_membership_role(org_id, user_id, desired).await
     }
 
     /// Org provisioning from the provider groups, per `org_group_map`:
@@ -319,6 +316,8 @@ impl UserService {
                 let role = if is_admin { "admin" } else { "member" };
                 if self.repo.add_membership(org_id, user_id, role).await? {
                     tracing::info!(user_id = %user_id.as_uuid(), org_id = %org_id, "SSO org provisioning: added membership");
+                } else {
+                    self.repo.set_membership_role(org_id, user_id, role).await?;
                 }
             } else if deprovision {
                 // Safety gate: removing the user from every org would lock them
@@ -363,7 +362,7 @@ impl UserService {
             if groups.iter().any(|group| group == team_group) {
                 let role = if is_admin { "admin" } else { "member" };
                 if self.repo.add_team_membership(team_id, user_id, role).await? {
-                    tracing::info!(user_id = %user_id.as_uuid(), team_id = %team_id, "SSO team provisioning: added membership");
+                    tracing::info!(user_id = %user_id.as_uuid(), team_id = %team_id, "SSO team provisioning: membership synced");
                 }
             } else if deprovision && self.repo.remove_team_membership(team_id, user_id).await? {
                 tracing::info!(user_id = %user_id.as_uuid(), team_id = %team_id, "SSO deprovisioning: removed team membership");
@@ -372,14 +371,15 @@ impl UserService {
         Ok(())
     }
 
-    /// Instant-off deprovisioning from a provider/IdP event: removes every
-    /// non-owner membership the user has, so a revoked account stops seeing
-    /// team spaces on the next request. Owners are never auto-removed.
+    /// Deprovisioning from a provider/IdP event: blocks refresh immediately and
+    /// removes every non-owner membership. Existing access tokens remain valid
+    /// only until their short configured expiry. Owners are never auto-removed.
     /// Returns (user_found, memberships_removed).
     pub async fn deprovision_user(&self, email: &str) -> AppResult<(bool, usize)> {
         let Some(user) = self.repo.find_by_email(email).await? else {
             return Ok((false, 0));
         };
+        self.repo.invalidate_sessions(user.id).await?;
         let memberships = self.repo.memberships_of(user.id).await?;
         let mut removed = 0usize;
         for (org_id, role) in memberships {
@@ -403,9 +403,18 @@ impl UserService {
 
     /// Sign in an SSO-authenticated user (same result shape as password login,
     /// without any password check).
-    pub async fn sso_sign_in(&self, user_id: UserId) -> AppResult<LoginResult> {
+    pub async fn sso_sign_in(&self, user_id: UserId, org_id: uuid::Uuid, issued_at: i64) -> AppResult<LoginResult> {
+        let session_floor =
+            self.repo.active_session_floor(user_id).await?.ok_or_else(UserAccountPolicy::invalid_credentials)?;
+        if session_floor.is_some_and(|floor| issued_at <= floor.timestamp()) {
+            return Err(UserAccountPolicy::invalid_credentials().into());
+        }
         let user = self.repo.find_by_user_id(user_id).await?.ok_or_else(UserAccountPolicy::invalid_credentials)?;
-        let (org_id, role) = self.default_membership(user.id).await?;
+        let role = self
+            .repo
+            .find_membership_role(user.id, org_id)
+            .await?
+            .ok_or_else(UserAccountPolicy::invalid_credentials)?;
         let access_token =
             self.jwt.create_token(user.id.as_uuid(), org_id, &role).map_err(UserAccountPolicy::jwt_creation_failed)?;
         if let Err(err) = self.repo.update_last_login(user.id).await {
@@ -551,7 +560,11 @@ impl UserService {
         // rejected even after the password hash is no longer the sentinel, so a
         // copied/stale refresh token inside its multi-day lifetime cannot mint
         // fresh access tokens.
-        let floor = self.repo.session_floor(UserId::from(claims.sub)).await?;
+        let floor = self
+            .repo
+            .active_session_floor(UserId::from(claims.sub))
+            .await?
+            .ok_or_else(UserAccountPolicy::invalid_refresh_token)?;
         if agentforge_auth::session_token_revoked(claims.iat, floor.map(|f| f.timestamp())) {
             return Err(UserAccountPolicy::invalid_refresh_token().into());
         }

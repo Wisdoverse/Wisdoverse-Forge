@@ -6,6 +6,8 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::resource::ResourceRepositoryPolicy;
+
 /// Database access layer for `team_invites`.
 pub struct TeamInviteRepository {
     pool: PgPool,
@@ -29,7 +31,9 @@ impl TeamInviteRepository {
     ) -> AppResult<TeamInvite> {
         sqlx::query_as::<_, TeamInvite>(
             r#"INSERT INTO team_invites (organization_id, team_id, email, role, token_hash, created_by, expires_at, accepted_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
+               SELECT $1, t.id, $3, $4, $5, $6, $7, NULL
+                 FROM teams t
+                WHERE t.id = $2 AND t.organization_id = $1 AND t.deleted_at IS NULL
                ON CONFLICT (team_id, email)
                DO UPDATE SET role = EXCLUDED.role, token_hash = EXCLUDED.token_hash,
                              created_by = EXCLUDED.created_by, expires_at = EXCLUDED.expires_at,
@@ -43,9 +47,9 @@ impl TeamInviteRepository {
         .bind(token_hash)
         .bind(scope.user_id().as_uuid())
         .bind(expires_at)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(agentforge_core::AppError::from)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| ResourceRepositoryPolicy::team_not_found(team_id.into()))
     }
 
     /// Find a still-pending invite by token hash (expired or accepted = None).

@@ -1,23 +1,23 @@
 # Self-host operator runbook
 
 One-page operational reference for a Wisdoverse Forge deployment. Each knob
-links to its full guide; this page is the *checklist*.
+links to its full guide; this page is the _checklist_.
 
 ## Config knobs (set in `docker/.env`)
 
-| Purpose | Variables | Guide |
-| --- | --- | --- |
-| Analytics cost estimates | `LLM_PRICING` (`{"model":{"input","output"}}` USD/1M) | [configuration](../guides/configuration.md) |
-| Required review gates | `REVIEW_REQUIRED_GATES` (comma keys; unknown keys fail boot) | [configuration](../guides/configuration.md) |
-| Scheduled compliance exports | `COMPLIANCE_EXPORT_INTERVAL_HOURS` + `COMPLIANCE_EXPORT_DIR` (paired) | [configuration](../guides/configuration.md) |
-| Telemetry retention | `ANALYTICS_RETENTION_DAYS` (events/analytics_events) | [configuration](../guides/configuration.md) |
-| Run retention | `RUN_RETENTION_DAYS` (finished runs of terminal tasks) | [configuration](../guides/configuration.md) |
-| SSO | `AUTH_SSO__*` (`ENABLED`, OIDC, `ROLE_CLAIM`, `ADMIN_GROUPS`, `ORG_GROUP_MAP`, `TEAM_GROUP_MAP`, `DEPROVISION`) | [configuration](../guides/configuration.md) |
-| Provision/deprovision webhooks | `AUTH_SSO__DEPROVISION_TOKEN` (+ `POST /api/v1/auth/sso/provision`, `POST /api/v1/auth/deprovision`) | [configuration](../guides/configuration.md) |
-| SCIM 2.0 Users | same token; `GET|POST /api/v1/auth/sso/scim/Users`, `GET|DELETE /Users/{id}` (paged list, create, deactivate) | [configuration](../guides/configuration.md) |
-| OTLP trace export | `OTEL_EXPORTER_OTLP_ENDPOINT` (+ `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_SERVICE_NAME`) | [configuration](../guides/configuration.md) |
-| Offline bundle signing | `BUNDLE_SIGNING_KEY` (Ed25519 PEM) + `agentforge tuf` (root pinning, rotation) | [offline install](../guides/offline-install.md) |
-| Container CLI model | `CODEX_DEFAULT_MODEL`, `CONTAINER_*_API_KEY` | [configuration](../guides/configuration.md) |
+| Purpose                        | Variables                                                                                                                              | Guide                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Analytics cost estimates       | `LLM_PRICING` (`{"model":{"input","output"}}` USD/1M)                                                                                  | [configuration](../guides/configuration.md)     |
+| Required review gates          | `REVIEW_REQUIRED_GATES` (comma keys; unknown keys fail boot)                                                                           | [configuration](../guides/configuration.md)     |
+| Scheduled compliance exports   | `COMPLIANCE_EXPORT_INTERVAL_HOURS` + `COMPLIANCE_EXPORT_DIR` (paired)                                                                  | [configuration](../guides/configuration.md)     |
+| Telemetry retention            | `ANALYTICS_RETENTION_DAYS` (events/analytics_events)                                                                                   | [configuration](../guides/configuration.md)     |
+| Run retention                  | `RUN_RETENTION_DAYS` (finished runs of terminal tasks)                                                                                 | [configuration](../guides/configuration.md)     |
+| SSO                            | `AUTH_SSO__*` (`ENABLED`, OIDC, `ROLE_CLAIM`, `ADMIN_GROUPS`, `ORG_GROUP_MAP`, `TEAM_GROUP_MAP`, `DEPROVISION`)                        | [configuration](../guides/configuration.md)     |
+| Provision/deprovision webhooks | `AUTH_SSO__DEPROVISION_TOKEN` (+ `POST /api/v1/auth/sso/provision`, `POST /api/v1/auth/deprovision`)                                   | [configuration](../guides/configuration.md)     |
+| SCIM 2.0 Users                 | same token; `GET                                                                                                                       | POST /api/v1/auth/sso/scim/Users`, `GET         | DELETE /Users/{id}` (paged list, create, deactivate) | [configuration](../guides/configuration.md) |
+| OTLP trace export              | `OTEL_EXPORTER_OTLP_ENDPOINT` (+ `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_SERVICE_NAME`) | [configuration](../guides/configuration.md)     |
+| Offline bundle signing         | `BUNDLE_SIGNING_KEY` (Ed25519 PEM) + `agentforge tuf` (root pinning, rotation)                                                         | [offline install](../guides/offline-install.md) |
+| Container CLI model            | `CODEX_DEFAULT_MODEL`, `CONTAINER_*_API_KEY`                                                                                           | [configuration](../guides/configuration.md)     |
 
 ## Weekly checklist
 
@@ -37,7 +37,7 @@ links to its full guide; this page is the *checklist*.
    restart.
 7. **Bundle signing** — offline bundles carry `metadata/` (TUF chain) plus
    `SHA256SUMS.sig`; the host pin (`/etc/agentforge/tuf/root.json`) exists and
-   after a `tuf rotate` every host re-pins at the NEXT rotation.
+   advances automatically only after a rotated root and full bundle verify.
 
 ## Incident pointers
 
@@ -59,8 +59,9 @@ links to its full guide; this page is the *checklist*.
   `agentforge-telemetry: OTLP exporter init failed` on boot when the endpoint
   is unreachable; export is disabled (not fatal). Check the endpoint and
   `OTEL_EXPORTER_OTLP_PROTOCOL`, then restart.
-- **Bundle verification fails** — re-transfer; `SHA256SUMS` is authoritative
-  (see [offline install](../guides/offline-install.md)).
+- **Bundle verification fails** — re-transfer and verify the host pin or legacy
+  signing key; an unsigned checksum file is not authoritative (see
+  [offline install](../guides/offline-install.md)).
 
 ## Rotation & upgrade
 

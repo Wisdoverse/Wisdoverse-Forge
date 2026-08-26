@@ -40,8 +40,15 @@ fn guard(state: &AppState, headers: &axum::http::HeaderMap) -> Result<(), ScimEr
 }
 
 fn internal_scim(err: impl std::fmt::Display) -> ScimError {
-    let detail = format!("Internal error: {err}");
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(scim_error("500", &detail)))
+    tracing::error!(error = %err, "SCIM request failed");
+    (StatusCode::INTERNAL_SERVER_ERROR, Json(scim_error("500", "Internal server error.")))
+}
+
+fn require_active_user(active: Option<bool>) -> ScimResult<()> {
+    if active == Some(false) {
+        return Err((StatusCode::BAD_REQUEST, Json(scim_bad_request("active=false cannot create a user."))));
+    }
+    Ok(())
 }
 
 /// Query params: 1-based startIndex, count clamped to 1..=100.
@@ -120,10 +127,11 @@ pub async fn scim_create_user(
     if req.user_name.trim().is_empty() {
         return Err((StatusCode::BAD_REQUEST, Json(scim_bad_request("userName is required."))));
     }
+    require_active_user(req.active)?;
     let slugs: Vec<String> = req.groups.into_iter().map(|g| g.value).collect();
     let roles: Vec<String> = Vec::new();
     let user = state
-        .user_service()
+        .auth_user_service()
         .provision_user(&req.user_name, req.display_name.as_deref(), &slugs, &roles)
         .await
         .map_err(internal_scim)?;
@@ -139,7 +147,7 @@ pub async fn scim_delete_user(
     Path(id): Path<Uuid>,
 ) -> ScimResult<StatusCode> {
     guard(&state, &headers)?;
-    let removed = state.user_service().scim_delete_user(UserId::from(id)).await.map_err(internal_scim)?;
+    let removed = state.auth_user_service().scim_delete_user(UserId::from(id)).await.map_err(internal_scim)?;
     if !removed.0 {
         return Err((StatusCode::NOT_FOUND, Json(scim_not_found("User not found."))));
     }
@@ -151,4 +159,16 @@ pub fn scim_routes() -> Router<AppState> {
     Router::new()
         .route("/auth/sso/scim/Users", axum::routing::get(scim_list_users).post(scim_create_user))
         .route("/auth/sso/scim/Users/{id}", axum::routing::get(scim_get_user).delete(scim_delete_user))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inactive_create_is_rejected() {
+        assert!(require_active_user(None).is_ok());
+        assert!(require_active_user(Some(true)).is_ok());
+        assert_eq!(require_active_user(Some(false)).unwrap_err().0, StatusCode::BAD_REQUEST);
+    }
 }

@@ -154,3 +154,39 @@ async fn redeem_rejects_a_different_email(pool: sqlx::PgPool) {
     .expect("count pending");
     assert_eq!(pending, 1, "invite stays pending after a rejected redeem");
 }
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn pending_invite_requires_team_manager(pool: sqlx::PgPool) {
+    let (org, team, _) = seed_org_team_user(&pool).await;
+    let member = Uuid::new_v4();
+    sqlx::query("INSERT INTO users (id, email) VALUES ($1, 'member@example.com')")
+        .bind(member)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'member')")
+        .bind(org)
+        .bind(member)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let service = ResourceMemberService::new(
+        crate::repositories::resource::member::ResourceMemberRepository::new(pool.clone()),
+        crate::repositories::resource::permission::ResourcePermissionRepository::new(pool.clone()),
+        crate::repositories::resource::invite::TeamInviteRepository::new(pool.clone()),
+    );
+
+    let result = service
+        .invite_team_member_by_email(
+            &tenant_scope_for_ids(org, member),
+            org,
+            TeamId::from(team),
+            "pending@example.com",
+            None,
+            Some("https://forge.example.com"),
+        )
+        .await;
+    assert!(result.is_err(), "ordinary members must not create pending team invites");
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM team_invites").fetch_one(&pool).await.unwrap();
+    assert_eq!(count, 0);
+}

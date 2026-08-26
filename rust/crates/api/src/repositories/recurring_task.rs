@@ -5,6 +5,8 @@ use agentforge_db::entities::RecurringTask;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::recurring_task::recurring_task_target_invalid;
+
 /// Database access layer for recurring tasks.
 pub struct RecurringTaskRepository {
     pool: PgPool,
@@ -44,7 +46,35 @@ impl RecurringTaskRepository {
             r#"INSERT INTO recurring_tasks
                (organization_id, name, title, description, priority, requires_approval,
                 project_id, group_id, cadence_minutes, created_by)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               SELECT $1, $2, $3, $4, $5, $6, p.id, g.id, $9, $10
+                 FROM projects p
+                 JOIN groups g ON g.id = $8
+                WHERE p.id = $7
+                  AND p.organization_id = $1
+                  AND p.deleted_at IS NULL
+                  AND g.organization_id = $1
+                  AND g.project_id = p.id
+                  AND g.deleted_at IS NULL
+                  AND EXISTS (
+                    SELECT 1
+                      FROM organization_members om
+                     WHERE om.organization_id = $1
+                       AND om.user_id = $10
+                       AND (
+                         om.role IN ('owner', 'admin')
+                         OR EXISTS (
+                           SELECT 1 FROM project_members pm
+                            WHERE pm.project_id = p.id AND pm.user_id = $10
+                         )
+                         OR EXISTS (
+                           SELECT 1 FROM team_members tm
+                           JOIN teams t ON t.id = tm.team_id
+                            WHERE tm.team_id = p.team_id
+                              AND tm.user_id = $10
+                              AND t.deleted_at IS NULL
+                         )
+                       )
+                  )
                RETURNING *"#,
         )
         .bind(scope.org_id().as_uuid())
@@ -57,9 +87,9 @@ impl RecurringTaskRepository {
         .bind(group_id)
         .bind(cadence_minutes)
         .bind(scope.user_id().as_uuid())
-        .fetch_one(&self.pool)
-        .await
-        .map_err(agentforge_core::AppError::from)?;
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(recurring_task_target_invalid)?;
         Ok(row)
     }
 
@@ -77,23 +107,89 @@ impl RecurringTaskRepository {
 
     /// Delete one schedule by id, org-scoped.
     pub async fn delete(&self, scope: &TenantScope, id: Uuid) -> AppResult<bool> {
-        let removed = sqlx::query("DELETE FROM recurring_tasks WHERE id = $1 AND organization_id = $2")
-            .bind(id)
-            .bind(scope.org_id().as_uuid())
-            .execute(&self.pool)
-            .await?;
+        let removed = sqlx::query(
+            r#"DELETE FROM recurring_tasks rt
+                WHERE rt.id = $1
+                  AND rt.organization_id = $2
+                  AND EXISTS (
+                    SELECT 1 FROM organization_members om
+                     WHERE om.organization_id = rt.organization_id
+                       AND om.user_id = $3
+                       AND (
+                         om.role IN ('owner', 'admin')
+                         OR (
+                           rt.created_by = $3
+                           AND EXISTS (
+                             SELECT 1 FROM projects p
+                              WHERE p.id = rt.project_id
+                                AND p.deleted_at IS NULL
+                                AND (
+                                  EXISTS (
+                                    SELECT 1 FROM project_members pm
+                                     WHERE pm.project_id = p.id AND pm.user_id = $3
+                                  )
+                                  OR EXISTS (
+                                    SELECT 1 FROM team_members tm
+                                    JOIN teams t ON t.id = tm.team_id
+                                     WHERE tm.team_id = p.team_id
+                                       AND tm.user_id = $3
+                                       AND t.deleted_at IS NULL
+                                  )
+                                )
+                           )
+                         )
+                       )
+                  )"#,
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(scope.user_id().as_uuid())
+        .execute(&self.pool)
+        .await?;
         Ok(removed.rows_affected() > 0)
     }
 
     /// Enable or disable a schedule; returns the updated row or None.
     pub async fn set_enabled(&self, scope: &TenantScope, id: Uuid, enabled: bool) -> AppResult<Option<RecurringTask>> {
         let row = sqlx::query_as::<_, RecurringTask>(
-            r#"UPDATE recurring_tasks SET enabled = $3, updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2 RETURNING *"#,
+            r#"UPDATE recurring_tasks rt SET enabled = $3, updated_at = NOW()
+               WHERE rt.id = $1
+                 AND rt.organization_id = $2
+                 AND EXISTS (
+                   SELECT 1 FROM organization_members om
+                    WHERE om.organization_id = rt.organization_id
+                      AND om.user_id = $4
+                      AND (
+                        om.role IN ('owner', 'admin')
+                        OR (
+                          rt.created_by = $4
+                          AND EXISTS (
+                            SELECT 1 FROM projects p
+                             WHERE p.id = rt.project_id
+                               AND p.deleted_at IS NULL
+                               AND (
+                                 EXISTS (
+                                   SELECT 1 FROM project_members pm
+                                    WHERE pm.project_id = p.id AND pm.user_id = $4
+                                 )
+                                 OR EXISTS (
+                                   SELECT 1 FROM team_members tm
+                                   JOIN teams t ON t.id = tm.team_id
+                                    WHERE tm.team_id = p.team_id
+                                      AND tm.user_id = $4
+                                      AND t.deleted_at IS NULL
+                                 )
+                               )
+                          )
+                        )
+                      )
+                 )
+               RETURNING *"#,
         )
         .bind(id)
         .bind(scope.org_id().as_uuid())
         .bind(enabled)
+        .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
         .await?;
         Ok(row)
@@ -105,16 +201,47 @@ impl RecurringTaskRepository {
     /// gradually.
     pub async fn claim_due(&self, limit: i64) -> AppResult<Vec<RecurringTask>> {
         let rows = sqlx::query_as::<_, RecurringTask>(
-            r#"UPDATE recurring_tasks
-               SET next_run_at = NOW() + (cadence_minutes || ' minutes')::interval,
-                   updated_at = NOW()
-               WHERE id IN (
-                   SELECT id FROM recurring_tasks
-                    WHERE enabled AND next_run_at <= NOW()
-                    ORDER BY next_run_at ASC
-                    LIMIT $1
+            r#"WITH due AS (
+                 SELECT rt.id
+                   FROM recurring_tasks rt
+                  WHERE rt.enabled
+                    AND rt.next_run_at <= NOW()
+                    AND EXISTS (
+                      SELECT 1 FROM organization_members om
+                       WHERE om.organization_id = rt.organization_id
+                         AND om.user_id = rt.created_by
+                         AND (
+                           om.role IN ('owner', 'admin')
+                           OR EXISTS (
+                             SELECT 1 FROM projects p
+                              WHERE p.id = rt.project_id
+                                AND p.deleted_at IS NULL
+                                AND (
+                                  EXISTS (
+                                    SELECT 1 FROM project_members pm
+                                     WHERE pm.project_id = p.id AND pm.user_id = rt.created_by
+                                  )
+                                  OR EXISTS (
+                                    SELECT 1 FROM team_members tm
+                                    JOIN teams t ON t.id = tm.team_id
+                                     WHERE tm.team_id = p.team_id
+                                       AND tm.user_id = rt.created_by
+                                       AND t.deleted_at IS NULL
+                                  )
+                                )
+                           )
+                         )
+                    )
+                  ORDER BY rt.next_run_at ASC
+                  FOR UPDATE SKIP LOCKED
+                  LIMIT $1
                )
-               RETURNING *"#,
+               UPDATE recurring_tasks rt
+               SET next_run_at = NOW() + (rt.cadence_minutes || ' minutes')::interval,
+                   updated_at = NOW()
+               FROM due
+               WHERE rt.id = due.id
+               RETURNING rt.*"#,
         )
         .bind(limit)
         .fetch_all(&self.pool)
@@ -157,12 +284,24 @@ mod tests {
             .execute(pool)
             .await
             .expect("seed user");
+        sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'member')")
+            .bind(org_id)
+            .bind(user_id)
+            .execute(pool)
+            .await
+            .expect("seed org membership");
         sqlx::query("INSERT INTO teams (id, organization_id, name, slug) VALUES ($1, $2, 'Team', 'team')")
             .bind(team_id)
             .bind(org_id)
             .execute(pool)
             .await
             .expect("seed team");
+        sqlx::query("INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'member')")
+            .bind(team_id)
+            .bind(user_id)
+            .execute(pool)
+            .await
+            .expect("seed team membership");
         sqlx::query("INSERT INTO projects (id, organization_id, workspace_id, team_id, name, slug) VALUES ($1, $2, $2, $3, 'P', 'p')")
             .bind(project_id)
             .bind(org_id)
@@ -171,10 +310,11 @@ mod tests {
             .await
             .expect("seed project");
         sqlx::query(
-            "INSERT INTO groups (id, organization_id, name, description, created_by) VALUES ($1, $2, 'G', 'G', $3)",
+            "INSERT INTO groups (id, organization_id, project_id, name, description, created_by) VALUES ($1, $2, $3, 'G', 'G', $4)",
         )
         .bind(group_id)
         .bind(org_id)
+        .bind(project_id)
         .bind(user_id)
         .execute(pool)
         .await
@@ -187,9 +327,29 @@ mod tests {
         let other_org = Uuid::new_v4();
         let user_id = Uuid::new_v4();
         let other_user = Uuid::new_v4();
+        let team_id = Uuid::new_v4();
         let project_id = Uuid::new_v4();
         let group_id = Uuid::new_v4();
-        seed_org_and_project(&pool, org_id, user_id, Uuid::new_v4(), project_id, group_id).await;
+        seed_org_and_project(&pool, org_id, user_id, team_id, project_id, group_id).await;
+        let same_org_project = Uuid::new_v4();
+        let same_org_group = Uuid::new_v4();
+        sqlx::query("INSERT INTO projects (id, organization_id, workspace_id, team_id, name, slug) VALUES ($1, $2, $2, $3, 'P2', 'p2')")
+            .bind(same_org_project)
+            .bind(org_id)
+            .bind(team_id)
+            .execute(&pool)
+            .await
+            .expect("seed second project");
+        sqlx::query(
+            "INSERT INTO groups (id, organization_id, project_id, name, description, created_by) VALUES ($1, $2, $3, 'G2', 'G2', $4)",
+        )
+        .bind(same_org_group)
+        .bind(org_id)
+        .bind(same_org_project)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed second group");
         let other_project = Uuid::new_v4();
         let other_group = Uuid::new_v4();
         seed_org_and_project(&pool, other_org, other_user, Uuid::new_v4(), other_project, other_group).await;
@@ -201,6 +361,16 @@ mod tests {
             .create(&scope, "Daily", "Daily summary", "Brief", "normal", false, project_id, group_id, 1_440)
             .await
             .expect("create");
+        assert!(
+            repo.create(&scope, "Bad", "Bad", "", "normal", false, other_project, group_id, 60).await.is_err(),
+            "cross-org project must be rejected"
+        );
+        assert!(
+            repo.create(&scope, "Mismatch", "Mismatch", "", "normal", false, project_id, same_org_group, 60)
+                .await
+                .is_err(),
+            "group from another project must be rejected"
+        );
         repo.create(&other_scope, "Other", "Other", "x", "normal", false, other_project, other_group, 60)
             .await
             .expect("create other");
@@ -210,6 +380,42 @@ mod tests {
 
         let disabled = repo.set_enabled(&scope, created.id, false).await.expect("disable").expect("row");
         assert!(!disabled.enabled);
+        let other_member = Uuid::new_v4();
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(other_member)
+            .bind(format!("member-{other_member}@example.com"))
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'member')")
+            .bind(org_id)
+            .bind(other_member)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let member_scope = tenant_scope_for_ids(org_id, other_member);
+        assert!(
+            repo.create(&member_scope, "No access", "No access", "", "normal", false, project_id, group_id, 60)
+                .await
+                .is_err(),
+            "an org member without project access cannot schedule work"
+        );
+        assert!(repo.set_enabled(&member_scope, created.id, true).await.unwrap().is_none());
+        assert!(!repo.delete(&member_scope, created.id).await.unwrap());
+        sqlx::query("DELETE FROM team_members WHERE team_id = $1 AND user_id = $2")
+            .bind(team_id)
+            .bind(user_id)
+            .execute(&pool)
+            .await
+            .expect("revoke creator project access");
+        assert!(repo.set_enabled(&scope, created.id, true).await.unwrap().is_none());
+        assert!(!repo.delete(&scope, created.id).await.unwrap());
+        sqlx::query("INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'member')")
+            .bind(team_id)
+            .bind(user_id)
+            .execute(&pool)
+            .await
+            .expect("restore creator project access");
         assert!(repo.delete(&scope, created.id).await.expect("delete"));
         assert_eq!(repo.list(&scope).await.expect("empty").len(), 0);
     }
@@ -238,8 +444,10 @@ mod tests {
             .await
             .expect("backdate");
 
-        let claimed = repo.claim_due(10).await.expect("claim");
-        assert_eq!(claimed.len(), 1, "disabled schedules are skipped");
+        let other_repo = RecurringTaskRepository::new(pool.clone());
+        let (first, second) = tokio::join!(repo.claim_due(10), other_repo.claim_due(10));
+        let claimed = [first.unwrap(), second.unwrap()].concat();
+        assert_eq!(claimed.len(), 1, "concurrent workers claim a due schedule once");
         assert_eq!(claimed[0].id, due.id);
         let next_run_at: chrono::DateTime<chrono::Utc> =
             sqlx::query_scalar("SELECT next_run_at FROM recurring_tasks WHERE id = $1")
@@ -248,5 +456,21 @@ mod tests {
                 .await
                 .expect("next run");
         assert!(next_run_at > chrono::Utc::now(), "next run moved one cadence ahead");
+
+        let revoked = repo
+            .create(&scope, "Revoked", "Revoked task", "", "normal", false, project_id, group_id, 60)
+            .await
+            .expect("create revoked schedule");
+        sqlx::query("UPDATE recurring_tasks SET next_run_at = NOW() - interval '10 minutes' WHERE id = $1")
+            .bind(revoked.id)
+            .execute(&pool)
+            .await
+            .expect("backdate revoked schedule");
+        sqlx::query("DELETE FROM team_members WHERE user_id = $1")
+            .bind(user_id)
+            .execute(&pool)
+            .await
+            .expect("revoke project access");
+        assert!(repo.claim_due(10).await.expect("claim after revocation").is_empty());
     }
 }

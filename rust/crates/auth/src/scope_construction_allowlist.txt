@@ -8,3 +8,5 @@ rust/crates/auth/src/middleware.rs # THE auth-middleware constructor: builds the
 rust/crates/api/src/gateway/ws.rs # WebSocket gateway auth: builds the connection scope from the validated JWT (?token=) before any handler runs, mirroring the HTTP middleware.
 rust/crates/api/src/services/agent_reconcile_worker.rs # Background reconcile worker has no auth-middleware request; builds an org-scoped scope from the server-owned agent row to reconcile container state.
 rust/crates/api/src/services/cli_image_roll.rs # Background CLI-image roll worker has no auth-middleware request; builds an org-scoped scope from the server-enqueued roll target.
+rust/crates/api/src/services/recurring_task.rs # Background scheduler has no auth-middleware request; builds the creator scope only from a claimed DB row after claim_due revalidates the live org and project/team authority in SQL.
+rust/crates/api/src/services/compliance_export.rs # Background compliance exporter has no auth-middleware request; builds an org-scoped read scope from a live organization and one of its live membership rows; export SQL remains organization-constrained.
