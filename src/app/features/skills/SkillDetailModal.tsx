@@ -1,8 +1,11 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
+import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import type { Skill } from '@app/entities/skill'
+import { useSkillsStore, type Skill } from '@app/entities/skill'
+import { SkillAgentPicker } from './SkillAgentPicker'
 import { knownWorkToolLabel, savedInstructionAudienceLabel } from './model/savedInstructionLabels'
 
 interface SkillDetailModalProps {
@@ -103,6 +106,16 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
             </p>
           </section>
 
+          {skill.id && (
+            <section className="flex flex-col gap-2 rounded-md border border-black/[0.08] px-3 py-2 dark:border-white/[0.08]">
+              <h3 className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                {t('skillAgents.sectionHeading')}
+              </h3>
+              <SkillUsageLine skillId={skill.id} />
+              <SkillAgentPicker skillId={skill.id} />
+            </section>
+          )}
+
           <div className="grid gap-2 sm:grid-cols-3">
             <SkillMeta label={t('skills.detail.sourceLabel')} value={source} />
             <SkillMeta label={t('skills.detail.authorLabel')} value={author} />
@@ -166,6 +179,30 @@ export function SkillDetailModal({ skill, onClose }: SkillDetailModalProps) {
         </div>
       </div>
     </div>
+  )
+}
+
+function SkillUsageLine({ skillId }: { skillId: string }) {
+  const { t } = useTranslation()
+  const skillUsage = useSkillsStore((state) => state.skillUsage)
+  const loadSkillUsage = useSkillsStore((state) => state.loadSkillUsage)
+
+  useEffect(() => {
+    void loadSkillUsage(skillId)
+  }, [loadSkillUsage, skillId])
+
+  const usage = skillUsage[skillId]
+  if (!usage) return null
+
+  return (
+    <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+      {usage.runCount === 0
+        ? t('skillAgents.usageNever')
+        : t('skillAgents.usageRuns', { runs: usage.runCount })}
+      {usage.lastUsedAt
+        ? t('skillAgents.usageLastUsed', { when: formatRelativeTime(usage.lastUsedAt) })
+        : ''}
+    </p>
   )
 }
 

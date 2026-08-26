@@ -9,6 +9,7 @@
 //! - `GET    /api/v1/agents/:id/messages`         — list chat history
 //! - `DELETE /api/v1/agents/:id/messages`         — wipe chat history
 //! - `POST   /api/v1/agents/:id/prompt/interrupt` — cancel in-flight SSE stream
+//! - `GET    /api/v1/agents/:id/skills`           — skills the agent follows
 
 use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
@@ -31,6 +32,7 @@ use crate::services::agent::{
 use crate::services::agent_enrollment::{HostAgentEnrollmentInput, HostAgentEnrollmentService};
 use crate::services::agent_message::AgentMessageService;
 use crate::services::agent_prompt::{AgentPromptDispatch, AgentPromptService};
+use crate::services::skill::agent_skills_response;
 
 /// Query parameters for the list endpoint.
 #[derive(Deserialize)]
@@ -165,6 +167,15 @@ async fn get_agent(
     let service = make_service(&state);
     let agent = service.get_with_owner(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_response(agent)))
+}
+
+async fn list_agent_skills(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let skills = state.skill_service().list_followed_skills(&auth.scope, id).await?;
+    Ok(Json(agent_skills_response(&skills)))
 }
 
 /// `POST /api/v1/agents` — create a new agent.
@@ -506,6 +517,7 @@ pub fn agent_routes() -> Router<AppState> {
         .route("/agents/local-enroll", post(enroll_local_agent))
         .route("/agents/{id}", get(get_agent).patch(update_agent).delete(delete_agent))
         .route("/agents/{id}/status", patch(update_agent_status))
+        .route("/agents/{id}/skills", get(list_agent_skills))
         .route("/agents/{id}/prompt", post(send_prompt))
         .route("/agents/{id}/prompt/interrupt", post(interrupt_prompt))
         .route("/agents/{id}/messages", get(list_messages).delete(delete_messages))

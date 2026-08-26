@@ -1,4 +1,4 @@
-import { LayoutGrid, ListFilter, Search } from 'lucide-react'
+import { Archive, Download, LayoutGrid, ListFilter, Search } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -26,6 +26,12 @@ interface BoardToolbarProps {
   onDisplayModeChange: (value: BoardDisplayMode) => void
   counts: BoardFilterCounts
   onClear: () => void
+  /** Compliance export: download the latest task history as CSV. */
+  onExportTasks?: () => void
+  /** Batch-retire stale, never-started tasks in this queue (owner/admin). */
+  onRetireStale?: () => void
+  retiring?: boolean
+  exporting?: boolean
 }
 
 const PRIORITY_FILTERS: { value: BoardPriorityFilter; label: string; ariaLabel: string }[] = [
@@ -59,6 +65,10 @@ export function BoardToolbar({
   onDisplayModeChange,
   counts,
   onClear,
+  onExportTasks,
+  onRetireStale,
+  retiring = false,
+  exporting,
 }: BoardToolbarProps) {
   const searchHelpId = useId()
   const filtersPanelId = useId()
@@ -132,6 +142,32 @@ export function BoardToolbar({
             {hasActiveFilter && (
               <button type="button" onClick={onClear} className={uiStyles.subtleButton}>
                 Show all tasks
+              </button>
+            )}
+            {onRetireStale && (
+              <button
+                type="button"
+                data-testid="board-retire-stale"
+                onClick={onRetireStale}
+                disabled={retiring}
+                title="Retire backlog and queued tasks that have not changed for 7+ days."
+                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-button border border-black/[0.08] px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light dark:border-white/[0.1] dark:text-secondary-dark dark:hover:text-foreground-dark"
+              >
+                <Archive size={13} strokeWidth={2} aria-hidden="true" />
+                {retiring ? 'Retiring...' : 'Retire stale tasks'}
+              </button>
+            )}
+            {onExportTasks && (
+              <button
+                type="button"
+                data-testid="board-export-tasks"
+                onClick={onExportTasks}
+                disabled={exporting}
+                title="Download the latest task history as CSV for compliance records."
+                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-button border border-black/[0.08] px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:border-apple-blue/35 hover:text-foreground-light disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:text-secondary-dark dark:hover:text-foreground-dark"
+              >
+                <Download size={13} strokeWidth={2} aria-hidden="true" />
+                {exporting ? 'Exporting...' : 'Export task history'}
               </button>
             )}
             <FilterGroup

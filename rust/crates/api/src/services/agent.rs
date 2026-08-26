@@ -225,7 +225,7 @@ impl AgentService {
     /// Enforce the documented agent access model for a mutating action against the
     /// AUTHENTICATED caller (`scope.user_id()`), never a body-supplied id. Loads the
     /// owner + the caller's collaborator permission and defers to the domain policy.
-    async fn authorize_action(&self, scope: &TenantScope, agent_id: AgentId, action: &str) -> AppResult<()> {
+    pub(crate) async fn authorize_action(&self, scope: &TenantScope, agent_id: AgentId, action: &str) -> AppResult<()> {
         let agent = self.repo.find_by_id(scope, agent_id).await?;
         let caller = scope.user_id().as_uuid();
         let is_owner = agent.user_id.as_uuid() == caller;

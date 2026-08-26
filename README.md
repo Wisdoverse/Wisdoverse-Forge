@@ -4,15 +4,17 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Wisdoverse/Wisdoverse-Forge/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Wisdoverse/Wisdoverse-Forge)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
 
-Wisdoverse Forge helps a team turn requests into managed AI work. You create
-tasks, assign agents, watch progress, review results, and keep evidence in one
-governed workspace.
+Wisdoverse Forge is a self-hosted, governed AI workbench for a team. It turns
+requests into managed agent work: create tasks, assign agents, watch progress,
+review results, and keep evidence and reusable learnings in one workspace.
 
-> [!WARNING]
-> Wisdoverse Forge is an engineering preview for trusted self-hosted
-> environments. Start with the local trial below, then use
-> [Runtime Validation](docs/runbooks/runtime-validation.md) before treating a
-> deployment as ready for regular team use.
+**Product status.** Early access for self-hosted teams. The one-command local
+path below is the supported first-run experience — from a clean checkout to one
+reviewed task in your first session. Before a deployment carries a real team,
+run [Runtime Validation](docs/runbooks/runtime-validation.md) and follow the
+[Long-Term Product Roadmap](ROADMAP.md) quality gates. Forge
+never phones home: your data and provider keys stay on your machines, and
+provider keys are encrypted with an operator-supplied key.
 
 ## Running Wisdoverse Forge
 
@@ -24,43 +26,44 @@ governed workspace.
 - Enough local resources to run the browser app, backend services, and agent
   work area together
 
-### Option 1. Try it locally
+### Option 1. One-command start
 
-Use this path when you want to see the product in a browser on your machine.
+This is the path a real user takes: clone, run one command, follow the setup
+checklist in the browser.
 
-1. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-2. Start the local backend stack:
+1. Install the prerequisites (Docker + Docker Compose v2, Node.js 24+, Make,
+   Git).
+2. Clone the repository, then run:
 
    ```bash
-   make quickstart-local
+   git clone https://github.com/Wisdoverse/Wisdoverse-Forge.git wisdoverse-forge
+   cd wisdoverse-forge
+   make product
    ```
 
-3. Start the browser app:
-
-   ```bash
-   npm run dev
-   ```
-
-4. Open `http://localhost:4002`.
+`make product` installs app dependencies if missing, prepares
+`docker/.env`, starts and health-checks the backend services, starts the
+browser app, and opens it at `http://localhost:4002`. Press **Ctrl+C** in that
+terminal to stop the browser app and the services the command started;
+`make product-down` stops the stack later. The full first-run guide is
+[Getting Started](docs/guides/getting-started.md).
 
 Success looks like this:
 
-- You can register the first account.
+- The browser opens on the app; you can register the first account.
+- The **Start** checklist guides you through a workspace, an AI service, an
+  agent, and one small task.
 - Settings lets you add an AI service and choose **Check connection**.
-- The Start setup checklist points you to create an agent and one small task.
 
-The full first-run guide is [Getting Started](docs/guides/getting-started.md).
+Developers who want terminals separated still have two commands:
+`make quickstart-local` for the backend stack, then `npm run dev` for the
+browser app.
 
 ### Option 2. Ask an agent to set it up
 
 Tell your coding agent to set up this repository against your machine:
 
-> Set up Wisdoverse Forge from `docs/guides/getting-started.md`. Run `npm install`, then `make quickstart-local`, then `npm run dev`. Open `http://localhost:4002`, register the first account, add an AI service in Settings, and create an agent from the Start page. If a single-host VPS deployment is needed, follow the prebuilt-image path `make quickstart-selfhost-pull DOMAIN=<domain>` from the same guide.
+> Set up Wisdoverse Forge from `docs/guides/getting-started.md`. Run `make product` (or, for separate terminals: `npm install`, `make quickstart-local`, `npm run dev`). Open `http://localhost:4002`, register the first account, follow the Start checklist, add an AI service in Settings, and create an agent. If a single-host VPS deployment is needed, follow the prebuilt-image path `make quickstart-selfhost-pull DOMAIN=<domain>` from the same guide.
 
 To connect this computer as a managed agent, follow
 [Host CLI Agent Enrollment](docs/runbooks/host-cli-agent-enrollment.md). For
@@ -141,6 +144,8 @@ docs/                  Architecture, runbooks, guides, specs
 
 ## Documentation
 
+- [ROADMAP.md](ROADMAP.md) — long-term product roadmap: vision, phases, quality bar
+- [Product UX Direction](docs/architecture/product-ux-direction.md) — product contract and acceptance checklist
 - [SPEC.md](SPEC.md) — language-agnostic service contract
 - [AGENTS.md](AGENTS.md) — symlink to `CLAUDE.md`, the agent entrypoint
 - [docs/README.md](docs/README.md) — documentation map and truth hierarchy
@@ -149,9 +154,11 @@ docs/                  Architecture, runbooks, guides, specs
 - [Aggregate Catalog](docs/architecture/aggregate-catalog.md) — DDD aggregates and modules
 - [Threat Model](docs/security/threat-model.md) — STRIDE per trust boundary
 - [Observability and SLOs](docs/runbooks/observability-slo.md) — SLIs, SLOs, alerts
+- [Self-host Operator Runbook](docs/runbooks/self-host-ops.md) — config knobs, weekly checklist, incident pointers, rotation
 - [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md) — operator guide for local CLI joins
 - [Migration 062 Runbook](docs/runbooks/migration-062-runtime-kind.md) — `runtime_kind` migration sequence (062/063/064/065)
 - [Runtime Validation](docs/runbooks/runtime-validation.md) — current proofed runtime boundary
+- [Offline Install](docs/guides/offline-install.md) — air-gapped bundles, checksums, Ed25519 signing
 - [CLI Platform Support](docs/guides/cli-platform-support.md) — Platform CLI + sidecar multi-platform expectations
 - [CLI Agent Image Auto-Update](docs/guides/cli-image-auto-update.md) — keep agent images current, prune superseded overlays, operator-initiated roll
 - [Project Git Clone](docs/guides/project-git-clone.md) — create a project from a git repository; clone status, retry, and the layered SSRF/credential defense

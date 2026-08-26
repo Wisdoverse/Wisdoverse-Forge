@@ -3,6 +3,7 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   Folder,
   Gauge,
   GitBranch,
@@ -34,6 +35,7 @@ import {
 } from '@app/features/settings'
 import { TeamsSection } from './TeamsSection'
 import { ProjectsSection } from './ProjectsSection'
+import { TaskTemplatesSection } from './TaskTemplatesSection'
 
 // ============================================================================
 // Sidebar config
@@ -82,6 +84,13 @@ const SECTIONS: SectionItem[] = [
     description: 'Create teams and manage who can change work.',
     group: 'People and projects',
     Icon: Users,
+  },
+  {
+    id: 'task-templates',
+    label: 'Task templates',
+    description: 'Save reusable task briefs the team can apply when writing a task.',
+    group: 'People and projects',
+    Icon: ClipboardCheck,
   },
   {
     id: 'account',
@@ -166,6 +175,8 @@ function SectionContent({ section }: { section: SettingsSection }) {
       return <TeamsSection />
     case 'projects':
       return <ProjectsSection />
+    case 'task-templates':
+      return <TaskTemplatesSection />
     case 'about':
       return <AboutSection />
     default:

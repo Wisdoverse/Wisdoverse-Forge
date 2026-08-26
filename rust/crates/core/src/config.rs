@@ -95,6 +95,47 @@ fn default_storage_signed_url_expiry() -> u64 {
     3600
 }
 
+/// Known review check keys (must stay in sync with the domain policy and
+/// the frontend checklist items).
+pub const KNOWN_REVIEW_GATES: &[&str] = &["result_matches_brief", "artifacts_checked", "no_secrets", "reusable_saved"];
+
+/// Structural boot check for `REVIEW_REQUIRED_GATES`: only known check keys
+/// may be required, so a typo never silently disables the acceptance gate.
+fn validate_review_gates(csv: &str) -> Result<(), config::ConfigError> {
+    for key in csv.split(',').map(str::trim).filter(|entry| !entry.is_empty()) {
+        if !KNOWN_REVIEW_GATES.contains(&key) {
+            return Err(config::ConfigError::Message(format!(
+                "REVIEW_REQUIRED_GATES contains unknown check key '{key}'",
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Structural boot check for `LLM_PRICING` so a typoed JSON blob fails
+/// loudly at startup instead of silently disabling cost estimates.
+fn validate_llm_pricing(json_text: &str) -> Result<(), config::ConfigError> {
+    let value: serde_json::Value = serde_json::from_str(json_text)
+        .map_err(|err| config::ConfigError::Message(format!("LLM_PRICING must be valid JSON: {err}")))?;
+    let object = value.as_object().ok_or_else(|| {
+        config::ConfigError::Message("LLM_PRICING must be a JSON object of model -> { input, output }.".to_string())
+    })?;
+    for (model, rate) in object {
+        let input = rate
+            .get("input")
+            .and_then(|value| value.as_f64())
+            .ok_or_else(|| config::ConfigError::Message(format!("LLM_PRICING[{model}].input must be a number")))?;
+        let output = rate
+            .get("output")
+            .and_then(|value| value.as_f64())
+            .ok_or_else(|| config::ConfigError::Message(format!("LLM_PRICING[{model}].output must be a number")))?;
+        if input < 0.0 || output < 0.0 {
+            return Err(config::ConfigError::Message(format!("LLM_PRICING[{model}] rates must be >= 0")));
+        }
+    }
+    Ok(())
+}
+
 fn default_minio_bucket() -> String {
     "agentforge".to_string()
 }
@@ -220,6 +261,70 @@ impl StripeConfig {
 
 /// Application configuration loaded from environment variables.
 ///
+/// Enterprise sign-in via a generic OpenID Connect provider (e.g. Casdoor,
+/// Keycloak, Authentik, Entra ID). All fields optional so external
+/// `AppConfig { .. }` literals stay unchanged; `AppConfig::from_env` fails
+/// fast when SSO is half-configured (enabled without the required fields).
+///
+/// Env mapping uses the same `__` separator: `AUTH_SSO__ENABLED`,
+/// `AUTH_SSO__OIDC_DISCOVERY_URL`, `AUTH_SSO__OIDC_CLIENT_ID`,
+/// `AUTH_SSO__OIDC_CLIENT_SECRET`, `AUTH_SSO__OIDC_SCOPES`,
+/// `AUTH_SSO__DISPLAY_NAME`, `AUTH_SSO__SPA_BASE_URL`.
+#[derive(Debug, Default, Deserialize)]
+pub struct SsoConfig {
+    /// Master switch for the SSO sign-in button and the OIDC flow.
+    #[serde(default)]
+    pub enabled: bool,
+    /// OIDC discovery document URL (e.g.
+    /// `https://casdoor.example.com/.well-known/openid-configuration`).
+    pub oidc_discovery_url: Option<String>,
+    /// OIDC client id registered for this instance.
+    pub oidc_client_id: Option<String>,
+    /// OIDC client secret. Wrapped so derived `Debug` redacts it.
+    pub oidc_client_secret: Option<SecretString>,
+    /// Space-separated OIDC scopes (default: `openid profile email`).
+    #[serde(default = "default_sso_scopes")]
+    pub oidc_scopes: String,
+    /// Button label in the login page (default: `Single sign-on`).
+    pub display_name: Option<String>,
+    /// Public base URL of the SPA (login page), e.g.
+    /// `https://forge.example.com` — where the user lands after SSO.
+    pub spa_base_url: Option<String>,
+    /// Userinfo claim holding the user's group/role list (e.g. `groups`).
+    /// When set together with `admin_groups`, sign-ins sync the org role:
+    /// members found in an admin group become `admin`; members outside those
+    /// groups become `member`. Owners are never overwritten.
+    pub role_claim: Option<String>,
+    /// Comma-separated group names that grant the org `admin` role.
+    pub admin_groups: Option<String>,
+    /// Org provisioning map: `orgSlug=group1;orgSlug2=group2`. When the
+    /// provider groups contain the mapped group, the user is added to that
+    /// org (as `member`, or `admin` when also in `admin_groups`). Requires
+    /// `role_claim`.
+    pub org_group_map: Option<String>,
+    /// Team provisioning map: `teamName=group1;teamName2=group2`. When the
+    /// provider groups contain the mapped group, the user is added to that
+    /// team (by name, inside the org they inherit from `org_group_map` or
+    /// their default org) as `member`, or `admin` when also in
+    /// `admin_groups`. With `deprovision`, a missing group removes the team
+    /// membership. Requires `role_claim`.
+    pub team_group_map: Option<String>,
+    /// Deprovisioning policy: when `true`, sign-in is denied when none of the
+    /// mapped org groups apply; otherwise memberships for other missing groups
+    /// are removed when safe. Owners and the last org membership are retained.
+    #[serde(default)]
+    pub deprovision: bool,
+    /// Shared secret that protects the instant-off deprovisioning endpoint
+    /// (`POST /api/v1/auth/deprovision`). Provider/IdP automation sends this
+    /// header to revoke a user's non-owner memberships immediately instead of
+    /// waiting for the next sign-in. Unset = the endpoint is disabled.
+    pub deprovision_token: Option<SecretString>,
+}
+
+fn default_sso_scopes() -> String {
+    "openid profile email".to_string()
+}
+
 /// Required variables: `DATABASE_URL`, `JWT_SECRET`.
 /// All others have sensible defaults.
 ///
@@ -302,6 +407,10 @@ pub struct AppConfig {
     /// The `__` separator is set in `config::Environment::default()`.
     #[serde(default)]
     pub nats_callout: NatsCalloutConfig,
+
+    /// Enterprise single sign-on (OpenID Connect).
+    #[serde(default)]
+    pub auth_sso: SsoConfig,
 
     /// Stripe billing configuration. Flattened so deployments continue to use
     /// the existing flat env names: `STRIPE_SECRET_KEY`,
@@ -402,6 +511,42 @@ pub struct AppConfig {
     /// set it to an empty string to let the Codex CLI choose its own default.
     #[serde(default = "default_codex_default_model")]
     pub codex_default_model: String,
+
+    /// Optional JSON pricing per LLM model, in USD per 1M tokens, used for
+    /// analytics cost estimates:
+    /// `LLM_PRICING={"gpt-4o":{"input":2.5,"output":10.0}}`.
+    /// Model keys match the model string recorded on assistant messages;
+    /// missing models simply get no estimate.
+    #[serde(default)]
+    pub llm_pricing: Option<String>,
+
+    /// Comma-separated review check keys that must ALL be completed (by any
+    /// reviewer) before a human can mark a task completed: `REVIEW_REQUIRED_GATES`.
+    /// Known keys: `result_matches_brief`, `artifacts_checked`, `no_secrets`,
+    /// `reusable_saved`. Unknown keys fail startup.
+    #[serde(default)]
+    pub review_required_gates: Option<String>,
+
+    /// Scheduled compliance export cadence in hours (0 = off). Exports are
+    /// written to `COMPLIANCE_EXPORT_DIR` as per-org CSV files plus a
+    /// `.last_run` marker so a restart does not immediately re-export.
+    #[serde(default)]
+    pub compliance_export_interval_hours: i64,
+
+    /// Directory for scheduled compliance exports. Required when
+    /// `COMPLIANCE_EXPORT_INTERVAL_HOURS > 0`.
+    pub compliance_export_dir: Option<String>,
+
+    /// Retention (days) for telemetry tables (`events`,
+    /// `analytics_events`); 0 = keep forever. Purged on boot and every 6 h.
+    #[serde(default)]
+    pub analytics_retention_days: i64,
+
+    /// Retention (days) for finished run attempts of terminal tasks; 0 = keep
+    /// forever. Deleting a run nulls run-scoped event/message/attachment links
+    /// (records preserved) and cascades context injections.
+    #[serde(default)]
+    pub run_retention_days: i64,
 
     /// Host-side directory where per-container OAuth credential bind-mounts are
     /// materialised (mirrors legacy `paths.dataDir + /oauth-mounts`). Defaults
@@ -673,6 +818,48 @@ impl AppConfig {
             return Err(config::ConfigError::Message("CLI_AUTH_PROXY_REVOKE_THRESHOLD must be at least 1".to_string()));
         }
 
+        if cfg.auth_sso.enabled {
+            let sso = &cfg.auth_sso;
+            let mut missing = Vec::new();
+            if sso.oidc_discovery_url.as_deref().map(str::trim).unwrap_or("").is_empty() {
+                missing.push("AUTH_SSO__OIDC_DISCOVERY_URL");
+            }
+            if sso.oidc_client_id.as_deref().map(str::trim).unwrap_or("").is_empty() {
+                missing.push("AUTH_SSO__OIDC_CLIENT_ID");
+            }
+            let secret_present =
+                sso.oidc_client_secret.as_ref().map(|v| !v.expose_secret().trim().is_empty()).unwrap_or(false);
+            if !secret_present {
+                missing.push("AUTH_SSO__OIDC_CLIENT_SECRET");
+            }
+            if sso.spa_base_url.as_deref().map(str::trim).unwrap_or("").is_empty() {
+                missing.push("AUTH_SSO__SPA_BASE_URL");
+            }
+            let role_claim = sso.role_claim.as_deref().map(str::trim).filter(|v| !v.is_empty());
+            let admin_groups = sso.admin_groups.as_deref().map(str::trim).filter(|v| !v.is_empty());
+            match (role_claim, admin_groups) {
+                (None, Some(_)) => missing.push("AUTH_SSO__ROLE_CLAIM"),
+                (Some(_), None) => missing.push("AUTH_SSO__ADMIN_GROUPS"),
+                _ => {}
+            }
+            if sso.org_group_map.as_deref().map(str::trim).unwrap_or("").is_empty() {
+                if sso.deprovision {
+                    missing.push("AUTH_SSO__ORG_GROUP_MAP");
+                }
+            } else if role_claim.is_none() {
+                missing.push("AUTH_SSO__ROLE_CLAIM");
+            }
+            if !sso.team_group_map.as_deref().map(str::trim).unwrap_or("").is_empty() && role_claim.is_none() {
+                missing.push("AUTH_SSO__ROLE_CLAIM");
+            }
+            if !missing.is_empty() {
+                return Err(config::ConfigError::Message(format!(
+                    "AUTH_SSO__ENABLED requires: {}",
+                    missing.join(", ")
+                )));
+            }
+        }
+
         let stripe_secret_present =
             cfg.stripe.stripe_secret_key.as_ref().map(|v| !v.expose_secret().trim().is_empty()).unwrap_or(false);
         let stripe_webhook_present =
@@ -792,6 +979,27 @@ impl AppConfig {
             return Err(config::ConfigError::Message(
                 "REQUIRE_EXTERNAL_STATE=true requires REDIS_URL: multi-replica deployments need Redis for the \
                  shared OAuth/PKCE state store; the in-memory fallback is single-replica only"
+                    .to_string(),
+            ));
+        }
+
+        if let Some(pricing) = cfg.llm_pricing.as_deref() {
+            validate_llm_pricing(pricing)?;
+        }
+
+        if let Some(gates) = cfg.review_required_gates.as_deref() {
+            validate_review_gates(gates)?;
+        }
+
+        if cfg.compliance_export_interval_hours > 0 && cfg.compliance_export_dir.is_none() {
+            return Err(config::ConfigError::Message(
+                "COMPLIANCE_EXPORT_INTERVAL_HOURS requires COMPLIANCE_EXPORT_DIR".to_string(),
+            ));
+        }
+
+        if cfg.analytics_retention_days < 0 || cfg.run_retention_days < 0 {
+            return Err(config::ConfigError::Message(
+                "ANALYTICS_RETENTION_DAYS / RUN_RETENTION_DAYS must be 0 (off) or a positive number of days"
                     .to_string(),
             ));
         }
@@ -970,6 +1178,7 @@ mod tests {
             nats_container_url: None,
             nats_callout: NatsCalloutConfig::default(),
             stripe: StripeConfig::default(),
+            auth_sso: SsoConfig::default(),
             jwt_secret: test_jwt_secret(),
             bootstrap_admin_token: None,
             allow_unprotected_admin_bootstrap: false,
@@ -987,6 +1196,12 @@ mod tests {
             container_google_api_key: None,
             container_openai_api_key: None,
             codex_default_model: "gpt-5.5".to_string(),
+            llm_pricing: None,
+            review_required_gates: None,
+            compliance_export_interval_hours: 0,
+            compliance_export_dir: None,
+            analytics_retention_days: 0,
+            run_retention_days: 0,
             oauth_mount_dir: None,
             storage_provider: "local".to_string(),
             storage_local_path: "~/.agentforge/data/uploads".to_string(),
@@ -1340,6 +1555,114 @@ mod tests {
     }
 
     #[test]
+    fn from_env_accepts_llm_pricing() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("LLM_PRICING", Some(r#"{"gpt-4o":{"input":2.5,"output":10.0}}"#)),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("pricing should load");
+                assert!(cfg.llm_pricing.as_deref().unwrap().contains("gpt-4o"));
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_accepts_review_gates() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("REVIEW_REQUIRED_GATES", Some("no_secrets,result_matches_brief")),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("review gates should load");
+                assert!(cfg.review_required_gates.as_deref().unwrap().contains("no_secrets"));
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_rejects_unknown_review_gates() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("REVIEW_REQUIRED_GATES", Some("mystery_gate")),
+            ],
+            || {
+                let result = AppConfig::from_env();
+                assert!(result.is_err());
+                let err = result.unwrap_err().to_string();
+                assert!(err.contains("REVIEW_REQUIRED_GATES"), "error was: {err}");
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_accepts_compliance_export_config() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("COMPLIANCE_EXPORT_INTERVAL_HOURS", Some("24")),
+                ("COMPLIANCE_EXPORT_DIR", Some("/var/lib/agentforge/compliance")),
+            ],
+            || {
+                let cfg = AppConfig::from_env().expect("compliance config should load");
+                assert_eq!(cfg.compliance_export_interval_hours, 24);
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_rejects_compliance_interval_without_dir() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("COMPLIANCE_EXPORT_INTERVAL_HOURS", Some("24")),
+            ],
+            || {
+                let err = AppConfig::from_env().expect_err("pairing must be explicit");
+                let message = err.to_string();
+                assert!(message.contains("COMPLIANCE_EXPORT_DIR"), "error was: {message}");
+            },
+        );
+    }
+
+    #[test]
+    fn from_env_rejects_malformed_llm_pricing() {
+        temp_env::with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                ("REQUIRE_EXTERNAL_STATE", None),
+                ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                ("NATS_URL", None),
+                ("LLM_PRICING", Some(r#"{"gpt-4o":{"input":-1,"output":10}}"#)),
+            ],
+            || {
+                let result = AppConfig::from_env();
+                assert!(result.is_err());
+                let err = result.unwrap_err().to_string();
+                assert!(err.contains("LLM_PRICING"), "error was: {err}");
+            },
+        );
+    }
+
+    #[test]
     fn from_env_rejects_unknown_storage_provider() {
         temp_env::with_vars(
             [
@@ -1493,6 +1816,7 @@ mod tests {
                 stripe_webhook_secret: Some(SecretString::from("whsec-stripe-supersecret".to_string())),
                 stripe_publishable_key: Some("pk_test_publishable".to_string()),
             },
+            auth_sso: SsoConfig::default(),
             jwt_secret: SecretString::from("jwt-supersecret-value-min-32-chars!!".to_string()),
             bootstrap_admin_token: Some(SecretString::from("bootstrap-supersecret-value-min-32-chars".to_string())),
             allow_unprotected_admin_bootstrap: false,
@@ -1510,6 +1834,12 @@ mod tests {
             container_google_api_key: Some(SecretString::from("goog-supersecret".to_string())),
             container_openai_api_key: Some(SecretString::from("sk-openai-supersecret".to_string())),
             codex_default_model: "gpt-5.5".to_string(),
+            llm_pricing: None,
+            review_required_gates: None,
+            compliance_export_interval_hours: 0,
+            compliance_export_dir: None,
+            analytics_retention_days: 0,
+            run_retention_days: 0,
             oauth_mount_dir: None,
             storage_provider: "local".to_string(),
             storage_local_path: "~/.agentforge/data/uploads".to_string(),

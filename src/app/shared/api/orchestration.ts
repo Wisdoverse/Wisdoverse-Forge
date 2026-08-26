@@ -15,6 +15,38 @@ import type {
 } from '@shared/types/context'
 import { authFetch } from './authFetch'
 
+export interface RecurringTask {
+  id: string
+  name: string
+  title: string
+  description: string
+  priority: string
+  requiresApproval: boolean
+  projectId: string
+  groupId: string
+  cadenceMinutes: number
+  nextRunAt: string
+  enabled: boolean
+  createdAt: string
+}
+
+export interface CreateRecurringTaskInput {
+  name: string
+  title: string
+  description?: string
+  priority?: string
+  requiresApproval?: boolean
+  projectId: string
+  groupId: string
+  cadenceMinutes: number
+}
+
+export interface ReviewGateStatus {
+  requiredKeys: string[]
+  satisfied: boolean
+  missing: string[]
+}
+
 export type TaskState =
   'backlog' | 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'canceled'
 
@@ -58,6 +90,44 @@ export interface TaskRunSummary {
   maxContextTokens?: number
 }
 
+export type TaskCommentKind = 'comment' | 'blocker' | 'unblock'
+
+export interface TaskComment {
+  id: string
+  taskId: string
+  kind: TaskCommentKind
+  body: string
+  author: {
+    id: string
+    name: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+/** Latest human blocker/unblock signal for a task, used for board badges. */
+export interface HumanMark {
+  taskId: string
+  kind: TaskCommentKind
+  body: string
+  authorName?: string
+  createdAt: string
+}
+
+/** One skill an agent follows (attach-back from the agent side). */
+export interface FollowedSkill {
+  skillId: string
+  name: string
+  state: string
+}
+
+/** One ticked or unticked human review check on a task. */
+export interface TaskReviewCheck {
+  checkKey: string
+  done: boolean
+  updatedAt: string
+}
+
 export interface TaskSummary {
   id: string
   groupId?: string
@@ -96,6 +166,18 @@ export interface TaskSummary {
   prHeadSha?: string
   /** Persisted self-fix review status (mirrors the Rust `review_status` vocabulary). */
   reviewStatus?: SelfFixReviewStatus
+  /** Queued-time dispatch prediction (present only while waiting). */
+  waitEstimate?: TaskWaitEstimate
+}
+
+/** Server-computed prediction for when a waiting task's agent will start it. */
+export interface TaskWaitEstimate {
+  /** 1-based position in the effective queue (same agent, else shared pool). */
+  position: number
+  /** Median duration of recently completed tasks in this org, seconds. 0 = no history yet. */
+  typicalSeconds: number
+  /** Predicted seconds until the agent starts this task. */
+  estimatedSeconds: number
 }
 
 /** Self-fix review-status vocabulary — mirrors `domain::self_fix::review_status` (Rust). */
@@ -239,6 +321,58 @@ export interface ContextFeatureSnapshot {
   analytics: boolean
 }
 
+export interface TaskTemplate {
+  id: string
+  name: string
+  title: string
+  description: string
+  priority: string
+  requiresApproval: boolean
+  projectId?: string | null
+  createdBy: string
+  createdAt: string
+}
+
+export interface CreateTaskTemplateInput {
+  name: string
+  title: string
+  description?: string
+  priority?: string
+  requiresApproval?: boolean
+  projectId?: string
+}
+
+export interface AgentReliabilityEntry {
+  agentId: string
+  name: string | null
+  total: number
+  succeeded: number
+  failed: number
+  successRate: number
+}
+
+export interface AgentReliabilityReport {
+  windowHours: number
+  agents: AgentReliabilityEntry[]
+}
+
+export interface AgentUsageEntry {
+  agentId: string
+  name: string | null
+  requests: number
+  tokensIn: number
+  tokensOut: number
+  totalTokens: number
+  share: number
+  estimatedCost?: number | null
+}
+
+export interface AgentUsageReport {
+  windowHours: number
+  pricingConfigured: boolean
+  agents: AgentUsageEntry[]
+}
+
 export type GovernanceAuditItemKind = 'memory' | 'skill'
 export type GovernanceAuditScopeKind = 'org' | 'user' | 'workspace' | 'team' | 'project'
 export type GovernanceAuditTamperStatus = 'not_configured' | 'valid' | 'invalid'
@@ -366,6 +500,7 @@ export const orchestrationApi = {
       env?: Record<string, unknown>
       apiKeys?: Record<string, unknown>
       imageAttachmentIds?: string[]
+      dependencyIds?: string[]
     }
     priority?: string
     assignedTo?: string
@@ -424,6 +559,101 @@ export const orchestrationApi = {
     const res = await apiFetch<{ ok: boolean; runs: TaskRunSummary[] }>(`/tasks/${taskId}/runs`)
     return res.runs
   },
+  getTaskComments: async (taskId: string): Promise<TaskComment[]> => {
+    const res = await apiFetch<{ ok: boolean; comments: TaskComment[] }>(
+      `/tasks/${taskId}/comments`
+    )
+    return res.comments
+  },
+  createTaskComment: async (
+    taskId: string,
+    input: { kind?: TaskCommentKind; body: string }
+  ): Promise<TaskComment> => {
+    const res = await apiFetch<{ ok: boolean; comment: TaskComment }>(`/tasks/${taskId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    return res.comment
+  },
+  deleteTaskComment: async (taskId: string, commentId: string): Promise<void> => {
+    await apiFetch<{ ok: boolean }>(`/tasks/${taskId}/comments/${commentId}`, {
+      method: 'DELETE',
+    })
+  },
+  getLatestHumanMarks: async (taskIds: string[]): Promise<HumanMark[]> => {
+    if (taskIds.length === 0) return []
+    const res = await apiFetch<{ ok: boolean; marks: HumanMark[] }>(
+      `/tasks/comments/latest?taskIds=${encodeURIComponent(taskIds.join(','))}`
+    )
+    return res.marks
+  },
+  exportTaskHistoryCsv: async (limit?: number): Promise<string> => {
+    const query = limit ? `?limit=${limit}` : ''
+    const res = await apiFetch<{ ok: boolean; format: string; content: string }>(
+      `/tasks/export${query}`
+    )
+    return res.content
+  },
+  getAgentFollowedSkills: async (agentId: string): Promise<FollowedSkill[]> => {
+    const res = await apiFetch<{ ok: boolean; skills: FollowedSkill[] }>(
+      `/agents/${encodeURIComponent(agentId)}/skills`
+    )
+    return res.skills
+  },
+  /** Best-effort product analytics event (skill draft acceptance measurement). */
+  trackProductEvent: async (
+    eventName: string,
+    properties: Record<string, unknown> = {}
+  ): Promise<void> => {
+    try {
+      await apiV1Fetch('/analytics/events', {
+        method: 'POST',
+        body: JSON.stringify({ event_name: eventName, properties }),
+      })
+    } catch {
+      // Analytics is best-effort; a blocked event never breaks the draft flow.
+    }
+  },
+  listAnalyticsEvents: async (eventName: string, limit = 200): Promise<unknown[]> => {
+    const res = await apiV1Fetch<{ ok: boolean; data?: unknown[]; events?: unknown[] }>(
+      `/analytics/events?event_name=${encodeURIComponent(eventName)}&limit=${limit}`
+    )
+    if (Array.isArray(res.data)) return res.data
+    if (Array.isArray(res.events)) return res.events
+    return []
+  },
+  /** Batch-retire stale (never-started) tasks in a group. Org admin only. */
+  retireStaleTasks: async (
+    groupId: string,
+    opts: { olderThanDays?: number; batchLimit?: number } = {}
+  ): Promise<{ count: number; taskIds: string[] }> => {
+    const res = await apiFetch<{ ok: boolean; count?: number; taskIds?: string[] }>(
+      `/groups/${encodeURIComponent(groupId)}/tasks/retire-stale`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ olderThanDays: opts.olderThanDays, batchLimit: opts.batchLimit }),
+      }
+    )
+    return { count: res.count ?? 0, taskIds: Array.isArray(res.taskIds) ? res.taskIds : [] }
+  },
+
+  listTaskReviewChecks: async (taskId: string): Promise<TaskReviewCheck[]> => {
+    const res = await apiFetch<{ ok: boolean; checks: TaskReviewCheck[] }>(
+      `/tasks/${encodeURIComponent(taskId)}/review-checks`
+    )
+    return Array.isArray(res.checks) ? res.checks : []
+  },
+  setTaskReviewCheck: async (
+    taskId: string,
+    checkKey: string,
+    done: boolean
+  ): Promise<TaskReviewCheck> => {
+    const res = await apiFetch<{ ok: boolean; check: TaskReviewCheck }>(
+      `/tasks/${encodeURIComponent(taskId)}/review-checks/${encodeURIComponent(checkKey)}`,
+      { method: 'PATCH', body: JSON.stringify({ done }) }
+    )
+    return res.check
+  },
   readMemoryContent: async (memoryId: string): Promise<MemoryContent> => {
     const res = await apiV1Fetch<{ ok: boolean; data: MemoryContent }>(
       `/context/memory-items/${memoryId}/content`
@@ -461,6 +691,77 @@ export const orchestrationApi = {
     const res = await apiV1Fetch<{ ok: boolean; data: ContextFeatureSnapshot }>('/context/features')
     return res.data
   },
+  listRecurringTasks: async (): Promise<RecurringTask[]> => {
+    const res = await apiV1Fetch<{ ok: boolean; data: RecurringTask[] }>('/recurring-tasks')
+    return res.data
+  },
+  createRecurringTask: async (input: CreateRecurringTaskInput): Promise<RecurringTask> => {
+    const res = await apiV1Fetch<{ ok: boolean; data: RecurringTask }>('/recurring-tasks', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    return res.data
+  },
+  updateRecurringTask: async (recurringId: string, enabled: boolean): Promise<RecurringTask> => {
+    const res = await apiV1Fetch<{ ok: boolean; data: RecurringTask }>(
+      `/recurring-tasks/${encodeURIComponent(recurringId)}`,
+      { method: 'PATCH', body: JSON.stringify({ enabled }) }
+    )
+    return res.data
+  },
+  deleteRecurringTask: async (recurringId: string): Promise<void> => {
+    await apiV1Fetch<{ ok: boolean }>(`/recurring-tasks/${encodeURIComponent(recurringId)}`, {
+      method: 'DELETE',
+    })
+  },
+
+  fetchTaskReviewGates: async (taskId: string): Promise<ReviewGateStatus> => {
+    const res = await apiFetch<{ ok: boolean; gates: ReviewGateStatus }>(
+      `/tasks/${encodeURIComponent(taskId)}/review-gates`
+    )
+    return res.gates
+  },
+
+  listTaskTemplates: async (params: { projectId?: string } = {}): Promise<TaskTemplate[]> => {
+    const qs = params.projectId ? `?projectId=${encodeURIComponent(params.projectId)}` : ''
+    const res = await apiV1Fetch<{ ok: boolean; data: TaskTemplate[] }>(`/task-templates${qs}`)
+    return res.data
+  },
+  createTaskTemplate: async (input: CreateTaskTemplateInput): Promise<TaskTemplate> => {
+    const res = await apiV1Fetch<{ ok: boolean; data: TaskTemplate }>('/task-templates', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    return res.data
+  },
+  deleteTaskTemplate: async (templateId: string): Promise<void> => {
+    await apiV1Fetch<{ ok: boolean }>(`/task-templates/${encodeURIComponent(templateId)}`, {
+      method: 'DELETE',
+    })
+  },
+
+  fetchAgentUsage: async (params: { hours?: number } = {}): Promise<AgentUsageReport> => {
+    const search = new URLSearchParams()
+    if (params.hours) search.set('hours', String(params.hours))
+    const qs = search.toString()
+    const res = await apiV1Fetch<{ ok: boolean; data: AgentUsageReport }>(
+      `/analytics/agent-usage${qs ? `?${qs}` : ''}`
+    )
+    return res.data
+  },
+
+  fetchAgentReliability: async (
+    params: { hours?: number } = {}
+  ): Promise<AgentReliabilityReport> => {
+    const search = new URLSearchParams()
+    if (params.hours) search.set('hours', String(params.hours))
+    const qs = search.toString()
+    const res = await apiV1Fetch<{ ok: boolean; data: AgentReliabilityReport }>(
+      `/analytics/agent-reliability${qs ? `?${qs}` : ''}`
+    )
+    return res.data
+  },
+
   fetchContextUsageAnalytics: async (
     params: {
       limit?: number
@@ -578,6 +879,18 @@ export const orchestrationApi = {
     // component state and crash list renderers such as AssignmentReadinessPanel.
     return res.participants ?? []
   },
+}
+
+/**
+ * Best-effort product analytics beacon (no-op on failure).
+ * Named facade over `orchestrationApi.trackProductEvent` so feature components
+ * can import one function without dragging the whole client into their module.
+ */
+export function trackProductEvent(
+  eventName: string,
+  properties: Record<string, unknown> = {}
+): Promise<void> {
+  return orchestrationApi.trackProductEvent(eventName, properties)
 }
 
 function governanceAuditSearchParams(params: GovernanceAuditQueryParams): URLSearchParams {

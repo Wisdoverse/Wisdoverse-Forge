@@ -165,6 +165,46 @@ pub struct TaskRun {
     pub updated_at: DateTime<Utc>,
 }
 
+/// A human update (comment / blocker signal) on an orchestration task.
+///
+/// Kept separate from task runs and lifecycle state so people can leave notes
+/// or flag blockers without touching execution data.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct TaskComment {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub task_id: Uuid,
+    pub author_user_id: UserId,
+    pub kind: String,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// One ticked or unticked human review check on a task.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct TaskReviewCheck {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub task_id: Uuid,
+    pub user_id: UserId,
+    pub check_key: String,
+    pub done: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Explicit attachment between a governance skill and an agent.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct SkillAgentLink {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub skill_id: Uuid,
+    pub agent_id: AgentId,
+    pub attached_by: Option<UserId>,
+    pub created_at: DateTime<Utc>,
+}
+
 /// A workspace within an organization.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Workspace {
@@ -257,6 +297,57 @@ pub struct Team {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// A pending team invite for a person without an account yet.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct TeamInvite {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub team_id: Uuid,
+    pub email: String,
+    pub role: String,
+    pub token_hash: String,
+    pub created_by: UserId,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub accepted_at: Option<DateTime<Utc>>,
+}
+
+/// A reusable task-writing template owned by an organization (team space).
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct TaskTemplate {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub name: String,
+    pub title: String,
+    pub description: String,
+    pub priority: String,
+    pub requires_approval: bool,
+    pub project_id: Option<Uuid>,
+    pub created_by: UserId,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A scheduled task that the server re-creates on a fixed cadence.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct RecurringTask {
+    pub id: Uuid,
+    pub organization_id: OrgId,
+    pub name: String,
+    pub title: String,
+    pub description: String,
+    pub priority: String,
+    pub requires_approval: bool,
+    pub project_id: Uuid,
+    pub group_id: Uuid,
+    pub cadence_minutes: i32,
+    pub next_run_at: DateTime<Utc>,
+    pub enabled: bool,
+    pub created_by: UserId,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// A job queue entry using the FOR UPDATE SKIP LOCKED pattern.

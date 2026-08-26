@@ -113,7 +113,19 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     for (const col of Object.keys(newColumns) as ColumnId[]) {
       newColumns[col] = newColumns[col].filter((t) => t.id !== task.id)
     }
-    newColumns[targetCol] = [...newColumns[targetCol], task]
+    // Realtime task_update frames omit the wait prediction; keep the last
+    // known estimate while the task stays in the same waiting state.
+    const existing = Object.values(columns)
+      .flat()
+      .find((t) => t.id === task.id)
+    const merged =
+      existing?.state === 'queued' &&
+      task.state === 'queued' &&
+      task.waitEstimate === undefined &&
+      existing.waitEstimate
+        ? { ...task, waitEstimate: existing.waitEstimate }
+        : task
+    newColumns[targetCol] = [...newColumns[targetCol], merged]
     set({ columns: newColumns })
   },
   updateTaskContextCounts: (taskId, contextCounts, options) => {

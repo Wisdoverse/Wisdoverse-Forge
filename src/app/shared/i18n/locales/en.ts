@@ -58,6 +58,118 @@ export const en = {
   },
 
   // =========================================================================
+  // App landing (root redirect decision - shown briefly while we decide
+  // between the setup checklist and the task board)
+  // =========================================================================
+  appLanding: {
+    opening: 'Opening your workspace...',
+  },
+
+  // =========================================================================
+  // Task human updates (comments / blocker signals on the Updates tab)
+  // =========================================================================
+  taskComments: {
+    title: 'Human updates',
+    empty: 'No notes yet. Ask a question, leave a decision, or flag a blocker.',
+    loadingTitle: 'Checking the conversation',
+    loadingDetail: 'Forge is checking for notes and blockers on this task.',
+    loadingNext: 'If this takes more than a moment, open this task again from Tasks.',
+    loadingSuccess: 'Success looks like your notes and any blocker flags.',
+    inputLabel: 'Write a note or flag a blocker',
+    placeholder: 'Write a note or flag a blocker...',
+    kindLabel: 'Type of update',
+    post: 'Post',
+    posting: 'Posting...',
+    delete: 'Delete',
+    confirmDelete: 'Delete now',
+    deleting: 'Deleting...',
+    deleteLabel: 'Delete this note',
+    unknownAuthor: 'A team member',
+  },
+
+  // =========================================================================
+  // Skill attach-back (choose which agents follow a skill)
+  // =========================================================================
+  skillAgents: {
+    sectionHeading: 'Attached agents',
+    empty: 'No agents follow this skill yet.',
+    attach: 'Attach',
+    attaching: 'Attaching...',
+    attachError: 'Could not attach this skill to the agent. Try again.',
+    detachAria: 'Detach {name}',
+    detachError: 'Could not detach this agent. Try again.',
+    selectLabel: 'Choose an agent to attach',
+    selectPlaceholder: 'Choose an agent...',
+    unnamedAgent: 'An agent',
+    usageNever: 'Not used in any task yet.',
+    usageRuns: 'Used in {{runs}} task runs.',
+    usageLastUsed: ' Last used {{when}}.',
+  },
+
+  // =========================================================================
+  // Settings about page — self-host update check
+  // =========================================================================
+  about: {
+    update: {
+      label: 'Update check',
+      description: 'Check whether a newer version of Forge has been released.',
+      check: 'Check for updates',
+      checking: 'Checking...',
+      upToDate: 'Up to date ({{version}})',
+      available: 'Newer version available ({{version}})',
+      unreachable: 'Could not check — try again',
+    },
+  },
+
+  // =========================================================================
+  // Operations overview — runtime, services, agents, queues in one view
+  // =========================================================================
+  operations: {
+    title: 'Operations',
+    subtitle: 'See runtime readiness, AI services, agents, and queues before anything is blocked.',
+    refresh: 'Refresh',
+    allClear: 'All clear. Work is flowing.',
+    attention: 'Fix {{count}} item(s): each card below shows the next action.',
+    loadingTitle: 'Checking the workspace',
+    loadingDetail: 'Forge is checking runtime readiness, services, agents, and queues.',
+    loadingNext: 'If this takes more than a moment, open this page again.',
+    loadingSuccess: 'With everything ready, every card shows a green dot.',
+    sso: {
+      title: 'Enterprise sign-in',
+      off: 'Off — people sign in with an email and password.',
+      configured: 'On — {{provider}} is available on the login page.',
+    },
+    cards: {
+      runtime: {
+        title: 'Work locations',
+        ready: 'Ready to run container CLI work.',
+        notReady: 'Set up where agents work before sending tasks.',
+      },
+      providers: {
+        title: 'AI services',
+        ready: 'A service is verified and enabled.',
+        needsTest: 'Save the service and choose Check connection.',
+        none: 'Add and verify an AI service, or connect a work-tool sign-in.',
+      },
+      agents: {
+        title: 'Agents',
+        ready: '{{count}} agent(s) available for tasks.',
+        none: 'No agent is available for tasks right now.',
+      },
+      queue: {
+        title: 'Task queue',
+        ready: 'Work is flowing.',
+        stalled: 'Tasks are waiting but nothing is running.',
+      },
+      health: {
+        title: 'System health',
+        ok: 'Database, messages, and runtime are healthy.',
+        degraded: 'Some checks failed: {{details}}. Open Admin to see what to do next.',
+      },
+    },
+  },
+
+  // =========================================================================
   // Navigation
   // =========================================================================
   nav: {
@@ -70,6 +182,7 @@ export const en = {
     agents: 'Agents',
     skills: 'Skills',
     analytics: 'Analytics',
+    operations: 'Operations',
     billing: 'Billing',
     settings: 'Settings',
     help: 'Help',
@@ -405,6 +518,10 @@ export const en = {
       analytics: {
         title: 'Analytics',
         subtitle: 'See agent activity and results',
+      },
+      operations: {
+        title: 'Operations',
+        subtitle: 'Runtime readiness, services, agents, and queues in one place',
       },
       billing: {
         title: 'Billing',
@@ -1030,6 +1147,35 @@ export const en = {
       latency: 'Response time',
       lastCheck: 'Last checked',
     },
+  },
+
+  // =========================================================================
+  // Review checklist (task detail)
+  // =========================================================================
+  reviewChecklist: {
+    title: 'Review checklist',
+    progress: '{{done}} of {{total}} checks done.',
+    allDone: 'Review complete. Thanks for checking this work.',
+    resultMatchesBrief: 'The result does what the task asked for.',
+    artifactsChecked: 'The result artifacts look correct.',
+    noSecrets: 'No secrets or private details in the result.',
+    reusableSaved: 'Anything reusable was saved for the next task.',
+    loadError: 'Could not load this checklist. Check your connection, then reopen the task.',
+    saveError: 'Could not save that check. Please try again.',
+    gatesWarning:
+      '{{missing}} required check(s) still pending — this task cannot be marked complete until they are ticked.',
+    gatesSatisfied: 'All required checks are complete. This task can be marked complete.',
+  },
+
+  // =========================================================================
+  // Queued-time prediction (task board)
+  // =========================================================================
+  waitEstimate: {
+    startsIn: 'Starts in ~{{min}} min',
+    basis: 'Position {{position}} in the queue; recent tasks take ~{{typicalMin}} min.',
+    noHistory:
+      'Position {{position}} in the queue; no recent task timings yet, so this is a rough guess.',
+    changeHint: 'You can change the agent or priority on the task to affect this.',
   },
 } as const
 

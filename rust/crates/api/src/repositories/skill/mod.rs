@@ -1,7 +1,11 @@
 //! Skill aggregate — database queries for skills and their versions.
 
+pub mod skill_agent_link;
+pub mod skill_usage;
 pub mod version;
 
+pub use skill_agent_link::{FollowedSkillRow, LinkedAgentRow, SkillAgentLinkRepository};
+pub use skill_usage::{SkillUsageRepository, SkillUsageRow};
 pub use version::{SkillSnapshot, SkillVersionRepository};
 
 use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};

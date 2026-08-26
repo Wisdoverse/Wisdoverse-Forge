@@ -65,3 +65,11 @@ coverage/
 docs/superpowers/
 docs/product-design-audits/
 docs/plans/
+
+# Local tool caches (protoc binary, cargo home) used by sandbox validation
+.cargo-home/
+.tools/
+.pw-browsers/
+.pw-home/
+.product-tmp/
+.product-buildx/

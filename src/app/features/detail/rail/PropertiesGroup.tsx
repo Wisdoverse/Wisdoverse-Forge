@@ -33,6 +33,11 @@ export function PropertiesGroup({ task }: { task: TaskSummary }) {
         <RailRow label="Status">
           <TaskStatus state={task.state} />
         </RailRow>
+        {(task.attempt ?? 1) > 1 && (
+          <RailRow label="Attempt">
+            {task.attempt} (retried {task.attempt - 1} time{task.attempt - 1 === 1 ? '' : 's'})
+          </RailRow>
+        )}
         {task.assignedAgentName && <RailRow label="Agent">{task.assignedAgentName}</RailRow>}
         {task.groupId && <RailRow label="Queue">{task.groupId}</RailRow>}
         <RailRow label="Priority">{taskPriorityLabel(task.priority)}</RailRow>

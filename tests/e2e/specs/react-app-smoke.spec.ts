@@ -29,6 +29,7 @@ import {
   MOCK_ORG_2,
   MOCK_TEAM,
   MOCK_TEAM_2,
+  mockUserPreferences,
   overrideOrgs,
   overrideTeams,
 } from '../fixtures/mocks'
@@ -1256,12 +1257,30 @@ test.describe('React App Smoke Tests', () => {
   // 28. Deep Linking / Direct URL ────────────────────────────────────────────
 
   test.describe('28. Client-Side Routing', () => {
-    test('root URL / always opens Tasks for authenticated users', async ({ page, baseURL }) => {
+    test('root URL / opens Tasks when the setup checklist is dismissed', async ({
+      page,
+      baseURL,
+    }) => {
       await injectAuth(page, baseURL!)
+      // The index route decides between /start (checklist not dismissed) and
+      // /tasks; mock the preference so this test is deterministic on any DB.
+      await mockUserPreferences(page.context(), { gettingStartedDismissed: true })
       await gotoAndWaitForAppReady(page, baseURL!, '/')
 
       await page.waitForURL('**/tasks')
       expect(page.url()).toContain('/tasks')
+    })
+
+    test('root URL / opens the Start checklist for a first-time workspace', async ({
+      page,
+      baseURL,
+    }) => {
+      await injectAuth(page, baseURL!)
+      await mockUserPreferences(page.context(), { gettingStartedDismissed: false })
+      await gotoAndWaitForAppReady(page, baseURL!, '/')
+
+      await page.waitForURL('**/start')
+      await expect(page.getByTestId('page-start')).toBeVisible({ timeout: 30000 })
     })
 
     test('navigating to each page and back preserves state', async ({ page, baseURL }) => {

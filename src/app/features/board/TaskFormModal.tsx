@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
 import { useAgentsStore, isTaskImageCapable } from '@app/entities/agent'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { orchestrationApi, type TaskTemplate } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { boardActionErrorMessage } from './boardErrorMessages'
@@ -30,6 +32,10 @@ interface TaskFormData {
   description: string
   priority: 'low' | 'normal' | 'high' | 'urgent'
   assignedTo: string
+  /** Ask for a person's approval before an agent starts the task. */
+  requiresApproval: boolean
+  /** Task ids this task waits for before it can start. */
+  dependencyIds?: string[]
 }
 
 export interface TaskProjectOption {
@@ -179,15 +185,20 @@ export function TaskFormModal({
       description: '',
       priority: 'normal',
       assignedTo: '',
+      requiresApproval: false,
     },
   })
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectingProject, setSelectingProject] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [savedTemplates, setSavedTemplates] = useState<TaskTemplate[]>([])
+  const [templatesLoaded, setTemplatesLoaded] = useState(false)
   const [confirmIncompleteBrief, setConfirmIncompleteBrief] = useState(false)
   const [taskTemplatesOpen, setTaskTemplatesOpen] = useState(true)
   const [taskOptionsOpen, setTaskOptionsOpen] = useState(false)
   const [imageIds, setImageIds] = useState<string[]>([])
+  const [dependencyIds, setDependencyIds] = useState<string[]>([])
+  const boardTasks = Object.values(useBoardStore((s) => s.columns)).flat()
   const [imagePreviews, setImagePreviews] = useState<{ id: string; name: string }[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
@@ -304,13 +315,16 @@ export function TaskFormModal({
   const taskOptionsSummary = `${PRIORITY_LABELS[priorityValue]} priority, ${
     selectedAssignedAgent ? `${selectedAssignedAgent.name} starts first` : 'next agent starts it'
   }`
+  const requiresApproval = watch('requiresApproval')
   const submitPreview = !selectedProject
     ? 'Choose a project first. Forge needs a home for this task and its history.'
     : !workLaneReady
       ? 'Set up a place first. Then this task will have somewhere safe to wait.'
-      : taskWillWaitForAgent
-        ? 'After you save, the task waits here until an agent is ready.'
-        : 'After you create it, the next agent can start it from this project.'
+      : requiresApproval
+        ? 'After you save, the task waits in Needs approval until a person allows it.'
+        : taskWillWaitForAgent
+          ? 'After you save, the task waits here until an agent is ready.'
+          : 'After you create it, the next agent can start it from this project.'
   const TaskTemplateDisclosureIcon = taskTemplatesOpen ? ChevronDown : ChevronRight
 
   // The error banner renders partway down a scrollable dialog (below the
@@ -356,6 +370,24 @@ export function TaskFormModal({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    orchestrationApi
+      .listTaskTemplates({ projectId: projectId || undefined })
+      .then((templates) => {
+        if (cancelled) return
+        setSavedTemplates(templates)
+        setTemplatesLoaded(true)
+      })
+      .catch(() => {
+        if (!cancelled) setTemplatesLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, projectId])
+
   if (!isOpen) return null
 
   async function handleFormSubmit(data: TaskFormData) {
@@ -385,7 +417,12 @@ export function TaskFormModal({
       return
     }
     try {
-      await onSubmit({ ...data, title: data.title.trim(), imageAttachmentIds: imageIds })
+      await onSubmit({
+        ...data,
+        title: data.title.trim(),
+        imageAttachmentIds: imageIds,
+        dependencyIds: dependencyIds.length > 0 ? dependencyIds : undefined,
+      })
     } catch (err) {
       setSubmitError(boardActionErrorMessage('createTask', err))
       return
@@ -418,6 +455,16 @@ export function TaskFormModal({
     setValue('title', template.title, { shouldDirty: true })
     setValue('description', template.description, { shouldDirty: true })
     setValue('priority', template.priority, { shouldDirty: true })
+  }
+
+  function applySavedTemplate(template: TaskTemplate) {
+    setSelectedTemplateId(`saved-${template.id}`)
+    setValue('title', template.title, { shouldDirty: true })
+    setValue('description', template.description, { shouldDirty: true })
+    setValue('priority', (template.priority ?? 'normal') as TaskFormData['priority'], {
+      shouldDirty: true,
+    })
+    setValue('requiresApproval', template.requiresApproval, { shouldDirty: true })
   }
 
   return (
@@ -748,6 +795,54 @@ export function TaskFormModal({
                     </button>
                   ))}
                 </div>
+                {templatesLoaded && (
+                  <div className="mt-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                        Saved by your team
+                      </span>
+                    </div>
+                    {savedTemplates.length > 0 ? (
+                      <div
+                        role="group"
+                        aria-label="Saved task templates"
+                        className="grid gap-2 sm:grid-cols-2"
+                      >
+                        {savedTemplates.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => applySavedTemplate(template)}
+                            aria-pressed={selectedTemplateId === `saved-${template.id}`}
+                            className={cn(
+                              'flex min-h-16 items-center gap-3 rounded-card border px-3 py-2 text-left transition-colors',
+                              selectedTemplateId === `saved-${template.id}`
+                                ? 'border-black/[0.08] bg-black/[0.06] text-foreground-light dark:border-white/[0.1] dark:bg-white/[0.08] dark:text-foreground-dark'
+                                : 'border-black/[0.08] bg-white text-foreground-light hover:bg-black/[0.04] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-foreground-dark'
+                            )}
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-button bg-white text-apple-blue dark:bg-white/[0.08]">
+                              <ClipboardCheck size={15} strokeWidth={2.25} aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-ui-button font-semibold">
+                                {template.name}
+                              </span>
+                              <span className="block truncate text-ui-caption text-secondary-light dark:text-secondary-dark">
+                                {template.title}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        No saved templates yet. Save one in Settings → Task templates and it will
+                        appear here.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="mt-3 rounded-card border border-black/[0.06] bg-white px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/20">
                   <div className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                     A clear task has three plain-language parts
@@ -876,55 +971,106 @@ export function TaskFormModal({
             </button>
 
             {taskOptionsOpen && (
-              <div className="mt-3 flex flex-col gap-4 sm:flex-row">
-                <div className="flex-1">
-                  <label htmlFor="task-priority" className={uiStyles.label}>
-                    Priority
-                  </label>
-                  <select
-                    id="task-priority"
-                    {...register('priority')}
-                    className={cn(uiStyles.select, 'w-full')}
-                  >
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    Normal is right for most work. Use Urgent only when people are waiting on it
-                    now.
-                  </p>
-                </div>
-                <div className="flex-1">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <label htmlFor="task-assigned-to" className={cn(uiStyles.label, 'mb-0')}>
-                      Who should start it?
+              <>
+                <div className="mt-3 flex flex-col gap-4 sm:flex-row">
+                  <div className="flex-1">
+                    <label htmlFor="task-priority" className={uiStyles.label}>
+                      Priority
                     </label>
-                    <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      {assignableAgents.length} ready
-                    </span>
+                    <select
+                      id="task-priority"
+                      {...register('priority')}
+                      className={cn(uiStyles.select, 'w-full')}
+                    >
+                      <option value="low">Low</option>
+                      <option value="normal">Normal</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      Normal is right for most work. Use Urgent only when people are waiting on it
+                      now.
+                    </p>
                   </div>
-                  <select
-                    id="task-assigned-to"
-                    {...register('assignedTo')}
-                    className={cn(uiStyles.select, 'w-full')}
-                  >
-                    <option value="">Let the next agent start it</option>
-                    {agents.map((a) => (
-                      <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a)}>
-                        {a.name} ({agentTaskStatusLabel(a)})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                    {taskWillWaitForAgent
-                      ? 'This task will wait here until an agent is ready.'
-                      : 'Use the next agent when any agent can do the work.'}
-                  </p>
+                  <div className="flex-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <label htmlFor="task-assigned-to" className={cn(uiStyles.label, 'mb-0')}>
+                        Who should start it?
+                      </label>
+                      <span className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                        {assignableAgents.length} ready
+                      </span>
+                    </div>
+                    <select
+                      id="task-assigned-to"
+                      {...register('assignedTo')}
+                      className={cn(uiStyles.select, 'w-full')}
+                    >
+                      <option value="">Let the next agent start it</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id} disabled={!agentCanTakeTask(a)}>
+                          {a.name} ({agentTaskStatusLabel(a)})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                      {taskWillWaitForAgent
+                        ? 'This task will wait here until an agent is ready.'
+                        : 'Use the next agent when any agent can do the work.'}
+                    </p>
+                  </div>
                 </div>
-              </div>
+                <label className="mt-3 flex items-center gap-2 text-ui-body text-foreground-light dark:text-foreground-dark">
+                  <input
+                    type="checkbox"
+                    data-testid="task-requires-approval"
+                    {...register('requiresApproval')}
+                    className="h-4 w-4 rounded border border-black/[0.15] accent-apple-blue"
+                  />
+                  <span>Wait for my approval before the agent starts</span>
+                </label>
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  Use this for work that should be checked by a person before it runs.
+                </p>
+              </>
             )}
+
+            <div className="mt-3">
+              <span className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+                Wait for these tasks first
+              </span>
+              {boardTasks.length === 0 ? (
+                <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  No other tasks on the board yet. This task will start as soon as the board has
+                  none ahead of it.
+                </p>
+              ) : (
+                <div className="mt-1.5 flex flex-col gap-1.5">
+                  {boardTasks.slice(0, 8).map((task) => (
+                    <label
+                      key={task.id}
+                      className="flex items-center gap-2 text-ui-body text-foreground-light dark:text-foreground-dark"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={dependencyIds.includes(task.id)}
+                        onChange={(event) => {
+                          setDependencyIds((current) => {
+                            if (event.target.checked) {
+                              if (current.length >= 5) return current
+                              return [...current, task.id]
+                            }
+                            return current.filter((id) => id !== task.id)
+                          })
+                        }}
+                        className="h-4 w-4 rounded border border-black/[0.15] accent-apple-blue"
+                      />
+                      <span className="min-w-0 truncate">{task.params.task}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div

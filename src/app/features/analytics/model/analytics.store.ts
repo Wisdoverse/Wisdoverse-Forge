@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { getAgentApi } from '@app/shared/api/legacy'
-import { orchestrationApi, type ContextUsageAnalytics } from '@app/shared/api/orchestration'
+import {
+  orchestrationApi,
+  type AgentReliabilityEntry,
+  type AgentUsageEntry,
+  type ContextUsageAnalytics,
+} from '@app/shared/api/orchestration'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 
 export type DateRange = 'today' | '7d' | '30d'
@@ -38,6 +43,9 @@ interface AnalyticsState {
   tools: ToolStat[]
   hourly: HourlyPoint[]
   agentStats: AgentStats
+  agentReliability: AgentReliabilityEntry[]
+  agentUsage: AgentUsageEntry[]
+  usagePricingConfigured: boolean
   contextUsage: ContextUsageAnalytics | null
   loading: boolean
   error: string | null
@@ -63,6 +71,9 @@ const initialState = {
   tools: [] as ToolStat[],
   hourly: [] as HourlyPoint[],
   agentStats: { total: 0, online: 0, offline: 0, working: 0 } as AgentStats,
+  agentReliability: [] as AgentReliabilityEntry[],
+  agentUsage: [] as AgentUsageEntry[],
+  usagePricingConfigured: false,
   contextUsage: null as ContextUsageAnalytics | null,
   loading: false,
   error: null as string | null,
@@ -116,16 +127,23 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
       const params = { hours }
       const contextAnalyticsEnabled = useContextFeaturesStore.getState().analytics
 
-      const [summaryRes, toolsRes, activityRes, agentsRes, contextUsageRes] =
-        await Promise.allSettled([
-          api.getAnalyticsSummary(params),
-          api.getAnalyticsTools(params),
-          api.getAnalyticsActivity(params),
-          api.getAgents(),
-          contextAnalyticsEnabled
-            ? orchestrationApi.fetchContextUsageAnalytics({ limit: 8 })
-            : null,
-        ])
+      const [
+        summaryRes,
+        toolsRes,
+        activityRes,
+        agentsRes,
+        reliabilityRes,
+        usageRes,
+        contextUsageRes,
+      ] = await Promise.allSettled([
+        api.getAnalyticsSummary(params),
+        api.getAnalyticsTools(params),
+        api.getAnalyticsActivity(params),
+        api.getAgents(),
+        orchestrationApi.fetchAgentReliability({ hours }),
+        orchestrationApi.fetchAgentUsage({ hours }),
+        contextAnalyticsEnabled ? orchestrationApi.fetchContextUsageAnalytics({ limit: 8 }) : null,
+      ])
 
       let summary: AnalyticsSummaryData | null = null
       if (summaryRes.status === 'fulfilled' && summaryRes.value.ok) {
@@ -148,6 +166,18 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
       let hourly: HourlyPoint[] = []
       if (activityRes.status === 'fulfilled' && activityRes.value.ok) {
         hourly = activityRes.value.activity ?? []
+      }
+
+      let agentReliability: AgentReliabilityEntry[] = []
+      if (reliabilityRes.status === 'fulfilled') {
+        agentReliability = reliabilityRes.value.agents ?? []
+      }
+
+      let agentUsage: AgentUsageEntry[] = []
+      let usagePricingConfigured = false
+      if (usageRes.status === 'fulfilled') {
+        agentUsage = usageRes.value.agents ?? []
+        usagePricingConfigured = usageRes.value.pricingConfigured === true
       }
 
       let agentStats: AgentStats = { total: 0, online: 0, offline: 0, working: 0 }
@@ -193,6 +223,9 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
         tools,
         hourly,
         agentStats,
+        agentReliability,
+        agentUsage,
+        usagePricingConfigured,
         contextUsage,
         loading: false,
         error: hasPrimaryDataSource

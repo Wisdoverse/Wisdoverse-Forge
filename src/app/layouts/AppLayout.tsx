@@ -61,6 +61,11 @@ const PAGE_META = [
     subtitleKey: 'appLayout.pages.analytics.subtitle',
   },
   {
+    path: '/operations',
+    titleKey: 'appLayout.pages.operations.title',
+    subtitleKey: 'appLayout.pages.operations.subtitle',
+  },
+  {
     path: '/billing',
     titleKey: 'appLayout.pages.billing.title',
     subtitleKey: 'appLayout.pages.billing.subtitle',
@@ -205,21 +210,6 @@ export function AppLayout({
   const pageTitle = t(pageMeta.titleKey)
   const pageSubtitle = pageMeta.subtitleKey ? t(pageMeta.subtitleKey) : undefined
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setCmdkOpen((prev) => !prev)
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
-        e.preventDefault()
-        toggleSidebar()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [toggleSidebar])
-
   const handleNavigate = useCallback(
     (path: string) => {
       onNavigate?.(path)
@@ -261,6 +251,37 @@ export function AppLayout({
     handleNavigate('/tasks')
     setTaskFormOpen(true)
   }, [handleNavigate, hasProjectOptions, selectedGroupId, selectedProjectId])
+
+  // Global shortcuts. 'n' opens the New Task flow unless the user is typing in
+  // a field — same action as the board's Add Task button.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setCmdkOpen((prev) => !prev)
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault()
+        toggleSidebar()
+      }
+      if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        handleNewTaskAction()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [toggleSidebar, handleNewTaskAction])
 
   function handleCommandSelect(commandId: string) {
     if (commandId.startsWith('nav:')) {
@@ -425,10 +446,14 @@ export function AppLayout({
               ...(data.imageAttachmentIds && data.imageAttachmentIds.length > 0
                 ? { imageAttachmentIds: data.imageAttachmentIds }
                 : {}),
+              ...(data.dependencyIds && data.dependencyIds.length > 0
+                ? { dependencyIds: data.dependencyIds }
+                : {}),
             },
             priority: data.priority,
             // Empty string from the dropdown means "leave it to auto-dispatch".
             ...(data.assignedTo ? { assignedTo: data.assignedTo } : {}),
+            ...(data.requiresApproval ? { requiresApproval: true } : {}),
           })
           if (response.ok && response.task) {
             let task = response.task

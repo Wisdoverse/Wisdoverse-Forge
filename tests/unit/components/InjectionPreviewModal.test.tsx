@@ -1,8 +1,18 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
 import type { ContextPreviewResponse } from '@shared/types/context'
+
+const trackProductEventMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
+vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/shared/api/orchestration')>()
+  return {
+    ...actual,
+    trackProductEvent: trackProductEventMock,
+  }
+})
 
 afterEach(cleanup)
 
@@ -74,6 +84,51 @@ function preview(overrides: Partial<ContextPreviewResponse> = {}): ContextPrevie
 }
 
 describe('InjectionPreviewModal', () => {
+  test('records one budget warning event when the selection is at risk', async () => {
+    const risky = preview()
+    risky.items = [
+      { ...risky.items[0], id: 'memory-big', estimatedTokens: 1100 },
+      { ...risky.items[1], id: 'memory-small', estimatedTokens: 50 },
+    ]
+
+    render(<InjectionPreviewModal isOpen preview={risky} onClose={() => {}} onConfirm={() => {}} />)
+
+    await waitFor(() => expect(trackProductEventMock).toHaveBeenCalledTimes(1))
+    expect(trackProductEventMock).toHaveBeenCalledWith('context_budget_warning', {
+      taskId: 'task-1',
+      ratio: 0.96,
+      overLimit: false,
+    })
+  })
+
+  test('offers a trim-to-fit suggestion and applies it', async () => {
+    const reviewed = preview()
+    reviewed.items = [
+      { ...reviewed.items[0], id: 'memory-stale-last', estimatedTokens: 1100, lastUsedAt: null },
+      { ...reviewed.items[1], id: 'memory-recent', estimatedTokens: 400, lastUsedAt: now },
+    ]
+
+    render(<InjectionPreviewModal isOpen preview={reviewed} onClose={() => {}} onConfirm={() => {}} />)
+
+    const trimButton = await screen.findByTestId('context-trim-button')
+    expect(trimButton).toHaveTextContent('Trim to fit (remove 1 item)')
+    fireEvent.click(trimButton)
+
+    await waitFor(() => expect(screen.queryByTestId('context-trim-button')).toBeNull())
+    expect(screen.queryByTestId('context-budget-warning')).toBeNull()
+    expect(trackProductEventMock).toHaveBeenCalledWith('context_trim_applied', {
+      taskId: 'task-1',
+      removed: 1,
+      ratioBefore: 1.25,
+    })
+  })
+
+  test('records no warning event when the selection fits comfortably', () => {
+    render(<InjectionPreviewModal isOpen preview={preview()} onClose={() => {}} onConfirm={() => {}} />)
+
+    expect(trackProductEventMock).not.toHaveBeenCalled()
+  })
+
   test('renders a beginner-readable review before publishing context', () => {
     const review = preview()
     review.items = [
@@ -95,7 +150,9 @@ describe('InjectionPreviewModal', () => {
     expect(screen.getByRole('dialog', { name: 'Check context items before sending' })).toBeDefined()
     expect(screen.getByText(/saved notes and guidance the agent will see next/i)).toBeDefined()
     expect(screen.queryByText(/saved notes and saved instructions/i)).toBeNull()
-    expect(screen.getByText('2 items selected · Enough room for a few saved notes')).toBeDefined()
+    expect(
+      screen.getByText(/2 items selected · \d+? tokens · Enough room for a few saved notes/)
+    ).toBeDefined()
     expect(screen.getByText('Agent will use')).toBeDefined()
     expect(screen.getByText('Claude')).toBeDefined()
     expect(screen.getByText('Work location')).toBeDefined()

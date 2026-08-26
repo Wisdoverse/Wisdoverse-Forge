@@ -1,10 +1,15 @@
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@app/shared/lib/utils'
-import type { TaskSummary } from '@app/shared/api/orchestration'
+import { useState } from 'react'
+import type { HumanMark, TaskSummary } from '@app/shared/api/orchestration'
 import { TaskCard } from './TaskCard'
 import { QuickCreate } from './QuickCreate'
 
 type BoardDisplayMode = 'comfortable' | 'compact'
+
+/** Progressive disclosure: render at most this many cards per column before
+ * the "Show all" affordance, keeping very large boards responsive. */
+const MAX_CARDS_PER_COLUMN = 60
 
 const COLUMN_CONFIG: Record<string, { label: string; dot: string; surface: string }> = {
   backlog: {
@@ -90,6 +95,8 @@ interface KanbanColumnProps {
     columnId: string
   ) => void | boolean | string | Promise<void | boolean | string>
   displayMode?: BoardDisplayMode
+  /** Latest human blocker/unblock signal per task (board badges). */
+  humanMarks?: Record<string, HumanMark>
 }
 
 export function KanbanColumn({
@@ -99,6 +106,7 @@ export function KanbanColumn({
   onTaskPublish,
   onQuickCreate,
   displayMode = 'comfortable',
+  humanMarks,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
   const config = COLUMN_CONFIG[columnId] ?? {
@@ -106,6 +114,9 @@ export function KanbanColumn({
     dot: 'bg-apple-gray-2',
     surface: 'bg-white/70 dark:bg-white/[0.03]',
   }
+  const [showAll, setShowAll] = useState(false)
+  const visibleTasks = showAll ? tasks : tasks.slice(0, MAX_CARDS_PER_COLUMN)
+  const hiddenCount = tasks.length - visibleTasks.length
 
   return (
     <div
@@ -129,16 +140,27 @@ export function KanbanColumn({
         </span>
       </div>
       <div className="flex flex-col gap-2 overflow-visible md:flex-1 md:overflow-y-auto">
-        {tasks.map((task) => (
+        {visibleTasks.map((task) => (
           <TaskCard
             key={task.id}
             task={task}
             onClick={() => onTaskClick?.(task.id)}
             onPublish={onTaskPublish}
             displayMode={displayMode}
+            humanMark={humanMarks?.[task.id]}
           />
         ))}
         {tasks.length === 0 && <ColumnEmptyState columnId={columnId} label={config.label} />}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            data-testid={`column-show-all-${columnId}`}
+            onClick={() => setShowAll(true)}
+            className="rounded-button border border-dashed border-black/[0.12] px-2 py-1.5 text-ui-caption font-medium text-secondary-light transition-colors hover:border-apple-blue/40 hover:text-foreground-light dark:border-white/[0.14] dark:text-secondary-dark dark:hover:text-foreground-dark"
+          >
+            Show all {tasks.length} in this group
+          </button>
+        )}
       </div>
       {/* Quick-add only on backlog. Other columns reflect task state and
           can't accept manual inserts — promote a backlog task by dragging instead. */}

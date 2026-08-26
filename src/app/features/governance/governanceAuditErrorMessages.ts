@@ -1,12 +1,15 @@
-export type GovernanceAuditErrorAction = 'exportAudit' | 'loadAudit'
+export type GovernanceAuditErrorAction = 'exportAudit' | 'exportTasks' | 'loadAudit'
 
 const ACTION_FALLBACKS: Record<GovernanceAuditErrorAction, string> = {
   exportAudit: 'Keep secrets hidden, choose Check change history again, then export again.',
+  exportTasks:
+    'Check the connection, then export the task history again. The CSV file was not downloaded.',
   loadAudit: 'Choose Check change history again, then show changes again.',
 }
 
 const ACTION_RETRY_STEPS: Record<GovernanceAuditErrorAction, string> = {
   exportAudit: 'choose Export change history again',
+  exportTasks: 'choose Export task history again',
   loadAudit: 'choose Check change history again',
 }
 

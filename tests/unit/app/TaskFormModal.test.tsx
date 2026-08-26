@@ -1,6 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { TaskFormModal, type TaskProjectOption } from '@app/features/board/TaskFormModal'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+
+const listTaskTemplatesMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@app/shared/api/orchestration', () => ({
+  orchestrationApi: {
+    listTaskTemplates: listTaskTemplatesMock,
+  },
+}))
 
 const project: TaskProjectOption = {
   id: 'project-1',
@@ -69,6 +78,12 @@ function deferred<T>() {
   })
   return { promise, resolve }
 }
+
+beforeEach(() => {
+  listTaskTemplatesMock.mockReset()
+  listTaskTemplatesMock.mockResolvedValue([])
+  useBoardStore.getState().setTasks([])
+})
 
 afterEach(() => {
   cleanup()
@@ -493,9 +508,7 @@ describe('TaskFormModal', () => {
     )
     openTaskOptions()
     expect(screen.getByText(/1 ready/i)).toBeDefined()
-    expect(
-      screen.getByText(/Use the next agent when any agent can do the work/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Use the next agent when any agent can do the work/i)).toBeDefined()
     expect(screen.queryByText(/automatic selection/i)).toBeNull()
     expect(screen.queryByText(/Keep this choice when any available agent/i)).toBeNull()
     expect(screen.getByTestId('task-work-lane-readiness').textContent).not.toContain('is ready')
@@ -545,9 +558,7 @@ describe('TaskFormModal', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveAttribute('aria-live', 'polite')
-    expect(alert).toHaveTextContent(
-      'Set up a place for new tasks before saving this task.'
-    )
+    expect(alert).toHaveTextContent('Set up a place for new tasks before saving this task.')
     expect(alert.textContent).not.toContain('task queue')
     fireEvent.click(screen.getAllByRole('button', { name: /set up place/i }).at(-1)!)
 
@@ -895,5 +906,83 @@ describe('TaskFormModal', () => {
     expect(readiness).not.toHaveTextContent('Loading this project')
     expect(readiness).not.toHaveTextContent('Preparing This Project')
     expect(screen.getByRole('button', { name: /preparing project/i })).toBeDisabled()
+  })
+
+  test('offers saved team templates and fills the task with them', async () => {
+    listTaskTemplatesMock.mockResolvedValue([
+      {
+        id: 'tpl-1',
+        name: 'Ship feature',
+        title: 'Add one focused change',
+        description: 'What should change:\n- Ship the feature\n\nDone when:\n- It is usable',
+        priority: 'high',
+        requiresApproval: true,
+        createdBy: 'user-1',
+        createdAt: new Date().toISOString(),
+      },
+    ])
+    renderModal()
+
+    expect(await screen.findByText('Ship feature')).toBeDefined()
+    expect(screen.getByRole('group', { name: /saved task templates/i })).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /ship feature/i }))
+
+    expect(screen.getByLabelText(/what should the agent finish/i)).toHaveValue(
+      'Add one focused change'
+    )
+    const description = screen.getByLabelText(
+      /details the agent should know/i
+    ) as HTMLTextAreaElement
+    expect(description.value).toContain('Ship the feature')
+    openTaskOptions()
+    expect(screen.getByLabelText(/^priority$/i)).toHaveValue('high')
+    expect(screen.getByLabelText(/wait for my approval/i)).toBeChecked()
+  })
+
+  test('carries wait-for-tasks choices into the submitted task', async () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'task-a',
+        title: 'First step',
+        params: { task: 'First step', message: '' },
+        state: 'completed',
+        groupId: 'lane-1',
+        method: 'work',
+      },
+      {
+        id: 'task-b',
+        title: 'Second step',
+        params: { task: 'Second step', message: '' },
+        state: 'backlog',
+        groupId: 'lane-1',
+        method: 'work',
+      },
+    ] as never)
+    const { onSubmit } = renderModal()
+    openTaskOptions()
+    fireEvent.click(screen.getByRole('checkbox', { name: /First step/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Second step/i }))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Ship both steps' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- the board\n\nDone when:\n- Both steps are green',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0].dependencyIds).toEqual(['task-a', 'task-b'])
+  })
+
+  test('explains saved templates before the first one exists', async () => {
+    renderModal()
+
+    expect(
+      await screen.findByText(
+        'No saved templates yet. Save one in Settings → Task templates and it will appear here.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('group', { name: /saved task templates/i })).toBeNull()
   })
 })

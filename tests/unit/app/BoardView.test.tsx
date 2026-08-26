@@ -11,6 +11,8 @@ const mockGetTasks = vi.fn().mockResolvedValue([])
 const mockCreateTask = vi.fn().mockResolvedValue({ ok: true, task: null })
 const mockUpdateTask = vi.fn().mockResolvedValue({ ok: true })
 const mockGetParticipants = vi.fn().mockResolvedValue([])
+const mockGetLatestHumanMarks = vi.fn().mockResolvedValue([])
+const mockRetireStaleTasks = vi.fn().mockResolvedValue({ count: 2, taskIds: ['a', 'b'] })
 const navigate = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -33,6 +35,8 @@ vi.mock('@app/shared/api/orchestration', () => ({
     createTask: (...args: unknown[]) => mockCreateTask(...args),
     updateTask: (...args: unknown[]) => mockUpdateTask(...args),
     getParticipants: (...args: unknown[]) => mockGetParticipants(...args),
+    getLatestHumanMarks: (...args: unknown[]) => mockGetLatestHumanMarks(...args),
+    retireStaleTasks: (...args: unknown[]) => mockRetireStaleTasks(...args),
   },
 }))
 
@@ -42,6 +46,8 @@ beforeEach(() => {
   mockCreateTask.mockClear().mockResolvedValue({ ok: true, task: null })
   mockUpdateTask.mockClear()
   mockGetParticipants.mockClear().mockResolvedValue([])
+  mockGetLatestHumanMarks.mockClear().mockResolvedValue([])
+  mockRetireStaleTasks.mockClear().mockResolvedValue({ count: 2, taskIds: ['a', 'b'] })
   navigate.mockReset()
 })
 
@@ -53,6 +59,44 @@ afterEach(() => {
 })
 
 describe('BoardView', () => {
+  test('retires stale tasks after confirmation and reports the result', async () => {
+    const days = 86_400_000
+    mockGetTasks.mockResolvedValue([
+      {
+        id: 'stale-1',
+        state: 'backlog',
+        method: 'tasks/send',
+        params: { task: 'Stale work', message: 'Details' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date(Date.now() - 10 * days).toISOString(),
+        updatedAt: new Date(Date.now() - 10 * days).toISOString(),
+      },
+      {
+        id: 'stale-2',
+        state: 'queued',
+        method: 'tasks/send',
+        params: { task: 'Stale work', message: 'Details' },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date(Date.now() - 12 * days).toISOString(),
+        updatedAt: new Date(Date.now() - 12 * days).toISOString(),
+      },
+    ])
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    render(<BoardView />)
+
+    fireEvent.click(await screen.findByTestId('board-retire-stale'))
+    const dialog = screen.getByRole('dialog', { name: 'Retire stale tasks?' })
+    expect(dialog).toBeDefined()
+    expect(screen.getByTestId('retire-stale-summary').textContent).toContain('2 stale tasks')
+    fireEvent.click(screen.getByTestId('board-retire-confirm'))
+
+    await waitFor(() => expect(mockRetireStaleTasks).toHaveBeenCalledWith('group-1'))
+    expect(await screen.findByText(/Retired 2 stale tasks/)).toBeDefined()
+    expect(screen.queryByRole('dialog', { name: 'Retire stale tasks?' })).toBeNull()
+  })
+
   test('explains the main task board loading state for first-time users', () => {
     mockGetTasks.mockImplementationOnce(() => new Promise(() => undefined))
     useBoardStore.getState().setSelectedGroupId('test-group')

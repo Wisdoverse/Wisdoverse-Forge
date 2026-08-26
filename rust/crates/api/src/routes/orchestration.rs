@@ -14,8 +14,14 @@
 //! - `POST   /tasks/{id}/retry`                   — reset to backlog and re-dispatch
 //! - `GET    /tasks/{id}/context`                  — task detail Context tab read model
 //! - `GET    /tasks/{id}/runs`                     — task execution attempts
+//! - `GET    /tasks/{id}/comments`                — human updates (comments & blocker signals)
+//! - `POST   /tasks/{id}/comments`                — add a comment / block / unblock
+//! - `DELETE /tasks/{id}/comments/{comment_id}`   — delete your own comment
+//! - `GET    /tasks/comments/latest?taskIds=`        — latest blocker/unblock marks
+//! - `GET    /tasks/export?limit=`                    — compliance CSV of task history
 //! - `GET    /groups/{group_id}/tasks?state=`     — kanban list (group-scoped)
 //! - `GET    /groups/{group_id}/tasks/stats`      — `byState` counts for the kanban
+//! - `POST   /groups/{group_id}/tasks/retire-stale` — batch-retire stale tasks (org admin)
 //! - `POST   /participants`                       — register participant (sweeps after)
 //! - `GET    /participants?status=`               — list participants (UI dropdown source)
 //! - `POST   /participants/{agent_id}/heartbeat`  — heartbeat (sweeps after)
@@ -25,7 +31,7 @@
 //! `src/app/api/orchestration.ts` so the kanban consumes the API directly.
 
 use axum::extract::{Path, Query, State};
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -39,9 +45,11 @@ use crate::services::context_feature::ContextFeatureService;
 use crate::services::context_preview::{ContextPreviewService, PublishWithContextInput};
 use crate::services::orchestration::{
     CreateTaskParamsInput, OrchestrationService, ParticipantSummary, TaskSummary, create_task_request_parts,
-    orchestration_delete_response, orchestration_participant_response, orchestration_participants_response,
-    orchestration_stats_response, orchestration_task_context_response, orchestration_task_response,
-    orchestration_task_runs_response, orchestration_tasks_response,
+    orchestration_delete_response, orchestration_human_marks_response, orchestration_participant_response,
+    orchestration_participants_response, orchestration_stats_response, orchestration_task_comment_response,
+    orchestration_task_comments_response, orchestration_task_context_response, orchestration_task_export_response,
+    orchestration_task_response, orchestration_task_review_check_response, orchestration_task_review_checks_response,
+    orchestration_task_review_gates_response, orchestration_task_runs_response, orchestration_tasks_response,
 };
 use crate::services::task_context::TaskContextService;
 
@@ -144,8 +152,33 @@ pub struct CompleteTaskRequest {
 }
 
 #[derive(Deserialize)]
+pub struct LatestHumanMarksQuery {
+    /// Comma-separated task ids (board badges). Unknown ids are ignored.
+    #[serde(rename = "taskIds")]
+    pub task_ids: String,
+}
+
+#[derive(Deserialize)]
+pub struct TaskExportQuery {
+    /// Max rows (capped at 1000 server-side).
+    pub limit: Option<i64>,
+}
+
+#[derive(Deserialize)]
+pub struct SetTaskReviewCheckRequest {
+    pub done: bool,
+}
+
+#[derive(Deserialize)]
 pub struct FailTaskRequest {
     pub error: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+pub struct CreateTaskCommentRequest {
+    /// 'comment' (default), 'blocker', or 'unblock'.
+    pub kind: Option<String>,
+    pub body: String,
 }
 
 #[derive(Deserialize)]
@@ -248,6 +281,39 @@ async fn list_group_tasks(
     Ok(Json(orchestration_tasks_response(&summaries)))
 }
 
+/// Body for batch retirement of stale tasks in a group.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetireStaleTasksRequest {
+    pub older_than_days: Option<i32>,
+    pub batch_limit: Option<i64>,
+}
+
+/// `POST /groups/{group_id}/tasks/retire-stale` — batch-retire stale,
+/// never-started tasks (org admin; the operation is audited).
+async fn retire_stale_tasks(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(group_id): Path<Uuid>,
+    Json(req): Json<RetireStaleTasksRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    crate::services::admin::AdminService::require_admin(&auth.role)?;
+    let service = make_service(&state);
+    let (count, ids) = service.retire_stale_tasks(&auth.scope, group_id, req.older_than_days, req.batch_limit).await?;
+    let _ = state
+        .audit_service()
+        .log_action(
+            auth.scope.org_id(),
+            Some(auth.scope.user_id()),
+            "orchestration.tasks.retired_stale",
+            "orchestration_group",
+            Some(group_id),
+            &crate::domain::orchestration::retired_stale_audit_payload(count),
+            None,
+        )
+        .await;
+    Ok(Json(crate::domain::orchestration::retired_stale_response(count, ids)))
+}
 async fn group_task_stats(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -288,6 +354,93 @@ async fn list_task_runs(
     Ok(Json(orchestration_task_runs_response(&runs)))
 }
 
+async fn list_task_comments(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let comments = service.list_task_comments(&auth.scope, id).await?;
+    Ok(Json(orchestration_task_comments_response(&comments)))
+}
+
+async fn create_task_comment(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<CreateTaskCommentRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let comment = service.create_task_comment(&auth.scope, id, req.kind.as_deref(), &req.body).await?;
+    Ok(Json(orchestration_task_comment_response(&comment)))
+}
+
+async fn delete_task_comment(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((id, comment_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    service.delete_task_comment(&auth.scope, id, comment_id).await?;
+    Ok(Json(orchestration_delete_response()))
+}
+
+async fn latest_human_marks(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(query): Query<LatestHumanMarksQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let task_ids: Vec<Uuid> = query.task_ids.split(',').filter_map(|part| Uuid::parse_str(part.trim()).ok()).collect();
+    let marks = service.latest_human_marks(&auth.scope, &task_ids).await?;
+    Ok(Json(orchestration_human_marks_response(&marks)))
+}
+
+async fn export_task_history(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(query): Query<TaskExportQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let (content, count) = service.export_task_history_csv(&auth.scope, query.limit).await?;
+    // The export itself is audited: compliance reviewers can prove who
+    // downloaded the team's task history (governance exports already do this).
+    let _ = state
+        .audit_service()
+        .log_action(
+            auth.scope.org_id(),
+            Some(auth.scope.user_id()),
+            "orchestration.task_history.exported",
+            "orchestration_task_export",
+            None,
+            &crate::domain::orchestration::task_history_export_audit_payload(count),
+            None,
+        )
+        .await;
+    Ok(Json(orchestration_task_export_response("csv", &content, count)))
+}
+
+async fn list_task_review_checks(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let checks = service.list_task_review_checks(&auth.scope, id).await?;
+    Ok(Json(orchestration_task_review_checks_response(&checks)))
+}
+
+async fn set_task_review_check(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((id, check_key)): Path<(Uuid, String)>,
+    Json(req): Json<SetTaskReviewCheckRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let check = service.set_task_review_check(&auth.scope, id, &check_key, req.done).await?;
+    Ok(Json(orchestration_task_review_check_response(&check)))
+}
+
 async fn patch_task(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -295,6 +448,10 @@ async fn patch_task(
     Json(req): Json<UpdateTaskRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
+    if req.state.as_deref() == Some("completed") {
+        let gates = required_review_gates(&state);
+        service.assert_review_gates(&auth.scope, id, &gates).await?;
+    }
     let assigned_to = TaskAssignmentPatchPolicy::parse(req.assigned_to.as_deref())?;
     let task = service.update_task(&auth.scope, id, req.state, req.priority, req.progress, assigned_to).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
@@ -342,6 +499,21 @@ async fn publish_task_with_context(
     Ok(Json(orchestration_task_response(&summary)))
 }
 
+/// Required review gates from config (empty = no gate enforced).
+fn required_review_gates(state: &AppState) -> Vec<String> {
+    state.required_review_gates()
+}
+
+async fn review_task_gates(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let gates = service.review_gate_status(&auth.scope, id, &required_review_gates(&state)).await?;
+    Ok(Json(orchestration_task_review_gates_response(&gates)))
+}
+
 async fn complete_task(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -349,6 +521,8 @@ async fn complete_task(
     Json(req): Json<CompleteTaskRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
+    let gates = required_review_gates(&state);
+    service.assert_review_gates(&auth.scope, id, &gates).await?;
     let task = service.complete_task(&auth.scope, id, req.result).await?;
     let summary = service.summarize_task(&auth.scope, task).await?;
     service.broadcast_task_update(&auth.scope, "task.completed", &summary).await;
@@ -463,9 +637,17 @@ pub fn orchestration_routes() -> Router<AppState> {
     Router::new()
         // Tasks
         .route("/orchestration/tasks", get(list_tasks).post(create_task))
+        // Literal segment beats the id routes below (matchit static priority).
+        .route("/orchestration/tasks/comments/latest", get(latest_human_marks))
+        .route("/orchestration/tasks/export", get(export_task_history))
+        .route("/orchestration/tasks/{id}/review-checks", get(list_task_review_checks))
+        .route("/orchestration/tasks/{id}/review-gates", get(review_task_gates))
+        .route("/orchestration/tasks/{id}/review-checks/{check_key}", patch(set_task_review_check))
         .route("/orchestration/tasks/{id}", get(get_task).patch(patch_task))
         .route("/orchestration/tasks/{id}/context", get(get_task_context))
         .route("/orchestration/tasks/{id}/runs", get(list_task_runs))
+        .route("/orchestration/tasks/{id}/comments", get(list_task_comments).post(create_task_comment))
+        .route("/orchestration/tasks/{id}/comments/{comment_id}", delete(delete_task_comment))
         .route("/orchestration/tasks/{id}/dispatch", post(dispatch_task))
         .route("/orchestration/tasks/{id}/publish-with-context", post(publish_task_with_context))
         .route("/orchestration/tasks/{id}/complete", post(complete_task))
@@ -476,6 +658,7 @@ pub fn orchestration_routes() -> Router<AppState> {
         // Group-scoped (kanban)
         .route("/orchestration/groups/{group_id}/tasks", get(list_group_tasks))
         .route("/orchestration/groups/{group_id}/tasks/stats", get(group_task_stats))
+        .route("/orchestration/groups/{group_id}/tasks/retire-stale", post(retire_stale_tasks))
         // Participants (auto-pickup loop wakes on heartbeat / register)
         .route("/orchestration/participants", get(list_participants).post(register_participant))
         .route("/orchestration/participants/{agent_id}/heartbeat", post(participant_heartbeat))
@@ -485,6 +668,16 @@ pub fn orchestration_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retire_stale_request_deserialization() {
+        let req: RetireStaleTasksRequest = serde_json::from_str(r#"{"olderThanDays":7,"batchLimit":50}"#).unwrap();
+        assert_eq!(req.older_than_days, Some(7));
+        assert_eq!(req.batch_limit, Some(50));
+        let empty: RetireStaleTasksRequest = serde_json::from_str(r#"{}"#).unwrap();
+        assert_eq!(empty.older_than_days, None);
+        assert_eq!(empty.batch_limit, None);
+    }
 
     #[test]
     fn list_tasks_query_defaults() {
@@ -590,6 +783,49 @@ mod tests {
     fn fail_task_request() {
         let req: FailTaskRequest = serde_json::from_str(r#"{"error": {"message": "timeout"}}"#).unwrap();
         assert_eq!(req.error["message"], "timeout");
+    }
+
+    #[test]
+    fn create_task_comment_request_defaults_kind() {
+        let req: CreateTaskCommentRequest = serde_json::from_str(r#"{"body": "Checking on this"}"#).unwrap();
+        assert_eq!(req.kind, None);
+        assert_eq!(req.body, "Checking on this");
+    }
+
+    #[test]
+    fn task_export_query_defaults_limit() {
+        let query: TaskExportQuery = serde_json::from_str("{}").unwrap();
+        assert!(query.limit.is_none());
+        let with_limit: TaskExportQuery = serde_json::from_str(r#"{"limit": 25}"#).unwrap();
+        assert_eq!(with_limit.limit, Some(25));
+    }
+
+    #[test]
+    fn set_task_review_check_request_deserializes_done() {
+        let req: SetTaskReviewCheckRequest = serde_json::from_str(r#"{"done": true}"#).unwrap();
+        assert!(req.done);
+        let off: SetTaskReviewCheckRequest = serde_json::from_str(r#"{"done": false}"#).unwrap();
+        assert!(!off.done);
+    }
+
+    #[test]
+    fn latest_human_marks_query_parses_task_ids() {
+        let query: LatestHumanMarksQuery = serde_json::from_str(
+            r#"{"taskIds": "00000000-0000-0000-0000-000000000001, 00000000-0000-0000-0000-000000000002"}"#,
+        )
+        .unwrap();
+        let ids: Vec<Uuid> = query.task_ids.split(',').filter_map(|part| Uuid::parse_str(part.trim()).ok()).collect();
+        assert_eq!(ids.len(), 2);
+        let empty: LatestHumanMarksQuery = serde_json::from_str(r#"{"taskIds": ""}"#).unwrap();
+        assert!(empty.task_ids.is_empty());
+    }
+
+    #[test]
+    fn create_task_comment_request_accepts_blocker_kind() {
+        let req: CreateTaskCommentRequest =
+            serde_json::from_str(r#"{"kind": "blocker", "body": "Stuck waiting for the review"}"#).unwrap();
+        assert_eq!(req.kind.as_deref(), Some("blocker"));
+        assert_eq!(req.body, "Stuck waiting for the review");
     }
 
     #[test]

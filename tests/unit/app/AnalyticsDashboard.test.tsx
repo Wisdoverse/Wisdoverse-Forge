@@ -280,4 +280,126 @@ describe('AnalyticsDashboard · ActivityBarChart', () => {
     fireEvent.mouseLeave(chart)
     expect(screen.getByText('most recent')).toBeDefined()
   })
+
+  test('shows per-agent work reliability with success rates', () => {
+    useAnalyticsStore.setState({
+      agentReliability: [
+        {
+          agentId: 'agent-1',
+          name: 'Reliable',
+          total: 5,
+          succeeded: 4,
+          failed: 1,
+          successRate: 0.8,
+        },
+        {
+          agentId: 'agent-2',
+          name: 'Flaky',
+          total: 3,
+          succeeded: 1,
+          failed: 2,
+          successRate: 0.3333,
+        },
+      ],
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const list = screen.getByTestId('agent-reliability-list')
+    const reliableRow = screen.getByTestId('agent-reliability-0')
+    expect(reliableRow.textContent).toContain('Reliable')
+    expect(reliableRow.textContent).toContain('4 of 5 finished')
+    expect(reliableRow.textContent).toContain('1 failed')
+    expect(reliableRow.textContent).toContain('80%')
+    const flakyRow = screen.getByTestId('agent-reliability-1')
+    expect(flakyRow.textContent).toContain('Flaky')
+    expect(flakyRow.textContent).toContain('1 of 3 finished')
+    expect(flakyRow.textContent).toContain('33%')
+    expect(list).toBeDefined()
+  })
+
+  test('explains when no agent has finished runs yet', () => {
+    useAnalyticsStore.setState({ agentReliability: [] })
+
+    render(<AnalyticsDashboard />)
+
+    expect(
+      screen.getByText("Run tasks to see each agent's success rate over the last 24 hours.")
+    ).toBeDefined()
+    expect(screen.queryByTestId('agent-reliability-list')).toBeNull()
+  })
+
+  test('shows per-agent usage with share of tokens and cost estimates', () => {
+    useAnalyticsStore.setState({
+      usagePricingConfigured: true,
+      agentUsage: [
+        {
+          agentId: 'agent-1',
+          name: 'Worker',
+          requests: 12,
+          tokensIn: 12_300,
+          tokensOut: 4_100,
+          totalTokens: 16_400,
+          share: 0.75,
+          estimatedCost: 0.0421,
+        },
+      ],
+    })
+
+    render(<AnalyticsDashboard />)
+
+    const row = screen.getByTestId('agent-usage-0')
+    expect(row.textContent).toContain('Worker')
+    expect(row.textContent).toContain('12 runs')
+    expect(row.textContent).toContain('12k tokens in')
+    expect(row.textContent).toContain('4k tokens out')
+    expect(row.textContent).toContain('≈ $0.04')
+    expect(row.textContent).toContain('75% of tokens')
+    expect(screen.getByTestId('agent-usage-list')).toBeDefined()
+    expect(
+      screen.queryByText(
+        'Token counts only. Set LLM price rates for your models to see cost estimates.'
+      )
+    ).toBeNull()
+  })
+
+  test('explains token-only usage before price rates are set', () => {
+    useAnalyticsStore.setState({
+      usagePricingConfigured: false,
+      agentUsage: [
+        {
+          agentId: 'agent-1',
+          name: 'Worker',
+          requests: 2,
+          tokensIn: 1_000,
+          tokensOut: 200,
+          totalTokens: 1_200,
+          share: 1,
+          estimatedCost: null,
+        },
+      ],
+    })
+
+    render(<AnalyticsDashboard />)
+
+    expect(
+      screen.getByText(
+        'Token counts only. Set LLM price rates for your models to see cost estimates.'
+      )
+    ).toBeDefined()
+    expect(screen.getByTestId('agent-usage-0').textContent).not.toContain('$')
+  })
+
+  test('explains usage before any agent answers', () => {
+    useAnalyticsStore.setState({ agentUsage: [] })
+
+    render(<AnalyticsDashboard />)
+
+    expect(
+      screen.getByText(
+        'Token usage appears after an agent answers a question or finishes a run in the last 24 hours.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByTestId('agent-usage-list')).toBeNull()
+  })
 })

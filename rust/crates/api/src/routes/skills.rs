@@ -7,9 +7,13 @@
 //! - `DELETE /skills/{id}`                — delete skill
 //! - `GET    /skills/{id}/versions`       — list skill versions
 //! - `POST   /skills/{id}/restore-version` — restore a version
+//! - `GET    /skills/{id}/usage`           — how often the skill was applied
+//! - `GET    /skills/{id}/agents`          — agents attached to a skill
+//! - `PUT    /skills/{id}/agents/{agent_id}` — attach a skill to an agent
+//! - `DELETE /skills/{id}/agents/{agent_id}` — detach
 
 use axum::extract::{Path, State};
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -20,8 +24,8 @@ use agentforge_core::AppResult;
 use crate::domain::skill::{SkillScopeKind, SkillState};
 use crate::health::AppState;
 use crate::services::skill::{
-    CreateSkillInput, RestoreSkillVersionInput, SkillService, UpdateSkillInput, skill_data_response,
-    skill_delete_response,
+    CreateSkillInput, RestoreSkillVersionInput, SkillService, UpdateSkillInput, skill_agent_response,
+    skill_agents_response, skill_data_response, skill_delete_response, skill_usage_response,
 };
 
 /// Request body for creating a skill.
@@ -187,10 +191,57 @@ async fn restore_skill_version(
     Ok(Json(skill_data_response(skill)))
 }
 
+/// `GET /skills/{id}/usage` — how often the skill was applied.
+async fn get_skill_usage(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let usage = service.skill_usage(&auth.scope, id).await?;
+    Ok(Json(skill_usage_response(&usage)))
+}
+
+/// `GET /skills/{id}/agents` — agents attached to a skill.
+async fn list_skill_agents(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agents = service.list_linked_agents(&auth.scope, id).await?;
+    Ok(Json(skill_agents_response(&agents)))
+}
+
+/// `PUT /skills/{id}/agents/{agent_id}` — attach a skill to an agent.
+async fn attach_skill_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((id, agent_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    let agent = service.attach_linked_agent(&auth.scope, id, agent_id).await?;
+    Ok(Json(skill_agent_response(&agent)))
+}
+
+/// `DELETE /skills/{id}/agents/{agent_id}` — detach.
+async fn detach_skill_agent(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((id, agent_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let service = make_service(&state);
+    service.detach_linked_agent(&auth.scope, id, agent_id).await?;
+    Ok(Json(skill_delete_response()))
+}
+
 /// Build skill routes sub-router.
 pub fn skill_routes() -> Router<AppState> {
     Router::new()
         .route("/skills", get(list_skills).post(create_skill))
+        .route("/skills/{id}/usage", get(get_skill_usage))
+        .route("/skills/{id}/agents", get(list_skill_agents))
+        .route("/skills/{id}/agents/{agent_id}", put(attach_skill_agent).delete(detach_skill_agent))
         .route("/skills/{id}/versions", get(list_skill_versions))
         .route("/skills/{id}/restore-version", post(restore_skill_version))
         .route("/skills/{id}", get(get_skill).patch(update_skill).delete(delete_skill))

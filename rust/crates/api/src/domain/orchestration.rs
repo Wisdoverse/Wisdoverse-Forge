@@ -23,12 +23,48 @@ use crate::domain::context_resolver::ResolvedContext;
 // the same shapes instead of hand-rolled mirrors. Re-exported here so api
 // routes/services/tests keep their import paths.
 pub(crate) use agentforge_core::orchestration_view::{BlockedTaskPolicy, TaskInstruction};
-pub use agentforge_core::ws_protocol::{TaskContextCounts, TaskSummary};
+pub use agentforge_core::ws_protocol::{TaskContextCounts, TaskSummary, TaskWaitEstimate};
 
 const VALID_TASK_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed", "failed", "canceled"];
 const KANBAN_DROP_STATUSES: &[&str] = &["backlog", "queued", "working", "blocked", "completed"];
 const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent"];
 const VALID_PARTICIPANT_STATUSES: &[&str] = &["available", "busy", "offline"];
+
+/// Batch retirement parameters: stale (never-started, untouched) tasks in a
+/// group older than `older_than_days` can be retired to `canceled` in one go.
+pub(crate) struct TaskRetirePolicy;
+
+impl TaskRetirePolicy {
+    pub(crate) const MIN_DAYS: i32 = 1;
+    pub(crate) const MAX_DAYS: i32 = 90;
+    pub(crate) const DEFAULT_DAYS: i32 = 7;
+    pub(crate) const MIN_BATCH: i64 = 1;
+    pub(crate) const MAX_BATCH: i64 = 500;
+    pub(crate) const DEFAULT_BATCH: i64 = 100;
+
+    /// Validate + normalise operator inputs (reject nonsense, fill defaults).
+    pub(crate) fn validate(older_than_days: Option<i32>, batch_limit: Option<i64>) -> AppResult<(i32, i64)> {
+        let days = older_than_days.unwrap_or(Self::DEFAULT_DAYS);
+        if !(Self::MIN_DAYS..=Self::MAX_DAYS).contains(&days) {
+            return Err(ErrorKind::Validation(format!(
+                "olderThanDays must be between {MIN} and {MAX}",
+                MIN = Self::MIN_DAYS,
+                MAX = Self::MAX_DAYS
+            ))
+            .into());
+        }
+        let batch = batch_limit.unwrap_or(Self::DEFAULT_BATCH);
+        if !(Self::MIN_BATCH..=Self::MAX_BATCH).contains(&batch) {
+            return Err(ErrorKind::Validation(format!(
+                "batchLimit must be between {MIN} and {MAX}",
+                MIN = Self::MIN_BATCH,
+                MAX = Self::MAX_BATCH
+            ))
+            .into());
+        }
+        Ok((days, batch))
+    }
+}
 
 /// Validated pagination request for orchestration task lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +87,25 @@ impl TaskListPage {
     }
 }
 
+/// Pure queued-time prediction policy (units: seconds).
+///
+/// The wire estimate is `position x per-task time`, where per-task time is the
+/// org median duration, or a declared default when no completed-task history
+/// exists yet (`typical_seconds = 0` signals "no history" to the UI so the
+/// tooltip can say the estimate is a rough guess).
+pub(crate) struct TaskWaitEstimatePolicy;
+
+impl TaskWaitEstimatePolicy {
+    /// Assumed per-task time (s) when the org has no completed-task history.
+    pub(crate) const DEFAULT_TYPICAL_SECONDS: u32 = 300;
+
+    pub(crate) fn estimate(position: u32, typical_seconds: Option<u32>) -> TaskWaitEstimate {
+        let typical = typical_seconds.unwrap_or(0);
+        let per_task = if typical > 0 { typical } else { Self::DEFAULT_TYPICAL_SECONDS };
+        TaskWaitEstimate { position, typical_seconds: typical, estimated_seconds: position.saturating_mul(per_task) }
+    }
+}
+
 /// Task title value object.
 pub(crate) struct TaskTitle;
 
@@ -60,6 +115,56 @@ impl TaskTitle {
             return Err(ErrorKind::Validation("title must be between 1 and 500 characters".into()).into());
         }
         Ok(())
+    }
+}
+
+/// Review acceptance gate policy: which checklist keys are required before
+/// a human may mark a task completed.
+pub(crate) struct ReviewGatePolicy;
+
+impl ReviewGatePolicy {
+    /// Split the comma-separated `REVIEW_REQUIRED_GATES` config (unknown
+    /// keys already fail at boot in core).
+    pub(crate) fn parse(csv: Option<&str>) -> Vec<String> {
+        csv.unwrap_or_default().split(',').map(str::trim).filter(|entry| !entry.is_empty()).map(str::to_owned).collect()
+    }
+
+    /// User-facing error when required gates are unfinished.
+    pub(crate) fn incomplete_error(keys: &[String]) -> ErrorKind {
+        ErrorKind::Validation(format!(
+            "Finish the required review checks before completing this task: {}. Tick them in the review checklist, then try again.",
+            keys.join(", "),
+        ))
+    }
+}
+
+/// Declared prerequisites ("wait for tasks"): up to 10 task ids carried in
+/// `params.dependency_ids`; a task with unresolved prereqs starts blocked and
+/// is released when every listed task is completed.
+pub(crate) struct TaskDependencyPolicy;
+
+impl TaskDependencyPolicy {
+    pub(crate) const MAX: usize = 10;
+
+    pub(crate) fn from_params(params: Option<&serde_json::Value>) -> Vec<Uuid> {
+        let Some(items) = params.and_then(|value| value.get("dependency_ids")).and_then(|value| value.as_array())
+        else {
+            return Vec::new();
+        };
+        items
+            .iter()
+            .filter_map(|value| value.as_str())
+            .filter_map(|text| Uuid::parse_str(text).ok())
+            .take(Self::MAX)
+            .collect()
+    }
+
+    /// A prerequisite is resolved only by `completed` (failed/canceled does not
+    /// release dependents — a person must re-plan).
+    pub(crate) fn unresolved(dependencies: &[Uuid], task_statuses: &[(Uuid, String)]) -> bool {
+        dependencies
+            .iter()
+            .any(|id| !task_statuses.iter().any(|(candidate, status)| candidate == id && status == "completed"))
     }
 }
 
@@ -115,15 +220,24 @@ impl TaskCreationPolicy {
     }
 
     /// Unassigned tasks land in `backlog` unless missing declared inputs,
-    /// human approval, or an unfinished parent requires an initial block.
+    /// human approval, or an unfinished parent/prerequisite requires an initial block.
     pub(crate) fn initial_unassigned_state(
         missing_inputs: &[String],
         requires_approval: bool,
         parent_status: Option<&str>,
+        prerequisites: &[Uuid],
     ) -> TaskCreationInitialState {
         let dependency_blocked = BlockedTaskPolicy::needs_dependency_block(parent_status);
-        let (initial_blocked_reason, initial_blocked_metadata) =
+        let (mut initial_blocked_reason, mut initial_blocked_metadata) =
             BlockedTaskPolicy::initial_state(missing_inputs, requires_approval, dependency_blocked);
+        if !prerequisites.is_empty() {
+            let parent_hint = initial_blocked_metadata.as_ref().and_then(|meta| meta.get("parent_task_id")).cloned();
+            initial_blocked_reason = Some("waiting_dependency");
+            initial_blocked_metadata = Some(json!({ "dependency_ids": prerequisites }));
+            if let Some(parent) = parent_hint {
+                initial_blocked_metadata = Some(json!({ "dependency_ids": prerequisites, "parent_task_id": parent }));
+            }
+        }
         let initial_status = if initial_blocked_reason.is_some() { "blocked" } else { "backlog" };
 
         TaskCreationInitialState { initial_status, initial_blocked_reason, initial_blocked_metadata }
@@ -187,6 +301,26 @@ impl OrchestrationRepositoryPolicy {
 
     pub(crate) fn invalid_context_ref_kind(ref_kind: &str) -> AppError {
         ErrorKind::Validation(format!("invalid context ref kind: {ref_kind}")).into()
+    }
+
+    pub(crate) fn task_comment_not_found(id: Uuid) -> AppError {
+        ErrorKind::NotFound(format!("task comment {id}")).into()
+    }
+
+    pub(crate) fn invalid_task_comment_kind(kind: &str) -> AppError {
+        ErrorKind::Validation(format!("invalid task comment kind: {kind}")).into()
+    }
+
+    pub(crate) fn empty_task_comment_body() -> AppError {
+        ErrorKind::Validation("task comment body must not be empty".into()).into()
+    }
+
+    pub(crate) fn task_marker_list_too_large(max: usize) -> AppError {
+        ErrorKind::Validation(format!("task list for human marks exceeds {max}")).into()
+    }
+
+    pub(crate) fn invalid_task_review_check_key(key: &str) -> AppError {
+        ErrorKind::Validation(format!("invalid task review check key: {key}")).into()
     }
 
     pub(crate) fn context_injection_capability_profile_serialize(err: impl std::fmt::Display) -> AppError {
@@ -286,6 +420,51 @@ pub struct TaskRunSummary {
     pub provider_name: Option<String>,
     #[serde(rename = "maxContextTokens", skip_serializing_if = "Option::is_none")]
     pub max_context_tokens: Option<u64>,
+}
+
+/// A human update (comment / blocker signal) shown in the task Updates tab.
+/// First-class record, independent of execution attempts and lifecycle state.
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskCommentSummary {
+    pub id: Uuid,
+    #[serde(rename = "taskId")]
+    pub task_id: Uuid,
+    pub kind: String,
+    pub body: String,
+    pub author: TaskCommentAuthor,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskCommentAuthor {
+    pub id: Uuid,
+    pub name: String,
+}
+
+/// One ticked human review check on a task (review checklist evidence).
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskReviewCheckSummary {
+    #[serde(rename = "checkKey")]
+    pub check_key: String,
+    pub done: bool,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
+}
+
+/// Latest human blocker/unblock signal per task (board surfacing).
+#[derive(Debug, Clone, Serialize)]
+pub struct HumanMarkerSummary {
+    #[serde(rename = "taskId")]
+    pub task_id: Uuid,
+    pub kind: String,
+    pub body: String,
+    #[serde(rename = "authorName", skip_serializing_if = "Option::is_none")]
+    pub author_name: Option<String>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
 }
 
 /// Kanban-state count snapshot returned by the stats endpoint.
@@ -398,6 +577,122 @@ pub(crate) fn orchestration_task_context_response<T: Serialize>(context: &T) -> 
 
 pub(crate) fn orchestration_task_runs_response(runs: &[TaskRunSummary]) -> Value {
     json!({ "ok": true, "runs": runs })
+}
+
+pub(crate) fn orchestration_task_comments_response(comments: &[TaskCommentSummary]) -> Value {
+    json!({ "ok": true, "comments": comments })
+}
+
+pub(crate) fn orchestration_task_comment_response(comment: &TaskCommentSummary) -> Value {
+    json!({ "ok": true, "comment": comment })
+}
+
+pub(crate) fn orchestration_human_marks_response(marks: &[HumanMarkerSummary]) -> Value {
+    json!({ "ok": true, "marks": marks })
+}
+
+pub(crate) fn orchestration_task_export_response(format: &str, content: &str, count: usize) -> Value {
+    json!({ "ok": true, "format": format, "content": content, "count": count })
+}
+
+/// Audit payload for retiring stale tasks in a group.
+pub(crate) fn retired_stale_audit_payload(count: i64) -> Value {
+    json!({ "count": count })
+}
+
+/// Response for retiring stale tasks in a group.
+pub(crate) fn retired_stale_response(count: i64, task_ids: Vec<Uuid>) -> Value {
+    json!({ "ok": true, "count": count, "taskIds": task_ids })
+}
+
+/// Audit payload for a CSV task-history export.
+pub(crate) fn task_history_export_audit_payload(rows: usize) -> Value {
+    json!({ "format": "csv", "rows": rows })
+}
+
+pub(crate) fn orchestration_task_review_checks_response(checks: &[TaskReviewCheckSummary]) -> Value {
+    json!({ "ok": true, "checks": checks })
+}
+
+pub(crate) fn orchestration_task_review_check_response(check: &TaskReviewCheckSummary) -> Value {
+    json!({ "ok": true, "check": check })
+}
+
+/// Required-acceptance-gate read model for a task.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewGateStatus {
+    pub(crate) required_keys: Vec<String>,
+    pub(crate) satisfied: bool,
+    pub(crate) missing: Vec<String>,
+}
+
+pub(crate) fn orchestration_task_review_gates_response(status: &ReviewGateStatus) -> Value {
+    json!({ "ok": true, "gates": status })
+}
+
+/// Escaped CSV cell: wrap in quotes when the value contains a delimiter,
+/// quote, or line break; doubles embedded quotes per RFC 4180.
+fn csv_cell(value: impl AsRef<str>) -> String {
+    let value = value.as_ref();
+    let neutralized;
+    let value = if matches!(value.as_bytes().first(), Some(b'=' | b'+' | b'-' | b'@' | b'\t' | b'\r')) {
+        neutralized = format!("'{value}");
+        &neutralized
+    } else {
+        value
+    };
+    if value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
+/// One compliance export of the team's task history, rendered as CSV.
+/// Pure and testable: escaping rules live here, not in the route.
+pub(crate) fn task_history_csv(rows: &[TaskHistoryExportRowProjection]) -> String {
+    let mut out = String::from(
+        "task_id,title,status,priority,progress_percent,creator,assigned_agent,runs_count,created_at,completed_at,updated_at,blocked_reason,requires_approval\n",
+    );
+    for row in rows {
+        out.push_str(&format!(
+            "{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            csv_cell(row.id.to_string()),
+            csv_cell(row.title.as_str()),
+            csv_cell(row.status.as_str()),
+            csv_cell(row.priority.as_str()),
+            csv_cell(row.progress.to_string()),
+            csv_cell(row.creator_name.as_deref().unwrap_or_default()),
+            csv_cell(row.assigned_agent_name.as_deref().unwrap_or_default()),
+            csv_cell(row.runs_count.to_string()),
+            csv_cell(row.created_at.to_rfc3339()),
+            csv_cell(row.completed_at.map(|t| t.to_rfc3339()).unwrap_or_default()),
+            csv_cell(row.updated_at.to_rfc3339()),
+            csv_cell(row.blocked_reason.as_deref().unwrap_or_default()),
+            csv_cell(row.requires_approval.to_string()),
+        ));
+    }
+    out
+}
+
+/// Board-agnostic CSV projection used by the exporter (kept in the domain so
+/// the pure CSV function is testable without repository rows).
+#[derive(Debug, Clone)]
+pub(crate) struct TaskHistoryExportRowProjection {
+    pub id: Uuid,
+    pub title: String,
+    pub status: String,
+    pub priority: String,
+    pub progress: i16,
+    pub creator_name: Option<String>,
+    pub assigned_agent_name: Option<String>,
+    pub runs_count: i64,
+    pub created_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
+    pub blocked_reason: Option<String>,
+    pub requires_approval: bool,
 }
 
 pub(crate) fn orchestration_participant_response(participant: &ParticipantSummary) -> Value {
@@ -885,6 +1180,88 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn dependency_policy_parses_and_resolves() {
+        let params = serde_json::json!({ "dependency_ids": ["00000000-0000-0000-0000-000000000001", "not-a-uuid", "00000000-0000-0000-0000-000000000002"] });
+        let deps = TaskDependencyPolicy::from_params(Some(&params));
+        assert_eq!(deps.len(), 2, "invalid ids are skipped");
+        let done = vec![(deps[0], "completed".to_string()), (deps[1], "completed".to_string())];
+        assert!(!TaskDependencyPolicy::unresolved(&deps, &done));
+        let partial = vec![(deps[0], "completed".to_string()), (deps[1], "failed".to_string())];
+        assert!(TaskDependencyPolicy::unresolved(&deps, &partial), "failed prereqs stay unresolved");
+        assert!(TaskDependencyPolicy::from_params(None).is_empty());
+    }
+
+    #[test]
+    fn review_gates_parse_and_report_incomplete_errors() {
+        let keys = ReviewGatePolicy::parse(Some(" no_secrets , result_matches_brief ,,"));
+        assert_eq!(keys, vec!["no_secrets".to_string(), "result_matches_brief".to_string()]);
+        assert!(ReviewGatePolicy::parse(None).is_empty());
+        let error = ReviewGatePolicy::incomplete_error(&keys).to_string();
+        assert!(error.contains("no_secrets"), "error was: {error}");
+        assert!(error.contains("review checklist"), "error was: {error}");
+    }
+
+    #[test]
+    fn task_history_csv_escapes_delimiters_quotes_and_newlines() {
+        let rows = vec![TaskHistoryExportRowProjection {
+            id: Uuid::new_v4(),
+            title: "Deploy, now".into(),
+            status: "completed".into(),
+            priority: "normal".into(),
+            progress: 100,
+            creator_name: None,
+            assigned_agent_name: Some("Build, \"G\"".into()),
+            runs_count: 2,
+            created_at: DateTime::<Utc>::from_timestamp(1_700_000_000, 0).expect("timestamp"),
+            completed_at: None,
+            updated_at: DateTime::<Utc>::from_timestamp(1_700_000_100, 0).expect("timestamp"),
+            blocked_reason: Some("waiting_agent".to_string()),
+            requires_approval: true,
+        }];
+        let csv = task_history_csv(&rows);
+        assert!(csv.starts_with("task_id,title,status,priority,progress_percent,creator,assigned_agent,runs_count,created_at,completed_at,updated_at,blocked_reason,requires_approval\n"));
+        assert!(csv.contains("\"Deploy, now\""), "comma must be quoted");
+        assert!(csv.contains("\"Build, \"\"G\"\"\""), "quotes must double up");
+        assert!(csv.contains(",true\n"));
+        assert!(!csv.contains("\n\n"), "no blank lines");
+    }
+
+    #[test]
+    fn csv_cell_neutralizes_spreadsheet_formulas() {
+        for value in ["=1+1", "+cmd", "-2+3", "@SUM(A1:A2)", "\t=1"] {
+            assert!(csv_cell(value).starts_with('\''), "dangerous cell was not neutralized: {value:?}");
+        }
+        assert_eq!(csv_cell("\r=1"), "\"'\r=1\"");
+        assert_eq!(csv_cell("ordinary"), "ordinary");
+    }
+
+    #[test]
+    fn retire_policy_validates_and_defaults() {
+        let (days, batch) = TaskRetirePolicy::validate(None, None).expect("defaults");
+        assert_eq!(days, TaskRetirePolicy::DEFAULT_DAYS);
+        assert_eq!(batch, TaskRetirePolicy::DEFAULT_BATCH);
+        let (days, batch) = TaskRetirePolicy::validate(Some(14), Some(25)).expect("explicit");
+        assert_eq!((days, batch), (14, 25));
+        assert!(TaskRetirePolicy::validate(Some(0), None).is_err());
+        assert!(TaskRetirePolicy::validate(Some(91), None).is_err());
+        assert!(TaskRetirePolicy::validate(None, Some(0)).is_err());
+        assert!(TaskRetirePolicy::validate(None, Some(501)).is_err());
+    }
+
+    #[test]
+    fn wait_estimate_uses_org_median_or_declares_guess_without_history() {
+        let est = TaskWaitEstimatePolicy::estimate(2, Some(90));
+        assert_eq!(est.position, 2);
+        assert_eq!(est.typical_seconds, 90);
+        assert_eq!(est.estimated_seconds, 180, "position x median duration");
+
+        let no_history = TaskWaitEstimatePolicy::estimate(1, None);
+        assert_eq!(no_history.typical_seconds, 0, "0 signals no recent timings");
+        assert_eq!(no_history.estimated_seconds, TaskWaitEstimatePolicy::DEFAULT_TYPICAL_SECONDS);
+        assert_eq!(TaskWaitEstimatePolicy::estimate(4, None).estimated_seconds, 1200);
+    }
+
     fn validation_message(result: AppResult<()>) -> String {
         match result.unwrap_err().kind {
             ErrorKind::Validation(message) => message,
@@ -920,6 +1297,7 @@ mod tests {
             context_counts: TaskContextCounts::default(),
             attempt: 1,
             lease_expires_at: None,
+            wait_estimate: None,
         }
     }
 
@@ -1074,7 +1452,7 @@ mod tests {
 
     #[test]
     fn task_creation_initial_state_keeps_ready_unassigned_tasks_in_backlog() {
-        let state = TaskCreationPolicy::initial_unassigned_state(&[], false, None);
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], false, None, &[]);
 
         assert_eq!(state.initial_status, "backlog");
         assert_eq!(state.initial_blocked_reason, None);
@@ -1084,7 +1462,7 @@ mod tests {
     #[test]
     fn task_creation_initial_state_blocks_missing_inputs_first() {
         let missing_inputs = vec!["api_key".to_string(), "region".to_string()];
-        let state = TaskCreationPolicy::initial_unassigned_state(&missing_inputs, true, Some("working"));
+        let state = TaskCreationPolicy::initial_unassigned_state(&missing_inputs, true, Some("working"), &[]);
 
         assert_eq!(state.initial_status, "blocked");
         assert_eq!(state.initial_blocked_reason, Some("waiting_input"));
@@ -1093,7 +1471,7 @@ mod tests {
 
     #[test]
     fn task_creation_initial_state_blocks_approval_before_dependency() {
-        let state = TaskCreationPolicy::initial_unassigned_state(&[], true, Some("working"));
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], true, Some("working"), &[]);
 
         assert_eq!(state.initial_status, "blocked");
         assert_eq!(state.initial_blocked_reason, Some("waiting_approval"));
@@ -1102,7 +1480,7 @@ mod tests {
 
     #[test]
     fn task_creation_initial_state_blocks_unfinished_parent() {
-        let state = TaskCreationPolicy::initial_unassigned_state(&[], false, Some("working"));
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], false, Some("working"), &[]);
 
         assert_eq!(state.initial_status, "blocked");
         assert_eq!(state.initial_blocked_reason, Some("waiting_dependency"));

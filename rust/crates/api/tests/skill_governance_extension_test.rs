@@ -17,6 +17,7 @@ struct SkillGovernanceSeed {
     team_id: Uuid,
     project_id: Uuid,
     owner_id: Uuid,
+    teammate_id: Uuid,
     owner_jwt: String,
     other_workspace_jwt: String,
     teammate_jwt: String,
@@ -144,6 +145,7 @@ async fn seed_skill_governance(pool: &PgPool) -> SkillGovernanceSeed {
         team_id,
         project_id,
         owner_id,
+        teammate_id,
         owner_jwt,
         other_workspace_jwt,
         teammate_jwt,
@@ -512,4 +514,50 @@ async fn secret_skill_content_is_rejected_and_audited(pool: PgPool) {
     .expect("secret rejection audit");
     assert_eq!(audit_details["reason"], "secret_detected");
     assert!(!audit_details.to_string().contains(&secret), "skill rejection audit must not persist raw secret material");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn skill_agent_links_require_authority_over_both_resources(pool: PgPool) {
+    let seed = seed_skill_governance(&pool).await;
+    let agent_id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status) \
+         VALUES ($1, $2, $3, $4, 'teammate-agent', 'idle')",
+    )
+    .bind(agent_id)
+    .bind(seed.org_id)
+    .bind(seed.workspace_id)
+    .bind(seed.teammate_id)
+    .execute(&pool)
+    .await
+    .expect("seed agent");
+    let app = test_app_with_mock_provider(pool.clone(), "mock", "unused").await;
+    let (status, body) = create_skill(
+        app.clone(),
+        &seed.owner_jwt,
+        json!({"name": "managed-skill", "content": "Use the managed workflow"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    let skill_id = body["data"]["id"].as_str().expect("skill id");
+    let uri = format!("/api/v1/skills/{skill_id}/agents/{agent_id}");
+
+    let (status, _) = json_request(app.clone(), Method::PUT, &uri, &seed.owner_jwt, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "skill owner cannot mutate another user's agent");
+    let (status, _) = json_request(app.clone(), Method::PUT, &uri, &seed.teammate_jwt, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "agent owner cannot mutate another user's skill");
+
+    sqlx::query("INSERT INTO agent_collaborators (agent_id, user_id, permission) VALUES ($1, $2, 'edit')")
+        .bind(agent_id)
+        .bind(seed.owner_id)
+        .execute(&pool)
+        .await
+        .expect("grant edit permission");
+    let (status, body) = json_request(app.clone(), Method::PUT, &uri, &seed.owner_jwt, None).await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+
+    let (status, _) = json_request(app.clone(), Method::DELETE, &uri, &seed.teammate_jwt, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, body) = json_request(app, Method::DELETE, &uri, &seed.owner_jwt, None).await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
 }

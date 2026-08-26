@@ -56,7 +56,7 @@ async fn registration_does_not_join_existing_domain_org_without_verification(poo
     let repo = UserRepository::new(pool.clone());
 
     let user = repo
-        .create("intruder@acme.com", "not-a-real-hash-for-repo-test", Some("Intruder"), true)
+        .create("intruder@acme.com", Some("not-a-real-hash-for-repo-test"), Some("Intruder"), true)
         .await
         .expect("create user");
 
@@ -95,8 +95,10 @@ async fn registration_slug_collision_creates_new_org_instead_of_joining_existing
     let existing = seed_org(&pool, "sam", Some("other-company.test")).await;
     let repo = UserRepository::new(pool.clone());
 
-    let user =
-        repo.create("sam@gmail.com", "not-a-real-hash-for-repo-test", Some("Sam"), true).await.expect("create user");
+    let user = repo
+        .create("sam@gmail.com", Some("not-a-real-hash-for-repo-test"), Some("Sam"), true)
+        .await
+        .expect("create user");
 
     let memberships = user_memberships(&pool, user.id.as_uuid()).await;
     assert_eq!(memberships.len(), 1);

@@ -25,7 +25,11 @@ import {
   AgentTerminalTab,
 } from '@app/features/agents'
 import { ChatView } from '@app/features/chat'
-import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
+import {
+  orchestrationApi,
+  type FollowedSkill,
+  type TaskSummary,
+} from '@app/shared/api/orchestration'
 import { formatRelativeTime } from '@app/shared/lib/time'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -647,7 +651,49 @@ function AssignmentFitCard({
         />
         <ProfileSummaryRow label="Account and file access" value={credential} />
       </div>
+      <FollowedSkillsSection agentId={agent.id} />
     </section>
+  )
+}
+
+function FollowedSkillsSection({ agentId }: { agentId: string }) {
+  const [skills, setSkills] = useState<FollowedSkill[]>([])
+  useEffect(() => {
+    let cancelled = false
+    orchestrationApi
+      .getAgentFollowedSkills(agentId)
+      .then((list) => {
+        if (!cancelled) setSkills(Array.isArray(list) ? list : [])
+      })
+      .catch(() => {
+        // Quiet degrade: the profile summary already explains the reuse path.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [agentId])
+
+  if (!Array.isArray(skills) || skills.length === 0) return null
+
+  return (
+    <div className="mt-3" data-testid="agent-followed-skills">
+      <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+        Followed skills
+      </p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {skills.map((skill) => (
+          <span
+            key={skill.skillId}
+            className={cn(
+              'rounded-button bg-apple-blue/10 px-2 py-0.5 text-ui-caption font-medium text-apple-blue',
+              skill.state === 'revoked' && 'opacity-60 line-through'
+            )}
+          >
+            {skill.name}
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 

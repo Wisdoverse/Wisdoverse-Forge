@@ -1,6 +1,6 @@
 //! Authorization rules for organization, team, and project management.
 
-use agentforge_core::{AppResult, ProjectId, TeamId, TenantScope};
+use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope};
 use sqlx::PgPool;
 
 use crate::domain::resource::ResourcePermissionPolicy;
@@ -34,6 +34,10 @@ impl ResourcePermissionService {
 
     pub async fn require_project_manager(&self, scope: &TenantScope, project_id: ProjectId) -> AppResult<()> {
         ResourcePermissionPolicy::ensure_can_manage_project(self.repo.can_manage_project(scope, project_id).await?)
+    }
+
+    pub async fn validated_read_scope(&self, scope: &TenantScope) -> AppResult<ScopedRead> {
+        self.repo.validated_read_scope(scope).await
     }
 }
 

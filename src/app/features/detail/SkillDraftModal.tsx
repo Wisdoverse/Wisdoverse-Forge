@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2, LibraryBig, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { useAgentsStore } from '@app/entities/agent'
 import { useSkillsStore, type Skill } from '@app/entities/skill'
+import { orchestrationApi } from '@app/shared/api/orchestration'
+import { SkillAgentPickerView } from '@app/shared/ui/SkillAgentPickerView'
 import type { TaskResultArtifact, TaskSummary } from '@app/shared/api/orchestration'
 import { skillDraftErrorMessage } from './model/skillDraftErrorMessage'
 
@@ -47,7 +51,12 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
     setCreatedSkill(null)
     setError(null)
     setFieldError(null)
-  }, [initialForm, open])
+    // Draft acceptance measurement: every opened auto-extraction draft counts.
+    void orchestrationApi.trackProductEvent('skill_draft_opened', {
+      taskId: task.id,
+      taskTitle: task.params.task || '',
+    })
+  }, [initialForm, open, task.id, task.params.task])
 
   if (!open) return null
 
@@ -79,6 +88,11 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         content,
       })
       setCreatedSkill(skill)
+      void orchestrationApi.trackProductEvent('skill_draft_published', {
+        skillId: skill.id ?? '',
+        name: skill.name,
+        taskTitle: task.params.task || '',
+      })
     } catch (err) {
       setError(skillDraftErrorMessage(err))
     } finally {
@@ -306,12 +320,25 @@ function SkillPublishedState({ skill, onClose }: { skill: Skill; onClose: () => 
           title="Open Skills"
           detail="Find this skill, then check the reusable steps before agents use them."
         />
-        <NextReuseLink
-          href="/agents"
-          Icon={Users}
-          title="Choose agent"
-          detail="Pick who should follow this guidance."
-        />
+        {skill.id ? (
+          <div className="flex min-w-0 flex-col gap-2 rounded-card border border-black/[0.08] bg-black/[0.02] px-3 py-3 dark:border-white/[0.1] dark:bg-white/[0.035]">
+            <span className="flex items-center gap-2 text-ui-body font-semibold text-foreground-light dark:text-foreground-dark">
+              <Users size={16} strokeWidth={2.25} aria-hidden="true" className="text-apple-blue" />
+              Choose agent
+            </span>
+            <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+              Pick who should follow this guidance.
+            </p>
+            <DraftSkillAgents skillId={skill.id} />
+          </div>
+        ) : (
+          <NextReuseLink
+            href="/agents"
+            Icon={Users}
+            title="Choose agent"
+            detail="Pick who should follow this guidance."
+          />
+        )}
       </div>
 
       <div className="flex justify-end">
@@ -398,4 +425,75 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 64)
+}
+
+/**
+ * Quick attach-back in the skill draft flow: reuses the same presentational
+ * control as the skills page, wired to the task-detail context.
+ */
+function DraftSkillAgents({ skillId }: { skillId: string }) {
+  const { t } = useTranslation()
+  const agents = useAgentsStore((state) => state.agents)
+  const loadAgents = useAgentsStore((state) => state.loadAgents)
+  const skillAgents = useSkillsStore((state) => state.skillAgents)
+  const loadSkillAgents = useSkillsStore((state) => state.loadSkillAgents)
+  const attachSkillToAgent = useSkillsStore((state) => state.attachSkillToAgent)
+  const detachSkillFromAgent = useSkillsStore((state) => state.detachSkillFromAgent)
+  const [selectedAgentId, setSelectedAgentId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [detachingId, setDetachingId] = useState<string | null>(null)
+
+  const linked = useMemo(() => skillAgents[skillId] ?? [], [skillAgents, skillId])
+  const linkedIds = useMemo(() => new Set(linked.map((agent) => agent.agentId)), [linked])
+
+  useEffect(() => {
+    void loadAgents()
+    void loadSkillAgents(skillId)
+  }, [loadAgents, loadSkillAgents, skillId])
+
+  async function handleAttach(event: React.FormEvent) {
+    event.preventDefault()
+    if (!selectedAgentId || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await attachSkillToAgent(skillId, selectedAgentId)
+      setSelectedAgentId('')
+    } catch {
+      setError(t('skillAgents.attachError'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleDetach(agentId: string) {
+    if (detachingId) return
+    setDetachingId(agentId)
+    setError(null)
+    try {
+      await detachSkillFromAgent(skillId, agentId)
+    } catch {
+      setError(t('skillAgents.detachError'))
+    } finally {
+      setDetachingId(null)
+    }
+  }
+
+  return (
+    <SkillAgentPickerView
+      available={agents
+        .filter((agent) => !linkedIds.has(agent.id))
+        .map((agent) => ({ id: agent.id, name: agent.name }))}
+      linked={linked}
+      selectedAgentId={selectedAgentId}
+      busy={busy}
+      error={error}
+      detachingId={detachingId}
+      onSelect={setSelectedAgentId}
+      onAttach={(event) => void handleAttach(event)}
+      onDetach={(agentId) => void handleDetach(agentId)}
+      testId="skill-draft-agent-picker"
+    />
+  )
 }

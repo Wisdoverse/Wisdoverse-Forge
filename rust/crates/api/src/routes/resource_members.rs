@@ -65,10 +65,34 @@ async fn invite_team_member(
     Path((org_id, team_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<InviteMemberRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let member = make_service(&state)
-        .add_team_member_by_email(&auth.scope, org_id, TeamId::from(team_id), &req.email, req.role.as_deref())
-        .await?;
-    Ok(Json(resource_member_response(member)))
+    match make_service(&state)
+        .invite_team_member_by_email(
+            &auth.scope,
+            org_id,
+            TeamId::from(team_id),
+            &req.email,
+            req.role.as_deref(),
+            state.app_url().as_deref(),
+        )
+        .await?
+    {
+        crate::services::resource_member::InviteOutcome::Added(member) => Ok(Json(resource_member_response(member))),
+        crate::services::resource_member::InviteOutcome::Invited { invite_url } => {
+            Ok(Json(crate::domain::resource::invite_pending_response(&invite_url)))
+        }
+    }
+}
+
+/// `POST /invites/{token}/redeem` — redeem a one-time team invite with the
+/// signed-in account (email must match the invite).
+async fn redeem_team_invite(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(token): Path<String>,
+) -> AppResult<Json<serde_json::Value>> {
+    let user = state.user_service().user_by_id(auth.scope.user_id()).await?;
+    let result = make_service(&state).redeem_team_invite(&token, &user).await?;
+    Ok(Json(result))
 }
 
 async fn update_team_member(
@@ -149,6 +173,7 @@ pub fn resource_member_routes() -> Router<AppState> {
     Router::new()
         .route("/orgs/{org_id}/teams/{team_id}/members", get(list_team_members).post(add_team_member))
         .route("/orgs/{org_id}/teams/{team_id}/invites", post(invite_team_member))
+        .route("/invites/{token}/redeem", post(redeem_team_invite))
         .route("/orgs/{org_id}/teams/{team_id}/members/{user_id}", patch(update_team_member).delete(remove_team_member))
         .route("/projects/{project_id}/members", get(list_project_members).post(add_project_member))
         .route("/projects/{project_id}/invites", post(invite_project_member))

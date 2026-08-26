@@ -1,6 +1,17 @@
 import { describe, test, expect, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import '@app/i18n'
 import { TaskCard } from '@app/features/board/TaskCard'
+
+const trackProductEventMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
+vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@app/shared/api/orchestration')>()
+  return {
+    ...actual,
+    trackProductEvent: trackProductEventMock,
+  }
+})
 
 afterEach(cleanup)
 
@@ -60,6 +71,107 @@ describe('TaskCard', () => {
   test('shows priority badge', () => {
     render(<TaskCard task={mockTask} />)
     expect(screen.getByText('High')).toBeDefined()
+  })
+
+  test('shows a queued wait estimate with a why hint', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'queued',
+          progress: 0,
+          waitEstimate: { position: 2, typicalSeconds: 90, estimatedSeconds: 180 },
+        }}
+      />
+    )
+    const estimate = screen.getByTestId('task-wait-estimate-task-1')
+    expect(estimate.textContent).toContain('Starts in ~3 min')
+    expect(estimate.getAttribute('title')).toContain('Position 2 in the queue')
+    expect(estimate.getAttribute('title')).toContain('change the agent or priority')
+  })
+
+  test('labels a wait estimate without history as a rough guess', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'queued',
+          progress: 0,
+          waitEstimate: { position: 1, typicalSeconds: 0, estimatedSeconds: 300 },
+        }}
+      />
+    )
+    const estimate = screen.getByTestId('task-wait-estimate-task-1')
+    expect(estimate.textContent).toContain('Starts in ~5 min')
+    expect(estimate.getAttribute('title')).toContain('rough guess')
+  })
+
+  test('does not show an estimate for terminal or working tasks', () => {
+    render(<TaskCard task={{ ...mockTask, state: 'working', waitEstimate: { position: 1, typicalSeconds: 90, estimatedSeconds: 90 } }} />)
+    expect(screen.queryByTestId('task-wait-estimate-task-1')).toBeNull()
+  })
+
+  test('explains a context overflow failure on the card and records it once', async () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'failed',
+          progress: 0,
+          error: 'invalid_request_error: prompt is too long: 201k tokens',
+        }}
+      />
+    )
+    expect(screen.getByTestId('task-error-preview').textContent).toContain('Ran out of context window')
+    await waitFor(() => expect(trackProductEventMock).toHaveBeenCalledTimes(1))
+    expect(trackProductEventMock).toHaveBeenCalledWith('context_overflow_failure', { taskId: 'task-1' })
+
+    // Re-rendering the same card must not duplicate the best-effort event.
+    cleanup()
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'failed',
+          progress: 0,
+          error: 'context length exceeded for the model',
+        }}
+      />
+    )
+    expect(trackProductEventMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('labels a retried failure with its attempt number', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'failed',
+          progress: 0,
+          attempt: 2,
+          error: 'timed out mid-step',
+        }}
+      />
+    )
+    const preview = screen.getByTestId('task-error-preview')
+    expect(preview.textContent).toContain('took too long')
+    expect(preview.textContent).toContain('attempt 2')
+    expect(trackProductEventMock).not.toHaveBeenCalledWith('context_overflow_failure', expect.anything())
+  })
+
+  test('does not add an attempt note on the first try', () => {
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'failed',
+          progress: 0,
+          attempt: 1,
+          error: 'timed out mid-step',
+        }}
+      />
+    )
+    expect(screen.getByTestId('task-error-preview').textContent).not.toContain('attempt')
   })
 
   test('labels unknown status and priority without exposing raw codes', () => {

@@ -52,6 +52,17 @@ impl UserRepository {
     }
 
     /// Find a user by ID (tenant-scoped for API access).
+    /// Find a user by ID without tenant scoping — used by the SSO exchange
+    /// (the user is only identifiable by the signed code at that point, the
+    /// same no-org-ctx reasoning as `find_by_email`).
+    pub async fn find_by_user_id(&self, id: UserId) -> AppResult<Option<User>> {
+        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL")
+            .bind(id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(user)
+    }
+
     pub async fn find_by_id(&self, scope: &TenantScope, id: UserId) -> AppResult<User> {
         sqlx::query_as::<_, User>(
             r#"SELECT u.* FROM users u
@@ -100,10 +111,13 @@ impl UserRepository {
     /// lock (see `BOOTSTRAP_ADVISORY_LOCK_KEY`) serializes the decision before
     /// insert, so only one request can claim the first administrator. Migration
     /// 072 covers deployments that pre-date this code.
+    ///
+    /// `password_hash` is `None` for SSO-provisioned accounts, which can only
+    /// sign in through the configured identity provider.
     pub async fn create(
         &self,
         email: &str,
-        password_hash: &str,
+        password_hash: Option<&str>,
         display_name: Option<&str>,
         admin_bootstrap_authorized: bool,
     ) -> AppResult<User> {
@@ -272,12 +286,114 @@ impl UserRepository {
         Ok(result)
     }
 
+    /// Upgrade one membership row (member → admin) for the SSO role mapping.
+    /// The `owner` guard mirrors the admin repo's `set_member_role`: SSO may
+    /// elevate members, never demote or take over an owner's org.
+    pub async fn set_membership_role(&self, org_id: uuid::Uuid, user_id: UserId, role: &str) -> AppResult<bool> {
+        let result = sqlx::query(
+            "UPDATE organization_members SET role = $3 WHERE organization_id = $1 AND user_id = $2 AND role <> 'owner' AND role <> $3",
+        )
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .bind(role)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Add an org membership (SSO org provisioning). Returns `false` when the
+    /// user is already a member — no role change happens here, so an existing
+    /// member is never silently demoted by a re-provision.
+    pub async fn add_membership(&self, org_id: uuid::Uuid, user_id: UserId, role: &str) -> AppResult<bool> {
+        let result = sqlx::query(
+            "INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, $3)\n             ON CONFLICT (organization_id, user_id) DO NOTHING",
+        )
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .bind(role)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Remove a non-owner membership (SSO deprovisioning). Owners are never
+    /// removed.
+    pub async fn remove_membership_if_member(&self, org_id: uuid::Uuid, user_id: UserId) -> AppResult<bool> {
+        let result = sqlx::query(
+            "DELETE FROM organization_members WHERE organization_id = $1 AND user_id = $2 AND role <> 'owner'",
+        )
+        .bind(org_id)
+        .bind(user_id.as_uuid())
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Number of orgs the user belongs to (SSO deprovisioning safety gate).
+    pub async fn membership_count(&self, user_id: UserId) -> AppResult<i64> {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM organization_members WHERE user_id = $1")
+            .bind(user_id.as_uuid())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Find an org id by slug (SSO provisioning map lookup — pre-login, no user
+    /// context yet).
+    pub async fn find_org_id_by_slug(&self, slug: &str) -> AppResult<Option<uuid::Uuid>> {
+        sqlx::query_scalar::<_, uuid::Uuid>("SELECT id FROM organizations WHERE slug = $1 AND deleted_at IS NULL")
+            .bind(slug)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Find a live team id by name inside an org (SSO team mapping lookup).
+    pub async fn find_team_id_by_name(&self, org_id: uuid::Uuid, name: &str) -> AppResult<Option<uuid::Uuid>> {
+        sqlx::query_scalar::<_, uuid::Uuid>(
+            "SELECT id FROM teams WHERE organization_id = $1 AND name = $2 AND deleted_at IS NULL LIMIT 1",
+        )
+        .bind(org_id)
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    /// Add or authoritatively sync an SSO team membership. Team owners are
+    /// never overwritten. Returns whether a row was inserted or changed.
+    pub async fn add_team_membership(&self, team_id: uuid::Uuid, user_id: UserId, role: &str) -> AppResult<bool> {
+        let result = sqlx::query(
+            r#"INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
+               ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role
+               WHERE team_members.role <> 'owner' AND team_members.role <> EXCLUDED.role"#,
+        )
+        .bind(team_id)
+        .bind(user_id.as_uuid())
+        .bind(role)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Remove a team membership (SSO deprovisioning).
+    pub async fn remove_team_membership(&self, team_id: uuid::Uuid, user_id: UserId) -> AppResult<bool> {
+        let result = sqlx::query("DELETE FROM team_members WHERE team_id = $1 AND user_id = $2 AND role <> 'owner'")
+            .bind(team_id)
+            .bind(user_id.as_uuid())
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
     pub async fn find_membership_role(&self, user_id: UserId, org_id: uuid::Uuid) -> AppResult<Option<String>> {
         sqlx::query_scalar::<_, String>(
-            r#"SELECT role
-               FROM organization_members
-              WHERE organization_id = $1
-                AND user_id = $2
+            r#"SELECT om.role
+               FROM organization_members om
+               JOIN organizations o ON o.id = om.organization_id
+              WHERE om.organization_id = $1
+                AND om.user_id = $2
+                AND o.deleted_at IS NULL
               LIMIT 1"#,
         )
         .bind(org_id)
@@ -287,19 +403,75 @@ impl UserRepository {
         .map_err(Into::into)
     }
 
-    /// The user's session-invalidation floor (F004): refresh/switch tokens whose
-    /// `iat` predates this instant must be rejected. `None` means the row is
-    /// absent or the column is NULL (never invalidated). Set by a password reset
+    /// Paged user listing for SCIM (id, email, display_name, created_at).
+    pub async fn list_users_paged(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> AppResult<Vec<(uuid::Uuid, String, Option<String>, DateTime<Utc>)>> {
+        let rows: Vec<(uuid::Uuid, String, Option<String>, DateTime<Utc>)> = sqlx::query_as(
+            "SELECT id, email, display_name, created_at FROM users WHERE deleted_at IS NULL ORDER BY created_at ASC, email ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// SCIM delete: deactivate an account (soft-delete, idempotent).
+    pub async fn deactivate_user(&self, user_id: UserId) -> AppResult<()> {
+        sqlx::query("UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+            .bind(user_id.as_uuid())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Total registered accounts (SCIM totalResults).
+    pub async fn count_users(&self) -> AppResult<i64> {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(Into::into)
+    }
+
+    /// All (org, role) memberships for a user (instant-off deprovisioning sweep).
+    pub async fn memberships_of(&self, user_id: UserId) -> AppResult<Vec<(uuid::Uuid, String)>> {
+        let rows: Vec<(uuid::Uuid, String)> = sqlx::query_as(
+            "SELECT organization_id, role FROM organization_members WHERE user_id = $1 ORDER BY created_at ASC",
+        )
+        .bind(user_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// The active user's session-invalidation floor (F004): refresh/switch
+    /// tokens whose `iat` predates this instant must be rejected. The outer
+    /// `Option` distinguishes an active user from a missing/deactivated one; the
+    /// inner `Option` is NULL when the account was never invalidated. Set by a password reset
     /// and by the operator-gated legacy SHA-256 force-reset. Unlike a sentinel
     /// hash check, this stays in force after the user resets their password, so a
     /// copied refresh token inside its multi-day lifetime cannot revive a session.
-    pub async fn session_floor(&self, user_id: UserId) -> AppResult<Option<DateTime<Utc>>> {
-        sqlx::query_scalar::<_, Option<DateTime<Utc>>>(r#"SELECT sessions_invalid_before FROM users WHERE id = $1"#)
-            .bind(user_id.as_uuid())
-            .fetch_optional(&self.pool)
-            .await
-            .map(Option::flatten)
-            .map_err(Into::into)
+    pub async fn active_session_floor(&self, user_id: UserId) -> AppResult<Option<Option<DateTime<Utc>>>> {
+        sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+            r#"SELECT sessions_invalid_before FROM users WHERE id = $1 AND deleted_at IS NULL"#,
+        )
+        .bind(user_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn invalidate_sessions(&self, user_id: UserId) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE users SET sessions_invalid_before = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(user_id.as_uuid())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Force-reset every remaining legacy unsalted SHA-256 hash (F004): replace
@@ -681,11 +853,12 @@ mod tests {
     async fn create_promotes_only_the_first_user_to_platform_admin(pool: sqlx::PgPool) {
         let repo = UserRepository::new(pool.clone());
 
-        let first = repo.create("first@example.com", "hash", Some("First"), true).await.expect("create first user");
+        let first =
+            repo.create("first@example.com", Some("hash"), Some("First"), true).await.expect("create first user");
         assert!(first.is_admin, "the first registered user becomes the platform admin");
 
         let second =
-            repo.create("second@example.com", "hash", Some("Second"), false).await.expect("create second user");
+            repo.create("second@example.com", Some("hash"), Some("Second"), false).await.expect("create second user");
         assert!(!second.is_admin, "the second registered user is NOT promoted");
 
         // The returned entities must match the persisted rows (no second SELECT).
@@ -715,7 +888,7 @@ mod tests {
         let repo = UserRepository::new(pool.clone());
 
         let err = repo
-            .create("attacker@example.com", "hash", Some("Attacker"), false)
+            .create("attacker@example.com", Some("hash"), Some("Attacker"), false)
             .await
             .expect_err("an untrusted request must not claim the first admin account");
         assert!(matches!(
@@ -733,8 +906,8 @@ mod tests {
         let repo = UserRepository::new(pool.clone());
 
         let (left, right) = tokio::join!(
-            repo.create("left@example.com", "hash", Some("Left"), true),
-            repo.create("right@example.com", "hash", Some("Right"), true),
+            repo.create("left@example.com", Some("hash"), Some("Left"), true),
+            repo.create("right@example.com", Some("hash"), Some("Right"), true),
         );
         let left = left.expect("create left user");
         let right = right.expect("create right user");

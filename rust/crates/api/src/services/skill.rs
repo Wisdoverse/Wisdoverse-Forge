@@ -1,6 +1,6 @@
 //! Skill service — validation and governance management.
 
-use agentforge_core::{AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
+use agentforge_core::{AgentId, AppResult, ProjectId, ScopedRead, TeamId, TenantScope, WorkspaceId};
 use agentforge_db::entities::{Skill, SkillVersion};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -8,16 +8,25 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::skill::{
-    PreparedSkillContent, SkillAccessPolicy, SkillAuditIdentity, SkillBoundaryAccessPolicy,
-    SkillBoundaryMutationPolicy, SkillContentDecision, SkillContentPolicy, SkillCreateStatePolicy, SkillCreatedAudit,
-    SkillJsonArrayPolicy, SkillJsonObjectPolicy, SkillMutationAccess, SkillMutationAccessPolicy,
-    SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRestoreVersionPlan, SkillRestoreVersionPolicy,
-    SkillRestoreVersionRequest, SkillRestoredAudit, SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy,
-    SkillSensitivity, SkillState, SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, skill_audit_event,
+    FollowedSkillSummary, LinkedSkillAgentSummary, PreparedSkillContent, SkillAccessPolicy, SkillAuditIdentity,
+    SkillBoundaryAccessPolicy, SkillBoundaryMutationPolicy, SkillContentDecision, SkillContentPolicy,
+    SkillCreateStatePolicy, SkillCreatedAudit, SkillJsonArrayPolicy, SkillJsonObjectPolicy, SkillMutationAccess,
+    SkillMutationAccessPolicy, SkillMutationManagerCheck, SkillMutationPolicy, SkillName, SkillRepositoryPolicy,
+    SkillRestoreVersionPlan, SkillRestoreVersionPolicy, SkillRestoreVersionRequest, SkillRestoredAudit,
+    SkillRevokedAudit, SkillScopeKind, SkillScopeTargetPolicy, SkillSensitivity, SkillState,
+    SkillStateTransitionPolicy, SkillTtlPolicy, SkillUpdatedAudit, SkillUsageSummary, skill_audit_event,
 };
-pub(crate) use crate::domain::skill::{skill_data_response, skill_delete_response};
+pub(crate) use crate::domain::skill::{
+    agent_skills_response, skill_agent_response, skill_agents_response, skill_data_response, skill_delete_response,
+    skill_usage_response,
+};
+use crate::repositories::agent::AgentRepository;
 use crate::repositories::resource::permission::ResourcePermissionRepository;
-use crate::repositories::skill::{CreateSkillRecord, SkillRepository, SkillVersionRepository, UpdateSkillRecord};
+use crate::repositories::skill::{
+    CreateSkillRecord, FollowedSkillRow, LinkedAgentRow, SkillAgentLinkRepository, SkillRepository,
+    SkillUsageRepository, SkillUsageRow, SkillVersionRepository, UpdateSkillRecord,
+};
+use crate::services::agent::AgentService;
 use crate::services::context_governance::ContextGovernanceService;
 
 #[derive(Debug, Clone)]
@@ -55,16 +64,45 @@ pub struct RestoreSkillVersionInput {
     pub confirm_expansion: bool,
 }
 
+/// Project a followed-skill row onto the domain summary.
+pub fn followed_skill_summary(row: FollowedSkillRow) -> FollowedSkillSummary {
+    FollowedSkillSummary { skill_id: row.skill_id, name: row.name, state: row.state }
+}
+
+/// Project persisted usage facts onto the domain summary.
+pub fn skill_usage_summary(row: SkillUsageRow) -> SkillUsageSummary {
+    SkillUsageSummary {
+        injection_count: row.injection_count,
+        run_count: row.run_count,
+        last_used_at: row.last_used_at.map(|t| t.to_rfc3339()),
+    }
+}
+
+/// Project a persisted linked-agent row onto the domain summary.
+pub fn linked_skill_agent_summary(row: LinkedAgentRow) -> LinkedSkillAgentSummary {
+    LinkedSkillAgentSummary {
+        agent_id: row.agent_id,
+        name: row.agent_name.unwrap_or_default(),
+        attached_at: row.attached_at.to_rfc3339(),
+    }
+}
+
 /// Business logic layer for skill operations.
 pub struct SkillService {
     repo: SkillRepository,
     permissions: ResourcePermissionRepository,
+    agent_links: SkillAgentLinkRepository,
+    usage: SkillUsageRepository,
+    agents: AgentService,
 }
 
 impl SkillService {
     pub fn new(repo: SkillRepository) -> Self {
         let permissions = ResourcePermissionRepository::new(repo.pool().clone());
-        Self { repo, permissions }
+        let agent_links = SkillAgentLinkRepository::new(repo.pool().clone());
+        let usage = SkillUsageRepository::new(repo.pool().clone());
+        let agents = AgentService::new(AgentRepository::new(repo.pool().clone()));
+        Self { repo, permissions, agent_links, usage, agents }
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
@@ -81,6 +119,66 @@ impl SkillService {
     pub async fn get(&self, scope: &TenantScope, id: Uuid) -> AppResult<Skill> {
         let proof = self.validated_read(scope).await?;
         self.repo.get_visible_by_id(&proof, id).await
+    }
+
+    /// Agents currently attached to a skill (attach-back management).
+    pub async fn list_linked_agents(
+        &self,
+        scope: &TenantScope,
+        skill_id: Uuid,
+    ) -> AppResult<Vec<LinkedSkillAgentSummary>> {
+        self.get(scope, skill_id).await?;
+        let rows = self.agent_links.list_agents(scope, skill_id).await?;
+        Ok(rows.into_iter().map(linked_skill_agent_summary).collect())
+    }
+
+    /// Attach a skill to an agent (idempotent). Fails with 404 when the skill
+    /// or the agent is not inside this organization.
+    pub async fn attach_linked_agent(
+        &self,
+        scope: &TenantScope,
+        skill_id: Uuid,
+        agent_id: Uuid,
+    ) -> AppResult<LinkedSkillAgentSummary> {
+        self.reject_outside_boundary_mutation(scope, skill_id, "attach_agent").await?;
+        let skill = self.get(scope, skill_id).await?;
+        self.require_owner_or_manager(scope, &skill).await?;
+        self.agents.authorize_action(scope, AgentId::from(agent_id), "edit").await?;
+        let row = self
+            .agent_links
+            .attach(scope, skill_id, agent_id, Some(scope.user_id().as_uuid()))
+            .await?
+            .ok_or_else(|| SkillRepositoryPolicy::agent_for_skill_link_not_found(agent_id))?;
+        Ok(linked_skill_agent_summary(row))
+    }
+
+    /// Detach a skill from an agent; 404 when the link does not exist.
+    pub async fn detach_linked_agent(&self, scope: &TenantScope, skill_id: Uuid, agent_id: Uuid) -> AppResult<()> {
+        self.reject_outside_boundary_mutation(scope, skill_id, "detach_agent").await?;
+        let skill = self.get(scope, skill_id).await?;
+        self.require_owner_or_manager(scope, &skill).await?;
+        self.agents.authorize_action(scope, AgentId::from(agent_id), "edit").await?;
+        if !self.agent_links.detach(scope, skill_id, agent_id).await? {
+            return Err(SkillRepositoryPolicy::skill_agent_link_not_found(skill_id, agent_id));
+        }
+        Ok(())
+    }
+
+    /// How often this skill was actually applied inside task runs.
+    pub async fn skill_usage(&self, scope: &TenantScope, skill_id: Uuid) -> AppResult<SkillUsageSummary> {
+        self.get(scope, skill_id).await?;
+        let row = self.usage.for_skill(scope, skill_id).await?;
+        Ok(skill_usage_summary(row))
+    }
+
+    /// Skills an agent follows (attach-back from the agent side).
+    pub async fn list_followed_skills(
+        &self,
+        scope: &TenantScope,
+        agent_id: Uuid,
+    ) -> AppResult<Vec<FollowedSkillSummary>> {
+        let rows = self.agent_links.list_skills_for_agent(scope, agent_id).await?;
+        Ok(rows.into_iter().map(followed_skill_summary).collect())
     }
 
     /// Create a new governed skill.

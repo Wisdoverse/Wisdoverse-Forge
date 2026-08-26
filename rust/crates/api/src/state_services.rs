@@ -130,6 +130,55 @@ impl AppState {
         HostAgentEnrollmentService::from_runtime(self.pool.clone(), &self.config, self.context_features)
     }
 
+    /// Shared-secret guard for deprovision/provision/SCIM webhook routes.
+    /// `None` (config) is a 404 — the endpoints are off; a mismatch is 401.
+    pub(crate) fn sso_deprovision_guard(&self, provided: &[u8]) -> AppResult<()> {
+        use crate::domain::sso::SsoPolicy;
+        use secrecy::ExposeSecret;
+        let Some(expected) = self.config.auth_sso.deprovision_token.as_ref() else {
+            return Err(SsoPolicy::deprovision_not_configured().into());
+        };
+        if !SsoPolicy::ct_equal(provided, expected.expose_secret().as_bytes()) {
+            return Err(agentforge_core::ErrorKind::Unauthorized.into());
+        }
+        Ok(())
+    }
+
+    /// Base URL the login page redirects to after provider errors.
+    pub(crate) fn sso_spa_base(&self) -> String {
+        self.config
+            .auth_sso
+            .spa_base_url
+            .as_deref()
+            .unwrap_or("http://localhost:4002")
+            .trim_end_matches('/')
+            .to_string()
+    }
+
+    /// Set-cookie value for the SSO state round-trip.
+    pub(crate) fn sso_state_cookie_value(&self, state_value: &str) -> String {
+        let secure = if self.config.is_production() { "; Secure" } else { "" };
+        format!(
+            "{}={state_value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=300{secure}",
+            crate::domain::sso::SSO_STATE_COOKIE_NAME
+        )
+    }
+
+    /// Public app URL for invite links (with localhost fallback).
+    pub(crate) fn app_url(&self) -> Option<String> {
+        self.config.app_url.clone()
+    }
+
+    /// Parsed required review gates (empty = none enforced).
+    pub(crate) fn required_review_gates(&self) -> Vec<String> {
+        crate::domain::orchestration::ReviewGatePolicy::parse(self.config.review_required_gates.as_deref())
+    }
+
+    /// Parsed LLM pricing table (None when unset; invalid JSON is a boot error).
+    pub(crate) fn analytics_pricing(&self) -> AppResult<Option<crate::services::analytics::PricingTable>> {
+        self.config.llm_pricing.as_deref().map(crate::services::analytics::PricingTable::parse).transpose()
+    }
+
     pub(crate) fn analytics_service(&self) -> AnalyticsService {
         AnalyticsService::from_pool(self.pool.clone())
     }
@@ -331,12 +380,29 @@ impl AppState {
         UserService::from_pool(self.pool.clone(), self.jwt.clone())
     }
 
+    pub(crate) fn sso_service(&self) -> crate::services::sso::SsoService {
+        let store = if self.config.redis_url.is_some() {
+            crate::services::sso::SsoStateStore::Redis(self.redis.clone())
+        } else {
+            crate::services::sso::SsoStateStore::Memory(self.auth_sso_memory_store.clone())
+        };
+        crate::services::sso::SsoService::new(self.config.clone(), store)
+    }
+
     pub(crate) fn voice_service(&self) -> VoiceService {
         VoiceService::from_pool(self.pool.clone())
     }
 
     pub(crate) fn workspace_service(&self) -> WorkspaceService {
         WorkspaceService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn recurring_task_service(&self) -> crate::services::recurring_task::RecurringTaskService {
+        crate::services::recurring_task::RecurringTaskService::from_pool(self.pool.clone())
+    }
+
+    pub(crate) fn task_template_service(&self) -> crate::services::task_template::TaskTemplateService {
+        crate::services::task_template::TaskTemplateService::from_pool(self.pool.clone())
     }
 
     /// Build a `GithubAppClient` from the four `github_app_*` config fields,

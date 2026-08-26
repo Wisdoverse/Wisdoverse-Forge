@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Pin, PinOff, RefreshCw, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { trackProductEvent } from '@app/shared/api/orchestration'
+import { suggestContextTrims } from '../model/contextTrim'
 import type { ContextPreviewItem, ContextPreviewResponse } from '@shared/types/context'
 
 interface InjectionPreviewModalProps {
@@ -54,11 +56,72 @@ export function InjectionPreviewModal({
   const selectedCount = selectedIds.size
   const budget = budgetLabel(preview?.capability)
   const selectedSummary = `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected`
+  const selectedTokens = useMemo(() => {
+    const items = preview?.items ?? []
+    return items
+      .filter((item) => selectedIds.has(item.id))
+      .reduce(
+        (sum, item) => sum + (Number.isFinite(item.estimatedTokens) ? item.estimatedTokens : 0),
+        0
+      )
+  }, [preview, selectedIds])
+  const tokenBudget =
+    typeof preview?.capability?.max_context_tokens === 'number'
+      ? (preview.capability.max_context_tokens as number)
+      : null
+  const budgetRatio = tokenBudget && tokenBudget > 0 ? selectedTokens / tokenBudget : null
+  const budgetWarning =
+    budgetRatio === null
+      ? null
+      : budgetRatio > 1
+        ? 'This exceeds the agent context budget: remove items until it fits.'
+        : budgetRatio > 0.8
+          ? 'This uses most of the agent context budget: the agent may lose earlier work or skip items.'
+          : null
+
+  // One-click compaction suggestion: remove the least-recently-used items
+  // (pinned items are protected) until the selection fits the budget.
+  const trimSuggestion = useMemo(() => {
+    if (!preview || tokenBudget === null) return []
+    return suggestContextTrims(preview.items, selectedIds, tokenBudget, pinnedIds)
+  }, [preview, selectedIds, tokenBudget, pinnedIds])
+
+  // Best-effort measurement: one warning event per open session, showing which
+  // tasks were already at risk before (or despite) a run — the raw signal for
+  // context-safety remediation.
+  const warnedRef = useRef(false)
+  useEffect(() => {
+    if (!isOpen) {
+      warnedRef.current = false
+      return
+    }
+    if (!budgetWarning || warnedRef.current) return
+    warnedRef.current = true
+    void trackProductEvent('context_budget_warning', {
+      taskId: preview?.taskId ?? '',
+      ratio: budgetRatio === null ? undefined : Math.round(budgetRatio * 100) / 100,
+      overLimit: budgetRatio === null ? undefined : budgetRatio > 1,
+    })
+  }, [isOpen, budgetWarning, budgetRatio, preview?.taskId])
 
   if (!isOpen) return null
 
   async function confirm() {
     await onConfirm({ pinnedIds: [...pinnedIds], removedIds })
+  }
+
+  function applyTrim() {
+    if (trimSuggestion.length === 0) return
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      for (const id of trimSuggestion) next.delete(id)
+      return next
+    })
+    void trackProductEvent('context_trim_applied', {
+      taskId: preview?.taskId ?? '',
+      removed: trimSuggestion.length,
+      ratioBefore: budgetRatio === null ? undefined : Math.round(budgetRatio * 100) / 100,
+    })
   }
 
   function toggleSelected(id: string) {
@@ -119,8 +182,36 @@ export function InjectionPreviewModal({
               className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
               data-testid="context-fit-summary"
             >
-              {selectedSummary} · {budget}
+              {selectedSummary} ·{' '}
+              {selectedTokens > 0
+                ? `${selectedTokens.toLocaleString()} tokens`
+                : 'no sizable items'}{' '}
+              · {budget}
             </p>
+            {trimSuggestion.length > 0 && (
+              <button
+                type="button"
+                data-testid="context-trim-button"
+                onClick={applyTrim}
+                className="mt-2 inline-flex items-center gap-1 rounded-button bg-apple-blue px-3 py-1.5 text-ui-button font-medium text-white transition-colors hover:bg-apple-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              >
+                Trim to fit (remove {trimSuggestion.length} item{trimSuggestion.length === 1 ? '' : 's'})
+              </button>
+            )}
+            {budgetWarning && (
+              <p
+                role="status"
+                data-testid="context-budget-warning"
+                className={cn(
+                  'mt-2 rounded-card border px-3 py-2 text-ui-caption font-medium',
+                  budgetRatio !== null && budgetRatio > 1
+                    ? 'border-apple-red/30 bg-apple-red/10 text-apple-red'
+                    : 'border-apple-orange/30 bg-apple-orange/10 text-apple-orange'
+                )}
+              >
+                {budgetWarning}
+              </p>
+            )}
             <p className="mt-1 max-w-xl text-ui-caption text-secondary-light dark:text-secondary-dark">
               These are the saved notes and guidance the agent will see next. Remove anything that
               does not belong.

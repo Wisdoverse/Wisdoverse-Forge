@@ -19,11 +19,15 @@ afterEach(() => {
 })
 
 const getTasksByAgentMock = vi.hoisted(() => vi.fn())
+const getAgentFollowedSkillsMock = vi.hoisted(() => vi.fn())
 
 // AgentTasksTab triggers an API call on mount; we don't want unit tests to
 // depend on the fetch shim, so stub it out at module level.
 vi.mock('@app/shared/api/orchestration', () => ({
-  orchestrationApi: { getTasksByAgent: getTasksByAgentMock },
+  orchestrationApi: {
+    getTasksByAgent: getTasksByAgentMock,
+    getAgentFollowedSkills: getAgentFollowedSkillsMock,
+  },
 }))
 
 beforeEach(() => {
@@ -34,6 +38,7 @@ beforeEach(() => {
     preferencesLoading: false,
   })
   getTasksByAgentMock.mockResolvedValue([])
+  getAgentFollowedSkillsMock.mockResolvedValue([])
 })
 
 const containerAgent = {

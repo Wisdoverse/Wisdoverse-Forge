@@ -5,11 +5,12 @@ use std::sync::Arc;
 use agentforge_auth::JwtManager;
 use agentforge_core::{AppConfig, AppResult, TenantScope, UserId};
 use agentforge_db::entities::User;
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use hmac::{Hmac, KeyInit, Mac};
 use secrecy::ExposeSecret;
 use sha2::Sha256;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 pub(crate) use crate::domain::user::{
     AuthErrorResponseContract, auth_error_response_body, auth_error_response_contract, auth_me_response,
@@ -183,13 +184,242 @@ impl UserService {
         let hash = agentforge_auth::password::hash_password(password.value())
             .map_err(UserAccountPolicy::password_hashing_failed)?;
 
-        let user = self.repo.create(email.value(), &hash, display_name, admin_bootstrap_authorized).await?;
+        let user =
+            self.repo.create(email.value(), Some(hash.as_str()), display_name, admin_bootstrap_authorized).await?;
         let (org_id, role) =
             self.repo.find_default_org(user.id).await?.ok_or_else(UserAccountPolicy::missing_default_org_membership)?;
 
         let access_token =
             self.jwt.create_token(user.id.as_uuid(), org_id, &role).map_err(UserAccountPolicy::jwt_creation_failed)?;
 
+        self.build_auth_result(&user, org_id, &role, access_token, false)
+    }
+
+    /// Find a user by email, or provision one (no password) plus their default
+    /// org when they sign in through SSO for the first time.
+    pub async fn ensure_sso_user(
+        &self,
+        email: &str,
+        display_name: Option<&str>,
+        admin_bootstrap_authorized: bool,
+    ) -> AppResult<agentforge_db::entities::User> {
+        let email = UserEmail::parse(email)?;
+        if let Some(user) = self.repo.find_by_email(email.value()).await? {
+            return Ok(user);
+        }
+        self.repo.create(email.value(), None, display_name, admin_bootstrap_authorized).await
+    }
+
+    /// SCIM-style provisioning from a provider webhook: ensure the account
+    /// exists and add memberships for the requested org slugs (unknown slugs
+    /// are skipped). Roles may request `admin`; owners are never touched.
+    pub async fn provision_user(
+        &self,
+        email: &str,
+        display_name: Option<&str>,
+        org_slugs: &[String],
+        roles: &[String],
+    ) -> AppResult<agentforge_db::entities::User> {
+        let user = self.ensure_sso_user(email, display_name, false).await?;
+        let is_admin = roles.iter().any(|role| role == "admin");
+        for slug in org_slugs {
+            let Some(org_id) = self.repo.find_org_id_by_slug(slug).await? else {
+                continue;
+            };
+            let role = if is_admin { "admin" } else { "member" };
+            if let Ok(true) = self.repo.add_membership(org_id, user.id, role).await {
+                tracing::info!(user_id = %user.id.as_uuid(), org_id = %org_id, "SCIM provisioning: added membership");
+            }
+        }
+        Ok(user)
+    }
+
+    /// Fetch the user row by id (SSO/invite flows need email without org ctx).
+    pub async fn user_by_id(&self, user_id: UserId) -> AppResult<agentforge_db::entities::User> {
+        self.repo.find_by_user_id(user_id).await?.ok_or_else(|| UserAccountPolicy::invalid_credentials().into())
+    }
+
+    /// SCIM: paged (id, email, display_name, created_at) listing, oldest first.
+    pub async fn scim_page(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> AppResult<Vec<(Uuid, String, Option<String>, DateTime<Utc>)>> {
+        self.repo.list_users_paged(limit, offset).await
+    }
+
+    /// SCIM: total active accounts (for totalResults).
+    pub async fn scim_total(&self) -> AppResult<i64> {
+        self.repo.count_users().await
+    }
+
+    /// SCIM: lookup by id without tenant scope (webhook-authenticated).
+    pub async fn scim_user_by_id(&self, user_id: UserId) -> AppResult<Option<agentforge_db::entities::User>> {
+        self.repo.find_by_user_id(user_id).await
+    }
+
+    /// SCIM delete: strip memberships then deactivate the account.
+    pub async fn scim_delete_user(&self, user_id: UserId) -> AppResult<(bool, usize)> {
+        let Some(user) = self.repo.find_by_user_id(user_id).await? else {
+            return Ok((false, 0));
+        };
+        let removed = self.deprovision_user(&user.email).await?.1;
+        self.repo.deactivate_user(user_id).await?;
+        Ok((true, removed))
+    }
+
+    /// Map configured provider groups authoritatively onto the org role.
+    /// Owners are never touched. Returns true when the role changed.
+    pub async fn sync_sso_role(
+        &self,
+        org_id: uuid::Uuid,
+        user_id: UserId,
+        groups: &[String],
+        admin_groups: &[String],
+    ) -> AppResult<bool> {
+        if admin_groups.is_empty() {
+            return Ok(false);
+        }
+        let desired =
+            if groups.iter().any(|group| admin_groups.iter().any(|admin| admin == group)) { "admin" } else { "member" };
+        let Some(role) = self.repo.find_membership_role(user_id, org_id).await? else {
+            return Ok(false);
+        };
+        if role == "owner" || role == desired {
+            return Ok(false);
+        }
+        self.repo.set_membership_role(org_id, user_id, desired).await
+    }
+
+    /// Org provisioning from the provider groups, per `org_group_map`:
+    /// `orgSlug=group1;orgSlug2=group2`. A matching group adds the user to the
+    /// org (as `member`, or `admin` when also in an admin group); with
+    /// `deprovision` enabled, a missing group removes the membership — never an
+    /// owner, and never the user's last remaining org.
+    pub async fn sync_sso_org_memberships(
+        &self,
+        org_map: &[(String, String)],
+        groups: &[String],
+        admin_groups: &[String],
+        user_id: UserId,
+        deprovision: bool,
+    ) -> AppResult<()> {
+        if org_map.is_empty() {
+            return Ok(());
+        }
+        let is_admin = admin_groups.iter().any(|group| groups.contains(group));
+        for (org_slug, org_group) in org_map {
+            let Some(org_id) = self.repo.find_org_id_by_slug(org_slug).await? else {
+                continue;
+            };
+            if groups.iter().any(|group| group == org_group) {
+                let role = if is_admin { "admin" } else { "member" };
+                if self.repo.add_membership(org_id, user_id, role).await? {
+                    tracing::info!(user_id = %user_id.as_uuid(), org_id = %org_id, "SSO org provisioning: added membership");
+                } else {
+                    self.repo.set_membership_role(org_id, user_id, role).await?;
+                }
+            } else if deprovision {
+                // Safety gate: removing the user from every org would lock them
+                // out of sign-in entirely.
+                if self.repo.membership_count(user_id).await? <= 1 {
+                    continue;
+                }
+                if self.repo.remove_membership_if_member(org_id, user_id).await? {
+                    tracing::info!(user_id = %user_id.as_uuid(), org_id = %org_id, "SSO deprovisioning: removed membership");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Team provisioning from the provider groups, per `team_group_map`
+    /// (`teamName=group1;teamName2=group2`). Applies inside the user's
+    /// default org; a matching group adds the team membership (`member`, or
+    /// `admin` when also in an admin group). With `deprovision`, a missing
+    /// group removes it. Unknown team names are skipped so a rename never
+    /// blocks sign-in.
+    pub async fn sync_sso_team_memberships(
+        &self,
+        team_map: &[(String, String)],
+        groups: &[String],
+        admin_groups: &[String],
+        user_id: UserId,
+        deprovision: bool,
+    ) -> AppResult<()> {
+        if team_map.is_empty() {
+            return Ok(());
+        }
+        let Ok((org_id, _)) = self.default_membership(user_id).await else {
+            return Ok(());
+        };
+        let is_admin = admin_groups.iter().any(|group| groups.contains(group));
+        for (team_name, team_group) in team_map {
+            let Some(team_id) = self.repo.find_team_id_by_name(org_id, team_name).await? else {
+                tracing::debug!("SSO team provisioning: no team named {team_name} in org {org_id}");
+                continue;
+            };
+            if groups.iter().any(|group| group == team_group) {
+                let role = if is_admin { "admin" } else { "member" };
+                if self.repo.add_team_membership(team_id, user_id, role).await? {
+                    tracing::info!(user_id = %user_id.as_uuid(), team_id = %team_id, "SSO team provisioning: membership synced");
+                }
+            } else if deprovision && self.repo.remove_team_membership(team_id, user_id).await? {
+                tracing::info!(user_id = %user_id.as_uuid(), team_id = %team_id, "SSO deprovisioning: removed team membership");
+            }
+        }
+        Ok(())
+    }
+
+    /// Deprovisioning from a provider/IdP event: blocks refresh immediately and
+    /// removes every non-owner membership. Existing access tokens remain valid
+    /// only until their short configured expiry. Owners are never auto-removed.
+    /// Returns (user_found, memberships_removed).
+    pub async fn deprovision_user(&self, email: &str) -> AppResult<(bool, usize)> {
+        let Some(user) = self.repo.find_by_email(email).await? else {
+            return Ok((false, 0));
+        };
+        self.repo.invalidate_sessions(user.id).await?;
+        let memberships = self.repo.memberships_of(user.id).await?;
+        let mut removed = 0usize;
+        for (org_id, role) in memberships {
+            if role == "owner" {
+                continue;
+            }
+            if self.repo.remove_membership_if_member(org_id, user.id).await? {
+                removed += 1;
+            }
+        }
+        Ok((true, removed))
+    }
+
+    /// The user's default org membership (org id + role).
+    pub async fn default_membership(&self, user_id: UserId) -> AppResult<(uuid::Uuid, String)> {
+        self.repo
+            .find_default_org(user_id)
+            .await?
+            .ok_or_else(|| UserAccountPolicy::missing_default_org_membership().into())
+    }
+
+    /// Sign in an SSO-authenticated user (same result shape as password login,
+    /// without any password check).
+    pub async fn sso_sign_in(&self, user_id: UserId, org_id: uuid::Uuid, issued_at: i64) -> AppResult<LoginResult> {
+        let session_floor =
+            self.repo.active_session_floor(user_id).await?.ok_or_else(UserAccountPolicy::invalid_credentials)?;
+        if session_floor.is_some_and(|floor| issued_at <= floor.timestamp()) {
+            return Err(UserAccountPolicy::invalid_credentials().into());
+        }
+        let user = self.repo.find_by_user_id(user_id).await?.ok_or_else(UserAccountPolicy::invalid_credentials)?;
+        let role = self
+            .repo
+            .find_membership_role(user.id, org_id)
+            .await?
+            .ok_or_else(UserAccountPolicy::invalid_credentials)?;
+        let access_token =
+            self.jwt.create_token(user.id.as_uuid(), org_id, &role).map_err(UserAccountPolicy::jwt_creation_failed)?;
+        if let Err(err) = self.repo.update_last_login(user.id).await {
+            tracing::warn!(error = ?err, user_id = %user.id.as_uuid(), "Failed to update last_login_at for SSO sign-in");
+        }
         self.build_auth_result(&user, org_id, &role, access_token, false)
     }
 
@@ -330,7 +560,11 @@ impl UserService {
         // rejected even after the password hash is no longer the sentinel, so a
         // copied/stale refresh token inside its multi-day lifetime cannot mint
         // fresh access tokens.
-        let floor = self.repo.session_floor(UserId::from(claims.sub)).await?;
+        let floor = self
+            .repo
+            .active_session_floor(UserId::from(claims.sub))
+            .await?
+            .ok_or_else(UserAccountPolicy::invalid_refresh_token)?;
         if agentforge_auth::session_token_revoked(claims.iat, floor.map(|f| f.timestamp())) {
             return Err(UserAccountPolicy::invalid_refresh_token().into());
         }

@@ -67,7 +67,11 @@ impl AuthService {
         // F004: block every token-minting path, not just cookie refresh. A token
         // issued before the account's session floor (password reset / operator
         // force-reset) cannot mint a fresh token pair by switching context.
-        let floor = self.users.session_floor(user_id).await?;
+        let floor = self
+            .users
+            .active_session_floor(user_id)
+            .await?
+            .ok_or_else(AuthContextSwitchPolicy::missing_org_membership)?;
         if agentforge_auth::session_token_revoked(token_iat, floor.map(|f| f.timestamp())) {
             return Err(AuthContextSwitchPolicy::missing_org_membership());
         }

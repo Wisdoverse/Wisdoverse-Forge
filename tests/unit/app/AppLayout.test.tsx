@@ -28,12 +28,15 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 
+const mockListTaskTemplates = vi.fn()
+
 vi.mock('@app/shared/api/orchestration', () => ({
   taskResultArtifacts: (result: unknown) => (Array.isArray(result) ? result : []),
   orchestrationApi: {
     getParticipants: (...args: unknown[]) => mockGetParticipants(...args),
     createTask: (...args: unknown[]) => mockCreateTask(...args),
     updateTask: (...args: unknown[]) => mockUpdateTask(...args),
+    listTaskTemplates: (...args: unknown[]) => mockListTaskTemplates(...args),
   },
 }))
 
@@ -55,6 +58,7 @@ beforeEach(() => {
   ])
   mockGetGroups.mockResolvedValue([{ id: 'group-1', name: 'Default', projectId: 'p1' }])
   mockCreateGroup.mockResolvedValue({ id: 'group-new', name: 'Frontend', projectId: 'p1' })
+  mockListTaskTemplates.mockResolvedValue([])
   mockCreateTask.mockResolvedValue({
     ok: true,
     task: {

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { BrainCircuit, CheckCircle2, Circle, Filter, Plus, Search, Terminal } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
+import { orchestrationApi } from '@app/shared/api/orchestration'
 import { useSkillsStore, type Skill } from '@app/entities/skill'
 import { CreateSkillModal } from './CreateSkillModal'
 import { SkillCard } from './SkillCard'
@@ -63,6 +64,33 @@ export function SkillsView() {
     [searchedSkills, skillFilter]
   )
   const stats = useMemo(() => summarizeSkills(catalogSkills), [catalogSkills])
+  const [draftStats, setDraftStats] = useState<{ opened: number; published: number }>({
+    opened: 0,
+    published: 0,
+  })
+  const reuseLabel = useMemo(() => {
+    if (draftStats.opened === 0) return '—'
+    const percent = Math.round((draftStats.published / draftStats.opened) * 100)
+    return `${percent}% (${draftStats.published} saved from ${draftStats.opened} suggested)`
+  }, [draftStats])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      orchestrationApi.listAnalyticsEvents('skill_draft_opened', 200),
+      orchestrationApi.listAnalyticsEvents('skill_draft_published', 200),
+    ])
+      .then(([opened, published]) => {
+        if (cancelled) return
+        setDraftStats({ opened: opened.length, published: published.length })
+      })
+      .catch(() => {
+        if (!cancelled) setDraftStats({ opened: 0, published: 0 })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const filterCounts = useMemo(
     () => ({
       all: catalogSkills.length,
@@ -162,6 +190,7 @@ export function SkillsView() {
               <SkillStat label="Ready to use" value={stats.installed} Icon={CheckCircle2} />
               <SkillStat label="Check before use" value={stats.available} Icon={Circle} />
               <SkillStat label="For one work tool" value={stats.cliScoped} Icon={Terminal} />
+              <SkillStat label="Suggested drafts accepted" value={reuseLabel} Icon={CheckCircle2} />
             </div>
             <div className={cn(uiStyles.card, 'p-3')}>
               <div className="mb-2 flex items-center gap-2 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
@@ -409,7 +438,7 @@ function SkillStat({
   Icon,
 }: {
   label: string
-  value: number
+  value: number | string
   Icon: typeof BrainCircuit
 }) {
   return (

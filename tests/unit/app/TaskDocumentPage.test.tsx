@@ -1,15 +1,27 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import '@app/i18n'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { TaskDocumentPage } from '@app/pages/task-detail'
 
-const { navigateSpy, getTask, getTaskRuns, getSelfFixReview, getParticipants } = vi.hoisted(() => ({
+const {
+  navigateSpy,
+  getTask,
+  getTaskRuns,
+  getSelfFixReview,
+  getParticipants,
+  listTaskReviewChecks,
+  setTaskReviewCheck,
+  fetchTaskReviewGates,
+} = vi.hoisted(() => ({
   navigateSpy: vi.fn(),
   getTask: vi.fn(),
   getTaskRuns: vi.fn(),
   getSelfFixReview: vi.fn(),
   getParticipants: vi.fn(),
+  listTaskReviewChecks: vi.fn(),
+  setTaskReviewCheck: vi.fn(),
+  fetchTaskReviewGates: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -27,6 +39,9 @@ vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
       getTaskRuns: (...args: unknown[]) => getTaskRuns(...args),
       getSelfFixReview: (...args: unknown[]) => getSelfFixReview(...args),
       getParticipants: (...args: unknown[]) => getParticipants(...args),
+      listTaskReviewChecks: (...args: unknown[]) => listTaskReviewChecks(...args),
+      setTaskReviewCheck: (...args: unknown[]) => setTaskReviewCheck(...args),
+      fetchTaskReviewGates: (...args: unknown[]) => fetchTaskReviewGates(...args),
     },
   }
 })
@@ -61,6 +76,15 @@ beforeEach(() => {
     sensitive: false,
     reviewStatus: 'in_review',
   })
+  listTaskReviewChecks.mockResolvedValue([])
+  fetchTaskReviewGates.mockResolvedValue({ requiredKeys: [], satisfied: true, missing: [] })
+  setTaskReviewCheck.mockImplementation(
+    async (_taskId: string, checkKey: string, done: boolean) => ({
+      checkKey,
+      done,
+      updatedAt: new Date().toISOString(),
+    })
+  )
 })
 
 afterEach(() => {
@@ -196,5 +220,75 @@ describe('TaskDocumentPage', () => {
       'Waiting for account access'
     )
     expect(screen.queryByText(/API token secret|registry auth/i)).toBeNull()
+  })
+
+  test('shows attempt history in properties for a retried task', () => {
+    useBoardStore
+      .getState()
+      .setTasks([seedTask({ state: 'failed', attempt: 3, error: 'boom' })] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+    expect(screen.getByText('3 (retried 2 times)')).toBeDefined()
+  })
+
+  test('shows the review checklist with progress for a completed task', async () => {
+    useBoardStore.getState().setTasks([seedTask({ state: 'completed', progress: 100 })] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+    expect(screen.getByTestId('task-review-checklist')).toBeDefined()
+    expect(await screen.findByText('0 of 4 checks done.')).toBeDefined()
+  })
+
+  test('marks required review gates and explains blocked acceptance', async () => {
+    fetchTaskReviewGates.mockResolvedValue({
+      requiredKeys: ['no_secrets', 'artifacts_checked'],
+      satisfied: false,
+      missing: ['no_secrets', 'artifacts_checked'],
+    })
+    useBoardStore.getState().setTasks([seedTask({ state: 'completed', progress: 100 })] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+
+    expect(await screen.findByTestId('review-gates-warning')).toHaveTextContent(
+      '2 required check(s) still pending'
+    )
+    const checklist = screen.getByTestId('task-review-checklist')
+    expect(checklist.textContent).toContain('Required')
+  })
+
+  test('shows all-clear when required review gates are satisfied', async () => {
+    fetchTaskReviewGates.mockResolvedValue({
+      requiredKeys: ['no_secrets'],
+      satisfied: true,
+      missing: [],
+    })
+    useBoardStore.getState().setTasks([seedTask({ state: 'completed', progress: 100 })] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+
+    expect(await screen.findByTestId('review-gates-satisfied')).toHaveTextContent(
+      'All required checks are complete'
+    )
+    expect(screen.queryByTestId('review-gates-warning')).toBeNull()
+  })
+
+  test('tracks review checks optimistically and completes at 4 of 4', async () => {
+    useBoardStore.getState().setTasks([seedTask({ state: 'completed', progress: 100 })] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+    await screen.findByText('0 of 4 checks done.')
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('review-check-result_matches_brief')).getByRole('checkbox')
+      ).not.toBeDisabled()
+    )
+    const keys = ['result_matches_brief', 'artifacts_checked', 'no_secrets', 'reusable_saved']
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index]
+      await waitFor(() =>
+        expect(
+          within(screen.getByTestId(`review-check-${key}`)).getByRole('checkbox')
+        ).not.toBeDisabled()
+      )
+      fireEvent.click(within(screen.getByTestId(`review-check-${key}`)).getByRole('checkbox'))
+      await waitFor(() => expect(setTaskReviewCheck).toHaveBeenCalledTimes(index + 1))
+    }
+    expect(setTaskReviewCheck).toHaveBeenNthCalledWith(1, 'task-1', 'result_matches_brief', true)
+    expect(screen.getByText('Review complete. Thanks for checking this work.')).toBeDefined()
   })
 })

@@ -339,8 +339,8 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
     await db.query(
       `INSERT INTO agents
          (id, organization_id, workspace_id, project_id, user_id, name, status, model, provider, cli_tool,
-          hmac_secret, nats_connect_password, cwd, runtime_id, last_activity_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'idle', $7, $8, $9,
+          runtime_kind, hmac_secret, nats_connect_password, cwd, runtime_id, last_activity_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'idle', $7, $8, $9, 'container',
           $10, $11, $12, $13, NOW())`,
       [
         agentId,
@@ -887,13 +887,17 @@ test.describe('real orchestration task E2E', () => {
       await expect(page.locator('[data-testid="page-tasks"]')).toBeVisible()
       await expect(page.locator('[data-testid="column-count-backlog"]')).toBeVisible()
 
-      await page.getByRole('button', { name: '+ Task' }).click()
-      const dialog = page.getByRole('dialog', { name: 'New Task' })
+      await page.getByRole('button', { name: 'New task' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Tell an agent what to do' })
       await expect(dialog).toBeVisible()
-      await dialog.getByLabel('Title').fill(title)
-      await dialog.getByLabel('Description').fill(details)
-      await dialog.getByLabel('Assign Agent').selectOption(fixture.agentId)
+      await dialog.getByLabel('What should the agent finish?').fill(title)
+      await dialog.getByLabel('Details the agent should know').fill(details)
+      await dialog.getByLabel('Project').selectOption(fixture.projectId)
+      await dialog.getByRole('button', { name: /Task options/ }).click()
+      await dialog.getByLabel('Who should start it?').selectOption(fixture.agentId)
       await dialog.getByRole('button', { name: 'Create task' }).click()
+      const confirmButton = dialog.getByRole('button', { name: 'Create task anyway' })
+      if ((await confirmButton.count()) > 0) await confirmButton.click()
       await expect(dialog).toBeHidden()
 
       const completed = await waitForCompletedTask(fixture, title)

@@ -261,6 +261,26 @@ pub struct TaskSummary {
     pub attempt: i32,
     #[serde(rename = "leaseExpiresAt", skip_serializing_if = "Option::is_none")]
     pub lease_expires_at: Option<String>,
+    /// Queued-time dispatch prediction for a waiting task (`state == "queued"`).
+    /// Absent for terminal/working/backlog/blocked tasks. Mirrors
+    /// `TaskWaitEstimate` in `shared/types/...` and the API client type.
+    #[serde(rename = "waitEstimate", skip_serializing_if = "Option::is_none")]
+    pub wait_estimate: Option<TaskWaitEstimate>,
+}
+
+/// Prediction that a waiting task's agent will start it, in dispatch order.
+/// `typicalSeconds == 0` means the org has no completed-task history yet, and
+/// the estimate is a declared rough guess.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskWaitEstimate {
+    /// 1-based position in the effective queue (same agent, else shared pool).
+    pub position: u32,
+    /// Median duration of recently completed tasks in this org, seconds.
+    #[serde(rename = "typicalSeconds")]
+    pub typical_seconds: u32,
+    /// Predicted seconds until the agent starts this task.
+    #[serde(rename = "estimatedSeconds")]
+    pub estimated_seconds: u32,
 }
 
 /// Applied context-injection counts on a [`TaskSummary`].

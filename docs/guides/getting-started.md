@@ -4,11 +4,18 @@ This guide gets Wisdoverse Forge running in a browser on your machine. It is the
 recommended path for a first self-host trial and for contributors who need the
 full product running locally.
 
+> **Shortest path.** Clone the repository and run `make product`. That one
+> command installs app dependencies, prepares the local environment, starts and
+> health-checks the backend services, starts the browser app, and opens it.
+> The rest of this guide explains the same flow in detail — and the
+> two-terminal variant for developers who want to control each step.
+
 ## Choose a Local Path
 
 | Path                       | Commands                               | Best for                                                         |
 | -------------------------- | -------------------------------------- | ---------------------------------------------------------------- |
-| Full local product         | `make quickstart-local`, `npm run dev` | First trial, daily development, and checking the browser flows   |
+| One-command product start  | `make product`                        | First trial and daily use: stack + browser app + browser opens   |
+| Full local product         | `make quickstart-local`, `npm run dev` | Two-terminal development, and checking the browser flows        |
 | Lightweight developer loop | `npm run server`, `npm run dev`        | UI or API work that does not need the full background work stack |
 
 Start with the full local product unless you already know you only need the
