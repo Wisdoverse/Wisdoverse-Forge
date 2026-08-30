@@ -20,19 +20,14 @@
 //!    ±[`TIMESTAMP_REPLAY_WINDOW_SECS`] of the consumer clock, bounding the
 //!    window in which a captured envelope can be replayed.
 //!
-//! There is deliberately **no per-message dedup store** here. Unlike the
-//! orchestration-result path (which records task success and therefore dedups
-//! on `delivery_id` via `orchestration_inbox ON CONFLICT`), event envelopes
-//! carry no delivery id and their effects are idempotent by content: the
-//! `agents` runtime patch is last-write-wins, and the `events` table is an
-//! append-only telemetry log, not an authorization decision. A replay within
-//! the 5-minute window re-appends an already-true telemetry row and re-applies
-//! an identical runtime patch — it cannot record old-evidence success for
-//! new-code work the way the result path could. This mirrors the credential
-//! consumer, which is also HMAC + ts-window only (its upsert is idempotent).
-//! Adding a dedup key would require plumbing a unique message id through the
-//! sidecar publisher, the wire schema, and the `events` table; that is tracked
-//! separately rather than bolted on here.
+//! There is no unique message-id dedup row, but lifecycle mirrors are not
+//! last-write-wins: every persisted event carries the non-secret HMAC-generation
+//! fingerprint, and runtime patches revalidate that generation under the Agent
+//! lifecycle advisory lock. The events ledger then applies only the newest
+//! lifecycle timestamp within that generation (Idle wins ties). Consequently a
+//! transient broadcast failure cannot replay an older Working after Stop, and
+//! an event verified just before container-key rotation cannot mutate the new
+//! generation or poison its ordering ledger.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -50,7 +45,7 @@ use uuid::Uuid;
 
 use agentforge_core::AgentStatus;
 use agentforge_core::event_protocol::parse_events_ingest_subject;
-use agentforge_core::orchestration_protocol::SignedEnvelope;
+use agentforge_core::orchestration_protocol::{SignedEnvelope, container_generation_fingerprint};
 use agentforge_core::ws_protocol::{ServerMessage, TurnInvalidatePayload};
 
 use crate::dead_events::{DeadEvent, DeadEventRecorder, SqlxDeadEventRecorder, payload_excerpt};
@@ -214,6 +209,20 @@ pub struct AgentRuntimePatch {
     /// whenever the payload carries a non-empty `cwd` string. An empty string
     /// is treated as "no cwd reported" and skipped.
     pub cwd: Option<String>,
+    /// Signed hook event time used to make lifecycle transitions monotonic.
+    /// The production SQL directory compares this against the durable events
+    /// ledger, so a redelivered older `working` event cannot overwrite a newer
+    /// `stop` after a transient broadcast failure.
+    pub lifecycle_event_timestamp_ms: Option<i64>,
+    /// Exact external Container CLI hook session that owns interactive work.
+    /// The existing `agents.cli_session_id` column is the durable owner epoch;
+    /// heartbeats and Stop events may mutate its lease only on an exact match.
+    pub interactive_owner_session: Option<String>,
+    /// Non-secret SHA-256 identity of the HMAC generation that authenticated
+    /// this event. Lifecycle SQL rechecks it under the Agent advisory lock and
+    /// filters the event-order ledger by it, closing verify -> container-roll
+    /// TOCTOU races.
+    pub expected_generation_fingerprint: Option<String>,
 }
 
 /// Two distinct update intents for `agents.current_tool`: write a new value
@@ -223,6 +232,14 @@ pub struct AgentRuntimePatch {
 pub enum CurrentToolUpdate {
     Set(String),
     Clear,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentPatchOutcome {
+    Applied,
+    Superseded,
+    StaleGeneration,
+    AgentMissing,
 }
 
 impl AgentRuntimePatch {
@@ -241,7 +258,7 @@ pub trait AgentDirectory: Clone + Send + Sync + 'static {
     /// payload. Returns `true` when the row existed and was updated, `false`
     /// when the row has disappeared (the caller treats the latter as
     /// permanent).
-    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<bool>;
+    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<AgentPatchOutcome>;
 }
 
 #[async_trait]
@@ -326,29 +343,46 @@ where
         if !envelope.verify(secret.as_bytes()) {
             return Err(reject_unauthorized("signature_mismatch", format!("agent {agent_id}")));
         }
+        let generation_fingerprint = container_generation_fingerprint(secret.as_bytes());
 
         let target = self.agents.resolve(agent_id).await.map_err(ConsumeError::transient)?.ok_or_else(|| {
             ConsumeError::permanent_with_reason("agent_not_found", anyhow!("agent {agent_id} not found"))
         })?;
 
-        let decoded = decode_event(target, envelope)?;
+        let decoded = decode_event(target, envelope, generation_fingerprint)?;
 
+        if decoded.persistable {
+            self.store.persist(decoded.persisted.clone()).await.map_err(ConsumeError::transient)?;
+        }
+
+        // Persist lifecycle events before updating the Agent mirror. The
+        // events table is the monotonic ordering ledger: on redelivery, SQL can
+        // see a later stop/session_end and refuse to replay an older working
+        // transition. Persistence is intentionally before the broadcast too,
+        // because broadcast failures are the normal redelivery schedule this
+        // ordering must survive.
         if !decoded.runtime_patch.is_noop() {
-            let updated = self
+            let outcome = self
                 .agents
                 .apply_runtime_patch(decoded.persisted.agent_id, decoded.runtime_patch.clone())
                 .await
                 .map_err(ConsumeError::transient)?;
-            if !updated {
-                return Err(ConsumeError::permanent_with_reason(
-                    "agent_disappeared",
-                    anyhow!("agent {} disappeared during runtime patch", decoded.persisted.agent_id),
-                ));
+            match outcome {
+                AgentPatchOutcome::Applied => {}
+                AgentPatchOutcome::Superseded => return Ok(()),
+                AgentPatchOutcome::StaleGeneration => {
+                    return Err(ConsumeError::permanent_with_reason(
+                        "stale_container_generation",
+                        anyhow!("agent {} generation changed before runtime patch", decoded.persisted.agent_id),
+                    ));
+                }
+                AgentPatchOutcome::AgentMissing => {
+                    return Err(ConsumeError::permanent_with_reason(
+                        "agent_disappeared",
+                        anyhow!("agent {} disappeared during runtime patch", decoded.persisted.agent_id),
+                    ));
+                }
             }
-        }
-
-        if decoded.persistable {
-            self.store.persist(decoded.persisted).await.map_err(ConsumeError::transient)?;
         }
 
         self.broadcast
@@ -379,26 +413,52 @@ fn parse_subject_agent_id(subject: &str) -> std::result::Result<Uuid, ConsumeErr
     })
 }
 
-fn decode_event(target: AgentTarget, envelope: SignedEventEnvelope) -> std::result::Result<DecodedEvent, ConsumeError> {
-    let session_id = extract_session_id(&envelope.payload.data)
-        .or(target.cli_session_id.clone())
-        .or_else(|| Some(target.agent_id.to_string()));
+fn decode_event(
+    target: AgentTarget,
+    envelope: SignedEventEnvelope,
+    generation_fingerprint: String,
+) -> std::result::Result<DecodedEvent, ConsumeError> {
+    let reported_session_id = extract_session_id(&envelope.payload.data);
+    if derive_status(&envelope.payload.event_type).is_some() && reported_session_id.is_none() {
+        return Err(ConsumeError::permanent_with_reason(
+            "lifecycle_session_missing",
+            anyhow!("lifecycle hook {} omitted sessionId", envelope.payload.event_type),
+        ));
+    }
+    let session_id =
+        reported_session_id.clone().or(target.cli_session_id.clone()).or_else(|| Some(target.agent_id.to_string()));
 
-    let event_data = normalize_event_data(
-        envelope.payload.event_type.clone(),
+    let event_type = envelope.payload.event_type;
+    let mut event_data = normalize_event_data(
+        event_type.clone(),
         envelope.payload.data,
         session_id.clone(),
         target.organization_id,
         envelope.timestamp,
     )?;
+    let event_timestamp_ms = event_data.get("timestamp").and_then(json_i64).unwrap_or(envelope.timestamp * 1000);
+    if let Value::Object(object) = &mut event_data {
+        object.insert("containerGenerationFingerprint".to_string(), Value::String(generation_fingerprint.clone()));
+        // The ordering ledger must contain exactly the timestamp used by the
+        // lifecycle CAS. Legacy hooks may send a string timestamp (or none at
+        // all); preserving it would make the SQL fall back to `created_at`, so
+        // the just-persisted event could incorrectly supersede itself.
+        if derive_status(&event_type).is_some() {
+            object.insert("timestamp".to_string(), Value::from(event_timestamp_ms));
+        }
+    }
 
     let broadcast_agent_id = session_id.clone().unwrap_or_else(|| target.agent_id.to_string());
-    let event_type = envelope.payload.event_type;
     let organization_id = target.organization_id;
     let persistable = is_persistable(&event_type);
-    let event_timestamp_ms = event_data.get("timestamp").and_then(json_i64).unwrap_or(envelope.timestamp * 1000);
 
-    let runtime_patch = derive_runtime_patch(&event_type, &event_data);
+    let runtime_patch = derive_runtime_patch(
+        &event_type,
+        &event_data,
+        event_timestamp_ms,
+        Some(generation_fingerprint),
+        reported_session_id,
+    );
 
     Ok(DecodedEvent {
         broadcast_subject: format!("broadcast.{organization_id}"),
@@ -503,8 +563,15 @@ fn payload_string<'a>(data: &'a Value, key: &str) -> Option<&'a str> {
 /// clears it (the tool has finished); `stop` / `session_end` also clear.
 /// Every event with a non-empty `cwd` refreshes the column so the frontend
 /// "Working Dir" display survives page reload.
-fn derive_runtime_patch(event_type: &str, data: &Value) -> AgentRuntimePatch {
+fn derive_runtime_patch(
+    event_type: &str,
+    data: &Value,
+    canonical_event_timestamp_ms: i64,
+    expected_generation_fingerprint: Option<String>,
+    interactive_owner_session: Option<String>,
+) -> AgentRuntimePatch {
     let status = derive_status(event_type);
+    let lifecycle_event_timestamp_ms = status.map(|_| canonical_event_timestamp_ms);
 
     let current_tool = match event_type {
         "pre_tool_use" => payload_string(data, "tool").map(|t| CurrentToolUpdate::Set(t.to_owned())),
@@ -514,7 +581,14 @@ fn derive_runtime_patch(event_type: &str, data: &Value) -> AgentRuntimePatch {
 
     let cwd = payload_string(data, "cwd").map(str::to_owned);
 
-    AgentRuntimePatch { status, current_tool, cwd }
+    AgentRuntimePatch {
+        status,
+        current_tool,
+        cwd,
+        lifecycle_event_timestamp_ms,
+        interactive_owner_session: status.and(interactive_owner_session),
+        expected_generation_fingerprint,
+    }
 }
 
 /// Describe + prime the event-ingest replay-defense metrics so a Prometheus
@@ -624,19 +698,102 @@ impl AgentDirectory for SqlxAgentDirectory {
         }))
     }
 
-    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<bool> {
+    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<AgentPatchOutcome> {
         // Build one dynamic UPDATE per event so we never issue a no-op write.
         // The consumer has already checked `patch.is_noop()` before this call;
         // guard against accidental regressions anyway.
         if patch.is_noop() {
-            return Ok(true);
+            return Ok(AgentPatchOutcome::Applied);
         }
 
+        let expected_generation_fingerprint = patch.expected_generation_fingerprint.clone();
+        let mut tx = self.pool.begin().await?;
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, agent_id).await?;
+        let current_secret: Option<Option<String>> = sqlx::query_scalar("SELECT hmac_secret FROM agents WHERE id = $1")
+            .bind(agent_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+        let Some(current_secret) = current_secret else {
+            tx.commit().await?;
+            return Ok(AgentPatchOutcome::AgentMissing);
+        };
+        if let Some(expected_fingerprint) = expected_generation_fingerprint.as_deref()
+            && current_secret.as_deref().map(|secret| container_generation_fingerprint(secret.as_bytes())).as_deref()
+                != Some(expected_fingerprint)
+        {
+            tx.commit().await?;
+            return Ok(AgentPatchOutcome::StaleGeneration);
+        }
+
+        let (has_interactive_epoch, current_interactive_owner, has_orchestration_owner): (bool, Option<String>, bool) =
+            sqlx::query_as(
+                r#"SELECT interactive_lease_expires_at > NOW(),
+                      interactive_owner_session_id,
+                      EXISTS (
+                          SELECT 1 FROM participants participant
+                           WHERE participant.organization_id = agents.organization_id
+                             AND participant.agent_id = agents.id
+                             AND participant.status = 'busy'
+                      ) OR EXISTS (
+                          SELECT 1 FROM orchestration_tasks task
+                           WHERE task.organization_id = agents.organization_id
+                             AND task.assigned_agent_id = agents.id
+                             AND task.status = 'working'
+                      )
+                 FROM agents
+                WHERE id = $1"#,
+            )
+            .bind(agent_id)
+            .fetch_one(&mut *tx)
+            .await?;
+        let owner_session_matches = patch.interactive_owner_session.as_deref() == current_interactive_owner.as_deref();
+        let owner_transition_conflicts = match patch.status {
+            Some(AgentStatus::Working) => {
+                !has_orchestration_owner
+                    && (patch.interactive_owner_session.is_none()
+                        || (has_interactive_epoch && current_interactive_owner.is_some() && !owner_session_matches))
+            }
+            Some(AgentStatus::Idle) => {
+                has_orchestration_owner
+                    || !has_interactive_epoch
+                    || patch.interactive_owner_session.is_none()
+                    || !owner_session_matches
+            }
+            _ => false,
+        };
+        if owner_transition_conflicts {
+            tx.commit().await?;
+            return Ok(AgentPatchOutcome::Superseded);
+        }
+        let may_write_interactive_owner = !has_orchestration_owner;
+        let lifecycle_order = patch.status.zip(patch.lifecycle_event_timestamp_ms).map(|(status, timestamp)| {
+            let rank: i16 = if status == AgentStatus::Idle { 1 } else { 0 };
+            (timestamp, rank)
+        });
         let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new("UPDATE agents SET updated_at = NOW()");
 
         if let Some(status) = patch.status {
             builder.push(", status = ");
             builder.push_bind(status);
+            match status {
+                AgentStatus::Working => {
+                    // Authenticated CLI hooks establish a durable session epoch.
+                    // Current-generation sidecar heartbeats renew this bounded
+                    // crash backstop only for the exact epoch; a stale monitor
+                    // or heartbeat can never revive or clear a newer owner.
+                    if may_write_interactive_owner {
+                        builder.push(", interactive_owner_session_id = ");
+                        builder.push_bind(patch.interactive_owner_session.clone().expect("validated hook owner"));
+                        builder.push(", interactive_lease_expires_at = NOW() + INTERVAL '2 minutes'");
+                    }
+                }
+                AgentStatus::Idle => {
+                    if may_write_interactive_owner {
+                        builder.push(", interactive_lease_expires_at = NULL");
+                    }
+                }
+                AgentStatus::Offline => {}
+            }
         }
         match patch.current_tool {
             Some(CurrentToolUpdate::Set(tool)) => {
@@ -658,9 +815,50 @@ impl AgentDirectory for SqlxAgentDirectory {
 
         builder.push(" WHERE id = ");
         builder.push_bind(agent_id);
+        if let Some((timestamp_ms, rank)) = lifecycle_order {
+            // The current event was persisted before this UPDATE. Reject this
+            // mirror write when the durable ledger already contains a newer
+            // lifecycle transition. Idle wins an exact timestamp tie, making
+            // Working -> Stop -> redelivered Working monotonic and idempotent.
+            builder.push(
+                r#" AND NOT EXISTS (
+                        SELECT 1
+                          FROM events newer
+                         WHERE newer.agent_id = agents.id
+                           AND newer.event_type IN ('pre_tool_use', 'user_prompt_submit', 'stop', 'session_end')"#,
+            );
+            if let Some(expected_fingerprint) = expected_generation_fingerprint.as_deref() {
+                builder.push(" AND newer.payload->>'containerGenerationFingerprint' = ");
+                builder.push_bind(expected_fingerprint.to_string());
+            }
+            builder.push(
+                r#" AND (
+                               CASE
+                                   WHEN jsonb_typeof(newer.payload->'timestamp') = 'number'
+                                   THEN (newer.payload->>'timestamp')::numeric::bigint
+                                   ELSE (EXTRACT(EPOCH FROM newer.created_at) * 1000)::bigint
+                               END > "#,
+            );
+            builder.push_bind(timestamp_ms);
+            builder.push(
+                r#" OR (
+                                   CASE
+                                       WHEN jsonb_typeof(newer.payload->'timestamp') = 'number'
+                                       THEN (newer.payload->>'timestamp')::numeric::bigint
+                                       ELSE (EXTRACT(EPOCH FROM newer.created_at) * 1000)::bigint
+                                   END = "#,
+            );
+            builder.push_bind(timestamp_ms);
+            builder.push(r#" AND CASE WHEN newer.event_type IN ('stop', 'session_end') THEN 1 ELSE 0 END > "#);
+            builder.push_bind(rank);
+            builder.push(")))");
+        }
 
-        let result = builder.build().execute(&self.pool).await?;
-        Ok(result.rows_affected() == 1)
+        let result = builder.build().execute(&mut *tx).await?;
+        let outcome =
+            if result.rows_affected() == 0 { AgentPatchOutcome::Superseded } else { AgentPatchOutcome::Applied };
+        tx.commit().await?;
+        Ok(outcome)
     }
 }
 
@@ -869,6 +1067,7 @@ impl EventStreamWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use serde_json::Map;
 
     #[test]
@@ -932,6 +1131,26 @@ mod tests {
         assert!(data["id"].is_string());
     }
 
+    #[test]
+    fn lifecycle_order_uses_envelope_time_when_payload_timestamp_is_missing_or_string() {
+        let target = AgentTarget { agent_id: Uuid::new_v4(), organization_id: Uuid::new_v4(), cli_session_id: None };
+        for data in [
+            serde_json::json!({"sessionId": "session-123"}),
+            serde_json::json!({"sessionId": "session-123", "timestamp": "legacy"}),
+        ] {
+            let envelope = SignedEventEnvelope {
+                payload: SignedEventPayload { event_type: "user_prompt_submit".to_string(), data },
+                timestamp: 123,
+                agent_id: target.agent_id.to_string(),
+                signature: String::new(),
+            };
+            let decoded =
+                decode_event(target.clone(), envelope, "test-generation".to_string()).expect("decode lifecycle event");
+            assert_eq!(decoded.runtime_patch.lifecycle_event_timestamp_ms, Some(123_000));
+            assert_eq!(decoded.persisted.payload["timestamp"], 123_000);
+        }
+    }
+
     // --- Issue #30: derive_runtime_patch mapping between event type and
     // agents-row column writes. Pins the behavior per event type in one
     // place so future contributors see the full table at a glance.
@@ -946,10 +1165,14 @@ mod tests {
         base
     }
 
+    fn derive_test_patch(event_type: &str, data: &Value) -> AgentRuntimePatch {
+        derive_runtime_patch(event_type, data, 1_700_000_000_000, None, extract_session_id(data))
+    }
+
     #[test]
     fn derive_patch_pre_tool_use_sets_tool_status_and_cwd() {
         let data = payload("pre_tool_use", serde_json::json!({ "tool": "Edit" }));
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
         assert_eq!(patch.status, Some(AgentStatus::Working));
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Set("Edit".to_owned())));
         assert_eq!(patch.cwd.as_deref(), Some("/w/p"));
@@ -960,7 +1183,7 @@ mod tests {
         // A malformed pre_tool_use with no tool name must not clobber the
         // existing tool to NULL — prefer preserving the last known value.
         let data = payload("pre_tool_use", serde_json::json!({}));
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
         assert_eq!(patch.current_tool, None, "missing tool → no write, not clear");
         assert_eq!(patch.status, Some(AgentStatus::Working));
     }
@@ -968,7 +1191,7 @@ mod tests {
     #[test]
     fn derive_patch_post_tool_use_clears_and_does_not_flip_status() {
         let data = payload("post_tool_use", serde_json::json!({ "tool": "Read" }));
-        let patch = derive_runtime_patch("post_tool_use", &data);
+        let patch = derive_test_patch("post_tool_use", &data);
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Clear));
         assert_eq!(patch.status, None);
     }
@@ -976,7 +1199,7 @@ mod tests {
     #[test]
     fn derive_patch_stop_clears_tool_and_goes_idle() {
         let data = payload("stop", serde_json::json!({}));
-        let patch = derive_runtime_patch("stop", &data);
+        let patch = derive_test_patch("stop", &data);
         assert_eq!(patch.status, Some(AgentStatus::Idle));
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Clear));
     }
@@ -984,7 +1207,7 @@ mod tests {
     #[test]
     fn derive_patch_session_end_matches_stop() {
         let data = payload("session_end", serde_json::json!({}));
-        let patch = derive_runtime_patch("session_end", &data);
+        let patch = derive_test_patch("session_end", &data);
         assert_eq!(patch.status, Some(AgentStatus::Idle));
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Clear));
     }
@@ -992,7 +1215,7 @@ mod tests {
     #[test]
     fn derive_patch_user_prompt_submit_only_flips_status() {
         let data = payload("user_prompt_submit", serde_json::json!({}));
-        let patch = derive_runtime_patch("user_prompt_submit", &data);
+        let patch = derive_test_patch("user_prompt_submit", &data);
         assert_eq!(patch.status, Some(AgentStatus::Working));
         assert_eq!(patch.current_tool, None);
     }
@@ -1002,7 +1225,7 @@ mod tests {
         // Any event carrying a non-empty cwd refreshes the column, so the
         // UI "Working Dir" survives page reload even without an active tool.
         let data = payload("notification", serde_json::json!({}));
-        let patch = derive_runtime_patch("notification", &data);
+        let patch = derive_test_patch("notification", &data);
         assert_eq!(patch.status, None);
         assert_eq!(patch.current_tool, None);
         assert_eq!(patch.cwd.as_deref(), Some("/w/p"));
@@ -1015,7 +1238,7 @@ mod tests {
         // wire-level test `event_without_cwd_does_not_overwrite_stored_cwd`
         // in `event_consumer_contract.rs`.
         let data = serde_json::json!({ "type": "notification", "cwd": "" });
-        let patch = derive_runtime_patch("notification", &data);
+        let patch = derive_test_patch("notification", &data);
         assert!(patch.is_noop(), "empty cwd + unknown event = noop patch");
     }
 
@@ -1023,7 +1246,14 @@ mod tests {
     fn runtime_patch_is_noop_when_all_fields_are_none() {
         let patch = AgentRuntimePatch::default();
         assert!(patch.is_noop());
-        let partial = AgentRuntimePatch { status: None, current_tool: Some(CurrentToolUpdate::Clear), cwd: None };
+        let partial = AgentRuntimePatch {
+            status: None,
+            current_tool: Some(CurrentToolUpdate::Clear),
+            cwd: None,
+            lifecycle_event_timestamp_ms: None,
+            interactive_owner_session: None,
+            expected_generation_fingerprint: None,
+        };
         assert!(!partial.is_noop());
     }
 
@@ -1041,7 +1271,7 @@ mod tests {
             "tool": huge,
             "cwd": huge,
         });
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
 
         assert_eq!(patch.current_tool, None, "oversize tool must drop, not truncate, and not clear");
         assert_eq!(patch.cwd, None, "oversize cwd must drop, not truncate");
@@ -1057,9 +1287,265 @@ mod tests {
             "tool": exact,
             "cwd": exact,
         });
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
 
         assert!(matches!(patch.current_tool, Some(CurrentToolUpdate::Set(_))));
         assert!(patch.cwd.is_some());
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn newer_stop_survives_older_working_redelivery(pool: PgPool) {
+        let organization_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        let initial_secret = Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Event order', $2)")
+            .bind(organization_id)
+            .bind(format!("event-order-{organization_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed organization");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(organization_id)
+            .execute(&pool)
+            .await
+            .expect("seed workspace");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("event-order-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+        sqlx::query(
+            "INSERT INTO agents \
+                 (id, organization_id, workspace_id, user_id, status, hmac_secret, interactive_lease_expires_at) \
+             VALUES ($1, $2, $2, $3, 'idle', $4, NOW() + INTERVAL '60 seconds')",
+        )
+        .bind(agent_id)
+        .bind(organization_id)
+        .bind(user_id)
+        .bind(&initial_secret)
+        .execute(&pool)
+        .await
+        .expect("seed Agent");
+
+        let store = SqlxEventStore::new(pool.clone());
+        let directory = SqlxAgentDirectory::new(pool.clone());
+        let persist = |event_type: &str, timestamp: i64| PersistedEvent {
+            organization_id,
+            agent_id,
+            event_type: event_type.to_string(),
+            payload: serde_json::json!({"type": event_type, "timestamp": timestamp}),
+            session_id: Some("ordered-session".to_string()),
+        };
+        let patch = |status, timestamp| AgentRuntimePatch {
+            status: Some(status),
+            current_tool: None,
+            cwd: None,
+            lifecycle_event_timestamp_ms: Some(timestamp),
+            interactive_owner_session: Some("ordered-session".to_string()),
+            expected_generation_fingerprint: None,
+        };
+
+        store.persist(persist("user_prompt_submit", 1_000)).await.expect("persist initial working");
+        assert_eq!(
+            directory.apply_runtime_patch(agent_id, patch(AgentStatus::Working, 1_000)).await.unwrap(),
+            AgentPatchOutcome::Applied
+        );
+        let claimed_owner: Option<String> =
+            sqlx::query_scalar("SELECT interactive_owner_session_id FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read hook owner epoch");
+        assert_eq!(
+            claimed_owner.as_deref(),
+            Some("ordered-session"),
+            "the first signed Working hook must transfer the terminal/MCP bridge lease to its session epoch"
+        );
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() + INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("advance long work past its original bridge TTL");
+        assert!(
+            crate::participant_liveness::renew_interactive_owner_from_heartbeat(
+                &pool,
+                agent_id,
+                "ordered-session",
+                &container_generation_fingerprint(initial_secret.as_bytes()),
+            )
+            .await
+            .expect("renew exact hook owner"),
+            "current sidecar heartbeat must keep work exclusive beyond the bridge TTL"
+        );
+        let outlives_input_bridge: bool = sqlx::query_scalar(
+            "SELECT interactive_lease_expires_at > NOW() + INTERVAL '60 seconds' FROM agents WHERE id = $1",
+        )
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("read durable terminal owner");
+        assert!(outlives_input_bridge, "terminal execution ownership must survive work longer than 60 seconds");
+        store.persist(persist("stop", 2_000)).await.expect("persist newer stop");
+        assert_eq!(
+            directory.apply_runtime_patch(agent_id, patch(AgentStatus::Idle, 2_000)).await.unwrap(),
+            AgentPatchOutcome::Applied
+        );
+
+        // Exact transient-broadcast schedule: the old Working envelope is
+        // redelivered after Stop committed. It is persisted again, but the
+        // ledger CAS must not restore either status=working or its owner lease.
+        store.persist(persist("user_prompt_submit", 1_000)).await.expect("persist redelivered working");
+        assert_eq!(
+            directory.apply_runtime_patch(agent_id, patch(AgentStatus::Working, 1_000)).await.unwrap(),
+            AgentPatchOutcome::Superseded
+        );
+        let (status, lease): (AgentStatus, Option<chrono::DateTime<Utc>>) =
+            sqlx::query_as("SELECT status, interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read final lifecycle mirror");
+        assert_eq!(status, AgentStatus::Idle);
+        assert!(lease.is_none(), "older Working redelivery must not recreate execution ownership");
+
+        // Exact verify/persist -> container-roll schedule. The stale X event is
+        // already durable when the HMAC rotates to Y. Revalidation under the
+        // lifecycle lock rejects X, and the generation-filtered ledger lets a
+        // lower-timestamp Y event apply instead of being poisoned by X.
+        let secret_x = Uuid::new_v4().to_string();
+        let secret_y = Uuid::new_v4().to_string();
+        let generation_x = container_generation_fingerprint(secret_x.as_bytes());
+        let generation_y = container_generation_fingerprint(secret_y.as_bytes());
+        sqlx::query("UPDATE agents SET hmac_secret = $2 WHERE id = $1")
+            .bind(agent_id)
+            .bind(&secret_x)
+            .execute(&pool)
+            .await
+            .expect("install generation X");
+        let persisted_generation_event = |timestamp, generation: &str| PersistedEvent {
+            organization_id,
+            agent_id,
+            event_type: "user_prompt_submit".to_string(),
+            payload: serde_json::json!({
+                "type": "user_prompt_submit",
+                "timestamp": timestamp,
+                "containerGenerationFingerprint": generation,
+            }),
+            session_id: Some("ordered-session".to_string()),
+        };
+        let generation_patch = |timestamp, generation: &str| AgentRuntimePatch {
+            status: Some(AgentStatus::Working),
+            current_tool: None,
+            cwd: None,
+            lifecycle_event_timestamp_ms: Some(timestamp),
+            interactive_owner_session: Some("ordered-session".to_string()),
+            expected_generation_fingerprint: Some(generation.to_string()),
+        };
+        store
+            .persist(persisted_generation_event(5_000, &generation_x))
+            .await
+            .expect("persist verified generation X event");
+        sqlx::query("UPDATE agents SET hmac_secret = $2 WHERE id = $1")
+            .bind(agent_id)
+            .bind(&secret_y)
+            .execute(&pool)
+            .await
+            .expect("roll to generation Y");
+        assert_eq!(
+            directory.apply_runtime_patch(agent_id, generation_patch(5_000, &generation_x)).await.unwrap(),
+            AgentPatchOutcome::StaleGeneration
+        );
+        store.persist(persisted_generation_event(4_000, &generation_y)).await.expect("persist generation Y event");
+        assert_eq!(
+            directory.apply_runtime_patch(agent_id, generation_patch(4_000, &generation_y)).await.unwrap(),
+            AgentPatchOutcome::Applied,
+            "stale generation X ledger row must not block generation Y"
+        );
+
+        // A permanently lost Stop has a bounded recovery: once the five-minute
+        // owner expires, stale status alone cannot block admission forever.
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("simulate lost-stop lease expiry");
+        let mut admission = pool.begin().await.expect("begin recovery check");
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut admission, agent_id).await.unwrap();
+        assert_eq!(
+            agentforge_db::agent_work_admission_is_idle_in_tx(&mut admission, organization_id, agent_id).await.unwrap(),
+            Some(true),
+            "expired bounded owner must recover even when status still says working"
+        );
+        admission.rollback().await.unwrap();
+
+        // Exact persist -> orchestration claim -> patch schedule. A task claim
+        // that wins the lifecycle lock makes the participant busy. When the
+        // already-persisted Working hook resumes, it may mirror status but must
+        // not create a second interactive owner.
+        sqlx::query(
+            "INSERT INTO participants (organization_id, agent_id, name, capabilities, status) \
+             VALUES ($1, $2, 'claimed', ARRAY['codex'], 'busy')",
+        )
+        .bind(organization_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("seed committed orchestration owner");
+        store
+            .persist(persisted_generation_event(6_000, &generation_y))
+            .await
+            .expect("persist Working before delayed patch");
+        assert_eq!(
+            directory.apply_runtime_patch(agent_id, generation_patch(6_000, &generation_y)).await.unwrap(),
+            AgentPatchOutcome::Applied
+        );
+        let lease: Option<chrono::DateTime<Utc>> =
+            sqlx::query_scalar("SELECT interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(lease.is_none(), "delayed Working hook must not overlap the committed orchestration owner");
+
+        // Legacy/string timestamps are normalized in the durable ledger, not
+        // only in the in-memory patch. This proves the event cannot see its own
+        // later `created_at` fallback and incorrectly supersede itself.
+        let legacy_agent_id = Uuid::new_v4();
+        let legacy_secret = Uuid::new_v4().to_string();
+        let legacy_generation = container_generation_fingerprint(legacy_secret.as_bytes());
+        sqlx::query(
+            "INSERT INTO agents (id, organization_id, workspace_id, user_id, status, hmac_secret) \
+             VALUES ($1, $2, $2, $3, 'idle', $4)",
+        )
+        .bind(legacy_agent_id)
+        .bind(organization_id)
+        .bind(user_id)
+        .bind(&legacy_secret)
+        .execute(&pool)
+        .await
+        .expect("seed legacy timestamp Agent");
+        let decoded = decode_event(
+            AgentTarget { agent_id: legacy_agent_id, organization_id, cli_session_id: None },
+            SignedEventEnvelope {
+                payload: SignedEventPayload {
+                    event_type: "user_prompt_submit".to_string(),
+                    data: serde_json::json!({"sessionId": "legacy-session", "timestamp": "legacy"}),
+                },
+                timestamp: 123,
+                agent_id: legacy_agent_id.to_string(),
+                signature: String::new(),
+            },
+            legacy_generation,
+        )
+        .expect("decode legacy timestamp event");
+        assert_eq!(decoded.persisted.payload["timestamp"], 123_000);
+        store.persist(decoded.persisted).await.expect("persist normalized legacy event");
+        assert_eq!(
+            directory.apply_runtime_patch(legacy_agent_id, decoded.runtime_patch).await.unwrap(),
+            AgentPatchOutcome::Applied,
+            "normalized string timestamp event must not supersede itself"
+        );
     }
 }

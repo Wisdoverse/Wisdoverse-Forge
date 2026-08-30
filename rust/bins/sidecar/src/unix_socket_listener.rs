@@ -283,6 +283,7 @@ fn durable_publish_outcome(published_ok: bool, flushed_ok: bool) -> WalAction {
 /// flush+WAL-first ordering an event accepted mid-reconnect would be lost if the
 /// sidecar restarted before the buffer drained.
 async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str, data: serde_json::Value) {
+    publisher.observe_hook_event(event_type, &data);
     // 1. Persist before attempting to publish so a crash after enqueue but
     //    before flush still leaves a replayable copy.
     let record = wal_record(event_type, &data);

@@ -40,7 +40,7 @@ pub(crate) use crate::domain::orchestration::{
 };
 pub use crate::domain::orchestration::{
     HumanMarkerSummary, ParticipantSummary, ReviewGateStatus, TaskCommentAuthor, TaskCommentSummary, TaskContextCounts,
-    TaskReviewCheckSummary, TaskRunSummary, TaskStatsResponse, TaskSummary,
+    TaskReviewCheckSummary, TaskRunImageSummary, TaskRunSummary, TaskStatsResponse, TaskSummary,
 };
 use crate::domain::self_fix::self_fix_pr_job_payload;
 use crate::repositories::orchestration::run_context_injection::{
@@ -84,12 +84,22 @@ pub fn task_run_summary(run: TaskRun) -> TaskRunSummary {
         runtime_kind: string_value(&run.capability_profile, "runtime_kind"),
         cli_tool: string_value(&run.capability_profile, "cli_tool"),
         provider_name: string_value(&run.capability_profile, "provider_name"),
-        max_context_tokens: run.capability_profile.get("max_context_tokens").and_then(serde_json::Value::as_u64),
+        max_context_tokens: capability_value(&run.capability_profile, "max_context_tokens")
+            .and_then(serde_json::Value::as_u64),
+        image: task_run_image_summary(&run.capability_profile),
     }
 }
 
+fn task_run_image_summary(capability_profile: &serde_json::Value) -> Option<TaskRunImageSummary> {
+    serde_json::from_value(capability_profile.get("image")?.clone()).ok()
+}
+
 fn string_value(value: &serde_json::Value, key: &str) -> Option<String> {
-    value.get(key).and_then(serde_json::Value::as_str).map(str::to_owned)
+    capability_value(value, key).and_then(serde_json::Value::as_str).map(str::to_owned)
+}
+
+fn capability_value<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    value.get(key).or_else(|| value.get("runtime_capability")?.get(key))
 }
 
 /// Project a persisted comment row onto TaskCommentSummary.
@@ -866,6 +876,7 @@ impl OrchestrationService {
             let _ = tx.rollback().await;
             return Err(err);
         }
+        let assignment_agent = self.agents.find_by_id_in_tx(&mut tx, scope, participant.agent_id).await?;
         let task = match OrchestrationTaskRepository::assign_agent_in_tx(
             &mut tx,
             scope,
@@ -947,7 +958,12 @@ impl OrchestrationService {
                 return Err(err);
             }
         };
-        let mut assignment = match TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope) {
+        let mut assignment = match TaskAssignmentPolicy::build(
+            task_assignment_snapshot(&task),
+            context_envelope,
+            assignment_agent.runtime_kind,
+            assignment_agent.hmac_secret.as_deref(),
+        ) {
             Ok(assignment) => assignment,
             Err(err) => {
                 // Compensate BEFORE releasing the row lock: a retry already waiting on
@@ -1602,7 +1618,9 @@ impl OrchestrationService {
             .begin()
             .await
             .map_err(|err| OrchestrationTransactionPolicy::begin_failed("create assigned task", err))?;
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, agent_id.as_uuid()).await?;
         let participant = ParticipantRepository::find_by_agent_id_in_tx(&mut tx, scope, agent_id).await?;
+        let assignment_agent = self.agents.find_by_id_in_tx(&mut tx, scope, agent_id).await?;
         if let Err(err) = ParticipantAvailabilityPolicy::ensure_available(
             &participant.name,
             &participant.status,
@@ -1711,7 +1729,12 @@ impl OrchestrationService {
                 return Err(err);
             }
         };
-        let mut assignment = match TaskAssignmentPolicy::build(task_assignment_snapshot(&task), context_envelope) {
+        let mut assignment = match TaskAssignmentPolicy::build(
+            task_assignment_snapshot(&task),
+            context_envelope,
+            assignment_agent.runtime_kind,
+            assignment_agent.hmac_secret.as_deref(),
+        ) {
             Ok(assignment) => assignment,
             Err(err) => {
                 // Compensate BEFORE releasing the row lock: a retry already waiting on
@@ -1800,6 +1823,42 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use serde_json::json;
+
+    #[test]
+    fn task_run_image_summary_reads_captured_camel_case_identity() {
+        let image = task_run_image_summary(&json!({
+            "image": {
+                "source": "ghcr.io/example/agent-codex@sha256:manifest",
+                "imageId": "sha256:image",
+                "manifestDigest": "sha256:manifest",
+                "version": "1.2.3",
+                "versionSource": "docker-label",
+                "trust": "verified-signature"
+            }
+        }))
+        .expect("valid image evidence");
+
+        assert_eq!(image.image_id, "sha256:image");
+        assert_eq!(image.manifest_digest.as_deref(), Some("sha256:manifest"));
+        assert_eq!(image.trust.as_deref(), Some("verified-signature"));
+        assert!(task_run_image_summary(&json!({ "capabilities": [] })).is_none());
+    }
+
+    #[test]
+    fn run_projection_reads_canonical_nested_runtime_capability() {
+        let profile = json!({
+            "runtime_capability": {
+                "runtime_kind": "container",
+                "cli_tool": "codex",
+                "max_context_tokens": 200_000
+            }
+        });
+
+        assert_eq!(string_value(&profile, "runtime_kind").as_deref(), Some("container"));
+        assert_eq!(string_value(&profile, "cli_tool").as_deref(), Some("codex"));
+        assert_eq!(capability_value(&profile, "max_context_tokens").and_then(serde_json::Value::as_u64), Some(200_000));
+        assert!(task_run_image_summary(&profile).is_none());
+    }
 
     #[test]
     fn task_summary_projects_kanban_response_and_inlines_blocked_hint() {

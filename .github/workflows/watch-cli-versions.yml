@@ -8,19 +8,20 @@
 # Scope (intentionally narrow): only the redistributable CLI overlays.
 # `agent-base`, `server`, `orchestrator`, `sidecar`, and the
 # frontend image are rebuilt by `publish-images.yml` on every push to
-# `main` and on every `v*` tag. Claude is built locally by operators
-# (license precludes a public GHCR image).
+# `main`. Claude is built locally by operators (license precludes a public
+# GHCR image).
 #
 # How it works:
 #   1. Every 6 hours, `npm view <package> version` reports the latest
 #      published version for each CLI.
-#   2. The job reads the existing `:latest` GHCR image's
-#      `org.wisdoverse.cli-version` label via `crane config`.
-#   3. If the versions differ (or the label is missing), the job builds a
-#      new agent overlay against the current `agent-base:main` (the tag
-#      `publish-images.yml` produced from the last main push) and pushes
+#   2. The job resolves and verifies the signed `agent-base:main` digest.
+#   3. The job reads the existing `:latest` GHCR image's version/base labels
+#      and verifies its main-branch workflow signature.
+#   4. If the versions/base differ, the labels are missing, or the image is
+#      unsigned/untrusted, the job builds a new agent overlay against the
+#      immutable verified base digest and pushes
 #      it under three tags:
-#        - `:<cli-version>`        immutable per-upstream-release pin
+#        - `:<cli-version>`        CLI-version alias (may move on base rebuild)
 #        - `:latest`               always points at the freshest CLI bump
 #        - `:edge`                 alias for `:latest`
 #
@@ -64,8 +65,21 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  require-main:
+    name: Require trusted main ref
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject non-main publication
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Trusted CLI images can only be published from refs/heads/main; selected ref was $GITHUB_REF."
+            exit 1
+          fi
+
   detect-and-rebuild:
     name: agent-${{ matrix.tool }}
+    needs: require-main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,6 +97,8 @@ jobs:
             package: '@google/gemini-cli'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -111,34 +127,82 @@ jobs:
 
       - name: Install crane
         uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
-      - id: drift
-        name: Compare upstream vs published image label
+      - id: base
+        name: Resolve and verify immutable agent-base input
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BASE_IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base"
+
+          echo "$GH_TOKEN" | crane auth login "${{ env.REGISTRY }}" --username "${{ github.actor }}" --password-stdin
+          if ! BASE_DIGEST="$(crane digest "$BASE_IMAGE:main")"; then
+            echo "::error::agent-base:main is unavailable; run Publish Images from main before rebuilding CLI overlays."
+            exit 1
+          fi
+          if ! cosign verify \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/publish-images.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$BASE_IMAGE@$BASE_DIGEST" >/dev/null; then
+            echo "::error::agent-base:main lacks the trusted Publish Images signature; refusing to build an overlay from it."
+            exit 1
+          fi
+
+          echo "ref=$BASE_IMAGE@$BASE_DIGEST" >> "$GITHUB_OUTPUT"
+          echo "digest=$BASE_DIGEST" >> "$GITHUB_OUTPUT"
+
+      - id: drift
+        name: Compare upstream version, base digest, and image trust
         run: |
           set -euo pipefail
           IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-${{ matrix.tool }}"
           LATEST="${{ steps.cli.outputs.version }}"
 
-          # Authenticate crane against GHCR via GITHUB_TOKEN.
-          echo "$GH_TOKEN" | crane auth login "${{ env.REGISTRY }}" --username "${{ github.actor }}" --password-stdin
-
-          if ! CONFIG=$(crane config "$IMAGE:latest" 2>/dev/null); then
+          if ! IMAGE_DIGEST=$(crane digest "$IMAGE:latest" 2>/dev/null); then
             echo "no :latest image yet; will build $LATEST"
+            echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! CONFIG=$(crane config "$IMAGE@$IMAGE_DIGEST" 2>/dev/null); then
+            echo "could not read the resolved :latest digest; will rebuild $LATEST"
             echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           CURRENT=$(printf '%s' "$CONFIG" | jq -r '.config.Labels["org.wisdoverse.cli-version"] // empty')
+          CURRENT_BASE=$(printf '%s' "$CONFIG" | jq -r '.config.Labels["org.wisdoverse.agent-base-digest"] // empty')
           if [ -z "$CURRENT" ]; then
             echo "image lacks cli-version label; will build $LATEST"
             echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
+            exit 0
           elif [ "$CURRENT" != "$LATEST" ]; then
             echo "version drift: image=$CURRENT npm=$LATEST"
             echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          elif [ "$CURRENT_BASE" != "${{ steps.base.outputs.digest }}" ]; then
+            echo "base drift: image=${CURRENT_BASE:-missing} trusted=${{ steps.base.outputs.digest }}"
+            echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TRUSTED=false
+          for WORKFLOW in publish-images.yml watch-cli-versions.yml release.yml; do
+            if cosign verify \
+              --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/$WORKFLOW@refs/heads/main" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$IMAGE@$IMAGE_DIGEST" >/dev/null 2>&1; then
+              TRUSTED=true
+              break
+            fi
+          done
+
+          if [ "$TRUSTED" != "true" ]; then
+            echo "current image is unsigned or lacks a trusted main-branch workflow signature; will rebuild $LATEST"
+            echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
           else
-            echo "already current at $CURRENT"
+            echo "already current and trusted at $CURRENT ($IMAGE_DIGEST)"
             echo "needs_rebuild=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -150,8 +214,8 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - if: steps.drift.outputs.needs_rebuild == 'true'
+        id: agent-cli-build
         name: Build + push agent-${{ matrix.tool }} pinned to npm latest
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -169,12 +233,20 @@ jobs:
             org.wisdoverse.cli-version=${{ steps.cli.outputs.version }}
             org.wisdoverse.upstream-package=${{ matrix.package }}
             org.wisdoverse.rebuild-trigger=watch-cli-versions
+            org.wisdoverse.agent-base-digest=${{ steps.base.outputs.digest }}
           build-args: |
-            BASE_IMAGE=${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base:main
+            BASE_IMAGE=${{ steps.base.outputs.ref }}
             CLI_TOOL=${{ matrix.tool }}
             CLI_VERSION=${{ steps.cli.outputs.version }}
           cache-from: type=gha,scope=agent-${{ matrix.tool }}
           cache-to: type=gha,mode=max,scope=agent-${{ matrix.tool }}
+
+      - if: steps.drift.outputs.needs_rebuild == 'true'
+        name: Sign agent-${{ matrix.tool }} image by digest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-${{ matrix.tool }}
+          DIGEST: ${{ steps.agent-cli-build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
       - if: steps.drift.outputs.needs_rebuild == 'true'
         name: Summarise rebuild

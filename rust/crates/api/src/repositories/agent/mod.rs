@@ -256,6 +256,118 @@ impl AgentRepository {
             .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
     }
 
+    /// Transaction-bound variant used by assignment enqueue after acquiring the
+    /// agent lifecycle lock. Reading the runtime kind and HMAC secret on the
+    /// caller's transaction keeps the generation fingerprint atomic with the
+    /// assignment outbox insert.
+    pub async fn find_by_id_in_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: AgentId,
+    ) -> AppResult<Agent> {
+        sqlx::query_as::<_, Agent>("SELECT * FROM agents WHERE id = $1 AND organization_id = $2")
+            .bind(id.as_uuid())
+            .bind(scope.org_id().as_uuid())
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
+    }
+
+    /// Cross-tenant lookup for the platform-admin lifecycle coordinator.
+    /// The caller must already have passed the platform-admin gate and hold
+    /// this Agent's lifecycle advisory lock.
+    pub(crate) async fn find_by_id_as_platform_admin_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        id: AgentId,
+    ) -> AppResult<Agent> {
+        sqlx::query_as::<_, Agent>("SELECT * FROM agents WHERE id = $1")
+            .bind(id.as_uuid())
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
+    }
+
+    /// Final expected-container CAS for platform-admin deletion. This stays
+    /// transaction-bound so no unscoped deletion primitive is exposed.
+    pub(crate) async fn delete_as_platform_admin_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        id: AgentId,
+        expected_container_id: Option<&str>,
+    ) -> AppResult<bool> {
+        let result = sqlx::query("DELETE FROM agents WHERE id = $1 AND container_id IS NOT DISTINCT FROM $2")
+            .bind(id.as_uuid())
+            .bind(expected_container_id)
+            .execute(&mut **tx)
+            .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub(crate) async fn clear_container_as_platform_admin_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        id: AgentId,
+        organization_id: Uuid,
+        expected_container_id: &str,
+    ) -> AppResult<bool> {
+        let result = sqlx::query(
+            r#"UPDATE agents
+                  SET nats_connect_password = NULL,
+                      hmac_secret = NULL,
+                      container_id = NULL,
+                      container_image_identity = NULL,
+                      interactive_lease_expires_at = NULL,
+                      interactive_owner_session_id = NULL,
+                      status = 'offline',
+                      ended_at = NOW(),
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND organization_id = $2
+                  AND container_id = $3"#,
+        )
+        .bind(id.as_uuid())
+        .bind(organization_id)
+        .bind(expected_container_id)
+        .execute(&mut **tx)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn set_container_as_platform_admin_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        id: AgentId,
+        organization_id: Uuid,
+        container_id: &str,
+        hmac_secret: &str,
+        nats_connect_password: &str,
+        image_identity: &serde_json::Value,
+    ) -> AppResult<bool> {
+        let result = sqlx::query(
+            r#"UPDATE agents
+                  SET container_id = $3,
+                      hmac_secret = $4,
+                      nats_connect_password = $5,
+                      container_image_identity = $6,
+                      interactive_lease_expires_at = NULL,
+                      interactive_owner_session_id = NULL,
+                      status = 'idle',
+                      started_at = COALESCE(started_at, NOW()),
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND organization_id = $2
+                  AND container_id IS NULL"#,
+        )
+        .bind(id.as_uuid())
+        .bind(organization_id)
+        .bind(container_id)
+        .bind(hmac_secret)
+        .bind(nats_connect_password)
+        .bind(image_identity)
+        .execute(&mut **tx)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
     /// Get a single agent by ID with owner + project joined in (tenant-scoped).
     pub async fn find_with_owner_by_id(&self, scope: &TenantScope, id: AgentId) -> AppResult<AgentListItem> {
         let query = format!(
@@ -488,6 +600,69 @@ impl AgentRepository {
         .ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(id))
     }
 
+    /// Recheck lifecycle admission after the caller acquires the per-Agent
+    /// advisory lock. A true result remains idle until that lock is released
+    /// because every task claim takes the same lock first.
+    pub(crate) async fn lifecycle_is_idle_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: AgentId,
+    ) -> AppResult<bool> {
+        agentforge_db::agent_work_admission_is_idle_in_tx(tx, scope.org_id().as_uuid(), id.as_uuid())
+            .await?
+            .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
+    }
+
+    /// Renew the short browser-terminal input lease while the expected
+    /// container is still current. An existing terminal lease permits follow-up
+    /// keystrokes after hooks mark the Agent working; unrelated working Agents
+    /// remain fenced.
+    pub(crate) async fn renew_interactive_lease_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: AgentId,
+        expected_container_id: &str,
+    ) -> AppResult<bool> {
+        Ok(sqlx::query_scalar(
+            r#"UPDATE agents agent
+                   SET interactive_owner_session_id = CASE
+                           WHEN interactive_lease_expires_at IS NULL
+                             OR interactive_lease_expires_at <= NOW()
+                           THEN NULL
+                           ELSE interactive_owner_session_id
+                       END,
+                       interactive_lease_expires_at = GREATEST(
+                           COALESCE(interactive_lease_expires_at, NOW()),
+                           NOW() + INTERVAL '60 seconds'
+                       ),
+                       updated_at = NOW()
+                 WHERE agent.id = $1
+                   AND agent.organization_id = $2
+                   AND agent.container_id = $3
+                   AND agent.container_image_identity IS NOT NULL
+                   AND (agent.status <> 'working' OR agent.interactive_lease_expires_at IS NOT NULL)
+                   AND NOT EXISTS (
+                         SELECT 1 FROM participants participant
+                          WHERE participant.organization_id = agent.organization_id
+                            AND participant.agent_id = agent.id
+                            AND participant.status = 'busy'
+                       )
+                   AND NOT EXISTS (
+                         SELECT 1 FROM orchestration_tasks task
+                          WHERE task.organization_id = agent.organization_id
+                            AND task.assigned_agent_id = agent.id
+                            AND task.status = 'working'
+                       )
+             RETURNING TRUE"#,
+        )
+        .bind(id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .bind(expected_container_id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .unwrap_or(false))
+    }
+
     /// Update agent fields (name, model, provider, system_prompt). Only non-None values are updated.
     pub async fn update(
         &self,
@@ -559,16 +734,21 @@ impl AgentRepository {
         container_id: &str,
         hmac_secret: &str,
         nats_connect_password: &str,
+        image_identity: &serde_json::Value,
     ) -> AppResult<Agent> {
         sqlx::query_as::<_, Agent>(
             r#"UPDATE agents
                   SET container_id          = $3,
                       hmac_secret           = $4,
                       nats_connect_password = $5,
+                      container_image_identity = $6,
+                      interactive_lease_expires_at = NULL,
+                      interactive_owner_session_id = NULL,
                       status = 'idle',
                       started_at = COALESCE(started_at, NOW()),
                       updated_at = NOW()
                 WHERE id = $1 AND organization_id = $2
+                  AND container_id IS NULL
                 RETURNING *"#,
         )
         .bind(id.as_uuid())
@@ -576,9 +756,39 @@ impl AgentRepository {
         .bind(container_id)
         .bind(hmac_secret)
         .bind(nats_connect_password)
+        .bind(image_identity)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
+    }
+
+    /// Attach verified image evidence only while the same container is still
+    /// current. The container-id CAS prevents a late reconcile from stamping a
+    /// replacement container with stale evidence.
+    pub async fn set_container_image_identity(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        container_id: &str,
+        image_identity: &serde_json::Value,
+    ) -> AppResult<bool> {
+        sqlx::query_as::<_, Agent>(
+            r#"UPDATE agents
+                  SET container_image_identity = $4,
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND organization_id = $2
+                  AND container_id = $3
+                RETURNING *"#,
+        )
+        .bind(id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .bind(container_id)
+        .bind(image_identity)
+        .fetch_optional(&self.pool)
+        .await
+        .map(|agent| agent.is_some())
+        .map_err(Into::into)
     }
 
     /// Clear container + HMAC + NATS password references and flip status to
@@ -588,23 +798,69 @@ impl AgentRepository {
     /// verification. Dropping both secrets is deliberate — keeping stale
     /// keys after the container dies only widens the window in which leaked
     /// material stays verifiable. A fresh `start_agent` writes fresh UUIDs.
-    pub async fn clear_container(&self, scope: &TenantScope, id: AgentId) -> AppResult<Agent> {
+    pub async fn clear_container(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        expected_container_id: &str,
+    ) -> AppResult<bool> {
         sqlx::query_as::<_, Agent>(
             r#"UPDATE agents
                   SET nats_connect_password = NULL,
                       hmac_secret           = NULL,
                       container_id          = NULL,
+                      container_image_identity = NULL,
+                      interactive_lease_expires_at = NULL,
+                      interactive_owner_session_id = NULL,
                       status = 'offline',
                       ended_at = NOW(),
                       updated_at = NOW()
-                WHERE id = $1 AND organization_id = $2
+                WHERE id = $1
+                  AND organization_id = $2
+                  AND container_id = $3
                 RETURNING *"#,
         )
         .bind(id.as_uuid())
         .bind(scope.org_id().as_uuid())
+        .bind(expected_container_id)
         .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(id))
+        .await
+        .map(|agent| agent.is_some())
+        .map_err(Into::into)
+    }
+
+    /// Revoke a container's persisted credentials without losing its Docker
+    /// reference when removal could not be confirmed. A later reconcile can
+    /// still find and remove it, but it can no longer authenticate or submit
+    /// signed results through the current Agent row.
+    pub async fn quarantine_container(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        expected_container_id: &str,
+    ) -> AppResult<bool> {
+        sqlx::query_as::<_, Agent>(
+            r#"UPDATE agents
+                  SET nats_connect_password = NULL,
+                      hmac_secret = NULL,
+                      container_image_identity = NULL,
+                      interactive_lease_expires_at = NULL,
+                      interactive_owner_session_id = NULL,
+                      status = 'offline',
+                      ended_at = NOW(),
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND organization_id = $2
+                  AND container_id = $3
+                RETURNING *"#,
+        )
+        .bind(id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .bind(expected_container_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map(|agent| agent.is_some())
+        .map_err(Into::into)
     }
 
     /// Hard-delete an agent (tenant-scoped).
@@ -979,6 +1235,12 @@ mod tests {
             name: "MCP worker".into(),
             status: AgentStatus::Idle,
             container_id: Some("ctr-mcp-1".into()),
+            container_image_identity: Some(serde_json::json!({
+                "source": "agentforge-agent:claude",
+                "imageId": format!("sha256:{}", "a".repeat(64)),
+                "versionSource": "not-reported",
+                "trust": "host-local"
+            })),
             cli_tool: Some("codex".into()),
             model: Some("agentforge-agent:codex".into()),
             provider: Some("openai".into()),
@@ -994,6 +1256,75 @@ mod tests {
         assert_eq!(row.0, "container");
         assert_eq!(row.1.as_deref(), Some("codex"));
 
+        let owner_a = repo.begin_agent_work(agent_id, "ctr-mcp-1").await.expect("begin MCP work owner A");
+        let (status, lease_outlives_sixty_seconds): (AgentStatus, bool) = sqlx::query_as(
+            "SELECT status, interactive_lease_expires_at > NOW() + INTERVAL '50 seconds' FROM agents WHERE id = $1",
+        )
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("read MCP work ownership");
+        assert_eq!(status, AgentStatus::Working);
+        assert!(lease_outlives_sixty_seconds, "MCP monitor must receive a renewable 60s owner token");
+
+        // Public status is presentation-only. Even an authorized Working->Idle
+        // PATCH must not clear the durable execution owner and enable a
+        // concurrent orchestration claim.
+        AgentRepository::new(pool.clone())
+            .update_status(&scope, AgentId::from(agent_id), AgentStatus::Idle)
+            .await
+            .expect("simulate public idle status write");
+        let mut admission_tx = pool.begin().await.expect("begin admission check");
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut admission_tx, agent_id).await.expect("lock admission");
+        assert_eq!(
+            agentforge_db::agent_work_admission_is_idle_in_tx(&mut admission_tx, org_uuid, agent_id)
+                .await
+                .expect("check durable owner"),
+            Some(false),
+            "public status writes cannot release MCP execution ownership"
+        );
+        admission_tx.rollback().await.expect("rollback admission check");
+
+        let owner_a_renewed = repo
+            .renew_agent_work_lease(agent_id, "ctr-mcp-1", owner_a)
+            .await
+            .expect("renew owner A after public status write")
+            .expect("public status must not defeat owner-token renewal");
+
+        // Process pause/crash: the bounded lease expires and admission recovers
+        // even though the presentation status is stale. A new prompt rotates
+        // the deadline token; the resumed old monitor cannot renew or finish it.
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("expire owner A");
+        let mut recovered = pool.begin().await.expect("begin crash recovery check");
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut recovered, agent_id).await.unwrap();
+        assert_eq!(
+            agentforge_db::agent_work_admission_is_idle_in_tx(&mut recovered, org_uuid, agent_id).await.unwrap(),
+            Some(true)
+        );
+        recovered.rollback().await.unwrap();
+
+        let owner_b = repo.begin_agent_work(agent_id, "ctr-mcp-1").await.expect("begin replacement MCP owner B");
+        assert!(
+            repo.renew_agent_work_lease(agent_id, "ctr-mcp-1", owner_a_renewed).await.unwrap().is_none(),
+            "stale monitor A must not renew owner B"
+        );
+        assert!(
+            !repo.finish_agent_work(agent_id, "ctr-mcp-1", owner_a_renewed, AgentStatus::Idle).await.unwrap(),
+            "stale monitor A must not clear owner B"
+        );
+        assert!(repo.finish_agent_work(agent_id, "ctr-mcp-1", owner_b, AgentStatus::Idle).await.unwrap());
+        let lease: Option<chrono::DateTime<Utc>> =
+            sqlx::query_scalar("SELECT interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read released MCP lease");
+        assert!(lease.is_none());
+
         // Container-backed record without a cli_tool: typed validation error.
         let err = repo
             .insert_agent(McpAgentInsertRecord {
@@ -1005,6 +1336,7 @@ mod tests {
                 name: "Broken MCP worker".into(),
                 status: AgentStatus::Idle,
                 container_id: Some("ctr-mcp-2".into()),
+                container_image_identity: None,
                 cli_tool: None,
                 model: None,
                 provider: None,

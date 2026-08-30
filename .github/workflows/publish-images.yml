@@ -3,8 +3,8 @@
 #
 # Triggers
 #   - Push to main:        publishes :main, :sha-<short>, :edge
-#   - Push tag v*:         publishes :<version>, :<major.minor>, :<major>, :latest
-#   - workflow_dispatch:   ad-hoc rebuild from any branch
+#                          (`agent-base` also gets :sha-<full> for releases)
+#   - workflow_dispatch:   rebuilds the selected main commit only
 #
 # Images published (under ghcr.io/${{ github.repository }})
 #   - frontend (root namespace, e.g. ghcr.io/wisdoverse/wisdoverse-forge:main)
@@ -31,7 +31,7 @@
 # `steps.<id>.outputs.digest`; we sign `<image-name>@<digest>`.
 #
 # The cosign Fulcio OIDC identity is bound to THIS workflow file
-# (`publish-images.yml`) at the build ref, so `agentforge verify-image` can
+# (`publish-images.yml`) on `refs/heads/main`, so `agentforge verify-image` can
 # pin the expected signer and fail closed on an unexpected identity rather
 # than trusting "any Sigstore signature". See
 # rust/crates/cli/src/cmd/verify_image.rs and
@@ -48,14 +48,7 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Git ref to build (default: current branch)'
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -65,8 +58,21 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  require-main:
+    name: Require trusted main ref
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject non-main publication
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Trusted images can only be published from refs/heads/main; selected ref was $GITHUB_REF."
+            exit 1
+          fi
+
   publish-frontend:
     name: Publish frontend + Rust images
+    needs: require-main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -78,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.sha }}
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -98,14 +104,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=main
             type=sha,prefix=sha-,format=short
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge
       - id: frontend-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -135,14 +136,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/server
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=main
             type=sha,prefix=sha-,format=short
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge
       - id: server-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -171,14 +167,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/sidecar
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=main
             type=sha,prefix=sha-,format=short
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge
       - id: sidecar-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -208,14 +199,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/orchestrator
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=main
             type=sha,prefix=sha-,format=short
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge
       - id: orchestrator-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -240,7 +226,11 @@ jobs:
 
   publish-agent-base:
     name: Publish agent-base
+    needs: require-main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.agent-base-build.outputs.digest }}
     # No `attestations: write`: agent-base relies on buildx `provenance: true`
     # (written to the registry via `packages: write`) plus the cosign signature
     # below, not actions/attest-build-provenance.
@@ -251,7 +241,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.sha }}
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -268,14 +258,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=main
             type=sha,prefix=sha-,format=short
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=edge
       - id: agent-base-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -300,6 +286,7 @@ jobs:
   publish-agent-cli-images:
     name: Publish agent-${{ matrix.tool }}
     needs: publish-agent-base
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -318,7 +305,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -352,43 +339,29 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "license=$LICENSE" >> "$GITHUB_OUTPUT"
 
-      # Combine the build's git ref (matching other images) with the upstream
-      # CLI version so operators can pin either. Compute the agent-base ref so
-      # the build-arg below can address the right tag without GHA expression
-      # gymnastics.
       - id: refs
         name: Resolve image refs
         run: |
           set -euo pipefail
           IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-${{ matrix.tool }}"
-          BASE_IMAGE="${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base"
           SHA_SHORT="${GITHUB_SHA:0:7}"
-          REF="${GITHUB_REF#refs/heads/}"
-          REF="${REF#refs/tags/}"
           {
             echo "tags<<EOF"
             echo "$IMAGE:${{ steps.cli.outputs.version }}"
             echo "$IMAGE:sha-$SHA_SHORT"
-            if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-              echo "$IMAGE:main"
-              echo "$IMAGE:edge"
-              echo "BASE_TAG=main" >> /tmp/base_tag.env
-            fi
-            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-              VERSION="${REF#v}"
-              echo "$IMAGE:$VERSION"
-              echo "$IMAGE:$VERSION-${{ steps.cli.outputs.version }}"
-              echo "$IMAGE:latest"
-              echo "BASE_TAG=$VERSION" >> /tmp/base_tag.env
-            fi
+            echo "$IMAGE:main"
+            echo "$IMAGE:edge"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-          # Fallback: workflow_dispatch or unrecognized ref → pin to sha
-          if [ ! -f /tmp/base_tag.env ]; then
-            echo "BASE_TAG=sha-$SHA_SHORT" > /tmp/base_tag.env
-          fi
-          cat /tmp/base_tag.env >> "$GITHUB_OUTPUT"
-          echo "base_image=$BASE_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Verify immutable agent-base input
+        env:
+          BASE_IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base@${{ needs.publish-agent-base.outputs.digest }}
+        run: |
+          cosign verify \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/publish-images.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$BASE_IMAGE" >/dev/null
 
       - id: agent-cli-build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -404,8 +377,9 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=${{ steps.cli.outputs.license }}
             org.wisdoverse.cli-version=${{ steps.cli.outputs.version }}
+            org.wisdoverse.agent-base-digest=${{ needs.publish-agent-base.outputs.digest }}
           build-args: |
-            BASE_IMAGE=${{ steps.refs.outputs.base_image }}:${{ steps.refs.outputs.BASE_TAG }}
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ steps.image.outputs.name }}/agent-base@${{ needs.publish-agent-base.outputs.digest }}
             CLI_TOOL=${{ matrix.tool }}
             CLI_VERSION=${{ steps.cli.outputs.version }}
           cache-from: type=gha,scope=agent-${{ matrix.tool }}

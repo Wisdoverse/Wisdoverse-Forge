@@ -169,12 +169,37 @@ impl AgentService {
         container_id: &str,
         hmac_secret: &str,
         nats_connect_password: &str,
+        image_identity: &serde_json::Value,
     ) -> AppResult<Agent> {
-        self.repo.set_container(scope, id, container_id, hmac_secret, nats_connect_password).await
+        self.repo.set_container(scope, id, container_id, hmac_secret, nats_connect_password, image_identity).await
     }
 
-    pub(crate) async fn clear_container(&self, scope: &TenantScope, id: AgentId) -> AppResult<Agent> {
-        self.repo.clear_container(scope, id).await
+    pub(crate) async fn clear_container(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        expected_container_id: &str,
+    ) -> AppResult<bool> {
+        self.repo.clear_container(scope, id, expected_container_id).await
+    }
+
+    pub(crate) async fn set_container_image_identity(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        container_id: &str,
+        image_identity: &serde_json::Value,
+    ) -> AppResult<bool> {
+        self.repo.set_container_image_identity(scope, id, container_id, image_identity).await
+    }
+
+    pub(crate) async fn quarantine_container(
+        &self,
+        scope: &TenantScope,
+        id: AgentId,
+        expected_container_id: &str,
+    ) -> AppResult<bool> {
+        self.repo.quarantine_container(scope, id, expected_container_id).await
     }
 
     // --- Collaborator operations ---

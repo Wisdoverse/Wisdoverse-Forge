@@ -1205,6 +1205,10 @@ impl ParticipantRepository {
                   AND agent.organization_id = participant.organization_id
                 WHERE participant.agent_id = $1
                   AND participant.organization_id = $2
+                  AND (agent.runtime_kind <> 'container' OR (
+                      agent.container_id IS NOT NULL
+                      AND agent.container_image_identity IS NOT NULL
+                  ))
                   FOR UPDATE OF participant, agent"#,
         )
         .bind(agent_id.as_uuid())
@@ -1239,6 +1243,19 @@ impl ParticipantRepository {
                   AND task_workspace.deleted_at IS NULL
                 WHERE participant.organization_id = $1
                   AND participant.status = 'available'
+                  AND (agent.interactive_lease_expires_at IS NULL
+                       OR agent.interactive_lease_expires_at <= NOW())
+                  AND NOT EXISTS (
+                        SELECT 1
+                          FROM orchestration_tasks active_task
+                         WHERE active_task.organization_id = agent.organization_id
+                           AND active_task.assigned_agent_id = agent.id
+                           AND active_task.status = 'working'
+                      )
+                  AND (agent.runtime_kind <> 'container' OR (
+                      agent.container_id IS NOT NULL
+                      AND agent.container_image_identity IS NOT NULL
+                  ))
                   AND agent.workspace_id = task_project.workspace_id
                   AND EXISTS (
                         SELECT 1
@@ -1266,6 +1283,12 @@ impl ParticipantRepository {
         expected_task: &OrchestrationTask,
         agent_id: AgentId,
     ) -> AppResult<Participant> {
+        agentforge_db::lock_agent_lifecycle_in_tx(tx, agent_id.as_uuid()).await?;
+        if agentforge_db::agent_work_admission_is_idle_in_tx(tx, scope.org_id().as_uuid(), agent_id.as_uuid()).await?
+            != Some(true)
+        {
+            return Err(OrchestrationRepositoryPolicy::participant_not_found(agent_id));
+        }
         sqlx::query_as::<_, Participant>(
             r#"WITH locked_participant AS MATERIALIZED (
                    SELECT participant.id,
@@ -1276,6 +1299,19 @@ impl ParticipantRepository {
                       AND agent.organization_id = participant.organization_id
                     WHERE participant.agent_id = $3
                       AND participant.organization_id = $1
+                      AND (agent.interactive_lease_expires_at IS NULL
+                           OR agent.interactive_lease_expires_at <= NOW())
+                      AND NOT EXISTS (
+                            SELECT 1
+                              FROM orchestration_tasks active_task
+                             WHERE active_task.organization_id = agent.organization_id
+                               AND active_task.assigned_agent_id = agent.id
+                               AND active_task.status = 'working'
+                          )
+                      AND (agent.runtime_kind <> 'container' OR (
+                          agent.container_id IS NOT NULL
+                          AND agent.container_image_identity IS NOT NULL
+                      ))
                       FOR UPDATE OF participant, agent
                ),
                locked_task AS MATERIALIZED (
@@ -1639,6 +1675,43 @@ mod participant_list_runtime_tests {
             .expect("make fallback chat-only");
         assert!(repo.find_available(&scope, task_id).await.expect("find none").is_none());
         assert_eq!(repo.count_by_status(&scope, task_id).await.expect("empty route count"), (0, 0, 0));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn api_assignment_claim_rejects_live_interactive_ownership(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let task_id = seed_task(&pool, &fixture, Some(fixture.group_a), "Interactive owner").await;
+        let agent_id =
+            seed_participant(&pool, &fixture, fixture.workspace_a, Some(fixture.project_a), &["codex"]).await;
+        let scope = tenant_scope_for_ids(fixture.org_id, fixture.user_id);
+        let task = OrchestrationTaskRepository::new(pool.clone()).find_by_id(&scope, task_id).await.expect("load task");
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() + INTERVAL '60 seconds' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("establish interactive owner");
+
+        let mut blocked_tx = pool.begin().await.expect("begin blocked claim");
+        assert!(
+            ParticipantRepository::claim_for_task_in_tx(&mut blocked_tx, &scope, &task, AgentId::from(agent_id),)
+                .await
+                .is_err(),
+            "API claim must not overlap a live terminal/MCP lease"
+        );
+        blocked_tx.rollback().await.expect("rollback blocked claim");
+
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("expire interactive owner");
+        let mut admitted_tx = pool.begin().await.expect("begin admitted claim");
+        let claimed =
+            ParticipantRepository::claim_for_task_in_tx(&mut admitted_tx, &scope, &task, AgentId::from(agent_id))
+                .await
+                .expect("expired lease should release admission");
+        assert_eq!(claimed.status, "busy");
+        admitted_tx.rollback().await.expect("rollback admitted claim");
     }
 
     #[sqlx::test(migrations = "../db/migrations")]

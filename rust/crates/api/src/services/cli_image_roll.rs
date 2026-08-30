@@ -5,14 +5,11 @@
 //! auto-updater (which never touches running agents), this DOES interrupt live
 //! work, so it is operator-initiated, never automatic, and never `claude`.
 //!
-//! Scope: each agent is rolled within its OWN persisted tenant scope
-//! (org/user/workspace read from the row), reconstructed via `TenantScope`. This
-//! is not privilege fabrication — it is the agent's real scope, reached only
-//! through the admin gate, and the existing tenant-scoped `stop`/`start`
-//! primitives enforce every per-org invariant. A roll = `stop` (removes the
-//! container, clears `container_id`) then `start` (recreates from the resolved,
-//! now-updated image). A failed `start` leaves that agent STOPPED; the per-agent
-//! result records it so an operator can restart it via the normal control path.
+//! Scope: the route produces a sealed platform-admin authority value and the
+//! lifecycle coordinator re-reads each authoritative Agent under its lock. It
+//! never fabricates tenant scope. The mutable configured tag is resolved and
+//! signature-verified exactly once per roll, then every replacement is created
+//! from that same immutable content id.
 //!
 //! Safety: a `working` agent is SKIPPED (reported as `skipped_busy`) — rolling
 //! one would interrupt its in-flight work and, because the sidecar dedup WAL is
@@ -27,14 +24,16 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use agentforge_core::{AgentId, AgentStatus, AppConfig, AppResult, OrgId, TenantScope, UserId, WorkspaceId};
+use agentforge_core::{AgentId, AgentStatus, AppConfig, AppResult, CliToolKind};
 use agentforge_platform::DockerClient;
 use sqlx::PgPool;
 
-use crate::domain::agent::AgentContainerStopOutcome;
 use crate::domain::context::ContextFeatureFlags;
 use crate::repositories::admin::AdminRepository;
-use crate::services::agent_container_control::AgentContainerControlService;
+use crate::services::admin::PlatformAdminAuthority;
+use crate::services::agent_container_control::{
+    AgentContainerControlService, AgentContainerReplaceOutcome, VerifiedRollImage,
+};
 use crate::services::auth_callout::AuthCalloutService;
 use uuid::Uuid;
 
@@ -71,6 +70,7 @@ impl Drop for RollGuard {
 }
 
 pub struct CliImageRollService {
+    pool: PgPool,
     repo: AdminRepository,
     control: AgentContainerControlService,
     inflight: Arc<Mutex<HashSet<String>>>,
@@ -91,6 +91,7 @@ impl CliImageRollService {
     ) -> Self {
         let docker_available = docker.is_some();
         Self {
+            pool: pool.clone(),
             repo: AdminRepository::new(pool.clone()),
             control: AgentContainerControlService::from_runtime(
                 pool,
@@ -107,7 +108,7 @@ impl CliImageRollService {
 
     /// Roll every running container agent of `tool`. Best-effort per agent — one
     /// agent's failure never aborts the rest; each outcome is collected.
-    pub async fn roll(&self, tool: &str) -> AppResult<RollReport> {
+    pub(crate) async fn roll(&self, authority: &PlatformAdminAuthority, tool: &str) -> AppResult<RollReport> {
         // Defense-in-depth: re-assert the allowlist here, never trusting only
         // the route (claude/unknown are rejected with 422).
         RollToolPolicy::ensure_rollable(tool)?;
@@ -115,6 +116,10 @@ impl CliImageRollService {
         // Reject a concurrent roll of the same tool; the guard frees the slot on
         // drop regardless of how `roll` returns.
         let _guard = RollGuard::acquire(&self.inflight, tool)?;
+        let mut roll_tx = self.pool.begin().await?;
+        if !agentforge_db::try_lock_cli_image_roll_in_tx(&mut roll_tx, tool).await? {
+            return Err(roll_in_progress_error(tool));
+        }
 
         // Partition: skip agents with in-flight work — interrupting one risks a
         // redelivered assignment double-executing against the fresh sidecar (its
@@ -136,16 +141,33 @@ impl CliImageRollService {
             return Err(roll_runtime_unavailable_error());
         }
 
+        let image = if to_roll.is_empty() {
+            None
+        } else {
+            let tool_kind = CliToolKind::parse_legacy(tool)
+                .map_err(|err| agentforge_core::ErrorKind::Validation(err.to_string()))?;
+            Some(self.control.snapshot_verified_roll_image(authority, tool_kind).await?)
+        };
+
         let mut results = Vec::with_capacity(to_roll.len());
         for target in to_roll {
-            let scope = TenantScope::with_axes(
-                OrgId::from(target.organization_id),
-                UserId::from(target.user_id),
-                target.workspace_id.map(WorkspaceId::from),
-                None,
-                None,
-            );
-            results.push(self.roll_one(&scope, AgentId::from(target.id), target.id, tool).await);
+            match self
+                .roll_one(
+                    authority,
+                    AgentId::from(target.id),
+                    target.id,
+                    tool,
+                    image.as_ref().expect("non-empty roll has a verified image snapshot"),
+                )
+                .await
+            {
+                Ok(Some(result)) => results.push(result),
+                Ok(None) => skipped_busy += 1,
+                Err(err) => {
+                    tracing::warn!(agent_id = %target.id, tool, error = %err, "cli image roll: lifecycle admission failed");
+                    results.push(RollAgentResult::unconfirmed(target.id, client_safe_roll_error(&err)));
+                }
+            }
         }
 
         let report = RollReport::build(tool, results, skipped_busy);
@@ -157,6 +179,7 @@ impl CliImageRollService {
             skipped_busy = report.skipped_busy,
             "cli image roll complete"
         );
+        roll_tx.commit().await?;
         Ok(report)
     }
 
@@ -170,31 +193,38 @@ impl CliImageRollService {
     /// - `Unconfirmed` (or a pre-Docker error) → state unverifiable; the
     ///   reconcile backstop converges it. Full error to the server log; a
     ///   client-safe message in the report.
-    async fn roll_one(&self, scope: &TenantScope, agent_id: AgentId, id: Uuid, tool: &str) -> RollAgentResult {
-        match self.control.stop_with_outcome(scope, agent_id).await {
-            Ok(AgentContainerStopOutcome::Stopped) => match self.control.start(scope, agent_id).await {
-                Ok(_) => RollAgentResult::respawned(id),
-                Err(err) => {
-                    tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: respawn failed; agent now stopped");
-                    RollAgentResult::failed_now_stopped(id, client_safe_roll_error(&err))
-                }
-            },
-            Ok(AgentContainerStopOutcome::StillRunning) => {
+    async fn roll_one(
+        &self,
+        authority: &PlatformAdminAuthority,
+        agent_id: AgentId,
+        id: Uuid,
+        tool: &str,
+        image: &VerifiedRollImage,
+    ) -> AppResult<Option<RollAgentResult>> {
+        let result = match self.control.replace_if_idle_as_platform_admin(authority, agent_id, image).await? {
+            None => return Ok(None),
+            Some(AgentContainerReplaceOutcome::Respawned) => RollAgentResult::respawned(id),
+            Some(AgentContainerReplaceOutcome::RespawnFailed(err)) => {
+                tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: respawn failed; agent now stopped");
+                RollAgentResult::failed_now_stopped(id, client_safe_roll_error(&err))
+            }
+            Some(AgentContainerReplaceOutcome::StillRunning) => {
                 tracing::warn!(agent_id = %id, tool, "cli image roll: container still running on previous image after stop");
                 RollAgentResult::still_running(id)
             }
-            Ok(AgentContainerStopOutcome::Unconfirmed) => {
+            Some(AgentContainerReplaceOutcome::Unconfirmed) => {
                 tracing::warn!(agent_id = %id, tool, "cli image roll: stop post-condition unverified; pending reconciliation");
                 RollAgentResult::unconfirmed(
                     id,
                     "could not confirm the agent stopped; it will be reconciled".to_string(),
                 )
             }
-            Err(err) => {
+            Some(AgentContainerReplaceOutcome::StopFailed(err)) => {
                 tracing::warn!(agent_id = %id, tool, error = %err, "cli image roll: stop could not be attempted");
                 RollAgentResult::unconfirmed(id, client_safe_roll_error(&err))
             }
-        }
+        };
+        Ok(Some(result))
     }
 }
 

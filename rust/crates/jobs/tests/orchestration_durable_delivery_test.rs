@@ -11,6 +11,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{
     ORCHESTRATION_ASSIGNMENTS_STREAM, SignedEnvelope, TaskAssignment, TaskOutcome, TaskResult, assign_subject,
     assign_subject_wildcard,
@@ -260,7 +261,8 @@ async fn assignment_outbox_publishes_only_after_commit(pool: PgPool) {
         message: "publish after commit".into(),
         priority: "normal".into(),
         context_envelope: None,
-        runtime_kind: None,
+        runtime_kind: Some(RuntimeKind::Api),
+        container_generation_fingerprint: None,
         image_paths: Vec::new(),
         trace_context: None,
     };
@@ -333,7 +335,8 @@ async fn assignment_outbox_backlog_drains_after_publisher_restart(pool: PgPool) 
         message: "publish after publisher restart".into(),
         priority: "normal".into(),
         context_envelope: None,
-        runtime_kind: None,
+        runtime_kind: Some(RuntimeKind::Api),
+        container_generation_fingerprint: None,
         image_paths: Vec::new(),
         trace_context: None,
     };

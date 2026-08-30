@@ -167,6 +167,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("091_recurring_tasks.sql", include_str!("../migrations/091_recurring_tasks.sql")),
     ("092_task_templates_project.sql", include_str!("../migrations/092_task_templates_project.sql")),
     ("093_orchestration_task_row_version.sql", include_str!("../migrations/093_orchestration_task_row_version.sql")),
+    ("094_agent_container_image_identity.sql", include_str!("../migrations/094_agent_container_image_identity.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

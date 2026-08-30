@@ -10,9 +10,9 @@
 //!      `${AGENT_REGISTRY}/agent-<tool>:<tag>` (no pull — daemon-side
 //!      `/distribution/<image>/json`),
 //!   2. compares it to the locally-pulled digest of the same ref,
-//!   3. on drift: `docker pull` the new image and re-tag it to the runtime's
-//!      `agentforge-agent:<tool>` ref, so the NEXT spawned agent uses the new
-//!      CLI.
+//!   3. pulls on registry drift, then ensures the runtime's
+//!      `agentforge-agent:<tool>` alias resolves to that image, so the NEXT
+//!      spawned agent uses the new CLI.
 //!
 //! Policy: RUNNING agents are NEVER touched — only the image the next spawn
 //! resolves is refreshed. `claude` has no public registry image (built locally
@@ -21,8 +21,9 @@
 //! opt-in via `CLI_IMAGE_CLAUDE_AUTO_BUILD` or one click in the admin panel —
 //! builds the overlay image server-side from an in-memory Dockerfile (see
 //! [`CLAUDE_OVERLAY_DOCKERFILE`]). The worker is deployment-global: it holds no
-//! tenant scope and queries no org-scoped table, only Docker (plus the npm
-//! registry for claude). Notification is via a structured `warn!` event,
+//! tenant scope and queries no org-scoped table. PostgreSQL is used only for the
+//! shared per-tool image-mutation advisory lock; image state remains in Docker
+//! (plus the npm registry for claude). Notification is via a structured `warn!` event,
 //! Prometheus metrics, a read-only admin status API (`GET /admin/cli-images`),
 //! and — when NATS is configured — a live admin WebSocket toast on
 //! `broadcast.admin.cli_image`. The worker can also prune superseded overlays
@@ -39,7 +40,9 @@ use agentforge_core::CliToolKind;
 use agentforge_core::broadcast_protocol::ADMIN_CLI_IMAGE_SUBJECT;
 use agentforge_core::ws_protocol::{CliImageUpdatedPayload, ServerMessage};
 use agentforge_platform::container::PlatformError;
-use agentforge_platform::{DockerClient, LocalImage, RemoveOutcome};
+use agentforge_platform::{DockerClient, LocalImage, LocalImageIdentity, RemoveOutcome, verify_image_signature};
+use semver::Version;
+use sqlx::{PgPool, Postgres, Transaction};
 use tokio::sync::{RwLock, watch};
 
 /// Per-tool image-update state, surfaced read-only by `GET /admin/cli-images`.
@@ -278,8 +281,65 @@ pub fn effective_interval_secs(configured_secs: u64) -> u64 {
     configured_secs.max(MIN_INTERVAL.as_secs())
 }
 
+#[async_trait::async_trait]
+trait CliImageDocker: Send + Sync {
+    async fn remote_digest(&self, image_ref: &str) -> Result<String, PlatformError>;
+    async fn local_identity(&self, image_ref: &str) -> Result<Option<LocalImageIdentity>, PlatformError>;
+    async fn pull(&self, image_ref: &str) -> Result<(), PlatformError>;
+    async fn tag(&self, source_ref: &str, target_repo: &str, target_tag: &str) -> Result<(), PlatformError>;
+    async fn verify_signature(&self, identity: &LocalImageIdentity) -> Result<(), PlatformError>;
+}
+
+#[async_trait::async_trait]
+impl CliImageDocker for DockerClient {
+    async fn remote_digest(&self, image_ref: &str) -> Result<String, PlatformError> {
+        self.remote_image_digest(image_ref, None).await
+    }
+
+    async fn local_identity(&self, image_ref: &str) -> Result<Option<LocalImageIdentity>, PlatformError> {
+        self.local_image_identity(image_ref).await
+    }
+
+    async fn pull(&self, image_ref: &str) -> Result<(), PlatformError> {
+        self.pull_image(image_ref, None).await
+    }
+
+    async fn tag(&self, source_ref: &str, target_repo: &str, target_tag: &str) -> Result<(), PlatformError> {
+        self.tag_image(source_ref, target_repo, target_tag).await
+    }
+
+    async fn verify_signature(&self, identity: &LocalImageIdentity) -> Result<(), PlatformError> {
+        let registry_reference = identity.registry_reference.as_deref().ok_or_else(|| {
+            PlatformError::ImageVerification("registry image has no immutable source reference".to_string())
+        })?;
+        verify_image_signature(registry_reference).await
+    }
+}
+
+async fn lock_cli_image_mutation_in_tx(tx: &mut Transaction<'_, Postgres>, tool: &str) -> Result<(), PlatformError> {
+    let acquired = agentforge_db::try_lock_cli_image_roll_in_tx(tx, tool).await.map_err(|err| {
+        PlatformError::Internal(format!("could not acquire CLI image mutation lock for {tool}: {err}"))
+    })?;
+    if !acquired {
+        return Err(PlatformError::Internal(format!(
+            "cli_image_mutation_busy: another update, build, prune, or roll is already changing the {tool} image"
+        )));
+    }
+    Ok(())
+}
+
+async fn begin_cli_image_mutation(pool: &PgPool, tool: &str) -> Result<Transaction<'static, Postgres>, PlatformError> {
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|err| PlatformError::Internal(format!("could not begin CLI image mutation for {tool}: {err}")))?;
+    lock_cli_image_mutation_in_tx(&mut tx, tool).await?;
+    Ok(tx)
+}
+
 pub struct CliImageUpdater {
     docker: Arc<DockerClient>,
+    pool: PgPool,
     status: Arc<CliImageUpdateStatus>,
     interval: Duration,
     /// Optional NATS client used to publish admin toast frames on the
@@ -303,9 +363,10 @@ pub struct CliImageUpdater {
 }
 
 impl CliImageUpdater {
-    pub fn new(docker: Arc<DockerClient>, status: Arc<CliImageUpdateStatus>) -> Self {
+    pub fn new(docker: Arc<DockerClient>, pool: PgPool, status: Arc<CliImageUpdateStatus>) -> Self {
         Self {
             docker,
+            pool,
             status,
             interval: DEFAULT_INTERVAL,
             event_sink: None,
@@ -473,6 +534,7 @@ impl CliImageUpdater {
                 {
                     let ctx = ClaudeBuildContext {
                         docker: self.docker.clone(),
+                        pool: self.pool.clone(),
                         status: self.status.clone(),
                         event_sink: self.event_sink.clone(),
                         npm_registry: self.npm_registry.clone(),
@@ -513,6 +575,22 @@ impl CliImageUpdater {
     /// summary still records, and the next sweep retries.
     async fn prune_orphans(&self, now: i64) -> CliImagePruneSummary {
         let mut summary = CliImagePruneSummary { enabled: true, last_run_unix: Some(now), ..Default::default() };
+
+        let mut mutation_tx = match self.pool.begin().await {
+            Ok(tx) => tx,
+            Err(err) => {
+                summary.errors += 1;
+                summary.last_error = Some(format!("could not begin CLI image prune mutation: {err}"));
+                return summary;
+            }
+        };
+        for tool in pollable_tools() {
+            if let Err(err) = lock_cli_image_mutation_in_tx(&mut mutation_tx, tool.as_str()).await {
+                summary.errors += 1;
+                summary.last_error = Some(err.to_string());
+                return summary;
+            }
+        }
 
         let images = match self.docker.list_local_images().await {
             Ok(images) => images,
@@ -563,6 +641,10 @@ impl CliImageUpdater {
             errors = summary.errors,
             "cli image prune sweep complete"
         );
+        if let Err(err) = mutation_tx.commit().await {
+            summary.errors += 1;
+            summary.last_error = Some(format!("could not finish CLI image prune mutation: {err}"));
+        }
         summary
     }
 
@@ -574,57 +656,139 @@ impl CliImageUpdater {
         publish_cli_image_toast(self.event_sink.as_ref(), tool, state, unix).await;
     }
 
-    /// Diff the registry vs the local image for one tool and, on drift, pull +
-    /// re-tag the runtime ref. Returns the digest decision for tests/logging.
+    /// Diff the registry vs the tracked local image and authoritative runtime
+    /// alias, repairing either drift. Returns the digest decision for status.
     async fn check_and_update(&self, tool: CliToolKind) -> Result<UpdateOutcome, PlatformError> {
         let remote_ref = remote_ref(tool.as_str());
         let local_runtime_ref = local_runtime_ref(tool.as_str());
-
-        let remote_digest = self.docker.remote_image_digest(&remote_ref, None).await?;
-        // Compare the GHCR ref's LOCAL digest (a pulled image's RepoDigests
-        // carries the manifest digest) against the remote manifest digest —
-        // apples to apples. None => not pulled yet => drift.
-        let local_digest = self.docker.local_image_digest(&remote_ref).await?;
-
-        if local_digest.as_deref() == Some(remote_digest.as_str()) {
-            metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "skipped")
-                .increment(1);
-            tracing::debug!(tool = tool.as_str(), digest = %remote_digest, "cli image up to date");
-            return Ok(UpdateOutcome::UpToDate { digest: remote_digest });
-        }
-
-        metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool.as_str()).increment(1);
-        let started = std::time::Instant::now();
-        self.docker.pull_image(&remote_ref, None).await?;
-        let (target_repo, target_tag) = split_repo_tag(&local_runtime_ref);
-        // The pull succeeded; if the re-tag now fails the new image is on disk
-        // but the runtime ref still points at the OLD one. Surface that
-        // distinctly (it differs from a registry/pull failure) — the next tick
-        // re-detects drift and retries the tag.
-        if let Err(err) = self.docker.tag_image(&remote_ref, &target_repo, &target_tag).await {
-            tracing::error!(
-                tool = tool.as_str(),
-                remote_ref = %remote_ref,
-                runtime_ref = %local_runtime_ref,
-                error = %err,
-                "cli image PULLED but failed to re-tag the runtime ref; new agents still run the OLD cli until the next tick retries"
-            );
-            return Err(err);
-        }
-        metrics::histogram!("agentforge_cli_image_pull_duration_seconds", "tool" => tool.as_str())
-            .record(started.elapsed().as_secs_f64());
-        metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "success")
-            .increment(1);
-        tracing::warn!(
-            tool = tool.as_str(),
-            from = local_digest.as_deref().unwrap_or("<none>"),
-            to = %remote_digest,
-            remote_ref = %remote_ref,
-            local_ref = %local_runtime_ref,
-            "cli agent image updated; new agents will use the new CLI (running agents unaffected)"
-        );
-        Ok(UpdateOutcome::Updated { from: local_digest, to: remote_digest })
+        let mutation_tx = begin_cli_image_mutation(&self.pool, tool.as_str()).await?;
+        let outcome = check_and_update_image(self.docker.as_ref(), tool, &remote_ref, &local_runtime_ref).await?;
+        mutation_tx
+            .commit()
+            .await
+            .map_err(|err| PlatformError::Internal(format!("could not finish CLI image mutation for {tool}: {err}")))?;
+        Ok(outcome)
     }
+}
+
+fn required_cli_version(identity: &LocalImageIdentity, image_ref: &str, role: &str) -> Result<Version, PlatformError> {
+    let raw = identity
+        .labels
+        .get(CLAUDE_VERSION_LABEL)
+        .or_else(|| identity.labels.get(LEGACY_CLAUDE_VERSION_LABEL))
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "<no value>")
+        .ok_or_else(|| {
+            PlatformError::ImageVerification(format!(
+                "image_cli_version_missing: {role} {image_ref} has no CLI-version label; refusing automatic alias replacement"
+            ))
+        })?;
+    Version::parse(raw).map_err(|err| {
+        PlatformError::ImageVerification(format!(
+            "image_cli_version_invalid: {role} {image_ref} has non-semver CLI-version label {raw:?}: {err}"
+        ))
+    })
+}
+
+fn reject_cli_version_downgrade(
+    candidate: &LocalImageIdentity,
+    runtime: Option<&LocalImageIdentity>,
+    candidate_ref: &str,
+    runtime_ref: &str,
+) -> Result<(), PlatformError> {
+    let candidate_version = required_cli_version(candidate, candidate_ref, "verified candidate")?;
+    let Some(runtime) = runtime else { return Ok(()) };
+    if runtime.id == candidate.id {
+        return Ok(());
+    }
+    let runtime_version = required_cli_version(runtime, runtime_ref, "current runtime alias")?;
+    if candidate_version < runtime_version {
+        return Err(PlatformError::ImageVerification(format!(
+            "image_cli_version_downgrade: verified candidate {candidate_version} is older than current runtime {runtime_version}; refusing to retag {runtime_ref}"
+        )));
+    }
+    Ok(())
+}
+
+async fn check_and_update_image<D: CliImageDocker + ?Sized>(
+    docker: &D,
+    tool: CliToolKind,
+    remote_ref: &str,
+    runtime_ref: &str,
+) -> Result<UpdateOutcome, PlatformError> {
+    let remote_digest = docker.remote_digest(remote_ref).await?;
+    // The tracked registry tag proves what was pulled; the runtime alias proves
+    // what a newly spawned agent will actually run. Tags are mutable, so the
+    // alias comparison uses Docker's immutable local image id.
+    let mut tracked_identity = docker.local_identity(remote_ref).await?;
+    let runtime_identity = docker.local_identity(runtime_ref).await?;
+    let tracked_is_current =
+        tracked_identity.as_ref().and_then(|image| image.manifest_digest.as_deref()) == Some(remote_digest.as_str());
+    let runtime_matches = tracked_identity
+        .as_ref()
+        .zip(runtime_identity.as_ref())
+        .is_some_and(|(tracked, runtime)| tracked.id == runtime.id);
+
+    if tracked_is_current && runtime_matches {
+        let current = tracked_identity.as_ref().ok_or_else(|| {
+            PlatformError::Internal(format!("tracked image {remote_ref} lost its immutable local identity"))
+        })?;
+        docker.verify_signature(current).await?;
+        reject_cli_version_downgrade(current, runtime_identity.as_ref(), remote_ref, runtime_ref)?;
+        metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "skipped")
+            .increment(1);
+        tracing::debug!(tool = tool.as_str(), digest = %remote_digest, "cli image up to date");
+        return Ok(UpdateOutcome::UpToDate { digest: remote_digest });
+    }
+
+    metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool.as_str()).increment(1);
+    let started = std::time::Instant::now();
+    if !tracked_is_current {
+        docker.pull(remote_ref).await?;
+        tracked_identity = docker.local_identity(remote_ref).await?;
+        let pulled_digest = tracked_identity.as_ref().and_then(|image| image.manifest_digest.as_deref());
+        if pulled_digest != Some(remote_digest.as_str()) {
+            return Err(PlatformError::Internal(format!(
+                "pulled image {remote_ref} resolved to {}, expected tracked digest {remote_digest}",
+                pulled_digest.unwrap_or("<missing>")
+            )));
+        }
+    }
+
+    let tracked_identity = tracked_identity.ok_or_else(|| {
+        PlatformError::Internal(format!("tracked image {remote_ref} has a digest but no immutable local identity"))
+    })?;
+    docker.verify_signature(&tracked_identity).await?;
+    reject_cli_version_downgrade(&tracked_identity, runtime_identity.as_ref(), remote_ref, runtime_ref)?;
+    let runtime_matches = runtime_identity.as_ref().is_some_and(|runtime| runtime.id == tracked_identity.id);
+    if !runtime_matches {
+        let (target_repo, target_tag) = split_repo_tag(runtime_ref);
+        // Retag the exact content id we inspected and verified. The tracked tag
+        // is mutable and must not be resolved again after the trust decision.
+        docker.tag(&tracked_identity.id, &target_repo, &target_tag).await?;
+        let repaired_identity = docker.local_identity(runtime_ref).await?;
+        if repaired_identity.as_ref().map(|image| image.id.as_str()) != Some(tracked_identity.id.as_str()) {
+            return Err(PlatformError::Internal(format!(
+                "runtime image alias {runtime_ref} resolved to {} after re-tag, expected immutable image id {}",
+                repaired_identity.as_ref().map(|image| image.id.as_str()).unwrap_or("<missing>"),
+                tracked_identity.id
+            )));
+        }
+    }
+
+    metrics::histogram!("agentforge_cli_image_pull_duration_seconds", "tool" => tool.as_str())
+        .record(started.elapsed().as_secs_f64());
+    metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool.as_str(), "result" => "success").increment(1);
+    tracing::warn!(
+        tool = tool.as_str(),
+        from = runtime_identity.as_ref().map(|image| image.id.as_str()).unwrap_or("<none>"),
+        to = %remote_digest,
+        remote_ref,
+        local_ref = runtime_ref,
+        "cli agent image updated; new agents will use the new CLI (running agents unaffected)"
+    );
+    Ok(UpdateOutcome::Updated { from: runtime_identity.and_then(|image| image.manifest_digest), to: remote_digest })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -737,6 +901,8 @@ fn claude_state_failed(now: i64, prev: Option<&CliToolImageState>, error: String
 /// flow even when the poller task was never spawned (auto-update off).
 pub struct ClaudeBuildContext {
     pub docker: Arc<DockerClient>,
+    /// Shared database used only for the cross-process per-tool image-mutation lock.
+    pub pool: PgPool,
     pub status: Arc<CliImageUpdateStatus>,
     /// NATS sink for the completion toast on `broadcast.admin.cli_image`;
     /// `None` leaves toasts off (status + metrics still record).
@@ -756,6 +922,20 @@ pub async fn execute_claude_build(slot: ClaudeBuildSlot, ctx: ClaudeBuildContext
     let prior = ctx.status.snapshot().await;
     let prev = prior.get(tool);
 
+    let mutation_tx = match begin_cli_image_mutation(&ctx.pool, tool).await {
+        Ok(tx) => tx,
+        Err(err) => {
+            metrics::counter!("agentforge_cli_image_pull_total", "tool" => tool, "result" => "failed").increment(1);
+            let state = claude_state_failed(now, prev, err.to_string());
+            if should_toast(prev, &state) {
+                publish_cli_image_toast(ctx.event_sink.as_ref(), tool, &state, now).await;
+            }
+            ctx.status.record(tool, state).await;
+            drop(slot);
+            return;
+        }
+    };
+
     // Record once BEFORE: the panel shows "building" for the whole docker build
     // (npm install of the CLI — typically minutes, not seconds).
     let mut in_progress = claude_state_update_available(
@@ -769,7 +949,13 @@ pub async fn execute_claude_build(slot: ClaudeBuildSlot, ctx: ClaudeBuildContext
 
     metrics::counter!("agentforge_cli_image_drift_detected_total", "tool" => tool).increment(1);
     let started = std::time::Instant::now();
-    let result = build_claude_overlay(&ctx.docker, target_version, ctx.npm_registry.as_deref()).await;
+    let result = match build_claude_overlay(&ctx.docker, target_version, ctx.npm_registry.as_deref()).await {
+        Ok(()) => mutation_tx
+            .commit()
+            .await
+            .map_err(|err| PlatformError::Internal(format!("could not finish CLI image mutation for {tool}: {err}"))),
+        Err(err) => Err(err),
+    };
     let finished = chrono::Utc::now().timestamp();
 
     // Re-snapshot so the toast-transition compare sees the `building` record.
@@ -1098,6 +1284,200 @@ mod tests {
     // Asserted against the enum-produced frame's `type`; the enum variant renames
     // to this same const, so the two stay in lock-step.
     use agentforge_core::broadcast_protocol::CLI_IMAGE_UPDATED_EVENT;
+    use std::collections::VecDeque;
+    use std::sync::Mutex;
+    use std::sync::atomic::AtomicUsize;
+
+    const TEST_REMOTE_REF: &str = "ghcr.io/example/agent-codex:latest";
+    const TEST_RUNTIME_REF: &str = "agentforge-agent:codex";
+    const TEST_DIGEST: &str = "sha256:current";
+    const TEST_IMAGE_ID: &str = "sha256:image-current";
+    const TEST_STALE_DIGEST: &str = "sha256:stale";
+    const TEST_STALE_IMAGE_ID: &str = "sha256:image-stale";
+    const TEST_CLI_VERSION: &str = "2.0.0";
+
+    struct MockCliImageDocker {
+        local_identities: Mutex<VecDeque<Option<LocalImageIdentity>>>,
+        pulls: AtomicUsize,
+        tags: Mutex<Vec<(String, String, String)>>,
+        verifications: AtomicUsize,
+        reject_signature: bool,
+    }
+
+    impl MockCliImageDocker {
+        fn new(local_identities: impl IntoIterator<Item = Option<LocalImageIdentity>>) -> Self {
+            Self {
+                local_identities: Mutex::new(local_identities.into_iter().collect()),
+                pulls: AtomicUsize::new(0),
+                tags: Mutex::new(Vec::new()),
+                verifications: AtomicUsize::new(0),
+                reject_signature: false,
+            }
+        }
+
+        fn rejecting_signature(local_identities: impl IntoIterator<Item = Option<LocalImageIdentity>>) -> Self {
+            Self { reject_signature: true, ..Self::new(local_identities) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl CliImageDocker for MockCliImageDocker {
+        async fn remote_digest(&self, _image_ref: &str) -> Result<String, PlatformError> {
+            Ok(TEST_DIGEST.to_string())
+        }
+
+        async fn local_identity(&self, _image_ref: &str) -> Result<Option<LocalImageIdentity>, PlatformError> {
+            self.local_identities
+                .lock()
+                .unwrap()
+                .pop_front()
+                .ok_or_else(|| PlatformError::Internal("unexpected mock image inspection".into()))
+        }
+
+        async fn pull(&self, _image_ref: &str) -> Result<(), PlatformError> {
+            self.pulls.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        async fn tag(&self, source_ref: &str, target_repo: &str, target_tag: &str) -> Result<(), PlatformError> {
+            self.tags.lock().unwrap().push((source_ref.to_string(), target_repo.to_string(), target_tag.to_string()));
+            Ok(())
+        }
+
+        async fn verify_signature(&self, _identity: &LocalImageIdentity) -> Result<(), PlatformError> {
+            self.verifications.fetch_add(1, Ordering::SeqCst);
+            if self.reject_signature {
+                Err(PlatformError::ImageVerification("test signature rejection".into()))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    fn test_identity(id: &str, manifest_digest: &str) -> LocalImageIdentity {
+        test_identity_with_version(id, manifest_digest, Some(TEST_CLI_VERSION))
+    }
+
+    fn test_identity_with_version(id: &str, manifest_digest: &str, version: Option<&str>) -> LocalImageIdentity {
+        LocalImageIdentity {
+            id: id.to_string(),
+            manifest_digest: Some(manifest_digest.to_string()),
+            registry_reference: Some(format!("ghcr.io/example/agent-codex@{manifest_digest}")),
+            labels: version
+                .map(|version| HashMap::from([(LEGACY_CLAUDE_VERSION_LABEL.to_string(), version.to_string())]))
+                .unwrap_or_default(),
+        }
+    }
+
+    #[tokio::test]
+    async fn up_to_date_requires_the_runtime_alias_to_match() {
+        let current = test_identity(TEST_IMAGE_ID, TEST_DIGEST);
+        let docker = MockCliImageDocker::new([Some(current.clone()), Some(current)]);
+
+        let outcome =
+            check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF).await.unwrap();
+
+        assert_eq!(outcome, UpdateOutcome::UpToDate { digest: TEST_DIGEST.to_string() });
+        assert_eq!(docker.pulls.load(Ordering::SeqCst), 0);
+        assert!(docker.tags.lock().unwrap().is_empty());
+        assert_eq!(docker.verifications.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn signature_rejection_never_reports_up_to_date_or_retags() {
+        let current = test_identity(TEST_IMAGE_ID, TEST_DIGEST);
+        let docker = MockCliImageDocker::rejecting_signature([Some(current.clone()), Some(current)]);
+
+        let error =
+            check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF).await.unwrap_err();
+
+        assert!(matches!(error, PlatformError::ImageVerification(_)));
+        assert_eq!(docker.verifications.load(Ordering::SeqCst), 1);
+        assert_eq!(docker.pulls.load(Ordering::SeqCst), 0);
+        assert!(docker.tags.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn matching_tracked_ref_repairs_missing_or_stale_runtime_alias_without_pull() {
+        for runtime in [None, Some(test_identity(TEST_STALE_IMAGE_ID, TEST_STALE_DIGEST))] {
+            let from = runtime.as_ref().and_then(|image| image.manifest_digest.clone());
+            let current = test_identity(TEST_IMAGE_ID, TEST_DIGEST);
+            let docker = MockCliImageDocker::new([Some(current.clone()), runtime, Some(current)]);
+
+            let outcome =
+                check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF).await.unwrap();
+
+            assert_eq!(outcome, UpdateOutcome::Updated { from, to: TEST_DIGEST.to_string() });
+            assert_eq!(docker.pulls.load(Ordering::SeqCst), 0);
+            assert_eq!(
+                *docker.tags.lock().unwrap(),
+                [(TEST_IMAGE_ID.to_string(), "agentforge-agent".to_string(), "codex".to_string())]
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn equal_version_rebuild_is_allowed() {
+        let candidate = test_identity_with_version(TEST_IMAGE_ID, TEST_DIGEST, Some("2.0.0"));
+        let runtime = test_identity_with_version(TEST_STALE_IMAGE_ID, TEST_STALE_DIGEST, Some("2.0.0"));
+        let docker = MockCliImageDocker::new([Some(candidate.clone()), Some(runtime), Some(candidate)]);
+
+        let outcome =
+            check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF).await.unwrap();
+
+        assert!(matches!(outcome, UpdateOutcome::Updated { .. }));
+        assert_eq!(docker.verifications.load(Ordering::SeqCst), 1);
+        assert_eq!(docker.tags.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn verified_semver_downgrade_is_rejected_before_retag() {
+        let candidate = test_identity_with_version(TEST_IMAGE_ID, TEST_DIGEST, Some("1.9.0"));
+        let runtime = test_identity_with_version(TEST_STALE_IMAGE_ID, TEST_STALE_DIGEST, Some("2.0.0"));
+        let docker = MockCliImageDocker::new([Some(candidate), Some(runtime)]);
+
+        let error =
+            check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF).await.unwrap_err();
+
+        assert!(error.to_string().contains("image_cli_version_downgrade"));
+        assert_eq!(docker.verifications.load(Ordering::SeqCst), 1);
+        assert_eq!(docker.pulls.load(Ordering::SeqCst), 0);
+        assert!(docker.tags.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn verified_candidate_requires_a_valid_semver_label() {
+        for (version, expected_code) in
+            [(None, "image_cli_version_missing"), (Some("latest"), "image_cli_version_invalid")]
+        {
+            let candidate = test_identity_with_version(TEST_IMAGE_ID, TEST_DIGEST, version);
+            let docker = MockCliImageDocker::new([Some(candidate), None]);
+
+            let error = check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF)
+                .await
+                .unwrap_err();
+
+            assert!(error.to_string().contains(expected_code), "unexpected error: {error}");
+            assert_eq!(docker.verifications.load(Ordering::SeqCst), 1);
+            assert!(docker.tags.lock().unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn unverifiable_runtime_alias_repair_fails_closed() {
+        let current = test_identity(TEST_IMAGE_ID, TEST_DIGEST);
+        let stale = test_identity(TEST_STALE_IMAGE_ID, TEST_STALE_DIGEST);
+        let docker = MockCliImageDocker::new([Some(current), Some(stale.clone()), Some(stale)]);
+
+        let error =
+            check_and_update_image(&docker, CliToolKind::Codex, TEST_REMOTE_REF, TEST_RUNTIME_REF).await.unwrap_err();
+
+        assert!(
+            error.to_string().contains("runtime image alias agentforge-agent:codex resolved to sha256:image-stale")
+        );
+        assert_eq!(docker.pulls.load(Ordering::SeqCst), 0);
+        assert_eq!(docker.tags.lock().unwrap().len(), 1);
+    }
 
     #[test]
     fn poll_set_excludes_claude_only() {

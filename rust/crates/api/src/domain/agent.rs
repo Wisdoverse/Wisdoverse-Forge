@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use agentforge_core::{AgentId, AgentStatus, AppError, AppResult, CliToolKind, ErrorKind, RuntimeKind, TenantScope};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -51,6 +51,26 @@ pub(crate) fn agent_messages_deleted_response(deleted: u64) -> Value {
 
 pub(crate) fn agent_container_status_response(container_id: &str, status: &str) -> Value {
     json!({ "ok": true, "container_id": container_id, "status": status })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentContainerImageIdentity {
+    pub(crate) source: String,
+    pub(crate) image_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) manifest_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) version: Option<String>,
+    pub(crate) version_source: String,
+    pub(crate) trust: AgentContainerImageTrust,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum AgentContainerImageTrust {
+    VerifiedSignature,
+    HostLocal,
 }
 
 pub(crate) fn agent_prompt_command_payload(prompt: &str) -> Value {
@@ -394,11 +414,6 @@ pub struct AgentAggregate {
 impl AgentAggregate {
     pub fn runtime_kind(&self) -> RuntimeKind {
         self.runtime_kind
-    }
-
-    /// Owner (creator) of this agent. Used by lifecycle ACL checks.
-    pub(crate) fn user_id(&self) -> Uuid {
-        self.user_id
     }
 
     /// Typed sum-type projection of this aggregate's runtime.
@@ -965,11 +980,26 @@ impl AgentContainerImageRejection {
 }
 
 impl AgentContainerImagePolicy {
+    #[cfg(test)]
     pub(crate) fn resolve(cli_tool: Option<&str>, model: Option<&str>) -> Result<String, AgentContainerImageRejection> {
+        Self::resolve_configured(cli_tool, model, &HashMap::new())
+    }
+
+    pub(crate) fn resolve_configured(
+        cli_tool: Option<&str>,
+        model: Option<&str>,
+        configured_images: &HashMap<String, String>,
+    ) -> Result<String, AgentContainerImageRejection> {
         if let Some(tool) = cli_tool {
             let tool = CliToolKind::parse_legacy(tool)
                 .map_err(|err| AgentContainerImageRejection::UnsupportedCliTool(err.to_string()))?;
-            return Ok(format!("agentforge-agent:{}", tool.as_str()));
+            return Ok(configured_images
+                .get(tool.as_str())
+                .map(String::as_str)
+                .map(str::trim)
+                .filter(|image| !image.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("agentforge-agent:{}", tool.as_str())));
         }
 
         if let Some(model) = model {
@@ -984,8 +1014,17 @@ impl AgentContainerImagePolicy {
         Err(AgentContainerImageRejection::MissingContainerShell)
     }
 
+    #[cfg(test)]
     pub(crate) fn resolve_for_start(cli_tool: Option<&str>, model: Option<&str>) -> AppResult<String> {
-        Self::resolve(cli_tool, model).map_err(|err| {
+        Self::resolve_configured_for_start(cli_tool, model, &HashMap::new())
+    }
+
+    pub(crate) fn resolve_configured_for_start(
+        cli_tool: Option<&str>,
+        model: Option<&str>,
+        configured_images: &HashMap<String, String>,
+    ) -> AppResult<String> {
+        Self::resolve_configured(cli_tool, model, configured_images).map_err(|err| {
             ErrorKind::Validation(format!(
                 "{} — set cli_tool to one of: claude, codex, gemini, opencode (this agent has cli_tool={cli_tool:?}, model={model:?})",
                 err.message(),
@@ -1128,42 +1167,6 @@ pub(crate) enum AgentStatusTransition {
     Change(AgentStatus),
 }
 
-/// Runtime state reduced to the lifecycle distinction needed for restart.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AgentContainerRuntimeState {
-    Running,
-    NotRunning,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AgentRestartPlan {
-    StopThenStart,
-    StartOnly,
-}
-
-pub(crate) struct AgentContainerLifecyclePolicy;
-
-impl AgentContainerLifecyclePolicy {
-    pub(crate) fn restart_container_id(container_id: Option<&str>) -> AppResult<&str> {
-        container_id.ok_or_else(|| ErrorKind::Validation("agent has no container".into()).into())
-    }
-
-    pub(crate) fn resume_container_id(container_id: Option<&str>) -> AppResult<&str> {
-        container_id.ok_or_else(|| ErrorKind::Validation("agent has no container to resume".into()).into())
-    }
-
-    pub(crate) fn stale_container_reference_error() -> ErrorKind {
-        ErrorKind::Validation("agent container is no longer available; start the agent again".into())
-    }
-
-    pub(crate) fn restart_plan(state: AgentContainerRuntimeState) -> AgentRestartPlan {
-        match state {
-            AgentContainerRuntimeState::Running => AgentRestartPlan::StopThenStart,
-            AgentContainerRuntimeState::NotRunning => AgentRestartPlan::StartOnly,
-        }
-    }
-}
-
 /// Result of an idempotent container stop, used to classify roll outcomes and
 /// drive honest operator messaging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1186,10 +1189,6 @@ impl AgentContainerRuntimePolicy {
         ErrorKind::Internal(anyhow::anyhow!("Docker not available"))
     }
 
-    pub(crate) fn lifecycle_docker_unavailable() -> ErrorKind {
-        ErrorKind::Unavailable("Docker runtime is not available".into())
-    }
-
     pub(crate) fn create_container_failed(
         image: &str,
         cli_tool: Option<&str>,
@@ -1207,6 +1206,20 @@ impl AgentContainerRuntimePolicy {
 
     pub(crate) fn start_container_failed(err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("Failed to start container: {err}"))
+    }
+
+    pub(crate) fn container_changed_during_lifecycle() -> ErrorKind {
+        ErrorKind::Conflict("agent container changed concurrently; retry the operation".into())
+    }
+
+    pub(crate) fn lifecycle_blocked_by_active_work() -> ErrorKind {
+        ErrorKind::Conflict("agent has active work; retry the lifecycle action after it finishes".into())
+    }
+
+    pub(crate) fn image_identity_unavailable(image: &str) -> ErrorKind {
+        ErrorKind::Unavailable(format!(
+            "agent image '{image}' could not be verified on this host; check Settings -> Runtime, then try again"
+        ))
     }
 
     /// The post-stop inspect still shows the container present: it is genuinely
@@ -1234,10 +1247,6 @@ impl AgentContainerRuntimePolicy {
 
     pub(crate) fn lifecycle_action_unavailable(action: &str, err: impl std::fmt::Display) -> ErrorKind {
         ErrorKind::Unavailable(format!("failed to {action} agent container: {err}"))
-    }
-
-    pub(crate) fn resume_failed(err: impl std::fmt::Display) -> ErrorKind {
-        ErrorKind::Internal(anyhow::anyhow!("resume failed: {err}"))
     }
 }
 
@@ -1596,33 +1605,9 @@ mod tests {
     }
 
     #[test]
-    fn agent_container_lifecycle_policy_maps_runtime_states_to_restart_plans() {
-        assert_eq!(
-            AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::Running),
-            AgentRestartPlan::StopThenStart
-        );
-        assert_eq!(
-            AgentContainerLifecyclePolicy::restart_plan(AgentContainerRuntimeState::NotRunning),
-            AgentRestartPlan::StartOnly
-        );
-    }
-
-    #[test]
-    fn agent_container_lifecycle_policy_validates_container_ids() {
-        assert_eq!(AgentContainerLifecyclePolicy::restart_container_id(Some("ctr-1")).unwrap(), "ctr-1");
-        assert!(AgentContainerLifecyclePolicy::restart_container_id(None).is_err());
-        assert_eq!(AgentContainerLifecyclePolicy::resume_container_id(Some("ctr-2")).unwrap(), "ctr-2");
-        assert!(AgentContainerLifecyclePolicy::resume_container_id(None).is_err());
-    }
-
-    #[test]
     fn agent_container_runtime_policy_owns_docker_error_contracts() {
         assert!(
             format!("{:?}", AgentContainerRuntimePolicy::control_docker_unavailable()).contains("Docker not available")
-        );
-        assert!(
-            format!("{:?}", AgentContainerRuntimePolicy::lifecycle_docker_unavailable())
-                .contains("Docker runtime is not available")
         );
         assert!(
             format!(
@@ -1664,7 +1649,6 @@ mod tests {
             format!("{:?}", AgentContainerRuntimePolicy::lifecycle_action_unavailable("inspect", "bad"))
                 .contains("failed to inspect agent container")
         );
-        assert!(format!("{:?}", AgentContainerRuntimePolicy::resume_failed("bad")).contains("resume failed"));
     }
 
     #[test]
@@ -1715,6 +1699,15 @@ mod tests {
     fn container_image_policy_uses_cli_tool() {
         assert_eq!(AgentContainerImagePolicy::resolve(Some("claude"), None).unwrap(), "agentforge-agent:claude");
         assert_eq!(AgentContainerImagePolicy::resolve(Some("CODEX"), None).unwrap(), "agentforge-agent:codex");
+    }
+
+    #[test]
+    fn container_image_policy_uses_the_deployment_override() {
+        let configured = HashMap::from([("codex".to_string(), "registry.example/agent-codex@sha256:abc".to_string())]);
+        assert_eq!(
+            AgentContainerImagePolicy::resolve_configured(Some("CODEX"), None, &configured).unwrap(),
+            "registry.example/agent-codex@sha256:abc"
+        );
     }
 
     #[test]

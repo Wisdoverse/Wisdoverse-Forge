@@ -180,6 +180,65 @@ describe('HistoryTab', () => {
     expect(screen.queryByText(/run-1234/i)).toBeNull()
     expect(screen.queryByText(/^Ref run-1234$/i)).toBeNull()
     expect(screen.queryByText(/Work method|configured worker|unknown worker|runtime/i)).toBeNull()
+    expect(
+      screen.getByText(
+        'This run did not record work image evidence. New container runs record it automatically; ask an admin to check this Agent before relying on the result.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/verified/i)).toBeNull()
+  })
+
+  test('shows complete work image evidence only when the run provides it', async () => {
+    const imageId = `sha256:${'1'.repeat(64)}`
+    const manifestDigest = `sha256:${'2'.repeat(64)}`
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-image1234',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'completed',
+        startedAt: '2026-04-25T06:06:00Z',
+        runtimeKind: 'container',
+        image: {
+          source: 'ghcr.io/example/agent-codex',
+          imageId,
+          manifestDigest,
+          version: '1.2.3',
+          versionSource: 'docker-label',
+          trust: 'verified-signature',
+        },
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(
+      await screen.findByText('Work image 1.2.3 · ghcr.io/example/agent-codex · Verified signature')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Version source:')).toBeInTheDocument()
+    expect(screen.getByText('Docker image label')).toBeInTheDocument()
+    expect(screen.getByText('Image ID')).toBeInTheDocument()
+    expect(screen.getByText('Manifest digest')).toBeInTheDocument()
+    expect(screen.getByText(imageId)).toHaveClass('select-all', 'break-all')
+    expect(screen.getByText(manifestDigest)).toHaveClass('select-all', 'break-all')
+  })
+
+  test('discloses when an older run has no saved runtime or image evidence', async () => {
+    getTaskRunsMock.mockResolvedValue([
+      {
+        id: 'run-legacy123',
+        taskId: 'task-1',
+        agentId: 'agent-1',
+        status: 'completed',
+        startedAt: '2026-04-25T06:06:00Z',
+      },
+    ])
+
+    render(<HistoryTab task={makeTask()} />)
+
+    expect(
+      await screen.findByText('This run did not record whether it used a work image.')
+    ).toBeInTheDocument()
   })
 
   test('labels project-file work history without managed workspace wording', async () => {

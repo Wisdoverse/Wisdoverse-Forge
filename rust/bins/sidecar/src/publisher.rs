@@ -5,6 +5,9 @@ use chrono::Utc;
 use hmac::{Hmac, KeyInit, Mac};
 use serde::Serialize;
 use sha2::Sha256;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -22,6 +25,8 @@ pub struct EventPublisher {
     client: Client,
     agent_id: String,
     hmac_key: Vec<u8>,
+    generation_fingerprint: String,
+    active_hook_session: RwLock<ActiveHookSessionStore>,
     cli_tool: Option<String>,
     /// Subject prefix for this agent's event-ingest channel, including the
     /// #457 runtime-kind namespace, e.g. `events.ingest.cli`. The agent UUID is
@@ -30,12 +35,24 @@ pub struct EventPublisher {
 }
 
 impl EventPublisher {
+    #[cfg(test)]
     pub fn new(
         client: Client,
         agent_id: String,
         hmac_secret: &str,
         cli_tool: Option<String>,
         runtime_kind: agentforge_core::RuntimeKind,
+    ) -> Self {
+        Self::new_with_wal_path(client, agent_id, hmac_secret, cli_tool, runtime_kind, None)
+    }
+
+    pub fn new_with_wal_path(
+        client: Client,
+        agent_id: String,
+        hmac_secret: &str,
+        cli_tool: Option<String>,
+        runtime_kind: agentforge_core::RuntimeKind,
+        wal_path: Option<&str>,
     ) -> Self {
         // #457: publish on the kind-namespaced ingest subject only. The
         // platform consumer accepts both shapes during migration; the callout
@@ -44,7 +61,17 @@ impl EventPublisher {
         // shapes would double-insert every event).
         let ingest_subject_prefix =
             format!("{}.{}", agentforge_core::event_protocol::EVENTS_INGEST_PREFIX, runtime_kind.as_str());
-        Self { client, agent_id, hmac_key: hmac_secret.as_bytes().to_vec(), cli_tool, ingest_subject_prefix }
+        Self {
+            client,
+            agent_id,
+            hmac_key: hmac_secret.as_bytes().to_vec(),
+            generation_fingerprint: agentforge_core::orchestration_protocol::container_generation_fingerprint(
+                hmac_secret.as_bytes(),
+            ),
+            active_hook_session: RwLock::new(ActiveHookSessionStore::load(wal_path)),
+            cli_tool,
+            ingest_subject_prefix,
+        }
     }
 
     /// Compute HMAC-SHA256 over `agent_id:timestamp:payload` and return hex string.
@@ -97,6 +124,17 @@ impl EventPublisher {
         self.client.flush().await.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
+    /// Track the active Container CLI hook session for the authenticated
+    /// heartbeat lease. This is called only for a freshly accepted relay frame,
+    /// never for WAL replay, so an old buffered Working event cannot resurrect
+    /// a session after its Stop was already observed.
+    pub fn observe_hook_event(&self, event_type: &str, payload: &serde_json::Value) {
+        let mut active = self.active_hook_session.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Err(err) = active.observe(event_type, payload) {
+            tracing::error!(error = %err, event_type, "could not persist active hook owner; crash-safe lease renewal is degraded");
+        }
+    }
+
     /// Send a heartbeat on `sidecar.<agent_id>.heartbeat`.
     ///
     /// The `health` snapshot reports WAL backpressure state so the liveness
@@ -116,6 +154,13 @@ impl EventPublisher {
             "cli_tool": self.cli_tool,
             "capabilities": capabilities,
             "version": agentforge_core::VERSION,
+            "container_generation_fingerprint": self.generation_fingerprint,
+            "active_hook_session": self
+                .active_hook_session
+                .read()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .active
+                .clone(),
             "health": health,
         });
         let bytes = serde_json::to_vec(&payload)?;
@@ -125,6 +170,99 @@ impl EventPublisher {
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
         Ok(())
     }
+}
+
+// Deliberately not `.json`: the WAL scanner treats every JSON file in its
+// directory as a replay record.
+const ACTIVE_HOOK_SESSION_FILE: &str = "active-hook-session.state";
+
+struct ActiveHookSessionStore {
+    active: Option<String>,
+    state_path: Option<PathBuf>,
+}
+
+impl ActiveHookSessionStore {
+    fn load(wal_path: Option<&str>) -> Self {
+        let state_path = wal_path
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/tmp/agentforge-wal"))
+            .join(ACTIVE_HOOK_SESSION_FILE);
+        let active = std::fs::read(&state_path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Option<String>>(&bytes).ok())
+            .flatten()
+            .map(|session| session.trim().to_string())
+            .filter(|session| !session.is_empty());
+        Self { active, state_path: Some(state_path) }
+    }
+
+    #[cfg(test)]
+    fn memory_only() -> Self {
+        Self { active: None, state_path: None }
+    }
+
+    fn observe(&mut self, event_type: &str, payload: &serde_json::Value) -> std::io::Result<()> {
+        let session = hook_session(payload);
+        if matches!(event_type, "pre_tool_use" | "user_prompt_submit")
+            && self.active.is_some()
+            && self.active.as_deref() != session
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "a different Container CLI hook session is already active",
+            ));
+        }
+        let mut next = self.active.clone();
+        update_active_hook_session(&mut next, event_type, payload);
+        if next == self.active {
+            return Ok(());
+        }
+        if let Some(path) = &self.state_path {
+            persist_active_hook_session(path, next.as_deref())?;
+        }
+        self.active = next;
+        Ok(())
+    }
+}
+
+fn persist_active_hook_session(path: &Path, active: Option<&str>) -> std::io::Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)?;
+    let temp_path = parent.join(format!(".{ACTIVE_HOOK_SESSION_FILE}.{}.tmp", std::process::id()));
+    let bytes = serde_json::to_vec(&active).map_err(std::io::Error::other)?;
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&temp_path)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    std::fs::rename(&temp_path, path)?;
+    // Make the rename itself crash-durable, not only the temporary file's
+    // contents. Sidecar restarts are an explicit supported entrypoint path.
+    std::fs::File::open(parent)?.sync_all()?;
+    Ok(())
+}
+
+fn update_active_hook_session(active: &mut Option<String>, event_type: &str, payload: &serde_json::Value) {
+    let session = hook_session(payload);
+    match (event_type, session) {
+        ("pre_tool_use" | "user_prompt_submit", Some(session)) => *active = Some(session.to_string()),
+        ("stop" | "session_end", Some(session)) if active.as_deref() == Some(session) => *active = None,
+        _ => {}
+    }
+}
+
+fn hook_session(payload: &serde_json::Value) -> Option<&str> {
+    payload
+        .get("sessionId")
+        .or_else(|| payload.get("session_id"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|session| !session.is_empty())
 }
 
 /// Relay health snapshot included in every sidecar heartbeat (issue #808).
@@ -166,6 +304,49 @@ mod tests {
         assert_eq!(json["timestamp"], 1700000000);
         assert_eq!(json["signature"], "abc123");
         assert!(json["payload"]["event_type"].is_string());
+    }
+
+    #[test]
+    fn active_hook_session_is_exact_and_stop_is_owner_scoped() {
+        let mut store = ActiveHookSessionStore::memory_only();
+        store.observe("user_prompt_submit", &serde_json::json!({"sessionId": "session-a"})).unwrap();
+        assert_eq!(store.active.as_deref(), Some("session-a"));
+
+        store.observe("stop", &serde_json::json!({"sessionId": "older-session"})).unwrap();
+        assert_eq!(store.active.as_deref(), Some("session-a"), "a stale Stop cannot clear the current owner");
+
+        assert!(
+            store.observe("user_prompt_submit", &serde_json::json!({"sessionId": "session-b"})).is_err(),
+            "a second live hook session must fail closed"
+        );
+        assert_eq!(store.active.as_deref(), Some("session-a"));
+
+        store.observe("stop", &serde_json::json!({"sessionId": "session-a"})).unwrap();
+        assert!(store.active.is_none());
+    }
+
+    #[test]
+    fn active_hook_session_survives_sidecar_restart_and_stop_persists_clear() {
+        let temp = tempfile::tempdir().unwrap();
+        let wal_path = temp.path().to_str().unwrap();
+        let mut first = ActiveHookSessionStore::load(Some(wal_path));
+        first.observe("user_prompt_submit", &serde_json::json!({"sessionId": "long-work"})).unwrap();
+
+        let mut restarted = ActiveHookSessionStore::load(Some(wal_path));
+        assert_eq!(restarted.active.as_deref(), Some("long-work"));
+        restarted.observe("stop", &serde_json::json!({"sessionId": "long-work"})).unwrap();
+        assert!(ActiveHookSessionStore::load(Some(wal_path)).active.is_none());
+    }
+
+    #[tokio::test]
+    async fn active_hook_state_is_not_counted_or_replayed_as_wal() {
+        let temp = tempfile::tempdir().unwrap();
+        let wal_path = temp.path().to_str().unwrap();
+        let mut state = ActiveHookSessionStore::load(Some(wal_path));
+        state.observe("user_prompt_submit", &serde_json::json!({"sessionId": "long-work"})).unwrap();
+        let wal = crate::wal::Wal::new(Some(wal_path));
+        assert_eq!(wal.pending_count().await.unwrap(), 0);
+        assert!(wal.replay().await.unwrap().is_empty());
     }
 
     #[test]

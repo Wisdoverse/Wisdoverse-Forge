@@ -510,15 +510,6 @@ impl AdminRepository {
         Ok(rows)
     }
 
-    /// Hard-delete an agent regardless of organization (admin only).
-    pub async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        let result = sqlx::query("DELETE FROM agents WHERE id = $1").bind(agent_id).execute(&self.pool).await?;
-        if result.rows_affected() == 0 {
-            return Err(AdminRepositoryPolicy::agent_not_found(agent_id));
-        }
-        Ok(())
-    }
-
     /// Get system-wide statistics.
     pub async fn stats(&self) -> AppResult<AdminStats> {
         let total_users = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL")

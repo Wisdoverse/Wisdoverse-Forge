@@ -12,6 +12,7 @@ pub mod credential_protocol;
 pub mod crypto;
 pub mod error;
 pub mod event_protocol;
+pub mod image_trust;
 pub mod orchestration_protocol;
 pub mod orchestration_view;
 pub mod runtime_capability;

@@ -3,6 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use agentforge_core::{AgentStatus, AppResult, ErrorKind};
 use async_trait::async_trait;
+use sqlx::PgPool;
+use tokio::sync::Notify;
 use uuid::Uuid;
 
 use crate::services::mcp_agent::{
@@ -14,19 +16,27 @@ use crate::services::mcp_agent::{
 struct TestStore {
     context: Arc<Mutex<Option<ProjectRuntimeContext>>>,
     records: Arc<Mutex<Vec<McpAgentRecord>>>,
-    deleted: Arc<Mutex<Vec<Uuid>>>,
+    deleted: Arc<Mutex<Vec<(Uuid, Option<String>)>>>,
+    leases: Arc<Mutex<HashMap<Uuid, chrono::DateTime<chrono::Utc>>>>,
+    get_notify: Option<Arc<Notify>>,
 }
 
 impl TestStore {
     fn with_context(context: ProjectRuntimeContext) -> Self {
-        Self { context: Arc::new(Mutex::new(Some(context))), records: Arc::default(), deleted: Arc::default() }
+        Self {
+            context: Arc::new(Mutex::new(Some(context))),
+            records: Arc::default(),
+            deleted: Arc::default(),
+            leases: Arc::default(),
+            get_notify: None,
+        }
     }
 
     fn records(&self) -> Vec<McpAgentRecord> {
         self.records.lock().expect("records lock").clone()
     }
 
-    fn deleted(&self) -> Vec<Uuid> {
+    fn deleted(&self) -> Vec<(Uuid, Option<String>)> {
         self.deleted.lock().expect("deleted lock").clone()
     }
 }
@@ -57,13 +67,12 @@ impl McpAgentStore for TestStore {
     }
 
     async fn get_agent(&self, agent_id: Uuid) -> AppResult<McpAgentRecord> {
-        self.records
-            .lock()
-            .expect("records lock")
-            .iter()
-            .find(|record| record.agent_id == agent_id)
-            .cloned()
-            .ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")).into())
+        let record =
+            self.records.lock().expect("records lock").iter().find(|record| record.agent_id == agent_id).cloned();
+        if let Some(notify) = &self.get_notify {
+            notify.notify_one();
+        }
+        record.ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")).into())
     }
 
     async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
@@ -76,8 +85,81 @@ impl McpAgentStore for TestStore {
         Ok(())
     }
 
-    async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        self.deleted.lock().expect("deleted lock").push(agent_id);
+    async fn begin_agent_work(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: &str,
+    ) -> AppResult<chrono::DateTime<chrono::Utc>> {
+        let current = self
+            .records
+            .lock()
+            .expect("records lock")
+            .iter()
+            .find(|record| record.agent_id == agent_id)
+            .and_then(|record| record.container_id.clone());
+        if current.as_deref() != Some(expected_container_id) {
+            return Err(ErrorKind::Conflict("agent container changed".into()).into());
+        }
+        let lease = chrono::Utc::now() + chrono::Duration::seconds(60);
+        self.leases.lock().expect("leases lock").insert(agent_id, lease);
+        Ok(lease)
+    }
+
+    async fn renew_agent_work_lease(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: &str,
+        expected_lease: chrono::DateTime<chrono::Utc>,
+    ) -> AppResult<Option<chrono::DateTime<chrono::Utc>>> {
+        let current = self
+            .records
+            .lock()
+            .expect("records lock")
+            .iter()
+            .find(|record| record.agent_id == agent_id)
+            .and_then(|record| record.container_id.clone());
+        let mut leases = self.leases.lock().expect("leases lock");
+        if current.as_deref() != Some(expected_container_id) || leases.get(&agent_id) != Some(&expected_lease) {
+            return Ok(None);
+        }
+        let renewed = chrono::Utc::now() + chrono::Duration::seconds(60);
+        leases.insert(agent_id, renewed);
+        Ok(Some(renewed))
+    }
+
+    async fn finish_agent_work(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: &str,
+        expected_lease: chrono::DateTime<chrono::Utc>,
+        status: AgentStatus,
+    ) -> AppResult<bool> {
+        let mut records = self.records.lock().expect("records lock");
+        let Some(record) = records.iter_mut().find(|record| record.agent_id == agent_id) else {
+            return Ok(false);
+        };
+        if record.container_id.as_deref() != Some(expected_container_id) {
+            return Ok(false);
+        }
+        let mut leases = self.leases.lock().expect("leases lock");
+        if leases.get(&agent_id) != Some(&expected_lease) {
+            return Ok(false);
+        }
+        leases.remove(&agent_id);
+        record.status = status;
+        Ok(true)
+    }
+
+    async fn delete_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
+        let mut records = self.records.lock().expect("records lock");
+        let Some(index) = records
+            .iter()
+            .position(|record| record.agent_id == agent_id && record.container_id.as_deref() == expected_container_id)
+        else {
+            return Err(ErrorKind::Conflict("agent container changed".into()).into());
+        };
+        records.remove(index);
+        self.deleted.lock().expect("deleted lock").push((agent_id, expected_container_id.map(str::to_owned)));
         Ok(())
     }
 }
@@ -86,7 +168,7 @@ impl McpAgentStore for TestStore {
 struct TestRuntime {
     create_calls: Arc<Mutex<Vec<McpAgentRuntimeCreate>>>,
     prompt_calls: Arc<Mutex<Vec<(Uuid, String)>>>,
-    destroy_calls: Arc<Mutex<Vec<Uuid>>>,
+    destroy_calls: Arc<Mutex<Vec<(Uuid, Option<String>)>>>,
     statuses: Arc<Mutex<HashMap<Uuid, SessionStatus>>>,
 }
 
@@ -98,7 +180,15 @@ impl McpAgentRuntime for TestRuntime {
             .lock()
             .expect("statuses")
             .insert(req.agent_id, SessionStatus { agent_id: req.agent_id, status: "idle".to_string() });
-        Ok(McpAgentRuntimeCreateResult { container_id: format!("ctr-{}", req.agent_id) })
+        Ok(McpAgentRuntimeCreateResult {
+            container_id: format!("ctr-{}", req.agent_id),
+            image_identity: serde_json::json!({
+                "source": req.image,
+                "imageId": "sha256:test",
+                "versionSource": "not-reported",
+                "trust": "host-local"
+            }),
+        })
     }
 
     async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
@@ -110,8 +200,8 @@ impl McpAgentRuntime for TestRuntime {
         Ok(())
     }
 
-    async fn destroy_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        self.destroy_calls.lock().expect("destroy calls").push(agent_id);
+    async fn destroy_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
+        self.destroy_calls.lock().expect("destroy calls").push((agent_id, expected_container_id.map(str::to_owned)));
         self.statuses
             .lock()
             .expect("statuses")
@@ -138,7 +228,7 @@ async fn create_session_resolves_project_context_and_persists_runtime_record() {
     let store =
         TestStore::with_context(ProjectRuntimeContext { project_id: Some(project_id), org_id, user_id, workspace_id });
     let runtime = TestRuntime::default();
-    let service = McpAgentService::new(
+    let service = McpAgentService::new_for_test(
         store.clone(),
         runtime.clone(),
         McpAgentRuntimeConfig {
@@ -187,7 +277,7 @@ async fn create_session_resolves_project_context_and_persists_runtime_record() {
 
 #[tokio::test]
 async fn create_session_rejects_missing_project_or_tenant_context() {
-    let service = McpAgentService::new(
+    let service = McpAgentService::new_for_test(
         TestStore::default(),
         TestRuntime::default(),
         McpAgentRuntimeConfig {
@@ -226,7 +316,7 @@ async fn prompt_status_and_destroy_delegate_to_runtime_and_store() {
         workspace_id: Uuid::now_v7(),
     });
     let runtime = TestRuntime::default();
-    let service = McpAgentService::new(
+    let service = McpAgentService::new_for_test(
         store.clone(),
         runtime.clone(),
         McpAgentRuntimeConfig {
@@ -259,8 +349,11 @@ async fn prompt_status_and_destroy_delegate_to_runtime_and_store() {
         runtime.prompt_calls.lock().expect("prompt calls").as_slice(),
         &[(created.agent_id, "ship it".to_string())]
     );
-    assert_eq!(runtime.destroy_calls.lock().expect("destroy calls").as_slice(), &[created.agent_id]);
-    assert_eq!(store.deleted(), vec![created.agent_id]);
+    assert_eq!(
+        runtime.destroy_calls.lock().expect("destroy calls").as_slice(),
+        &[(created.agent_id, Some(format!("ctr-{}", created.agent_id)))]
+    );
+    assert_eq!(store.deleted(), vec![(created.agent_id, Some(format!("ctr-{}", created.agent_id)))]);
 }
 
 #[tokio::test]
@@ -276,7 +369,7 @@ async fn prompt_status_destroy_reject_foreign_org_or_workspace() {
         workspace_id: Uuid::now_v7(),
     });
     let runtime = TestRuntime::default();
-    let service = McpAgentService::new(
+    let service = McpAgentService::new_for_test(
         store.clone(),
         runtime.clone(),
         McpAgentRuntimeConfig {
@@ -313,4 +406,101 @@ async fn prompt_status_destroy_reject_foreign_org_or_workspace() {
     assert!(runtime.prompt_calls.lock().expect("prompt calls").is_empty(), "runtime prompt must not run");
     assert!(runtime.destroy_calls.lock().expect("destroy calls").is_empty(), "runtime destroy must not run");
     assert!(store.deleted().is_empty(), "store delete must not run");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn destroy_rereads_container_after_waiting_for_lifecycle_lock(pool: PgPool) {
+    let org_id = Uuid::new_v4();
+    let user_id = Uuid::new_v4();
+    let agent_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'MCP race', $2)")
+        .bind(org_id)
+        .bind(format!("mcp-race-{org_id}"))
+        .execute(&pool)
+        .await
+        .expect("seed organization");
+    sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+        .bind(org_id)
+        .execute(&pool)
+        .await
+        .expect("seed workspace");
+    sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+        .bind(user_id)
+        .bind(format!("mcp-race-{user_id}@example.com"))
+        .execute(&pool)
+        .await
+        .expect("seed user");
+    let image_identity = serde_json::json!({
+        "source": "agentforge-agent:claude",
+        "imageId": format!("sha256:{}", "a".repeat(64)),
+        "versionSource": "not-reported",
+        "trust": "host-local"
+    });
+    sqlx::query(
+        "INSERT INTO agents
+            (id, organization_id, workspace_id, user_id, name, status, cli_tool, runtime_kind,
+             container_id, container_image_identity)
+         VALUES ($1, $2, $2, $3, 'MCP race', 'idle', 'claude', 'container', 'container-x', $4)",
+    )
+    .bind(agent_id)
+    .bind(org_id)
+    .bind(user_id)
+    .bind(&image_identity)
+    .execute(&pool)
+    .await
+    .expect("seed agent");
+
+    let first_read = Arc::new(Notify::new());
+    let store = TestStore {
+        context: Arc::default(),
+        records: Arc::new(Mutex::new(vec![McpAgentRecord {
+            agent_id,
+            organization_id: org_id,
+            workspace_id: org_id,
+            user_id,
+            project_id: None,
+            name: "MCP race".into(),
+            status: AgentStatus::Idle,
+            container_id: Some("container-x".into()),
+            container_image_identity: Some(image_identity.clone()),
+            cli_tool: Some("claude".into()),
+            model: None,
+            provider: None,
+            updated_at: None,
+        }])),
+        deleted: Arc::default(),
+        leases: Arc::default(),
+        get_notify: Some(first_read.clone()),
+    };
+    let runtime = TestRuntime::default();
+    let service = McpAgentService::new(
+        store.clone(),
+        runtime.clone(),
+        McpAgentRuntimeConfig {
+            workspace_root: "/tmp".into(),
+            default_image: "agentforge-agent:latest".into(),
+            tool_images: HashMap::new(),
+            system_api_keys: HashMap::new(),
+        },
+        pool.clone(),
+    );
+
+    let mut replacement = pool.begin().await.expect("begin replacement");
+    agentforge_db::lock_agent_lifecycle_in_tx(&mut replacement, agent_id).await.expect("lock replacement");
+    let destroy = tokio::spawn(async move { service.destroy_session(org_id, org_id, agent_id).await });
+    first_read.notified().await;
+    store.records.lock().expect("records lock")[0].container_id = Some("container-y".into());
+    sqlx::query("UPDATE agents SET container_id = 'container-y' WHERE id = $1")
+        .bind(agent_id)
+        .execute(&mut *replacement)
+        .await
+        .expect("replace container");
+    replacement.commit().await.expect("commit replacement");
+
+    destroy.await.expect("join destroy").expect("destroy replacement");
+    assert_eq!(
+        runtime.destroy_calls.lock().expect("destroy calls").as_slice(),
+        &[(agent_id, Some("container-y".into()))]
+    );
+    assert_eq!(store.deleted(), vec![(agent_id, Some("container-y".into()))]);
 }

@@ -5,6 +5,7 @@
 //! credentials, Git platform CLI env, and OAuth mount cleanup.
 
 use agentforge_core::{AppConfig, AppResult, TenantScope};
+use agentforge_db::entities::Agent;
 use agentforge_platform::Mount;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -14,6 +15,7 @@ use crate::domain::credential::ContainerCliCredentialPolicy;
 use crate::repositories::credential::cli::CliCredentialRepository;
 use crate::repositories::credential::git::GitCredentialRepository;
 use crate::repositories::user::llm_config::UserLlmConfigRepository;
+use crate::services::admin::PlatformAdminAuthority;
 use crate::services::cli_credential::CliCredentialService;
 use crate::services::git_credential::GitCredentialService;
 
@@ -70,6 +72,48 @@ impl AgentContainerCredentialService {
         }
 
         self.inject_git_cli_credentials(scope, agent_id, env).await;
+        Ok(())
+    }
+
+    /// Resolve credentials for the authoritative Agent row selected by the
+    /// sealed platform-admin lifecycle coordinator. No tenant scope is forged:
+    /// exact owner/org ids come from the row re-read under the Agent lock.
+    pub(crate) async fn inject_runtime_credentials_as_platform_admin(
+        &self,
+        _authority: &PlatformAdminAuthority,
+        agent: &Agent,
+        container_name: &str,
+        env: &mut Vec<String>,
+        mounts: &mut Vec<Mount>,
+    ) -> AppResult<()> {
+        self.inject_credential_sync_env(agent.cli_tool.as_deref(), env);
+        if let Some(cli_tool) = agent.cli_tool.as_deref() {
+            let injection =
+                self.cli_credentials.resolve_for_owner(agent.user_id.as_uuid(), cli_tool, container_name).await?;
+            if injection.env.is_empty() && injection.oauth_mount_host_dir.is_none() {
+                return Err(ContainerCliCredentialPolicy::runtime_credentials_required(cli_tool).into());
+            }
+            env.extend(injection.env.into_iter().map(|(key, value)| format!("{key}={value}")));
+            if let Some(host_dir) = injection.oauth_mount_host_dir {
+                mounts.push(Mount {
+                    source: host_dir.to_string_lossy().into_owned(),
+                    target: "/run/secrets/oauth-credentials".to_string(),
+                    read_only: true,
+                });
+            }
+        }
+        match self
+            .git_credentials
+            .resolve_cli_env_for_owner(agent.organization_id.as_uuid(), agent.user_id.as_uuid(), self.encryption_key)
+            .await
+        {
+            Ok(injection) => env.extend(injection.env.into_iter().map(|(key, value)| format!("{key}={value}"))),
+            Err(err) => tracing::warn!(
+                error = ?err,
+                agent_id = %agent.id,
+                "Failed to resolve Git platform CLI credentials - container will boot without gh/glab token injection"
+            ),
+        }
         Ok(())
     }
 

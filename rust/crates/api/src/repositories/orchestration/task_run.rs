@@ -53,10 +53,18 @@ impl TaskRunRepository {
                    (id, organization_id, workspace_id, orchestration_task_id, agent_id,
                     idempotency_key, status, started_at, capability_profile)
                SELECT $1, $2, agent.workspace_id, $3, $4, $5, 'working',
-                      COALESCE($6, NOW()), $7
+                      COALESCE($6, NOW()),
+                      $7 || CASE
+                          WHEN agent.container_image_identity IS NULL THEN '{}'::jsonb
+                          ELSE jsonb_build_object('image', agent.container_image_identity)
+                      END
                  FROM agents agent
                 WHERE agent.id = $4
                   AND agent.organization_id = $2
+                  AND (agent.runtime_kind <> 'container' OR (
+                      agent.container_id IS NOT NULL
+                      AND agent.container_image_identity IS NOT NULL
+                  ))
                ON CONFLICT (orchestration_task_id, idempotency_key) DO UPDATE
                   SET status = CASE
                           WHEN task_runs.finished_at IS NULL THEN EXCLUDED.status

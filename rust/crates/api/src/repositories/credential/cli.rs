@@ -238,12 +238,22 @@ impl CliCredentialRepository {
     /// `CliCredentialService::resolve` fall through to the system-wide
     /// fallback API-key tier.
     pub async fn find_encrypted_active(&self, scope: &TenantScope, cli_tool: &str) -> AppResult<Option<String>> {
+        self.find_encrypted_active_by_user_id(scope.user_id().as_uuid(), cli_tool).await
+    }
+
+    /// Exact-owner lookup for a server-side lifecycle coordinator that already
+    /// re-read the authoritative Agent under platform-admin authority.
+    pub(crate) async fn find_encrypted_active_by_user_id(
+        &self,
+        user_id: uuid::Uuid,
+        cli_tool: &str,
+    ) -> AppResult<Option<String>> {
         let row: Option<(String,)> = sqlx::query_as(
             r#"SELECT encrypted_credentials
                FROM user_cli_credentials
                WHERE user_id = $1 AND cli_tool = $2 AND revoked_at IS NULL"#,
         )
-        .bind(scope.user_id().as_uuid())
+        .bind(user_id)
         .bind(cli_tool)
         .fetch_optional(&self.pool)
         .await?;

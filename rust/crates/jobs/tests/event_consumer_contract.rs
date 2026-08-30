@@ -13,8 +13,9 @@ use agentforge_core::AgentStatus;
 use agentforge_core::orchestration_protocol::SignedEnvelope;
 use agentforge_core::ws_protocol::ServerMessage;
 use agentforge_jobs::event_consumer::{
-    AgentDirectory, AgentRuntimePatch, AgentTarget, BroadcastBus, ConsumeError, EventConsumer, EventStore,
-    HmacSecretLookup, PersistedEvent, SignedEventEnvelope, SignedEventPayload, TIMESTAMP_REPLAY_WINDOW_SECS,
+    AgentDirectory, AgentPatchOutcome, AgentRuntimePatch, AgentTarget, BroadcastBus, ConsumeError, EventConsumer,
+    EventStore, HmacSecretLookup, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
+    TIMESTAMP_REPLAY_WINDOW_SECS,
 };
 
 /// Shared per-agent secret for the in-memory verification harness. The signed
@@ -90,9 +91,9 @@ impl AgentDirectory for MemoryAgentDirectory {
         Ok(Some(target))
     }
 
-    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<bool> {
+    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<AgentPatchOutcome> {
         self.runtime_patches.lock().await.push((agent_id, patch));
-        Ok(true)
+        Ok(AgentPatchOutcome::Applied)
     }
 }
 
@@ -136,6 +137,7 @@ fn event_payload(event_type: &str) -> SignedEventPayload {
         data: serde_json::json!({
             "id": format!("evt-{event_type}"),
             "timestamp": 1_700_000_000_000_u64,
+            "sessionId": "contract-session",
             "cwd": "/workspace/project",
             "tool": "Read"
         }),
