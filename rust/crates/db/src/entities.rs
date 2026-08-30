@@ -568,6 +568,7 @@ pub struct OrchestrationTask {
     pub canceled_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub row_version: i64,
     pub self_fix: bool,
     pub base_commit_sha: Option<String>,
     pub pr_number: Option<i32>,

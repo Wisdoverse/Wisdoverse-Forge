@@ -63,7 +63,10 @@ pub use credential_consumer::{
 pub use dead_events::{
     DEAD_EVENT_PAYLOAD_MAX_BYTES, DeadEvent, DeadEventRecorder, SqlxDeadEventRecorder, payload_excerpt,
 };
-pub use dependency_reconcile::{DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker};
+pub use dependency_reconcile::{
+    DEFAULT_INTERVAL as DEPENDENCY_RECONCILE_DEFAULT_INTERVAL, DependencyReconcileWorker, RELEASE_TASK_DEPENDENTS_SQL,
+    release_task_dependents_in_tx,
+};
 pub use event_consumer::{
     AgentDirectory, AgentTarget, BroadcastBus, EVENTS_FILTER, EVENTS_STREAM, EventConsumer, EventStore,
     EventStreamWorker, PersistedEvent, SignedEventEnvelope, SignedEventPayload,

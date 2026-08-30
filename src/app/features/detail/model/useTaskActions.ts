@@ -21,17 +21,20 @@ export function useTaskActions(task: TaskSummary) {
   const [publishing, setPublishing] = useState(false)
   const [recoveryAction, setRecoveryAction] = useState<'retry' | 'approve' | null>(null)
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
-  const [taskAction, setTaskAction] = useState<'block' | 'cancel' | null>(null)
+  const [taskAction, setTaskAction] = useState<'cancel' | null>(null)
   const [taskActionError, setTaskActionError] = useState<string | null>(null)
   const [confirmCancelTask, setConfirmCancelTask] = useState(false)
 
-  const showActions = task.state === 'working' || task.state === 'queued'
+  const showActions = task.state === 'queued'
   const canAssign =
     canPublishWithContext &&
     (task.state === 'backlog' ||
       task.state === 'queued' ||
       (task.state === 'blocked' && task.blockedReason === 'waiting_agent'))
-  const canRetry = task.state === 'failed' || task.state === 'canceled'
+  const canRetry =
+    task.state === 'failed' ||
+    task.state === 'canceled' ||
+    (task.state === 'blocked' && task.blockedReason === 'waiting_verification')
   const canApprove = task.state === 'blocked' && task.blockedReason === 'waiting_approval'
 
   useEffect(() => {
@@ -105,21 +108,15 @@ export function useTaskActions(task: TaskSummary) {
     }
   }
 
-  async function handleTaskAction(action: 'block' | 'cancel') {
-    if (action === 'block') setConfirmCancelTask(false)
-    setTaskAction(action)
+  async function handleCancel() {
+    setTaskAction('cancel')
     setTaskActionError(null)
     try {
-      const response =
-        action === 'block'
-          ? await orchestrationApi.updateTask(task.id, { state: 'blocked' })
-          : await orchestrationApi.cancelTask(task.id)
+      const response = await orchestrationApi.cancelTask(task.id)
       if (response.ok && response.task) upsertTask(response.task)
-      if (action === 'cancel') setConfirmCancelTask(false)
+      setConfirmCancelTask(false)
     } catch (err) {
-      setTaskActionError(
-        taskDetailErrorMessage(action === 'block' ? 'blockTask' : 'cancelTask', err)
-      )
+      setTaskActionError(taskDetailErrorMessage('cancelTask', err))
     } finally {
       setTaskAction(null)
     }
@@ -136,8 +133,7 @@ export function useTaskActions(task: TaskSummary) {
     assign: openContextPreview,
     retry: () => handleRecovery('retry'),
     approve: () => handleRecovery('approve'),
-    cancel: () => handleTaskAction('cancel'),
-    pause: () => handleTaskAction('block'),
+    cancel: handleCancel,
     error: previewError ?? recoveryError ?? taskActionError,
     previewState: {
       isOpen: previewOpen,
