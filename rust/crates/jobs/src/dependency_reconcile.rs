@@ -326,7 +326,7 @@ mod tests {
         assert_eq!(DependencyReconcileWorker::tick(&pool).await.unwrap(), 1);
         let rows: Vec<(Uuid, String, Option<String>)> =
             sqlx::query_as("SELECT id, status, blocked_reason FROM orchestration_tasks WHERE id = ANY($1) ORDER BY id")
-                .bind(&[ready_id, unfinished_id, approval_id])
+                .bind([ready_id, unfinished_id, approval_id])
                 .fetch_all(&pool)
                 .await
                 .unwrap();

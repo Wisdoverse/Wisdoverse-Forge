@@ -93,8 +93,8 @@ describe('task guidance', () => {
   })
 
   test('changes working guidance near completion', () => {
-    expect(nextActionForTask(task({ state: 'working', progress: 20 }), 0, 0).detail).toContain(
-      'Watch progress'
+    expect(nextActionForTask(task({ state: 'working', progress: 20 }), 0, 0).detail).toBe(
+      'Watch Updates for progress and any request from the agent.'
     )
     expect(nextActionForTask(task({ state: 'working', progress: 80 }), 0, 0).detail).toContain(
       'Prepare to check result files'
