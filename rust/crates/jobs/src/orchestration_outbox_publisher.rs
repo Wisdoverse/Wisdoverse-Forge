@@ -38,6 +38,30 @@ const MARK_OUTBOX_PUBLISHED_SQL: &str = r#"UPDATE orchestration_outbox
        SET published_at = NOW()
      WHERE id = $1"#;
 
+async fn assignment_is_current_in_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    organization_id: uuid::Uuid,
+    task_id: uuid::Uuid,
+    delivery_id: uuid::Uuid,
+) -> Result<bool> {
+    Ok(sqlx::query_scalar::<_, uuid::Uuid>(
+        r#"SELECT id
+             FROM orchestration_tasks
+            WHERE id = $1
+              AND organization_id = $2
+              AND status = 'working'
+              AND last_assignment_id = $3
+            FOR SHARE"#,
+    )
+    .bind(task_id)
+    .bind(organization_id)
+    .bind(delivery_id)
+    .fetch_optional(&mut **tx)
+    .await
+    .context("lock current orchestration assignment")?
+    .is_some())
+}
+
 /// Serialize an assignment for publication. When `signing_secret` is `Some`,
 /// wrap it in a [`SignedEnvelope`] (HMAC-SHA256 over `agent_id:timestamp:payload`)
 /// signed with the target agent's per-agent secret, so the sidecar can verify
@@ -136,6 +160,22 @@ impl OrchestrationOutboxPublisher {
 
         let assignment: TaskAssignment =
             serde_json::from_value(row.payload.clone()).context("decode orchestration assignment outbox payload")?;
+
+        // Serialize publish against cancel/result/retry. A canceled task or a
+        // superseded delivery is acknowledged locally and never reaches an
+        // agent. Holding the task's share lock through the JetStream acks makes
+        // "publish then cancel" and "cancel then suppress" the only outcomes.
+        if !assignment_is_current_in_tx(&mut tx, row.organization_id.as_uuid(), row.aggregate_id, row.id).await? {
+            sqlx::query(MARK_OUTBOX_PUBLISHED_SQL)
+                .bind(row.id)
+                .execute(&mut *tx)
+                .await
+                .context("suppress stale orchestration assignment")?;
+            tx.commit().await.context("commit suppressed orchestration assignment")?;
+            tracing::info!(outbox_id = %row.id, task_id = %row.aggregate_id, "Suppressed stale orchestration assignment");
+            metrics::counter!("agentforge_orchestration_outbox_suppressed_total").increment(1);
+            return Ok(true);
+        }
 
         // #457 phase 1c: resolve the target agent's runtime_kind for the
         // namespaced subject. The hot auto-dispatch path (participant_liveness)
@@ -392,6 +432,10 @@ pub fn register_metrics() {
         "agentforge_orchestration_outbox_publish_errors_total",
         "Orchestration assignment outbox publish attempts that failed before DB publish mark"
     );
+    metrics::describe_counter!(
+        "agentforge_orchestration_outbox_suppressed_total",
+        "Stale or canceled orchestration assignment outbox rows suppressed before publish"
+    );
     metrics::describe_histogram!(
         "agentforge_orchestration_assignment_publish_seconds",
         "Time to publish one orchestration assignment outbox row to JetStream and receive ack"
@@ -423,6 +467,7 @@ pub fn register_metrics() {
 
     metrics::counter!("agentforge_orchestration_outbox_published_total").increment(0);
     metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(0);
+    metrics::counter!("agentforge_orchestration_outbox_suppressed_total").increment(0);
     metrics::histogram!("agentforge_orchestration_assignment_publish_seconds").record(0.0);
     metrics::counter!("agentforge_orchestration_assignment_kind_fallback_total").increment(0);
     metrics::counter!("agentforge_project_clone_outbox_relayed_total").increment(0);
@@ -478,5 +523,50 @@ mod tests {
 
         let back: TaskAssignment = serde_json::from_value(envelope.payload).unwrap();
         assert_eq!(back.task_id, assignment.task_id);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn only_the_current_working_assignment_is_publishable(pool: PgPool) {
+        let org_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let task_id = Uuid::new_v4();
+        let delivery_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Outbox', $2)")
+            .bind(org_id)
+            .bind(format!("outbox-{org_id}"))
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("outbox-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+                   (id, organization_id, title, status, last_assignment_id, created_by)
+               VALUES ($1, $2, 'publish guard', 'working', $3, $4)"#,
+        )
+        .bind(task_id)
+        .bind(org_id)
+        .bind(delivery_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let mut tx = pool.begin().await.unwrap();
+        assert!(assignment_is_current_in_tx(&mut tx, org_id, task_id, delivery_id).await.unwrap());
+        tx.commit().await.unwrap();
+
+        sqlx::query("UPDATE orchestration_tasks SET status = 'canceled' WHERE id = $1")
+            .bind(task_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let mut tx = pool.begin().await.unwrap();
+        assert!(!assignment_is_current_in_tx(&mut tx, org_id, task_id, delivery_id).await.unwrap());
+        tx.commit().await.unwrap();
     }
 }

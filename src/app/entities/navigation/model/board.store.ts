@@ -10,7 +10,7 @@ interface BoardState {
   loading: boolean
   error: string | null
   setTasks: (tasks: TaskSummary[]) => void
-  moveTask: (taskId: string, toColumn: ColumnId) => void
+  clearTasks: () => void
   upsertTask: (task: TaskSummary) => void
   updateTaskContextCounts: (
     taskId: string,
@@ -65,6 +65,37 @@ function distributeToColumns(tasks: TaskSummary[]): Record<ColumnId, TaskSummary
   return columns
 }
 
+function isOlderTask(incoming: TaskSummary, current: TaskSummary): boolean {
+  if (
+    incoming.rowVersion !== undefined &&
+    current.rowVersion !== undefined &&
+    incoming.rowVersion !== current.rowVersion
+  ) {
+    return incoming.rowVersion < current.rowVersion
+  }
+  const timestampOrder = compareRfc3339(incoming.updatedAt, current.updatedAt)
+  if (timestampOrder !== 0) return timestampOrder < 0
+  return incoming.rowVersion === undefined && current.rowVersion !== undefined
+}
+
+function compareRfc3339(left: string, right: string): number {
+  const leftNanos = rfc3339Nanos(left)
+  const rightNanos = rfc3339Nanos(right)
+  if (leftNanos === rightNanos) return 0
+  return leftNanos < rightNanos ? -1 : 1
+}
+
+function rfc3339Nanos(value: string): bigint {
+  const milliseconds = Date.parse(value)
+  if (!Number.isFinite(milliseconds)) return 0n
+  const fraction = value.match(/:\d{2}(?:\.(\d{1,9}))?(?:Z|[+-]\d{2}:\d{2})$/)?.[1] ?? ''
+  return BigInt(Math.floor(milliseconds / 1000)) * 1_000_000_000n + BigInt(fraction.padEnd(9, '0'))
+}
+
+function currentTasks(columns: Record<ColumnId, TaskSummary[]>): TaskSummary[] {
+  return Object.values(columns).flat()
+}
+
 const initialState = {
   columns: {
     backlog: [],
@@ -84,30 +115,20 @@ const initialState = {
 
 export const useBoardStore = create<BoardState>((set, get) => ({
   ...initialState,
-  setTasks: (tasks) => set({ columns: distributeToColumns(tasks) }),
-  moveTask: (taskId, toColumn) => {
-    const { columns } = get()
-    let task: TaskSummary | undefined
-    const newColumns = { ...columns }
-    for (const col of Object.keys(newColumns) as ColumnId[]) {
-      const idx = newColumns[col].findIndex((t) => t.id === taskId)
-      if (idx !== -1) {
-        task = newColumns[col][idx]
-        newColumns[col] = [...newColumns[col].slice(0, idx), ...newColumns[col].slice(idx + 1)]
-        break
+  setTasks: (tasks) =>
+    set((state) => {
+      const newest = new Map(currentTasks(state.columns).map((task) => [task.id, task]))
+      for (const task of tasks) {
+        const current = newest.get(task.id)
+        if (!current || !isOlderTask(task, current)) newest.set(task.id, task)
       }
-    }
-    if (task) {
-      const updatedTask = {
-        ...task,
-        state: toColumn === 'done' ? 'completed' : toColumn,
-      } as TaskSummary
-      newColumns[toColumn] = [...newColumns[toColumn], updatedTask]
-      set({ columns: newColumns })
-    }
-  },
+      return { columns: distributeToColumns([...newest.values()]) }
+    }),
+  clearTasks: () => set({ columns: distributeToColumns([]) }),
   upsertTask: (task) => {
     const { columns } = get()
+    const existing = currentTasks(columns).find((item) => item.id === task.id)
+    if (existing && isOlderTask(task, existing)) return
     const newColumns = { ...columns }
     const targetCol = stateToColumn(task.state)
     for (const col of Object.keys(newColumns) as ColumnId[]) {
@@ -115,9 +136,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     }
     // Realtime task_update frames omit the wait prediction; keep the last
     // known estimate while the task stays in the same waiting state.
-    const existing = Object.values(columns)
-      .flat()
-      .find((t) => t.id === task.id)
     const merged =
       existing?.state === 'queued' &&
       task.state === 'queued' &&
@@ -172,7 +190,11 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
   setViewMode: (viewMode) => set({ viewMode }),
   setGroupBy: (groupBy) => set({ groupBy }),
-  setSelectedGroupId: (selectedGroupId) => set({ selectedGroupId }),
+  setSelectedGroupId: (selectedGroupId) =>
+    set((state) => ({
+      selectedGroupId,
+      columns: state.selectedGroupId === selectedGroupId ? state.columns : distributeToColumns([]),
+    })),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   reset: () => set(initialState),
