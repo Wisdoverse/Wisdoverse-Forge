@@ -25,8 +25,9 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use agentforge_auth::AuthUser;
-use agentforge_core::AppResult;
+use agentforge_core::{AgentId, AppResult};
 
+use crate::domain::admin::{AdminBulkDeletePolicy, BulkDeleteResult};
 use crate::health::AppState;
 use crate::services::admin::{
     AdminAgentListInput, AdminService, admin_agent_detail_response, admin_agent_list_response,
@@ -310,8 +311,8 @@ async fn delete_admin_agent(
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
-    service.delete_agent(id).await?;
+    let authority = service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
+    state.agent_container_control_service().delete_as_platform_admin(&authority, AgentId::from(id)).await?;
     Ok(Json(admin_delete_response()))
 }
 
@@ -322,8 +323,20 @@ async fn bulk_delete_admin_agents(
     Json(body): Json<BulkDeleteRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let service = make_service(&state);
-    service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
-    let results = service.bulk_delete_agents_checked(&body.ids).await?;
+    let authority = service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
+    AdminBulkDeletePolicy::require_ids(&body.ids)?;
+    let control = state.agent_container_control_service();
+    let mut results = Vec::with_capacity(body.ids.len());
+    for id in body.ids {
+        match control.delete_as_platform_admin(&authority, AgentId::from(id)).await {
+            Ok(()) => results.push(BulkDeleteResult { id, ok: true, error: None }),
+            Err(err) => results.push(BulkDeleteResult {
+                id,
+                ok: false,
+                error: Some(AdminBulkDeletePolicy::error_message(&err)),
+            }),
+        }
+    }
     Ok(Json(admin_bulk_delete_response(results)))
 }
 
@@ -373,17 +386,17 @@ async fn list_cli_image_status(State(state): State<AppState>, auth: AuthUser) ->
 /// it interrupts running agents (in-flight work surfaces as `agent_lost`).
 /// Admin-gated, operator-initiated, never `claude`. Returns a per-agent report;
 /// a tool that is unknown/claude → 422, a concurrent roll of the same tool →
-/// 409. Cross-org by design (each agent rolled in its own tenant scope).
+/// 409. Cross-org by design, through sealed platform-admin lifecycle authority.
 async fn roll_cli_image(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(tool): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
-    make_service(&state).require_platform_admin(auth.scope.user_id().as_uuid()).await?;
+    let authority = make_service(&state).require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     // Defense-in-depth: reject claude/unknown at the route too (the service
     // re-checks). 422, not 404 — the path matched; the tool is just not rollable.
     RollToolPolicy::ensure_rollable(&tool)?;
-    let report = state.cli_image_roll_service().roll(&tool).await?;
+    let report = state.cli_image_roll_service().roll(&authority, &tool).await?;
     Ok(Json(cli_image_roll_response(report)))
 }
 

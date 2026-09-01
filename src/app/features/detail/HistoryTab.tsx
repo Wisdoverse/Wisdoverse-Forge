@@ -30,6 +30,7 @@ import {
   taskResultArtifacts,
   type TaskComment,
   type TaskCommentKind,
+  type TaskRunImageEvidence,
   type TaskRunSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
@@ -506,6 +507,18 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
               {workAttemptReferenceLabel(run.id)}
             </p>
           )}
+          {run.image ? (
+            <WorkImageEvidence image={run.image} />
+          ) : run.runtimeKind === 'container' ? (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              This run did not record work image evidence. New container runs record it
+              automatically; ask an admin to check this Agent before relying on the result.
+            </p>
+          ) : !run.runtimeKind ? (
+            <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+              This run did not record whether it used a work image.
+            </p>
+          ) : null}
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-body text-secondary-light dark:text-secondary-dark">
           <span
@@ -517,6 +530,45 @@ function TaskRunRow({ run }: { run: TaskRunSummary }) {
       </div>
     </div>
   )
+}
+
+function WorkImageEvidence({ image }: { image: TaskRunImageEvidence }) {
+  return (
+    <details className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
+      <summary className="w-fit cursor-pointer break-all rounded-sm focus-visible:outline-2 focus-visible:outline-[rgb(var(--ring))]">
+        Work image{image.version ? ` ${image.version}` : ''} · {image.source}
+        {image.trust ? ` · ${workImageTrustLabel(image.trust)}` : ''}
+      </summary>
+      <dl className="mt-1 grid gap-1 border-l border-black/[0.08] pl-2 dark:border-white/[0.1]">
+        <div>
+          <dt className="inline font-medium">Version source: </dt>
+          <dd className="inline">{workImageVersionSourceLabel(image.versionSource)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium">Image ID</dt>
+          <dd>
+            <code className="select-all break-all">{image.imageId}</code>
+          </dd>
+        </div>
+        {image.manifestDigest ? (
+          <div>
+            <dt className="font-medium">Manifest digest</dt>
+            <dd>
+              <code className="select-all break-all">{image.manifestDigest}</code>
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+    </details>
+  )
+}
+
+function workImageTrustLabel(trust: NonNullable<TaskRunImageEvidence['trust']>): string {
+  return trust === 'verified-signature' ? 'Verified signature' : 'Trusted by this host'
+}
+
+function workImageVersionSourceLabel(source: TaskRunImageEvidence['versionSource']): string {
+  return source === 'docker-label' ? 'Docker image label' : 'Not reported'
 }
 
 function workAttemptReferenceLabel(id: string): string {

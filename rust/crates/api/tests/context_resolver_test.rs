@@ -113,15 +113,26 @@ async fn seed_base(pool: &PgPool, task_text: &str) -> ResolverSeed {
     .execute(pool)
     .await
     .expect("seed group");
+    let image_identity = serde_json::json!({
+        "source": "agentforge-agent:claude",
+        "imageId": format!("sha256:{}", "a".repeat(64)),
+        "versionSource": "not-reported",
+        "trust": "host-local"
+    });
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status, runtime_kind)
-         VALUES ($1, $2, $3, $4, $5, 'resolver-agent', 'claude', 'idle', 'container')",
+        "INSERT INTO agents
+            (id, organization_id, workspace_id, project_id, user_id, name, cli_tool, status, runtime_kind,
+             container_id, container_image_identity, hmac_secret)
+         VALUES ($1, $2, $3, $4, $5, 'resolver-agent', 'claude', 'idle', 'container', $6, $7,
+                 'test-hmac-secret')",
     )
     .bind(agent_id)
     .bind(org_id)
     .bind(workspace_id)
     .bind(project_id)
     .bind(user_id)
+    .bind(format!("resolver-container-{agent_id}"))
+    .bind(image_identity)
     .execute(pool)
     .await
     .expect("seed agent");

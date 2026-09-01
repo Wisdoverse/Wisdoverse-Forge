@@ -7,6 +7,7 @@ use sqlx::PgPool;
 
 use agentforge_platform::DockerClient;
 
+use crate::services::container_image_config::configured_cli_images;
 use crate::services::mcp_agent::{McpAgentRuntimeConfig, McpAgentService, McpAgentTools};
 use crate::services::mcp_agent_store::SqlxMcpAgentStore;
 use crate::services::mcp_docker_runtime::docker_mcp_agent_runtime;
@@ -22,9 +23,9 @@ pub async fn build_live_mcp_components(
     let token = read_required("MCP_TOKEN").context("MCP_ENABLED=true requires MCP_TOKEN")?;
     let docker = docker.ok_or_else(|| anyhow!("MCP_ENABLED=true requires Docker to be available"))?;
     let config = live_runtime_config();
-    let store = SqlxMcpAgentStore::new(pool);
+    let store = SqlxMcpAgentStore::new(pool.clone());
     let runtime = docker_mcp_agent_runtime(store.clone(), docker);
-    let service = McpAgentService::new(store, runtime, config);
+    let service = McpAgentService::new(store, runtime, config, pool);
 
     Ok(Some((token, Arc::new(service))))
 }
@@ -34,24 +35,9 @@ fn live_runtime_config() -> McpAgentRuntimeConfig {
         workspace_root: env::var("AGENTFORGE_WORKSPACE_ROOT")
             .unwrap_or_else(|_| "/data/agentforge/workspaces".to_string()),
         default_image: env::var("CONTAINER_AGENT_IMAGE").unwrap_or_else(|_| "agentforge-agent:latest".to_string()),
-        tool_images: collect_tool_images(),
+        tool_images: configured_cli_images(),
         system_api_keys: collect_system_api_keys(),
     }
-}
-
-fn collect_tool_images() -> HashMap<String, String> {
-    HashMap::from_iter(
-        [
-            ("claude", env::var("CONTAINER_IMAGE_CLAUDE").ok()),
-            ("opencode", env::var("CONTAINER_IMAGE_OPENCODE").ok()),
-            ("codex", env::var("CONTAINER_IMAGE_CODEX").ok()),
-            ("gemini", env::var("CONTAINER_IMAGE_GEMINI").ok()),
-        ]
-        .into_iter()
-        .filter_map(|(tool, image)| {
-            image.filter(|value| !value.trim().is_empty()).map(|value| (tool.to_string(), value))
-        }),
-    )
 }
 
 fn collect_system_api_keys() -> HashMap<String, String> {

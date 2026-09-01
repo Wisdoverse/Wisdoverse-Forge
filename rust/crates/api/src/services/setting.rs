@@ -1,8 +1,8 @@
 //! Settings service — validation and management.
 
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
-use agentforge_core::{AppResult, TenantScope};
+use agentforge_core::{AppResult, CliToolKind, TenantScope};
 use agentforge_db::entities::Setting;
 use agentforge_platform::DockerClient;
 use serde_json::Value;
@@ -18,6 +18,9 @@ pub(crate) use crate::domain::configuration::{
 };
 use crate::domain::resource::SettingKey;
 use crate::repositories::setting::SettingRepository;
+use crate::services::container_image_config::{
+    capture_container_image_identity, configured_cli_image, image_verification_failure,
+};
 
 const RUNTIME_KEY: &str = "runtime";
 const GATEWAY_KEY: &str = "gateway";
@@ -143,44 +146,95 @@ impl SettingService {
     }
 
     async fn runtime_cli_tool_details(&self, runtime: &RuntimeSettings) -> Vec<RuntimeCliToolDetail> {
-        let mut details = Vec::with_capacity(runtime.available_cli_tools.len());
-        for cli_tool in &runtime.available_cli_tools {
-            let image = configured_cli_image(cli_tool);
-            let (image_present, version, version_source) = self.inspect_cli_image_version(&image).await;
-            details.push(RuntimeCliToolDetail {
-                cli_tool: cli_tool.clone(),
-                image,
-                version,
-                image_present,
-                version_source,
-            });
-        }
-        details
+        futures::future::join_all(runtime.available_cli_tools.iter().filter_map(|cli_tool| {
+            let tool = CliToolKind::parse_legacy(cli_tool).ok()?;
+            Some(self.inspect_cli_image(tool, cli_tool.clone(), configured_cli_image(tool)))
+        }))
+        .await
     }
 
-    async fn inspect_cli_image_version(&self, image: &str) -> (bool, Option<String>, String) {
+    async fn inspect_cli_image(&self, tool: CliToolKind, cli_tool: String, image: String) -> RuntimeCliToolDetail {
         if let Some(docker) = &self.docker {
-            match docker.inner().inspect_image(image).await {
-                Ok(info) => {
-                    let label_version = info
-                        .config
-                        .and_then(|config| config.labels)
-                        .and_then(|labels| labels.get("org.wisdoverse.cli-version").cloned())
+            match docker.local_image_identity(&image).await {
+                Ok(Some(identity)) => {
+                    let label_version = identity
+                        .labels
+                        .get("org.agentforge.cli-version")
+                        .or_else(|| identity.labels.get("org.wisdoverse.cli-version"))
+                        .cloned()
                         .and_then(clean_version);
-                    if label_version.is_some() {
-                        return (true, label_version, "docker-label".to_string());
-                    }
-                    return (true, image_tag_version(image), "image-tag".to_string());
+                    let (version, version_source) = match label_version {
+                        Some(version) => (Some(version), "docker-label".to_string()),
+                        None => (image_tag_version(&image), "image-tag".to_string()),
+                    };
+                    return match capture_container_image_identity(tool, &image, &identity).await {
+                        Ok(evidence) => RuntimeCliToolDetail {
+                            cli_tool,
+                            image,
+                            image_id: Some(identity.id),
+                            image_digest: identity.manifest_digest,
+                            version,
+                            image_present: true,
+                            image_ready: true,
+                            image_trust: Some(evidence.trust),
+                            image_error: None,
+                            image_error_code: None,
+                            version_source,
+                        },
+                        Err(err) => {
+                            let (code, recovery) = image_verification_failure(&err);
+                            tracing::warn!(error = %err, image, "Container CLI image is present but not trusted");
+                            RuntimeCliToolDetail {
+                                cli_tool,
+                                image,
+                                image_id: Some(identity.id),
+                                image_digest: identity.manifest_digest,
+                                version,
+                                image_present: true,
+                                image_ready: false,
+                                image_trust: None,
+                                image_error: Some(recovery.to_string()),
+                                image_error_code: Some(code.to_string()),
+                                version_source,
+                            }
+                        }
+                    };
                 }
+                Ok(None) => {}
                 Err(err) => {
                     tracing::debug!(error = %err, image, "failed to inspect Container CLI image");
+                    return RuntimeCliToolDetail {
+                        cli_tool,
+                        image,
+                        image_id: None,
+                        image_digest: None,
+                        version: None,
+                        image_present: false,
+                        image_ready: false,
+                        image_trust: None,
+                        image_error: Some("Could not inspect this image".to_string()),
+                        image_error_code: Some("image_inspection_failed".to_string()),
+                        version_source: "not-reported".to_string(),
+                    };
                 }
             }
         }
 
-        let tag_version = image_tag_version(image);
+        let tag_version = image_tag_version(&image);
         let source = if tag_version.is_some() { "image-tag" } else { "not-reported" };
-        (false, tag_version, source.to_string())
+        RuntimeCliToolDetail {
+            cli_tool,
+            image,
+            image_id: None,
+            image_digest: None,
+            version: tag_version,
+            image_present: false,
+            image_ready: false,
+            image_trust: None,
+            image_error: None,
+            image_error_code: None,
+            version_source: source.to_string(),
+        }
     }
 }
 
@@ -190,14 +244,6 @@ fn setting_value<'a>(scope: &TenantScope, settings: &'a [Setting], key: &str) ->
         .find(|setting| setting.key == key && setting.user_id == Some(scope.user_id()))
         .or_else(|| settings.iter().find(|setting| setting.key == key))
         .map(|setting| &setting.value)
-}
-
-fn configured_cli_image(cli_tool: &str) -> String {
-    let env_name = format!("CONTAINER_IMAGE_{}", cli_tool.to_ascii_uppercase());
-    env::var(env_name)
-        .ok()
-        .filter(|image| !image.trim().is_empty())
-        .unwrap_or_else(|| format!("agentforge-agent:{cli_tool}"))
 }
 
 fn image_tag_version(image: &str) -> Option<String> {

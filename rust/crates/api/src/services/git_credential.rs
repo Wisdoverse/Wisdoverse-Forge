@@ -197,28 +197,17 @@ impl GitCredentialService {
         encryption_key: Option<[u8; 32]>,
     ) -> AppResult<GitCliCredentialInjection> {
         let creds = self.repo.latest_cli_tokens(scope).await?;
-        if creds.is_empty() {
-            return Ok(GitCliCredentialInjection::default());
-        }
+        resolve_cli_token_rows(creds, encryption_key)
+    }
 
-        let key = encryption_key.ok_or_else(GitCredentialEncryptionPolicy::missing_decrypt_key)?;
-        let mut out = GitCliCredentialInjection::default();
-
-        for cred in creds {
-            let Some(token) = decrypt_git_token(&key, &cred)? else {
-                continue;
-            };
-            // The CLI-env path necessarily materializes the token as an env-var
-            // String value; `(*token).clone()` copies out of the Zeroizing wrapper
-            // at this boundary while the decrypted source still scrubs on drop.
-            match cred.provider.as_str() {
-                "github" => append_github_cli_env(&mut out.env, cred.remote_url.as_deref(), (*token).clone()),
-                "gitlab" => append_gitlab_cli_env(&mut out.env, cred.remote_url.as_deref(), (*token).clone()),
-                _ => {}
-            }
-        }
-
-        Ok(out)
+    pub(crate) async fn resolve_cli_env_for_owner(
+        &self,
+        organization_id: Uuid,
+        user_id: Uuid,
+        encryption_key: Option<[u8; 32]>,
+    ) -> AppResult<GitCliCredentialInjection> {
+        let creds = self.repo.latest_cli_tokens_by_owner(organization_id, user_id).await?;
+        resolve_cli_token_rows(creds, encryption_key)
     }
 
     /// Resolve EXACTLY ONE org-scoped git credential whose host matches the clone
@@ -312,6 +301,28 @@ impl GitCredentialService {
             crypto::encrypt_base64(key, token.value()).map_err(GitCredentialEncryptionPolicy::encrypt_failed)?;
         Ok(Some(encrypted.into_bytes()))
     }
+}
+
+fn resolve_cli_token_rows(
+    creds: Vec<GitCredential>,
+    encryption_key: Option<[u8; 32]>,
+) -> AppResult<GitCliCredentialInjection> {
+    if creds.is_empty() {
+        return Ok(GitCliCredentialInjection::default());
+    }
+    let key = encryption_key.ok_or_else(GitCredentialEncryptionPolicy::missing_decrypt_key)?;
+    let mut out = GitCliCredentialInjection::default();
+    for cred in creds {
+        let Some(token) = decrypt_git_token(&key, &cred)? else {
+            continue;
+        };
+        match cred.provider.as_str() {
+            "github" => append_github_cli_env(&mut out.env, cred.remote_url.as_deref(), (*token).clone()),
+            "gitlab" => append_gitlab_cli_env(&mut out.env, cred.remote_url.as_deref(), (*token).clone()),
+            _ => {}
+        }
+    }
+    Ok(out)
 }
 
 fn trimmed_opt(value: Option<&str>) -> Option<&str> {

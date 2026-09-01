@@ -12,7 +12,9 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use agentforge_core::RuntimeKind;
-use agentforge_core::orchestration_protocol::{DEFAULT_ASSIGNMENT_LEASE_SECS, TaskAssignment};
+use agentforge_core::orchestration_protocol::{
+    DEFAULT_ASSIGNMENT_LEASE_SECS, TaskAssignment, container_generation_fingerprint,
+};
 use agentforge_core::orchestration_view::TaskInstruction;
 use agentforge_core::ws_protocol::{
     OrchestrationParticipantBrief, OrchestrationParticipantUpdatePayload, ServerMessage,
@@ -104,15 +106,33 @@ pub(crate) const INSERT_PARTICIPANT_SQL: &str = r#"INSERT INTO participants
             SET last_heartbeat_at = NOW()
         RETURNING *"#;
 
-/// Mirror participant liveness onto `agents.status`. The
-/// `status IS DISTINCT FROM` guard makes an unchanged beat write zero rows (no
-/// new row version, no WAL, no dead tuple) — the steady-state case (ADR 0008).
+/// Mirror participant liveness onto `agents.status` without stealing an active
+/// interactive work lease. Hook/MCP owners choose their own bounded deadline;
+/// an ordinary available heartbeat may preserve that owner, but never extends
+/// it. This avoids turning one lost stop event into a permanent lease.
 pub(crate) const UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL: &str = r#"UPDATE agents
-           SET status = $3::agent_status,
+           SET status = CASE
+                   WHEN $3::agent_status = 'idle'
+                    AND interactive_lease_expires_at > NOW()
+                   THEN 'working'::agent_status
+                   ELSE $3::agent_status
+               END,
+               interactive_lease_expires_at = CASE
+                   WHEN $3::agent_status = 'idle'
+                    AND interactive_lease_expires_at > NOW()
+                   THEN interactive_lease_expires_at
+                   WHEN $3::agent_status = 'idle' THEN NULL
+                   ELSE interactive_lease_expires_at
+               END,
                updated_at = NOW()
          WHERE id = $1
            AND organization_id = $2
-           AND status IS DISTINCT FROM $3::agent_status"#;
+           AND status IS DISTINCT FROM CASE
+                   WHEN $3::agent_status = 'idle'
+                    AND interactive_lease_expires_at > NOW()
+                   THEN 'working'::agent_status
+                   ELSE $3::agent_status
+               END"#;
 
 pub(crate) const MARK_STALE_OFFLINE_SQL: &str = r#"UPDATE participants
            SET status = 'offline'
@@ -180,6 +200,10 @@ pub(crate) const LOCK_PARTICIPANT_SQL: &str = r#"SELECT participant.*
             ON agent.id = participant.agent_id
            AND agent.organization_id = participant.organization_id
          WHERE participant.agent_id = $1
+           AND (agent.runtime_kind <> 'container' OR (
+               agent.container_id IS NOT NULL
+               AND agent.container_image_identity IS NOT NULL
+           ))
          FOR UPDATE OF participant, agent"#;
 
 pub(crate) const NEXT_DISPATCHABLE_SQL: &str = r#"SELECT task.*
@@ -307,6 +331,19 @@ pub(crate) const AVAILABLE_PARTICIPANTS_SQL: &str = r#"SELECT participant.agent_
             ON agent.id = participant.agent_id
            AND agent.organization_id = participant.organization_id
          WHERE participant.status = 'available'
+           AND (agent.interactive_lease_expires_at IS NULL
+                OR agent.interactive_lease_expires_at <= NOW())
+           AND NOT EXISTS (
+                 SELECT 1
+                   FROM orchestration_tasks active_task
+                  WHERE active_task.organization_id = agent.organization_id
+                    AND active_task.assigned_agent_id = agent.id
+                    AND active_task.status = 'working'
+               )
+           AND (agent.runtime_kind <> 'container' OR (
+               agent.container_id IS NOT NULL
+               AND agent.container_image_identity IS NOT NULL
+           ))
            AND EXISTS (
                  SELECT 1
                    FROM unnest(participant.capabilities) capability
@@ -368,10 +405,18 @@ pub(crate) const INSERT_TASK_RUN_SQL: &str = r#"INSERT INTO task_runs
            (id, organization_id, workspace_id, orchestration_task_id, agent_id,
             idempotency_key, status, started_at, capability_profile)
         SELECT $1, $2, agent.workspace_id, $3, $4, $5, 'working',
-               COALESCE($6, NOW()), jsonb_build_object('capabilities', $7::text[])
+               COALESCE($6, NOW()),
+               jsonb_build_object('capabilities', $7::text[]) || CASE
+                   WHEN agent.container_image_identity IS NULL THEN '{}'::jsonb
+                   ELSE jsonb_build_object('image', agent.container_image_identity)
+               END
           FROM agents agent
          WHERE agent.id = $4
            AND agent.organization_id = $2
+           AND (agent.runtime_kind <> 'container' OR (
+               agent.container_id IS NOT NULL
+               AND agent.container_image_identity IS NOT NULL
+           ))
         ON CONFLICT (orchestration_task_id, idempotency_key) DO UPDATE
            SET status = CASE
                    WHEN task_runs.finished_at IS NULL THEN EXCLUDED.status
@@ -462,13 +507,38 @@ pub(crate) const RELEASE_PARTICIPANT_AFTER_LEASE_EXPIRY_SQL: &str = r#"UPDATE pa
         RETURNING *"#;
 
 pub(crate) const UPDATE_AGENT_STATUS_OFFLINE_SQL: &str = r#"UPDATE agents
-           SET status = 'offline',
+           SET status = CASE
+                   WHEN interactive_lease_expires_at > NOW()
+                   THEN 'working'::agent_status
+                   ELSE 'offline'::agent_status
+               END,
+               interactive_lease_expires_at = CASE
+                   WHEN interactive_lease_expires_at > NOW()
+                   THEN interactive_lease_expires_at
+                   ELSE NULL
+               END,
+               interactive_owner_session_id = CASE
+                   WHEN interactive_lease_expires_at > NOW()
+                   THEN interactive_owner_session_id
+                   ELSE NULL
+               END,
                updated_at = CASE
-                   WHEN status IS DISTINCT FROM 'offline'::agent_status THEN NOW()
+                   WHEN status IS DISTINCT FROM CASE
+                       WHEN interactive_lease_expires_at > NOW()
+                       THEN 'working'::agent_status
+                       ELSE 'offline'::agent_status
+                   END THEN NOW()
                    ELSE updated_at
                END
          WHERE id = $1
-           AND organization_id = $2"#;
+           AND organization_id = $2
+           AND EXISTS (
+                 SELECT 1
+                   FROM participants participant
+                  WHERE participant.organization_id = agents.organization_id
+                    AND participant.agent_id = agents.id
+                    AND participant.status = 'offline'
+               )"#;
 
 #[derive(Debug, Deserialize)]
 struct HeartbeatPayload {
@@ -478,6 +548,10 @@ struct HeartbeatPayload {
     capabilities: Vec<String>,
     #[serde(default)]
     cli_tool: Option<String>,
+    #[serde(default)]
+    container_generation_fingerprint: Option<String>,
+    #[serde(default)]
+    active_hook_session: Option<String>,
 }
 
 impl HeartbeatPayload {
@@ -739,6 +813,19 @@ pub async fn handle_heartbeat(
 
     metrics::counter!("agentforge_orchestration_participant_heartbeats_total").increment(1);
 
+    // Interactive owner renewal is deliberately outside the Redis presence
+    // fast-path. Every current sidecar heartbeat must refresh long-running CLI
+    // work in Postgres, but only under the Agent lifecycle lock and only when
+    // the exact current container generation + session epoch still own a live
+    // lease. An old sidecar/monitor therefore cannot revive a timed-out owner
+    // or touch a newly admitted prompt.
+    if let (Some(session), Some(generation)) = (
+        payload.active_hook_session.as_deref().map(str::trim).filter(|value| !value.is_empty()),
+        payload.container_generation_fingerprint.as_deref().map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        renew_interactive_owner_from_heartbeat(pool, subject_agent, session, generation).await?;
+    }
+
     // ADR 0008 Phase 2: when Redis presence is active and the agent is already
     // live, the beat is recorded entirely in Redis — no PostgreSQL write,
     // broadcast, or auto-dispatch. A transition (first-seen / TTL resurrection /
@@ -786,6 +873,47 @@ pub async fn handle_heartbeat(
     }
 
     Ok(())
+}
+
+/// Renew the hook-owned crash-backstop lease for one exact owner epoch.
+/// Returns false for stale generation/session, expired leases, and missing
+/// agents. All are terminal no-ops for this heartbeat rather than retries that
+/// could resurrect superseded work.
+pub async fn renew_interactive_owner_from_heartbeat(
+    pool: &PgPool,
+    agent_id: Uuid,
+    session_id: &str,
+    generation_fingerprint: &str,
+) -> Result<bool> {
+    let mut tx = pool.begin().await?;
+    agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, agent_id).await?;
+    let current_secret: Option<Option<String>> = sqlx::query_scalar("SELECT hmac_secret FROM agents WHERE id = $1")
+        .bind(agent_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let Some(Some(current_secret)) = current_secret else {
+        tx.commit().await?;
+        return Ok(false);
+    };
+    if container_generation_fingerprint(current_secret.as_bytes()) != generation_fingerprint {
+        tx.commit().await?;
+        return Ok(false);
+    }
+    let result = sqlx::query(
+        r#"UPDATE agents
+              SET interactive_lease_expires_at = NOW() + INTERVAL '2 minutes'
+            WHERE id = $1
+              AND hmac_secret = $2
+              AND interactive_owner_session_id = $3
+              AND interactive_lease_expires_at > NOW()"#,
+    )
+    .bind(agent_id)
+    .bind(&current_secret)
+    .bind(session_id)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(result.rows_affected() == 1)
 }
 
 /// Offline sweep dispatcher (ADR 0008). In Redis-presence mode, liveness is the
@@ -896,21 +1024,27 @@ pub async fn reconcile_orphaned_busy(client: &Client, pool: &PgPool) -> Result<u
 /// beats (ADR 0008).
 async fn update_agent_status_from_participant(pool: &PgPool, participant: &Participant) -> Result<bool> {
     let status = if participant.status == "busy" { "working" } else { "idle" };
+    let mut tx = pool.begin().await?;
+    agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, participant.agent_id.as_uuid()).await?;
     let result = sqlx::query(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL)
         .bind(participant.agent_id.as_uuid())
         .bind(participant.organization_id.as_uuid())
         .bind(status)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+    tx.commit().await?;
     Ok(result.rows_affected() > 0)
 }
 
 async fn update_agent_status_offline(pool: &PgPool, participant: &Participant) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, participant.agent_id.as_uuid()).await?;
     sqlx::query(UPDATE_AGENT_STATUS_OFFLINE_SQL)
         .bind(participant.agent_id.as_uuid())
         .bind(participant.organization_id.as_uuid())
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+    tx.commit().await?;
     Ok(())
 }
 
@@ -983,6 +1117,8 @@ async fn claim_next_task_for_participant(
 ) -> Result<Option<(OrchestrationTask, Participant)>> {
     let mut tx = pool.begin().await?;
 
+    agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, agent_id).await?;
+
     let Some(participant) =
         sqlx::query_as::<_, Participant>(LOCK_PARTICIPANT_SQL).bind(agent_id).fetch_optional(&mut *tx).await?
     else {
@@ -996,6 +1132,33 @@ async fn claim_next_task_for_participant(
         tx.commit().await?;
         return Ok(None);
     }
+
+    if agentforge_db::agent_work_admission_is_idle_in_tx(&mut tx, participant.organization_id.as_uuid(), agent_id)
+        .await?
+        != Some(true)
+    {
+        tx.commit().await?;
+        return Ok(None);
+    }
+
+    // The lifecycle lock above freezes the per-container secret until this
+    // transaction commits, so this fingerprint identifies exactly the
+    // container generation to which the assignment is admitted.
+    let (runtime_kind, hmac_secret): (RuntimeKind, Option<String>) =
+        sqlx::query_as("SELECT runtime_kind, hmac_secret FROM agents WHERE id = $1")
+            .bind(agent_id)
+            .fetch_one(&mut *tx)
+            .await
+            .context("load assignment target generation")?;
+    let container_generation_fingerprint = match runtime_kind {
+        RuntimeKind::Container => {
+            let secret = hmac_secret.as_deref().filter(|secret| !secret.trim().is_empty()).ok_or_else(|| {
+                anyhow!("refusing to dispatch container agent {agent_id} without an HMAC generation secret")
+            })?;
+            Some(container_generation_fingerprint(secret.as_bytes()))
+        }
+        RuntimeKind::Cli | RuntimeKind::Api => None,
+    };
 
     let Some(task) = sqlx::query_as::<_, OrchestrationTask>(NEXT_DISPATCHABLE_SQL)
         .bind(participant.organization_id.as_uuid())
@@ -1024,7 +1187,7 @@ async fn claim_next_task_for_participant(
     let delivery_id = claimed_task
         .last_assignment_id
         .ok_or_else(|| anyhow!("claimed task {} missing assignment id", claimed_task.id))?;
-    sqlx::query(INSERT_TASK_RUN_SQL)
+    let run_insert = sqlx::query(INSERT_TASK_RUN_SQL)
         .bind(Uuid::now_v7())
         .bind(participant.organization_id.as_uuid())
         .bind(claimed_task.id)
@@ -1034,25 +1197,15 @@ async fn claim_next_task_for_participant(
         .bind(&participant.capabilities)
         .execute(&mut *tx)
         .await?;
+    if run_insert.rows_affected() != 1 {
+        return Err(anyhow!("refusing to dispatch task {} without immutable runtime evidence", claimed_task.id));
+    }
 
     let busy_participant = sqlx::query_as::<_, Participant>(SET_PARTICIPANT_STATUS_SQL)
         .bind(participant.id)
         .bind("busy")
         .fetch_one(&mut *tx)
         .await?;
-
-    // #457 phase 1c: read the agent's runtime_kind so the outbox publisher can
-    // build the kind-namespaced assignment subject. Done here on the enqueue
-    // path (one indexed PK lookup inside the claim tx) rather than on the
-    // publish hot path. NOT NULL post-migration 062. On the (practically
-    // impossible) miss/parse-failure this yields `None`; the publisher then
-    // re-resolves from the DB and, only as a last resort, defaults to Container
-    // (logged + counted there) — this site does NOT itself default.
-    let runtime_kind: Option<String> = sqlx::query_scalar("SELECT runtime_kind FROM agents WHERE id = $1")
-        .bind(agent_id)
-        .fetch_optional(&mut *tx)
-        .await?;
-    let runtime_kind = runtime_kind.and_then(|raw| RuntimeKind::parse_legacy(&raw).ok());
 
     let (task_text, message) = TaskInstruction::from_params(
         &claimed_task.title,
@@ -1071,7 +1224,8 @@ async fn claim_next_task_for_participant(
         message,
         priority: claimed_task.priority.clone(),
         context_envelope: None,
-        runtime_kind,
+        runtime_kind: Some(runtime_kind),
+        container_generation_fingerprint,
         image_paths: Vec::new(),
         // CN-4: stamp the auto-dispatch span's trace so the sidecar continues it
         // across the NATS hop. `None` when the OTLP layer is not installed.
@@ -1161,6 +1315,7 @@ fn participant_status_for_ws(status: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
 
     struct DispatchFixture {
         org_id: Uuid,
@@ -1260,14 +1415,23 @@ mod tests {
     async fn seed_agent_participant(pool: &PgPool, fixture: &DispatchFixture) -> Uuid {
         let agent_id = Uuid::new_v4();
         sqlx::query(
-            "INSERT INTO agents (id, organization_id, workspace_id, project_id, user_id, name, status) \
-             VALUES ($1, $2, $3, $4, $5, 'dispatch-agent', 'idle')",
+            "INSERT INTO agents \
+                (id, organization_id, workspace_id, project_id, user_id, name, status, cli_tool, runtime_kind, container_id, container_image_identity, hmac_secret) \
+             VALUES ($1, $2, $3, $4, $5, 'dispatch-agent', 'idle', 'claude', 'container', $6, $7, $8)",
         )
         .bind(agent_id)
         .bind(fixture.org_id)
         .bind(fixture.workspace_a)
         .bind(fixture.project_a)
         .bind(fixture.user_id)
+        .bind(format!("dispatch-container-{agent_id}"))
+        .bind(serde_json::json!({
+            "source": "agentforge-agent:claude",
+            "imageId": format!("sha256:{}", "d".repeat(64)),
+            "versionSource": "not-reported",
+            "trust": "host-local"
+        }))
+        .bind(Uuid::new_v4().to_string())
         .execute(pool)
         .await
         .expect("seed agent");
@@ -1466,11 +1630,13 @@ mod tests {
     fn agent_status_heartbeat_sql_skips_unchanged_rows() {
         // The conditional WHERE makes an unchanged beat a zero-row write (no new
         // row version / WAL / dead tuple) — the steady-state case (ADR 0008).
-        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("status IS DISTINCT FROM $3::agent_status"));
+        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("status IS DISTINCT FROM CASE"));
         // updated_at is now unconditional because the statement only runs when
         // the status actually changes; the old CASE-gated form is gone.
         assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("updated_at = NOW()"));
         assert!(!UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("ELSE updated_at"));
+        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("interactive_lease_expires_at > NOW()"));
+        assert!(!UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("INTERVAL '60 seconds'"));
     }
 
     #[test]
@@ -1535,6 +1701,13 @@ mod tests {
             claim_next_task_for_participant(&pool, agent_id).await.expect("claim exact").expect("exact claim");
         assert_eq!(claimed.id, exact, "exact project must win before task priority");
 
+        sqlx::query(
+            "UPDATE orchestration_tasks SET status = 'completed', completed_at = NOW(), lease_expires_at = NULL WHERE id = $1",
+        )
+        .bind(exact)
+        .execute(&pool)
+        .await
+        .expect("finish exact task");
         sqlx::query("UPDATE participants SET status = 'available' WHERE agent_id = $1")
             .bind(agent_id)
             .execute(&pool)
@@ -1551,6 +1724,13 @@ mod tests {
             .expect("workspace fallback");
         assert_eq!(claimed.id, fallback, "same-workspace alternate project must be eligible");
 
+        sqlx::query(
+            "UPDATE orchestration_tasks SET status = 'completed', completed_at = NOW(), lease_expires_at = NULL WHERE id = $1",
+        )
+        .bind(fallback)
+        .execute(&pool)
+        .await
+        .expect("finish fallback task");
         sqlx::query("UPDATE participants SET status = 'available' WHERE agent_id = $1")
             .bind(agent_id)
             .execute(&pool)
@@ -1636,6 +1816,228 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(invalid_states, vec!["queued"; 4]);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_skips_container_without_image_identity(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let task_id = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "Unverified").await;
+        sqlx::query("UPDATE agents SET container_image_identity = NULL WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("clear image identity");
+
+        assert!(
+            claim_next_task_for_participant(&pool, agent_id)
+                .await
+                .expect("identity-less container must be skipped")
+                .is_none()
+        );
+
+        let (task_status, participant_status, run_count, outbox_count): (String, String, i64, i64) = sqlx::query_as(
+            r#"SELECT task.status,
+                      (SELECT status FROM participants WHERE agent_id = $2),
+                      (SELECT count(*) FROM task_runs WHERE orchestration_task_id = task.id),
+                      (SELECT count(*) FROM orchestration_outbox WHERE aggregate_id = task.id)
+                 FROM orchestration_tasks task
+                WHERE task.id = $1"#,
+        )
+        .bind(task_id)
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("read rolled-back claim state");
+        assert_eq!(
+            (task_status.as_str(), participant_status.as_str(), run_count, outbox_count),
+            ("queued", "available", 0, 0)
+        );
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_rejects_container_without_generation_secret(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let task_id = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "Missing generation").await;
+        sqlx::query("UPDATE agents SET hmac_secret = NULL WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("clear generation secret");
+
+        let err = claim_next_task_for_participant(&pool, agent_id)
+            .await
+            .expect_err("container without generation secret must fail closed");
+        assert!(err.to_string().contains("HMAC generation secret"), "unexpected error: {err:#}");
+
+        let (task_status, participant_status, run_count, outbox_count): (String, String, i64, i64) = sqlx::query_as(
+            r#"SELECT task.status,
+                      (SELECT status FROM participants WHERE agent_id = $2),
+                      (SELECT count(*) FROM task_runs WHERE orchestration_task_id = task.id),
+                      (SELECT count(*) FROM orchestration_outbox WHERE aggregate_id = task.id)
+                 FROM orchestration_tasks task
+                WHERE task.id = $1"#,
+        )
+        .bind(task_id)
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("read generation-rejected claim state");
+        assert_eq!(
+            (task_status.as_str(), participant_status.as_str(), run_count, outbox_count),
+            ("queued", "available", 0, 0)
+        );
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_rejects_live_interactive_owner_but_not_a_stale_status_mirror(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let task_id = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "Interactive owner").await;
+        sqlx::query(
+            "UPDATE agents SET status = 'working', interactive_lease_expires_at = NOW() + INTERVAL '60 seconds' WHERE id = $1",
+        )
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("establish interactive owner");
+
+        assert!(
+            claim_next_task_for_participant(&pool, agent_id).await.expect("live interactive owner check").is_none(),
+            "orchestration must not overlap a live terminal/MCP lease"
+        );
+
+        sqlx::query(
+            "UPDATE agents SET status = 'working', interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1",
+        )
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("expire interactive owner");
+        let (claimed, _) = claim_next_task_for_participant(&pool, agent_id)
+            .await
+            .expect("expired lease claim")
+            .expect("stale status mirror must not remain authoritative");
+        assert_eq!(claimed.id, task_id);
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn heartbeat_preserves_but_does_not_make_interactive_work_permanent(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let participant: Participant = sqlx::query_as("SELECT * FROM participants WHERE agent_id = $1")
+            .bind(agent_id)
+            .fetch_one(&pool)
+            .await
+            .expect("read participant");
+        sqlx::query(
+            "UPDATE agents SET status = 'working', interactive_lease_expires_at = NOW() + INTERVAL '10 seconds' WHERE id = $1",
+        )
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("establish expiring interactive lease");
+        let before: chrono::DateTime<Utc> =
+            sqlx::query_scalar("SELECT interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read original lease");
+
+        assert!(!update_agent_status_from_participant(&pool, &participant).await.expect("heartbeat update"));
+        let (status, renewed): (String, Option<chrono::DateTime<Utc>>) =
+            sqlx::query_as("SELECT status::text, interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read renewed owner");
+        assert_eq!(status, "working", "available participant heartbeat must not overwrite interactive work");
+        assert_eq!(renewed, Some(before), "ordinary heartbeat must not extend a bounded interactive owner");
+
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("expire interactive lease");
+        assert!(update_agent_status_from_participant(&pool, &participant).await.expect("expired heartbeat update"));
+        let (status, lease): (String, Option<chrono::DateTime<Utc>>) =
+            sqlx::query_as("SELECT status::text, interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read released owner");
+        assert_eq!(status, "idle");
+        assert!(lease.is_none());
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn hook_owner_heartbeat_requires_exact_live_session_and_generation(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let secret = Uuid::new_v4().to_string();
+        let generation = container_generation_fingerprint(secret.as_bytes());
+        sqlx::query(
+            "UPDATE agents \
+                SET status = 'working', hmac_secret = $2, \
+                    interactive_owner_session_id = 'session-b', \
+                    interactive_lease_expires_at = NOW() + INTERVAL '10 seconds' \
+              WHERE id = $1",
+        )
+        .bind(agent_id)
+        .bind(&secret)
+        .execute(&pool)
+        .await
+        .expect("establish current hook owner");
+        let original: chrono::DateTime<Utc> =
+            sqlx::query_scalar("SELECT interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        assert!(
+            !renew_interactive_owner_from_heartbeat(&pool, agent_id, "session-a", &generation).await.unwrap(),
+            "paused monitor A cannot renew newer prompt B"
+        );
+        assert!(
+            !renew_interactive_owner_from_heartbeat(
+                &pool,
+                agent_id,
+                "session-b",
+                &container_generation_fingerprint(b"replacement-secret"),
+            )
+            .await
+            .unwrap(),
+            "a prior container generation cannot renew the current owner"
+        );
+        let unchanged: chrono::DateTime<Utc> =
+            sqlx::query_scalar("SELECT interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(unchanged, original);
+
+        assert!(renew_interactive_owner_from_heartbeat(&pool, agent_id, "session-b", &generation).await.unwrap());
+        let renewed_beyond_original_ttl: bool = sqlx::query_scalar(
+            "SELECT interactive_lease_expires_at > NOW() + INTERVAL '110 seconds' FROM agents WHERE id = $1",
+        )
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert!(renewed_beyond_original_ttl, "matching heartbeats keep legitimate long work exclusive");
+
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(
+            !renew_interactive_owner_from_heartbeat(&pool, agent_id, "session-b", &generation).await.unwrap(),
+            "an expired crash backstop cannot be resurrected"
+        );
     }
 
     // An image task is bound to a specific vision-capable container agent and

@@ -49,8 +49,11 @@ AGENT_CLI_IMAGE_TAG=latest                   # overlay tag to track
 Requires a reachable Docker daemon (the same socket the server already uses to
 spawn agents). If `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` but no daemon is
 available, the worker logs a warning and does nothing. Public overlays pull
-anonymously; for a private registry, the host's ambient `docker login` credential
-is reused (no token is plumbed into the Rust process).
+anonymously. Stock Compose supports public signed registries only: it does not
+mount the host Docker credential store or plumb credentials to the in-server
+cosign process. A host-side `docker login` therefore does not enable private
+overlay verification; authenticated private registries need future explicit,
+narrowly scoped credential integration.
 
 ## Observe
 
@@ -89,6 +92,45 @@ Image-level ops only (pull / registry-inspect / local-inspect / tag / remove) â€
 they never create a container, build a `HostConfig`, or touch
 `platform/security.rs`, so the container-creation defense-in-depth is unchanged.
 No new Docker mount, no new secret surface for public images.
+
+Before changing `agentforge-agent:<tool>`, the updater verifies the candidate's
+signature and requires a valid semantic version in its CLI-version label. It
+rejects a candidate older than the current runtime alias; a different image at
+the same CLI version is allowed so patched, equal-version rebuilds can land.
+Candidates with missing or invalid labels fail closed. If an existing runtime
+alias has no valid version label, the updater also stops rather than guessing an
+anti-rollback floor.
+
+Updater pulls/tags, Claude builds, pruning, and operator rolls use the same
+PostgreSQL per-tool advisory lock. A roll therefore sees one stable runtime image
+instead of racing an alias change or prune on another API replica.
+
+### Manual recovery from a blocked version state
+
+Use this only for an intentional downgrade or to replace a legacy runtime alias
+whose version label is missing or invalid:
+
+1. Set `CLI_IMAGE_AUTO_UPDATE_ENABLED=false`, restart the server, and do not
+   start an operator roll during recovery.
+2. Choose the exact public candidate digest, verify its signature, pull it, and
+   confirm the printed label is the semantic version you intend to run:
+
+   ```bash
+   TOOL=codex
+   CANDIDATE='ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:<digest>'
+
+   agentforge verify-image "$CANDIDATE"
+   docker pull "$CANDIDATE"
+   docker image inspect \
+     --format '{{ index .Config.Labels "org.wisdoverse.cli-version" }}' \
+     "$CANDIDATE"
+   docker tag "$CANDIDATE" "agentforge-agent:$TOOL"
+   ```
+
+3. Start one new Agent and confirm its recorded image digest/version. Re-enable
+   automatic updates only after `AGENT_CLI_IMAGE_TAG` resolves to that intended
+   version or a newer one; otherwise leave the updater disabled and correct the
+   registry tag first.
 
 **Prune is shared-host safe by construction.** It NEVER runs a global
 `docker image prune` or a label/name glob removal. It removes only an image

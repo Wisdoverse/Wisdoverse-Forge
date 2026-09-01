@@ -263,8 +263,7 @@ async fn delete_agent(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let service = make_service(&state);
-    service.delete(&auth.scope, AgentId::from(id)).await?;
+    state.agent_container_control_service().delete(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_delete_response()))
 }
 
@@ -395,8 +394,7 @@ async fn restart_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     make_service(&state).require_owner(&auth.scope, AgentId::from(id)).await?;
     let service = state.agent_container_control_service();
-    service.stop(&auth.scope, AgentId::from(id)).await?;
-    service.start(&auth.scope, AgentId::from(id)).await?;
+    service.replace(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("restarted")))
 }
 
@@ -408,8 +406,7 @@ async fn resume_agent(
 ) -> AppResult<Json<serde_json::Value>> {
     make_service(&state).require_owner(&auth.scope, AgentId::from(id)).await?;
     let service = state.agent_container_control_service();
-    service.stop(&auth.scope, AgentId::from(id)).await?;
-    service.start(&auth.scope, AgentId::from(id)).await?;
+    service.replace(&auth.scope, AgentId::from(id)).await?;
     Ok(Json(agent_status_response("resumed")))
 }
 

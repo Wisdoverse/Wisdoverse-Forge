@@ -76,12 +76,28 @@ impl UserLlmConfigRepository {
     /// provider. Prefers `is_default=true`; falls back to the most recently
     /// updated enabled row.
     pub async fn find_default_api_key(&self, scope: &TenantScope, provider: &str) -> AppResult<Option<String>> {
-        Ok(self.find_default_secret(scope, provider).await?.map(|secret| secret.encrypted_api_key))
+        self.find_default_api_key_by_user_id(scope.user_id().as_uuid(), provider).await
+    }
+
+    pub(crate) async fn find_default_api_key_by_user_id(
+        &self,
+        user_id: Uuid,
+        provider: &str,
+    ) -> AppResult<Option<String>> {
+        Ok(self.find_default_secret_by_user_id(user_id, provider).await?.map(|secret| secret.encrypted_api_key))
     }
 
     pub async fn find_default_secret(
         &self,
         scope: &TenantScope,
+        provider: &str,
+    ) -> AppResult<Option<UserLlmConfigSecret>> {
+        self.find_default_secret_by_user_id(scope.user_id().as_uuid(), provider).await
+    }
+
+    async fn find_default_secret_by_user_id(
+        &self,
+        user_id: Uuid,
         provider: &str,
     ) -> AppResult<Option<UserLlmConfigSecret>> {
         let row: Option<(String, Option<String>)> = sqlx::query_as(
@@ -90,7 +106,7 @@ impl UserLlmConfigRepository {
                ORDER BY is_default DESC, updated_at DESC
                LIMIT 1"#,
         )
-        .bind(scope.user_id().as_uuid())
+        .bind(user_id)
         .bind(provider)
         .fetch_optional(&self.pool)
         .await?;

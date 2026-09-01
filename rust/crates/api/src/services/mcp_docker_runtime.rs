@@ -9,12 +9,13 @@ use bollard::errors::Error as BollardError;
 use bollard::query_parameters::{
     AttachContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
 };
+use chrono::Utc;
 use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-use agentforge_core::{AgentStatus, AppError, AppResult};
+use agentforge_core::{AgentStatus, AppError, AppResult, CliToolKind};
 use agentforge_platform::{
     ContainerConfig as PlatformContainerConfig, DockerClient, Mount as PlatformMount, ResourceLimits,
 };
@@ -24,12 +25,19 @@ use crate::domain::mcp::{
     cli_ready_timeout_error, docker_create_plan, docker_runtime_error, has_any_indicator, hash_bytes, infer_cli_tool,
     io_runtime_error, is_not_found_error, missing_container_id_error, runtime_markers, stale_working_status,
 };
+use crate::services::container_image_config::capture_container_image_identity;
 use crate::services::mcp_agent::{
     McpAgentRecord, McpAgentRuntime, McpAgentRuntimeCreate, McpAgentRuntimeCreateResult, McpAgentStore, SessionStatus,
 };
 
 const READY_LOG_TAIL: usize = 30;
 const COMPLETION_LOG_TAIL: usize = 1000;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResolvedMcpImage {
+    immutable_id: String,
+    evidence: serde_json::Value,
+}
 
 pub(crate) fn docker_mcp_agent_runtime<S>(store: S, docker: Arc<DockerClient>) -> impl McpAgentRuntime + Clone
 where
@@ -41,6 +49,7 @@ where
 
 #[async_trait]
 trait DockerMcpRuntimeBackend: Send + Sync {
+    async fn resolve_image(&self, image_ref: &str, cli_tool: &str) -> AppResult<ResolvedMcpImage>;
     async fn create_container(&self, request: DockerCreateRequest) -> AppResult<String>;
     async fn start_container(&self, container_id: &str) -> AppResult<()>;
     async fn remove_container(&self, container_id: &str, force: bool) -> AppResult<()>;
@@ -117,15 +126,38 @@ fn mcp_container_config(request: DockerCreateRequest) -> PlatformContainerConfig
 
 #[async_trait]
 impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
+    async fn resolve_image(&self, image_ref: &str, cli_tool: &str) -> AppResult<ResolvedMcpImage> {
+        let tool = CliToolKind::parse_legacy(cli_tool)
+            .map_err(|err| docker_runtime_error(format!("unsupported Container CLI tool {cli_tool:?}: {err}")))?;
+        let identity = self
+            .docker
+            .local_image_identity(image_ref)
+            .await
+            .map_err(|err| docker_runtime_error(err.to_string()))?
+            .ok_or_else(|| docker_runtime_error(format!("container image {image_ref} is not available")))?;
+        let evidence = capture_container_image_identity(tool, image_ref, &identity).await?;
+        let evidence = evidence.to_value()?;
+        Ok(ResolvedMcpImage { immutable_id: identity.id, evidence })
+    }
+
     async fn create_container(&self, request: DockerCreateRequest) -> AppResult<String> {
         // Route through the single hardened chokepoint: DockerClient::create_container
         // runs validate_security and applies resource limits + cap_drop ALL +
         // no-new-privileges + privileged=false / pid_mode=None. Previously this
         // path built a raw bollard spec that skipped the policy entirely (F031/F037).
-        self.docker
+        let expected_image_id = request.image.clone();
+        let container_id = self
+            .docker
             .create_container(mcp_container_config(request))
             .await
-            .map_err(|err| docker_runtime_error(err.to_string()))
+            .map_err(|err| docker_runtime_error(err.to_string()))?;
+        let verified =
+            self.docker.inspect_container(&container_id).await.is_ok_and(|info| info.image_id == expected_image_id);
+        if !verified {
+            let _ = self.docker.remove_container(&container_id, true).await;
+            return Err(docker_runtime_error("created MCP Agent container image identity did not match".to_string()));
+        }
+        Ok(container_id)
     }
 
     async fn start_container(&self, container_id: &str) -> AppResult<()> {
@@ -306,6 +338,93 @@ where
     }
 }
 
+impl<S, D> DockerMcpAgentRuntime<S, D>
+where
+    S: McpAgentStore + Clone + Send + Sync + 'static,
+    D: DockerMcpRuntimeBackend + Clone + Send + Sync + 'static,
+{
+    fn spawn_completion_monitor(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: String,
+        expected_lease: chrono::DateTime<Utc>,
+    ) {
+        let runtime = (*self).clone();
+        tokio::spawn(async move {
+            runtime.monitor_prompt(agent_id, expected_container_id, expected_lease).await;
+        });
+    }
+
+    async fn monitor_prompt(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: String,
+        mut expected_lease: chrono::DateTime<Utc>,
+    ) {
+        loop {
+            sleep(self.options.completion_poll_interval).await;
+            let record = match self.store.get_agent(agent_id).await {
+                Ok(record) if record.container_id.as_deref() == Some(expected_container_id.as_str()) => record,
+                Ok(_) => break,
+                Err(err) => {
+                    tracing::warn!(error = ?err, %agent_id, "MCP completion monitor could not read Agent; stopping renewal");
+                    break;
+                }
+            };
+            let state = match self.docker.inspect_state(&expected_container_id).await {
+                Ok(state) => state,
+                Err(err) => {
+                    // A transient observation failure must not renew forever.
+                    // Retry while the existing 60s lease remains; the CAS below
+                    // refuses to revive it after expiry.
+                    tracing::warn!(error = ?err, %agent_id, "MCP completion monitor observation failed");
+                    continue;
+                }
+            };
+            if !matches!(state, DockerSessionState::Running | DockerSessionState::Created) {
+                let _ = self
+                    .store
+                    .finish_agent_work(agent_id, &expected_container_id, expected_lease, AgentStatus::Offline)
+                    .await;
+                self.clear_tracking(agent_id);
+                break;
+            }
+
+            let cli_tool = infer_cli_tool(
+                record.model.as_deref(),
+                self.session_meta(agent_id).as_ref().map(|session| session.cli_tool.as_str()),
+            );
+            match self.prompt_completed(agent_id, &expected_container_id, &cli_tool, record.updated_at).await {
+                Ok(true) => {
+                    let _ = self
+                        .store
+                        .finish_agent_work(agent_id, &expected_container_id, expected_lease, AgentStatus::Idle)
+                        .await;
+                    self.observations.lock().expect("observation lock").remove(&agent_id);
+                    break;
+                }
+                Ok(false) => {
+                    match self.store.renew_agent_work_lease(agent_id, &expected_container_id, expected_lease).await {
+                        Ok(Some(renewed_lease)) => expected_lease = renewed_lease,
+                        Ok(None) => {
+                            // Process pause/restart or another authoritative owner
+                            // change expired/replaced this lease. Never revive it.
+                            self.observations.lock().expect("observation lock").remove(&agent_id);
+                            break;
+                        }
+                        Err(err) => {
+                            tracing::warn!(error = ?err, %agent_id, "MCP completion monitor lease renewal failed");
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(error = ?err, %agent_id, "MCP completion monitor could not determine completion");
+                }
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl<S, D> McpAgentRuntime for DockerMcpAgentRuntime<S, D>
 where
@@ -313,7 +432,16 @@ where
     D: DockerMcpRuntimeBackend + Clone + Send + Sync + 'static,
 {
     async fn create_agent(&self, req: McpAgentRuntimeCreate) -> AppResult<McpAgentRuntimeCreateResult> {
-        let plan = docker_create_plan(req.agent_id, req.org_id, req.project_id, req.image, req.cwd, req.env);
+        let source_image = req.image.clone();
+        let mut plan = docker_create_plan(req.agent_id, req.org_id, req.project_id, req.image, req.cwd, req.env);
+        let resolved = self.docker.resolve_image(&source_image, &plan.cli_tool).await?;
+        plan.request.image = resolved.immutable_id;
+        if let Some(source) = resolved.evidence.get("source").and_then(serde_json::Value::as_str) {
+            plan.request.labels.insert("agentforge.image.source".to_string(), source.to_string());
+        }
+        if let Some(image_id) = resolved.evidence.get("imageId").and_then(serde_json::Value::as_str) {
+            plan.request.labels.insert("agentforge.image.id".to_string(), image_id.to_string());
+        }
 
         let container_id = self.docker.create_container(plan.request).await?;
         if let Err(err) = self.docker.start_container(&container_id).await {
@@ -327,7 +455,7 @@ where
         );
         self.observations.lock().expect("observation lock").remove(&req.agent_id);
 
-        Ok(McpAgentRuntimeCreateResult { container_id })
+        Ok(McpAgentRuntimeCreateResult { container_id, image_identity: resolved.evidence })
     }
 
     async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
@@ -339,10 +467,19 @@ where
         );
 
         self.wait_for_cli_ready(&container_id, &cli_tool).await?;
-        self.docker
+        let owner_lease = self.store.begin_agent_work(agent_id, &container_id).await?;
+        if let Err(err) = self
+            .docker
             .write_stdin_sequence(&container_id, vec![b"\x15".to_vec(), prompt.as_bytes().to_vec(), b"\r".to_vec()])
-            .await?;
-        self.store.update_agent_status(agent_id, AgentStatus::Working).await?;
+            .await
+        {
+            if let Err(reset_err) =
+                self.store.finish_agent_work(agent_id, &container_id, owner_lease, AgentStatus::Idle).await
+            {
+                tracing::warn!(error = ?reset_err, %agent_id, "failed to restore MCP Agent status after prompt write failure");
+            }
+            return Err(err);
+        }
 
         let initial_hash = match self.docker.fetch_raw_logs(&container_id, COMPLETION_LOG_TAIL).await {
             Ok(raw_logs) => {
@@ -355,14 +492,21 @@ where
         };
         self.observations.lock().expect("observation lock").insert(agent_id, initial_hash);
         self.remember_session(agent_id, DockerRuntimeSession { container_id, cli_tool });
+        self.spawn_completion_monitor(agent_id, require_container_id(&record)?, owner_lease);
         Ok(())
     }
 
-    async fn destroy_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        let record = self.store.get_agent(agent_id).await?;
-        let container_id = require_container_id(&record)?;
+    async fn destroy_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
+        let container_id = expected_container_id
+            .map(str::to_owned)
+            .or_else(|| self.session_meta(agent_id).map(|session| session.container_id))
+            .ok_or_else(|| missing_container_id_error(agent_id))?;
         self.clear_tracking(agent_id);
-        self.docker.remove_container(&container_id, true).await
+        match self.docker.remove_container(&container_id, true).await {
+            Ok(()) => Ok(()),
+            Err(err) if is_not_found_error(&err) => Ok(()),
+            Err(err) => Err(err),
+        }
     }
 
     async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus> {
@@ -375,29 +519,11 @@ where
         };
 
         if !matches!(state, DockerSessionState::Running | DockerSessionState::Created) {
-            let _ = self.store.update_agent_status(agent_id, AgentStatus::Offline).await;
-            self.clear_tracking(agent_id);
             return Ok(SessionStatus { agent_id, status: AgentStatus::Offline.to_string() });
         }
-
-        if record.status == AgentStatus::Offline {
-            self.store.update_agent_status(agent_id, AgentStatus::Idle).await?;
-            return Ok(SessionStatus { agent_id, status: AgentStatus::Idle.to_string() });
-        }
-
-        if record.status == AgentStatus::Working {
-            let cli_tool = infer_cli_tool(
-                record.model.as_deref(),
-                self.session_meta(agent_id).as_ref().map(|session| session.cli_tool.as_str()),
-            );
-            if self.prompt_completed(agent_id, &container_id, &cli_tool, record.updated_at).await? {
-                self.store.update_agent_status(agent_id, AgentStatus::Idle).await?;
-                self.observations.lock().expect("observation lock").remove(&agent_id);
-                return Ok(SessionStatus { agent_id, status: AgentStatus::Idle.to_string() });
-            }
+        if self.observations.lock().expect("observation lock").contains_key(&agent_id) {
             return Ok(SessionStatus { agent_id, status: AgentStatus::Working.to_string() });
         }
-
         Ok(SessionStatus { agent_id, status: record.status.to_string() })
     }
 }
@@ -530,6 +656,18 @@ mod tests {
 
     #[async_trait]
     impl DockerMcpRuntimeBackend for TestDockerBackend {
+        async fn resolve_image(&self, image_ref: &str, _cli_tool: &str) -> AppResult<ResolvedMcpImage> {
+            Ok(ResolvedMcpImage {
+                immutable_id: "sha256:test-image".to_string(),
+                evidence: serde_json::json!({
+                    "source": image_ref,
+                    "imageId": "sha256:test-image",
+                    "versionSource": "not-reported",
+                    "trust": "host-local"
+                }),
+            })
+        }
+
         async fn create_container(&self, request: DockerCreateRequest) -> AppResult<String> {
             self.creates.lock().expect("creates lock").push(RecordedCreateRequest {
                 image: request.image,
@@ -597,6 +735,7 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestStore {
         agents: Arc<Mutex<HashMap<Uuid, McpAgentRecord>>>,
+        leases: Arc<Mutex<HashMap<Uuid, chrono::DateTime<Utc>>>>,
     }
 
     impl TestStore {
@@ -639,7 +778,65 @@ mod tests {
             Ok(())
         }
 
-        async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
+        async fn begin_agent_work(
+            &self,
+            agent_id: Uuid,
+            expected_container_id: &str,
+        ) -> AppResult<chrono::DateTime<Utc>> {
+            let mut agents = self.agents.lock().expect("agents lock");
+            let agent = agents.get_mut(&agent_id).ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")))?;
+            if agent.container_id.as_deref() != Some(expected_container_id) {
+                return Err(ErrorKind::Conflict("agent container changed".into()).into());
+            }
+            agent.status = AgentStatus::Working;
+            agent.updated_at = Some(Utc::now());
+            let lease = Utc::now() + ChronoDuration::seconds(60);
+            self.leases.lock().expect("leases lock").insert(agent_id, lease);
+            Ok(lease)
+        }
+
+        async fn renew_agent_work_lease(
+            &self,
+            agent_id: Uuid,
+            expected_container_id: &str,
+            expected_lease: chrono::DateTime<Utc>,
+        ) -> AppResult<Option<chrono::DateTime<Utc>>> {
+            let current_container =
+                self.agents.lock().expect("agents lock").get(&agent_id).and_then(|agent| agent.container_id.clone());
+            let mut leases = self.leases.lock().expect("leases lock");
+            if current_container.as_deref() != Some(expected_container_id)
+                || leases.get(&agent_id) != Some(&expected_lease)
+            {
+                return Ok(None);
+            }
+            let renewed = Utc::now() + ChronoDuration::seconds(60);
+            leases.insert(agent_id, renewed);
+            Ok(Some(renewed))
+        }
+
+        async fn finish_agent_work(
+            &self,
+            agent_id: Uuid,
+            expected_container_id: &str,
+            expected_lease: chrono::DateTime<Utc>,
+            status: AgentStatus,
+        ) -> AppResult<bool> {
+            let mut agents = self.agents.lock().expect("agents lock");
+            let Some(agent) = agents.get_mut(&agent_id) else { return Ok(false) };
+            if agent.container_id.as_deref() != Some(expected_container_id) {
+                return Ok(false);
+            }
+            let mut leases = self.leases.lock().expect("leases lock");
+            if leases.get(&agent_id) != Some(&expected_lease) {
+                return Ok(false);
+            }
+            leases.remove(&agent_id);
+            agent.status = status;
+            agent.updated_at = Some(Utc::now());
+            Ok(true)
+        }
+
+        async fn delete_agent(&self, agent_id: Uuid, _expected_container_id: Option<&str>) -> AppResult<()> {
             self.agents.lock().expect("agents lock").remove(&agent_id);
             Ok(())
         }
@@ -693,7 +890,8 @@ mod tests {
 
         let creates = docker.take_creates();
         assert_eq!(creates.len(), 1);
-        assert_eq!(creates[0].image, "agentforge-agent-codex:latest");
+        assert_eq!(creates[0].image, "sha256:test-image");
+        assert_eq!(creates[0].labels.get("agentforge.image.id").map(String::as_str), Some("sha256:test-image"));
         assert_eq!(creates[0].working_dir, "/workspace");
         assert_eq!(creates[0].name, format!("agentforge-agent-{agent_id}"));
         assert_eq!(creates[0].env.get("AGENTFORGE_AGENT_ID").map(String::as_str), Some(agent_id.to_string().as_str()));
@@ -730,6 +928,7 @@ mod tests {
             name: "Prompt worker".to_string(),
             status: AgentStatus::Idle,
             container_id: Some("ctr-test".to_string()),
+            container_image_identity: None,
             cli_tool: Some("codex".to_string()),
             model: Some("agentforge-agent-codex:latest".to_string()),
             provider: Some("openai".to_string()),
@@ -754,8 +953,18 @@ mod tests {
 
         runtime.send_prompt(agent_id, "ship it").await.expect("send prompt");
         let working = runtime.session_status(agent_id).await.expect("working status");
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                if store.get_agent(agent_id).await.unwrap().status == AgentStatus::Idle {
+                    break;
+                }
+                sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("server-owned completion monitor must finish without client polling");
         let idle = runtime.session_status(agent_id).await.expect("idle status");
-        runtime.destroy_agent(agent_id).await.expect("destroy");
+        runtime.destroy_agent(agent_id, Some("ctr-test")).await.expect("destroy");
 
         assert_eq!(working.status, "working");
         assert_eq!(idle.status, "idle");
@@ -763,6 +972,32 @@ mod tests {
             docker.take_stdin_writes(),
             vec![("ctr-test".to_string(), vec![b"\x15".to_vec(), b"ship it".to_vec(), b"\r".to_vec()],)]
         );
+        assert_eq!(docker.take_removes(), vec![("ctr-test".to_string(), true)]);
+    }
+
+    #[tokio::test]
+    async fn destroy_cleans_created_container_before_store_insert() {
+        let agent_id = Uuid::now_v7();
+        let org_id = Uuid::now_v7();
+        let docker = TestDockerBackend::default();
+        let runtime = runtime(TestStore::default(), docker.clone());
+
+        runtime
+            .create_agent(McpAgentRuntimeCreate {
+                agent_id,
+                org_id,
+                user_id: Uuid::now_v7(),
+                project_id: None,
+                name: "Unpersisted worker".to_string(),
+                image: "agentforge-agent-codex:latest".to_string(),
+                cwd: format!("/data/agentforge/workspaces/orgs/{org_id}/workspaces/{org_id}/projects"),
+                env: HashMap::from([("AGENTFORGE_CLI_TOOL".to_string(), "codex".to_string())]),
+            })
+            .await
+            .expect("create agent");
+
+        runtime.destroy_agent(agent_id, None).await.expect("destroy unpersisted agent");
+
         assert_eq!(docker.take_removes(), vec![("ctr-test".to_string(), true)]);
     }
 }

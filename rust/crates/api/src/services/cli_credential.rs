@@ -192,6 +192,24 @@ impl CliCredentialService {
         cli_tool: &str,
         container_key: &str,
     ) -> AppResult<CredentialInjection> {
+        self.resolve_for_user_id(scope.user_id().as_uuid(), cli_tool, container_key).await
+    }
+
+    pub(crate) async fn resolve_for_owner(
+        &self,
+        user_id: uuid::Uuid,
+        cli_tool: &str,
+        container_key: &str,
+    ) -> AppResult<CredentialInjection> {
+        self.resolve_for_user_id(user_id, cli_tool, container_key).await
+    }
+
+    async fn resolve_for_user_id(
+        &self,
+        user_id: uuid::Uuid,
+        cli_tool: &str,
+        container_key: &str,
+    ) -> AppResult<CredentialInjection> {
         let Some((provider, env_var)) = ContainerCliCredentialPolicy::provider_env(cli_tool) else {
             // Unknown Container CLI — pre-worker-bridge hello-world tools land here.
             return Ok(CredentialInjection::default());
@@ -205,10 +223,10 @@ impl CliCredentialService {
         // always means `LLM_ENCRYPTION_KEY` was rotated without re-encrypting
         // — the operator needs to know, not the user.
         if let Some(key) = self.encryption_key
-            && let Some(encrypted) = self.user_llm.find_default_api_key(scope, provider).await?
+            && let Some(encrypted) = self.user_llm.find_default_api_key_by_user_id(user_id, provider).await?
         {
             let plaintext = crypto::decrypt_base64(&key, &encrypted).map_err(|err| {
-                tracing::error!(error = %err, user_id = %scope.user_id().as_uuid(), %provider, "Failed to decrypt user LLM API key — refusing to fall back to another tier");
+                tracing::error!(error = %err, %user_id, %provider, "Failed to decrypt user LLM API key — refusing to fall back to another tier");
                 ContainerCliCredentialPolicy::stored_user_llm_key_decrypt_failed()
             })?;
             let mut out = CredentialInjection::default();
@@ -221,10 +239,10 @@ impl CliCredentialService {
         // Same hard-error contract as tier 1 — a decrypt failure on an
         // existing row means the key rotated; reconnect is required.
         if let Some(key) = self.encryption_key
-            && let Some(encrypted) = self.cli_creds.find_encrypted_active(scope, cli_tool).await?
+            && let Some(encrypted) = self.cli_creds.find_encrypted_active_by_user_id(user_id, cli_tool).await?
         {
             let plaintext = crypto::decrypt_base64(&key, &encrypted).map_err(|err| {
-                tracing::error!(error = %err, user_id = %scope.user_id().as_uuid(), cli_tool, "Failed to decrypt Container CLI credentials — user must reconnect");
+                tracing::error!(error = %err, %user_id, cli_tool, "Failed to decrypt Container CLI credentials — user must reconnect");
                 ContainerCliCredentialPolicy::stored_oauth_decrypt_failed(cli_tool)
             })?;
             match self.write_oauth_mount(container_key, plaintext.as_bytes()).await {
@@ -239,7 +257,7 @@ impl CliCredentialService {
                     // very small blobs still work. Large blobs can hit
                     // E2BIG (Docker env size ceiling) — matches the legacy
                     // warning path in `injectUserApiKey`.
-                    tracing::warn!(error = %err, user_id = %scope.user_id().as_uuid(), cli_tool, bytes = plaintext.len(), "File mount failed — falling back to env var for OAuth credentials");
+                    tracing::warn!(error = %err, %user_id, cli_tool, bytes = plaintext.len(), "File mount failed — falling back to env var for OAuth credentials");
                     let mut out = CredentialInjection::default();
                     let blob = BASE64.encode(plaintext.as_bytes());
                     out.env.push(("AGENTFORGE_OAUTH_CREDENTIALS".into(), blob));

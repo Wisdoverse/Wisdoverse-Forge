@@ -306,8 +306,9 @@ them locally as `agentforge-agent:<tool>`. `agent-base` follows
 `GHCR_IMAGE_TAG` (`main` by default), while the redistributable CLI overlay
 images use `latest`. Public releases intentionally exclude `agent-claude`; build
 it locally with `make build-agent CLI_TOOL=claude` after accepting the vendor
-terms, or pull it from a private registry only when your third-party terms
-permit redistribution.
+terms. Stock Compose currently supports runtime verification from public signed
+registries only; authenticated private-registry use needs future explicit
+credential plumbing for both Docker and cosign.
 
 When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
 
@@ -330,9 +331,24 @@ is deployment-global and has no tenant scope, because image state is per host.
 | `CLI_IMAGE_CLAUDE_AUTO_BUILD`             | `false`                               | Builds the local `claude` image automatically when npm publishes a newer Claude Code; off = detect-only with a one-click Build button in the admin panel |
 | `CLI_IMAGE_NPM_REGISTRY`                  | `https://registry.npmjs.org`          | npm registry base for the claude version check and build; point at a mirror (e.g. `https://registry.npmmirror.com`) behind restrictive networks          |
 | `AGENT_REGISTRY`                          | `ghcr.io/wisdoverse/wisdoverse-forge` | Registry base the updater pulls overlays from, as `${AGENT_REGISTRY}/agent-<tool>:<tag>`                                                                 |
+| `AGENT_IMAGE_SIGNER_REPOSITORY`           | `Wisdoverse/Wisdoverse-Forge`         | GitHub `owner/repository` whose allowlisted main-branch workflows must have signed public Container CLI overlays                                         |
 | `AGENT_CLI_IMAGE_TAG`                     | `latest`                              | Image tag the updater tracks, used as the `<tag>` in the remote ref above                                                                                |
 | `AGENT_CONTAINER_RECONCILE_ENABLED`       | `true`                                | Periodic backstop that clears `agents.container_id` references whose container has vanished; no-ops without a Docker runtime                             |
 | `AGENT_CONTAINER_RECONCILE_INTERVAL_SECS` | `300`                                 | Reconcile sweep interval in seconds; must be greater than 0                                                                                              |
+
+`AGENT_IMAGE_SIGNER_REPOSITORY` is a signature trust root, not a registry URL.
+Keep the official default when using the official images. If a public fork
+publishes its own signed images, configure both values together, for example:
+
+```dotenv
+AGENT_REGISTRY=ghcr.io/example-org/forge
+AGENT_IMAGE_SIGNER_REPOSITORY=example-org/forge
+```
+
+The signer value must match the GitHub repository recorded in the Sigstore
+certificate. Only the repository's allowlisted image workflows on
+`refs/heads/main` are trusted; changing this setting does not make an unsigned
+image trusted.
 
 Success looks like newly spawned agents picking up the current CLI overlay
 without an operator running `make update-agents` by hand. Confirm status at the

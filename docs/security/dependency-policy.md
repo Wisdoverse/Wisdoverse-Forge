@@ -54,15 +54,20 @@ agentforge verify --tag <release-tag> <artifact>
 The published `ghcr.io/wisdoverse/wisdoverse-forge` container images — the
 primary shipped artifacts for the container runtime (frontend, `server`,
 `sidecar`, `orchestrator`, `agent-base`, and the `agent-<tool>` images) — are
-signed with Sigstore keyless cosign **by digest** (never by mutable tag) by the
-`publish-images.yml` GitHub Actions workflow. Each signed image also carries a
-SLSA build-provenance attestation tying it to the workflow, commit, and runner
-that built it.
+signed with Sigstore keyless cosign **by digest** (never by mutable tag).
+Mainline images are built and signed by `publish-images.yml`; versioned
+frontend, `server`, `sidecar`, `orchestrator`, and public Container CLI images
+are built and signed by `release.yml`; and CLI-only refreshes may be built and
+signed by `watch-cli-versions.yml`. Release `agent-base` tags reuse the exact
+signed `publish-images.yml` digest after checking its full source-revision label.
+Each built image also carries SLSA build provenance tying it to its workflow,
+commit, and runner.
 
-As with binaries, the cosign signing identity is pinned to the official
-`publish-images.yml` workflow in the official repository. An image signed by a
-fork, a different workflow, or a different repository fails verification even if
-the bytes are identical.
+As with binaries, the cosign signing identity is pinned to the applicable
+main-branch image workflows in the official repository. The CLI-only workflow
+is accepted only for the three public Container CLI image names. An image signed
+by a fork, an unlisted workflow, another ref, or another repository fails
+verification even if the bytes are identical.
 
 Operators MUST verify images before deploying them:
 

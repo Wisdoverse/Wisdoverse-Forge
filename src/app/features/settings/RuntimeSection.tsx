@@ -8,7 +8,12 @@ import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/setti
 import { getAgentApi } from '@app/shared/api/legacy'
 import { orchestrationApi, type ParticipantSummary } from '@app/shared/api/orchestration'
 import type { CliAuthProxyProvider, CliAuthProxyStatusEntry } from '@app/entities/agent'
-import type { RuntimeSettings, RuntimeType, CliTool } from '@app/shared/api/legacy/settingsApi'
+import type {
+  RuntimeCliToolDetail,
+  RuntimeSettings,
+  RuntimeType,
+  CliTool,
+} from '@app/shared/api/legacy/settingsApi'
 import { runtimeErrorMessage, runtimeSettingsErrorMessage } from './runtimeErrorMessages'
 
 // ============================================================================
@@ -144,7 +149,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
   const cliToolLabel = (tool: CliTool | string): string =>
     t(`settings.runtime.cliToolLabels.${tool}`, { defaultValue: fallbackCliToolLabel(tool) })
   const cliToolDetails = runtimeSettings?.cliToolDetails ?? []
-  const installedToolCount = cliToolDetails.filter((detail) => detail.imagePresent).length
+  const readyToolCount = cliToolDetails.filter(isImageReady).length
   const connectedCredentialCount = cliStatuses.filter((status) => status.connected).length
   const disconnectedCredentials = cliStatuses.filter((status) => !status.connected)
   const latestHeartbeat = latestParticipantHeartbeat(participants)
@@ -314,10 +319,10 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
             label="Work tools"
             value={
               cliToolDetails.length > 0
-                ? `${installedToolCount}/${cliToolDetails.length} work tools ready`
+                ? `${readyToolCount}/${cliToolDetails.length} work tools ready`
                 : 'Check again after tools finish. If this stays here, ask an owner to finish adding the tools.'
             }
-            ready={cliToolDetails.length > 0 && installedToolCount === cliToolDetails.length}
+            ready={cliToolDetails.length > 0 && readyToolCount === cliToolDetails.length}
           />
           <RuntimeReadinessMetric
             label="Last agent online"
@@ -358,7 +363,7 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                 Work tools
               </p>
               <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-                {installedToolCount} work tool{installedToolCount === 1 ? '' : 's'} ready
+                {readyToolCount} work tool{readyToolCount === 1 ? '' : 's'} ready
               </p>
             </div>
             {cliToolDetails.map((detail) => (
@@ -375,18 +380,30 @@ export function RuntimeSection({ focus = 'overview' }: { focus?: RuntimeSectionF
                       ? (detail.version ?? 'Version not shown yet')
                       : 'Install this work tool'}
                   </span>
+                  {detail.imagePresent && (detail.imageDigest || detail.imageId) && (
+                    <span className="block font-mono text-[11px] text-secondary-light dark:text-secondary-dark">
+                      <span className="sr-only">Image {detail.imageDigest ?? detail.imageId}</span>
+                      <span aria-hidden="true" className="block truncate">
+                        Image {shortImageIdentity(detail.imageDigest ?? detail.imageId ?? '')}
+                      </span>
+                    </span>
+                  )}
                 </div>
                 <span className="min-w-0 truncate text-secondary-light dark:text-secondary-dark">
-                  {detail.imagePresent ? 'Installed and ready' : 'Install this tool'}
+                  {isImageReady(detail)
+                    ? 'Trusted and ready'
+                    : detail.imagePresent
+                      ? (detail.imageError ?? 'Image verification needed')
+                      : 'Install this tool'}
                 </span>
                 <span className="inline-flex h-fit items-center gap-1.5 text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
                   <span
                     className={cn(
                       'h-1.5 w-1.5 shrink-0 rounded-full',
-                      detail.imagePresent ? 'bg-apple-green' : 'bg-apple-orange'
+                      isImageReady(detail) ? 'bg-apple-green' : 'bg-apple-orange'
                     )}
                   />
-                  {versionSourceLabel(detail.versionSource, detail.imagePresent)}
+                  {imageTrustLabel(detail)}
                 </span>
               </div>
             ))}
@@ -796,13 +813,13 @@ function runtimeLaunchChecklistItems(
     ready: defaultRuntimeReady,
   })
 
-  const missingImages = runtimeSettings.cliToolDetails.filter((detail) => !detail.imagePresent)
-  const installedToolCount = runtimeSettings.cliToolDetails.length - missingImages.length
+  const missingImages = runtimeSettings.cliToolDetails.filter((detail) => !isImageReady(detail))
+  const readyToolCount = runtimeSettings.cliToolDetails.length - missingImages.length
   const imageInventoryReady =
     runtimeSettings.availableCliTools.length > 0 &&
     runtimeSettings.cliToolDetails.length > 0 &&
     missingImages.length === 0
-  let imageDetail = `${installedToolCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
+  let imageDetail = `${readyToolCount}/${runtimeSettings.cliToolDetails.length} work tools are ready.`
   if (runtimeSettings.availableCliTools.length === 0) {
     imageDetail =
       'Enable at least one work tool before giving agents Tasks that change project files, run checks, or show live progress.'
@@ -862,10 +879,19 @@ function runtimeLaunchChecklistItems(
   return items
 }
 
-function versionSourceLabel(source: string, imagePresent: boolean): string {
-  if (source === 'docker-label') return 'ready'
-  if (source === 'image-tag') return imagePresent ? 'ready' : 'Check again'
+function isImageReady(detail: RuntimeCliToolDetail): boolean {
+  return detail.imageReady === true
+}
+
+function imageTrustLabel(detail: RuntimeCliToolDetail): string {
+  if (detail.imageTrust === 'verified-signature') return 'Verified signature'
+  if (detail.imageTrust === 'host-local') return 'Trusted by this host'
+  if (detail.imagePresent) return 'Not trusted'
   return 'Check again'
+}
+
+function shortImageIdentity(identity: string): string {
+  return identity.length > 23 ? `${identity.slice(0, 23)}…` : identity
 }
 
 function runtimeReadinessSummary(

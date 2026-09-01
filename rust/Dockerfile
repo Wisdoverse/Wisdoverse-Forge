@@ -52,7 +52,7 @@ FROM alpine:3.24 AS runtime
 # alpine:3.23 layer (e.g. libssl3/libcrypto3 ship in the base and can lag behind
 # active OpenSSL CVEs until the base image is refreshed). The Trivy image scan
 # gates this image, so upgrade base packages before adding runtime deps.
-RUN apk --no-cache upgrade && apk --no-cache add ca-certificates curl git
+RUN apk --no-cache upgrade && apk --no-cache add ca-certificates cosign curl git
 
 # Create non-root user
 RUN addgroup -S agentforge && adduser -S agentforge -G agentforge

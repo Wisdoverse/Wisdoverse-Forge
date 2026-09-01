@@ -7,11 +7,11 @@
 use std::collections::HashMap;
 
 use agentforge_core::context_envelope::ContextEnvelope;
-use agentforge_core::orchestration_protocol::TaskAssignment;
+use agentforge_core::orchestration_protocol::{TaskAssignment, container_generation_fingerprint};
 use agentforge_core::ws_protocol::{OrchestrationTaskUpdatePayload, ServerMessage};
-use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, OrgId, TenantScope, WorkspaceId};
+use agentforge_core::{AgentId, AppError, AppResult, ErrorKind, OrgId, RuntimeKind, TenantScope, WorkspaceId};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -476,6 +476,28 @@ pub struct TaskRunSummary {
     pub provider_name: Option<String>,
     #[serde(rename = "maxContextTokens", skip_serializing_if = "Option::is_none")]
     pub max_context_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<TaskRunImageSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskRunImageSummary {
+    pub source: String,
+    pub image_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    pub version_source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust: Option<String>,
+}
+
+impl TaskRunImageSummary {
+    pub(crate) fn from_capability_profile(capability_profile: &Value) -> Option<Self> {
+        serde_json::from_value(capability_profile.get("image")?.clone()).ok()
+    }
 }
 
 /// A human update (comment / blocker signal) shown in the task Updates tab.
@@ -802,6 +824,8 @@ impl TaskAssignmentPolicy {
     pub(crate) fn build(
         snapshot: TaskAssignmentSnapshot<'_>,
         context_envelope: Option<ContextEnvelope>,
+        runtime_kind: RuntimeKind,
+        hmac_secret: Option<&str>,
     ) -> AppResult<TaskAssignment> {
         let agent_id = snapshot.assigned_agent_id.ok_or_else(|| {
             ErrorKind::Internal(anyhow::anyhow!("task {} missing assigned_agent_id", snapshot.task_id))
@@ -814,6 +838,17 @@ impl TaskAssignmentPolicy {
         })?;
         let instruction = TaskInstruction::from_params(snapshot.title, snapshot.description, snapshot.params);
         let (task, message) = instruction.into_parts();
+        let container_generation_fingerprint = match runtime_kind {
+            RuntimeKind::Container => {
+                let secret = hmac_secret.filter(|secret| !secret.trim().is_empty()).ok_or_else(|| {
+                    ErrorKind::Internal(anyhow::anyhow!(
+                        "refusing to dispatch container agent {agent_id} without an HMAC generation secret"
+                    ))
+                })?;
+                Some(container_generation_fingerprint(secret.as_bytes()))
+            }
+            RuntimeKind::Cli | RuntimeKind::Api => None,
+        };
 
         Ok(TaskAssignment {
             delivery_id: Some(delivery_id),
@@ -826,11 +861,8 @@ impl TaskAssignmentPolicy {
             message,
             priority: snapshot.priority.to_string(),
             context_envelope,
-            // #457 phase 1c: this API-dispatch path does not carry the agent's
-            // runtime_kind; the outbox publisher resolves it from the DB when
-            // None (a cold, low-volume path). The auto-dispatcher
-            // (participant_liveness) populates it inline on its hot path.
-            runtime_kind: None,
+            runtime_kind: Some(runtime_kind),
+            container_generation_fingerprint,
             image_paths: Vec::new(),
             // CN-4: populated once the OTLP tracing layer is installed and this
             // path runs inside a recording span; None until then (and on the
@@ -1692,6 +1724,8 @@ mod tests {
                 priority: "high",
             },
             None,
+            RuntimeKind::Container,
+            Some("container-hmac"),
         )
         .unwrap();
 
@@ -1704,6 +1738,9 @@ mod tests {
         assert_eq!(assignment.task, "Execute");
         assert_eq!(assignment.message, "Use context");
         assert_eq!(assignment.priority, "high");
+        assert_eq!(assignment.runtime_kind, Some(RuntimeKind::Container));
+        let expected_generation = container_generation_fingerprint(b"container-hmac");
+        assert_eq!(assignment.container_generation_fingerprint.as_deref(), Some(expected_generation.as_str()));
     }
 
     #[test]
@@ -1722,6 +1759,8 @@ mod tests {
                 priority: "normal",
             },
             None,
+            RuntimeKind::Api,
+            None,
         )
         .unwrap_err();
 
@@ -1729,6 +1768,28 @@ mod tests {
             ErrorKind::Internal(message) => assert!(message.to_string().contains("missing assigned_agent_id")),
             other => panic!("expected internal error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn task_assignment_policy_requires_generation_only_for_containers() {
+        let snapshot = || TaskAssignmentSnapshot {
+            task_id: Uuid::now_v7(),
+            assigned_agent_id: Some(AgentId::from(Uuid::now_v7())),
+            last_assignment_id: Some(Uuid::now_v7()),
+            lease_expires_at: Some(Utc::now()),
+            attempt: 1,
+            title: "Task",
+            description: None,
+            params: None,
+            priority: "normal",
+        };
+
+        let err = TaskAssignmentPolicy::build(snapshot(), None, RuntimeKind::Container, None).unwrap_err();
+        assert!(err.to_string().contains("HMAC generation secret"));
+
+        let host_cli = TaskAssignmentPolicy::build(snapshot(), None, RuntimeKind::Cli, None).unwrap();
+        assert_eq!(host_cli.runtime_kind, Some(RuntimeKind::Cli));
+        assert!(host_cli.container_generation_fingerprint.is_none());
     }
 
     #[test]

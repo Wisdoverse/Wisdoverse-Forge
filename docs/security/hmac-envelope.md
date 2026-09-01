@@ -8,8 +8,8 @@ verification rules, and the replay-protection window.
 > Reconciled with the code in issue #458. The original #450 draft described a
 > `nonce` (uuidv4) field and a Redis `hmac:nonce:` store. Neither shipped: the
 > wire envelope carries a `signature` over the canonical message, and replay is
-> bounded by a ±5-min timestamp window plus, on the one path that records an
-> authorization decision, a persisted `delivery_id` dedup. The sections below
+> bounded by a ±5-min timestamp window plus durable, domain-specific message
+> identities on orchestration results and hook events. The sections below
 > describe what actually runs.
 
 ## Envelope schema
@@ -42,8 +42,8 @@ event path uses a structurally identical `SignedEventEnvelope` in
   identical bytes.
 
 There is **no separate `nonce` field**. The per-message uniqueness that the
-result path needs comes from the domain payload's `delivery_id` (see below),
-not from an envelope-level nonce.
+result path needs comes from the domain payload's `delivery_id`; hook events use
+`payload.data.id`. Neither requires an envelope-level nonce.
 
 ### The per-agent secret
 
@@ -71,8 +71,8 @@ Each consumer that ingests a signed envelope MUST, in order:
    (`signature_mismatch`). The domain payload is parsed only **after** the
    signature passes, so unauthenticated input never reaches deserialization of
    the inner type.
-5. For the orchestration-result path only: dedup by `delivery_id` (rule in the
-   next section).
+5. Apply the path-specific durable identity rule: orchestration results dedup by
+   `delivery_id`; hook events dedup by Agent, container generation, and event ID.
 
 ## Replay window and dedup
 
@@ -103,15 +103,17 @@ Within the window, the three paths differ in whether they additionally dedup:
   ts-window is the intended replay bound for this path; there is no `delivery_id`
   and no dedup store, by design.
 
-- **Event ingest** — events carry no `delivery_id`. Their effects are
-  idempotent by content: the `agents` runtime patch (`status`, `current_tool`,
-  `cwd`) is last-write-wins, and the `events` table is an append-only telemetry
-  log, not an authorization decision. A within-window replay re-appends an
-  already-true telemetry row and re-applies an identical patch; it cannot record
-  old-evidence success for new-code work the way the result path could. The
-  ts-window is the intended replay bound for this path. Adding a dedup key would
-  require plumbing a unique message id through the sidecar publisher, the wire
-  schema, and the `events` table — tracked separately, not bolted on here.
+- **Event ingest** — before WAL admission, the sidecar preserves or assigns
+  `payload.data.id` and assigns lifecycle events a per-container-generation
+  `lifecycleSequence`. Both are covered by the HMAC and replay unchanged from
+  the WAL. PostgreSQL uniquely keys the receipt by
+  `(agent_id, generation_fingerprint, event_id)` and commits generation
+  revalidation, persistence, and the `agents` runtime patch atomically. A
+  duplicate cannot repeat database effects. The current receipt may retry its
+  browser broadcast after a transient failure; an older lifecycle receipt is
+  suppressed so it cannot resurrect stale state. Sequence-less sidecars use a
+  serialized compatibility counter until the first signed sequence switches
+  that generation to the new ledger.
 
 ## Per-path coverage (where this is enforced today)
 
@@ -119,7 +121,7 @@ Within the window, the three paths differ in whether they additionally dedup:
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------- | ---------------- | --------------------------------- |
 | Orchestration result (`orchestration.result.<agent>`) | `rust/crates/jobs/src/orchestration_result_consumer.rs` → `handle_message_with_subject_prefix` + `SqlxTaskWriter::apply` | yes              | yes              | yes — `delivery_id` `ON CONFLICT` |
 | Credential sync (`creds.<agent>`)                     | `rust/crates/jobs/src/credential_consumer.rs` → `handle_message`                                                         | yes              | yes              | n/a — idempotent upsert           |
-| Event ingest (`events.ingest.<agent>`)                | `rust/crates/jobs/src/event_consumer.rs` → `EventConsumer::handle`                                                       | yes (added #458) | yes (added #458) | n/a — idempotent telemetry        |
+| Event ingest (`events.ingest.<agent>`)                | `rust/crates/jobs/src/event_consumer.rs` → `EventConsumer::handle`                                                       | yes (added #458) | yes (added #458) | yes — generation + event ID       |
 
 Signing happens in `rust/bins/sidecar/src/publisher.rs` (`EventPublisher`) for
 events, `rust/bins/sidecar/src/orchestration.rs` for results, and
@@ -134,17 +136,12 @@ able to publish to `events.ingest.<agent_id>`, or anyone who captured and
 replayed a signed event frame, could forge agent telemetry and runtime state.
 #458 brought the event path to HMAC + ts-window parity with the other two
 consumers (reusing the same secret, the same canonical-form verify, and the same
-`TIMESTAMP_REPLAY_WINDOW_SECS`). Rejections increment
-`event_ingest_unauthorized_total{reason}`.
+`TIMESTAMP_REPLAY_WINDOW_SECS`). Event receipts now add durable identity,
+sequence ordering, and atomic database effects beyond that original boundary.
+Rejections increment `event_ingest_unauthorized_total{reason}`.
 
 ## Future work
 
-- If a stronger replay guarantee is ever required for the event path
-  (exactly-once telemetry rather than at-least-once-within-window), plumb a
-  unique `delivery_id` through the sidecar `EventPublisher`, the
-  `SignedEventEnvelope` schema, and an `events` dedup key, mirroring the
-  orchestration-result `orchestration_inbox` pattern. Track as a scoped issue
-  before building.
 - Sign the full TLS-encrypted payload (not just the JSON body) when the NATS
   transport switches from `tls://` connect-time to mTLS per-message.
 

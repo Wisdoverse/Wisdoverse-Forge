@@ -20,19 +20,14 @@
 //!    ±[`TIMESTAMP_REPLAY_WINDOW_SECS`] of the consumer clock, bounding the
 //!    window in which a captured envelope can be replayed.
 //!
-//! There is deliberately **no per-message dedup store** here. Unlike the
-//! orchestration-result path (which records task success and therefore dedups
-//! on `delivery_id` via `orchestration_inbox ON CONFLICT`), event envelopes
-//! carry no delivery id and their effects are idempotent by content: the
-//! `agents` runtime patch is last-write-wins, and the `events` table is an
-//! append-only telemetry log, not an authorization decision. A replay within
-//! the 5-minute window re-appends an already-true telemetry row and re-applies
-//! an identical runtime patch — it cannot record old-evidence success for
-//! new-code work the way the result path could. This mirrors the credential
-//! consumer, which is also HMAC + ts-window only (its upsert is idempotent).
-//! Adding a dedup key would require plumbing a unique message id through the
-//! sidecar publisher, the wire schema, and the `events` table; that is tracked
-//! separately rather than bolted on here.
+//! 3. **Durable event identity and sequence** — the sidecar assigns lifecycle
+//!    sequence numbers before WAL admission, so the HMAC covers the exact ID and
+//!    sequence replayed after a restart. Legacy producers without a sequence are
+//!    serialized under the same per-Agent lifecycle lock.
+//! 4. **Atomic receipt** — generation revalidation, event-ID deduplication,
+//!    persistence, and Agent mirror mutation commit in one transaction. A
+//!    transient broadcast failure can therefore redeliver the same receipt
+//!    without duplicating database effects, while still retrying the broadcast.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -50,7 +45,7 @@ use uuid::Uuid;
 
 use agentforge_core::AgentStatus;
 use agentforge_core::event_protocol::parse_events_ingest_subject;
-use agentforge_core::orchestration_protocol::SignedEnvelope;
+use agentforge_core::orchestration_protocol::{SignedEnvelope, container_generation_fingerprint};
 use agentforge_core::ws_protocol::{ServerMessage, TurnInvalidatePayload};
 
 use crate::dead_events::{DeadEvent, DeadEventRecorder, SqlxDeadEventRecorder, payload_excerpt};
@@ -125,6 +120,8 @@ pub struct PersistedEvent {
     pub event_type: String,
     pub payload: Value,
     pub session_id: Option<String>,
+    pub ingest_event_id: String,
+    pub generation_fingerprint: String,
 }
 
 // The browser broadcast frames (`event` / `turn_invalidate`) are built as the
@@ -177,7 +174,7 @@ impl ConsumeError {
 
 #[async_trait]
 pub trait EventStore: Clone + Send + Sync + 'static {
-    async fn persist(&self, event: PersistedEvent) -> Result<()>;
+    async fn ingest(&self, event: PersistedEvent, patch: AgentRuntimePatch) -> Result<EventIngestOutcome>;
 }
 
 /// Fetches the per-agent HMAC secret persisted at spawn time. Mirrors the
@@ -214,6 +211,14 @@ pub struct AgentRuntimePatch {
     /// whenever the payload carries a non-empty `cwd` string. An empty string
     /// is treated as "no cwd reported" and skipped.
     pub cwd: Option<String>,
+    /// Sidecar-assigned, HMAC-covered per-generation lifecycle sequence. Legacy
+    /// producers leave this `None`; PostgreSQL allocates their sequence while
+    /// holding the same Agent lifecycle lock used by all other work owners.
+    pub lifecycle_sequence: Option<i64>,
+    /// Exact external Container CLI hook session that owns interactive work.
+    /// The existing `agents.cli_session_id` column is the durable owner epoch;
+    /// heartbeats and Stop events may mutate its lease only on an exact match.
+    pub interactive_owner_session: Option<String>,
 }
 
 /// Two distinct update intents for `agents.current_tool`: write a new value
@@ -223,6 +228,18 @@ pub struct AgentRuntimePatch {
 pub enum CurrentToolUpdate {
     Set(String),
     Clear,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventIngestOutcome {
+    Applied,
+    Superseded,
+    DuplicateApplied,
+    DuplicateSuperseded,
+    StaleGeneration,
+    AgentMissing,
+    AgentScopeChanged,
+    EventIdConflict,
 }
 
 impl AgentRuntimePatch {
@@ -236,12 +253,6 @@ impl AgentRuntimePatch {
 #[async_trait]
 pub trait AgentDirectory: Clone + Send + Sync + 'static {
     async fn resolve(&self, agent_id: Uuid) -> Result<Option<AgentTarget>>;
-
-    /// Apply one or more `agents` column updates derived from the event
-    /// payload. Returns `true` when the row existed and was updated, `false`
-    /// when the row has disappeared (the caller treats the latter as
-    /// permanent).
-    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<bool>;
 }
 
 #[async_trait]
@@ -326,29 +337,58 @@ where
         if !envelope.verify(secret.as_bytes()) {
             return Err(reject_unauthorized("signature_mismatch", format!("agent {agent_id}")));
         }
+        let generation_fingerprint = container_generation_fingerprint(secret.as_bytes());
 
         let target = self.agents.resolve(agent_id).await.map_err(ConsumeError::transient)?.ok_or_else(|| {
             ConsumeError::permanent_with_reason("agent_not_found", anyhow!("agent {agent_id} not found"))
         })?;
 
-        let decoded = decode_event(target, envelope)?;
-
-        if !decoded.runtime_patch.is_noop() {
-            let updated = self
-                .agents
-                .apply_runtime_patch(decoded.persisted.agent_id, decoded.runtime_patch.clone())
-                .await
-                .map_err(ConsumeError::transient)?;
-            if !updated {
-                return Err(ConsumeError::permanent_with_reason(
-                    "agent_disappeared",
-                    anyhow!("agent {} disappeared during runtime patch", decoded.persisted.agent_id),
-                ));
-            }
-        }
+        let decoded = decode_event(target, envelope, generation_fingerprint)?;
 
         if decoded.persistable {
-            self.store.persist(decoded.persisted).await.map_err(ConsumeError::transient)?;
+            // The SQL store revalidates the HMAC generation, deduplicates the
+            // event ID, persists the event, and applies the Agent mirror under
+            // one lifecycle lock transaction. DuplicateApplied deliberately
+            // continues to broadcast: that is the recovery path when the first
+            // transaction committed but the subsequent NATS broadcast failed.
+            let outcome = self
+                .store
+                .ingest(decoded.persisted.clone(), decoded.runtime_patch.clone())
+                .await
+                .map_err(ConsumeError::transient)?;
+            match outcome {
+                EventIngestOutcome::Applied | EventIngestOutcome::DuplicateApplied => {}
+                EventIngestOutcome::Superseded | EventIngestOutcome::DuplicateSuperseded => return Ok(()),
+                EventIngestOutcome::StaleGeneration => {
+                    return Err(ConsumeError::permanent_with_reason(
+                        "stale_container_generation",
+                        anyhow!("agent {} generation changed before event receipt", decoded.persisted.agent_id),
+                    ));
+                }
+                EventIngestOutcome::AgentMissing => {
+                    return Err(ConsumeError::permanent_with_reason(
+                        "agent_disappeared",
+                        anyhow!("agent {} disappeared during event receipt", decoded.persisted.agent_id),
+                    ));
+                }
+                EventIngestOutcome::AgentScopeChanged => {
+                    return Err(ConsumeError::permanent_with_reason(
+                        "agent_scope_changed",
+                        anyhow!("agent {} organization changed during event receipt", decoded.persisted.agent_id),
+                    ));
+                }
+                EventIngestOutcome::EventIdConflict => {
+                    return Err(ConsumeError::permanent_with_reason(
+                        "event_id_conflict",
+                        anyhow!("agent {} reused an event ID for different content", decoded.persisted.agent_id),
+                    ));
+                }
+            }
+        } else if !decoded.runtime_patch.is_noop() {
+            return Err(ConsumeError::permanent_with_reason(
+                "non_persisted_runtime_patch",
+                anyhow!("event {} cannot mutate Agent state without a durable receipt", decoded.persisted.event_type),
+            ));
         }
 
         self.broadcast
@@ -379,26 +419,53 @@ fn parse_subject_agent_id(subject: &str) -> std::result::Result<Uuid, ConsumeErr
     })
 }
 
-fn decode_event(target: AgentTarget, envelope: SignedEventEnvelope) -> std::result::Result<DecodedEvent, ConsumeError> {
-    let session_id = extract_session_id(&envelope.payload.data)
-        .or(target.cli_session_id.clone())
-        .or_else(|| Some(target.agent_id.to_string()));
+fn decode_event(
+    target: AgentTarget,
+    envelope: SignedEventEnvelope,
+    generation_fingerprint: String,
+) -> std::result::Result<DecodedEvent, ConsumeError> {
+    let ingest_event_id = extract_ingest_event_id(&envelope.payload.data, &envelope.signature)?;
+    let reported_session_id = extract_session_id(&envelope.payload.data);
+    if derive_status(&envelope.payload.event_type).is_some() && reported_session_id.is_none() {
+        return Err(ConsumeError::permanent_with_reason(
+            "lifecycle_session_missing",
+            anyhow!("lifecycle hook {} omitted sessionId", envelope.payload.event_type),
+        ));
+    }
+    let session_id =
+        reported_session_id.clone().or(target.cli_session_id.clone()).or_else(|| Some(target.agent_id.to_string()));
 
-    let event_data = normalize_event_data(
-        envelope.payload.event_type.clone(),
+    let event_type = envelope.payload.event_type;
+    let lifecycle_sequence = extract_lifecycle_sequence(&event_type, &envelope.payload.data)?;
+    let mut event_data = normalize_event_data(
+        event_type.clone(),
         envelope.payload.data,
         session_id.clone(),
         target.organization_id,
         envelope.timestamp,
+        &ingest_event_id,
     )?;
+    let event_timestamp_ms = event_data.get("timestamp").and_then(json_i64).unwrap_or(envelope.timestamp * 1000);
+    if let Value::Object(object) = &mut event_data {
+        object.insert("containerGenerationFingerprint".to_string(), Value::String(generation_fingerprint.clone()));
+        // The ordering ledger must contain exactly the timestamp used by the
+        // lifecycle CAS. Legacy hooks may send a string timestamp (or none at
+        // all); preserving it would make the SQL fall back to `created_at`, so
+        // the just-persisted event could incorrectly supersede itself.
+        if derive_status(&event_type).is_some() {
+            object.insert("timestamp".to_string(), Value::from(event_timestamp_ms));
+        }
+    }
 
     let broadcast_agent_id = session_id.clone().unwrap_or_else(|| target.agent_id.to_string());
-    let event_type = envelope.payload.event_type;
     let organization_id = target.organization_id;
     let persistable = is_persistable(&event_type);
-    let event_timestamp_ms = event_data.get("timestamp").and_then(json_i64).unwrap_or(envelope.timestamp * 1000);
 
-    let runtime_patch = derive_runtime_patch(&event_type, &event_data);
+    let runtime_patch = if persistable {
+        derive_runtime_patch(&event_type, &event_data, lifecycle_sequence, reported_session_id)
+    } else {
+        AgentRuntimePatch::default()
+    };
 
     Ok(DecodedEvent {
         broadcast_subject: format!("broadcast.{organization_id}"),
@@ -417,6 +484,8 @@ fn decode_event(target: AgentTarget, envelope: SignedEventEnvelope) -> std::resu
             event_type: event_type.clone(),
             payload: event_data,
             session_id,
+            ingest_event_id,
+            generation_fingerprint,
         },
         runtime_patch,
         persistable,
@@ -433,6 +502,7 @@ fn normalize_event_data(
     session_id: Option<String>,
     organization_id: Uuid,
     envelope_timestamp_secs: i64,
+    ingest_event_id: &str,
 ) -> std::result::Result<Value, ConsumeError> {
     let mut object = match data {
         Value::Object(map) => map,
@@ -450,14 +520,51 @@ fn normalize_event_data(
         object.entry("sessionId".to_string()).or_insert_with(|| Value::String(session_id));
     }
     object.entry("timestamp".to_string()).or_insert_with(|| Value::from(envelope_timestamp_secs * 1000));
-    object.entry("id".to_string()).or_insert_with(|| Value::String(Uuid::now_v7().to_string()));
+    object.insert("id".to_string(), Value::String(ingest_event_id.to_string()));
 
     Ok(Value::Object(object))
 }
 
+const MAX_INGEST_EVENT_ID_LEN: usize = 256;
+
+fn extract_ingest_event_id(data: &Value, envelope_signature: &str) -> std::result::Result<String, ConsumeError> {
+    match data.get("id") {
+        Some(Value::String(id)) if !id.trim().is_empty() && id.len() <= MAX_INGEST_EVENT_ID_LEN => Ok(id.clone()),
+        None if !envelope_signature.trim().is_empty() => Ok(format!("legacy:{envelope_signature}")),
+        None => Ok(Uuid::now_v7().to_string()),
+        _ => Err(ConsumeError::permanent_with_reason(
+            "event_id_invalid",
+            anyhow!("event id must be a non-empty string no longer than {MAX_INGEST_EVENT_ID_LEN} bytes"),
+        )),
+    }
+}
+
+fn extract_lifecycle_sequence(event_type: &str, data: &Value) -> std::result::Result<Option<i64>, ConsumeError> {
+    let Some(value) = data.get("lifecycleSequence") else {
+        return Ok(None);
+    };
+    if derive_status(event_type).is_none() {
+        return Err(ConsumeError::permanent_with_reason(
+            "lifecycle_sequence_unexpected",
+            anyhow!("event {event_type} cannot carry lifecycleSequence"),
+        ));
+    }
+    json_i64(value).filter(|sequence| *sequence > 0).map(Some).ok_or_else(|| {
+        ConsumeError::permanent_with_reason(
+            "lifecycle_sequence_invalid",
+            anyhow!("lifecycleSequence must be a positive signed 64-bit integer"),
+        )
+    })
+}
+
 fn extract_session_id(data: &Value) -> Option<String> {
     data.as_object().and_then(|map| {
-        map.get("sessionId").or_else(|| map.get("session_id")).and_then(Value::as_str).map(str::to_owned)
+        map.get("sessionId")
+            .or_else(|| map.get("session_id"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|session| !session.is_empty() && session.len() <= MAX_RUNTIME_STRING_LEN)
+            .map(str::to_owned)
     })
 }
 
@@ -503,7 +610,12 @@ fn payload_string<'a>(data: &'a Value, key: &str) -> Option<&'a str> {
 /// clears it (the tool has finished); `stop` / `session_end` also clear.
 /// Every event with a non-empty `cwd` refreshes the column so the frontend
 /// "Working Dir" display survives page reload.
-fn derive_runtime_patch(event_type: &str, data: &Value) -> AgentRuntimePatch {
+fn derive_runtime_patch(
+    event_type: &str,
+    data: &Value,
+    lifecycle_sequence: Option<i64>,
+    interactive_owner_session: Option<String>,
+) -> AgentRuntimePatch {
     let status = derive_status(event_type);
 
     let current_tool = match event_type {
@@ -514,7 +626,13 @@ fn derive_runtime_patch(event_type: &str, data: &Value) -> AgentRuntimePatch {
 
     let cwd = payload_string(data, "cwd").map(str::to_owned);
 
-    AgentRuntimePatch { status, current_tool, cwd }
+    AgentRuntimePatch {
+        status,
+        current_tool,
+        cwd,
+        lifecycle_sequence: status.and(lifecycle_sequence),
+        interactive_owner_session: status.and(interactive_owner_session),
+    }
 }
 
 /// Describe + prime the event-ingest replay-defense metrics so a Prometheus
@@ -571,20 +689,262 @@ impl HmacSecretLookup for SqlxHmacSecretLookup {
 
 #[async_trait]
 impl EventStore for SqlxEventStore {
-    async fn persist(&self, event: PersistedEvent) -> Result<()> {
-        sqlx::query(
-            r#"INSERT INTO events (organization_id, agent_id, event_type, payload, session_id)
-               VALUES ($1, $2, $3, $4, $5)"#,
+    async fn ingest(&self, event: PersistedEvent, patch: AgentRuntimePatch) -> Result<EventIngestOutcome> {
+        let mut tx = self.pool.begin().await?;
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, event.agent_id).await?;
+
+        let agent = sqlx::query_as::<_, AgentIngestRow>(
+            r#"SELECT organization_id,
+                      hmac_secret,
+                      lifecycle_generation_fingerprint,
+                      last_lifecycle_sequence,
+                      COALESCE(interactive_lease_expires_at > NOW(), FALSE) AS has_interactive_epoch,
+                      interactive_owner_session_id,
+                      EXISTS (
+                          SELECT 1 FROM participants participant
+                           WHERE participant.organization_id = agents.organization_id
+                             AND participant.agent_id = agents.id
+                             AND participant.status = 'busy'
+                      ) OR EXISTS (
+                          SELECT 1 FROM orchestration_tasks task
+                           WHERE task.organization_id = agents.organization_id
+                             AND task.assigned_agent_id = agents.id
+                             AND task.status = 'working'
+                      ) AS has_orchestration_owner
+                 FROM agents
+                WHERE id = $1"#,
+        )
+        .bind(event.agent_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some(agent) = agent else {
+            tx.commit().await?;
+            return Ok(EventIngestOutcome::AgentMissing);
+        };
+        if agent.organization_id != event.organization_id {
+            tx.commit().await?;
+            return Ok(EventIngestOutcome::AgentScopeChanged);
+        }
+        if agent.hmac_secret.as_deref().map(|secret| container_generation_fingerprint(secret.as_bytes())).as_deref()
+            != Some(event.generation_fingerprint.as_str())
+        {
+            tx.commit().await?;
+            return Ok(EventIngestOutcome::StaleGeneration);
+        }
+
+        let duplicate = sqlx::query_as::<_, ExistingIngestRow>(
+            r#"SELECT event_type, payload, session_id, lifecycle_sequence, ingest_applied
+                 FROM events
+                WHERE agent_id = $1
+                  AND ingest_generation_fingerprint = $2
+                  AND ingest_event_id = $3"#,
+        )
+        .bind(event.agent_id)
+        .bind(&event.generation_fingerprint)
+        .bind(&event.ingest_event_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(duplicate) = duplicate {
+            let same_event = duplicate.event_type == event.event_type
+                && duplicate.payload == event.payload
+                && duplicate.session_id == event.session_id;
+            let duplicate_is_stale = duplicate.lifecycle_sequence.is_some_and(|sequence| {
+                let same_signed_generation =
+                    agent.lifecycle_generation_fingerprint.as_deref() == Some(event.generation_fingerprint.as_str());
+                let legacy_mode =
+                    agent.lifecycle_generation_fingerprint.is_none() && patch.lifecycle_sequence.is_none();
+                (same_signed_generation || legacy_mode) && sequence < agent.last_lifecycle_sequence
+            });
+            let outcome = match (same_event, duplicate.ingest_applied, duplicate_is_stale) {
+                (true, Some(true), false) => EventIngestOutcome::DuplicateApplied,
+                (true, Some(true), true) => EventIngestOutcome::DuplicateSuperseded,
+                (true, Some(false), _) => EventIngestOutcome::DuplicateSuperseded,
+                _ => EventIngestOutcome::EventIdConflict,
+            };
+            tx.commit().await?;
+            return Ok(outcome);
+        }
+
+        let mut applied = true;
+        let mut lifecycle_sequence = None;
+        if patch.status.is_some() {
+            match patch.lifecycle_sequence {
+                Some(sequence) => {
+                    let previous_sequence = if agent.lifecycle_generation_fingerprint.as_deref()
+                        == Some(event.generation_fingerprint.as_str())
+                    {
+                        agent.last_lifecycle_sequence
+                    } else {
+                        0
+                    };
+                    lifecycle_sequence = Some(sequence);
+                    if sequence <= previous_sequence {
+                        applied = false;
+                    } else {
+                        // A non-NULL fingerprint marks signed-sequence mode. It
+                        // also makes the first signed receipt after a legacy-only
+                        // rollout start at its sidecar-owned sequence instead of
+                        // inheriting the compatibility counter.
+                        sqlx::query(
+                            r#"UPDATE agents
+                                  SET lifecycle_generation_fingerprint = $2,
+                                      last_lifecycle_sequence = $3
+                                WHERE id = $1"#,
+                        )
+                        .bind(event.agent_id)
+                        .bind(&event.generation_fingerprint)
+                        .bind(sequence)
+                        .execute(&mut *tx)
+                        .await?;
+                    }
+                }
+                None if agent.lifecycle_generation_fingerprint.as_deref()
+                    == Some(event.generation_fingerprint.as_str()) =>
+                {
+                    // Once this generation has emitted a signed sequence, any
+                    // sequence-less receipt is a delayed pre-upgrade WAL record.
+                    applied = false;
+                }
+                None => {
+                    let previous_sequence = if agent.lifecycle_generation_fingerprint.is_none() {
+                        agent.last_lifecycle_sequence
+                    } else {
+                        0
+                    };
+                    let sequence = previous_sequence.checked_add(1).context("legacy lifecycle sequence exhausted")?;
+                    lifecycle_sequence = Some(sequence);
+                    // NULL fingerprint denotes the serialized compatibility
+                    // counter. A later signed receipt switches modes atomically.
+                    sqlx::query(
+                        r#"UPDATE agents
+                              SET lifecycle_generation_fingerprint = NULL,
+                                  last_lifecycle_sequence = $2
+                            WHERE id = $1"#,
+                    )
+                    .bind(event.agent_id)
+                    .bind(sequence)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+            }
+        } else if patch.lifecycle_sequence.is_some() {
+            return Err(anyhow!("non-lifecycle event carried a lifecycle sequence"));
+        }
+
+        let event_row_id: Uuid = sqlx::query_scalar(
+            r#"INSERT INTO events (
+                    organization_id,
+                    agent_id,
+                    event_type,
+                    payload,
+                    session_id,
+                    ingest_event_id,
+                    ingest_generation_fingerprint,
+                    lifecycle_sequence,
+                    ingest_applied
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE)
+                RETURNING id"#,
         )
         .bind(event.organization_id)
         .bind(event.agent_id)
-        .bind(event.event_type)
-        .bind(event.payload)
-        .bind(event.session_id)
-        .execute(&self.pool)
+        .bind(&event.event_type)
+        .bind(&event.payload)
+        .bind(&event.session_id)
+        .bind(&event.ingest_event_id)
+        .bind(&event.generation_fingerprint)
+        .bind(lifecycle_sequence)
+        .fetch_one(&mut *tx)
         .await?;
-        Ok(())
+
+        if applied && !patch.is_noop() {
+            let owner_session_matches =
+                patch.interactive_owner_session.as_deref() == agent.interactive_owner_session_id.as_deref();
+            let owner_transition_conflicts = match patch.status {
+                Some(AgentStatus::Working) => {
+                    !agent.has_orchestration_owner
+                        && (patch.interactive_owner_session.is_none()
+                            || (agent.has_interactive_epoch
+                                && agent.interactive_owner_session_id.is_some()
+                                && !owner_session_matches))
+                }
+                Some(AgentStatus::Idle) => {
+                    agent.has_orchestration_owner
+                        || !agent.has_interactive_epoch
+                        || patch.interactive_owner_session.is_none()
+                        || !owner_session_matches
+                }
+                _ => false,
+            };
+            if owner_transition_conflicts {
+                applied = false;
+            } else {
+                let may_write_interactive_owner = !agent.has_orchestration_owner;
+                let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new("UPDATE agents SET updated_at = NOW()");
+
+                if let Some(status) = patch.status {
+                    builder.push(", status = ");
+                    builder.push_bind(status);
+                    match status {
+                        AgentStatus::Working if may_write_interactive_owner => {
+                            builder.push(", interactive_owner_session_id = ");
+                            builder.push_bind(patch.interactive_owner_session.clone().expect("validated hook owner"));
+                            builder.push(", interactive_lease_expires_at = NOW() + INTERVAL '2 minutes'");
+                        }
+                        AgentStatus::Idle if may_write_interactive_owner => {
+                            builder.push(", interactive_lease_expires_at = NULL");
+                        }
+                        AgentStatus::Working | AgentStatus::Idle | AgentStatus::Offline => {}
+                    }
+                }
+                match patch.current_tool {
+                    Some(CurrentToolUpdate::Set(tool)) => {
+                        builder.push(", current_tool = ");
+                        builder.push_bind(tool);
+                    }
+                    Some(CurrentToolUpdate::Clear) => {
+                        builder.push(", current_tool = NULL");
+                    }
+                    None => {}
+                }
+                if let Some(cwd) = patch.cwd {
+                    builder.push(", cwd = ");
+                    builder.push_bind(cwd);
+                }
+                builder.push(" WHERE id = ");
+                builder.push_bind(event.agent_id);
+                builder.build().execute(&mut *tx).await?;
+            }
+        }
+
+        sqlx::query("UPDATE events SET ingest_applied = $2 WHERE id = $1")
+            .bind(event_row_id)
+            .bind(applied)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(if applied { EventIngestOutcome::Applied } else { EventIngestOutcome::Superseded })
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct AgentIngestRow {
+    organization_id: Uuid,
+    hmac_secret: Option<String>,
+    lifecycle_generation_fingerprint: Option<String>,
+    last_lifecycle_sequence: i64,
+    has_interactive_epoch: bool,
+    interactive_owner_session_id: Option<String>,
+    has_orchestration_owner: bool,
+}
+
+#[derive(sqlx::FromRow)]
+struct ExistingIngestRow {
+    event_type: String,
+    payload: Value,
+    session_id: Option<String>,
+    lifecycle_sequence: Option<i64>,
+    ingest_applied: Option<bool>,
 }
 
 #[derive(Clone)]
@@ -622,45 +982,6 @@ impl AgentDirectory for SqlxAgentDirectory {
             organization_id: row.organization_id,
             cli_session_id: row.cli_session_id,
         }))
-    }
-
-    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<bool> {
-        // Build one dynamic UPDATE per event so we never issue a no-op write.
-        // The consumer has already checked `patch.is_noop()` before this call;
-        // guard against accidental regressions anyway.
-        if patch.is_noop() {
-            return Ok(true);
-        }
-
-        let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new("UPDATE agents SET updated_at = NOW()");
-
-        if let Some(status) = patch.status {
-            builder.push(", status = ");
-            builder.push_bind(status);
-        }
-        match patch.current_tool {
-            Some(CurrentToolUpdate::Set(tool)) => {
-                builder.push(", current_tool = ");
-                builder.push_bind(tool);
-            }
-            Some(CurrentToolUpdate::Clear) => {
-                // NULL is a literal here — no bind value, avoids pushing a
-                // typed `Option<String>` that sqlx could choose to infer
-                // incorrectly.
-                builder.push(", current_tool = NULL");
-            }
-            None => {}
-        }
-        if let Some(cwd) = patch.cwd {
-            builder.push(", cwd = ");
-            builder.push_bind(cwd);
-        }
-
-        builder.push(" WHERE id = ");
-        builder.push_bind(agent_id);
-
-        let result = builder.build().execute(&self.pool).await?;
-        Ok(result.rows_affected() == 1)
     }
 }
 
@@ -869,6 +1190,7 @@ impl EventStreamWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use serde_json::Map;
 
     #[test]
@@ -911,6 +1233,7 @@ mod tests {
             None,
             Uuid::now_v7(),
             chrono::Utc::now().timestamp(),
+            "event-1",
         )
         .unwrap_err();
         assert!(
@@ -923,13 +1246,74 @@ mod tests {
     fn normalize_adds_required_fields() {
         let session_id = Some("cli-123".to_string());
         let org_id = Uuid::nil();
-        let data = normalize_event_data("pre_tool_use".to_string(), Value::Object(Map::new()), session_id, org_id, 123)
-            .unwrap();
+        let data = normalize_event_data(
+            "pre_tool_use".to_string(),
+            Value::Object(Map::new()),
+            session_id,
+            org_id,
+            123,
+            "event-1",
+        )
+        .unwrap();
         assert_eq!(data["type"], "pre_tool_use");
         assert_eq!(data["sessionId"], "cli-123");
         assert_eq!(data["orgId"], org_id.to_string());
         assert_eq!(data["timestamp"], 123000);
         assert!(data["id"].is_string());
+    }
+
+    #[test]
+    fn lifecycle_order_uses_signed_sequence_not_wall_clock() {
+        let target = AgentTarget { agent_id: Uuid::new_v4(), organization_id: Uuid::new_v4(), cli_session_id: None };
+        for data in [
+            serde_json::json!({"sessionId": "session-123"}),
+            serde_json::json!({"sessionId": "session-123", "timestamp": "legacy"}),
+        ] {
+            let envelope = SignedEventEnvelope {
+                payload: SignedEventPayload { event_type: "user_prompt_submit".to_string(), data },
+                timestamp: 123,
+                agent_id: target.agent_id.to_string(),
+                signature: String::new(),
+            };
+            let decoded =
+                decode_event(target.clone(), envelope, "test-generation".to_string()).expect("decode lifecycle event");
+            assert_eq!(decoded.runtime_patch.lifecycle_sequence, None, "legacy producers use the DB ingestion counter");
+            assert_eq!(decoded.persisted.payload["timestamp"], 123_000);
+        }
+
+        let sequenced = SignedEventEnvelope {
+            payload: SignedEventPayload {
+                event_type: "user_prompt_submit".to_string(),
+                data: serde_json::json!({
+                    "id": "sequenced-event",
+                    "sessionId": "session-123",
+                    "timestamp": 1,
+                    "lifecycleSequence": 7,
+                }),
+            },
+            timestamp: 999,
+            agent_id: target.agent_id.to_string(),
+            signature: String::new(),
+        };
+        let decoded = decode_event(target, sequenced, "test-generation".to_string()).unwrap();
+        assert_eq!(decoded.runtime_patch.lifecycle_sequence, Some(7));
+    }
+
+    #[test]
+    fn lifecycle_requires_a_nonempty_session_owner() {
+        let target = AgentTarget { agent_id: Uuid::new_v4(), organization_id: Uuid::new_v4(), cli_session_id: None };
+        let envelope = SignedEventEnvelope {
+            payload: SignedEventPayload {
+                event_type: "user_prompt_submit".to_string(),
+                data: serde_json::json!({"sessionId": "  "}),
+            },
+            timestamp: 123,
+            agent_id: target.agent_id.to_string(),
+            signature: String::new(),
+        };
+
+        let error = decode_event(target, envelope, "test-generation".to_string()).unwrap_err();
+        assert!(matches!(error, ConsumeError::Permanent { reason: "lifecycle_session_missing", .. }));
     }
 
     // --- Issue #30: derive_runtime_patch mapping between event type and
@@ -946,10 +1330,14 @@ mod tests {
         base
     }
 
+    fn derive_test_patch(event_type: &str, data: &Value) -> AgentRuntimePatch {
+        derive_runtime_patch(event_type, data, None, extract_session_id(data))
+    }
+
     #[test]
     fn derive_patch_pre_tool_use_sets_tool_status_and_cwd() {
         let data = payload("pre_tool_use", serde_json::json!({ "tool": "Edit" }));
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
         assert_eq!(patch.status, Some(AgentStatus::Working));
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Set("Edit".to_owned())));
         assert_eq!(patch.cwd.as_deref(), Some("/w/p"));
@@ -960,7 +1348,7 @@ mod tests {
         // A malformed pre_tool_use with no tool name must not clobber the
         // existing tool to NULL — prefer preserving the last known value.
         let data = payload("pre_tool_use", serde_json::json!({}));
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
         assert_eq!(patch.current_tool, None, "missing tool → no write, not clear");
         assert_eq!(patch.status, Some(AgentStatus::Working));
     }
@@ -968,7 +1356,7 @@ mod tests {
     #[test]
     fn derive_patch_post_tool_use_clears_and_does_not_flip_status() {
         let data = payload("post_tool_use", serde_json::json!({ "tool": "Read" }));
-        let patch = derive_runtime_patch("post_tool_use", &data);
+        let patch = derive_test_patch("post_tool_use", &data);
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Clear));
         assert_eq!(patch.status, None);
     }
@@ -976,7 +1364,7 @@ mod tests {
     #[test]
     fn derive_patch_stop_clears_tool_and_goes_idle() {
         let data = payload("stop", serde_json::json!({}));
-        let patch = derive_runtime_patch("stop", &data);
+        let patch = derive_test_patch("stop", &data);
         assert_eq!(patch.status, Some(AgentStatus::Idle));
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Clear));
     }
@@ -984,7 +1372,7 @@ mod tests {
     #[test]
     fn derive_patch_session_end_matches_stop() {
         let data = payload("session_end", serde_json::json!({}));
-        let patch = derive_runtime_patch("session_end", &data);
+        let patch = derive_test_patch("session_end", &data);
         assert_eq!(patch.status, Some(AgentStatus::Idle));
         assert_eq!(patch.current_tool, Some(CurrentToolUpdate::Clear));
     }
@@ -992,7 +1380,7 @@ mod tests {
     #[test]
     fn derive_patch_user_prompt_submit_only_flips_status() {
         let data = payload("user_prompt_submit", serde_json::json!({}));
-        let patch = derive_runtime_patch("user_prompt_submit", &data);
+        let patch = derive_test_patch("user_prompt_submit", &data);
         assert_eq!(patch.status, Some(AgentStatus::Working));
         assert_eq!(patch.current_tool, None);
     }
@@ -1002,7 +1390,7 @@ mod tests {
         // Any event carrying a non-empty cwd refreshes the column, so the
         // UI "Working Dir" survives page reload even without an active tool.
         let data = payload("notification", serde_json::json!({}));
-        let patch = derive_runtime_patch("notification", &data);
+        let patch = derive_test_patch("notification", &data);
         assert_eq!(patch.status, None);
         assert_eq!(patch.current_tool, None);
         assert_eq!(patch.cwd.as_deref(), Some("/w/p"));
@@ -1015,7 +1403,7 @@ mod tests {
         // wire-level test `event_without_cwd_does_not_overwrite_stored_cwd`
         // in `event_consumer_contract.rs`.
         let data = serde_json::json!({ "type": "notification", "cwd": "" });
-        let patch = derive_runtime_patch("notification", &data);
+        let patch = derive_test_patch("notification", &data);
         assert!(patch.is_noop(), "empty cwd + unknown event = noop patch");
     }
 
@@ -1023,7 +1411,13 @@ mod tests {
     fn runtime_patch_is_noop_when_all_fields_are_none() {
         let patch = AgentRuntimePatch::default();
         assert!(patch.is_noop());
-        let partial = AgentRuntimePatch { status: None, current_tool: Some(CurrentToolUpdate::Clear), cwd: None };
+        let partial = AgentRuntimePatch {
+            status: None,
+            current_tool: Some(CurrentToolUpdate::Clear),
+            cwd: None,
+            lifecycle_sequence: None,
+            interactive_owner_session: None,
+        };
         assert!(!partial.is_noop());
     }
 
@@ -1041,7 +1435,7 @@ mod tests {
             "tool": huge,
             "cwd": huge,
         });
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
 
         assert_eq!(patch.current_tool, None, "oversize tool must drop, not truncate, and not clear");
         assert_eq!(patch.cwd, None, "oversize cwd must drop, not truncate");
@@ -1057,9 +1451,407 @@ mod tests {
             "tool": exact,
             "cwd": exact,
         });
-        let patch = derive_runtime_patch("pre_tool_use", &data);
+        let patch = derive_test_patch("pre_tool_use", &data);
 
         assert!(matches!(patch.current_tool, Some(CurrentToolUpdate::Set(_))));
         assert!(patch.cwd.is_some());
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn lifecycle_receipts_are_monotonic_deduplicated_and_atomic(pool: PgPool) {
+        let organization_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        let initial_secret = Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Event order', $2)")
+            .bind(organization_id)
+            .bind(format!("event-order-{organization_id}"))
+            .execute(&pool)
+            .await
+            .expect("seed organization");
+        sqlx::query("INSERT INTO workspaces (id, organization_id, name) VALUES ($1, $1, 'Default')")
+            .bind(organization_id)
+            .execute(&pool)
+            .await
+            .expect("seed workspace");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("event-order-{user_id}@example.com"))
+            .execute(&pool)
+            .await
+            .expect("seed user");
+        sqlx::query(
+            "INSERT INTO agents \
+                 (id, organization_id, workspace_id, user_id, status, hmac_secret, interactive_lease_expires_at) \
+             VALUES ($1, $2, $2, $3, 'idle', $4, NOW() + INTERVAL '60 seconds')",
+        )
+        .bind(agent_id)
+        .bind(organization_id)
+        .bind(user_id)
+        .bind(&initial_secret)
+        .execute(&pool)
+        .await
+        .expect("seed Agent");
+
+        let store = SqlxEventStore::new(pool.clone());
+        let initial_generation = container_generation_fingerprint(initial_secret.as_bytes());
+        let persist = |event_type: &str, event_id: &str, sequence: Option<i64>, timestamp: i64, generation: &str| {
+            let mut payload = serde_json::json!({
+                "type": event_type,
+                "id": event_id,
+                "timestamp": timestamp,
+                "containerGenerationFingerprint": generation,
+            });
+            if let Some(sequence) = sequence {
+                payload["lifecycleSequence"] = Value::from(sequence);
+            }
+            PersistedEvent {
+                organization_id,
+                agent_id,
+                event_type: event_type.to_string(),
+                payload,
+                session_id: Some("ordered-session".to_string()),
+                ingest_event_id: event_id.to_string(),
+                generation_fingerprint: generation.to_string(),
+            }
+        };
+        let patch = |status, sequence| AgentRuntimePatch {
+            status: Some(status),
+            current_tool: None,
+            cwd: None,
+            lifecycle_sequence: sequence,
+            interactive_owner_session: Some("ordered-session".to_string()),
+        };
+
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "working-1", Some(1), 1_000, &initial_generation),
+                    patch(AgentStatus::Working, Some(1)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::Applied
+        );
+        let claimed_owner: Option<String> =
+            sqlx::query_scalar("SELECT interactive_owner_session_id FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read hook owner epoch");
+        assert_eq!(
+            claimed_owner.as_deref(),
+            Some("ordered-session"),
+            "the first signed Working hook must transfer the terminal/MCP bridge lease to its session epoch"
+        );
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() + INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("advance long work past its original bridge TTL");
+        assert!(
+            crate::participant_liveness::renew_interactive_owner_from_heartbeat(
+                &pool,
+                agent_id,
+                "ordered-session",
+                &container_generation_fingerprint(initial_secret.as_bytes()),
+            )
+            .await
+            .expect("renew exact hook owner"),
+            "current sidecar heartbeat must keep work exclusive beyond the bridge TTL"
+        );
+        let outlives_input_bridge: bool = sqlx::query_scalar(
+            "SELECT interactive_lease_expires_at > NOW() + INTERVAL '60 seconds' FROM agents WHERE id = $1",
+        )
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("read durable terminal owner");
+        assert!(outlives_input_bridge, "terminal execution ownership must survive work longer than 60 seconds");
+        assert_eq!(
+            store
+                .ingest(
+                    persist("stop", "stop-2", Some(2), 1_000, &initial_generation),
+                    patch(AgentStatus::Idle, Some(2)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::Applied,
+            "Stop must win by sequence even when its wall clock ties Working"
+        );
+
+        // Exact transient-broadcast schedule: the old Working envelope is
+        // redelivered after Stop committed. Its receipt is reused and it is now
+        // classified as superseded, so neither DB state nor browser broadcast
+        // can resurrect Working.
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "working-1", Some(1), 1_000, &initial_generation),
+                    patch(AgentStatus::Working, Some(1)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::DuplicateSuperseded
+        );
+        let (status, lease): (AgentStatus, Option<chrono::DateTime<Utc>>) =
+            sqlx::query_as("SELECT status, interactive_lease_expires_at FROM agents WHERE id = $1")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read final lifecycle mirror");
+        assert_eq!(status, AgentStatus::Idle);
+        assert!(lease.is_none(), "older Working redelivery must not recreate execution ownership");
+        let receipt_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM events WHERE agent_id = $1 AND ingest_event_id = 'working-1'")
+                .bind(agent_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(receipt_count, 1, "redelivery must reuse one durable receipt");
+
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "working-3", Some(3), 999, &initial_generation),
+                    patch(AgentStatus::Working, Some(3)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::Applied,
+            "a legitimate higher sequence must apply despite a lower or tied wall clock"
+        );
+        assert_eq!(
+            store
+                .ingest(
+                    persist("stop", "stop-4", Some(4), 999, &initial_generation),
+                    patch(AgentStatus::Idle, Some(4)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::Applied
+        );
+
+        // Exact verify -> container-roll -> receipt schedule. The consumer may
+        // have verified X before this call, but the transactional generation
+        // recheck rejects it before either the event row or Agent patch exists.
+        let secret_x = Uuid::new_v4().to_string();
+        let secret_y = Uuid::new_v4().to_string();
+        let generation_x = container_generation_fingerprint(secret_x.as_bytes());
+        let generation_y = container_generation_fingerprint(secret_y.as_bytes());
+        sqlx::query("UPDATE agents SET hmac_secret = $2 WHERE id = $1")
+            .bind(agent_id)
+            .bind(&secret_x)
+            .execute(&pool)
+            .await
+            .expect("install generation X");
+        sqlx::query("UPDATE agents SET hmac_secret = $2 WHERE id = $1")
+            .bind(agent_id)
+            .bind(&secret_y)
+            .execute(&pool)
+            .await
+            .expect("roll to generation Y");
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "stale-generation-x", Some(1), 5_000, &generation_x),
+                    patch(AgentStatus::Working, Some(1)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::StaleGeneration
+        );
+        let stale_rows: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM events WHERE ingest_event_id = 'stale-generation-x'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(stale_rows, 0, "generation revalidation and persistence must be atomic");
+
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "generation-y-1", Some(1), 4_000, &generation_y),
+                    patch(AgentStatus::Working, Some(1)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::Applied,
+            "stale generation X ledger row must not block generation Y"
+        );
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "generation-y-1", Some(1), 4_001, &generation_y),
+                    patch(AgentStatus::Working, Some(1)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::EventIdConflict,
+            "one event ID cannot authenticate different content"
+        );
+
+        // A permanently lost Stop has a bounded recovery: once the five-minute
+        // owner expires, stale status alone cannot block admission forever.
+        sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() - INTERVAL '1 second' WHERE id = $1")
+            .bind(agent_id)
+            .execute(&pool)
+            .await
+            .expect("simulate lost-stop lease expiry");
+        let mut admission = pool.begin().await.expect("begin recovery check");
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut admission, agent_id).await.unwrap();
+        assert_eq!(
+            agentforge_db::agent_work_admission_is_idle_in_tx(&mut admission, organization_id, agent_id).await.unwrap(),
+            Some(true),
+            "expired bounded owner must recover even when status still says working"
+        );
+        admission.rollback().await.unwrap();
+
+        // A task claim that wins the lifecycle lock makes the participant busy.
+        // The next Working receipt may mirror status but must not create a
+        // second interactive owner.
+        sqlx::query(
+            "INSERT INTO participants (organization_id, agent_id, name, capabilities, status) \
+             VALUES ($1, $2, 'claimed', ARRAY['codex'], 'busy')",
+        )
+        .bind(organization_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("seed committed orchestration owner");
+        assert_eq!(
+            store
+                .ingest(
+                    persist("user_prompt_submit", "generation-y-2", Some(2), 6_000, &generation_y),
+                    patch(AgentStatus::Working, Some(2)),
+                )
+                .await
+                .unwrap(),
+            EventIngestOutcome::Applied
+        );
+        let has_live_interactive_lease: bool = sqlx::query_scalar(
+            "SELECT COALESCE(interactive_lease_expires_at > NOW(), FALSE) FROM agents WHERE id = $1",
+        )
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert!(!has_live_interactive_lease, "delayed Working hook must not overlap the committed orchestration owner");
+
+        // Legacy producers have no signed sequence. Three same-timestamp events
+        // are serialized under the lifecycle lock and receive 1, 2, 3 in actual
+        // ingestion order, so the final legitimate Working is not suppressed by
+        // the preceding Stop.
+        let legacy_agent_id = Uuid::new_v4();
+        let legacy_secret = Uuid::new_v4().to_string();
+        let legacy_generation = container_generation_fingerprint(legacy_secret.as_bytes());
+        sqlx::query(
+            "INSERT INTO agents (id, organization_id, workspace_id, user_id, status, hmac_secret) \
+             VALUES ($1, $2, $2, $3, 'idle', $4)",
+        )
+        .bind(legacy_agent_id)
+        .bind(organization_id)
+        .bind(user_id)
+        .bind(&legacy_secret)
+        .execute(&pool)
+        .await
+        .expect("seed legacy timestamp Agent");
+        let legacy_event = |event_type: &str, event_id: &str| {
+            decode_event(
+                AgentTarget { agent_id: legacy_agent_id, organization_id, cli_session_id: None },
+                SignedEventEnvelope {
+                    payload: SignedEventPayload {
+                        event_type: event_type.to_string(),
+                        data: serde_json::json!({
+                            "id": event_id,
+                            "sessionId": "legacy-session",
+                            "timestamp": "legacy",
+                        }),
+                    },
+                    timestamp: 123,
+                    agent_id: legacy_agent_id.to_string(),
+                    signature: String::new(),
+                },
+                legacy_generation.clone(),
+            )
+            .expect("decode legacy lifecycle event")
+        };
+        for (event_type, event_id) in [
+            ("user_prompt_submit", "legacy-working-1"),
+            ("stop", "legacy-stop-2"),
+            ("user_prompt_submit", "legacy-working-3"),
+        ] {
+            let decoded = legacy_event(event_type, event_id);
+            assert_eq!(decoded.persisted.payload["timestamp"], 123_000);
+            assert_eq!(decoded.runtime_patch.lifecycle_sequence, None);
+            assert_eq!(
+                store.ingest(decoded.persisted, decoded.runtime_patch).await.unwrap(),
+                EventIngestOutcome::Applied
+            );
+        }
+        let legacy_concurrent_a = legacy_event("user_prompt_submit", "legacy-concurrent-a");
+        let legacy_concurrent_b = legacy_event("user_prompt_submit", "legacy-concurrent-b");
+        let (legacy_a, legacy_b) = tokio::join!(
+            store.ingest(legacy_concurrent_a.persisted, legacy_concurrent_a.runtime_patch),
+            store.ingest(legacy_concurrent_b.persisted, legacy_concurrent_b.runtime_patch),
+        );
+        assert_eq!(legacy_a.unwrap(), EventIngestOutcome::Applied);
+        assert_eq!(legacy_b.unwrap(), EventIngestOutcome::Applied);
+        let sequences: Vec<i64> =
+            sqlx::query_scalar("SELECT lifecycle_sequence FROM events WHERE agent_id = $1 ORDER BY lifecycle_sequence")
+                .bind(legacy_agent_id)
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        assert_eq!(sequences, vec![1, 2, 3, 4, 5], "the Agent lifecycle lock must serialize legacy writers");
+        let (legacy_status, last_sequence): (AgentStatus, i64) =
+            sqlx::query_as("SELECT status, last_lifecycle_sequence FROM agents WHERE id = $1")
+                .bind(legacy_agent_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(legacy_status, AgentStatus::Working);
+        assert_eq!(last_sequence, 5);
+
+        // During a rolling upgrade, the first sidecar-owned sequence starts a
+        // new signed ledger at 1. Delayed sequence-less WAL records are then
+        // durable but superseded instead of reviving pre-upgrade state.
+        let signed_stop = decode_event(
+            AgentTarget { agent_id: legacy_agent_id, organization_id, cli_session_id: None },
+            SignedEventEnvelope {
+                payload: SignedEventPayload {
+                    event_type: "stop".to_string(),
+                    data: serde_json::json!({
+                        "id": "signed-stop-1",
+                        "sessionId": "legacy-session",
+                        "lifecycleSequence": 1,
+                    }),
+                },
+                timestamp: 124,
+                agent_id: legacy_agent_id.to_string(),
+                signature: String::new(),
+            },
+            legacy_generation.clone(),
+        )
+        .unwrap();
+        assert_eq!(
+            store.ingest(signed_stop.persisted, signed_stop.runtime_patch).await.unwrap(),
+            EventIngestOutcome::Applied
+        );
+        let delayed_legacy = legacy_event("user_prompt_submit", "delayed-legacy-working");
+        assert_eq!(
+            store.ingest(delayed_legacy.persisted, delayed_legacy.runtime_patch).await.unwrap(),
+            EventIngestOutcome::Superseded
+        );
+        let (final_status, final_sequence, signed_generation): (AgentStatus, i64, Option<String>) = sqlx::query_as(
+            "SELECT status, last_lifecycle_sequence, lifecycle_generation_fingerprint FROM agents WHERE id = $1",
+        )
+        .bind(legacy_agent_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(final_status, AgentStatus::Idle);
+        assert_eq!(final_sequence, 1);
+        assert_eq!(signed_generation.as_deref(), Some(legacy_generation.as_str()));
     }
 }

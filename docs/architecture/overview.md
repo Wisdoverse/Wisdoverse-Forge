@@ -66,6 +66,14 @@ persisted before the publish and the WAL record is deleted only after the NATS
 server confirms receipt, so events survive a NATS reconnect or a sidecar restart
 once they have reached the sidecar.
 
+Before WAL admission, the sidecar assigns a stable event ID and a crash-durable,
+per-container-generation sequence to lifecycle events. The platform verifies
+that signed identity, then revalidates the generation, deduplicates the receipt,
+persists the event, and updates the Agent mirror in one PostgreSQL transaction.
+Lifecycle order therefore follows the signed sequence rather than wall-clock
+timestamps; legacy sidecars are serialized by the same per-Agent database lock
+during a rolling upgrade.
+
 The WAL covers loss only **after** an event reaches the sidecar. It does **not**
 cover the window before the socket is available — if the sidecar is starting,
 restarting, or has been OOM-killed mid-session, a hook event emitted during that

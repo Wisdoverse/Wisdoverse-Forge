@@ -102,6 +102,8 @@ beforeEach(() => {
           cliTool: 'claude',
           image: 'agentforge-agent:claude',
           imagePresent: true,
+          imageReady: true,
+          imageTrust: 'host-local',
           version: '1.0.0',
           versionSource: 'docker-label',
         },
@@ -216,7 +218,7 @@ describe('RuntimeSection', () => {
     ).toBeDefined()
     expect(screen.queryByText('Check setup')).toBeNull()
     expect(screen.queryByText('check tool')).toBeNull()
-    expect(screen.getByText('Installed and ready')).toBeDefined()
+    expect(screen.getByText('Trusted and ready')).toBeDefined()
     expect(screen.getAllByText(/code tool sign-ins/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/1\/2 code tool sign-ins ready/i)).toBeDefined()
     expect(screen.getByText(/Choose Sign in to GitHub/i)).toBeDefined()
@@ -272,6 +274,8 @@ describe('RuntimeSection', () => {
             cliTool: 'codex',
             image: 'agentforge-agent:codex',
             imagePresent: true,
+            imageReady: true,
+            imageTrust: 'host-local',
             version: '1.0.0',
             versionSource: 'docker-label',
           },
@@ -325,6 +329,8 @@ describe('RuntimeSection', () => {
             cliTool: 'codex',
             image: 'agentforge-agent',
             imagePresent: true,
+            imageReady: true,
+            imageTrust: 'host-local',
             versionSource: 'not-reported',
           },
         ],
@@ -338,7 +344,7 @@ describe('RuntimeSection', () => {
     expect(screen.getByTestId('runtime-next-step')).toHaveTextContent('Ready to give agents work')
     expect(screen.getAllByText(/1\/1 work tools ready/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Version not shown yet')).toBeDefined()
-    expect(screen.getByText('Installed and ready')).toBeDefined()
+    expect(screen.getByText('Trusted and ready')).toBeDefined()
     expect(screen.queryByText(/without a version yet/i)).toBeNull()
     expect(screen.queryByText(/finish setting up the tools without a version/i)).toBeNull()
   })
@@ -350,6 +356,34 @@ describe('RuntimeSection', () => {
     expect(screen.queryByTitle('agentforge-agent:codex')).toBeNull()
     expect(screen.queryByTitle('agentforge-agent:claude')).toBeNull()
     expect(document.body.innerHTML).not.toContain('agentforge-agent:')
+  })
+
+  test('does not count a present but untrusted image as ready', async () => {
+    useSettingsStore.setState({
+      runtimeSettings: {
+        defaultRuntime: 'container',
+        availableRuntimes: ['container'],
+        defaultCliTool: 'codex',
+        availableCliTools: ['codex'],
+        cliToolDetails: [
+          {
+            cliTool: 'codex',
+            image: 'agentforge-agent:codex',
+            imagePresent: true,
+            imageReady: false,
+            imageError: 'Image signature was not trusted',
+            imageErrorCode: 'image_signature_untrusted',
+            versionSource: 'not-reported',
+          },
+        ],
+      },
+    })
+
+    render(<RuntimeSection />)
+
+    expect(await screen.findByText('Image signature was not trusted')).toBeDefined()
+    expect(screen.getByText('Not trusted')).toBeDefined()
+    expect(screen.queryByText('Trusted and ready')).toBeNull()
   })
 
   test('tells users to sign in before starting agents when no code tool sign-ins are connected', async () => {

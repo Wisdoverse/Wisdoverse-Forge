@@ -435,10 +435,11 @@ async fn main() -> Result<()> {
     };
 
     let orchestration_outbox_handle = if orchestration_outbox_publisher_enabled {
-        // Default OFF (F064): signing changes the assignment wire format, so it
-        // must trail a rollout of sidecars that accept signed envelopes. Enable
-        // `ORCHESTRATION_SIGN_ASSIGNMENTS=true` only once all sidecars are updated.
-        let sign_assignments = env_flag("ORCHESTRATION_SIGN_ASSIGNMENTS", false)?;
+        // Current sidecars accept signed envelopes, so prefer authenticated
+        // assignments by default. The flag remains a compatibility escape hatch
+        // for non-container runtimes only; container assignments always fail
+        // closed unless the publisher can sign them with their generation key.
+        let sign_assignments = env_flag("ORCHESTRATION_SIGN_ASSIGNMENTS", true)?;
         nats.client().cloned().map(|client| {
             let worker = OrchestrationOutboxPublisher::new(pool.clone(), client, sign_assignments);
             let worker_shutdown = shutdown_rx.clone();
@@ -564,7 +565,7 @@ async fn main() -> Result<()> {
     let cli_image_updater_handle = if config.cli_image_auto_update_enabled {
         match docker.clone() {
             Some(client) => {
-                let worker = agentforge_jobs::CliImageUpdater::new(client, cli_image_status.clone())
+                let worker = agentforge_jobs::CliImageUpdater::new(client, pool.clone(), cli_image_status.clone())
                     .with_interval(std::time::Duration::from_secs(config.cli_image_auto_update_interval_secs))
                     // Publish admin toasts on `broadcast.admin.cli_image` when NATS
                     // is configured; None leaves toasts off (status + metrics only).

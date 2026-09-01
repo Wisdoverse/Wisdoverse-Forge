@@ -19,7 +19,7 @@ use agentforge_core::CliToolKind;
 use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{
     ORCHESTRATION_ASSIGNMENTS_STREAM, RESULT_SUBJECT_PREFIX, SignedEnvelope, TaskAssignment, TaskOutcome, TaskResult,
-    assign_subject_kind, assignment_consumer_name,
+    assign_subject_kind, assignment_consumer_name, container_generation_fingerprint,
 };
 use anyhow::{Context, Result};
 use async_nats::Client;
@@ -404,6 +404,11 @@ pub struct OrchestrationSubscriber {
     inbox: AssignmentInbox,
     execution_gate: AssignmentExecutionGate,
     result_subject_prefix: String,
+    /// Container-only generation identity derived from the secret injected at
+    /// this sidecar's creation. It is compared before durable inbox admission
+    /// and again on replay so a replacement cannot execute its predecessor's
+    /// assignment or WAL entry.
+    container_generation_fingerprint: Option<String>,
     /// This agent's runtime kind, used to bind the per-agent assignment durable
     /// to the #457 kind-namespaced filter `orchestration.assigned.<kind>.<uuid>`.
     runtime_kind: RuntimeKind,
@@ -437,6 +442,8 @@ impl OrchestrationSubscriber {
             // stream is widened, so a result is delayed-not-lost on deploy-order
             // skew — cleaner than emitting two WorkQueue messages per result.
             result_subject_prefix: namespaced_result_prefix(runtime_kind),
+            container_generation_fingerprint: (runtime_kind == RuntimeKind::Container)
+                .then(|| container_generation_fingerprint(hmac_secret.as_bytes())),
             runtime_kind,
         }
     }
@@ -563,6 +570,7 @@ impl OrchestrationSubscriber {
             inbox: self.inbox.clone(),
             execution_gate: self.execution_gate.clone(),
             result_subject_prefix: self.result_subject_prefix.clone(),
+            container_generation_fingerprint: self.container_generation_fingerprint.clone(),
         }
     }
 }
@@ -578,18 +586,23 @@ struct AssignmentHandler {
     inbox: AssignmentInbox,
     execution_gate: AssignmentExecutionGate,
     result_subject_prefix: String,
+    container_generation_fingerprint: Option<String>,
 }
 
-/// Decode an inbound assignment payload, accepting either a signed envelope or a
-/// legacy unsigned assignment (F064).
+/// Decode an inbound assignment payload. Container sidecars require a signed
+/// envelope; non-container runtimes may still accept the legacy raw shape.
 ///
 /// A [`SignedEnvelope`] is verified with this agent's `hmac_key` and its
 /// `payload` decoded; a payload that parses as an envelope but fails
 /// verification is rejected (a tampered/forged assignment). A payload that is
 /// not an envelope (the legacy unsigned shape — `TaskAssignment` has no
-/// `signature` field) is accepted as a raw assignment during the signing
-/// rollout. Returns the assignment or a human-readable rejection reason.
-fn decode_assignment_payload(payload: &[u8], hmac_key: &[u8]) -> Result<TaskAssignment, String> {
+/// `signature` field) is accepted only when `require_signature` is false.
+/// Returns the assignment or a human-readable rejection reason.
+fn decode_assignment_payload(
+    payload: &[u8],
+    hmac_key: &[u8],
+    require_signature: bool,
+) -> Result<TaskAssignment, String> {
     if let Ok(envelope) = serde_json::from_slice::<SignedEnvelope>(payload) {
         if !envelope.verify(hmac_key) {
             return Err("assignment envelope signature did not verify".to_string());
@@ -597,17 +610,23 @@ fn decode_assignment_payload(payload: &[u8], hmac_key: &[u8]) -> Result<TaskAssi
         return serde_json::from_value::<TaskAssignment>(envelope.payload)
             .map_err(|err| format!("signed assignment payload undecodable: {err}"));
     }
+    if require_signature {
+        return Err("unsigned container assignment rejected".to_string());
+    }
     serde_json::from_slice::<TaskAssignment>(payload).map_err(|err| format!("malformed assignment: {err}"))
 }
 
 impl AssignmentHandler {
     async fn dispatch(&self, payload: Vec<u8>) -> DispatchAction {
-        // Accept either a SignedEnvelope (verified with this agent's hmac_key) or
-        // a legacy unsigned assignment. A tampered/forged envelope is rejected
-        // before execution — assignments run with --dangerously-skip-permissions,
-        // so an unsigned payload from a compromised NATS would otherwise be RCE
-        // (F064). Unsigned payloads are accepted during the signing rollout.
-        let assignment = match decode_assignment_payload(&payload, &self.hmac_key) {
+        // Container assignments run with --dangerously-skip-permissions and
+        // carry a non-secret generation fingerprint, so both authentication and
+        // the exact generation match are mandatory before durable intake.
+        // Non-container runtimes retain unsigned compatibility.
+        let assignment = match decode_assignment_payload(
+            &payload,
+            &self.hmac_key,
+            self.container_generation_fingerprint.is_some(),
+        ) {
             Ok(assignment) => assignment,
             Err(reason) => {
                 tracing::warn!(%reason, "Dropping orchestration assignment");
@@ -623,6 +642,18 @@ impl AssignmentHandler {
                 actual_agent_id = %assignment.agent_id,
                 task_id = %assignment.task_id,
                 "Dropping orchestration assignment addressed to a different agent"
+            );
+            return DispatchAction::Term;
+        }
+
+        if let Err(reason) =
+            validate_container_generation(&assignment, self.container_generation_fingerprint.as_deref())
+        {
+            tracing::warn!(
+                task_id = %assignment.task_id,
+                delivery_id = ?assignment.delivery_id,
+                %reason,
+                "Dropping orchestration assignment for a different container generation"
             );
             return DispatchAction::Term;
         }
@@ -691,6 +722,26 @@ impl AssignmentHandler {
                     delivery_id = ?assignment.delivery_id,
                     "Skipping pending orchestration assignment for a different agent"
                 );
+                continue;
+            }
+            if let Err(reason) =
+                validate_container_generation(&assignment, self.container_generation_fingerprint.as_deref())
+            {
+                tracing::warn!(
+                    task_id = %assignment.task_id,
+                    delivery_id = ?assignment.delivery_id,
+                    %reason,
+                    "Dropping pending orchestration assignment for a different container generation"
+                );
+                if let Some(delivery_id) = assignment.delivery_id
+                    && let Err(err) = self.inbox.mark_completed(delivery_id).await
+                {
+                    tracing::warn!(
+                        error = %err,
+                        %delivery_id,
+                        "Failed to tombstone stale pending orchestration assignment"
+                    );
+                }
                 continue;
             }
             if let Err(reason) = validate_durable_assignment(&assignment) {
@@ -1084,6 +1135,20 @@ fn validate_durable_assignment(assignment: &TaskAssignment) -> Result<(), &'stat
     Ok(())
 }
 
+fn validate_container_generation(
+    assignment: &TaskAssignment,
+    expected_fingerprint: Option<&str>,
+) -> Result<(), &'static str> {
+    let Some(expected_fingerprint) = expected_fingerprint else {
+        return Ok(());
+    };
+    match assignment.container_generation_fingerprint.as_deref() {
+        Some(actual_fingerprint) if actual_fingerprint == expected_fingerprint => Ok(()),
+        Some(_) => Err("stale_container_generation"),
+        None => Err("missing_container_generation_fingerprint"),
+    }
+}
+
 fn uuid_from_agent(agent_id: &str) -> Option<uuid::Uuid> {
     uuid::Uuid::parse_str(agent_id).ok()
 }
@@ -1129,14 +1194,15 @@ mod tests {
             message: String::new(),
             priority: "normal".into(),
             context_envelope: None,
-            runtime_kind: None,
+            runtime_kind: Some(RuntimeKind::Container),
+            container_generation_fingerprint: Some(container_generation_fingerprint(TEST_HMAC.as_bytes())),
             image_paths: Vec::new(),
             trace_context: None,
         }
     }
 
     #[test]
-    fn decode_assignment_verifies_signed_accepts_legacy_rejects_tampered() {
+    fn decode_assignment_requires_signatures_only_for_containers() {
         let secret = b"agent-secret";
         let assignment = sample_assignment();
 
@@ -1145,26 +1211,59 @@ mod tests {
             SignedEnvelope::sign(secret, &assignment.agent_id.to_string(), Utc::now().timestamp(), &assignment)
                 .unwrap();
         let signed_bytes = serde_json::to_vec(&envelope).unwrap();
-        let decoded = decode_assignment_payload(&signed_bytes, secret).expect("signed assignment must verify + decode");
+        let decoded = decode_assignment_payload(&signed_bytes, secret, true)
+            .expect("signed container assignment must verify + decode");
         assert_eq!(decoded.task_id, assignment.task_id);
 
         // Verifying with the wrong key is rejected (compromised-NATS forgery).
-        assert!(decode_assignment_payload(&signed_bytes, b"wrong-secret").is_err(), "forged signer must be rejected");
+        assert!(
+            decode_assignment_payload(&signed_bytes, b"wrong-secret", true).is_err(),
+            "forged signer must be rejected"
+        );
 
         // A tampered signature is rejected.
         let mut tampered = envelope.clone();
         tampered.signature = "00".repeat(32);
         let tampered_bytes = serde_json::to_vec(&tampered).unwrap();
-        assert!(decode_assignment_payload(&tampered_bytes, secret).is_err(), "tampered signature must be rejected");
+        assert!(
+            decode_assignment_payload(&tampered_bytes, secret, true).is_err(),
+            "tampered signature must be rejected"
+        );
 
-        // A legacy unsigned raw assignment is accepted during the signing rollout.
+        // The same raw assignment is rejected for a container but remains
+        // compatible for Host CLI/API runtimes.
         let raw_bytes = serde_json::to_vec(&assignment).unwrap();
-        let decoded_raw =
-            decode_assignment_payload(&raw_bytes, secret).expect("legacy unsigned assignment must be accepted");
+        assert!(decode_assignment_payload(&raw_bytes, secret, true).is_err());
+        let decoded_raw = decode_assignment_payload(&raw_bytes, secret, false)
+            .expect("legacy unsigned non-container assignment must be accepted");
         assert_eq!(decoded_raw.task_id, assignment.task_id);
 
         // Garbage is rejected.
-        assert!(decode_assignment_payload(b"not json", secret).is_err());
+        assert!(decode_assignment_payload(b"not json", secret, true).is_err());
+        assert!(decode_assignment_payload(b"not json", secret, false).is_err());
+    }
+
+    #[test]
+    fn container_generation_requires_an_exact_match_only_for_containers() {
+        let mut assignment = sample_assignment();
+        let expected = container_generation_fingerprint(TEST_HMAC.as_bytes());
+
+        assert_eq!(validate_container_generation(&assignment, Some(&expected)), Ok(()));
+
+        assignment.container_generation_fingerprint =
+            Some(container_generation_fingerprint(b"replacement-container-secret"));
+        assert_eq!(validate_container_generation(&assignment, Some(&expected)), Err("stale_container_generation"));
+
+        assignment.container_generation_fingerprint = None;
+        assert_eq!(
+            validate_container_generation(&assignment, Some(&expected)),
+            Err("missing_container_generation_fingerprint")
+        );
+        assert_eq!(
+            validate_container_generation(&assignment, None),
+            Ok(()),
+            "non-container runtimes preserve assignments without generation metadata"
+        );
     }
 
     #[test]
@@ -1706,9 +1805,17 @@ mod tests {
             inbox,
             execution_gate: AssignmentExecutionGate::default(),
             result_subject_prefix: result_prefix,
+            container_generation_fingerprint: Some(container_generation_fingerprint(TEST_HMAC.as_bytes())),
         };
 
-        let action = handler.dispatch(serde_json::to_vec(&assignment).unwrap()).await;
+        let envelope = SignedEnvelope::sign(
+            TEST_HMAC.as_bytes(),
+            &assignment.agent_id.to_string(),
+            Utc::now().timestamp(),
+            &assignment,
+        )
+        .unwrap();
+        let action = handler.dispatch(serde_json::to_vec(&envelope).unwrap()).await;
         assert_eq!(action, DispatchAction::Ack);
         assert!(
             next_result(&mut result_sub, Duration::from_millis(700)).await.is_none(),
