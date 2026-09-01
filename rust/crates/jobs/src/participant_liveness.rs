@@ -127,20 +127,12 @@ pub(crate) const UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL: &str = r#"UPDATE agents
                updated_at = NOW()
          WHERE id = $1
            AND organization_id = $2
-           AND (
-                 (
-                   $3::agent_status = 'idle'
-                   AND interactive_lease_expires_at > NOW()
-                   AND status IS DISTINCT FROM 'working'::agent_status
-                 )
-                 OR (
-                   NOT (
-                     $3::agent_status = 'idle'
-                     AND interactive_lease_expires_at > NOW()
-                   )
-                   AND status IS DISTINCT FROM $3::agent_status
-                 )
-               )"#;
+           AND status IS DISTINCT FROM CASE
+                   WHEN $3::agent_status = 'idle'
+                    AND interactive_lease_expires_at > NOW()
+                   THEN 'working'::agent_status
+                   ELSE $3::agent_status
+               END"#;
 
 pub(crate) const MARK_STALE_OFFLINE_SQL: &str = r#"UPDATE participants
            SET status = 'offline'
@@ -1638,7 +1630,7 @@ mod tests {
     fn agent_status_heartbeat_sql_skips_unchanged_rows() {
         // The conditional WHERE makes an unchanged beat a zero-row write (no new
         // row version / WAL / dead tuple) — the steady-state case (ADR 0008).
-        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("status IS DISTINCT FROM $3::agent_status"));
+        assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("status IS DISTINCT FROM CASE"));
         // updated_at is now unconditional because the statement only runs when
         // the status actually changes; the old CASE-gated form is gone.
         assert!(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL.contains("updated_at = NOW()"));
@@ -1709,6 +1701,13 @@ mod tests {
             claim_next_task_for_participant(&pool, agent_id).await.expect("claim exact").expect("exact claim");
         assert_eq!(claimed.id, exact, "exact project must win before task priority");
 
+        sqlx::query(
+            "UPDATE orchestration_tasks SET status = 'completed', completed_at = NOW(), lease_expires_at = NULL WHERE id = $1",
+        )
+        .bind(exact)
+        .execute(&pool)
+        .await
+        .expect("finish exact task");
         sqlx::query("UPDATE participants SET status = 'available' WHERE agent_id = $1")
             .bind(agent_id)
             .execute(&pool)
@@ -1725,6 +1724,13 @@ mod tests {
             .expect("workspace fallback");
         assert_eq!(claimed.id, fallback, "same-workspace alternate project must be eligible");
 
+        sqlx::query(
+            "UPDATE orchestration_tasks SET status = 'completed', completed_at = NOW(), lease_expires_at = NULL WHERE id = $1",
+        )
+        .bind(fallback)
+        .execute(&pool)
+        .await
+        .expect("finish fallback task");
         sqlx::query("UPDATE participants SET status = 'available' WHERE agent_id = $1")
             .bind(agent_id)
             .execute(&pool)
@@ -1941,7 +1947,7 @@ mod tests {
 
         assert!(!update_agent_status_from_participant(&pool, &participant).await.expect("heartbeat update"));
         let (status, renewed): (String, Option<chrono::DateTime<Utc>>) =
-            sqlx::query_as("SELECT status, interactive_lease_expires_at FROM agents WHERE id = $1")
+            sqlx::query_as("SELECT status::text, interactive_lease_expires_at FROM agents WHERE id = $1")
                 .bind(agent_id)
                 .fetch_one(&pool)
                 .await
@@ -1956,7 +1962,7 @@ mod tests {
             .expect("expire interactive lease");
         assert!(update_agent_status_from_participant(&pool, &participant).await.expect("expired heartbeat update"));
         let (status, lease): (String, Option<chrono::DateTime<Utc>>) =
-            sqlx::query_as("SELECT status, interactive_lease_expires_at FROM agents WHERE id = $1")
+            sqlx::query_as("SELECT status::text, interactive_lease_expires_at FROM agents WHERE id = $1")
                 .bind(agent_id)
                 .fetch_one(&pool)
                 .await

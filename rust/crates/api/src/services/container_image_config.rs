@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 use std::env;
 
-use agentforge_core::{AppResult, CliToolKind, ErrorKind};
+use agentforge_core::{AppResult, CliToolKind};
 use agentforge_platform::{LocalImageIdentity, verify_image_signature};
 
-use crate::domain::agent::{AgentContainerImageIdentity, AgentContainerImageTrust};
+use crate::domain::agent::{AgentContainerImageIdentity, AgentContainerImagePolicy, AgentContainerImageTrust};
 
 pub(crate) fn configured_cli_images() -> HashMap<String, String> {
     CliToolKind::ALL.into_iter().map(|tool| (tool.as_str().to_string(), configured_cli_image(tool))).collect()
@@ -39,7 +39,7 @@ pub(crate) async fn capture_container_image_identity(
         Some(registry_reference) => {
             verify_image_signature(registry_reference).await.map_err(|err| {
                 let code = err.image_verification_code().unwrap_or("image_signature_verification_failed");
-                ErrorKind::Unavailable(format!("{code}: {}", image_verification_recovery(code)))
+                AgentContainerImagePolicy::verification_failed(code, image_verification_recovery(code))
             })?;
             (registry_reference.to_string(), AgentContainerImageTrust::VerifiedSignature)
         }
@@ -47,18 +47,10 @@ pub(crate) async fn capture_container_image_identity(
             (configured_source.to_string(), AgentContainerImageTrust::HostLocal)
         }
         None if identity.manifest_digest.is_none() => {
-            return Err(ErrorKind::Unavailable(format!(
-                "image_host_local_not_allowed: Only Claude may use an implicit host-local Container CLI image; configure and pull a signed public registry image for {}",
-                tool.as_str()
-            ))
-            .into());
+            return Err(AgentContainerImagePolicy::host_local_not_allowed(tool).into());
         }
         None => {
-            return Err(ErrorKind::Unavailable(
-                "image_registry_source_ambiguous: The image source is ambiguous; pull it again from the configured registry or, for Claude only, use a host-local build"
-                    .to_string(),
-            )
-            .into());
+            return Err(AgentContainerImagePolicy::registry_source_ambiguous().into());
         }
     };
     Ok(image_identity_evidence(source, identity, trust))

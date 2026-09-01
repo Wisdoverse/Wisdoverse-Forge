@@ -91,7 +91,7 @@ pub fn task_run_summary(run: TaskRun) -> TaskRunSummary {
 }
 
 fn task_run_image_summary(capability_profile: &serde_json::Value) -> Option<TaskRunImageSummary> {
-    serde_json::from_value(capability_profile.get("image")?.clone()).ok()
+    TaskRunImageSummary::from_capability_profile(capability_profile)
 }
 
 fn string_value(value: &serde_json::Value, key: &str) -> Option<String> {

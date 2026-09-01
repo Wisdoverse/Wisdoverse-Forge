@@ -283,7 +283,13 @@ fn durable_publish_outcome(published_ok: bool, flushed_ok: bool) -> WalAction {
 /// flush+WAL-first ordering an event accepted mid-reconnect would be lost if the
 /// sidecar restarted before the buffer drained.
 async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str, data: serde_json::Value) {
-    publisher.observe_hook_event(event_type, &data);
+    let data = match publisher.prepare_hook_event(event_type, data) {
+        Ok(data) => data,
+        Err(err) => {
+            tracing::warn!(error = %err, event_type, "Rejecting relay event before WAL admission");
+            return;
+        }
+    };
     // 1. Persist before attempting to publish so a crash after enqueue but
     //    before flush still leaves a replayable copy.
     let record = wal_record(event_type, &data);
@@ -312,7 +318,7 @@ async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str
         WalAction::Ack => {
             tracing::debug!(event_type, "Relay event published and flushed");
             if let Err(err) = wal.acknowledge(&wal_path).await {
-                tracing::warn!(error = %err, event_type, "Relay event delivered but WAL ack failed — drain will re-send (harmless without dedup)");
+                tracing::warn!(error = %err, event_type, "Relay event delivered but WAL ack failed — drain will re-send the same event identity");
             }
         }
         WalAction::Keep => {

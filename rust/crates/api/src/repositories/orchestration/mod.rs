@@ -118,6 +118,41 @@ pub(crate) const CANCEL_TASK_SQL: &str = r#"UPDATE orchestration_tasks
                  AND (status <> 'working' OR last_assignment_id IS NULL)
                RETURNING *"#;
 
+pub(crate) const INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL: &str = r#"
+WITH failed_tasks AS MATERIALIZED (
+    UPDATE orchestration_tasks
+       SET status = 'failed',
+           error = jsonb_build_object(
+               'message', 'Agent image identity could not be verified; the work was stopped',
+               'code', 'agent_image_unverified'
+           ),
+           failure_code = 'agent_image_unverified',
+           retryable = FALSE,
+           lease_expires_at = NULL,
+           last_assignment_id = NULL,
+           completed_at = NOW(),
+           updated_at = NOW()
+     WHERE organization_id = $1
+       AND assigned_agent_id = $2
+       AND status = 'working'
+     RETURNING id
+), closed_runs AS (
+    UPDATE task_runs
+       SET status = 'failed',
+           finished_at = COALESCE(finished_at, NOW()),
+           updated_at = NOW()
+     WHERE organization_id = $1
+       AND agent_id = $2
+       AND finished_at IS NULL
+       AND orchestration_task_id IN (SELECT id FROM failed_tasks)
+)
+DELETE FROM orchestration_outbox
+ WHERE organization_id = $1
+   AND aggregate_type = 'orchestration_task'
+   AND event_type = 'assignment'
+   AND published_at IS NULL
+   AND aggregate_id IN (SELECT id FROM failed_tasks)"#;
+
 /// Flip dependency-blocked tasks back to `queued` when the completed task was
 /// either their parent or an explicit prerequisite and every prerequisite is
 /// now complete. The current-state predicates prevent a concurrent cancel or
@@ -858,6 +893,19 @@ impl OrchestrationTaskRepository {
             .fetch_optional(&mut **tx)
             .await?
             .ok_or_else(OrchestrationRepositoryPolicy::cancel_conflict)
+    }
+
+    pub async fn invalidate_active_work_for_quarantine_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        agent_id: AgentId,
+    ) -> AppResult<()> {
+        sqlx::query(INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL)
+            .bind(scope.org_id().as_uuid())
+            .bind(agent_id.as_uuid())
+            .execute(&mut **tx)
+            .await?;
+        Ok(())
     }
 
     /// Reset a retryable task while preserving the blocking state recomputed by

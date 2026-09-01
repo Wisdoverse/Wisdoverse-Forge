@@ -3,7 +3,7 @@
 use async_nats::Client;
 use chrono::Utc;
 use hmac::{Hmac, KeyInit, Mac};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -26,7 +26,7 @@ pub struct EventPublisher {
     agent_id: String,
     hmac_key: Vec<u8>,
     generation_fingerprint: String,
-    active_hook_session: RwLock<ActiveHookSessionStore>,
+    hook_state: RwLock<HookStateStore>,
     cli_tool: Option<String>,
     /// Subject prefix for this agent's event-ingest channel, including the
     /// #457 runtime-kind namespace, e.g. `events.ingest.cli`. The agent UUID is
@@ -57,18 +57,17 @@ impl EventPublisher {
         // #457: publish on the kind-namespaced ingest subject only. The
         // platform consumer accepts both shapes during migration; the callout
         // still grants the legacy subject so this is forward-compatible without
-        // double-publishing (the `events` table has no dedup, so emitting both
-        // shapes would double-insert every event).
+        // double-publishing during the subject migration.
         let ingest_subject_prefix =
             format!("{}.{}", agentforge_core::event_protocol::EVENTS_INGEST_PREFIX, runtime_kind.as_str());
+        let generation_fingerprint =
+            agentforge_core::orchestration_protocol::container_generation_fingerprint(hmac_secret.as_bytes());
         Self {
             client,
             agent_id,
             hmac_key: hmac_secret.as_bytes().to_vec(),
-            generation_fingerprint: agentforge_core::orchestration_protocol::container_generation_fingerprint(
-                hmac_secret.as_bytes(),
-            ),
-            active_hook_session: RwLock::new(ActiveHookSessionStore::load(wal_path)),
+            generation_fingerprint: generation_fingerprint.clone(),
+            hook_state: RwLock::new(HookStateStore::load(wal_path, &generation_fingerprint)),
             cli_tool,
             ingest_subject_prefix,
         }
@@ -124,15 +123,24 @@ impl EventPublisher {
         self.client.flush().await.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
-    /// Track the active Container CLI hook session for the authenticated
-    /// heartbeat lease. This is called only for a freshly accepted relay frame,
-    /// never for WAL replay, so an old buffered Working event cannot resurrect
-    /// a session after its Stop was already observed.
-    pub fn observe_hook_event(&self, event_type: &str, payload: &serde_json::Value) {
-        let mut active = self.active_hook_session.write().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Err(err) = active.observe(event_type, payload) {
-            tracing::error!(error = %err, event_type, "could not persist active hook owner; crash-safe lease renewal is degraded");
+    /// Prepare a freshly accepted hook event before it enters the WAL.
+    ///
+    /// Lifecycle sequence allocation and owner tracking share one crash-durable
+    /// state write. The resulting payload is what the WAL stores and what the
+    /// HMAC signs, so retries retain the exact event identity and sequence.
+    pub fn prepare_hook_event(
+        &self,
+        event_type: &str,
+        mut payload: serde_json::Value,
+    ) -> std::io::Result<serde_json::Value> {
+        ensure_event_id(&mut payload)?;
+        if is_lifecycle_event(event_type) {
+            self.hook_state
+                .write()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .prepare_lifecycle(event_type, &mut payload)?;
         }
+        Ok(payload)
     }
 
     /// Send a heartbeat on `sidecar.<agent_id>.heartbeat`.
@@ -156,10 +164,11 @@ impl EventPublisher {
             "version": agentforge_core::VERSION,
             "container_generation_fingerprint": self.generation_fingerprint,
             "active_hook_session": self
-                .active_hook_session
+                .hook_state
                 .read()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .active
+                .snapshot
+                .active_hook_session
                 .clone(),
             "health": health,
         });
@@ -172,64 +181,107 @@ impl EventPublisher {
     }
 }
 
-// Deliberately not `.json`: the WAL scanner treats every JSON file in its
-// directory as a replay record.
-const ACTIVE_HOOK_SESSION_FILE: &str = "active-hook-session.state";
+// Keep the legacy filename so an in-place sidecar upgrade preserves the active
+// hook owner. It is deliberately not `.json`: the WAL scanner treats every JSON
+// file in its directory as a replay record.
+const HOOK_STATE_FILE: &str = "active-hook-session.state";
+const HOOK_STATE_SCHEMA_VERSION: u8 = 1;
+const MAX_EVENT_ID_LEN: usize = 256;
 
-struct ActiveHookSessionStore {
-    active: Option<String>,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HookStateSnapshot {
+    schema_version: u8,
+    generation_fingerprint: String,
+    active_hook_session: Option<String>,
+    last_lifecycle_sequence: i64,
+}
+
+struct HookStateStore {
+    snapshot: HookStateSnapshot,
     state_path: Option<PathBuf>,
 }
 
-impl ActiveHookSessionStore {
-    fn load(wal_path: Option<&str>) -> Self {
-        let state_path = wal_path
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("/tmp/agentforge-wal"))
-            .join(ACTIVE_HOOK_SESSION_FILE);
-        let active = std::fs::read(&state_path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Option<String>>(&bytes).ok())
-            .flatten()
-            .map(|session| session.trim().to_string())
-            .filter(|session| !session.is_empty());
-        Self { active, state_path: Some(state_path) }
+impl HookStateStore {
+    fn load(wal_path: Option<&str>, generation_fingerprint: &str) -> Self {
+        let state_path =
+            wal_path.map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp/agentforge-wal")).join(HOOK_STATE_FILE);
+        let snapshot = load_hook_state(&state_path, generation_fingerprint);
+        Self { snapshot, state_path: Some(state_path) }
     }
 
     #[cfg(test)]
-    fn memory_only() -> Self {
-        Self { active: None, state_path: None }
+    fn memory_only(generation_fingerprint: &str) -> Self {
+        Self { snapshot: empty_hook_state(generation_fingerprint), state_path: None }
     }
 
-    fn observe(&mut self, event_type: &str, payload: &serde_json::Value) -> std::io::Result<()> {
-        let session = hook_session(payload);
+    fn prepare_lifecycle(&mut self, event_type: &str, payload: &mut serde_json::Value) -> std::io::Result<()> {
+        let session = hook_session(payload).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "lifecycle hook sessionId must be non-empty")
+        })?;
         if matches!(event_type, "pre_tool_use" | "user_prompt_submit")
-            && self.active.is_some()
-            && self.active.as_deref() != session
+            && self.snapshot.active_hook_session.is_some()
+            && self.snapshot.active_hook_session.as_deref() != Some(session)
         {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "a different Container CLI hook session is already active",
             ));
         }
-        let mut next = self.active.clone();
-        update_active_hook_session(&mut next, event_type, payload);
-        if next == self.active {
-            return Ok(());
-        }
+        let mut next = self.snapshot.clone();
+        next.last_lifecycle_sequence = next
+            .last_lifecycle_sequence
+            .checked_add(1)
+            .ok_or_else(|| std::io::Error::other("lifecycle sequence exhausted"))?;
+        update_active_hook_session(&mut next.active_hook_session, event_type, payload);
+        payload
+            .as_object_mut()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "hook payload must be an object"))?
+            .insert("lifecycleSequence".to_string(), serde_json::Value::from(next.last_lifecycle_sequence));
         if let Some(path) = &self.state_path {
-            persist_active_hook_session(path, next.as_deref())?;
+            persist_hook_state(path, &next)?;
         }
-        self.active = next;
+        self.snapshot = next;
         Ok(())
     }
 }
 
-fn persist_active_hook_session(path: &Path, active: Option<&str>) -> std::io::Result<()> {
+fn empty_hook_state(generation_fingerprint: &str) -> HookStateSnapshot {
+    HookStateSnapshot {
+        schema_version: HOOK_STATE_SCHEMA_VERSION,
+        generation_fingerprint: generation_fingerprint.to_string(),
+        active_hook_session: None,
+        last_lifecycle_sequence: 0,
+    }
+}
+
+fn load_hook_state(path: &Path, generation_fingerprint: &str) -> HookStateSnapshot {
+    let Ok(bytes) = std::fs::read(path) else {
+        return empty_hook_state(generation_fingerprint);
+    };
+    if let Ok(snapshot) = serde_json::from_slice::<HookStateSnapshot>(&bytes)
+        && snapshot.schema_version == HOOK_STATE_SCHEMA_VERSION
+        && snapshot.generation_fingerprint == generation_fingerprint
+        && snapshot.last_lifecycle_sequence >= 0
+    {
+        return snapshot;
+    }
+    // Backward compatibility for the previous file shape, which stored only
+    // `Option<String>`. The database atomically switches from its legacy
+    // compatibility counter when the first signed sequence arrives.
+    let active_hook_session = serde_json::from_slice::<Option<String>>(&bytes)
+        .ok()
+        .flatten()
+        .map(|session| session.trim().to_string())
+        .filter(|session| !session.is_empty());
+    HookStateSnapshot { active_hook_session, ..empty_hook_state(generation_fingerprint) }
+}
+
+fn persist_hook_state(path: &Path, snapshot: &HookStateSnapshot) -> std::io::Result<()> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     std::fs::create_dir_all(parent)?;
-    let temp_path = parent.join(format!(".{ACTIVE_HOOK_SESSION_FILE}.{}.tmp", std::process::id()));
-    let bytes = serde_json::to_vec(&active).map_err(std::io::Error::other)?;
+    let temp_path = parent.join(format!(".{HOOK_STATE_FILE}.{}.tmp", std::process::id()));
+    let bytes = serde_json::to_vec(snapshot).map_err(std::io::Error::other)?;
     let mut options = std::fs::OpenOptions::new();
     options.create(true).truncate(true).write(true);
     #[cfg(unix)]
@@ -245,6 +297,24 @@ fn persist_active_hook_session(path: &Path, active: Option<&str>) -> std::io::Re
     // contents. Sidecar restarts are an explicit supported entrypoint path.
     std::fs::File::open(parent)?.sync_all()?;
     Ok(())
+}
+
+fn ensure_event_id(payload: &mut serde_json::Value) -> std::io::Result<()> {
+    let object = payload
+        .as_object_mut()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "hook payload must be an object"))?;
+    match object.get("id") {
+        Some(serde_json::Value::String(id)) if !id.trim().is_empty() && id.len() <= MAX_EVENT_ID_LEN => Ok(()),
+        None => {
+            object.insert("id".to_string(), serde_json::Value::String(uuid::Uuid::now_v7().to_string()));
+            Ok(())
+        }
+        _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "hook event id must be a non-empty string")),
+    }
+}
+
+fn is_lifecycle_event(event_type: &str) -> bool {
+    matches!(event_type, "pre_tool_use" | "user_prompt_submit" | "stop" | "session_end")
 }
 
 fn update_active_hook_session(active: &mut Option<String>, event_type: &str, payload: &serde_json::Value) {
@@ -308,45 +378,80 @@ mod tests {
 
     #[test]
     fn active_hook_session_is_exact_and_stop_is_owner_scoped() {
-        let mut store = ActiveHookSessionStore::memory_only();
-        store.observe("user_prompt_submit", &serde_json::json!({"sessionId": "session-a"})).unwrap();
-        assert_eq!(store.active.as_deref(), Some("session-a"));
+        let mut store = HookStateStore::memory_only("generation-a");
+        let mut missing_owner = serde_json::json!({"sessionId": "  "});
+        assert!(store.prepare_lifecycle("user_prompt_submit", &mut missing_owner).is_err());
+        assert_eq!(store.snapshot.last_lifecycle_sequence, 0);
 
-        store.observe("stop", &serde_json::json!({"sessionId": "older-session"})).unwrap();
-        assert_eq!(store.active.as_deref(), Some("session-a"), "a stale Stop cannot clear the current owner");
+        let mut working = serde_json::json!({"sessionId": "session-a"});
+        store.prepare_lifecycle("user_prompt_submit", &mut working).unwrap();
+        assert_eq!(working["lifecycleSequence"], 1);
+        assert_eq!(store.snapshot.active_hook_session.as_deref(), Some("session-a"));
 
+        let mut stale_stop = serde_json::json!({"sessionId": "older-session"});
+        store.prepare_lifecycle("stop", &mut stale_stop).unwrap();
+        assert_eq!(stale_stop["lifecycleSequence"], 2);
+        assert_eq!(
+            store.snapshot.active_hook_session.as_deref(),
+            Some("session-a"),
+            "a stale Stop cannot clear the current owner"
+        );
+
+        let mut competing = serde_json::json!({"sessionId": "session-b"});
         assert!(
-            store.observe("user_prompt_submit", &serde_json::json!({"sessionId": "session-b"})).is_err(),
+            store.prepare_lifecycle("user_prompt_submit", &mut competing).is_err(),
             "a second live hook session must fail closed"
         );
-        assert_eq!(store.active.as_deref(), Some("session-a"));
+        assert_eq!(store.snapshot.last_lifecycle_sequence, 2, "a rejected event cannot consume a sequence");
+        assert_eq!(store.snapshot.active_hook_session.as_deref(), Some("session-a"));
 
-        store.observe("stop", &serde_json::json!({"sessionId": "session-a"})).unwrap();
-        assert!(store.active.is_none());
+        let mut owner_stop = serde_json::json!({"sessionId": "session-a"});
+        store.prepare_lifecycle("stop", &mut owner_stop).unwrap();
+        assert_eq!(owner_stop["lifecycleSequence"], 3);
+        assert!(store.snapshot.active_hook_session.is_none());
     }
 
     #[test]
-    fn active_hook_session_survives_sidecar_restart_and_stop_persists_clear() {
+    fn hook_owner_and_sequence_survive_restart_and_reset_for_new_generation() {
         let temp = tempfile::tempdir().unwrap();
         let wal_path = temp.path().to_str().unwrap();
-        let mut first = ActiveHookSessionStore::load(Some(wal_path));
-        first.observe("user_prompt_submit", &serde_json::json!({"sessionId": "long-work"})).unwrap();
+        let mut first = HookStateStore::load(Some(wal_path), "generation-a");
+        let mut working = serde_json::json!({"sessionId": "long-work"});
+        first.prepare_lifecycle("user_prompt_submit", &mut working).unwrap();
 
-        let mut restarted = ActiveHookSessionStore::load(Some(wal_path));
-        assert_eq!(restarted.active.as_deref(), Some("long-work"));
-        restarted.observe("stop", &serde_json::json!({"sessionId": "long-work"})).unwrap();
-        assert!(ActiveHookSessionStore::load(Some(wal_path)).active.is_none());
+        let mut restarted = HookStateStore::load(Some(wal_path), "generation-a");
+        assert_eq!(restarted.snapshot.active_hook_session.as_deref(), Some("long-work"));
+        let mut stop = serde_json::json!({"sessionId": "long-work"});
+        restarted.prepare_lifecycle("stop", &mut stop).unwrap();
+        assert_eq!(stop["lifecycleSequence"], 2);
+        assert!(HookStateStore::load(Some(wal_path), "generation-a").snapshot.active_hook_session.is_none());
+
+        let next_generation = HookStateStore::load(Some(wal_path), "generation-b");
+        assert_eq!(next_generation.snapshot.last_lifecycle_sequence, 0);
+        assert!(next_generation.snapshot.active_hook_session.is_none());
     }
 
     #[tokio::test]
     async fn active_hook_state_is_not_counted_or_replayed_as_wal() {
         let temp = tempfile::tempdir().unwrap();
         let wal_path = temp.path().to_str().unwrap();
-        let mut state = ActiveHookSessionStore::load(Some(wal_path));
-        state.observe("user_prompt_submit", &serde_json::json!({"sessionId": "long-work"})).unwrap();
+        let mut state = HookStateStore::load(Some(wal_path), "generation-a");
+        let mut working = serde_json::json!({"sessionId": "long-work"});
+        state.prepare_lifecycle("user_prompt_submit", &mut working).unwrap();
         let wal = crate::wal::Wal::new(Some(wal_path));
         assert_eq!(wal.pending_count().await.unwrap(), 0);
         assert!(wal.replay().await.unwrap().is_empty());
+    }
+
+    #[test]
+    fn legacy_active_owner_file_upgrades_without_losing_the_owner() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join(HOOK_STATE_FILE);
+        std::fs::write(&path, serde_json::to_vec(&Some("legacy-session")).unwrap()).unwrap();
+
+        let state = HookStateStore::load(Some(temp.path().to_str().unwrap()), "generation-a");
+        assert_eq!(state.snapshot.active_hook_session.as_deref(), Some("legacy-session"));
+        assert_eq!(state.snapshot.last_lifecycle_sequence, 0);
     }
 
     #[test]

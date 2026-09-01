@@ -196,10 +196,12 @@ async fn container_agent_without_image_identity_cannot_start_a_run(pool: PgPool)
         .await
         .expect("create task");
 
-    service
+    let blocked = service
         .update_task(&scope, task.id, Some("queued".into()), None, None, None)
         .await
-        .expect_err("container dispatch must fail closed without immutable image evidence");
+        .expect("container dispatch without immutable image evidence must remain blocked");
+    assert_eq!(blocked.status, "blocked");
+    assert_eq!(blocked.blocked_reason.as_deref(), Some("waiting_agent"));
 
     let (status, run_count, participant_status): (String, i64, String) = sqlx::query_as(
         r#"SELECT task.status,
@@ -213,7 +215,7 @@ async fn container_agent_without_image_identity_cannot_start_a_run(pool: PgPool)
     .fetch_one(&pool)
     .await
     .expect("read rolled-back dispatch state");
-    assert_eq!(status, "backlog");
+    assert_eq!(status, "blocked");
     assert_eq!(run_count, 0);
     assert_eq!(participant_status, "available");
 }
@@ -234,10 +236,7 @@ async fn deleting_an_agent_preserves_its_task_run_snapshot(pool: PgPool) {
     let (org_id, user_id, agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
     let scope = scope_for(org_id, user_id);
     let task_id = create_and_dispatch(&pool, &scope, group_id).await;
-    orchestration_service(pool.clone())
-        .complete_task(&scope, task_id, serde_json::json!({ "ok": true }))
-        .await
-        .expect("complete task");
+    apply_agent_result(&pool, &scope, task_id, TaskOutcome::Completed { stdout: "done".into() }).await;
 
     sqlx::query("DELETE FROM agents WHERE id = $1").bind(agent_id).execute(&pool).await.expect("delete agent");
 

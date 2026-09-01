@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, ErrorKind, RuntimeKind, TenantScope};
+use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, RuntimeKind, TenantScope};
 use agentforge_db::entities::Agent;
 use agentforge_platform::{ContainerConfig, ContainerInfo, ContainerState, DockerClient, LocalImageIdentity, Mount};
 use sqlx::{PgPool, Postgres, Transaction};
@@ -98,16 +98,6 @@ pub(crate) struct VerifiedRollImage {
     configured_source: String,
     identity: LocalImageIdentity,
     evidence: AgentContainerImageIdentity,
-}
-
-fn container_cli_tool(agent: &Agent) -> AppResult<CliToolKind> {
-    let raw = agent
-        .cli_tool
-        .as_deref()
-        .or_else(|| agent.model.as_deref().and_then(|model| model.trim().strip_prefix("agentforge-agent:")))
-        .ok_or_else(|| ErrorKind::Validation("Container agent has no Container CLI tool".to_string()))?;
-    CliToolKind::parse_legacy(raw)
-        .map_err(|err| ErrorKind::Validation(format!("Unsupported Container CLI tool {raw:?}: {err}")).into())
 }
 
 impl AgentContainerControlService {
@@ -240,7 +230,7 @@ impl AgentContainerControlService {
             agent.model.as_deref(),
             &self.settings.cli_images,
         )?;
-        let cli_tool = container_cli_tool(&agent)?;
+        let cli_tool = AgentContainerRuntimePolicy::cli_tool(agent.cli_tool.as_deref(), agent.model.as_deref())?;
         let identity = docker
             .local_image_identity(&image)
             .await
@@ -359,8 +349,7 @@ impl AgentContainerControlService {
             return Err(AgentContainerRuntimePolicy::image_identity_unavailable(&image).into());
         }
 
-        let image_evidence = serde_json::to_value(image_evidence)
-            .map_err(|err| agentforge_core::ErrorKind::Internal(anyhow::anyhow!("serialize image identity: {err}")))?;
+        let image_evidence = image_evidence.to_value()?;
         if let Err(err) = self
             .agents
             .set_container(scope, agent_id, &container_id, &hmac_secret, &nats_connect_password, &image_evidence)
@@ -484,9 +473,11 @@ impl AgentContainerControlService {
         let mut tx = self.pool.begin().await?;
         agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, agent_id.as_uuid()).await?;
         let agent = AgentRepository::find_by_id_as_platform_admin_in_tx(&mut tx, agent_id).await?;
-        if agent.runtime_kind != RuntimeKind::Container || container_cli_tool(&agent)? != image.tool {
+        if agent.runtime_kind != RuntimeKind::Container
+            || AgentContainerRuntimePolicy::cli_tool(agent.cli_tool.as_deref(), agent.model.as_deref())? != image.tool
+        {
             tx.commit().await?;
-            return Err(ErrorKind::Conflict("Agent no longer matches this Container CLI roll".to_string()).into());
+            return Err(AgentContainerRuntimePolicy::roll_target_changed().into());
         }
         let idle = agentforge_db::agent_work_admission_is_idle_in_tx(
             &mut tx,
@@ -619,8 +610,7 @@ impl AgentContainerControlService {
             }
             return Err(AgentContainerRuntimePolicy::image_identity_unavailable(&image.configured_source).into());
         }
-        let evidence = serde_json::to_value(&image.evidence)
-            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize image identity: {err}")))?;
+        let evidence = image.evidence.to_value()?;
         if !AgentRepository::set_container_as_platform_admin_in_tx(
             tx,
             agent_id,
@@ -813,7 +803,8 @@ impl AgentContainerControlService {
                 match self.ensure_container_image_identity(scope, &agent, container_id, &info).await {
                     Ok(updated) => Ok(updated),
                     Err(err) => {
-                        invalidate_active_work_for_quarantine(tx, scope, agent_id).await?;
+                        OrchestrationTaskRepository::invalidate_active_work_for_quarantine_in_tx(tx, scope, agent_id)
+                            .await?;
                         self.quarantine_unverified_container(scope, agent_id, container_id).await;
                         Err(err)
                     }
@@ -859,7 +850,7 @@ impl AgentContainerControlService {
         if agent.container_id.as_deref() != Some(expected_container_id) {
             return Ok(false);
         }
-        let cli_tool = container_cli_tool(agent)?;
+        let cli_tool = AgentContainerRuntimePolicy::cli_tool(agent.cli_tool.as_deref(), agent.model.as_deref())?;
         let recorded_identity = agent.container_image_identity.as_ref();
         let recorded_image_matches =
             recorded_identity.and_then(|identity| identity.get("imageId")).and_then(serde_json::Value::as_str)
@@ -885,8 +876,7 @@ impl AgentContainerControlService {
             return Err(AgentContainerRuntimePolicy::image_identity_unavailable(&configured_image).into());
         }
         let evidence = capture_container_image_identity(cli_tool, &configured_image, &identity).await?;
-        let evidence = serde_json::to_value(evidence)
-            .map_err(|err| agentforge_core::ErrorKind::Internal(anyhow::anyhow!("serialize image identity: {err}")))?;
+        let evidence = evidence.to_value()?;
         self.agents.set_container_image_identity(scope, agent.id, expected_container_id, &evidence).await
     }
 
@@ -1087,54 +1077,6 @@ impl AgentContainerControlService {
     }
 }
 
-const INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL: &str = r#"
-WITH failed_tasks AS MATERIALIZED (
-    UPDATE orchestration_tasks
-       SET status = 'failed',
-           error = jsonb_build_object(
-               'message', 'Agent image identity could not be verified; the work was stopped',
-               'code', 'agent_image_unverified'
-           ),
-           failure_code = 'agent_image_unverified',
-           retryable = FALSE,
-           lease_expires_at = NULL,
-           last_assignment_id = NULL,
-           completed_at = NOW(),
-           updated_at = NOW()
-     WHERE organization_id = $1
-       AND assigned_agent_id = $2
-       AND status = 'working'
-     RETURNING id
-), closed_runs AS (
-    UPDATE task_runs
-       SET status = 'failed',
-           finished_at = COALESCE(finished_at, NOW()),
-           updated_at = NOW()
-     WHERE organization_id = $1
-       AND agent_id = $2
-       AND finished_at IS NULL
-       AND orchestration_task_id IN (SELECT id FROM failed_tasks)
-)
-DELETE FROM orchestration_outbox
- WHERE organization_id = $1
-   AND aggregate_type = 'orchestration_task'
-   AND event_type = 'assignment'
-   AND published_at IS NULL
-   AND aggregate_id IN (SELECT id FROM failed_tasks)"#;
-
-async fn invalidate_active_work_for_quarantine(
-    tx: &mut Transaction<'_, Postgres>,
-    scope: &TenantScope,
-    agent_id: AgentId,
-) -> AppResult<()> {
-    sqlx::query(INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL)
-        .bind(scope.org_id().as_uuid())
-        .bind(agent_id.as_uuid())
-        .execute(&mut **tx)
-        .await?;
-    Ok(())
-}
-
 async fn finish_lifecycle<T>(tx: Transaction<'_, Postgres>, result: AppResult<T>) -> AppResult<T> {
     match (tx.commit().await, result) {
         (Ok(()), result) => result,
@@ -1217,10 +1159,11 @@ mod tests {
 
     #[test]
     fn quarantine_invalidates_current_delivery_before_container_removal() {
-        assert!(INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL.contains("status = 'working'"));
-        assert!(INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL.contains("last_assignment_id = NULL"));
-        assert!(INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL.contains("published_at IS NULL"));
-        assert!(INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL.contains("finished_at = COALESCE"));
+        let sql = crate::repositories::orchestration::INVALIDATE_ACTIVE_WORK_FOR_QUARANTINE_SQL;
+        assert!(sql.contains("status = 'working'"));
+        assert!(sql.contains("last_assignment_id = NULL"));
+        assert!(sql.contains("published_at IS NULL"));
+        assert!(sql.contains("finished_at = COALESCE"));
     }
 
     #[sqlx::test(migrations = "../db/migrations")]

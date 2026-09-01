@@ -136,8 +136,7 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
             .map_err(|err| docker_runtime_error(err.to_string()))?
             .ok_or_else(|| docker_runtime_error(format!("container image {image_ref} is not available")))?;
         let evidence = capture_container_image_identity(tool, image_ref, &identity).await?;
-        let evidence = serde_json::to_value(evidence)
-            .map_err(|err| docker_runtime_error(format!("could not serialize container image identity: {err}")))?;
+        let evidence = evidence.to_value()?;
         Ok(ResolvedMcpImage { immutable_id: identity.id, evidence })
     }
 

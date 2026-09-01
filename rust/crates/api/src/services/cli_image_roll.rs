@@ -24,7 +24,7 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use agentforge_core::{AgentId, AgentStatus, AppConfig, AppResult, CliToolKind};
+use agentforge_core::{AgentId, AgentStatus, AppConfig, AppResult};
 use agentforge_platform::DockerClient;
 use sqlx::PgPool;
 
@@ -39,7 +39,7 @@ use uuid::Uuid;
 
 pub use crate::domain::cli_image::{RollAgentResult, RollReport};
 pub(crate) use crate::domain::cli_image::{
-    RollToolPolicy, cli_image_roll_response, client_safe_roll_error, roll_in_progress_error,
+    RollToolPolicy, cli_image_roll_response, client_safe_roll_error, parse_roll_tool, roll_in_progress_error,
     roll_runtime_unavailable_error,
 };
 
@@ -144,8 +144,7 @@ impl CliImageRollService {
         let image = if to_roll.is_empty() {
             None
         } else {
-            let tool_kind = CliToolKind::parse_legacy(tool)
-                .map_err(|err| agentforge_core::ErrorKind::Validation(err.to_string()))?;
+            let tool_kind = parse_roll_tool(tool)?;
             Some(self.control.snapshot_verified_roll_image(authority, tool_kind).await?)
         };
 

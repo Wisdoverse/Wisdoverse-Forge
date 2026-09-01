@@ -168,6 +168,15 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("092_task_templates_project.sql", include_str!("../migrations/092_task_templates_project.sql")),
     ("093_orchestration_task_row_version.sql", include_str!("../migrations/093_orchestration_task_row_version.sql")),
     ("094_agent_container_image_identity.sql", include_str!("../migrations/094_agent_container_image_identity.sql")),
+    ("095_agent_lifecycle_event_receipts.sql", include_str!("../migrations/095_agent_lifecycle_event_receipts.sql")),
+    (
+        "096_agent_lifecycle_event_receipts_index.sql",
+        include_str!("../migrations/096_agent_lifecycle_event_receipts_index.sql"),
+    ),
+    (
+        "097_validate_agent_lifecycle_event_receipts.sql",
+        include_str!("../migrations/097_validate_agent_lifecycle_event_receipts.sql"),
+    ),
 ];
 
 /// Run pending SQLx migrations against the database.

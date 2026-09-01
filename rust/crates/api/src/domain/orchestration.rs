@@ -494,6 +494,12 @@ pub struct TaskRunImageSummary {
     pub trust: Option<String>,
 }
 
+impl TaskRunImageSummary {
+    pub(crate) fn from_capability_profile(capability_profile: &Value) -> Option<Self> {
+        serde_json::from_value(capability_profile.get("image")?.clone()).ok()
+    }
+}
+
 /// A human update (comment / blocker signal) shown in the task Updates tab.
 /// First-class record, independent of execution attempts and lifecycle state.
 #[derive(Debug, Clone, Serialize)]

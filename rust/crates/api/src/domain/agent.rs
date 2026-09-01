@@ -66,6 +66,13 @@ pub(crate) struct AgentContainerImageIdentity {
     pub(crate) trust: AgentContainerImageTrust,
 }
 
+impl AgentContainerImageIdentity {
+    pub(crate) fn to_value(&self) -> AppResult<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| ErrorKind::Internal(anyhow::anyhow!("serialize image identity: {err}")).into())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum AgentContainerImageTrust {
@@ -1032,6 +1039,24 @@ impl AgentContainerImagePolicy {
             .into()
         })
     }
+
+    pub(crate) fn verification_failed(code: &str, recovery: &str) -> ErrorKind {
+        ErrorKind::Unavailable(format!("{code}: {recovery}"))
+    }
+
+    pub(crate) fn host_local_not_allowed(tool: CliToolKind) -> ErrorKind {
+        ErrorKind::Unavailable(format!(
+            "image_host_local_not_allowed: Only Claude may use an implicit host-local Container CLI image; configure and pull a signed public registry image for {}",
+            tool.as_str()
+        ))
+    }
+
+    pub(crate) fn registry_source_ambiguous() -> ErrorKind {
+        ErrorKind::Unavailable(
+            "image_registry_source_ambiguous: The image source is ambiguous; pull it again from the configured registry or, for Claude only, use a host-local build"
+                .to_string(),
+        )
+    }
 }
 
 /// Environment input for a spawned agent container.
@@ -1185,6 +1210,18 @@ pub(crate) enum AgentContainerStopOutcome {
 pub(crate) struct AgentContainerRuntimePolicy;
 
 impl AgentContainerRuntimePolicy {
+    pub(crate) fn cli_tool(cli_tool: Option<&str>, model: Option<&str>) -> AppResult<CliToolKind> {
+        let raw = cli_tool
+            .or_else(|| model.and_then(|value| value.trim().strip_prefix("agentforge-agent:")))
+            .ok_or_else(|| ErrorKind::Validation("Container agent has no Container CLI tool".to_string()))?;
+        CliToolKind::parse_legacy(raw)
+            .map_err(|err| ErrorKind::Validation(format!("Unsupported Container CLI tool {raw:?}: {err}")).into())
+    }
+
+    pub(crate) fn roll_target_changed() -> ErrorKind {
+        ErrorKind::Conflict("Agent no longer matches this Container CLI roll".to_string())
+    }
+
     pub(crate) fn control_docker_unavailable() -> ErrorKind {
         ErrorKind::Internal(anyhow::anyhow!("Docker not available"))
     }

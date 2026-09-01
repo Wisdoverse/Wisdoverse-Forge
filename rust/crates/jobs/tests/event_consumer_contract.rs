@@ -13,7 +13,7 @@ use agentforge_core::AgentStatus;
 use agentforge_core::orchestration_protocol::SignedEnvelope;
 use agentforge_core::ws_protocol::ServerMessage;
 use agentforge_jobs::event_consumer::{
-    AgentDirectory, AgentPatchOutcome, AgentRuntimePatch, AgentTarget, BroadcastBus, ConsumeError, EventConsumer,
+    AgentDirectory, AgentRuntimePatch, AgentTarget, BroadcastBus, ConsumeError, EventConsumer, EventIngestOutcome,
     EventStore, HmacSecretLookup, PersistedEvent, SignedEventEnvelope, SignedEventPayload,
     TIMESTAMP_REPLAY_WINDOW_SECS,
 };
@@ -47,31 +47,12 @@ impl HmacSecretLookup for MemoryHmac {
 #[derive(Clone, Default)]
 struct MemoryEventStore {
     events: Arc<Mutex<Vec<PersistedEvent>>>,
+    runtime_patches: Arc<Mutex<Vec<(Uuid, AgentRuntimePatch)>>>,
 }
 
 impl MemoryEventStore {
     async fn snapshot(&self) -> Vec<PersistedEvent> {
         self.events.lock().await.clone()
-    }
-}
-
-#[async_trait]
-impl EventStore for MemoryEventStore {
-    async fn persist(&self, event: PersistedEvent) -> Result<()> {
-        self.events.lock().await.push(event);
-        Ok(())
-    }
-}
-
-#[derive(Clone, Default)]
-struct MemoryAgentDirectory {
-    target: Arc<Mutex<Option<AgentTarget>>>,
-    runtime_patches: Arc<Mutex<Vec<(Uuid, AgentRuntimePatch)>>>,
-}
-
-impl MemoryAgentDirectory {
-    async fn set_target(&self, target: AgentTarget) {
-        *self.target.lock().await = Some(target);
     }
 
     async fn runtime_patches(&self) -> Vec<(Uuid, AgentRuntimePatch)> {
@@ -84,16 +65,61 @@ impl MemoryAgentDirectory {
 }
 
 #[async_trait]
+impl EventStore for MemoryEventStore {
+    async fn ingest(&self, event: PersistedEvent, patch: AgentRuntimePatch) -> Result<EventIngestOutcome> {
+        let mut events = self.events.lock().await;
+        let sequence = event.payload.get("lifecycleSequence").and_then(serde_json::Value::as_i64);
+        let latest_sequence = events
+            .iter()
+            .filter(|existing| {
+                existing.agent_id == event.agent_id && existing.generation_fingerprint == event.generation_fingerprint
+            })
+            .filter_map(|existing| existing.payload.get("lifecycleSequence").and_then(serde_json::Value::as_i64))
+            .max();
+        if let Some(existing) = events.iter().find(|existing| {
+            existing.agent_id == event.agent_id
+                && existing.generation_fingerprint == event.generation_fingerprint
+                && existing.ingest_event_id == event.ingest_event_id
+        }) {
+            return Ok(if existing == &event {
+                if sequence.zip(latest_sequence).is_some_and(|(current, latest)| current < latest) {
+                    EventIngestOutcome::DuplicateSuperseded
+                } else {
+                    EventIngestOutcome::DuplicateApplied
+                }
+            } else {
+                EventIngestOutcome::EventIdConflict
+            });
+        }
+        if sequence.zip(latest_sequence).is_some_and(|(current, latest)| current <= latest) {
+            events.push(event);
+            return Ok(EventIngestOutcome::Superseded);
+        }
+        if !patch.is_noop() {
+            self.runtime_patches.lock().await.push((event.agent_id, patch));
+        }
+        events.push(event);
+        Ok(EventIngestOutcome::Applied)
+    }
+}
+
+#[derive(Clone, Default)]
+struct MemoryAgentDirectory {
+    target: Arc<Mutex<Option<AgentTarget>>>,
+}
+
+impl MemoryAgentDirectory {
+    async fn set_target(&self, target: AgentTarget) {
+        *self.target.lock().await = Some(target);
+    }
+}
+
+#[async_trait]
 impl AgentDirectory for MemoryAgentDirectory {
     async fn resolve(&self, agent_id: Uuid) -> Result<Option<AgentTarget>> {
         let target = self.target.lock().await.clone().expect("agent target configured");
         assert_eq!(target.agent_id, agent_id);
         Ok(Some(target))
-    }
-
-    async fn apply_runtime_patch(&self, agent_id: Uuid, patch: AgentRuntimePatch) -> Result<AgentPatchOutcome> {
-        self.runtime_patches.lock().await.push((agent_id, patch));
-        Ok(AgentPatchOutcome::Applied)
     }
 }
 
@@ -132,16 +158,22 @@ fn sign_event(secret: &str, agent_id: Uuid, payload: SignedEventPayload, timesta
 }
 
 fn event_payload(event_type: &str) -> SignedEventPayload {
-    SignedEventPayload {
-        event_type: event_type.to_string(),
-        data: serde_json::json!({
-            "id": format!("evt-{event_type}"),
-            "timestamp": 1_700_000_000_000_u64,
-            "sessionId": "contract-session",
-            "cwd": "/workspace/project",
-            "tool": "Read"
-        }),
+    let lifecycle_sequence = match event_type {
+        "pre_tool_use" | "user_prompt_submit" => Some(1),
+        "stop" | "session_end" => Some(2),
+        _ => None,
+    };
+    let mut data = serde_json::json!({
+        "id": format!("evt-{event_type}"),
+        "timestamp": 1_700_000_000_000_u64,
+        "sessionId": "contract-session",
+        "cwd": "/workspace/project",
+        "tool": "Read"
+    });
+    if let Some(sequence) = lifecycle_sequence {
+        data["lifecycleSequence"] = serde_json::json!(sequence);
     }
+    SignedEventPayload { event_type: event_type.to_string(), data }
 }
 
 /// A validly-signed event envelope with a fresh timestamp so the replay
@@ -174,9 +206,9 @@ async fn persistable_event_is_stored_and_rebroadcast() {
     assert_eq!(persisted[0].organization_id, org_id);
     assert_eq!(persisted[0].agent_id, agent_id);
     assert_eq!(persisted[0].event_type, "pre_tool_use");
-    assert_eq!(persisted[0].session_id.as_deref(), Some("cli-session-1"));
+    assert_eq!(persisted[0].session_id.as_deref(), Some("contract-session"));
     assert_eq!(persisted[0].payload["type"], "pre_tool_use");
-    assert_eq!(persisted[0].payload["sessionId"], "cli-session-1");
+    assert_eq!(persisted[0].payload["sessionId"], "contract-session");
 
     let published = bus.published().await;
     assert_eq!(published.len(), 2);
@@ -186,10 +218,10 @@ async fn persistable_event_is_stored_and_rebroadcast() {
         panic!("first broadcast must be event");
     };
     assert_eq!(event_type, "pre_tool_use");
-    assert_eq!(event_agent, "cli-session-1");
+    assert_eq!(event_agent, "contract-session");
     assert_eq!(event_org, &org_id.to_string());
     assert_eq!(event_data["type"], "pre_tool_use");
-    assert_eq!(event_data["sessionId"], "cli-session-1");
+    assert_eq!(event_data["sessionId"], "contract-session");
 
     assert_eq!(published[1].0, format!("broadcast.{org_id}"));
     let ServerMessage::TurnInvalidate { payload } = &published[1].1 else {
@@ -218,6 +250,7 @@ async fn token_update_is_broadcast_without_persistence() {
     consumer.handle(&subject(agent_id), signed_event(agent_id, "token_update")).await.unwrap();
 
     assert!(store.snapshot().await.is_empty());
+    assert!(store.runtime_patches().await.is_empty());
     let published = bus.published().await;
     assert_eq!(published.len(), 1);
     assert_eq!(published[0].0, format!("broadcast.{org_id}"));
@@ -256,7 +289,7 @@ async fn malformed_payload_is_rejected_without_side_effects() {
     let err = consumer.handle(&subject(agent_id), malformed).await.unwrap_err();
     assert!(err.to_string().contains("permanent event rejection"));
     assert!(store.snapshot().await.is_empty());
-    assert!(agents.runtime_patches().await.is_empty());
+    assert!(store.runtime_patches().await.is_empty());
     assert!(bus.published().await.is_empty());
 }
 
@@ -268,12 +301,12 @@ async fn status_event_updates_agent_row() {
     let agents = MemoryAgentDirectory::default();
     agents.set_target(AgentTarget { agent_id, organization_id: org_id, cli_session_id: None }).await;
     let bus = MemoryBroadcastBus::default();
-    let consumer = EventConsumer::new(store, agents.clone(), bus, MemoryHmac::with(agent_id, TEST_HMAC));
+    let consumer = EventConsumer::new(store.clone(), agents, bus, MemoryHmac::with(agent_id, TEST_HMAC));
 
     consumer.handle(&subject(agent_id), signed_event(agent_id, "user_prompt_submit")).await.unwrap();
     consumer.handle(&subject(agent_id), signed_event(agent_id, "stop")).await.unwrap();
 
-    assert_eq!(agents.status_updates().await, vec![(agent_id, AgentStatus::Working), (agent_id, AgentStatus::Idle)]);
+    assert_eq!(store.status_updates().await, vec![(agent_id, AgentStatus::Working), (agent_id, AgentStatus::Idle)]);
 }
 
 // --- Issue #30: event consumer writes cwd + current_tool to the agents row ---
@@ -291,11 +324,11 @@ async fn pre_tool_use_writes_current_tool_and_cwd() {
     let agents = MemoryAgentDirectory::default();
     agents.set_target(AgentTarget { agent_id, organization_id: org_id, cli_session_id: None }).await;
     let bus = MemoryBroadcastBus::default();
-    let consumer = EventConsumer::new(store, agents.clone(), bus, MemoryHmac::with(agent_id, TEST_HMAC));
+    let consumer = EventConsumer::new(store.clone(), agents, bus, MemoryHmac::with(agent_id, TEST_HMAC));
 
     consumer.handle(&subject(agent_id), signed_event(agent_id, "pre_tool_use")).await.unwrap();
 
-    let patches = agents.runtime_patches().await;
+    let patches = store.runtime_patches().await;
     assert_eq!(patches.len(), 1, "one UPDATE per event — avoid write amplification");
     let (id, patch) = &patches[0];
     assert_eq!(*id, agent_id);
@@ -320,11 +353,11 @@ async fn post_tool_use_clears_current_tool() {
     let agents = MemoryAgentDirectory::default();
     agents.set_target(AgentTarget { agent_id, organization_id: org_id, cli_session_id: None }).await;
     let bus = MemoryBroadcastBus::default();
-    let consumer = EventConsumer::new(store, agents.clone(), bus, MemoryHmac::with(agent_id, TEST_HMAC));
+    let consumer = EventConsumer::new(store.clone(), agents, bus, MemoryHmac::with(agent_id, TEST_HMAC));
 
     consumer.handle(&subject(agent_id), signed_event(agent_id, "post_tool_use")).await.unwrap();
 
-    let patches = agents.runtime_patches().await;
+    let patches = store.runtime_patches().await;
     assert_eq!(patches.len(), 1);
     let patch = &patches[0].1;
     assert_eq!(
@@ -346,11 +379,11 @@ async fn stop_event_clears_current_tool_and_sets_idle() {
     let agents = MemoryAgentDirectory::default();
     agents.set_target(AgentTarget { agent_id, organization_id: org_id, cli_session_id: None }).await;
     let bus = MemoryBroadcastBus::default();
-    let consumer = EventConsumer::new(store, agents.clone(), bus, MemoryHmac::with(agent_id, TEST_HMAC));
+    let consumer = EventConsumer::new(store.clone(), agents, bus, MemoryHmac::with(agent_id, TEST_HMAC));
 
     consumer.handle(&subject(agent_id), signed_event(agent_id, "stop")).await.unwrap();
 
-    let patch = &agents.runtime_patches().await[0].1;
+    let patch = &store.runtime_patches().await[0].1;
     assert_eq!(patch.status, Some(AgentStatus::Idle));
     assert_eq!(patch.current_tool, Some(agentforge_jobs::event_consumer::CurrentToolUpdate::Clear));
 }
@@ -367,7 +400,7 @@ async fn event_without_cwd_does_not_overwrite_stored_cwd() {
     let agents = MemoryAgentDirectory::default();
     agents.set_target(AgentTarget { agent_id, organization_id: org_id, cli_session_id: None }).await;
     let bus = MemoryBroadcastBus::default();
-    let consumer = EventConsumer::new(store, agents.clone(), bus, MemoryHmac::with(agent_id, TEST_HMAC));
+    let consumer = EventConsumer::new(store.clone(), agents, bus, MemoryHmac::with(agent_id, TEST_HMAC));
     let envelope = sign_event(
         TEST_HMAC,
         agent_id,
@@ -383,7 +416,7 @@ async fn event_without_cwd_does_not_overwrite_stored_cwd() {
     consumer.handle(&subject(agent_id), envelope).await.unwrap();
 
     // No status, no tool, no cwd → nothing to patch → no directory call.
-    assert!(agents.runtime_patches().await.is_empty(), "noop patch must skip the UPDATE");
+    assert!(store.runtime_patches().await.is_empty(), "noop patch must skip the UPDATE");
 }
 
 // -------------------------------------------------------------------
@@ -420,7 +453,7 @@ async fn rejects_event_with_wrong_hmac_signature() {
     // before any persist / runtime-patch / broadcast side effect.
     let agent_id = Uuid::now_v7();
     let org_id = Uuid::now_v7();
-    let (consumer, store, agents, bus) = wired_consumer(agent_id, org_id).await;
+    let (consumer, store, _agents, bus) = wired_consumer(agent_id, org_id).await;
 
     let forged = sign_event("attacker-key", agent_id, event_payload("pre_tool_use"), chrono::Utc::now().timestamp());
     let err = consumer.handle(&subject(agent_id), forged).await.unwrap_err();
@@ -428,7 +461,7 @@ async fn rejects_event_with_wrong_hmac_signature() {
     assert!(matches!(err, ConsumeError::Permanent { .. }), "bad signature must be permanent: {err}");
     assert!(err.to_string().contains("signature_mismatch"), "err = {err}");
     assert!(store.snapshot().await.is_empty(), "forged event must not persist");
-    assert!(agents.runtime_patches().await.is_empty(), "forged event must not patch the agent row");
+    assert!(store.runtime_patches().await.is_empty(), "forged event must not patch the agent row");
     assert!(bus.published().await.is_empty(), "forged event must not broadcast");
 }
 
@@ -450,7 +483,7 @@ async fn rejects_event_when_agent_has_no_stored_secret() {
 
     assert!(err.to_string().contains("agent_unknown"), "err = {err}");
     assert!(store.snapshot().await.is_empty());
-    assert!(agents.runtime_patches().await.is_empty());
+    assert!(store.runtime_patches().await.is_empty());
     assert!(bus.published().await.is_empty());
 }
 
@@ -461,7 +494,7 @@ async fn rejects_event_outside_replay_window() {
     // before signature lookup even runs.
     let agent_id = Uuid::now_v7();
     let org_id = Uuid::now_v7();
-    let (consumer, store, agents, bus) = wired_consumer(agent_id, org_id).await;
+    let (consumer, store, _agents, bus) = wired_consumer(agent_id, org_id).await;
 
     let stale_ts = chrono::Utc::now().timestamp() - (TIMESTAMP_REPLAY_WINDOW_SECS + 60);
     let stale = sign_event(TEST_HMAC, agent_id, event_payload("pre_tool_use"), stale_ts);
@@ -469,7 +502,7 @@ async fn rejects_event_outside_replay_window() {
 
     assert!(err.to_string().contains("timestamp_outside_window"), "err = {err}");
     assert!(store.snapshot().await.is_empty());
-    assert!(agents.runtime_patches().await.is_empty());
+    assert!(store.runtime_patches().await.is_empty());
     assert!(bus.published().await.is_empty());
 }
 
@@ -494,23 +527,19 @@ async fn accepts_event_near_replay_window_edge() {
 
 #[tokio::test]
 async fn replayed_event_is_rejected_once_window_expires() {
-    // Replay reproduction. A captured, validly-signed envelope is replayed.
-    // Within the window it is accepted (events are idempotent telemetry; the
-    // consumer has no delivery_id to dedup on — see the module docs). Once the
-    // captured envelope's timestamp falls outside the window, the SAME bytes
-    // are rejected. This pins the timestamp window as the replay bound for
-    // this path, distinct from the orchestration-result path's delivery_id
-    // dedup.
+    // A captured, validly-signed envelope is deduplicated by its stable event
+    // ID while fresh, then rejected by the timestamp window once it expires.
     let agent_id = Uuid::now_v7();
     let org_id = Uuid::now_v7();
-    let (consumer, store, _agents, _bus) = wired_consumer(agent_id, org_id).await;
+    let (consumer, store, _agents, bus) = wired_consumer(agent_id, org_id).await;
 
-    // Capture one envelope and feed it twice while still fresh: both accepted
-    // (no dedup, idempotent by content).
+    // Capture one envelope and feed it twice while still fresh. The second
+    // delivery retries the broadcast but cannot duplicate database effects.
     let captured = signed_event(agent_id, "pre_tool_use");
     consumer.handle(&subject(agent_id), captured.clone()).await.unwrap();
     consumer.handle(&subject(agent_id), captured.clone()).await.unwrap();
-    assert_eq!(store.snapshot().await.len(), 2, "within-window replay is accepted by design (idempotent telemetry)");
+    assert_eq!(store.snapshot().await.len(), 1, "fresh redelivery must reuse the durable receipt");
+    assert_eq!(bus.published().await.len(), 4, "the latest receipt may retry its two broadcasts");
 
     // The same captured bytes, but representing a frame whose timestamp has
     // aged past the window, are rejected. (We rebuild with an old ts and the
@@ -519,7 +548,40 @@ async fn replayed_event_is_rejected_once_window_expires() {
     let stale_replay = sign_event(TEST_HMAC, agent_id, event_payload("pre_tool_use"), stale_ts);
     let err = consumer.handle(&subject(agent_id), stale_replay).await.unwrap_err();
     assert!(err.to_string().contains("timestamp_outside_window"), "stale replay must be rejected: {err}");
-    assert_eq!(store.snapshot().await.len(), 2, "stale replay must not append");
+    assert_eq!(store.snapshot().await.len(), 1, "stale replay must not append");
+}
+
+#[tokio::test]
+async fn superseded_lifecycle_redelivery_does_not_rebroadcast() {
+    let agent_id = Uuid::now_v7();
+    let org_id = Uuid::now_v7();
+    let (consumer, store, _agents, bus) = wired_consumer(agent_id, org_id).await;
+    let working = signed_event(agent_id, "pre_tool_use");
+
+    consumer.handle(&subject(agent_id), working.clone()).await.unwrap();
+    consumer.handle(&subject(agent_id), signed_event(agent_id, "stop")).await.unwrap();
+    consumer.handle(&subject(agent_id), working).await.unwrap();
+
+    assert_eq!(store.snapshot().await.len(), 2, "redelivery must reuse its original receipt");
+    assert_eq!(bus.published().await.len(), 4, "a superseded receipt must not resurrect stale browser state");
+}
+
+#[tokio::test]
+async fn reused_event_id_with_different_content_is_rejected() {
+    let agent_id = Uuid::now_v7();
+    let org_id = Uuid::now_v7();
+    let (consumer, store, _agents, bus) = wired_consumer(agent_id, org_id).await;
+    let first = signed_event(agent_id, "pre_tool_use");
+    consumer.handle(&subject(agent_id), first.clone()).await.unwrap();
+
+    let mut changed_payload = first.payload;
+    changed_payload.data["tool"] = serde_json::json!("Write");
+    let changed = sign_event(TEST_HMAC, agent_id, changed_payload, first.timestamp);
+    let err = consumer.handle(&subject(agent_id), changed).await.unwrap_err();
+
+    assert!(err.to_string().contains("event_id_conflict"), "conflicting receipt must be permanent: {err}");
+    assert_eq!(store.snapshot().await.len(), 1);
+    assert_eq!(bus.published().await.len(), 2);
 }
 
 #[tokio::test]
@@ -529,7 +591,7 @@ async fn rejects_event_subject_envelope_agent_mismatch() {
     let subject_agent = Uuid::now_v7();
     let envelope_agent = Uuid::now_v7();
     let org_id = Uuid::now_v7();
-    let (consumer, store, agents, bus) = wired_consumer(subject_agent, org_id).await;
+    let (consumer, store, _agents, bus) = wired_consumer(subject_agent, org_id).await;
 
     // Validly signed for envelope_agent, delivered on subject_agent's subject.
     let mismatched =
@@ -538,7 +600,7 @@ async fn rejects_event_subject_envelope_agent_mismatch() {
 
     assert!(err.to_string().contains("envelope_agent_mismatch"), "err = {err}");
     assert!(store.snapshot().await.is_empty());
-    assert!(agents.runtime_patches().await.is_empty());
+    assert!(store.runtime_patches().await.is_empty());
     assert!(bus.published().await.is_empty());
 }
 
