@@ -347,7 +347,7 @@ dependencies = [
  "temp-env",
  "temporalio-client",
  "temporalio-common",
- "temporalio-macros",
+ "temporalio-macros 0.8.0",
  "temporalio-sdk",
  "temporalio-sdk-core",
  "temporalio-workflow",
@@ -5839,7 +5839,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -5956,6 +5956,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "temporalio-macros"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43058fe5557a8d122704c136991510703ea3998ff83d5279d0e0924434164413"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "temporalio-protos"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5996,7 +6007,7 @@ dependencies = [
  "serde",
  "temporalio-client",
  "temporalio-common",
- "temporalio-macros",
+ "temporalio-macros 0.6.0",
  "temporalio-sdk-core",
  "temporalio-workflow",
  "thiserror",
@@ -6042,7 +6053,7 @@ dependencies = [
  "sysinfo",
  "temporalio-client",
  "temporalio-common",
- "temporalio-macros",
+ "temporalio-macros 0.6.0",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -6070,7 +6081,7 @@ dependencies = [
  "rand_pcg",
  "serde",
  "temporalio-common-wasm",
- "temporalio-macros",
+ "temporalio-macros 0.6.0",
  "thiserror",
  "uuid",
  "wit-bindgen 0.57.1",
@@ -7081,7 +7092,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
