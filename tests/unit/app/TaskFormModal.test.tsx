@@ -960,8 +960,12 @@ describe('TaskFormModal', () => {
     ] as never)
     const { onSubmit } = renderModal()
     openTaskOptions()
+    const assignee = screen.getByLabelText(/who should start it/i)
+    fireEvent.change(assignee, { target: { value: 'agent-1' } })
     fireEvent.click(screen.getByRole('checkbox', { name: /First step/i }))
     fireEvent.click(screen.getByRole('checkbox', { name: /Second step/i }))
+    await waitFor(() => expect(assignee).toHaveValue(''))
+    expect(assignee).toBeDisabled()
     fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
       target: { value: 'Ship both steps' },
     })
@@ -973,6 +977,70 @@ describe('TaskFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     expect(onSubmit.mock.calls[0][0].dependencyIds).toEqual(['task-a', 'task-b'])
+    expect(onSubmit.mock.calls[0][0].assignedTo).toBe('')
+  })
+
+  test('clears wait-for-tasks choices on reopen and project change', () => {
+    useBoardStore.getState().setTasks([
+      {
+        id: 'task-a',
+        title: 'First step',
+        params: { task: 'First step', message: '' },
+        state: 'backlog',
+        groupId: 'lane-1',
+        method: 'work',
+      },
+    ] as never)
+    const props = {
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+      agents: [{ id: 'agent-1', name: 'Agent One', status: 'available' }],
+      projects: [project, otherProject],
+      selectedProjectId: project.id,
+      selectedTaskGroupId: 'lane-1',
+      selectedTaskGroupName: 'Starter Queue',
+      onProjectChange: vi.fn(() => {
+        useBoardStore.getState().setSelectedGroupId('lane-2')
+        return true
+      }),
+    }
+    const { rerender } = render(<TaskFormModal isOpen {...props} />)
+    openTaskOptions()
+    let dependency = screen.getByRole('checkbox', { name: /First step/i })
+    fireEvent.click(dependency)
+    expect(dependency).toBeChecked()
+
+    rerender(<TaskFormModal isOpen={false} {...props} />)
+    rerender(<TaskFormModal isOpen {...props} />)
+    openTaskOptions()
+    dependency = screen.getByRole('checkbox', { name: /First step/i })
+    expect(dependency).not.toBeChecked()
+
+    fireEvent.click(dependency)
+    fireEvent.change(screen.getByLabelText(/^project$/i), { target: { value: otherProject.id } })
+    expect(screen.queryByRole('checkbox', { name: /First step/i })).toBeNull()
+  })
+
+  test('allows ten task prerequisites and disables an eleventh', () => {
+    useBoardStore.getState().setTasks(
+      Array.from({ length: 11 }, (_, index) => ({
+        id: `task-${index + 1}`,
+        title: `Step ${index + 1}`,
+        params: { task: `Step ${index + 1}`, message: '' },
+        state: 'backlog',
+        groupId: 'lane-1',
+        method: 'work',
+      })) as never
+    )
+    renderModal()
+    openTaskOptions()
+
+    for (let index = 1; index <= 10; index += 1) {
+      fireEvent.click(screen.getByRole('checkbox', { name: `Step ${index}` }))
+    }
+
+    expect(screen.getByRole('checkbox', { name: 'Step 10' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Step 11' })).toBeDisabled()
   })
 
   test('explains saved templates before the first one exists', async () => {

@@ -134,6 +134,7 @@ async fn complete_task_tx_commits_parent_and_children_atomically(pool: PgPool) {
         &mut tx,
         &scope,
         parent_id,
+        0,
         "completed",
         serde_json::json!({"stdout": "ok"}),
     )
@@ -151,6 +152,148 @@ async fn complete_task_tx_commits_parent_and_children_atomically(pool: PgPool) {
     assert_eq!(task_status(&pool, parent_id).await, "completed", "parent persisted as completed");
     assert_eq!(task_status(&pool, child_id).await, "queued", "child persisted as queued");
     assert_eq!(task_blocked_reason(&pool, child_id).await, None, "child blocked_reason cleared");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn completion_releases_only_fully_ready_dependency_blocks(pool: PgPool) {
+    let (org_id, user_id, agent_id) = seed_org_with_agent(&pool).await;
+    let first_id = Uuid::new_v4();
+    let second_id = Uuid::new_v4();
+    for (id, title) in [(first_id, "first prerequisite"), (second_id, "second prerequisite")] {
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+                   (id, organization_id, title, status, created_by, assigned_agent_id, started_at)
+               VALUES ($1, $2, $3, 'working', $4, $5, NOW())"#,
+        )
+        .bind(id)
+        .bind(org_id)
+        .bind(title)
+        .bind(user_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("seed prerequisite");
+    }
+    let dependency_params = serde_json::json!({ "dependency_ids": [first_id, second_id] });
+    let dependent_id = Uuid::new_v4();
+    let approval_id = Uuid::new_v4();
+    let canceled_id = Uuid::new_v4();
+    for (id, status, reason, requires_approval) in [
+        (dependent_id, "blocked", "waiting_dependency", false),
+        (approval_id, "blocked", "waiting_approval", true),
+        (canceled_id, "canceled", "waiting_dependency", false),
+    ] {
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+                   (id, organization_id, title, status, created_by, params, blocked_reason, requires_approval)
+               VALUES ($1, $2, 'dependent', $3, $4, $5, $6, $7)"#,
+        )
+        .bind(id)
+        .bind(org_id)
+        .bind(status)
+        .bind(user_id)
+        .bind(&dependency_params)
+        .bind(reason)
+        .bind(requires_approval)
+        .execute(&pool)
+        .await
+        .expect("seed dependent");
+    }
+    let scope = scope_for(org_id, user_id);
+
+    let mut tx = pool.begin().await.expect("begin first completion");
+    OrchestrationTaskRepository::set_result_in_tx(
+        &mut tx,
+        &scope,
+        first_id,
+        0,
+        "completed",
+        serde_json::json!({ "ok": true }),
+    )
+    .await
+    .expect("complete first prerequisite");
+    let released = OrchestrationTaskRepository::unblock_children_of_in_tx(&mut tx, &scope, first_id)
+        .await
+        .expect("reconcile first prerequisite");
+    tx.commit().await.expect("commit first completion");
+    assert!(released.is_empty(), "one unfinished sibling must retain the block");
+    assert_eq!(task_status(&pool, dependent_id).await, "blocked");
+
+    let mut tx = pool.begin().await.expect("begin final completion");
+    OrchestrationTaskRepository::set_result_in_tx(
+        &mut tx,
+        &scope,
+        second_id,
+        0,
+        "completed",
+        serde_json::json!({ "ok": true }),
+    )
+    .await
+    .expect("complete final prerequisite");
+    let released = OrchestrationTaskRepository::unblock_children_of_in_tx(&mut tx, &scope, second_id)
+        .await
+        .expect("reconcile final prerequisite");
+    tx.commit().await.expect("commit final completion");
+
+    assert_eq!(released.iter().map(|task| task.id).collect::<Vec<_>>(), vec![dependent_id]);
+    assert_eq!(task_status(&pool, dependent_id).await, "queued");
+    assert_eq!(task_status(&pool, approval_id).await, "blocked");
+    assert_eq!(task_blocked_reason(&pool, approval_id).await.as_deref(), Some("waiting_approval"));
+    assert_eq!(task_status(&pool, canceled_id).await, "canceled");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn completion_and_cancel_are_mutually_terminal(pool: PgPool) {
+    let (org_id, user_id, agent_id) = seed_org_with_agent(&pool).await;
+    let canceled_id = Uuid::new_v4();
+    let completed_id = Uuid::new_v4();
+    for id in [canceled_id, completed_id] {
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+                   (id, organization_id, title, status, created_by, assigned_agent_id, started_at)
+               VALUES ($1, $2, 'terminal race', 'working', $3, $4, NOW())"#,
+        )
+        .bind(id)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("seed working task");
+    }
+    let scope = scope_for(org_id, user_id);
+    let repo = OrchestrationTaskRepository::new(pool.clone());
+
+    repo.cancel(&scope, canceled_id).await.expect("cancel working task");
+    let mut tx = pool.begin().await.expect("begin stale completion");
+    let completion = OrchestrationTaskRepository::set_result_in_tx(
+        &mut tx,
+        &scope,
+        canceled_id,
+        0,
+        "completed",
+        serde_json::json!({ "stale": true }),
+    )
+    .await;
+    tx.rollback().await.expect("rollback stale completion");
+    assert!(completion.is_err(), "completion must not overwrite a committed cancel");
+
+    let mut tx = pool.begin().await.expect("begin completion");
+    OrchestrationTaskRepository::set_result_in_tx(
+        &mut tx,
+        &scope,
+        completed_id,
+        0,
+        "completed",
+        serde_json::json!({ "ok": true }),
+    )
+    .await
+    .expect("complete working task");
+    tx.commit().await.expect("commit completion");
+    assert!(repo.cancel(&scope, completed_id).await.is_err(), "cancel must not overwrite completion");
+
+    assert_eq!(task_status(&pool, canceled_id).await, "canceled");
+    assert_eq!(task_status(&pool, completed_id).await, "completed");
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +314,7 @@ async fn complete_task_tx_rollback_leaves_parent_and_children_untouched(pool: Pg
         &mut tx,
         &scope,
         parent_id,
+        0,
         "completed",
         serde_json::json!({"stdout": "ok"}),
     )
@@ -216,6 +360,7 @@ async fn complete_task_tx_does_not_leak_across_tenants(pool: PgPool) {
         &mut tx,
         &scope_a,
         parent_a,
+        0,
         "completed",
         serde_json::json!({"ok": true}),
     )
@@ -248,6 +393,7 @@ async fn complete_task_tx_does_not_leak_across_tenants(pool: PgPool) {
         &mut tx,
         &scope_a,
         parent_b,
+        0,
         "completed",
         serde_json::json!({"stolen": true}),
     )

@@ -5,7 +5,9 @@ use agentforge_api::repositories::orchestration::{OrchestrationTaskRepository, P
 use agentforge_api::services::evidence_projection::EvidenceProjectionService;
 use agentforge_api::services::orchestration::OrchestrationService;
 use agentforge_api::test_support::tenant_scope_for_ids;
+use agentforge_core::orchestration_protocol::{TaskOutcome, TaskResult};
 use agentforge_core::{AgentId, TenantScope};
+use agentforge_jobs::{SqlxTaskWriter, TaskWriter};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -108,8 +110,26 @@ async fn create_and_dispatch(pool: &PgPool, scope: &TenantScope, group_id: Uuid)
     working.id
 }
 
+async fn apply_agent_result(pool: &PgPool, scope: &TenantScope, task_id: Uuid, outcome: TaskOutcome) {
+    let task =
+        OrchestrationTaskRepository::new(pool.clone()).find_by_id(scope, task_id).await.expect("load dispatched task");
+    SqlxTaskWriter::new(pool.clone())
+        .apply(
+            scope.org_id().as_uuid(),
+            TaskResult {
+                delivery_id: task.last_assignment_id,
+                attempt: Some(task.attempt),
+                task_id,
+                agent_id: task.assigned_agent_id.expect("dispatched task agent").as_uuid(),
+                outcome,
+            },
+        )
+        .await
+        .expect("apply Agent result");
+}
+
 #[sqlx::test(migrations = "../db/migrations")]
-async fn assignment_creates_run_and_completion_closes_it(pool: PgPool) {
+async fn assignment_creates_run_and_agent_result_closes_it(pool: PgPool) {
     let (org_id, user_id, _agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
     let scope = scope_for(org_id, user_id);
     let task_id = create_and_dispatch(&pool, &scope, group_id).await;
@@ -120,10 +140,7 @@ async fn assignment_creates_run_and_completion_closes_it(pool: PgPool) {
     assert_eq!(runs[0].status, "working");
     assert!(runs[0].finished_at.is_none());
 
-    orchestration_service(pool.clone())
-        .complete_task(&scope, task_id, serde_json::json!({ "ok": true }))
-        .await
-        .expect("complete task");
+    apply_agent_result(&pool, &scope, task_id, TaskOutcome::Completed { stdout: "done".into() }).await;
 
     let runs = run_repo.list_by_task(&scope, task_id).await.expect("list task runs after complete");
     assert_eq!(runs.len(), 1);
@@ -136,7 +153,7 @@ async fn assignment_creates_run_and_completion_closes_it(pool: PgPool) {
         .expect("run evidence");
     assert!(
         evidence.iter().any(|row| row.source_type == "task_result"
-            && row.payload.get("result").and_then(|v| v.get("ok")).and_then(|v| v.as_bool()) == Some(true)),
+            && row.payload.get("result").and_then(|v| v.get("stdout")).and_then(|v| v.as_str()) == Some("done")),
         "completed run should project task_result evidence"
     );
 }
@@ -148,10 +165,13 @@ async fn retry_creates_a_second_run(pool: PgPool) {
     let task_id = create_and_dispatch(&pool, &scope, group_id).await;
     let service = orchestration_service(pool.clone());
 
-    service
-        .fail_task(&scope, task_id, serde_json::json!({ "message": "first attempt failed" }))
-        .await
-        .expect("fail first attempt");
+    apply_agent_result(
+        &pool,
+        &scope,
+        task_id,
+        TaskOutcome::Failed { stderr: "first attempt failed".into(), exit_code: Some(1) },
+    )
+    .await;
     let reset = service.retry_task(&scope, task_id).await.expect("retry task");
     assert_eq!(reset.status, "backlog");
     let working =

@@ -354,6 +354,8 @@ export interface TaskSummary {
   error?: string
   createdAt: string
   updatedAt: string
+  /** Database-owned monotonic revision. Absent only during rolling upgrades. */
+  rowVersion?: number
   completedAt?: string
   contextCounts?: TaskContextCounts
   /** 1-based attempt counter; incremented on each retry. */

@@ -178,10 +178,10 @@ impl BlockedTaskPolicy {
                     format!("等待空闲 agent（{busy} 个忙碌, {offline} 个离线）")
                 }
             }
-            "waiting_dependency" => {
-                let pending = metadata.and_then(|m| m.get("pending")).and_then(|v| v.as_i64()).unwrap_or(0);
-                format!("等待 {pending} 个上游任务完成")
-            }
+            "waiting_dependency" => match metadata.and_then(|m| m.get("pending")).and_then(|v| v.as_i64()) {
+                Some(pending) => format!("等待 {pending} 个上游任务完成"),
+                None => "等待上游任务完成".into(),
+            },
             "waiting_input" => {
                 let fields = metadata
                     .and_then(|m| m.get("missing"))

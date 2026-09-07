@@ -146,6 +146,15 @@ pub(crate) struct TaskDependencyPolicy;
 impl TaskDependencyPolicy {
     pub(crate) const MAX: usize = 10;
 
+    pub(crate) fn ensure_within_limit(params: Option<&serde_json::Value>) -> AppResult<()> {
+        let count =
+            params.and_then(|value| value.get("dependency_ids")).and_then(|value| value.as_array()).map_or(0, Vec::len);
+        if count > Self::MAX {
+            return Err(ErrorKind::Validation(format!("wait for at most {} prerequisite tasks", Self::MAX)).into());
+        }
+        Ok(())
+    }
+
     pub(crate) fn from_params(params: Option<&serde_json::Value>) -> Vec<Uuid> {
         let Some(items) = params.and_then(|value| value.get("dependency_ids")).and_then(|value| value.as_array())
         else {
@@ -219,6 +228,34 @@ impl TaskCreationPolicy {
         Ok(())
     }
 
+    pub(crate) fn ensure_assigned_task_can_start(
+        missing_inputs: &[String],
+        parent_status: Option<&str>,
+        dependencies_unresolved: bool,
+    ) -> AppResult<()> {
+        if !missing_inputs.is_empty() {
+            return Err(ErrorKind::Validation(format!(
+                "add the missing inputs {} before assigning an Agent, or leave the task unassigned",
+                missing_inputs.join(", ")
+            ))
+            .into());
+        }
+        if BlockedTaskPolicy::needs_dependency_block(parent_status) {
+            return Err(ErrorKind::Validation(
+                "wait for the parent task to finish before assigning an Agent, or leave this task unassigned".into(),
+            )
+            .into());
+        }
+        if dependencies_unresolved {
+            return Err(ErrorKind::Validation(
+                "wait for the prerequisite tasks to finish before assigning an Agent, or leave this task unassigned"
+                    .into(),
+            )
+            .into());
+        }
+        Ok(())
+    }
+
     /// Unassigned tasks land in `backlog` unless missing declared inputs,
     /// human approval, or an unfinished parent/prerequisite requires an initial block.
     pub(crate) fn initial_unassigned_state(
@@ -230,13 +267,9 @@ impl TaskCreationPolicy {
         let dependency_blocked = BlockedTaskPolicy::needs_dependency_block(parent_status);
         let (mut initial_blocked_reason, mut initial_blocked_metadata) =
             BlockedTaskPolicy::initial_state(missing_inputs, requires_approval, dependency_blocked);
-        if !prerequisites.is_empty() {
-            let parent_hint = initial_blocked_metadata.as_ref().and_then(|meta| meta.get("parent_task_id")).cloned();
+        if initial_blocked_reason.is_none() && !prerequisites.is_empty() {
             initial_blocked_reason = Some("waiting_dependency");
             initial_blocked_metadata = Some(json!({ "dependency_ids": prerequisites }));
-            if let Some(parent) = parent_hint {
-                initial_blocked_metadata = Some(json!({ "dependency_ids": prerequisites, "parent_task_id": parent }));
-            }
         }
         let initial_status = if initial_blocked_reason.is_some() { "blocked" } else { "backlog" };
 
@@ -271,8 +304,31 @@ impl OrchestrationRepositoryPolicy {
         ErrorKind::NotFound(format!("orchestration task {id}")).into()
     }
 
-    pub(crate) fn approval_blocked_task_not_found(id: Uuid) -> AppError {
-        ErrorKind::NotFound(format!("approval-blocked orchestration task {id}")).into()
+    pub(crate) fn quota_block_conflict() -> AppError {
+        ErrorKind::Conflict("task changed while recording the quota block".into()).into()
+    }
+
+    pub(crate) fn approval_conflict() -> AppError {
+        ErrorKind::Conflict("task changed while approving; refresh and try again".into()).into()
+    }
+
+    pub(crate) fn patch_conflict() -> AppError {
+        ErrorKind::Conflict("task changed while applying the update; refresh and try again".into()).into()
+    }
+
+    pub(crate) fn result_conflict() -> AppError {
+        ErrorKind::Conflict("task changed while recording its result".into()).into()
+    }
+
+    pub(crate) fn cancel_conflict() -> AppError {
+        ErrorKind::Conflict(
+            "task changed or execution was already assigned; wait for the result or lease recovery".into(),
+        )
+        .into()
+    }
+
+    pub(crate) fn retry_conflict() -> AppError {
+        ErrorKind::Conflict("task changed while retrying; refresh and try again".into()).into()
     }
 
     pub(crate) fn participant_not_found(agent_id: AgentId) -> AppError {
@@ -509,6 +565,9 @@ pub(crate) struct CreateTaskParamsInput<'a> {
     /// Attachment UUIDs of instruction images, stored as `params.imageAttachmentIds`
     /// and materialized into the agent workspace at dispatch.
     pub(crate) image_attachment_ids: &'a [String],
+    /// Typed at the HTTP boundary, then stored under the existing Rust/runtime
+    /// `dependency_ids` contract.
+    pub(crate) dependency_ids: &'a [Uuid],
 }
 
 /// Read `params.imageAttachmentIds` back as a list of id strings (empty if
@@ -553,6 +612,9 @@ pub(crate) fn create_task_request_parts(
         }
         if !p.image_attachment_ids.is_empty() {
             out.insert("imageAttachmentIds".into(), json!(p.image_attachment_ids));
+        }
+        if !p.dependency_ids.is_empty() {
+            out.insert("dependency_ids".into(), json!(p.dependency_ids));
         }
         Value::Object(out)
     });
@@ -822,6 +884,19 @@ impl TaskStatusPolicy {
 pub(crate) struct TaskLifecyclePolicy;
 
 impl TaskLifecyclePolicy {
+    /// HTTP/operator terminal actions cannot revoke a delivery already handed
+    /// to the outbox. Only the matching Agent result or lease recovery may end
+    /// that execution until a real Agent cancellation protocol exists.
+    pub(crate) fn ensure_no_active_delivery(status: &str, last_assignment_id: Option<Uuid>) -> AppResult<()> {
+        if status == "working" && last_assignment_id.is_some() {
+            return Err(ErrorKind::Validation(
+                "active Agent execution must finish through its result or lease recovery".into(),
+            )
+            .into());
+        }
+        Ok(())
+    }
+
     /// Completion is normally only valid from `working`. The one exception is a
     /// `waiting_verification` hold (#793/#875): the agent already finished and the
     /// only thing standing between the task and `completed` is the operator
@@ -838,15 +913,37 @@ impl TaskLifecyclePolicy {
         Self::ensure_working_action(status, "fail")
     }
 
+    pub(crate) fn ensure_can_cancel(status: &str) -> AppResult<()> {
+        if status == "working" {
+            return Err(ErrorKind::Validation(
+                "cannot cancel active execution until the Agent cancellation protocol is available".into(),
+            )
+            .into());
+        }
+        if matches!(status, "completed" | "failed") {
+            return Err(ErrorKind::Validation(format!("cannot cancel {status} tasks")).into());
+        }
+        Ok(())
+    }
+
     pub(crate) fn ensure_can_retry(
         status: &str,
         blocked_reason: Option<&str>,
         requires_approval: bool,
+        retryable: bool,
     ) -> AppResult<()> {
         if status == "blocked" && blocked_reason == Some("waiting_approval") && requires_approval {
             return Err(ErrorKind::Validation("approve or cancel approval-blocked tasks before retry".into()).into());
         }
-        Ok(())
+        if matches!(status, "failed" | "canceled")
+            || (status == "blocked" && (retryable || blocked_reason == Some("waiting_verification")))
+        {
+            return Ok(());
+        }
+        Err(ErrorKind::Validation(format!(
+            "can only retry failed, canceled, or retryable blocked tasks, current status: {status}"
+        ))
+        .into())
     }
 
     pub(crate) fn ensure_can_approve(
@@ -994,17 +1091,34 @@ impl TaskPatchPolicy {
         Ok(())
     }
 
-    /// Operator-resolution targets allowed out of a `waiting_verification` hold.
-    /// A held task's suspect result needs a human decision: accept it
-    /// (`completed`), re-run it (`queued`/`working`), or shelve it (`backlog`).
-    /// Cancel is allowed for every blocked reason below.
-    const VERIFICATION_HOLD_RESOLUTIONS: &'static [&'static str] = &["completed", "queued", "working", "backlog"];
+    /// Direct operator-resolution targets allowed out of a verification hold.
+    /// Re-running uses Retry so assignment/run state is reset atomically.
+    const VERIFICATION_HOLD_RESOLUTIONS: &'static [&'static str] = &["completed", "working"];
 
     pub(crate) fn ensure_current_allows_transition(
         current_status: &str,
         current_blocked_reason: Option<&str>,
         transition_state: Option<&str>,
     ) -> AppResult<()> {
+        if matches!(current_status, "completed" | "failed" | "canceled")
+            && transition_state.is_some_and(|next| next != current_status)
+        {
+            return Err(ErrorKind::Validation(format!(
+                "{current_status} tasks are terminal and cannot change lanes; use Retry task for failed or canceled work"
+            ))
+            .into());
+        }
+        if transition_state == Some("blocked") {
+            return Err(ErrorKind::Validation("blocked state requires a reason-specific workflow".into()).into());
+        }
+        if current_status == "working"
+            && transition_state.is_some_and(|next| !matches!(next, "working" | "completed" | "failed" | "canceled"))
+        {
+            return Err(ErrorKind::Validation(
+                "working tasks can only complete, fail, or cancel through lifecycle actions".into(),
+            )
+            .into());
+        }
         if current_status != "blocked" || BlockedTaskPolicy::reason_allows_dispatch(current_blocked_reason) {
             return Ok(());
         }
@@ -1013,8 +1127,8 @@ impl TaskPatchPolicy {
             return Ok(());
         }
         // #793/#875: a `waiting_verification` hold is human-gated, not a dispatch
-        // dead-end. Allow the operator-resolution targets the FE copy advertises
-        // (accept / re-run / shelve). Auto-dispatch is unaffected: it keys off
+        // dead-end. Allow accept or explicit dispatch; re-run uses Retry so stale
+        // assignment/run state is cleared. Auto-dispatch is unaffected: it keys off
         // `reason_allows_dispatch`, which still excludes `waiting_verification`, so
         // a held task stays human-gated and is never auto-claimed.
         if current_blocked_reason == Some("waiting_verification")
@@ -1190,6 +1304,9 @@ mod tests {
         let partial = vec![(deps[0], "completed".to_string()), (deps[1], "failed".to_string())];
         assert!(TaskDependencyPolicy::unresolved(&deps, &partial), "failed prereqs stay unresolved");
         assert!(TaskDependencyPolicy::from_params(None).is_empty());
+
+        let too_many = json!({ "dependency_ids": vec![Uuid::nil().to_string(); TaskDependencyPolicy::MAX + 1] });
+        assert!(TaskDependencyPolicy::ensure_within_limit(Some(&too_many)).is_err());
     }
 
     #[test]
@@ -1288,6 +1405,7 @@ mod tests {
             blocked_metadata: None,
             created_at: "2026-04-20T12:00:00Z".to_owned(),
             updated_at: "2026-04-20T12:00:00Z".to_owned(),
+            row_version: None,
             completed_at: None,
             self_fix: false,
             pr_number: None,
@@ -1320,6 +1438,7 @@ mod tests {
             api_keys: None,
             expected_result: None,
             image_attachment_ids: &[],
+            dependency_ids: &[],
         };
 
         let (title, description, params_value) =
@@ -1345,6 +1464,7 @@ mod tests {
             api_keys: Some(&api_keys),
             expected_result: None,
             image_attachment_ids: &[],
+            dependency_ids: &[],
         };
 
         let (title, description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1374,6 +1494,7 @@ mod tests {
             api_keys: None,
             expected_result: Some(&expected_result),
             image_attachment_ids: &[],
+            dependency_ids: &[],
         };
 
         let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1398,6 +1519,7 @@ mod tests {
             api_keys: None,
             expected_result: None,
             image_attachment_ids: &[],
+            dependency_ids: &[],
         };
 
         let (_title, _description, params_value) = create_task_request_parts(None, None, Some(params));
@@ -1462,7 +1584,8 @@ mod tests {
     #[test]
     fn task_creation_initial_state_blocks_missing_inputs_first() {
         let missing_inputs = vec!["api_key".to_string(), "region".to_string()];
-        let state = TaskCreationPolicy::initial_unassigned_state(&missing_inputs, true, Some("working"), &[]);
+        let state =
+            TaskCreationPolicy::initial_unassigned_state(&missing_inputs, true, Some("working"), &[Uuid::nil()]);
 
         assert_eq!(state.initial_status, "blocked");
         assert_eq!(state.initial_blocked_reason, Some("waiting_input"));
@@ -1471,7 +1594,7 @@ mod tests {
 
     #[test]
     fn task_creation_initial_state_blocks_approval_before_dependency() {
-        let state = TaskCreationPolicy::initial_unassigned_state(&[], true, Some("working"), &[]);
+        let state = TaskCreationPolicy::initial_unassigned_state(&[], true, Some("working"), &[Uuid::nil()]);
 
         assert_eq!(state.initial_status, "blocked");
         assert_eq!(state.initial_blocked_reason, Some("waiting_approval"));
@@ -1803,6 +1926,24 @@ mod tests {
     }
 
     #[test]
+    fn task_creation_policy_only_starts_assigned_tasks_with_ready_prerequisites() {
+        assert!(TaskCreationPolicy::ensure_assigned_task_can_start(&[], None, false).is_ok());
+        assert!(TaskCreationPolicy::ensure_assigned_task_can_start(&[], Some("completed"), false).is_ok());
+
+        let missing = vec!["OPENAI_API_KEY".to_string(), "MODEL".to_string()];
+        let error = validation_message(TaskCreationPolicy::ensure_assigned_task_can_start(&missing, None, false));
+        assert!(error.contains("missing inputs OPENAI_API_KEY, MODEL"));
+        assert!(error.contains("leave the task unassigned"));
+
+        let parent =
+            validation_message(TaskCreationPolicy::ensure_assigned_task_can_start(&[], Some("working"), false));
+        assert!(parent.contains("parent task to finish"));
+
+        let dependencies = validation_message(TaskCreationPolicy::ensure_assigned_task_can_start(&[], None, true));
+        assert!(dependencies.contains("prerequisite tasks to finish"));
+    }
+
+    #[test]
     fn task_creation_policy_owns_parent_not_found_error() {
         let parent_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111").unwrap();
         assert!(format!("{}", TaskCreationPolicy::parent_task_not_found(parent_id)).contains("parent task"));
@@ -1852,10 +1993,6 @@ mod tests {
         assert!(matches!(
             OrchestrationRepositoryPolicy::task_not_found(task_id).kind,
             ErrorKind::NotFound(message) if message == format!("orchestration task {task_id}")
-        ));
-        assert!(matches!(
-            OrchestrationRepositoryPolicy::approval_blocked_task_not_found(task_id).kind,
-            ErrorKind::NotFound(message) if message == format!("approval-blocked orchestration task {task_id}")
         ));
         assert!(matches!(
             OrchestrationRepositoryPolicy::participant_not_found(agent_id).kind,
@@ -1922,12 +2059,29 @@ mod tests {
 
     #[test]
     fn task_lifecycle_policy_rejects_retrying_pending_approval() {
-        assert!(TaskLifecyclePolicy::ensure_can_retry("failed", None, false).is_ok());
-        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_approval"), false).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("failed", None, false, false).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("canceled", None, false, false).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("quota_exceeded"), false, true).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_input"), false, false).is_err());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_dependency"), false, false).is_err());
 
         let error =
-            validation_message(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_approval"), true));
+            validation_message(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_approval"), true, false));
         assert!(error.contains("approve or cancel approval-blocked tasks"));
+    }
+
+    #[test]
+    fn terminal_tasks_require_the_retry_path() {
+        assert!(TaskLifecyclePolicy::ensure_can_cancel("working").is_err());
+        assert!(TaskLifecyclePolicy::ensure_can_cancel("canceled").is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_cancel("completed").is_err());
+        assert!(TaskLifecyclePolicy::ensure_can_cancel("failed").is_err());
+        assert!(TaskPatchPolicy::ensure_current_allows_transition("completed", None, Some("queued")).is_err());
+        assert!(TaskPatchPolicy::ensure_current_allows_transition("failed", None, Some("backlog")).is_err());
+        assert!(TaskPatchPolicy::ensure_current_allows_transition("canceled", None, Some("canceled")).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_no_active_delivery("working", Some(Uuid::new_v4())).is_err());
+        assert!(TaskLifecyclePolicy::ensure_no_active_delivery("working", None).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_no_active_delivery("blocked", Some(Uuid::new_v4())).is_ok());
     }
 
     #[test]
@@ -2025,9 +2179,7 @@ mod tests {
 
     #[test]
     fn waiting_verification_hold_allows_operator_resolution() {
-        // #793/#875: a verification hold is human-gated, not a dead-end. The
-        // operator-resolution targets the FE copy advertises must be reachable.
-        for target in ["completed", "queued", "working", "backlog", "canceled"] {
+        for target in ["completed", "working", "canceled"] {
             assert!(
                 TaskPatchPolicy::ensure_current_allows_transition(
                     "blocked",
@@ -2036,6 +2188,17 @@ mod tests {
                 )
                 .is_ok(),
                 "waiting_verification hold must allow operator transition to {target}",
+            );
+        }
+        for target in ["queued", "backlog"] {
+            assert!(
+                TaskPatchPolicy::ensure_current_allows_transition(
+                    "blocked",
+                    Some("waiting_verification"),
+                    Some(target),
+                )
+                .is_err(),
+                "verification retry must use the dedicated Retry path",
             );
         }
     }
@@ -2063,9 +2226,9 @@ mod tests {
     #[test]
     fn waiting_verification_is_retryable() {
         // The kanban re-run path goes through ensure_can_retry; a verification hold
-        // must pass it (only waiting_approval gates retry).
-        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_verification"), false).is_ok());
-        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_verification"), true).is_ok());
+        // is an explicit retryable operator hold even without `retryable=true`.
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_verification"), false, false).is_ok());
+        assert!(TaskLifecyclePolicy::ensure_can_retry("blocked", Some("waiting_verification"), true, false).is_ok());
     }
 
     #[test]

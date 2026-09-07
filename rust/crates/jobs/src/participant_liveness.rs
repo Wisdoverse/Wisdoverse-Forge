@@ -139,17 +139,32 @@ pub(crate) const MARK_OFFLINE_BY_AGENT_IDS_SQL: &str = r#"UPDATE participants
            AND agent_id = ANY($1)
         RETURNING *"#;
 
-/// Reconcile backstop (ADR 0008). The per-beat heartbeat no longer recomputes
-/// `busy`/`available`, so a participant left `busy` after its task already left
-/// `working` (a best-effort post-commit release that failed) would otherwise
-/// never recover for a continuously-heartbeating agent. This periodic set-based
-/// sweep flips such orphaned `busy` rows back to `available`. It cannot race a
-/// live claim or release: claim sets task `working` + participant `busy` in one
-/// transaction and result/lease release sets `available` in one transaction, so
-/// `busy AND NOT EXISTS(working task)` only matches the genuinely-stranded case.
+/// Candidate locks for the orphaned-busy reconcile. The first snapshot may be
+/// stale after waiting for a concurrent release/claim, so it only chooses and
+/// locks rows; the update below rechecks ownership in a fresh statement.
+pub(crate) const LOCK_ORPHANED_BUSY_CANDIDATES_SQL: &str = r#"SELECT participant.id
+          FROM participants participant
+          JOIN agents agent
+            ON agent.id = participant.agent_id
+           AND agent.organization_id = participant.organization_id
+         WHERE participant.status = 'busy'
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM orchestration_tasks task
+                WHERE task.organization_id = participant.organization_id
+                  AND task.assigned_agent_id = participant.agent_id
+                  AND task.status = 'working'
+           )
+         ORDER BY participant.id
+         FOR UPDATE OF participant, agent"#;
+
+/// Recheck the locked candidates in a new READ COMMITTED snapshot before
+/// releasing them. Claims use the same participant/agent locks, so ownership
+/// cannot change between this check and commit.
 pub(crate) const RECONCILE_ORPHANED_BUSY_SQL: &str = r#"UPDATE participants
            SET status = 'available'
-         WHERE status = 'busy'
+         WHERE id = ANY($1)
+           AND status = 'busy'
            AND NOT EXISTS (
                SELECT 1
                  FROM orchestration_tasks task
@@ -191,6 +206,72 @@ pub(crate) const NEXT_DISPATCHABLE_SQL: &str = r#"SELECT task.*
            AND task.status IN ('queued', 'blocked')
            AND (task.blocked_reason IS NULL OR task.blocked_reason = 'waiting_agent')
            AND task.assigned_agent_id IS NULL
+           AND task.requires_approval = FALSE
+           AND (
+                 task.parent_task_id IS NULL
+                 OR EXISTS (
+                      SELECT 1
+                        FROM orchestration_tasks parent
+                       WHERE parent.id = task.parent_task_id
+                         AND parent.organization_id = task.organization_id
+                         AND parent.status = 'completed'
+                 )
+               )
+           AND (
+                 task.params->'dependency_ids' IS NULL
+                 OR jsonb_typeof(task.params->'dependency_ids') = 'array'
+               )
+           AND COALESCE(
+                 CASE WHEN jsonb_typeof(task.params->'dependency_ids') = 'array'
+                      THEN jsonb_array_length(task.params->'dependency_ids')
+                      ELSE 0 END,
+                 0) <= 10
+           AND NOT EXISTS (
+                 SELECT 1
+                   FROM jsonb_array_elements_text(
+                            CASE
+                              WHEN jsonb_typeof(task.params->'dependency_ids') = 'array'
+                                THEN task.params->'dependency_ids'
+                              ELSE '[]'::jsonb
+                            END
+                        ) declared(id)
+                   LEFT JOIN orchestration_tasks prerequisite
+                     ON prerequisite.organization_id = task.organization_id
+                    AND prerequisite.id::text = declared.id
+                  WHERE prerequisite.status IS DISTINCT FROM 'completed'
+               )
+           AND NOT EXISTS (
+                 SELECT 1
+                   FROM jsonb_array_elements_text(
+                            CASE
+                              WHEN jsonb_typeof(COALESCE(
+                                     task.params->'requiredInputs',
+                                     task.params->'required_inputs'
+                                   )) = 'array'
+                                THEN COALESCE(task.params->'requiredInputs', task.params->'required_inputs')
+                              ELSE '[]'::jsonb
+                            END
+                        ) required(name)
+                  WHERE NOT EXISTS (
+                        SELECT 1
+                          FROM (VALUES
+                                  (task.params),
+                                  (task.params->'inputs'),
+                                  (task.params->'env'),
+                                  (task.params->'apiKeys'),
+                                  (task.params->'api_keys')
+                               ) container(value)
+                          JOIN LATERAL jsonb_each(
+                               CASE WHEN jsonb_typeof(container.value) = 'object'
+                                    THEN container.value ELSE '{}'::jsonb END
+                          ) supplied(name, value) ON supplied.name = required.name
+                         WHERE supplied.value <> 'null'::jsonb
+                           AND (
+                                 jsonb_typeof(supplied.value) <> 'string'
+                                 OR btrim(supplied.value #>> '{}') <> ''
+                               )
+                  )
+               )
            AND participant.status = 'available'
            AND agent.workspace_id = task_project.workspace_id
            AND EXISTS (
@@ -255,6 +336,7 @@ pub(crate) const CLAIM_TASK_SQL: &str = r#"UPDATE orchestration_tasks task
            AND task.status IN ('queued', 'blocked')
            AND (task.blocked_reason IS NULL OR task.blocked_reason = 'waiting_agent')
            AND task.assigned_agent_id IS NULL
+           AND task.requires_approval = FALSE
            AND task_group.id = task.group_id
            AND task_group.organization_id = task.organization_id
            AND task_group.deleted_at IS NULL
@@ -310,6 +392,26 @@ pub(crate) const SET_PARTICIPANT_STATUS_SQL: &str = r#"UPDATE participants
          WHERE id = $1
          RETURNING *"#;
 
+/// Match claim/result lock order before expiring tasks and releasing owners.
+pub(crate) const LOCK_EXPIRING_PARTICIPANTS_SQL: &str = r#"SELECT participant.id
+          FROM participants participant
+          JOIN agents agent
+            ON agent.id = participant.agent_id
+           AND agent.organization_id = participant.organization_id
+         WHERE EXISTS (
+               SELECT 1
+                 FROM orchestration_tasks task
+                WHERE task.organization_id = participant.organization_id
+                  AND task.assigned_agent_id = participant.agent_id
+                  AND task.status = 'working'
+                  AND (
+                      (task.lease_expires_at IS NOT NULL AND task.lease_expires_at < NOW())
+                      OR (task.lease_expires_at IS NULL AND participant.status <> 'busy')
+                  )
+               )
+         ORDER BY participant.id
+         FOR UPDATE OF participant, agent"#;
+
 pub(crate) const EXPIRE_WORKING_LEASES_SQL: &str = r#"UPDATE orchestration_tasks
            SET status = 'failed',
                error = jsonb_build_object(
@@ -342,6 +444,7 @@ pub(crate) const EXPIRE_WORKING_LEASES_SQL: &str = r#"UPDATE orchestration_tasks
 
 pub(crate) const RELEASE_PARTICIPANT_AFTER_LEASE_EXPIRY_SQL: &str = r#"UPDATE participants
            SET status = CASE
+               WHEN participants.status = 'offline' THEN 'offline'
                WHEN EXISTS (
                    SELECT 1
                      FROM orchestration_tasks task
@@ -749,13 +852,22 @@ pub async fn mark_stale_offline(client: &Client, pool: &PgPool, stale_after: Dur
 /// that no longer own a `working` task back to `available` and mirror
 /// `agents.status`. Returns the reconciled rows so the caller can broadcast.
 /// NATS-free so the reconcile contract is integration-testable against a pool.
-/// See `RECONCILE_ORPHANED_BUSY_SQL` for why this cannot race a live
-/// claim/release.
+/// Candidate locking plus a fresh-snapshot recheck prevents a delayed sweep
+/// from overwriting a newer claim's `busy` state.
 pub async fn reconcile_orphaned_busy_rows(pool: &PgPool) -> Result<Vec<Participant>> {
-    let participants = sqlx::query_as::<_, Participant>(RECONCILE_ORPHANED_BUSY_SQL).fetch_all(pool).await?;
+    let mut tx = pool.begin().await?;
+    let candidate_ids = sqlx::query_scalar::<_, Uuid>(LOCK_ORPHANED_BUSY_CANDIDATES_SQL).fetch_all(&mut *tx).await?;
+    let participants =
+        sqlx::query_as::<_, Participant>(RECONCILE_ORPHANED_BUSY_SQL).bind(&candidate_ids).fetch_all(&mut *tx).await?;
     for participant in &participants {
-        update_agent_status_from_participant(pool, participant).await?;
+        sqlx::query(UPDATE_AGENT_STATUS_FROM_HEARTBEAT_SQL)
+            .bind(participant.agent_id.as_uuid())
+            .bind(participant.organization_id.as_uuid())
+            .bind("idle")
+            .execute(&mut *tx)
+            .await?;
     }
+    tx.commit().await?;
     Ok(participants)
 }
 
@@ -810,6 +922,7 @@ pub struct ExpiredLeaseOutcome {
 
 pub async fn expire_working_leases(pool: &PgPool, stale_after: Duration) -> Result<Vec<ExpiredLeaseOutcome>> {
     let mut tx = pool.begin().await?;
+    sqlx::query_scalar::<_, Uuid>(LOCK_EXPIRING_PARTICIPANTS_SQL).fetch_all(&mut *tx).await?;
     let expired_tasks = sqlx::query_as::<_, OrchestrationTask>(EXPIRE_WORKING_LEASES_SQL).fetch_all(&mut *tx).await?;
     if !expired_tasks.is_empty() {
         let task_ids: Vec<Uuid> = expired_tasks.iter().map(|task| task.id).collect();
@@ -1322,8 +1435,10 @@ mod tests {
 
     #[test]
     fn reconcile_sql_only_releases_busy_rows_without_a_working_task() {
+        assert!(LOCK_ORPHANED_BUSY_CANDIDATES_SQL.contains("FOR UPDATE OF participant, agent"));
         assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("SET status = 'available'"));
-        assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("WHERE status = 'busy'"));
+        assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("id = ANY($1)"));
+        assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("AND status = 'busy'"));
         assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("NOT EXISTS"));
         assert!(RECONCILE_ORPHANED_BUSY_SQL.contains("task.status = 'working'"));
     }
@@ -1386,7 +1501,12 @@ mod tests {
         assert!(NEXT_DISPATCHABLE_SQL.contains("SELECT task.*"));
         assert!(NEXT_DISPATCHABLE_SQL.contains("FOR UPDATE OF task SKIP LOCKED"));
         assert!(NEXT_DISPATCHABLE_SQL.contains("agent.workspace_id = task_project.workspace_id"));
+        assert!(NEXT_DISPATCHABLE_SQL.contains("task.requires_approval = FALSE"));
+        assert!(NEXT_DISPATCHABLE_SQL.contains("parent.status = 'completed'"));
+        assert!(NEXT_DISPATCHABLE_SQL.contains("prerequisite.status IS DISTINCT FROM 'completed'"));
+        assert!(NEXT_DISPATCHABLE_SQL.contains("requiredInputs"));
         assert!(CLAIM_TASK_SQL.contains("agent.workspace_id = task_project.workspace_id"));
+        assert!(CLAIM_TASK_SQL.contains("task.requires_approval = FALSE"));
     }
 
     #[test]
@@ -1464,6 +1584,58 @@ mod tests {
             .expect("make participant chat-only");
         seed_dispatch_task(&pool, &fixture, Some(fixture.group_b), "Chat-only must skip").await;
         assert!(claim_next_task_for_participant(&pool, agent_id).await.expect("chat-only claim").is_none());
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn claim_skips_inconsistent_approval_input_parent_and_explicit_dependency_rows(pool: sqlx::PgPool) {
+        let fixture = seed_dispatch_fixture(&pool).await;
+        let agent_id = seed_agent_participant(&pool, &fixture).await;
+        let parent = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "unfinished parent").await;
+        let prerequisite = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "unfinished prerequisite").await;
+        sqlx::query("UPDATE orchestration_tasks SET status = 'working' WHERE id = ANY($1)")
+            .bind([parent, prerequisite])
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let approval = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "approval bypass").await;
+        let missing_input = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "input bypass").await;
+        let parent_child = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "parent bypass").await;
+        let dependent = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "dependency bypass").await;
+        sqlx::query(
+            r#"UPDATE orchestration_tasks
+                  SET priority = 'urgent',
+                      created_at = NOW() - INTERVAL '1 hour',
+                      requires_approval = CASE WHEN id = $1 THEN TRUE ELSE requires_approval END,
+                      parent_task_id = CASE WHEN id = $3 THEN $5 ELSE parent_task_id END,
+                      params = CASE
+                          WHEN id = $2 THEN '{"requiredInputs":["MODEL_KEY"],"env":{}}'::jsonb
+                          WHEN id = $4 THEN jsonb_build_object('dependency_ids', jsonb_build_array($6::text))
+                          ELSE params
+                      END
+                WHERE id = ANY($7)"#,
+        )
+        .bind(approval)
+        .bind(missing_input)
+        .bind(parent_child)
+        .bind(dependent)
+        .bind(parent)
+        .bind(prerequisite)
+        .bind([approval, missing_input, parent_child, dependent])
+        .execute(&pool)
+        .await
+        .unwrap();
+        let valid = seed_dispatch_task(&pool, &fixture, Some(fixture.group_a), "valid").await;
+
+        let (claimed, _) = claim_next_task_for_participant(&pool, agent_id).await.unwrap().expect("valid claim");
+        assert_eq!(claimed.id, valid);
+        let invalid_states: Vec<String> =
+            sqlx::query_scalar("SELECT status FROM orchestration_tasks WHERE id = ANY($1) ORDER BY id")
+                .bind([approval, missing_input, parent_child, dependent])
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        assert_eq!(invalid_states, vec!["queued"; 4]);
     }
 
     // An image task is bound to a specific vision-capable container agent and

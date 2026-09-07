@@ -123,6 +123,9 @@ pub struct TaskParamsRequest {
     /// Attachment UUIDs of instruction images (vision-capable container CLI tasks).
     #[serde(default, rename = "imageAttachmentIds")]
     pub image_attachment_ids: Vec<String>,
+    /// Tasks that must complete before this task can enter dispatch.
+    #[serde(default, rename = "dependencyIds")]
+    pub dependency_ids: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -223,6 +226,7 @@ fn extract_params(req: &CreateTaskRequest) -> (String, Option<String>, Option<se
             api_keys: p.api_keys.as_ref(),
             expected_result: p.expected_result.as_ref(),
             image_attachment_ids: &p.image_attachment_ids,
+            dependency_ids: &p.dependency_ids,
         }),
     )
 }
@@ -740,6 +744,21 @@ mod tests {
         let params = params.expect("params");
         assert_eq!(params["requiredInputs"][0], "ANTHROPIC_API_KEY");
         assert!(params.get("env").is_some());
+    }
+
+    #[test]
+    fn create_task_params_preserve_dependency_ids() {
+        let req: CreateTaskRequest = serde_json::from_str(
+            r#"{"params":{"task":"Ship","message":"after checks","dependencyIds":["00000000-0000-0000-0000-000000000001"]}}"#,
+        )
+        .unwrap();
+        let (_title, _description, params) = extract_params(&req);
+        let params = params.expect("params");
+        assert_eq!(params["dependency_ids"][0], "00000000-0000-0000-0000-000000000001");
+
+        assert!(
+            serde_json::from_str::<CreateTaskRequest>(r#"{"params":{"dependencyIds":["not-a-task-id"]}}"#).is_err()
+        );
     }
 
     #[test]

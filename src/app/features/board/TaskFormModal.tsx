@@ -138,6 +138,7 @@ const PROJECT_REQUIRED_ERROR = 'Open project settings before creating a task.'
 const TASK_WAITING_PLACE_REQUIRED_ERROR = 'Set up a place for new tasks before saving this task.'
 const ASSIGNED_AGENT_NOT_READY_ERROR =
   'Choose an agent, or leave this set to Let the next agent start it.'
+const MAX_TASK_DEPENDENCIES = 10
 
 interface TaskFormModalProps {
   isOpen: boolean
@@ -312,20 +313,33 @@ export function TaskFormModal({
     setImagePreviews((prev) => prev.filter((preview) => preview.id !== id))
   }
 
-  const taskOptionsSummary = `${PRIORITY_LABELS[priorityValue]} priority, ${
-    selectedAssignedAgent ? `${selectedAssignedAgent.name} starts first` : 'next agent starts it'
-  }`
   const requiresApproval = watch('requiresApproval')
+  const assignmentMustWait = requiresApproval || dependencyIds.length > 0
+  const taskOptionsSummary = `${PRIORITY_LABELS[priorityValue]} priority, ${
+    assignmentMustWait
+      ? 'agent chosen after the wait'
+      : selectedAssignedAgent
+        ? `${selectedAssignedAgent.name} starts first`
+        : 'next agent starts it'
+  }`
   const submitPreview = !selectedProject
     ? 'Choose a project first. Forge needs a home for this task and its history.'
     : !workLaneReady
       ? 'Set up a place first. Then this task will have somewhere safe to wait.'
       : requiresApproval
         ? 'After you save, the task waits in Needs approval until a person allows it.'
-        : taskWillWaitForAgent
-          ? 'After you save, the task waits here until an agent is ready.'
-          : 'After you create it, the next agent can start it from this project.'
+        : dependencyIds.length > 0
+          ? `After you save, the task waits until ${dependencyIds.length === 1 ? 'the selected task finishes' : 'all selected tasks finish'}.`
+          : taskWillWaitForAgent
+            ? 'After you save, the task waits here until an agent is ready.'
+            : 'After you create it, the next agent can start it from this project.'
   const TaskTemplateDisclosureIcon = taskTemplatesOpen ? ChevronDown : ChevronRight
+
+  useEffect(() => {
+    if (assignmentMustWait && assignedToValue) {
+      setValue('assignedTo', '', { shouldDirty: true })
+    }
+  }, [assignedToValue, assignmentMustWait, setValue])
 
   // The error banner renders partway down a scrollable dialog (below the
   // header and project panels) while the submit button sits at the bottom, so
@@ -341,6 +355,7 @@ export function TaskFormModal({
     if (isOpen) {
       setSubmitError(null)
       setSelectedTemplateId(null)
+      setDependencyIds([])
       setConfirmIncompleteBrief(false)
       setTaskTemplatesOpen(true)
       setTaskOptionsOpen(false)
@@ -428,11 +443,13 @@ export function TaskFormModal({
       return
     }
     reset()
+    setDependencyIds([])
     onClose()
   }
 
   async function handleProjectChange(projectId: string) {
     setSubmitError(null)
+    setDependencyIds([])
     setConfirmIncompleteBrief(false)
     if (!projectId || !onProjectChange) return
     setSelectingProject(true)
@@ -1004,6 +1021,7 @@ export function TaskFormModal({
                     <select
                       id="task-assigned-to"
                       {...register('assignedTo')}
+                      disabled={assignmentMustWait}
                       className={cn(uiStyles.select, 'w-full')}
                     >
                       <option value="">Let the next agent start it</option>
@@ -1014,9 +1032,11 @@ export function TaskFormModal({
                       ))}
                     </select>
                     <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                      {taskWillWaitForAgent
-                        ? 'This task will wait here until an agent is ready.'
-                        : 'Use the next agent when any agent can do the work.'}
+                      {assignmentMustWait
+                        ? 'Choose an agent after this task is ready to start.'
+                        : taskWillWaitForAgent
+                          ? 'This task will wait here until an agent is ready.'
+                          : 'Use the next agent when any agent can do the work.'}
                     </p>
                   </div>
                 </div>
@@ -1045,8 +1065,8 @@ export function TaskFormModal({
                   none ahead of it.
                 </p>
               ) : (
-                <div className="mt-1.5 flex flex-col gap-1.5">
-                  {boardTasks.slice(0, 8).map((task) => (
+                <div className="mt-1.5 flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+                  {boardTasks.map((task) => (
                     <label
                       key={task.id}
                       className="flex items-center gap-2 text-ui-body text-foreground-light dark:text-foreground-dark"
@@ -1054,10 +1074,14 @@ export function TaskFormModal({
                       <input
                         type="checkbox"
                         checked={dependencyIds.includes(task.id)}
+                        disabled={
+                          dependencyIds.length >= MAX_TASK_DEPENDENCIES &&
+                          !dependencyIds.includes(task.id)
+                        }
                         onChange={(event) => {
                           setDependencyIds((current) => {
                             if (event.target.checked) {
-                              if (current.length >= 5) return current
+                              if (current.length >= MAX_TASK_DEPENDENCIES) return current
                               return [...current, task.id]
                             }
                             return current.filter((id) => id !== task.id)
@@ -1068,6 +1092,9 @@ export function TaskFormModal({
                       <span className="min-w-0 truncate">{task.params.task}</span>
                     </label>
                   ))}
+                  <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
+                    Choose up to {MAX_TASK_DEPENDENCIES} tasks.
+                  </p>
                 </div>
               )}
             </div>

@@ -503,7 +503,7 @@ async fn main() -> Result<()> {
     // (issue #37). Periodically catches `blocked/waiting_dependency` rows
     // whose parent already completed and flips them back to `queued`.
     let dependency_reconcile_handle = {
-        let worker = DependencyReconcileWorker::new(pool.clone());
+        let worker = DependencyReconcileWorker::new(pool.clone()).with_realtime_client(nats.client().cloned());
         let worker_shutdown = shutdown_rx.clone();
         tokio::spawn(async move { worker.run(worker_shutdown).await })
     };

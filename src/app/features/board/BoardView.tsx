@@ -1,7 +1,7 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, FolderKanban } from 'lucide-react'
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
@@ -29,7 +29,6 @@ import {
   type BoardPriorityFilter,
 } from './BoardToolbar'
 import { boardActionErrorMessage } from './boardErrorMessages'
-import { useWebSocket } from '@app/shared/model/websocket.context'
 import { staleTaskCount } from './model/staleTasks'
 
 const COLUMN_ORDER: ColumnId[] = [
@@ -58,13 +57,13 @@ interface BoardViewProps {
 export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewProps = {}) {
   const {
     columns,
-    moveTask,
     upsertTask,
     selectedGroupId,
     setSelectedGroupId,
     loading,
     error,
     setTasks,
+    clearTasks,
     setLoading,
     setError,
   } = useBoardStore()
@@ -72,8 +71,6 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const agentGroups = useNavigationStore((s) => s.agentGroups)
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
-  const { status: wsStatus } = useWebSocket()
-  const wsStatusRef = useRef(wsStatus)
   const [activeTask, setActiveTask] = useState<TaskSummary | null>(null)
   const [previewTask, setPreviewTask] = useState<TaskSummary | null>(null)
   const [preview, setPreview] = useState<ContextPreviewResponse | null>(null)
@@ -139,10 +136,6 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   )
 
   useEffect(() => {
-    wsStatusRef.current = wsStatus
-  }, [wsStatus])
-
-  useEffect(() => {
     if (!selectedGroupId) return
     const groupId = selectedGroupId
     let cancelled = false
@@ -150,7 +143,6 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     void loadTasksForGroup(groupId, true, shouldApply)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
-      if (wsStatusRef.current === 'connected') return
       void loadTasksForGroup(groupId, false, shouldApply)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => {
@@ -172,6 +164,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
           ? 'No stale tasks to retire — everything in this queue is still active.'
           : `Retired ${result.count} stale task${result.count === 1 ? '' : 's'}. The queue now shows only active work.`
       )
+      clearTasks()
       await loadTasksForGroup(selectedGroupId, true)
     } catch (err) {
       setActionError(boardActionErrorMessage('retireStaleTasks', err))
@@ -257,7 +250,6 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     void loadParticipants(true)
     const fallbackRefresh = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return
-      if (wsStatusRef.current === 'connected') return
       void loadParticipants(false)
     }, BOARD_FALLBACK_REFRESH_MS)
     return () => window.clearInterval(fallbackRefresh)
@@ -297,17 +289,12 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     }
 
     const newState = colId === 'done' ? 'completed' : colId
-    const previousCol = currentCol
-
-    // Optimistic update
     setActionError(null)
-    moveTask(taskId, colId)
 
     try {
-      await orchestrationApi.updateTask(taskId, { state: newState })
+      const response = await orchestrationApi.updateTask(taskId, { state: newState })
+      if (response.task) upsertTask(response.task)
     } catch (err) {
-      // Rollback on failure
-      if (previousCol) moveTask(taskId, previousCol)
       setActionError(boardActionErrorMessage('moveTask', err))
       console.error('Failed to persist task move')
     }
@@ -455,164 +442,171 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   return (
     <>
       <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex h-full flex-col gap-3 p-1">
-        <AssignmentReadinessPanel
-          participants={participants}
-          workload={workload}
-          loading={participantsLoading}
-          error={participantsError}
-          onRefresh={() => void loadParticipants(true)}
-        />
-        <BoardToolbar
-          taskDestinationSelector={
-            <AgentGroupSelector
-              groups={agentGroups}
-              selectedGroupId={selectedGroupId}
-              selectedProjectId={selectedProjectId}
-              onSelectGroup={setSelectedGroupId}
-            />
-          }
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          priorityFilter={priorityFilter}
-          onPriorityFilterChange={setPriorityFilter}
-          assigneeFilter={assigneeFilter}
-          onAssigneeFilterChange={setAssigneeFilter}
-          displayMode={displayMode}
-          onDisplayModeChange={setDisplayMode}
-          counts={filterCounts}
-          onClear={clearBoardFilters}
-          onExportTasks={() => void handleExportTasks()}
-          exporting={exporting}
-          onRetireStale={() => setRetireConfirmOpen(true)}
-          retiring={retiring}
-        />
-        {actionError ? (
-          <div
-            data-testid="board-action-error"
-            role="alert"
-            aria-live="polite"
-            className={cn(uiStyles.error, 'mb-0')}
-          >
-            {actionError}
-          </div>
-        ) : actionNotice ? (
-          <div
-            data-testid="board-action-notice"
-            role="status"
-            aria-live="polite"
-            className="mb-0 rounded-card border border-apple-green/25 bg-apple-green/[0.07] px-3 py-2 text-ui-caption font-medium text-apple-green"
-          >
-            {actionNotice}
-          </div>
-        ) : null}
-        {hasActiveBoardFilter && filterCounts.visible === 0 ? (
-          <div
-            data-testid="board-filter-empty"
-            role="status"
-            aria-live="polite"
-            className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10"
-          >
-            <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
-              {boardFilterEmpty.title}
-            </p>
-            <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-              {boardFilterEmpty.detail}
-            </p>
-            <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
-              {boardFilterEmpty.nextStep}
-            </p>
-            <button type="button" onClick={clearBoardFilters} className={uiStyles.secondaryButton}>
-              Show all tasks
-            </button>
-          </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto md:flex-row md:overflow-x-auto md:overflow-y-hidden">
-            {COLUMN_ORDER.map((colId) => (
-              <KanbanColumn
-                key={colId}
-                columnId={colId}
-                tasks={visibleColumns[colId]}
-                onTaskClick={(taskId) =>
-                  void navigate({ to: '/tasks/$taskId', params: { taskId } })
-                }
-                onTaskPublish={
-                  canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
-                }
-                onQuickCreate={handleQuickCreate}
-                displayMode={displayMode}
-                humanMarks={humanMarks}
+        <div className="flex h-full flex-col gap-3 p-1">
+          <AssignmentReadinessPanel
+            participants={participants}
+            workload={workload}
+            loading={participantsLoading}
+            error={participantsError}
+            onRefresh={() => void loadParticipants(true)}
+          />
+          <BoardToolbar
+            taskDestinationSelector={
+              <AgentGroupSelector
+                groups={agentGroups}
+                selectedGroupId={selectedGroupId}
+                selectedProjectId={selectedProjectId}
+                onSelectGroup={setSelectedGroupId}
               />
-            ))}
-          </div>
-        )}
-      </div>
-      <DragOverlay>{activeTask ? <TaskCard task={activeTask} /> : null}</DragOverlay>
-      <InjectionPreviewModal
-        isOpen={previewTask !== null}
-        preview={preview}
-        loading={previewLoading}
-        publishing={publishing}
-        error={previewError}
-        onClose={() => {
-          if (!publishing) {
-            setPreviewTask(null)
-            setPreview(null)
-          }
-        }}
-        onConfirm={(selection) => void publishPreview(selection)}
-      />
-    </DndContext>
-    {retireConfirmOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-4">
-        <button
-          type="button"
-          aria-label="Close retire confirmation"
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-          onClick={() => setRetireConfirmOpen(false)}
+            }
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            priorityFilter={priorityFilter}
+            onPriorityFilterChange={setPriorityFilter}
+            assigneeFilter={assigneeFilter}
+            onAssigneeFilterChange={setAssigneeFilter}
+            displayMode={displayMode}
+            onDisplayModeChange={setDisplayMode}
+            counts={filterCounts}
+            onClear={clearBoardFilters}
+            onExportTasks={() => void handleExportTasks()}
+            exporting={exporting}
+            onRetireStale={() => setRetireConfirmOpen(true)}
+            retiring={retiring}
+          />
+          {actionError ? (
+            <div
+              data-testid="board-action-error"
+              role="alert"
+              aria-live="polite"
+              className={cn(uiStyles.error, 'mb-0')}
+            >
+              {actionError}
+            </div>
+          ) : actionNotice ? (
+            <div
+              data-testid="board-action-notice"
+              role="status"
+              aria-live="polite"
+              className="mb-0 rounded-card border border-apple-green/25 bg-apple-green/[0.07] px-3 py-2 text-ui-caption font-medium text-apple-green"
+            >
+              {actionNotice}
+            </div>
+          ) : null}
+          {hasActiveBoardFilter && filterCounts.visible === 0 ? (
+            <div
+              data-testid="board-filter-empty"
+              role="status"
+              aria-live="polite"
+              className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 rounded-card border border-dashed border-black/10 px-6 text-center dark:border-white/10"
+            >
+              <p className="text-ui-section font-semibold text-foreground-light dark:text-foreground-dark">
+                {boardFilterEmpty.title}
+              </p>
+              <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
+                {boardFilterEmpty.detail}
+              </p>
+              <p className="max-w-sm text-ui-body text-secondary-light dark:text-secondary-dark">
+                {boardFilterEmpty.nextStep}
+              </p>
+              <button
+                type="button"
+                onClick={clearBoardFilters}
+                className={uiStyles.secondaryButton}
+              >
+                Show all tasks
+              </button>
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto md:flex-row md:overflow-x-auto md:overflow-y-hidden">
+              {COLUMN_ORDER.map((colId) => (
+                <KanbanColumn
+                  key={colId}
+                  columnId={colId}
+                  tasks={visibleColumns[colId]}
+                  onTaskClick={(taskId) =>
+                    void navigate({ to: '/tasks/$taskId', params: { taskId } })
+                  }
+                  onTaskPublish={
+                    canPublishWithContext ? (task) => void openPublishPreview(task) : undefined
+                  }
+                  onQuickCreate={handleQuickCreate}
+                  displayMode={displayMode}
+                  humanMarks={humanMarks}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        <DragOverlay>{activeTask ? <TaskCard task={activeTask} /> : null}</DragOverlay>
+        <InjectionPreviewModal
+          isOpen={previewTask !== null}
+          preview={preview}
+          loading={previewLoading}
+          publishing={publishing}
+          error={previewError}
+          onClose={() => {
+            if (!publishing) {
+              setPreviewTask(null)
+              setPreview(null)
+            }
+          }}
+          onConfirm={(selection) => void publishPreview(selection)}
         />
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="retire-stale-title"
-          className="relative w-full max-w-md rounded-panel border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
-        >
-          <h2
-            id="retire-stale-title"
-            className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
+      </DndContext>
+      {retireConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-4">
+          <button
+            type="button"
+            aria-label="Close retire confirmation"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setRetireConfirmOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="retire-stale-title"
+            className="relative w-full max-w-md rounded-panel border border-black/[0.08] bg-white p-4 dark:border-white/[0.1] dark:bg-surface-dark"
           >
-            Retire stale tasks?
-          </h2>
-          <p className="mt-2 text-ui-body text-secondary-light dark:text-secondary-dark" data-testid="retire-stale-summary">
-            {staleCount === 0
-              ? 'No stale tasks in this queue right now — everything is still active.'
-              : `${staleCount} stale task${staleCount === 1 ? '' : 's'}: backlog or queued work that has not changed for at least 7 days and was never started. Closed tasks stay in history, and you can retry one later from its task page.`}
-          </p>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              className={uiStyles.secondaryButton}
-              onClick={() => setRetireConfirmOpen(false)}
+            <h2
+              id="retire-stale-title"
+              className="text-ui-title font-semibold text-foreground-light dark:text-foreground-dark"
             >
-              Keep them
-            </button>
-            <button
-              type="button"
-              data-testid="board-retire-confirm"
-              className={uiStyles.primaryButton}
-              onClick={() => void handleRetireStale()}
-              disabled={retiring || staleCount === 0}
+              Retire stale tasks?
+            </h2>
+            <p
+              className="mt-2 text-ui-body text-secondary-light dark:text-secondary-dark"
+              data-testid="retire-stale-summary"
             >
-              {retiring
-                ? 'Retiring...'
-                : staleCount === 0
-                  ? 'Queue is clean'
-                  : 'Retire stale tasks'}
-            </button>
+              {staleCount === 0
+                ? 'No stale tasks in this queue right now — everything is still active.'
+                : `${staleCount} stale task${staleCount === 1 ? '' : 's'}: backlog or queued work that has not changed for at least 7 days and was never started. Closed tasks stay in history, and you can retry one later from its task page.`}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className={uiStyles.secondaryButton}
+                onClick={() => setRetireConfirmOpen(false)}
+              >
+                Keep them
+              </button>
+              <button
+                type="button"
+                data-testid="board-retire-confirm"
+                className={uiStyles.primaryButton}
+                onClick={() => void handleRetireStale()}
+                disabled={retiring || staleCount === 0}
+              >
+                {retiring
+                  ? 'Retiring...'
+                  : staleCount === 0
+                    ? 'Queue is clean'
+                    : 'Retire stale tasks'}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </>
   )
 }
