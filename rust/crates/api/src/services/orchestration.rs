@@ -322,7 +322,9 @@ impl OrchestrationService {
             return Err(crate::domain::instruction_image::images_require_assigned_vision_agent());
         }
         let missing_inputs = BlockedTaskPolicy::missing_required_inputs(params.as_ref());
+        TaskDependencyPolicy::ensure_within_limit(params.as_ref())?;
         let dependencies = TaskDependencyPolicy::from_params(params.as_ref());
+        let dependencies_unresolved = self.dependencies_unresolved(scope, &dependencies).await?;
         // Parent status gates child creation on waiting_dependency. Missing
         // parents become validation errors; infrastructure failures propagate.
         let parent_status = if let Some(parent_id) = parent_task_id {
@@ -337,6 +339,11 @@ impl OrchestrationService {
         };
 
         if let Some(agent_id) = assigned_to {
+            TaskCreationPolicy::ensure_assigned_task_can_start(
+                &missing_inputs,
+                parent_status.as_deref(),
+                dependencies_unresolved,
+            )?;
             return self
                 .create_task_with_assignee(
                     scope,
@@ -355,7 +362,7 @@ impl OrchestrationService {
             &missing_inputs,
             requires_approval,
             parent_status.as_deref(),
-            &dependencies,
+            if dependencies_unresolved { &dependencies } else { &[] },
         );
 
         let task = self
@@ -379,7 +386,7 @@ impl OrchestrationService {
             )
             .await?;
 
-        Ok(task)
+        self.release_ready_dependency_block(scope, task, "backlog").await
     }
 
     /// List tasks with optional status + agent filters and pagination (org-scoped).
@@ -507,6 +514,8 @@ impl OrchestrationService {
                     assigned_agent_id: assigned_to,
                     blocked_reason: None,
                     blocked_metadata: None,
+                    expected_status: current_for_guard.as_ref().map(|task| task.status.clone()),
+                    expected_row_version: current_for_guard.as_ref().map(|task| task.row_version),
                 },
             )
             .await?;
@@ -520,17 +529,18 @@ impl OrchestrationService {
     /// Cancel a task (terminal).
     pub async fn cancel_task(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, id).await?;
+        TaskLifecyclePolicy::ensure_can_cancel(&task.status)?;
         let mut tx = self
             .task_repo
             .pool()
             .begin()
             .await
             .map_err(|err| OrchestrationTransactionPolicy::begin_failed("cancel_task", err))?;
-        let updated = OrchestrationTaskRepository::cancel_in_tx(&mut tx, scope, id).await?;
+        let updated = OrchestrationTaskRepository::cancel_in_tx(&mut tx, scope, id, task.row_version).await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, id, "canceled").await?;
         tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("cancel_task", err))?;
         if let Some(agent_id) = task.assigned_agent_id
-            && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
+            && let Err(err) = self.participant_repo.release_if_idle(scope, agent_id).await
         {
             tracing::warn!(error = ?err, agent_id = %agent_id, "Failed to release participant on cancel");
         }
@@ -543,8 +553,45 @@ impl OrchestrationService {
     /// Retry a terminal task: reset to backlog and re-attempt dispatch.
     pub async fn retry_task(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, id).await?;
-        TaskLifecyclePolicy::ensure_can_retry(&task.status, task.blocked_reason.as_deref(), task.requires_approval)?;
-        let reset = self.task_repo.retry(scope, id).await?;
+        TaskLifecyclePolicy::ensure_can_retry(
+            &task.status,
+            task.blocked_reason.as_deref(),
+            task.requires_approval,
+            task.retryable,
+        )?;
+        TaskDependencyPolicy::ensure_within_limit(task.params.as_ref())?;
+        let missing_inputs = BlockedTaskPolicy::missing_required_inputs(task.params.as_ref());
+        let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
+        let dependencies_unresolved = self.dependencies_unresolved(scope, &dependencies).await?;
+        let parent_status = if let Some(parent_id) = task.parent_task_id {
+            let parent = self
+                .task_repo
+                .find_by_id(scope, parent_id)
+                .await
+                .map_err(|err| TaskCreationPolicy::map_parent_lookup_error(parent_id, err))?;
+            Some(parent.status)
+        } else {
+            None
+        };
+        let initial_state = TaskCreationPolicy::initial_unassigned_state(
+            &missing_inputs,
+            task.requires_approval,
+            parent_status.as_deref(),
+            if dependencies_unresolved { &dependencies } else { &[] },
+        );
+        let reset = self
+            .task_repo
+            .retry(
+                scope,
+                id,
+                &task.status,
+                task.row_version,
+                initial_state.initial_status,
+                initial_state.initial_blocked_reason,
+                initial_state.initial_blocked_metadata,
+            )
+            .await?;
+        let reset = self.release_ready_dependency_block(scope, reset, "backlog").await?;
         self.try_auto_dispatch(scope, reset).await
     }
 
@@ -553,13 +600,10 @@ impl OrchestrationService {
     /// auto-dispatcher invoked on create / heartbeat.
     pub async fn dispatch_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
-        if self.prerequisites_unresolved(scope, &task).await? {
-            return Ok(task);
-        }
-
         // Explicit operator dispatch: tolerates a #793/#875 waiting_verification
         // re-run; the auto-sweep keeps the stricter `can_enter_dispatch`.
         BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
+        self.ensure_task_prerequisites_ready(scope, &task).await?;
 
         let participant = self.participant_repo.find_available(scope, task.id).await?.ok_or_else(
             || -> agentforge_core::AppError { BlockedTaskPolicy::no_available_participants_error().into() },
@@ -568,61 +612,104 @@ impl OrchestrationService {
         self.assign_to_participant(scope, &task, &participant).await
     }
 
-    /// Release blocked tasks whose declared prerequisites are now all
-    /// completed; returns how many were promoted to `queued`. Best-effort:
-    /// a failure only delays the promotion, not the completion itself.
-    async fn release_prerequisites(&self, scope: &TenantScope, completed_id: Uuid) -> AppResult<usize> {
-        let candidates = self.task_repo.dependent_task_ids(scope, completed_id).await?;
-        let mut released = 0;
-        for id in candidates {
-            let Ok(task) = self.task_repo.find_by_id(scope, id).await else { continue };
-            let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
-            let mut statuses: Vec<(uuid::Uuid, String)> = Vec::new();
-            for dependency in &dependencies {
-                match self.task_repo.find_by_id(scope, *dependency).await {
-                    Ok(dep) => statuses.push((*dependency, dep.status.clone())),
-                    Err(_) => statuses.push((*dependency, "missing".to_string())),
-                }
-            }
-            if TaskDependencyPolicy::unresolved(&dependencies, &statuses) {
-                continue;
-            }
-            let updated = self
-                .task_repo
-                .patch(
-                    scope,
-                    id,
-                    UpdateTaskRow {
-                        status: Some("queued".to_string()),
-                        blocked_reason: Some(None),
-                        blocked_metadata: Some(None),
-                        progress: None,
-                        priority: None,
-                        assigned_agent_id: None,
-                    },
-                )
-                .await?;
-            released += 1;
-            let _ = self.try_auto_dispatch(scope, updated).await?;
-        }
-        Ok(released)
-    }
-
     /// True when the task declares prerequisites that are not all completed
     /// (params `dependency_ids`); such tasks must not dispatch.
     async fn prerequisites_unresolved(&self, scope: &TenantScope, task: &OrchestrationTask) -> AppResult<bool> {
+        if let Some(parent_id) = task.parent_task_id {
+            let parent = self
+                .task_repo
+                .find_by_id(scope, parent_id)
+                .await
+                .map_err(|err| TaskCreationPolicy::map_parent_lookup_error(parent_id, err))?;
+            if BlockedTaskPolicy::needs_dependency_block(Some(&parent.status)) {
+                return Ok(true);
+            }
+        }
         let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
+        self.dependencies_unresolved(scope, &dependencies).await
+    }
+
+    async fn release_ready_dependency_block(
+        &self,
+        scope: &TenantScope,
+        task: OrchestrationTask,
+        ready_status: &str,
+    ) -> AppResult<OrchestrationTask> {
+        if task.status != "blocked" || task.blocked_reason.as_deref() != Some("waiting_dependency") {
+            return Ok(task);
+        }
+        TaskDependencyPolicy::ensure_within_limit(task.params.as_ref())?;
+        if task.requires_approval
+            || !BlockedTaskPolicy::missing_required_inputs(task.params.as_ref()).is_empty()
+            || self.prerequisites_unresolved(scope, &task).await?
+        {
+            return Ok(task);
+        }
+        match self.task_repo.release_waiting_dependency(scope, task.id, ready_status).await? {
+            Some(released) => Ok(released),
+            None => self.task_repo.find_by_id(scope, task.id).await,
+        }
+    }
+
+    async fn ensure_task_prerequisites_ready(&self, scope: &TenantScope, task: &OrchestrationTask) -> AppResult<()> {
+        TaskDependencyPolicy::ensure_within_limit(task.params.as_ref())?;
+        let parent_status = if let Some(parent_id) = task.parent_task_id {
+            let parent = self
+                .task_repo
+                .find_by_id(scope, parent_id)
+                .await
+                .map_err(|err| TaskCreationPolicy::map_parent_lookup_error(parent_id, err))?;
+            Some(parent.status)
+        } else {
+            None
+        };
+        let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
+        let dependencies_unresolved = self.dependencies_unresolved(scope, &dependencies).await?;
+        TaskCreationPolicy::ensure_assigned_task_can_start(
+            &BlockedTaskPolicy::missing_required_inputs(task.params.as_ref()),
+            parent_status.as_deref(),
+            dependencies_unresolved,
+        )
+    }
+
+    async fn ensure_task_prerequisites_ready_in_tx(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: &TenantScope,
+        params: Option<&serde_json::Value>,
+        parent_task_id: Option<Uuid>,
+    ) -> AppResult<()> {
+        TaskDependencyPolicy::ensure_within_limit(params)?;
+        let dependencies = TaskDependencyPolicy::from_params(params);
+        let mut prerequisite_ids = dependencies.clone();
+        if let Some(parent_id) = parent_task_id {
+            prerequisite_ids.push(parent_id);
+        }
+        prerequisite_ids.sort_unstable();
+        prerequisite_ids.dedup();
+        let statuses = OrchestrationTaskRepository::lock_statuses_in_tx(tx, scope, &prerequisite_ids).await?;
+        let parent_status = parent_task_id.map(|parent_id| {
+            statuses.iter().find_map(|(id, status)| (*id == parent_id).then_some(status.as_str())).unwrap_or("missing")
+        });
+        TaskCreationPolicy::ensure_assigned_task_can_start(
+            &BlockedTaskPolicy::missing_required_inputs(params),
+            parent_status,
+            TaskDependencyPolicy::unresolved(&dependencies, &statuses),
+        )
+    }
+
+    async fn dependencies_unresolved(&self, scope: &TenantScope, dependencies: &[Uuid]) -> AppResult<bool> {
         if dependencies.is_empty() {
             return Ok(false);
         }
         let mut statuses: Vec<(uuid::Uuid, String)> = Vec::new();
-        for dependency in &dependencies {
+        for dependency in dependencies {
             match self.task_repo.find_by_id(scope, *dependency).await {
                 Ok(dep) => statuses.push((*dependency, dep.status.clone())),
                 Err(_) => statuses.push((*dependency, "missing".to_string())),
             }
         }
-        Ok(TaskDependencyPolicy::unresolved(&dependencies, &statuses))
+        Ok(TaskDependencyPolicy::unresolved(dependencies, &statuses))
     }
 
     /// Try to dispatch a task to an available participant. If no participant is
@@ -648,7 +735,7 @@ impl OrchestrationService {
             tracing::info!(task_id = %task.id, "Image task without assignee — blocked pending vision-capable assignment");
             return self
                 .task_repo
-                .mark_blocked(scope, task.id, BlockedTaskPolicy::waiting_agent_reason(), metadata)
+                .mark_blocked_if_unchanged(scope, &task, BlockedTaskPolicy::waiting_agent_reason(), metadata)
                 .await;
         }
         match self.participant_repo.find_available(scope, task.id).await? {
@@ -657,7 +744,9 @@ impl OrchestrationService {
                 let (available, busy, offline) = self.participant_repo.count_by_status(scope, task.id).await?;
                 let metadata = BlockedTaskPolicy::waiting_agent_metadata(available, busy, offline);
                 tracing::info!(task_id = %task.id, busy, offline, "No available participant — task blocked on waiting_agent");
-                self.task_repo.mark_blocked(scope, task.id, BlockedTaskPolicy::waiting_agent_reason(), metadata).await
+                self.task_repo
+                    .mark_blocked_if_unchanged(scope, &task, BlockedTaskPolicy::waiting_agent_reason(), metadata)
+                    .await
             }
         }
     }
@@ -771,6 +860,12 @@ impl OrchestrationService {
             .map_err(|err| OrchestrationTransactionPolicy::begin_failed("assignment", err))?;
         let participant =
             ParticipantRepository::claim_for_task_in_tx(&mut tx, scope, task, participant.agent_id).await?;
+        if let Err(err) =
+            self.ensure_task_prerequisites_ready_in_tx(&mut tx, scope, task.params.as_ref(), task.parent_task_id).await
+        {
+            let _ = tx.rollback().await;
+            return Err(err);
+        }
         let task = match OrchestrationTaskRepository::assign_agent_in_tx(
             &mut tx,
             scope,
@@ -900,6 +995,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
         BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
+        self.ensure_task_prerequisites_ready(scope, &task).await?;
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
@@ -919,6 +1015,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
         BlockedTaskPolicy::ensure_operator_can_dispatch(&task.status, task.blocked_reason.as_deref())?;
+        self.ensure_task_prerequisites_ready(scope, &task).await?;
 
         let participant = self.participant_repo.find_by_agent_id(scope, agent_id).await?;
         ParticipantAvailabilityPolicy::ensure_available(
@@ -939,10 +1036,16 @@ impl OrchestrationService {
                 break;
             };
             match self.try_auto_dispatch(scope, task).await {
-                Ok(t) => match DispatchSweepPolicy::after_dispatch_attempt(&t.status) {
-                    DispatchSweepDecision::ClaimedTask => claimed += 1,
-                    DispatchSweepDecision::Stop => break,
-                },
+                Ok(t) => {
+                    let decision = DispatchSweepPolicy::after_dispatch_attempt(&t.status);
+                    let action =
+                        if decision == DispatchSweepDecision::ClaimedTask { "task.dispatched" } else { "task.blocked" };
+                    self.broadcast_task_update_by_id(scope, t.id, action).await;
+                    match decision {
+                        DispatchSweepDecision::ClaimedTask => claimed += 1,
+                        DispatchSweepDecision::Stop => break,
+                    }
+                }
                 Err(err) => {
                     tracing::error!(error = ?err, "Auto-dispatch sweep aborted");
                     break;
@@ -961,6 +1064,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
+        TaskLifecyclePolicy::ensure_no_active_delivery(&task.status, task.last_assignment_id)?;
         TaskLifecyclePolicy::ensure_can_complete(&task.status, task.blocked_reason.as_deref())?;
 
         // Issue #37: parent completion + waiting_dependency unblock must commit
@@ -984,8 +1088,15 @@ impl OrchestrationService {
             .begin()
             .await
             .map_err(|err| OrchestrationTransactionPolicy::begin_failed("complete_task", err))?;
-        let updated =
-            OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, "completed", result).await?;
+        let updated = OrchestrationTaskRepository::set_result_in_tx(
+            &mut tx,
+            scope,
+            task_id,
+            task.row_version,
+            "completed",
+            result,
+        )
+        .await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "completed").await?;
         let unblocked_children =
             OrchestrationTaskRepository::unblock_children_of_in_tx(&mut tx, scope, task_id).await?;
@@ -1020,13 +1131,12 @@ impl OrchestrationService {
                 "Unblocked children on parent completion"
             );
         }
-
         // Post-commit: release the participant so it's eligible for the next
         // sweep. Failure here doesn't roll back the completion (the row's
         // already terminal); operators can rely on the heartbeat path or
         // an admin tool to fix the participant row.
         if let Some(agent_id) = task.assigned_agent_id
-            && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
+            && let Err(err) = self.participant_repo.release_if_idle(scope, agent_id).await
         {
             tracing::error!(error = ?err, agent_id = %agent_id, "Failed to release participant after completion");
         }
@@ -1035,10 +1145,8 @@ impl OrchestrationService {
         if let Err(err) = self.sweep_dispatchable(scope).await {
             tracing::error!(error = ?err, task_id = %task_id, "Post-completion sweep failed");
         }
-        // Prerequisite release: promote blocked dependents whose declared
-        // prerequisites are all completed (best-effort, post-commit).
-        if let Err(err) = self.release_prerequisites(scope, task_id).await {
-            tracing::error!(error = ?err, task_id = %task_id, "Prerequisite release sweep failed");
+        for child in &unblocked_children {
+            self.broadcast_task_update_by_id(scope, child.id, "task.dependencies_ready").await;
         }
         Ok(updated)
     }
@@ -1052,6 +1160,7 @@ impl OrchestrationService {
     ) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
 
+        TaskLifecyclePolicy::ensure_no_active_delivery(&task.status, task.last_assignment_id)?;
         TaskLifecyclePolicy::ensure_can_fail(&task.status)?;
 
         if let Some(metadata) = QuotaBlockPolicy::metadata(&error) {
@@ -1065,6 +1174,7 @@ impl OrchestrationService {
                 &mut tx,
                 scope,
                 task_id,
+                task.row_version,
                 "quota_exceeded",
                 metadata,
                 error,
@@ -1075,7 +1185,7 @@ impl OrchestrationService {
                 .await?;
             tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("quota block", err))?;
             if let Some(agent_id) = task.assigned_agent_id
-                && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
+                && let Err(err) = self.participant_repo.release_if_idle(scope, agent_id).await
             {
                 tracing::error!(error = ?err, agent_id = %agent_id, "Failed to release participant after quota block");
             }
@@ -1088,13 +1198,15 @@ impl OrchestrationService {
             .begin()
             .await
             .map_err(|err| OrchestrationTransactionPolicy::begin_failed("fail_task", err))?;
-        let updated = OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, "failed", error).await?;
+        let updated =
+            OrchestrationTaskRepository::set_result_in_tx(&mut tx, scope, task_id, task.row_version, "failed", error)
+                .await?;
         self.task_run_repo.finish_current_in_tx(&mut tx, scope, task_id, "failed").await?;
         upsert_task_owner_lifecycle_notification_in_tx(&mut tx, &updated, None, TaskOwnerNotificationKind::Failed)
             .await?;
         tx.commit().await.map_err(|err| OrchestrationTransactionPolicy::commit_failed("fail_task", err))?;
         if let Some(agent_id) = task.assigned_agent_id
-            && let Err(err) = self.participant_repo.update_status(scope, agent_id, "available").await
+            && let Err(err) = self.participant_repo.release_if_idle(scope, agent_id).await
         {
             tracing::error!(error = ?err, agent_id = %agent_id, "Failed to release participant after failure");
         }
@@ -1105,8 +1217,9 @@ impl OrchestrationService {
     }
 
     /// Approve a task created with `requiresApproval=true`. Approval clears the
-    /// human gate, then either queues the task or keeps it blocked on an
-    /// unfinished parent. Queued tasks immediately re-enter auto-dispatch.
+    /// human gate, then either queues the task or keeps it blocked until every
+    /// parent and explicit prerequisite is complete. Queued tasks immediately
+    /// re-enter auto-dispatch.
     pub async fn approve_task(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<OrchestrationTask> {
         let task = self.task_repo.find_by_id(scope, task_id).await?;
         TaskLifecyclePolicy::ensure_can_approve(&task.status, task.blocked_reason.as_deref(), task.requires_approval)?;
@@ -1116,12 +1229,30 @@ impl OrchestrationService {
         } else {
             None
         };
-        let (next_status, next_reason, next_metadata) =
-            BlockedTaskPolicy::approval_release_state(parent_status.as_deref());
+        TaskDependencyPolicy::ensure_within_limit(task.params.as_ref())?;
+        let dependencies = TaskDependencyPolicy::from_params(task.params.as_ref());
+        let dependencies_unresolved = self.dependencies_unresolved(scope, &dependencies).await?;
+        let release_state = TaskCreationPolicy::initial_unassigned_state(
+            &[],
+            false,
+            parent_status.as_deref(),
+            if dependencies_unresolved { &dependencies } else { &[] },
+        );
+        let next_status =
+            if release_state.initial_status == "backlog" { "queued" } else { release_state.initial_status };
         let approved = self
             .task_repo
-            .approve_waiting_task(scope, task_id, scope.user_id(), next_status, next_reason, next_metadata)
+            .approve_waiting_task(
+                scope,
+                task_id,
+                task.row_version,
+                scope.user_id(),
+                next_status,
+                release_state.initial_blocked_reason,
+                release_state.initial_blocked_metadata,
+            )
             .await?;
+        let approved = self.release_ready_dependency_block(scope, approved, "queued").await?;
         if BlockedTaskPolicy::should_auto_dispatch_after_approval(&approved.status) {
             return self.try_auto_dispatch(scope, approved).await;
         }
@@ -1480,6 +1611,12 @@ impl OrchestrationService {
             let _ = tx.rollback().await;
             return Err(err);
         }
+        if let Err(err) =
+            self.ensure_task_prerequisites_ready_in_tx(&mut tx, scope, params.as_ref(), parent_task_id).await
+        {
+            let _ = tx.rollback().await;
+            return Err(err);
+        }
 
         // The lookup above locks participant -> agent before any task FK lock.
         // Keep the uncommitted insert unassigned; the claim below owns assignment.
@@ -1702,6 +1839,7 @@ mod tests {
             canceled_at: None,
             created_at,
             updated_at,
+            row_version: 0,
             self_fix: false,
             base_commit_sha: None,
             pr_number: None,
@@ -1772,6 +1910,7 @@ mod tests {
             canceled_at: None,
             created_at: now,
             updated_at: now,
+            row_version: 0,
             self_fix: false,
             base_commit_sha: None,
             pr_number: None,
@@ -1832,6 +1971,7 @@ mod tests {
             canceled_at: None,
             created_at: now,
             updated_at: now,
+            row_version: 0,
             self_fix: false,
             base_commit_sha: None,
             pr_number: None,
