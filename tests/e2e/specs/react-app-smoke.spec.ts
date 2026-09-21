@@ -505,14 +505,15 @@ test.describe('React App Smoke Tests', () => {
       await screenshot(page, '18-task-detail')
     })
 
-    test('working task actions live in the properties rail', async ({ page }) => {
+    test('working tasks cannot be manually terminated from the properties rail', async ({
+      page,
+    }) => {
       await openTaskDocument(page, 't-003', 'Write unit tests for auth module')
 
       const properties = page.getByRole('button', { name: 'Properties', exact: true }).locator('..')
-      await expect(properties.getByRole('button', { name: 'Needs help' })).toBeVisible({
-        timeout: 5000,
-      })
-      await expect(properties.getByRole('button', { name: 'Cancel' })).toBeVisible()
+      await expect(properties.getByText('Working', { exact: true })).toBeVisible({ timeout: 5000 })
+      await expect(properties.getByRole('button', { name: 'Needs help' })).toHaveCount(0)
+      await expect(properties.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
     })
 
     test('activity feed remains the right-side tenant', async ({ page }) => {

@@ -135,7 +135,7 @@ export function nextActionForTask(
         detail:
           task.progress >= 80
             ? 'Prepare to check result files when the agent finishes this task.'
-            : 'Watch progress and use Needs help if the agent needs your input.',
+            : 'Watch Updates for progress and any request from the agent.',
         tone: 'default',
       }
     case 'blocked':

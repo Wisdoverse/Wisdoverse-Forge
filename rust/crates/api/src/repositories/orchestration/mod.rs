@@ -7,8 +7,6 @@
 
 pub mod context_link;
 #[cfg(test)]
-mod dependency_tests;
-#[cfg(test)]
 mod retire_stale_tests;
 pub mod run_context_injection;
 pub mod task_comment;
@@ -66,7 +64,13 @@ pub(crate) const SET_RESULT_SQL: &str = r#"UPDATE orchestration_tasks
                    retryable = FALSE,
                    completed_at = CASE WHEN $3 = 'completed' THEN NOW() ELSE NULL END,
                    updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2
+               WHERE id = $1
+                 AND organization_id = $2
+                 AND row_version = $5
+                 AND (
+                       ($3 = 'completed' AND (status = 'working' OR (status = 'blocked' AND blocked_reason = 'waiting_verification')))
+                       OR ($3 = 'failed' AND status = 'working')
+                 )
                RETURNING *"#;
 
 pub(crate) const ASSIGN_TASK_SQL: &str = r#"UPDATE orchestration_tasks
@@ -95,7 +99,10 @@ pub(crate) const MARK_BLOCKED_RETRYABLE_SQL: &str = r#"UPDATE orchestration_task
                    failure_code = $3,
                    retryable = TRUE,
                    updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2
+               WHERE id = $1
+                 AND organization_id = $2
+                 AND status = 'working'
+                 AND row_version = $6
                RETURNING *"#;
 
 pub(crate) const CANCEL_TASK_SQL: &str = r#"UPDATE orchestration_tasks
@@ -104,22 +111,19 @@ pub(crate) const CANCEL_TASK_SQL: &str = r#"UPDATE orchestration_tasks
                    retryable = FALSE,
                    canceled_at = NOW(),
                    updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2
+               WHERE id = $1
+                 AND organization_id = $2
+                 AND row_version = $3
+                 AND status NOT IN ('completed', 'failed')
+                 AND (status <> 'working' OR last_assignment_id IS NULL)
                RETURNING *"#;
 
-/// `unblock_children_of`: flip dependency-blocked children of a completed
-/// parent back to `queued`. Tenant + parent + status + reason guards are all
-/// load-bearing — see `test_unblock_children_sql_has_tenant_and_status_guards`.
-pub(crate) const UNBLOCK_CHILDREN_SQL: &str = r#"UPDATE orchestration_tasks
-               SET status = 'queued',
-                   blocked_reason = NULL,
-                   blocked_metadata = NULL,
-                   updated_at = NOW()
-               WHERE organization_id = $1
-                 AND parent_task_id = $2
-                 AND status = 'blocked'
-                 AND blocked_reason = 'waiting_dependency'
-               RETURNING *"#;
+/// Flip dependency-blocked tasks back to `queued` when the completed task was
+/// either their parent or an explicit prerequisite and every prerequisite is
+/// now complete. The current-state predicates prevent a concurrent cancel or
+/// other blocking transition from being overwritten.
+#[cfg(test)]
+pub(crate) const UNBLOCK_CHILDREN_SQL: &str = agentforge_jobs::RELEASE_TASK_DEPENDENTS_SQL;
 
 /// `count_by_status`: task-route-scoped participant counts that exclude stale
 /// `offline` rows (heartbeat older than 24h). A participant only counts when its
@@ -238,6 +242,8 @@ pub struct UpdateTaskRow {
     pub assigned_agent_id: Option<Option<AgentId>>, // outer Some = touch field, inner None = unassign
     pub blocked_reason: Option<Option<String>>,
     pub blocked_metadata: Option<Option<serde_json::Value>>,
+    pub expected_status: Option<String>,
+    pub expected_row_version: Option<i64>,
 }
 
 impl OrchestrationTaskRepository {
@@ -509,50 +515,45 @@ impl OrchestrationTaskRepository {
     }
 
     /// Mark task `blocked` and record reason + metadata (tenant-scoped).
-    pub async fn mark_blocked(
+    pub async fn mark_blocked_if_unchanged(
         &self,
         scope: &TenantScope,
-        id: Uuid,
+        expected: &OrchestrationTask,
         reason: &str,
         metadata: serde_json::Value,
     ) -> AppResult<OrchestrationTask> {
-        sqlx::query_as::<_, OrchestrationTask>(
+        let updated = sqlx::query_as::<_, OrchestrationTask>(
             r#"UPDATE orchestration_tasks
                SET status = 'blocked', blocked_reason = $3, blocked_metadata = $4, updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2
+               WHERE id = $1
+                 AND organization_id = $2
+                 AND status = $5
+                 AND row_version = $6
                RETURNING *"#,
         )
-        .bind(id)
+        .bind(expected.id)
         .bind(scope.org_id().as_uuid())
         .bind(reason)
         .bind(metadata)
+        .bind(&expected.status)
+        .bind(expected.row_version)
         .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+        .await?;
+        match updated {
+            Some(task) => Ok(task),
+            None => self.find_by_id(scope, expected.id).await,
+        }
     }
 
     /// Mark a working task as retryably blocked and detach it from the current
     /// participant. Used for external limits such as provider quota: the agent
     /// must be released, but the task must not become dispatchable again until
     /// an operator retries it or the missing resource is restored.
-    pub async fn mark_blocked_retryable(
-        &self,
-        scope: &TenantScope,
-        id: Uuid,
-        reason: &str,
-        metadata: serde_json::Value,
-        error: serde_json::Value,
-    ) -> AppResult<OrchestrationTask> {
-        let mut tx = self.pool.begin().await?;
-        let task = Self::mark_blocked_retryable_in_tx(&mut tx, scope, id, reason, metadata, error).await?;
-        tx.commit().await?;
-        Ok(task)
-    }
-
     pub async fn mark_blocked_retryable_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
         id: Uuid,
+        expected_row_version: i64,
         reason: &str,
         metadata: serde_json::Value,
         error: serde_json::Value,
@@ -563,9 +564,33 @@ impl OrchestrationTaskRepository {
             .bind(reason)
             .bind(metadata)
             .bind(error)
+            .bind(expected_row_version)
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+            .ok_or_else(OrchestrationRepositoryPolicy::quota_block_conflict)
+    }
+
+    /// Lock prerequisite rows for the lifetime of an assignment transaction so
+    /// a passed readiness check cannot be invalidated before the task starts.
+    pub async fn lock_statuses_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        ids: &[Uuid],
+    ) -> AppResult<Vec<(Uuid, String)>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        Ok(sqlx::query_as(
+            r#"SELECT id, status
+                 FROM orchestration_tasks
+                WHERE organization_id = $1 AND id = ANY($2)
+                ORDER BY id
+                FOR SHARE"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(ids)
+        .fetch_all(&mut **tx)
+        .await?)
     }
 
     /// Approve a task that is explicitly blocked on human approval. The caller
@@ -575,6 +600,7 @@ impl OrchestrationTaskRepository {
         &self,
         scope: &TenantScope,
         id: Uuid,
+        expected_row_version: i64,
         approved_by: UserId,
         next_status: &str,
         next_blocked_reason: Option<&str>,
@@ -594,6 +620,7 @@ impl OrchestrationTaskRepository {
                  AND status = 'blocked'
                  AND blocked_reason = 'waiting_approval'
                  AND requires_approval = TRUE
+                 AND row_version = $7
                RETURNING *"#,
         )
         .bind(id)
@@ -602,14 +629,45 @@ impl OrchestrationTaskRepository {
         .bind(next_status)
         .bind(next_blocked_reason)
         .bind(next_blocked_metadata)
+        .bind(expected_row_version)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| OrchestrationRepositoryPolicy::approval_blocked_task_not_found(id))
+        .ok_or_else(OrchestrationRepositoryPolicy::approval_conflict)
+    }
+
+    /// Compare-and-set a dependency block to its ready lane. A concurrent
+    /// cancel or another unblock path leaves no matching row and is preserved.
+    pub async fn release_waiting_dependency(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+        ready_status: &str,
+    ) -> AppResult<Option<OrchestrationTask>> {
+        Ok(sqlx::query_as::<_, OrchestrationTask>(
+            r#"UPDATE orchestration_tasks
+                  SET status = $3,
+                      blocked_reason = NULL,
+                      blocked_metadata = NULL,
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND organization_id = $2
+                  AND status = 'blocked'
+                  AND blocked_reason = 'waiting_dependency'
+                  AND assigned_agent_id IS NULL
+                  AND requires_approval = FALSE
+                RETURNING *"#,
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(ready_status)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     /// Apply a partial PATCH update. `None` fields are left untouched.
     pub async fn patch(&self, scope: &TenantScope, id: Uuid, update: UpdateTaskRow) -> AppResult<OrchestrationTask> {
-        sqlx::query_as::<_, OrchestrationTask>(
+        let guarded = update.expected_status.is_some();
+        let updated = sqlx::query_as::<_, OrchestrationTask>(
             r#"UPDATE orchestration_tasks SET
                  status = COALESCE($3, status),
                  priority = COALESCE($4, priority),
@@ -618,7 +676,9 @@ impl OrchestrationTaskRepository {
                  blocked_reason = CASE WHEN $8 THEN $9 ELSE blocked_reason END,
                  blocked_metadata = CASE WHEN $10 THEN $11 ELSE blocked_metadata END,
                  updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2
+               WHERE id = $1
+                 AND organization_id = $2
+                 AND ($12::text IS NULL OR (status = $12 AND row_version = $13))
                RETURNING *"#,
         )
         .bind(id)
@@ -632,9 +692,17 @@ impl OrchestrationTaskRepository {
         .bind(update.blocked_reason.flatten())
         .bind(update.blocked_metadata.is_some())
         .bind(update.blocked_metadata.flatten())
+        .bind(update.expected_status)
+        .bind(update.expected_row_version)
         .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+        .await?;
+        updated.ok_or_else(|| {
+            if guarded {
+                OrchestrationRepositoryPolicy::patch_conflict()
+            } else {
+                OrchestrationRepositoryPolicy::task_not_found(id)
+            }
+        })
     }
 
     /// Assign an agent to a task and atomically promote it from queued → working.
@@ -671,25 +739,7 @@ impl OrchestrationTaskRepository {
             .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(task_id))
     }
 
-    /// Set a task's result and terminal status (tenant-scoped).
-    pub async fn set_result(
-        &self,
-        scope: &TenantScope,
-        id: Uuid,
-        status: &str,
-        result: serde_json::Value,
-    ) -> AppResult<OrchestrationTask> {
-        sqlx::query_as::<_, OrchestrationTask>(SET_RESULT_SQL)
-            .bind(id)
-            .bind(scope.org_id().as_uuid())
-            .bind(status)
-            .bind(result)
-            .fetch_optional(&self.pool)
-            .await?
-            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
-    }
-
-    /// Same as [`Self::set_result`] but inside a caller-owned transaction.
+    /// Set a task's result inside a caller-owned transaction.
     /// The caller commits or rolls back. Issue #37: lets `complete_task` pair
     /// `set_result` + `unblock_children_of` atomically so a crashed unblock
     /// can't leave dependency-blocked children orphaned forever.
@@ -697,6 +747,7 @@ impl OrchestrationTaskRepository {
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
         id: Uuid,
+        expected_row_version: i64,
         status: &str,
         result: serde_json::Value,
     ) -> AppResult<OrchestrationTask> {
@@ -705,9 +756,10 @@ impl OrchestrationTaskRepository {
             .bind(scope.org_id().as_uuid())
             .bind(status)
             .bind(result)
+            .bind(expected_row_version)
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+            .ok_or_else(OrchestrationRepositoryPolicy::result_conflict)
     }
 
     /// Pin the base `origin/main` SHA a self-fix task's PR is rebuilt onto
@@ -786,8 +838,9 @@ impl OrchestrationTaskRepository {
 
     /// Cancel a task (sets status='canceled' and records timestamp). Idempotent.
     pub async fn cancel(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
+        let expected = self.find_by_id(scope, id).await?;
         let mut tx = self.pool.begin().await?;
-        let task = Self::cancel_in_tx(&mut tx, scope, id).await?;
+        let task = Self::cancel_in_tx(&mut tx, scope, id, expected.row_version).await?;
         tx.commit().await?;
         Ok(task)
     }
@@ -796,21 +849,34 @@ impl OrchestrationTaskRepository {
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
         id: Uuid,
+        expected_row_version: i64,
     ) -> AppResult<OrchestrationTask> {
         sqlx::query_as::<_, OrchestrationTask>(CANCEL_TASK_SQL)
             .bind(id)
             .bind(scope.org_id().as_uuid())
+            .bind(expected_row_version)
             .fetch_optional(&mut **tx)
             .await?
-            .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+            .ok_or_else(OrchestrationRepositoryPolicy::cancel_conflict)
     }
 
-    /// Reset a terminal task back to backlog so it can be redispatched. Clears
-    /// assignment, error, and timing so the task looks new to the dispatcher.
-    pub async fn retry(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
+    /// Reset a retryable task while preserving the blocking state recomputed by
+    /// the service. The expected-status predicate prevents a stale retry from
+    /// overwriting a concurrent transition.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn retry(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+        expected_status: &str,
+        expected_row_version: i64,
+        next_status: &str,
+        next_blocked_reason: Option<&str>,
+        next_blocked_metadata: Option<serde_json::Value>,
+    ) -> AppResult<OrchestrationTask> {
         sqlx::query_as::<_, OrchestrationTask>(
             r#"UPDATE orchestration_tasks
-               SET status = 'backlog',
+               SET status = $4,
                    assigned_agent_id = NULL,
                    lease_expires_at = NULL,
                    last_assignment_id = NULL,
@@ -821,17 +887,25 @@ impl OrchestrationTaskRepository {
                    canceled_at = NULL,
                    error = NULL,
                    progress = 0,
-                   blocked_reason = NULL,
-                   blocked_metadata = NULL,
+                   blocked_reason = $5,
+                   blocked_metadata = $6,
                    updated_at = NOW()
-               WHERE id = $1 AND organization_id = $2
+               WHERE id = $1
+                 AND organization_id = $2
+                 AND status = $3
+                 AND row_version = $7
                RETURNING *"#,
         )
         .bind(id)
         .bind(scope.org_id().as_uuid())
+        .bind(expected_status)
+        .bind(next_status)
+        .bind(next_blocked_reason)
+        .bind(next_blocked_metadata)
+        .bind(expected_row_version)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+        .ok_or_else(OrchestrationRepositoryPolicy::retry_conflict)
     }
 
     /// Record the workspace an image task's images were materialized into (so the
@@ -867,52 +941,13 @@ impl OrchestrationTaskRepository {
         Ok(())
     }
 
-    /// Unblock children that were waiting on the given parent task. Children
-    /// marked `blocked/waiting_dependency` for this parent transition to
-    /// `queued` so the auto-dispatcher can claim them. Returns the affected
-    /// rows so the caller can kick off dispatch per child without another
-    /// query.
-    pub async fn unblock_children_of(&self, scope: &TenantScope, parent_id: Uuid) -> AppResult<Vec<OrchestrationTask>> {
-        let rows = sqlx::query_as::<_, OrchestrationTask>(UNBLOCK_CHILDREN_SQL)
-            .bind(scope.org_id().as_uuid())
-            .bind(parent_id)
-            .fetch_all(&self.pool)
-            .await?;
-        Ok(rows)
-    }
-
-    /// Same as [`Self::unblock_children_of`] but inside a caller-owned
-    /// transaction. Pairs with [`Self::set_result_in_tx`] so `complete_task`
-    /// can atomically commit "parent completed AND children unblocked" or
-    /// roll both back together. Issue #37.
+    /// Completion and every newly-ready dependent commit or roll back together.
     pub async fn unblock_children_of_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
         parent_id: Uuid,
     ) -> AppResult<Vec<OrchestrationTask>> {
-        let rows = sqlx::query_as::<_, OrchestrationTask>(UNBLOCK_CHILDREN_SQL)
-            .bind(scope.org_id().as_uuid())
-            .bind(parent_id)
-            .fetch_all(&mut **tx)
-            .await?;
-        Ok(rows)
-    }
-
-    /// Blocked tasks that declare the completed task in `params.dependency_ids`
-    /// (candidates for prerequisite release; the service re-checks siblings).
-    pub async fn dependent_task_ids(&self, scope: &TenantScope, completed_id: Uuid) -> AppResult<Vec<Uuid>> {
-        let rows: Vec<(Uuid,)> = sqlx::query_as(
-            r#"SELECT id FROM orchestration_tasks
-               WHERE organization_id = $1
-                 AND status = 'blocked'
-                 AND assigned_agent_id IS NULL
-                 AND params->'dependency_ids' ? $2::text"#,
-        )
-        .bind(scope.org_id().as_uuid())
-        .bind(completed_id.to_string())
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|(id,)| id).collect())
+        Ok(agentforge_jobs::release_task_dependents_in_tx(tx, scope.org_id().as_uuid(), parent_id).await?)
     }
 
     /// Find the next dispatchable task — `queued` or `blocked-on-agent` only.
@@ -1021,26 +1056,66 @@ impl ParticipantRepository {
         name: &str,
         capabilities: &[String],
     ) -> AppResult<Participant> {
-        // F013: the agent_id must belong to the caller's org. The raw FK only
-        // proves the agent exists globally, so `INSERT ... SELECT ... WHERE
-        // EXISTS(agent in this org)` rejects registering a foreign-org agent as a
-        // participant atomically, keeping orchestration dispatch state free of
-        // cross-tenant agent references.
-        sqlx::query_as::<_, Participant>(
+        let mut tx = self.pool.begin().await?;
+        let existing = sqlx::query_scalar::<_, Uuid>(
+            r#"SELECT participant.id
+                 FROM participants participant
+                 JOIN agents agent
+                   ON agent.id = participant.agent_id
+                  AND agent.organization_id = participant.organization_id
+                WHERE participant.agent_id = $1
+                  AND participant.organization_id = $2
+                FOR UPDATE OF participant, agent"#,
+        )
+        .bind(agent_id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&mut *tx)
+        .await?;
+        if existing.is_none() {
+            sqlx::query_scalar::<_, Uuid>(
+                "SELECT id FROM agents WHERE id = $1 AND organization_id = $2 FOR NO KEY UPDATE",
+            )
+            .bind(agent_id.as_uuid())
+            .bind(scope.org_id().as_uuid())
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(agent_id))?;
+        }
+
+        // Never set an existing participant available before checking current
+        // task ownership. The locks above serialize this restart path with claim.
+        sqlx::query(
             r#"INSERT INTO participants (organization_id, agent_id, name, capabilities)
                SELECT $1, $2, $3, $4
                WHERE EXISTS (SELECT 1 FROM agents WHERE id = $2 AND organization_id = $1)
                ON CONFLICT (organization_id, agent_id) DO UPDATE
-               SET name = EXCLUDED.name, capabilities = EXCLUDED.capabilities, status = 'available'
-               RETURNING *"#,
+               SET name = EXCLUDED.name, capabilities = EXCLUDED.capabilities"#,
         )
         .bind(scope.org_id().as_uuid())
         .bind(agent_id.as_uuid())
         .bind(name)
         .bind(capabilities)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| AgentRepositoryPolicy::agent_not_found(agent_id))
+        .execute(&mut *tx)
+        .await?;
+        let participant = sqlx::query_as::<_, Participant>(
+            r#"UPDATE participants participant
+                  SET status = CASE WHEN EXISTS (
+                          SELECT 1
+                            FROM orchestration_tasks task
+                           WHERE task.organization_id = participant.organization_id
+                             AND task.assigned_agent_id = participant.agent_id
+                             AND task.status = 'working'
+                      ) THEN 'busy' ELSE 'available' END
+                WHERE participant.organization_id = $1
+                  AND participant.agent_id = $2
+            RETURNING participant.*"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(agent_id.as_uuid())
+        .fetch_one(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(participant)
     }
 
     /// List participants with optional status filter (tenant-scoped).
@@ -1214,6 +1289,7 @@ impl ParticipantRepository {
                       AND task.status = $4
                       AND task.blocked_reason IS NOT DISTINCT FROM $5
                       AND task.assigned_agent_id IS NOT DISTINCT FROM $6
+                      AND task.row_version = $7
                       FOR UPDATE OF task
                )
                UPDATE participants participant
@@ -1252,6 +1328,7 @@ impl ParticipantRepository {
         .bind(&expected_task.status)
         .bind(expected_task.blocked_reason.as_deref())
         .bind(expected_task.assigned_agent_id.map(|assigned| assigned.as_uuid()))
+        .bind(expected_task.row_version)
         .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
@@ -1261,6 +1338,37 @@ impl ParticipantRepository {
     pub async fn update_status(&self, scope: &TenantScope, agent_id: AgentId, status: &str) -> AppResult<Participant> {
         let mut tx = self.pool.begin().await?;
         let participant = Self::update_status_in_tx(&mut tx, scope, agent_id, status).await?;
+        tx.commit().await?;
+        Ok(participant)
+    }
+
+    /// Release a participant only when no task currently owns it. This closes
+    /// the post-commit race where an older completion could overwrite a newer
+    /// dispatch's `busy` state.
+    pub async fn release_if_idle(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<Option<Participant>> {
+        let mut tx = self.pool.begin().await?;
+        Self::find_by_agent_id_in_tx(&mut tx, scope, agent_id).await?;
+        let participant = sqlx::query_as::<_, Participant>(
+            r#"UPDATE participants participant
+                  SET status = CASE
+                      WHEN participant.status = 'offline' THEN 'offline'
+                      ELSE 'available'
+                  END
+                WHERE participant.agent_id = $1
+                  AND participant.organization_id = $2
+                  AND NOT EXISTS (
+                        SELECT 1
+                          FROM orchestration_tasks task
+                         WHERE task.organization_id = participant.organization_id
+                           AND task.assigned_agent_id = participant.agent_id
+                           AND task.status = 'working'
+                      )
+            RETURNING participant.*"#,
+        )
+        .bind(agent_id.as_uuid())
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&mut *tx)
+        .await?;
         tx.commit().await?;
         Ok(participant)
     }
@@ -1284,21 +1392,36 @@ impl ParticipantRepository {
         .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
     }
 
-    /// Update heartbeat timestamp (tenant-scoped). Also bumps status to `available`
-    /// so a returning agent immediately becomes pickup-eligible.
+    /// Update heartbeat timestamp and recover an offline participant's status
+    /// from its current task ownership.
     pub async fn heartbeat(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<Participant> {
-        sqlx::query_as::<_, Participant>(
-            r#"UPDATE participants
-               SET last_heartbeat_at = NOW(),
-                   status = CASE WHEN status = 'offline' THEN 'available' ELSE status END
-               WHERE agent_id = $1 AND organization_id = $2
-               RETURNING *"#,
+        let mut tx = self.pool.begin().await?;
+        Self::find_by_agent_id_in_tx(&mut tx, scope, agent_id).await?;
+        let participant = sqlx::query_as::<_, Participant>(
+            r#"UPDATE participants participant
+                  SET last_heartbeat_at = NOW(),
+                      status = CASE
+                          WHEN EXISTS (
+                              SELECT 1
+                                FROM orchestration_tasks task
+                               WHERE task.organization_id = participant.organization_id
+                                 AND task.assigned_agent_id = participant.agent_id
+                                 AND task.status = 'working'
+                          ) THEN 'busy'
+                          WHEN participant.status = 'offline' THEN 'available'
+                          ELSE participant.status
+                      END
+                WHERE participant.agent_id = $1
+                  AND participant.organization_id = $2
+            RETURNING participant.*"#,
         )
         .bind(agent_id.as_uuid())
         .bind(scope.org_id().as_uuid())
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))
+        .ok_or_else(|| OrchestrationRepositoryPolicy::participant_not_found(agent_id))?;
+        tx.commit().await?;
+        Ok(participant)
     }
 
     /// Unregister a participant (tenant-scoped).
@@ -1628,6 +1751,11 @@ mod participant_list_runtime_tests {
         .expect("count rolled-back assigned creates");
         assert_eq!(rejected_tasks, 0, "rejected assigned creates must roll back task insertion");
 
+        sqlx::query("UPDATE orchestration_tasks SET status = 'completed' WHERE id = $1")
+            .bind(task_id)
+            .execute(&pool)
+            .await
+            .expect("complete parent before assigned child create");
         let created = service
             .create_task(
                 &scope,
