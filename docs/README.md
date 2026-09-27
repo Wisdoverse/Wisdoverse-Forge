@@ -28,19 +28,19 @@ part of this documentation set.
 | Browser app   | Vite/React app in `src/`; `prod` serves it via `agentforge-frontend`                                                      |
 | Production    | `make prod-ext` is the external-service validation path; `make quickstart-selfhost-pull` is the self-contained Caddy path |
 | Health probes | API liveness is `/health`; deep readiness is `/api/health`                                                                |
-| Attachments   | Metadata in PostgreSQL; bytes in local object storage or MinIO                                                            |
+| Attachments   | Metadata in PostgreSQL; bytes in local object storage or RustFS/S3                                                        |
 
 ## Start Here
 
-| Audience                     | Entry Points                                                                                                                                                                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First local run / developers | [Getting Started](guides/getting-started.md), [Task Workflow Guide](guides/task-workflow.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md) |
-| Operators (deploy / run)     | [Deployment](guides/deployment.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md)        |
-| Self-fix loop operators      | [Self-Fix Loop](guides/self-fix-loop.md), [Self-Fix Security Model](security/self-fix-loop.md)                                                                                            |
-| CLI and local-agent users    | [CLI Platform Support](guides/cli-platform-support.md), [Host CLI Agent Enrollment](runbooks/host-cli-agent-enrollment.md), [Getting Started](guides/getting-started.md)                  |
-| Product reviewers            | [Product Roadmap](../ROADMAP.md), [Product UX Direction](architecture/product-ux-direction.md), [Task Workflow Guide](guides/task-workflow.md)                                       |
-| Contributors                 | [Contributing](../CONTRIBUTING.md), [PR Status Summary](guides/pr-status-summary.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                        |
-| API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                             |
+| Audience                     | Entry Points                                                                                                                                                                                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First local run / developers | [Getting Started](guides/getting-started.md), [Task Workflow Guide](guides/task-workflow.md), [Architecture Overview](architecture/overview.md), [Configuration](guides/configuration.md)                                          |
+| Operators (deploy / run)     | [Deployment](guides/deployment.md), [RustFS migration](guides/rustfs-migration.md), [Runtime Validation](runbooks/runtime-validation.md), [Troubleshooting](guides/troubleshooting.md), [NATS Auth Runbook](runbooks/nats-auth.md) |
+| Self-fix loop operators      | [Self-Fix Loop](guides/self-fix-loop.md), [Self-Fix Security Model](security/self-fix-loop.md)                                                                                                                                     |
+| CLI and local-agent users    | [CLI Platform Support](guides/cli-platform-support.md), [Host CLI Agent Enrollment](runbooks/host-cli-agent-enrollment.md), [Getting Started](guides/getting-started.md)                                                           |
+| Product reviewers            | [Product Roadmap](../ROADMAP.md), [Product UX Direction](architecture/product-ux-direction.md), [Task Workflow Guide](guides/task-workflow.md)                                                                                     |
+| Contributors                 | [Contributing](../CONTRIBUTING.md), [PR Status Summary](guides/pr-status-summary.md), [AGENTS.md](../AGENTS.md), [Architecture Overview](architecture/overview.md)                                                                 |
+| API consumers                | [OpenAPI spec](api/openapi.yaml), [Turn API](api/turn-api.md)                                                                                                                                                                      |
 
 ## Documentation Map
 

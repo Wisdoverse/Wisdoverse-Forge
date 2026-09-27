@@ -27,6 +27,9 @@ Rust Orchestrator :4010 ----> Temporal :7233 / UI :8233       |
 PostgreSQL / Redis / NATS / Docker runtime / agent images
 ```
 
+Managed attachment storage uses RustFS through its S3-compatible API. The Rust
+API proxies object access; browser clients do not connect to RustFS directly.
+
 ## Service Inventory
 
 | Component               | Default Port                         | Responsibility                                                                            | Code                                                 |

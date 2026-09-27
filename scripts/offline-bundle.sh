@@ -37,7 +37,7 @@ IMAGES="$SERVER_IMAGE $AGENT_IMAGE"
 if [ "$FULL_STACK" = 1 ]; then
   # Pinned platform services from docker/compose.yml; override with
   # STACK_IMAGES="..." when your stack differs.
-  STACK_IMAGES="${STACK_IMAGES:-agentforge-frontend:${VERSION} postgres:18-alpine redis:8-alpine nats:2.12.7-alpine temporalio/auto-setup:1.26 minio/minio:latest}"
+  STACK_IMAGES="${STACK_IMAGES:-agentforge-frontend:${VERSION} postgres:18-alpine redis:8-alpine nats:2.12.7-alpine temporalio/auto-setup:1.26 rustfs/rustfs:1.0.0}"
   IMAGES="$IMAGES $STACK_IMAGES"
 fi
 
@@ -68,6 +68,15 @@ for image in $IMAGES; do
     echo "Image not found locally: $image" >&2
     echo "Build/bring it first: make build-agent-base; make prod-ext (or docker compose build; docker pull)" >&2
     exit 1
+  fi
+  if [ "$DRY_RUN" = 0 ] && [ "$image" = rustfs/rustfs:1.0.0 ]; then
+    # docker save/load preserves tags, not registry digests. Verify the saved
+    # tag points to the pinned image before signing the archive.
+    pinned_id="$(docker image inspect --format '{{.Id}}' rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff)"
+    [ "$(docker image inspect --format '{{.Id}}' "$image")" = "$pinned_id" ] || {
+      echo "RustFS tag does not match the pinned image; pull and tag the documented digest first." >&2
+      exit 1
+    }
   fi
   say "Using image: $image"
 done

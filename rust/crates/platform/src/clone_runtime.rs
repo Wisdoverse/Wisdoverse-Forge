@@ -452,7 +452,7 @@ pub struct CloneContainerState {
 /// `agentforge` / configurable prefix varies, so suffix-match is robust).
 fn is_internal_service_container(name: &str) -> bool {
     const INTERNAL_SUFFIXES: &[&str] =
-        &["server", "postgres", "nats", "redis", "orchestrator", "minio", "temporal", "caddy"];
+        &["server", "postgres", "nats", "redis", "orchestrator", "minio", "rustfs", "temporal", "caddy"];
     let trimmed = name.trim_start_matches('/');
     INTERNAL_SUFFIXES.iter().any(|suffix| {
         trimmed == *suffix || trimmed.ends_with(&format!("-{suffix}")) || trimmed.ends_with(&format!("_{suffix}"))
@@ -1708,6 +1708,9 @@ mod tests {
         assert!(is_internal_service_container("/myprefix-server"));
         assert!(is_internal_service_container("stack_nats"));
         assert!(is_internal_service_container("orchestrator"));
+        assert!(is_internal_service_container("agentforge-rustfs"));
+        assert!(is_internal_service_container("stack_rustfs"));
+        assert!(is_internal_service_container("rustfs"));
         assert!(!is_internal_service_container("agentforge-clone-1234"));
         assert!(!is_internal_service_container("serverless-thing"));
     }

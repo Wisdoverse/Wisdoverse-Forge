@@ -104,7 +104,7 @@ Point your coding agent at the service contract:
 - **English and Chinese UI copy** with user-safe error messages.
 
 For technical readers, the current implementation uses a Rust API and
-WebSocket gateway, a Rust orchestrator, PostgreSQL, Redis, NATS, MinIO, Docker,
+WebSocket gateway, a Rust orchestrator, PostgreSQL, Redis, NATS, RustFS, Docker,
 Temporal, and a React/Vite/Three.js browser app. The frontend follows strict
 Feature-Sliced Design boundaries (`app -> pages -> widgets -> features ->
 entities -> shared`) checked by `npm run fsd:check`.

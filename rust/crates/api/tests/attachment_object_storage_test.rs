@@ -7,7 +7,7 @@ use agentforge_api::repositories::agent::AgentRepository;
 use agentforge_api::repositories::attachment::AttachmentRepository;
 use agentforge_api::services::attachment::AttachmentService;
 use agentforge_api::test_support::{mint_test_jwt, tenant_scope_for_ids, test_app_with_mock_provider};
-use agentforge_core::TenantScope;
+use agentforge_core::{AppConfig, TenantScope};
 use agentforge_infra::ObjectStorageClient;
 use axum::body::{Body, to_bytes};
 use http::{Request, StatusCode, header};
@@ -81,6 +81,42 @@ async fn upload_download_and_delete_roundtrip_uses_local_object_storage(pool: Pg
         .expect("count attachments");
     assert_eq!(count, 0, "delete should remove metadata after object deletion");
     assert!(!root.join(&attachment.storage_path).exists(), "delete should remove object bytes");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+#[ignore = "requires an isolated RustFS service and S3_* test configuration"]
+async fn rustfs_attachments_read_legacy_metadata_and_enforce_tenant_scope(pool: PgPool) {
+    let config = AppConfig::from_env().expect("test storage config");
+    assert_eq!(config.storage_provider, "s3");
+    let storage = Arc::new(ObjectStorageClient::new(&config).await.expect("test object storage"));
+    let scope = seed_scope(&pool).await;
+    let other_scope = seed_scope(&pool).await;
+    let service = AttachmentService::new(
+        AttachmentRepository::new(pool.clone()),
+        AgentRepository::new(pool.clone()),
+        storage,
+        10 * 1024 * 1024,
+        20,
+    );
+    let attachment = service
+        .create(&scope, None, "legacy.txt", "text/plain", b"migrated attachment".to_vec())
+        .await
+        .expect("create attachment");
+    assert_eq!(attachment.storage_backend, "s3");
+    // Existing rows retain their historical backend label after S3 API copying.
+    sqlx::query("UPDATE attachments SET storage_backend = 'minio' WHERE id = $1")
+        .bind(attachment.id.as_uuid())
+        .execute(&pool)
+        .await
+        .expect("legacy backend metadata");
+    let (metadata, bytes) = service.download(&scope, attachment.id.as_uuid()).await.expect("download migrated object");
+    assert_eq!(metadata.storage_backend, "minio");
+    assert_eq!(bytes, b"migrated attachment");
+    assert!(service.download(&other_scope, attachment.id.as_uuid()).await.is_err());
+    assert!(service.delete(&other_scope, attachment.id.as_uuid()).await.is_err());
+    assert_eq!(service.download(&scope, attachment.id.as_uuid()).await.expect("object retained").1, bytes);
+    service.delete(&scope, attachment.id.as_uuid()).await.expect("delete migrated object");
+    assert!(service.download(&scope, attachment.id.as_uuid()).await.is_err());
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
