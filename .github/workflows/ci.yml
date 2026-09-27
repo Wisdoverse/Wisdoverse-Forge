@@ -214,7 +214,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup component add clippy rustfmt --toolchain stable
-      - uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           workspaces: rust
       - name: Check Rust formatting
@@ -283,7 +283,7 @@ jobs:
       - name: Install Rust toolchain
         working-directory: rust
         run: rustup toolchain install stable --profile minimal
-      - uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           workspaces: rust
       - name: Build server (debug)
@@ -432,7 +432,7 @@ jobs:
           output: trivy-results.sarif
       - name: Upload SARIF to code scanning
         if: always() && (github.event_name != 'workflow_call' || inputs.upload_sarif)
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy-fs

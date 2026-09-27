@@ -66,7 +66,7 @@ Important boundary:
 - Provide primitives for reusable context, skills, prompts, credentials, and
   runtime-aware execution policies.
 - Persist durable domain state in PostgreSQL.
-- Use Redis, NATS, MinIO or local object storage, Docker, and Temporal where the
+- Use Redis, NATS, RustFS or local object storage, Docker, and Temporal where the
   selected deployment profile enables them.
 - Broadcast realtime runtime and orchestration state to browser clients.
 - Run live workflows through the Rust orchestrator and Temporal when enabled.
@@ -102,7 +102,7 @@ Important boundary:
    - PostgreSQL stores durable domain state.
    - Redis and NATS provide cache, coordination, event transport, and wake-up
      behavior where enabled.
-   - MinIO or local object storage stores uploaded file bytes.
+   - RustFS (S3-compatible) or local object storage stores uploaded file bytes.
 6. `Agent Runtime`
    - Docker creates isolated sessions with configured workspace roots and
      tool-specific images.

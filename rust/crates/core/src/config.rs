@@ -556,7 +556,8 @@ pub struct AppConfig {
     pub oauth_mount_dir: Option<String>,
 
     /// Attachment storage provider. `local` stores objects under
-    /// `storage_local_path`; `minio` uses the S3-compatible MinIO settings.
+    /// `storage_local_path`; `s3` uses RustFS or another S3-compatible endpoint.
+    /// `minio` remains a legacy alias for `s3`.
     #[serde(default = "default_storage_provider")]
     pub storage_provider: String,
 
@@ -579,7 +580,8 @@ pub struct AppConfig {
     #[serde(default = "default_storage_signed_url_expiry")]
     pub storage_signed_url_expiry: u64,
 
-    /// MinIO/S3 endpoint. Accepts either `host:port` or a full URL.
+    /// S3 endpoint. Accepts either `host:port` or a full URL. These internal
+    /// names preserve existing config literals; S3_* env vars override MINIO_*.
     pub minio_endpoint: Option<String>,
     pub minio_access_key: Option<SecretString>,
     pub minio_secret_key: Option<SecretString>,
@@ -800,10 +802,19 @@ impl AppConfig {
     /// Uses `__` as separator for nested keys (e.g. `DATABASE__URL`),
     /// though the current schema is flat.
     pub fn from_env() -> Result<Self, config::ConfigError> {
-        let cfg: Self = config::Config::builder()
-            .add_source(config::Environment::default().separator("__").ignore_empty(true))
-            .build()?
-            .try_deserialize()?;
+        let mut builder =
+            config::Config::builder().add_source(config::Environment::default().separator("__").ignore_empty(true));
+        for suffix in ["ENDPOINT", "ACCESS_KEY", "SECRET_KEY", "BUCKET", "USE_SSL", "REGION"] {
+            if let Ok(value) = std::env::var(format!("S3_{suffix}"))
+                && !value.is_empty()
+            {
+                builder = builder.set_override(format!("minio_{}", suffix.to_lowercase()), value)?;
+            }
+        }
+        let mut cfg: Self = builder.build()?.try_deserialize()?;
+        if cfg.storage_provider == "minio" {
+            cfg.storage_provider = "s3".to_string();
+        }
 
         if cfg.jwt_secret.expose_secret().len() < 32 {
             return Err(config::ConfigError::Message("JWT_SECRET must be at least 32 characters".to_string()));
@@ -871,10 +882,10 @@ impl AppConfig {
         }
 
         match cfg.storage_provider.as_str() {
-            "local" | "minio" => {}
+            "local" | "s3" => {}
             other => {
                 return Err(config::ConfigError::Message(format!(
-                    "STORAGE_PROVIDER must be 'local' or 'minio', got '{other}'"
+                    "STORAGE_PROVIDER must be 'local' or 's3' (legacy alias: 'minio'), got '{other}'"
                 )));
             }
         }
@@ -884,15 +895,15 @@ impl AppConfig {
         if cfg.storage_max_files_per_session < 1 {
             return Err(config::ConfigError::Message("STORAGE_MAX_FILES_PER_SESSION must be at least 1".to_string()));
         }
-        if cfg.storage_provider == "minio" {
+        if cfg.storage_provider == "s3" {
             let missing = [
-                ("MINIO_ENDPOINT", cfg.minio_endpoint.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false)),
+                ("S3_ENDPOINT", cfg.minio_endpoint.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false)),
                 (
-                    "MINIO_ACCESS_KEY",
+                    "S3_ACCESS_KEY",
                     cfg.minio_access_key.as_ref().map(|v| !v.expose_secret().trim().is_empty()).unwrap_or(false),
                 ),
                 (
-                    "MINIO_SECRET_KEY",
+                    "S3_SECRET_KEY",
                     cfg.minio_secret_key.as_ref().map(|v| !v.expose_secret().trim().is_empty()).unwrap_or(false),
                 ),
             ]
@@ -901,7 +912,7 @@ impl AppConfig {
             .collect::<Vec<_>>();
             if !missing.is_empty() {
                 return Err(config::ConfigError::Message(format!(
-                    "STORAGE_PROVIDER=minio requires {}",
+                    "STORAGE_PROVIDER=s3 requires {} (legacy MINIO_* aliases are also accepted)",
                     missing.join(", ")
                 )));
             }
@@ -1086,6 +1097,12 @@ mod tests {
                 ("MINIO_BUCKET", None),
                 ("MINIO_USE_SSL", None),
                 ("MINIO_REGION", None),
+                ("S3_ENDPOINT", None),
+                ("S3_ACCESS_KEY", None),
+                ("S3_SECRET_KEY", None),
+                ("S3_BUCKET", None),
+                ("S3_USE_SSL", None),
+                ("S3_REGION", None),
                 ("CLI_AUTH_PROXY_OPENAI_CLIENT_ID", None),
                 ("CLI_AUTH_PROXY_OPENAI_CLIENT_SECRET", None),
                 ("CLI_AUTH_PROXY_OPENAI_AUTH_ENDPOINT", None),
@@ -1669,7 +1686,7 @@ mod tests {
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
                 ("REQUIRE_EXTERNAL_STATE", None),
                 ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
-                ("STORAGE_PROVIDER", Some("s3")),
+                ("STORAGE_PROVIDER", Some("unknown")),
             ],
             || {
                 let result = AppConfig::from_env();
@@ -1683,7 +1700,55 @@ mod tests {
     }
 
     #[test]
-    fn from_env_requires_minio_credentials_when_provider_is_minio() {
+    fn from_env_supports_s3_and_legacy_aliases_with_s3_precedence() {
+        for (provider, canonical) in [("minio", false), ("s3", true), ("minio", true)] {
+            temp_env::with_vars(
+                [
+                    ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
+                    ("REQUIRE_EXTERNAL_STATE", None),
+                    ("JWT_SECRET", Some("test-secret-key-min-32-chars-long!!")),
+                    ("STORAGE_PROVIDER", Some(provider)),
+                    ("MINIO_ENDPOINT", Some("http://legacy:9000")),
+                    ("MINIO_ACCESS_KEY", Some("legacy-access")),
+                    ("MINIO_SECRET_KEY", Some("legacy-secret")),
+                    ("MINIO_BUCKET", Some("legacy-bucket")),
+                    ("MINIO_USE_SSL", Some("false")),
+                    ("MINIO_REGION", Some("legacy-region")),
+                    ("S3_ENDPOINT", Some(if canonical { "http://rustfs:9000" } else { "" })),
+                    ("S3_ACCESS_KEY", canonical.then_some("test-access")),
+                    ("S3_SECRET_KEY", canonical.then_some("test-secret")),
+                    ("S3_BUCKET", canonical.then_some("test-bucket")),
+                    ("S3_USE_SSL", canonical.then_some("true")),
+                    ("S3_REGION", canonical.then_some("us-east-1")),
+                ],
+                || {
+                    let cfg = AppConfig::from_env().expect("S3 config must load");
+                    assert_eq!(cfg.storage_provider, "s3");
+                    assert_eq!(
+                        cfg.minio_endpoint.as_deref(),
+                        Some(if canonical { "http://rustfs:9000" } else { "http://legacy:9000" })
+                    );
+                    assert_eq!(
+                        cfg.minio_access_key.as_ref().unwrap().expose_secret(),
+                        if canonical { "test-access" } else { "legacy-access" }
+                    );
+                    assert_eq!(
+                        cfg.minio_secret_key.as_ref().unwrap().expose_secret(),
+                        if canonical { "test-secret" } else { "legacy-secret" }
+                    );
+                    assert_eq!(cfg.minio_bucket, if canonical { "test-bucket" } else { "legacy-bucket" });
+                    assert_eq!(cfg.minio_use_ssl, canonical);
+                    assert_eq!(
+                        cfg.minio_region.as_deref(),
+                        Some(if canonical { "us-east-1" } else { "legacy-region" })
+                    );
+                },
+            );
+        }
+    }
+
+    #[test]
+    fn from_env_requires_s3_credentials_for_legacy_provider() {
         temp_env::with_vars(
             [
                 ("DATABASE_URL", Some("postgres://localhost/agentforge_test")),
@@ -1693,15 +1758,18 @@ mod tests {
                 ("MINIO_ENDPOINT", None),
                 ("MINIO_ACCESS_KEY", None),
                 ("MINIO_SECRET_KEY", None),
+                ("S3_ENDPOINT", None),
+                ("S3_ACCESS_KEY", None),
+                ("S3_SECRET_KEY", None),
             ],
             || {
                 let result = AppConfig::from_env();
                 assert!(result.is_err());
                 let err = result.unwrap_err().to_string();
-                assert!(err.contains("STORAGE_PROVIDER=minio requires"), "error was: {err}");
-                assert!(err.contains("MINIO_ENDPOINT"), "error was: {err}");
-                assert!(err.contains("MINIO_ACCESS_KEY"), "error was: {err}");
-                assert!(err.contains("MINIO_SECRET_KEY"), "error was: {err}");
+                assert!(err.contains("STORAGE_PROVIDER=s3 requires"), "error was: {err}");
+                assert!(err.contains("S3_ENDPOINT"), "error was: {err}");
+                assert!(err.contains("S3_ACCESS_KEY"), "error was: {err}");
+                assert!(err.contains("S3_SECRET_KEY"), "error was: {err}");
             },
         );
     }

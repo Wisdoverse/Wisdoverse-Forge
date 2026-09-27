@@ -39,12 +39,20 @@ through the Rust API object-storage client:
 - `STORAGE_PROVIDER=local` stores bytes under `STORAGE_LOCAL_PATH`. Compose
   mounts the `agentforge-uploads` named volume at that path for production
   profiles so the API root filesystem can remain read-only.
-- `STORAGE_PROVIDER=minio` stores bytes in the configured MinIO/S3-compatible
-  bucket and requires `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, and
-  `MINIO_SECRET_KEY`.
+- `STORAGE_PROVIDER=s3` stores bytes in the configured S3-compatible bucket.
+  RustFS is the managed Compose service; configure `S3_ENDPOINT`,
+  `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, and `S3_REGION`.
+- `STORAGE_PROVIDER=minio` and `MINIO_*` remain compatibility aliases for
+  existing deployments. When both naming schemes are set, `S3_*` takes
+  precedence; new configurations should use only `S3_*`.
 
-Downloads are proxied by the Rust API so authorization and tenant checks remain
-in the application layer.
+The Rust API uses its existing S3 client with path-style requests. Its API
+proxies downloads so authorization and tenant checks remain in the application
+layer; browsers and agents do not connect directly to S3/RustFS.
+
+See the [RustFS migration guide](../guides/rustfs-migration.md) before moving
+existing MinIO objects. MinIO and RustFS data volumes are separate and cannot
+be exchanged as raw disks.
 
 ## Workspace Storage
 

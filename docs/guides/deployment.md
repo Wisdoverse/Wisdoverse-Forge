@@ -62,7 +62,7 @@ At minimum, configure these values in `docker/.env`:
 | `external` | Rust services attached to externally managed infrastructure    |
 | `tools`    | Adminer and Redis Commander                                    |
 | `backup`   | Scheduled PostgreSQL backup helper                             |
-| `storage`  | MinIO object storage                                           |
+| `storage`  | RustFS S3-compatible object storage                            |
 | `casdoor`  | Casdoor identity provider integration                          |
 
 ## Service Inventory
@@ -221,13 +221,25 @@ volume at `${STORAGE_LOCAL_PATH:-/var/lib/agentforge/uploads}` inside the Rust
 API container. Keep that mount in place when hardening the service with a
 read-only root filesystem.
 
-If attachments should live in MinIO instead, set `STORAGE_PROVIDER=minio` plus
-`MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY`, then start the
-storage profile:
+For managed RustFS attachments, set `STORAGE_PROVIDER=s3` and configure
+`S3_ENDPOINT=http://rustfs:9000`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+`S3_BUCKET=agentforge`, `S3_REGION=us-east-1`, and `S3_USE_SSL=false`, then
+start the storage profile:
 
 ```bash
 make prod-storage
 ```
+
+The RustFS S3 API listens on container port 9000; its console uses container
+port 9001 and its readiness endpoint is `/health/ready`. Host ports are
+controlled by `RUSTFS_API_PORT` and `RUSTFS_CONSOLE_PORT` and bind to
+`127.0.0.1` by default. Keep the API on the Compose network.
+Existing `STORAGE_PROVIDER=minio` and `MINIO_*` configurations remain supported
+as aliases, with `S3_*` values taking precedence. New configurations should
+use only `S3_*`. RustFS requires explicit `S3_ACCESS_KEY` and `S3_SECRET_KEY`;
+the RustFS service does not inherit legacy `MINIO_*` credentials. See the
+[RustFS migration guide](rustfs-migration.md) before moving existing objects;
+the MinIO and RustFS data volumes are independent.
 
 ## External-Service Production
 
@@ -243,7 +255,7 @@ Before startup, ensure:
 - `ORCHESTRATOR_DATABASE_URL` points at the intended orchestrator database.
 - `REDIS_URL` points at the intended external Redis instance.
 - `EXTERNAL_NETWORK` is a Docker network shared with any external containers or gateways the stack must reach.
-- `STORAGE_PROVIDER=local` has a writable named volume at `STORAGE_LOCAL_PATH`, or `STORAGE_PROVIDER=minio` has valid MinIO/S3 credentials.
+- `STORAGE_PROVIDER=local` has a writable named volume at `STORAGE_LOCAL_PATH`, or `STORAGE_PROVIDER=s3` has valid S3 credentials. Existing `minio` provider configuration remains a compatibility alias.
 
 Companion commands:
 

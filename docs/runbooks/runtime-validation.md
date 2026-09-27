@@ -16,12 +16,31 @@ The proofed contract is taken from `README.md`, `SPEC.md`, and
 - The Rust orchestrator runs on `:4010`, persists its own workflow domain, and
   starts the Temporal worker when Temporal is enabled.
 - Temporal runs the live workflow runtime on `:7233`; the UI is on `:8233`.
-- PostgreSQL is required. Redis, NATS, MinIO, Docker, and Temporal are part of
-  the default `prod-ext` proof path.
+- PostgreSQL is required. The existing `prod-ext` evidence below predates this
+  RustFS migration and does not validate RustFS deployment or data cutover.
+  Redis, NATS, Docker, and Temporal are part of that runtime path.
 - Container CLI task execution flows through sidecar, NATS, Rust API jobs,
   persisted task/run/evidence state, and browser-visible task surfaces.
 
-## Current Proof
+## RustFS storage checks
+
+Use an isolated RustFS service and disposable bucket, with `STORAGE_PROVIDER=s3`,
+`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `S3_BUCKET` configured in the
+test shell. The API integration test also requires a disposable PostgreSQL
+instance through `DATABASE_URL`. Wait for RustFS `/health/ready` before running:
+
+```bash
+cargo test --manifest-path rust/Cargo.toml -p agentforge-infra object_storage::tests --locked -- --include-ignored
+cargo test --manifest-path rust/Cargo.toml -p agentforge-api --test attachment_object_storage_test --locked -- --include-ignored
+```
+
+These checks create and reopen a bucket, verify object bytes and content type,
+delete objects, read attachment rows with legacy `minio` metadata, and reject
+access from another organization. They do not prove a production data migration
+or the full `prod-ext` orchestration chain. Follow the
+[migration guide](../guides/rustfs-migration.md) for cutover and rollback checks.
+
+## Existing deployment proof
 
 Last validated on 2026-05-13 from the repository root using `make prod-ext`.
 
