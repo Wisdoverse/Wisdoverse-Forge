@@ -114,8 +114,8 @@ updates:
         update-types:
           - minor
           - patch
-      # Macro expansion and SDK activity traits must stay compatible.
-      # Include major updates so Temporal migrations arrive in one review.
+      # Keep Temporal SDK updates grouped for compatibility review.
+      # Major API migrations are manually gated below.
       temporal-sdk:
         applies-to: version-updates
         patterns:
@@ -136,6 +136,11 @@ updates:
           - minor
           - patch
     ignore:
+      # Keep Temporal crate majors out of version-update PRs until the SDK API
+      # migration is reviewed as a complete, tested set. Minor and patch updates
+      # remain grouped above.
+      - dependency-name: 'temporalio-*'
+        update-types: ['version-update:semver-major']
       # Major Rust runtime bumps gated on intentional upgrades.
       - dependency-name: 'tokio'
         update-types: ['version-update:semver-major']
