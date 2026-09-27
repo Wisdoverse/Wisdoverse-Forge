@@ -103,7 +103,7 @@ task form shows an image attach control next to the prompt.
 
 Prerequisites:
 
-- Object storage (MinIO/S3) is configured for the deployment; uploaded images
+- Object storage (RustFS/S3) is configured for the deployment; uploaded images
   are stored there, not on the API host.
 - The task is assigned to a **Container CLI** agent whose tool supports image
   input. Today that is Claude Code, Codex, and Gemini CLI. Provider+prompt (API)

@@ -171,8 +171,8 @@ prod-backup: setup ## Start production with backup service
 	$(COMPOSE) -f docker/compose.prod.yml --profile prod --profile backup up -d --build
 
 .PHONY: prod-storage
-prod-storage: setup ## Start production with MinIO object storage
-	$(COMPOSE) -f docker/compose.prod.yml --profile prod --profile storage up -d --build
+prod-storage: setup ## Start production with RustFS (migrate existing objects first)
+	$(COMPOSE) -f docker/compose.prod.yml -f docker/compose.storage.yml --profile prod --profile storage up -d --build --wait
 
 .PHONY: prod-casdoor
 prod-casdoor: setup ## Start production with Casdoor SSO

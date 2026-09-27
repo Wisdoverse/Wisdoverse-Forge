@@ -10,7 +10,11 @@ and loading them on the target.
 make setup
 make build-agent-base      # agent runtime base image
 make prod-ext              # builds agentforge-server (and orchestrator/frontend)
-docker pull postgres:18-alpine redis:8-alpine nats:2.12.7-alpine temporalio/auto-setup:1.26 minio/minio:latest
+RUSTFS_IMAGE='rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff'
+for image in postgres:18-alpine redis:8-alpine nats:2.12.7-alpine temporalio/auto-setup:1.26 "$RUSTFS_IMAGE"; do
+  docker pull "$image"
+done
+docker tag "$RUSTFS_IMAGE" rustfs/rustfs:1.0.0
 ```
 
 > `make prod-ext` builds `agentforge-server:latest`. To match a version tag,
@@ -93,7 +97,7 @@ scripts/offline-bundle.sh --dry-run           # preview the commands without run
 
 The bundle contains `images.tar` (docker save output), `images.txt` (the tag
 list), `README.txt`, `SHA256SUMS` and, when signed, `SHA256SUMS.sig`. `--full-stack` also includes the
-platform services (PostgreSQL, Redis, NATS, Temporal, MinIO); omit it when
+platform services (PostgreSQL, Redis, NATS, Temporal, RustFS); omit it when
 only the Forge images are needed and the target already runs those services.
 
 ## 4. Load on the air-gapped host
@@ -117,6 +121,25 @@ and start the stack as usual:
 ```bash
 make prod-ext
 ```
+
+For bundled RustFS, configure `S3_ACCESS_KEY` and `S3_SECRET_KEY` in
+`docker/.env` and migrate any existing objects before switching the API.
+`docker save/load` preserves the version tag, not the registry digest. The
+bundle builder checks that the RustFS tag matches the pinned image before
+signing; after verifying and loading the bundle, use that tag without network
+pulls or builds:
+
+```bash
+RUSTFS_IMAGE=rustfs/rustfs:1.0.0 \
+  docker compose --env-file docker/.env \
+    -f docker/compose.yml -f docker/compose.prod.yml -f docker/compose.storage.yml \
+    --profile prod --profile storage up -d --wait --pull never --no-build
+```
+
+All other images required by the selected profiles must already be loaded,
+and `VERSION` in `docker/.env` must match their bundle tags. Keep
+`RUSTFS_IMAGE=rustfs/rustfs:1.0.0` in that offline host's `docker/.env` for
+later restarts. Online installations keep the default digest-pinned reference.
 
 ## Troubleshooting
 

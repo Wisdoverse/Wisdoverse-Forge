@@ -1,4 +1,4 @@
-//! Attachment object storage backed by either local disk or S3-compatible MinIO.
+//! Attachment object storage backed by local disk or an S3-compatible service such as RustFS.
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use secrecy::ExposeSecret;
 #[derive(Clone)]
 pub enum ObjectStorageClient {
     Local { root: PathBuf },
-    Minio { client: Arc<aws_sdk_s3::Client>, bucket: String },
+    S3 { client: Arc<aws_sdk_s3::Client>, bucket: String },
 }
 
 impl ObjectStorageClient {
@@ -26,15 +26,15 @@ impl ObjectStorageClient {
                 })?;
                 Ok(Self::Local { root })
             }
-            "minio" => {
+            "s3" | "minio" => {
                 let endpoint = config.minio_endpoint.as_deref().ok_or_else(|| {
-                    ErrorKind::Unavailable("MINIO_ENDPOINT is required when STORAGE_PROVIDER=minio".to_string())
+                    ErrorKind::Unavailable("S3_ENDPOINT is required when STORAGE_PROVIDER=s3".to_string())
                 })?;
                 let access_key = config.minio_access_key.as_ref().ok_or_else(|| {
-                    ErrorKind::Unavailable("MINIO_ACCESS_KEY is required when STORAGE_PROVIDER=minio".to_string())
+                    ErrorKind::Unavailable("S3_ACCESS_KEY is required when STORAGE_PROVIDER=s3".to_string())
                 })?;
                 let secret_key = config.minio_secret_key.as_ref().ok_or_else(|| {
-                    ErrorKind::Unavailable("MINIO_SECRET_KEY is required when STORAGE_PROVIDER=minio".to_string())
+                    ErrorKind::Unavailable("S3_SECRET_KEY is required when STORAGE_PROVIDER=s3".to_string())
                 })?;
                 let endpoint_url = normalize_endpoint(endpoint, config.minio_use_ssl);
                 let region = config.minio_region.as_deref().unwrap_or("us-east-1");
@@ -43,7 +43,7 @@ impl ObjectStorageClient {
                     secret_key.expose_secret().to_string(),
                     None,
                     None,
-                    "agentforge-minio",
+                    "agentforge-s3",
                 );
                 let s3_config = aws_sdk_s3::Config::builder()
                     .behavior_version(BehaviorVersion::latest())
@@ -54,7 +54,7 @@ impl ObjectStorageClient {
                     .build();
                 let client = aws_sdk_s3::Client::from_conf(s3_config);
                 ensure_bucket(&client, &config.minio_bucket).await?;
-                Ok(Self::Minio { client: Arc::new(client), bucket: config.minio_bucket.clone() })
+                Ok(Self::S3 { client: Arc::new(client), bucket: config.minio_bucket.clone() })
             }
             other => Err(ErrorKind::Validation(format!("unsupported storage provider: {other}")).into()),
         }
@@ -63,7 +63,7 @@ impl ObjectStorageClient {
     pub fn backend(&self) -> &'static str {
         match self {
             Self::Local { .. } => "local",
-            Self::Minio { .. } => "minio",
+            Self::S3 { .. } => "s3",
         }
     }
 
@@ -80,7 +80,7 @@ impl ObjectStorageClient {
                     .await
                     .map_err(|err| ErrorKind::Unavailable(format!("failed to write attachment object: {err}")).into())
             }
-            Self::Minio { client, bucket } => client
+            Self::S3 { client, bucket } => client
                 .put_object()
                 .bucket(bucket)
                 .key(key)
@@ -106,7 +106,7 @@ impl ObjectStorageClient {
                     kind.into()
                 })
             }
-            Self::Minio { client, bucket } => {
+            Self::S3 { client, bucket } => {
                 let output = client
                     .get_object()
                     .bucket(bucket)
@@ -135,7 +135,7 @@ impl ObjectStorageClient {
                     }
                 }
             }
-            Self::Minio { client, bucket } => client
+            Self::S3 { client, bucket } => client
                 .delete_object()
                 .bucket(bucket)
                 .key(key)
@@ -157,7 +157,7 @@ async fn ensure_bucket(client: &aws_sdk_s3::Client, bucket: &str) -> AppResult<(
         .send()
         .await
         .map(|_| ())
-        .map_err(|err| ErrorKind::Unavailable(format!("failed to ensure MinIO bucket '{bucket}': {err}")).into())
+        .map_err(|err| ErrorKind::Unavailable(format!("failed to ensure S3 bucket '{bucket}': {err}")).into())
 }
 
 fn normalize_endpoint(endpoint: &str, use_ssl: bool) -> String {
@@ -196,8 +196,8 @@ mod tests {
     #[test]
     fn endpoint_normalization_adds_scheme() {
         assert_eq!(normalize_endpoint("localhost:9000", false), "http://localhost:9000");
-        assert_eq!(normalize_endpoint("minio:9000", true), "https://minio:9000");
-        assert_eq!(normalize_endpoint("http://minio:9000", true), "http://minio:9000");
+        assert_eq!(normalize_endpoint("rustfs:9000", true), "https://rustfs:9000");
+        assert_eq!(normalize_endpoint("http://rustfs:9000", true), "http://rustfs:9000");
     }
 
     #[test]
@@ -206,5 +206,31 @@ mod tests {
         assert!(safe_local_path(&root, "org/file.txt").is_ok());
         assert!(safe_local_path(&root, "../file.txt").is_err());
         assert!(safe_local_path(&root, "/file.txt").is_err());
+    }
+
+    /// Run against an isolated RustFS bucket with STORAGE_PROVIDER=s3 and S3_* env vars.
+    #[tokio::test]
+    #[ignore = "requires a running RustFS service and explicit test credentials"]
+    async fn rustfs_object_round_trip() {
+        let config = AppConfig::from_env().expect("test storage config");
+        assert_eq!(config.storage_provider, "s3");
+        let storage = ObjectStorageClient::new(&config).await.expect("create test bucket");
+        assert_eq!(storage.backend(), "s3");
+        let key = format!("organizations/test/attachments/{}/file.txt", uuid::Uuid::new_v4());
+        let bytes = b"RustFS attachment round trip".to_vec();
+        storage.put_bytes(&key, "text/plain", bytes.clone()).await.expect("upload");
+        // Reopen the existing bucket, as the API does after a restart.
+        let reopened = ObjectStorageClient::new(&config).await.expect("existing bucket");
+        assert_eq!(reopened.get_bytes(&key).await.expect("download"), bytes);
+        if let ObjectStorageClient::S3 { client, bucket } = &reopened {
+            let head = client.head_object().bucket(bucket).key(&key).send().await.expect("object metadata");
+            assert_eq!(head.content_type(), Some("text/plain"));
+            assert_eq!(head.content_length(), Some(bytes.len() as i64));
+            reopened.delete(&key).await.expect("delete");
+            let err = client.get_object().bucket(bucket).key(&key).send().await.expect_err("deleted object");
+            assert!(err.as_service_error().is_some_and(|err| err.is_no_such_key()), "{err}");
+        } else {
+            panic!("expected S3 client");
+        }
     }
 }

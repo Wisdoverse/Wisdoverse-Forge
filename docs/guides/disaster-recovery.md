@@ -17,6 +17,7 @@ Before you start:
 
 ```bash
 COMPOSE_PROD="docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml --profile prod"
+COMPOSE_PROD_STORAGE="docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml -f docker/compose.storage.yml --profile prod --profile storage"
 ```
 
 The examples below use Compose service names from `docker/compose.yml`: `db`,
@@ -30,7 +31,7 @@ are not service names in the current Compose files.
 | ---------------------------------- | ------------------------------ | ----------------------------- |
 | PostgreSQL (agents, events, users) | 1 hour                         | 30 minutes                    |
 | Redis (cache, pub/sub)             | N/A (ephemeral)                | 5 minutes (restart)           |
-| MinIO (attachments)                | 24 hours                       | 2 hours                       |
+| RustFS (attachments)               | 24 hours                       | 2 hours                       |
 | NATS (event stream)                | N/A (transient)                | 5 minutes (restart)           |
 | Full system                        | 1 hour                         | 4 hours                       |
 
@@ -73,12 +74,24 @@ redis-cli BGSAVE
 cp /var/lib/redis/dump.rdb /backup/redis-dump-$(date +%Y%m%d).rdb
 ```
 
-### MinIO (Attachments)
+### RustFS (Attachments)
+
+Run `mc` on the Compose network, or use an endpoint reachable from the client.
+Install the existing `mc` S3-compatible client. Configure its endpoint and
+credentials in the shell that runs `mc`; Compose's `docker/.env` file does not
+export values into the shell. Do not put real credentials in shell history.
 
 ```bash
-# Using mc (MinIO client)
-mc mirror minio/agentforge /backup/minio-agentforge-$(date +%Y%m%d)/
+mc alias set rustfs "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+mc alias set backup "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY" "$BACKUP_S3_SECRET_KEY"
+mc mirror --overwrite --preserve rustfs/agentforge "backup/agentforge-$(date +%Y%m%d)"
 ```
+
+Back up to an independent S3 bucket so `--preserve` retains user metadata. A
+mirror to a local filesystem does not retain S3 user metadata unless you also
+export and restore a per-object metadata inventory. Keep a per-object SHA-256
+and size inventory with the backup, and periodically restore to a separate
+bucket or deployment. This backs up S3 API objects, not the RustFS data volume.
 
 ### NATS
 
@@ -125,7 +138,7 @@ docker exec agentforge-db psql -U agentforge -d agentforge -c \
 > After restore, task/org/user counts and the `_sqlx_migrations` chain
 > (86 migrations) matched the pre-disaster state exactly. On the same
 > cluster, "schema already exists" notices are harmless; `--clean
-> --if-exists` keeps the restore idempotent.
+--if-exists` keeps the restore idempotent.
 
 ### Redis Restore
 
@@ -140,16 +153,22 @@ cp /backup/redis-dump-YYYYMMDD.rdb /var/lib/redis/dump.rdb
 $COMPOSE_PROD start redis
 ```
 
-### MinIO Restore
+### RustFS Restore
 
-If you use the managed MinIO profile, start MinIO before mirroring objects:
+If you use the managed RustFS profile, start RustFS before mirroring objects.
+The storage override activates services that depend on the `prod` profile, so
+enable both profiles; naming only `rustfs` keeps the command scoped to storage.
+Configure `mc` aliases in the current shell; `docker/.env` does not export
+credentials into it:
 
 ```bash
-docker compose --env-file docker/.env -f docker/compose.yml --profile storage up -d minio
+$COMPOSE_PROD_STORAGE up -d --wait rustfs
+mc alias set backup "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY" "$BACKUP_S3_SECRET_KEY"
+mc alias set rustfs "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
 ```
 
 ```bash
-mc mirror /backup/minio-agentforge-YYYYMMDD/ minio/agentforge
+mc mirror --overwrite --preserve "backup/agentforge-YYYYMMDD" rustfs/agentforge
 ```
 
 ### Full System Rebuild
@@ -167,15 +186,35 @@ pg_restore -h localhost -U agentforge -d agentforge \
 
 # 4. Run migrations
 npm run migrate
+```
 
-# 5. Restore attachments if you use managed MinIO storage
-docker compose --env-file docker/.env -f docker/compose.yml --profile storage up -d minio
-mc mirror /backup/minio-agentforge-latest/ minio/agentforge
+For managed RustFS storage, start RustFS and restore attachments before starting
+the API:
 
-# 6. Start application services
-$COMPOSE_PROD up -d agentforge-server orchestrator
+```bash
+$COMPOSE_PROD_STORAGE up -d --wait rustfs
+mc alias set backup "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY" "$BACKUP_S3_SECRET_KEY"
+mc alias set rustfs "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+mc mirror --overwrite --preserve "backup/agentforge-YYYYMMDD" rustfs/agentforge
+```
 
-# 7. Verify health
+Then start application services with the storage override so the API uses
+RustFS:
+
+```bash
+$COMPOSE_PROD_STORAGE up -d --wait agentforge-server orchestrator
+```
+
+For local attachment storage, skip the RustFS restore above and start the API
+with the regular production profile:
+
+```bash
+$COMPOSE_PROD up -d --wait agentforge-server orchestrator
+```
+
+Verify health:
+
+```bash
 curl -s http://localhost:4003/health | jq .
 curl -s http://localhost:4003/api/health | jq .
 curl -s http://localhost:4010/health | jq .
@@ -255,5 +294,5 @@ nats server check connection
 | ---------------------- | --------- | ------------------------ |
 | PostgreSQL daily       | 30 days   | /backup/postgres/        |
 | PostgreSQL weekly      | 90 days   | /backup/postgres/weekly/ |
-| MinIO weekly           | 90 days   | /backup/minio/           |
+| RustFS weekly          | 90 days   | /backup/rustfs/          |
 | Redis RDB (if enabled) | 7 days    | /backup/redis/           |
