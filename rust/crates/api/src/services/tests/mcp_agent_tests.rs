@@ -12,11 +12,14 @@ use crate::services::mcp_agent::{
     McpAgentRuntimeCreateResult, McpAgentService, McpAgentStore, ProjectRuntimeContext, SessionStatus,
 };
 
+// Captured agent and optional container IDs for cleanup calls.
+type AgentContainerCall = (Uuid, Option<String>);
+
 #[derive(Clone, Default)]
 struct TestStore {
     context: Arc<Mutex<Option<ProjectRuntimeContext>>>,
     records: Arc<Mutex<Vec<McpAgentRecord>>>,
-    deleted: Arc<Mutex<Vec<(Uuid, Option<String>)>>>,
+    deleted: Arc<Mutex<Vec<AgentContainerCall>>>,
     leases: Arc<Mutex<HashMap<Uuid, chrono::DateTime<chrono::Utc>>>>,
     get_notify: Option<Arc<Notify>>,
 }
@@ -168,7 +171,7 @@ impl McpAgentStore for TestStore {
 struct TestRuntime {
     create_calls: Arc<Mutex<Vec<McpAgentRuntimeCreate>>>,
     prompt_calls: Arc<Mutex<Vec<(Uuid, String)>>>,
-    destroy_calls: Arc<Mutex<Vec<(Uuid, Option<String>)>>>,
+    destroy_calls: Arc<Mutex<Vec<AgentContainerCall>>>,
     statuses: Arc<Mutex<HashMap<Uuid, SessionStatus>>>,
 }
 

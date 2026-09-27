@@ -1203,7 +1203,10 @@ mod tests {
 
     #[test]
     fn decode_assignment_requires_signatures_only_for_containers() {
-        let secret = b"agent-secret";
+        let key = Uuid::new_v4();
+        let secret = key.as_bytes();
+        let mut wrong_secret = *secret;
+        wrong_secret[0] ^= 1;
         let assignment = sample_assignment();
 
         // A SignedEnvelope signed with this agent's secret verifies and unwraps.
@@ -1217,7 +1220,7 @@ mod tests {
 
         // Verifying with the wrong key is rejected (compromised-NATS forgery).
         assert!(
-            decode_assignment_payload(&signed_bytes, b"wrong-secret", true).is_err(),
+            decode_assignment_payload(&signed_bytes, &wrong_secret, true).is_err(),
             "forged signer must be rejected"
         );
 

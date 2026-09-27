@@ -582,6 +582,12 @@ impl AdminBulkDeletePolicy {
         if agent_ids.is_empty() {
             return Err(ErrorKind::Validation("ids array required".into()).into());
         }
+        if agent_ids.len() > 100 {
+            return Err(ErrorKind::Validation(
+                "delete at most 100 Agents per request; split larger selections into batches".into(),
+            )
+            .into());
+        }
         Ok(())
     }
 
@@ -684,6 +690,11 @@ mod tests {
     fn admin_bulk_delete_policy_owns_ids_and_error_projection() {
         assert!(AdminBulkDeletePolicy::require_ids(&[Uuid::now_v7()]).is_ok());
         assert!(AdminBulkDeletePolicy::require_ids(&[]).is_err());
+        assert!(AdminBulkDeletePolicy::require_ids(&[Uuid::nil(); 100]).is_ok());
+        assert!(matches!(
+            AdminBulkDeletePolicy::require_ids(&[Uuid::nil(); 101]).unwrap_err().kind,
+            ErrorKind::Validation(message) if message.contains("100 Agents")
+        ));
 
         let validation: AppError = ErrorKind::Validation("bad id".into()).into();
         let internal: AppError = ErrorKind::Internal(anyhow::anyhow!("db failed")).into();

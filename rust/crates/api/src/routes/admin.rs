@@ -326,7 +326,7 @@ async fn bulk_delete_admin_agents(
     let authority = service.require_platform_admin(auth.scope.user_id().as_uuid()).await?;
     AdminBulkDeletePolicy::require_ids(&body.ids)?;
     let control = state.agent_container_control_service();
-    let mut results = Vec::with_capacity(body.ids.len());
+    let mut results = Vec::new();
     for id in body.ids {
         match control.delete_as_platform_admin(&authority, AgentId::from(id)).await {
             Ok(()) => results.push(BulkDeleteResult { id, ok: true, error: None }),
