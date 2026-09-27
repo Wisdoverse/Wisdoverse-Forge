@@ -177,6 +177,14 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
         "097_validate_agent_lifecycle_event_receipts.sql",
         include_str!("../migrations/097_validate_agent_lifecycle_event_receipts.sql"),
     ),
+    (
+        "098_require_event_receipt_generation.sql",
+        include_str!("../migrations/098_require_event_receipt_generation.sql"),
+    ),
+    (
+        "099_validate_event_receipt_generation.sql",
+        include_str!("../migrations/099_validate_event_receipt_generation.sql"),
+    ),
 ];
 
 /// Run pending SQLx migrations against the database.

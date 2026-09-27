@@ -1493,6 +1493,21 @@ mod tests {
         .await
         .expect("seed Agent");
 
+        let incomplete_receipt = sqlx::query(
+            r#"INSERT INTO events
+                   (organization_id, agent_id, event_type, payload, ingest_event_id, ingest_applied)
+               VALUES ($1, $2, 'stop', '{}'::jsonb, 'incomplete-receipt', FALSE)"#,
+        )
+        .bind(organization_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect_err("an event ID without its generation must not pass receipt validation");
+        assert_eq!(
+            incomplete_receipt.as_database_error().and_then(|error| error.constraint()),
+            Some("events_ingest_receipt_complete")
+        );
+
         let store = SqlxEventStore::new(pool.clone());
         let initial_generation = container_generation_fingerprint(initial_secret.as_bytes());
         let persist = |event_type: &str, event_id: &str, sequence: Option<i64>, timestamp: i64, generation: &str| {
