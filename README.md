@@ -21,7 +21,7 @@ provider keys are encrypted with an operator-supplied key.
 ### What you need first
 
 - Docker and Docker Compose v2
-- Node.js 24+
+- Node.js 24.15+
 - Make, Git
 - Enough local resources to run the browser app, backend services, and agent
   work area together
@@ -31,7 +31,7 @@ provider keys are encrypted with an operator-supplied key.
 This is the path a real user takes: clone, run one command, follow the setup
 checklist in the browser.
 
-1. Install the prerequisites (Docker + Docker Compose v2, Node.js 24+, Make,
+1. Install the prerequisites (Docker + Docker Compose v2, Node.js 24.15+, Make,
    Git).
 2. Clone the repository, then run:
 
