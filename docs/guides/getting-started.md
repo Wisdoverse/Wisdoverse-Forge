@@ -14,8 +14,8 @@ full product running locally.
 
 | Path                       | Commands                               | Best for                                                         |
 | -------------------------- | -------------------------------------- | ---------------------------------------------------------------- |
-| One-command product start  | `make product`                        | First trial and daily use: stack + browser app + browser opens   |
-| Full local product         | `make quickstart-local`, `npm run dev` | Two-terminal development, and checking the browser flows        |
+| One-command product start  | `make product`                         | First trial and daily use: stack + browser app + browser opens   |
+| Full local product         | `make quickstart-local`, `npm run dev` | Two-terminal development, and checking the browser flows         |
 | Lightweight developer loop | `npm run server`, `npm run dev`        | UI or API work that does not need the full background work stack |
 
 Start with the full local product unless you already know you only need the
@@ -23,7 +23,7 @@ lightweight developer loop.
 
 ## What you need first
 
-- Node.js 24+
+- Node.js 24.15+
 - Docker and Docker Compose v2
 - Make
 - Git
