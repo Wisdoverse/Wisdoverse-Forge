@@ -113,7 +113,9 @@ Within the window, the three paths differ in whether they additionally dedup:
   browser broadcast after a transient failure; an older lifecycle receipt is
   suppressed so it cannot resurrect stale state. Sequence-less sidecars use a
   serialized compatibility counter until the first signed sequence switches
-  that generation to the new ledger.
+  that generation to the new ledger. Database constraints require each new
+  receipt to include its event ID, generation fingerprint and applied flag;
+  historical events without receipt fields remain valid.
 
 ## Per-path coverage (where this is enforced today)
 

@@ -1,9 +1,8 @@
 //! Operator-initiated CLI agent-image roll (deployment-global, admin-gated).
 //!
-//! Drains + respawns the RUNNING container agents of ONE tool — across all orgs
-//! — onto the freshly re-tagged `agentforge-agent:<tool>` image. UNLIKE the
-//! auto-updater (which never touches running agents), this DOES interrupt live
-//! work, so it is operator-initiated, never automatic, and never `claude`.
+//! Replaces idle RUNNING container agents of ONE tool — across all orgs — onto
+//! the freshly re-tagged `agentforge-agent:<tool>` image. The roll is
+//! operator-initiated, never automatic, and never `claude`.
 //!
 //! Scope: the route produces a sealed platform-admin authority value and the
 //! lifecycle coordinator re-reads each authoritative Agent under its lock. It
@@ -15,8 +14,9 @@
 //! one would interrupt its in-flight work and, because the sidecar dedup WAL is
 //! container-local and destroyed with the container, risk a redelivered
 //! assignment double-executing against the fresh sidecar. Only idle/offline
-//! agents are rolled. This is a best-effort signal (agent `status` can lag), so
-//! the feature still warrants a staging soak before prod-enable.
+//! agents are rolled. Replacement rechecks durable orchestration and interactive
+//! ownership under the lifecycle lock because the Agent status mirror can lag.
+//! The feature still warrants a staging soak before prod-enable.
 //!
 //! Single-flight per tool: a `RollGuard` rejects a concurrent roll of the same
 //! tool.

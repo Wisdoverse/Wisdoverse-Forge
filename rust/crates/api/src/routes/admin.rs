@@ -383,7 +383,7 @@ async fn list_cli_image_status(State(state): State<AppState>, auth: AuthUser) ->
 
 /// `POST /api/v1/admin/cli-images/{tool}/roll` — drain + respawn the running
 /// container agents of one tool onto the freshly re-tagged image. DESTRUCTIVE:
-/// it interrupts running agents (in-flight work surfaces as `agent_lost`).
+/// it replaces idle running agents and skips agents with active work.
 /// Admin-gated, operator-initiated, never `claude`. Returns a per-agent report;
 /// a tool that is unknown/claude → 422, a concurrent roll of the same tool →
 /// 409. Cross-org by design, through sealed platform-admin lifecycle authority.
