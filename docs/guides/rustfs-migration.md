@@ -58,9 +58,33 @@ mc alias set rustfs http://127.0.0.1:9002 "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
 
 3. Compare source and destination inventories for every key. Verify object
    count, key names, size, user metadata, and SHA-256 of the downloaded bytes;
-   do not treat matching ETags as SHA-256 proof. `mc stat --json` exposes object
-   metadata and `mc cat <alias>/<bucket>/<key> | sha256sum` computes a key's
-   content digest. Record and compare those results for the complete inventory.
+   do not treat matching ETags as SHA-256 proof. Run the checks in Bash with
+   `set -e -o pipefail`; a failed `mc stat`, `mc cat`, or hash command must
+   stop verification. For each source and destination key, record its metadata
+   and digest:
+
+   ```bash
+   set -e -o pipefail
+   OBJECT='<alias>/<bucket>/<key>'
+   mc stat --json "$OBJECT"
+   ```
+
+   Then run the matching hash command in the same Bash session. Use this on
+   Linux/WSL:
+
+   ```bash
+   mc cat "$OBJECT" | sha256sum
+   ```
+
+   Use this on macOS:
+
+   ```bash
+   mc cat "$OBJECT" | shasum -a 256
+   ```
+
+   Repeat for source and destination keys and compare the complete inventories;
+   matching ETags alone are not SHA-256 proof.
+
 4. Freeze attachment writes by stopping the Rust API using the source
    deployment's Compose files. This also pauses other API operations. For the
    self-contained production profile:
