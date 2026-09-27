@@ -347,6 +347,18 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn grpc_exporter_accepts_https_collector_endpoint() {
+        use opentelemetry_otlp::WithExportConfig;
+
+        // Construction is lazy: no collector connection or export is attempted.
+        let exporter = opentelemetry_otlp::SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint("https://collector.example.com:4317")
+            .build();
+        assert!(exporter.is_ok(), "HTTPS collectors require TLS support: {exporter:?}");
+    }
+
     #[test]
     fn traceparent_round_trips_the_active_span_context() {
         use opentelemetry::Context;

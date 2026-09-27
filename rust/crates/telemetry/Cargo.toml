@@ -11,3 +11,6 @@ tracing-opentelemetry.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
 opentelemetry-otlp.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
