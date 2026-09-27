@@ -95,6 +95,30 @@ Task creation should capture the title, prompt body, project task group,
 priority, and optional assigned agent. Tasks that require unavailable inputs or
 approval may start blocked instead of immediately dispatching.
 
+### Waiting For Other Tasks
+
+Before creating dependent work, create its prerequisite tasks in the selected
+task group. In the new task form, select **Wait for these tasks first** and pick
+up to 10 prerequisites. Leave the Agent unassigned while the task must wait.
+
+The task stays blocked until every selected prerequisite and any parent task
+has completed. Approval does not bypass this wait. Failed, canceled, or missing
+prerequisites keep dependent work blocked; resolve the prerequisite first. When
+all prerequisites finish, ready work returns to the queue automatically. If
+human approval or required inputs are also needed, satisfy those gates before
+assigning an Agent.
+
+### Changing Task State
+
+Move tasks between the backlog and queue before execution starts. Once an Agent
+owns active execution, wait for its result or lease recovery; the board does not
+offer manual cancel, complete, fail, or pause actions for that execution.
+
+Use **Retry task** for failed or canceled work, or for a verification hold that
+needs another attempt. Retry checks approval, required inputs and prerequisites
+again before dispatch. Completed tasks stay terminal. If another action changed
+the task first, refresh the board and retry the intended action.
+
 ## Attaching Images To A Task
 
 Some Container CLI agents can read images (screenshots, mockups, diagrams) as
@@ -103,7 +127,7 @@ task form shows an image attach control next to the prompt.
 
 Prerequisites:
 
-- Object storage (MinIO/S3) is configured for the deployment; uploaded images
+- Object storage (RustFS/S3) is configured for the deployment; uploaded images
   are stored there, not on the API host.
 - The task is assigned to a **Container CLI** agent whose tool supports image
   input. Today that is Claude Code, Codex, and Gemini CLI. Provider+prompt (API)

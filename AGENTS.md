@@ -6,7 +6,7 @@ Temporal-backed workflow orchestration, real-time telemetry, and a
 React/Vite/Three.js browser UI for task, run, evidence, context, and skill
 workflows.
 
-`AGENTS.md` is a symlink to this file. Keep this file as the canonical local agent
+`CLAUDE.md` is a symlink to this file (`AGENTS.md`). Keep this file as the canonical local agent
 entrypoint unless the project adds an explicit generator later.
 
 ## Current Runtime Contract
@@ -32,7 +32,7 @@ Runtime shape:
 ```text
 Browser (Vite dev server or static assets)
   -> Rust API / WebSocket gateway
-  -> PostgreSQL / Redis / NATS / MinIO / Docker runtime
+  -> PostgreSQL / Redis / NATS / RustFS (S3) / Docker runtime
   -> Rust orchestrator -> Temporal
   -> Agent sidecar / hooks / container CLI processes
 ```

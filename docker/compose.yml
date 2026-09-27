@@ -24,7 +24,7 @@
 #   external  - No local DB/Redis (connect to external services via .env)
 #   tools     - Admin UIs (Adminer, Redis Commander)
 #   backup    - Daily pg_dump with 7-day retention
-#   storage   - MinIO object storage
+#   storage   - RustFS S3-compatible object storage
 #   casdoor   - Casdoor OIDC identity provider
 #
 # =============================================================================
@@ -126,6 +126,13 @@ services:
       - STORAGE_MAX_FILE_SIZE=${STORAGE_MAX_FILE_SIZE:-10485760}
       - STORAGE_MAX_FILES_PER_SESSION=${STORAGE_MAX_FILES_PER_SESSION:-20}
       - STORAGE_SIGNED_URL_EXPIRY=${STORAGE_SIGNED_URL_EXPIRY:-3600}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_USE_SSL=${S3_USE_SSL:-}
+      - S3_REGION=${S3_REGION:-}
+      # Legacy S3 configuration aliases; non-empty S3_* values take precedence.
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-}
@@ -616,39 +623,46 @@ services:
       - 'com.wisdoverse.service=registry'
 
   # ---------------------------------------------------------------------------
-  # MinIO Object Storage (profiles: storage)
+  # RustFS Object Storage (profiles: storage)
   # ---------------------------------------------------------------------------
-  minio:
-    image: minio/minio:latest
-    container_name: ${CONTAINER_NAME_PREFIX:-agentforge}-minio
+  rustfs:
+    # Override only for a verified offline bundle; online installs use the digest pin.
+    image: ${RUSTFS_IMAGE:-rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff}
+    container_name: ${CONTAINER_NAME_PREFIX:-agentforge}-rustfs
     restart: unless-stopped
     profiles: [storage]
 
-    command: server /data --console-address ":9001"
+    command: /data
 
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-}
+      # Explicit empty values make the pinned image fail instead of using defaults.
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-}
+      RUSTFS_REGION: ${S3_REGION:-us-east-1}
+      RUSTFS_ADDRESS: ':9000'
+      RUSTFS_CONSOLE_ADDRESS: ':9001'
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_HEALTH_ENDPOINT_ENABLE: 'true'
 
     volumes:
-      - minio-data:/data
+      - rustfs-data:/data
 
     ports:
-      - '${MINIO_API_PORT:-9000}:9000'
-      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+      - '${RUSTFS_BIND_ADDRESS:-127.0.0.1}:${RUSTFS_API_PORT:-9000}:9000'
+      - '${RUSTFS_BIND_ADDRESS:-127.0.0.1}:${RUSTFS_CONSOLE_PORT:-9001}:9001'
 
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://localhost:9000/health/ready']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
+          cpus: '2.0'
+          memory: 1G
 
     networks:
       - default
@@ -955,6 +969,9 @@ volumes:
     driver: local
   caddy-config:
     driver: local
+  rustfs-data:
+    driver: local
+  # Retained for MinIO migration/rollback; never mount this volume into RustFS.
   minio-data:
     driver: local
   registry-data:
