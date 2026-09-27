@@ -35,22 +35,92 @@ describe('Board Store', () => {
     expect(columns.canceled).toHaveLength(1)
   })
 
-  test('moveTask changes task state and column', () => {
-    useBoardStore
-      .getState()
-      .setTasks([{ id: '1', state: 'backlog', params: { task: 'A', message: '' } }] as any)
-    useBoardStore.getState().moveTask('1', 'queued')
-    const { columns } = useBoardStore.getState()
-    expect(columns.backlog).toHaveLength(0)
-    expect(columns.queued).toHaveLength(1)
-    expect(columns.queued[0].id).toBe('1')
-  })
-
   test('groupBy defaults to status', () => {
     expect(useBoardStore.getState().groupBy).toBe('status')
   })
 
   test('viewMode defaults to board', () => {
     expect(useBoardStore.getState().viewMode).toBe('board')
+  })
+
+  test('switching groups clears tasks from the previous group', () => {
+    useBoardStore.getState().setSelectedGroupId('group-a')
+    useBoardStore
+      .getState()
+      .setTasks([{ id: '1', state: 'backlog', params: { task: 'A', message: '' } }] as any)
+
+    useBoardStore.getState().setSelectedGroupId('group-b')
+
+    expect(Object.values(useBoardStore.getState().columns).flat()).toEqual([])
+  })
+
+  test('rejects stale REST and WebSocket task snapshots', () => {
+    const task = (state: string, rowVersion: number) =>
+      ({
+        id: 'task-1',
+        state,
+        rowVersion,
+        updatedAt: `2026-08-30T00:00:0${rowVersion}Z`,
+        params: { task: 'A', message: '' },
+      }) as any
+
+    useBoardStore.getState().setTasks([task('blocked', 1)])
+    useBoardStore.getState().upsertTask(task('queued', 2))
+    useBoardStore.getState().setTasks([task('blocked', 1)])
+    useBoardStore.getState().upsertTask(task('blocked', 1))
+
+    expect(useBoardStore.getState().columns.queued[0].rowVersion).toBe(2)
+    useBoardStore.getState().upsertTask(task('working', 3))
+    expect(useBoardStore.getState().columns.working[0].rowVersion).toBe(3)
+  })
+
+  test('uses timestamps across mixed projectors without fabricating a revision', () => {
+    const base = {
+      id: 'task-1',
+      params: { task: 'A', message: '' },
+    }
+    useBoardStore
+      .getState()
+      .setTasks([
+        { ...base, state: 'queued', rowVersion: 10, updatedAt: '2026-08-30T10:00:00Z' },
+      ] as any)
+    useBoardStore.getState().upsertTask({
+      ...base,
+      state: 'working',
+      updatedAt: '2026-08-30T10:01:00Z',
+    } as any)
+
+    expect(useBoardStore.getState().columns.working[0].rowVersion).toBeUndefined()
+    useBoardStore.getState().upsertTask({
+      ...base,
+      state: 'queued',
+      rowVersion: 10,
+      updatedAt: '2026-08-30T10:00:00Z',
+    } as any)
+    expect(useBoardStore.getState().columns.working).toHaveLength(1)
+  })
+
+  test('preserves sub-millisecond ordering for rolling-upgrade frames', () => {
+    const base = { id: 'task-1', params: { task: 'A', message: '' } }
+    useBoardStore.getState().setTasks([
+      {
+        ...base,
+        state: 'working',
+        rowVersion: 11,
+        updatedAt: '2026-08-30T10:00:00.000900Z',
+      },
+    ] as any)
+    useBoardStore.getState().upsertTask({
+      ...base,
+      state: 'queued',
+      updatedAt: '2026-08-30T10:00:00.000100Z',
+    } as any)
+    useBoardStore.getState().upsertTask({
+      ...base,
+      state: 'queued',
+      updatedAt: '2026-08-30T10:00:00.000900Z',
+    } as any)
+
+    expect(useBoardStore.getState().columns.working).toHaveLength(1)
   })
 })

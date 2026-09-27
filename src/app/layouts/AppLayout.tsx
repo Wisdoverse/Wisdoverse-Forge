@@ -457,7 +457,7 @@ export function AppLayout({
           })
           if (response.ok && response.task) {
             let task = response.task
-            if (!data.assignedTo) {
+            if (!data.assignedTo && task.state === 'backlog') {
               try {
                 const startResponse = await orchestrationApi.updateTask(task.id, {
                   state: 'queued',
@@ -474,7 +474,11 @@ export function AppLayout({
             }
             upsertTask(task)
             setTaskCreatedMessage(
-              'Task saved on the board. Watch it there for progress, then open it when it is ready to check.'
+              task.state === 'blocked' && task.blockedReason === 'waiting_dependency'
+                ? 'Task saved and waiting for its prerequisite tasks. It will start after all of them finish.'
+                : task.state === 'blocked' && task.blockedReason === 'waiting_approval'
+                  ? 'Task saved in Needs approval. Open it when you are ready to allow the agent to start.'
+                  : 'Task saved on the board. Watch it there for progress, then open it when it is ready to check.'
             )
             return
           }

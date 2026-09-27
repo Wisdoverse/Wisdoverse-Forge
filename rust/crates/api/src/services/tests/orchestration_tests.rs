@@ -185,6 +185,13 @@ fn test_blocked_hint_waiting_dependency() {
 }
 
 #[test]
+fn test_blocked_hint_waiting_dependency_without_trusted_count() {
+    let meta = json!({ "dependency_ids": [Uuid::new_v4(), Uuid::new_v4()] });
+    let hint = BlockedTaskPolicy::hint("waiting_dependency", Some(&meta));
+    assert_eq!(hint, "等待上游任务完成");
+}
+
+#[test]
 fn test_blocked_hint_waiting_input_with_fields() {
     let meta = json!({ "missing": ["api_key", "model"] });
     let hint = BlockedTaskPolicy::hint("waiting_input", Some(&meta));

@@ -40,6 +40,7 @@ use agentforge_db::entities::OrchestrationTask;
 use agentforge_db::inbox_notifications::{TaskOwnerNotificationKind, upsert_task_owner_lifecycle_notification_in_tx};
 
 use crate::orchestration_realtime::publish_task_update;
+use crate::release_task_dependents_in_tx;
 
 // Replay window (skew tolerance, ±5 min): the shared single source of truth and
 // its deterministic boundary test live in `crate::replay_window`. The window is
@@ -636,6 +637,24 @@ impl TaskWriter for SqlxTaskWriter {
             return Ok(());
         }
 
+        // Match the claim/re-registration lock order before touching the task.
+        // Some legacy rows may already violate single ownership; the release
+        // below must still derive availability from all current working tasks.
+        sqlx::query_scalar::<_, Uuid>(
+            r#"SELECT participant.id
+                 FROM participants participant
+                 JOIN agents agent
+                   ON agent.id = participant.agent_id
+                  AND agent.organization_id = participant.organization_id
+                WHERE participant.organization_id = $1
+                  AND participant.agent_id = $2
+                FOR UPDATE OF participant, agent"#,
+        )
+        .bind(organization_id)
+        .bind(agent_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
         // #793/#875 completion verifier (NATS path, opt-in): a `Completed` result
         // for a task that carries a `params.expectedResult` contract is checked
         // against that contract BEFORE the status write. On a miss we hold the task
@@ -690,6 +709,7 @@ impl TaskWriter for SqlxTaskWriter {
                    SET status = 'blocked',
                        blocked_reason = 'waiting_verification',
                        result = $3,
+                       assigned_agent_id = NULL,
                        lease_expires_at = NULL,
                        updated_at = NOW()
                    WHERE id = $1
@@ -773,6 +793,15 @@ impl TaskWriter for SqlxTaskWriter {
             metrics::counter!("agentforge_orchestration_completion_verification_held_total").increment(1);
         }
 
+        let released_dependents = if status == "completed" {
+            release_task_dependents_in_tx(&mut tx, organization_id, task_id).await?
+        } else {
+            Vec::new()
+        };
+        if !released_dependents.is_empty() {
+            tracing::info!(task_id = %task_id, released = released_dependents.len(), "Released completed task dependents");
+        }
+
         sqlx::query(
             r#"UPDATE task_runs
                   SET status = $3,
@@ -803,8 +832,16 @@ impl TaskWriter for SqlxTaskWriter {
 
         sqlx::query(
             r#"UPDATE participants
-               SET status = 'available'
-               WHERE organization_id = $1 AND agent_id = $2"#,
+               SET status = CASE WHEN status = 'offline' THEN 'offline' ELSE 'available' END
+               WHERE organization_id = $1
+                 AND agent_id = $2
+                 AND NOT EXISTS (
+                       SELECT 1
+                         FROM orchestration_tasks task
+                        WHERE task.organization_id = participants.organization_id
+                          AND task.assigned_agent_id = participants.agent_id
+                          AND task.status = 'working'
+                     )"#,
         )
         .bind(organization_id)
         .bind(agent_id)
@@ -859,6 +896,9 @@ impl TaskWriter for SqlxTaskWriter {
 
         tx.commit().await?;
         self.broadcast_task_result(&updated_task, assigned_agent_name.as_deref(), status).await;
+        for dependent in &released_dependents {
+            self.broadcast_task_result(dependent, None, "updated").await;
+        }
         Ok(())
     }
 }
@@ -1280,6 +1320,128 @@ mod tests {
         assert!(job.is_none(), "non-self_fix completion must not enqueue a PR job");
     }
 
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn completion_via_result_path_releases_ready_dependents(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, user_id) = seed_for_result_apply(&pool, false).await;
+        let dependent_id = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+                   (id, organization_id, title, status, blocked_reason, params, created_by)
+               VALUES ($1, $2, 'dependent', 'blocked', 'waiting_dependency',
+                       jsonb_build_object('dependency_ids', jsonb_build_array($3::text)), $4)"#,
+        )
+        .bind(dependent_id)
+        .bind(org_id)
+        .bind(task_id)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .expect("seed dependent");
+
+        SqlxTaskWriter::new(pool.clone())
+            .apply(
+                org_id,
+                TaskResult {
+                    delivery_id: Some(delivery_id),
+                    attempt: Some(1),
+                    task_id,
+                    agent_id,
+                    outcome: TaskOutcome::Completed { stdout: "done".to_string() },
+                },
+            )
+            .await
+            .unwrap();
+
+        let state: (String, Option<String>) =
+            sqlx::query_as("SELECT status, blocked_reason FROM orchestration_tasks WHERE id = $1")
+                .bind(dependent_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(state, ("queued".into(), None));
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn completion_keeps_participant_busy_while_another_task_is_working(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, user_id) = seed_for_result_apply(&pool, false).await;
+        sqlx::query(
+            r#"INSERT INTO participants (organization_id, agent_id, name, status, last_heartbeat_at)
+               VALUES ($1, $2, 'a', 'busy', NOW())"#,
+        )
+        .bind(org_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"INSERT INTO orchestration_tasks
+                   (organization_id, title, status, created_by, assigned_agent_id, started_at)
+               VALUES ($1, 'newer work', 'working', $2, $3, NOW())"#,
+        )
+        .bind(org_id)
+        .bind(user_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        SqlxTaskWriter::new(pool.clone())
+            .apply(
+                org_id,
+                TaskResult {
+                    delivery_id: Some(delivery_id),
+                    attempt: Some(1),
+                    task_id,
+                    agent_id,
+                    outcome: TaskOutcome::Completed { stdout: "done".into() },
+                },
+            )
+            .await
+            .unwrap();
+
+        let status: String = sqlx::query_scalar("SELECT status FROM participants WHERE agent_id = $1")
+            .bind(agent_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(status, "busy");
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn completion_does_not_resurrect_an_offline_participant(pool: sqlx::PgPool) {
+        let (org_id, agent_id, task_id, delivery_id, _) = seed_for_result_apply(&pool, false).await;
+        sqlx::query(
+            r#"INSERT INTO participants (organization_id, agent_id, name, status, last_heartbeat_at)
+               VALUES ($1, $2, 'a', 'offline', NOW())"#,
+        )
+        .bind(org_id)
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        SqlxTaskWriter::new(pool.clone())
+            .apply(
+                org_id,
+                TaskResult {
+                    delivery_id: Some(delivery_id),
+                    attempt: Some(1),
+                    task_id,
+                    agent_id,
+                    outcome: TaskOutcome::Completed { stdout: "done".into() },
+                },
+            )
+            .await
+            .unwrap();
+
+        let status: String = sqlx::query_scalar("SELECT status FROM participants WHERE agent_id = $1")
+            .bind(agent_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(status, "offline");
+    }
+
     // -------------------------------------------------------------------
     // #793/#875 completion verifier (NATS path, opt-in): a Completed result
     // whose serialized form does NOT contain `params.expectedResult.contains`
@@ -1336,6 +1498,13 @@ mod tests {
         assert!(!has_completed_at, "held task must not stamp completed_at");
         let stored = stored_result.expect("held task still stores the agent's result");
         assert_eq!(stored["stdout"], "build failed", "the rejected result is preserved for the operator");
+        let assigned_agent_id: Option<Uuid> =
+            sqlx::query_scalar("SELECT assigned_agent_id FROM orchestration_tasks WHERE id = $1")
+                .bind(task_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(assigned_agent_id.is_none(), "verification hold must detach the finished Agent");
     }
 
     #[sqlx::test(migrations = "../db/migrations")]

@@ -242,6 +242,9 @@ pub struct TaskSummary {
     pub created_at: String,
     #[serde(rename = "updatedAt")]
     pub updated_at: String,
+    /// Database-owned monotonic revision used to reject stale REST/WS snapshots.
+    #[serde(rename = "rowVersion", default, skip_serializing_if = "Option::is_none")]
+    pub row_version: Option<i64>,
     #[serde(rename = "completedAt", skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,
     /// True when this is a self-fix task (drives the in-platform PR Review tab).
@@ -358,5 +361,18 @@ mod tests {
                 "{tag}: serialized frame has the wrong `type` discriminator"
             );
         }
+    }
+
+    #[test]
+    fn task_update_accepts_legacy_frames_and_emits_known_row_versions() {
+        let raw = include_str!("../../../../tests/fixtures/ws-protocol/orchestration_task_update.json");
+        let mut message: ServerMessage = serde_json::from_str(raw).unwrap();
+        let ServerMessage::OrchestrationTaskUpdate { payload } = &mut message else {
+            panic!("task fixture must deserialize as a task update");
+        };
+        assert_eq!(payload.task.row_version, None);
+        payload.task.row_version = Some(7);
+        let encoded = serde_json::to_value(message).unwrap();
+        assert_eq!(encoded["payload"]["task"]["rowVersion"], 7);
     }
 }

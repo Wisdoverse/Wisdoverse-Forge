@@ -98,8 +98,7 @@ export function PropertiesGroup({ task }: { task: TaskSummary }) {
             {actions.confirmCancelTask ? (
               <>
                 <p className="text-ui-caption leading-relaxed text-apple-red">
-                  Canceling stops the current agent work. Use Needs help instead if you only need to
-                  pause for missing input.
+                  Canceling removes this queued task before an agent starts it.
                 </p>
                 <button
                   type="button"
@@ -119,24 +118,14 @@ export function PropertiesGroup({ task }: { task: TaskSummary }) {
                 </button>
               </>
             ) : (
-              <>
-                <button
-                  type="button"
-                  disabled={actions.taskAction !== null}
-                  onClick={() => void actions.pause()}
-                  className={uiStyles.subtleButton}
-                >
-                  {actions.taskAction === 'block' ? 'Marking…' : 'Needs help'}
-                </button>
-                <button
-                  type="button"
-                  disabled={actions.taskAction !== null}
-                  onClick={() => actions.setConfirmCancelTask(true)}
-                  className={uiStyles.subtleButton}
-                >
-                  Cancel
-                </button>
-              </>
+              <button
+                type="button"
+                disabled={actions.taskAction !== null}
+                onClick={() => actions.setConfirmCancelTask(true)}
+                className={uiStyles.subtleButton}
+              >
+                Cancel
+              </button>
             )}
           </div>
         )}

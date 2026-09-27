@@ -110,12 +110,14 @@ async fn expired_working_leases_fail_closed_and_release_participants(pool: PgPoo
     let healthy_agent = seed_agent(&pool, org_id, user_id, "healthy-agent").await;
     let legacy_orphan_agent = seed_agent(&pool, org_id, user_id, "legacy-orphan-agent").await;
     let legacy_busy_agent = seed_agent(&pool, org_id, user_id, "legacy-busy-agent").await;
+    let stopped_agent = seed_agent(&pool, org_id, user_id, "stopped-agent").await;
 
     seed_participant(&pool, org_id, fresh_agent, "busy", "NOW()").await;
     seed_participant(&pool, org_id, stale_agent, "busy", "NOW() - INTERVAL '10 minutes'").await;
     seed_participant(&pool, org_id, healthy_agent, "busy", "NOW()").await;
     seed_participant(&pool, org_id, legacy_orphan_agent, "available", "NOW()").await;
     seed_participant(&pool, org_id, legacy_busy_agent, "busy", "NOW()").await;
+    seed_participant(&pool, org_id, stopped_agent, "offline", "NOW()").await;
 
     let expired_fresh =
         seed_task(&pool, org_id, user_id, fresh_agent, "expired-fresh", "NOW() - INTERVAL '5 minutes'").await;
@@ -125,16 +127,19 @@ async fn expired_working_leases_fail_closed_and_release_participants(pool: PgPoo
         seed_task(&pool, org_id, user_id, healthy_agent, "still-working", "NOW() + INTERVAL '5 minutes'").await;
     let legacy_orphan = seed_task(&pool, org_id, user_id, legacy_orphan_agent, "legacy-orphan", "NULL").await;
     let legacy_busy = seed_task(&pool, org_id, user_id, legacy_busy_agent, "legacy-busy", "NULL").await;
+    let expired_stopped =
+        seed_task(&pool, org_id, user_id, stopped_agent, "expired-stopped", "NOW() - INTERVAL '5 minutes'").await;
     let expired_run = seed_task_run(&pool, org_id, expired_fresh, fresh_agent).await;
     let healthy_run = seed_task_run(&pool, org_id, still_working, healthy_agent).await;
 
     let outcomes = expire_working_leases(&pool, Duration::from_secs(90)).await.expect("expire working leases");
-    assert_eq!(outcomes.len(), 3, "expired and orphaned legacy tasks should be reconciled");
+    assert_eq!(outcomes.len(), 4, "expired and orphaned legacy tasks should be reconciled");
 
     let expired_ids: HashSet<Uuid> = outcomes.iter().map(|outcome| outcome.task.id).collect();
     assert!(expired_ids.contains(&expired_fresh));
     assert!(expired_ids.contains(&expired_stale));
     assert!(expired_ids.contains(&legacy_orphan));
+    assert!(expired_ids.contains(&expired_stopped));
     assert!(!expired_ids.contains(&still_working));
     assert!(!expired_ids.contains(&legacy_busy));
 
@@ -165,6 +170,15 @@ async fn expired_working_leases_fail_closed_and_release_participants(pool: PgPoo
             .await
             .expect("stale participant status");
     assert_eq!(stale_status, "offline");
+
+    let stopped_status: String =
+        sqlx::query_scalar("SELECT status FROM participants WHERE organization_id = $1 AND agent_id = $2")
+            .bind(org_id)
+            .bind(stopped_agent)
+            .fetch_one(&pool)
+            .await
+            .expect("stopped participant status");
+    assert_eq!(stopped_status, "offline");
 
     let healthy_status: String =
         sqlx::query_scalar("SELECT status FROM participants WHERE organization_id = $1 AND agent_id = $2")

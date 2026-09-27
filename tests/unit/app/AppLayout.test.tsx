@@ -738,6 +738,73 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  test('keeps a task waiting instead of starting it before its prerequisite', async () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    useBoardStore.getState().setTasks([
+      {
+        id: 'prerequisite-task',
+        groupId: 'group-1',
+        state: 'working',
+        method: 'tasks/send',
+        params: { task: 'Finish the first step', message: '' },
+        priority: 'normal',
+        progress: 25,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ] as never)
+    mockCreateTask.mockResolvedValueOnce({
+      ok: true,
+      task: {
+        id: 'waiting-task',
+        groupId: 'group-1',
+        state: 'blocked',
+        blockedReason: 'waiting_dependency',
+        method: 'tasks/send',
+        params: {
+          task: 'Start after the first step',
+          message: 'Where to work:\n- Forge\n\nDone when:\n- the follow-up is complete',
+          dependency_ids: ['prerequisite-task'],
+        },
+        priority: 'normal',
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByRole('button', { name: /new task/i }))
+    await waitFor(() => expect(mockGetParticipants).toHaveBeenCalledWith('all'))
+    fireEvent.change(screen.getByLabelText(/what should the agent finish/i), {
+      target: { value: 'Start after the first step' },
+    })
+    fireEvent.change(screen.getByLabelText(/details the agent should know/i), {
+      target: {
+        value: 'Where to work:\n- Forge\n\nDone when:\n- the follow-up is complete',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /task options/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Finish the first step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }))
+
+    await waitFor(() =>
+      expect(mockCreateTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ dependencyIds: ['prerequisite-task'] }),
+        })
+      )
+    )
+    expect(mockUpdateTask).not.toHaveBeenCalled()
+    expect(useBoardStore.getState().columns.blocked.map((task) => task.id)).toContain(
+      'waiting-task'
+    )
+    expect(screen.getByTestId('task-created-status')).toHaveTextContent(
+      'Task saved and waiting for its prerequisite tasks. It will start after all of them finish.'
+    )
+  })
+
   test('keeps a created task when starting it fails', async () => {
     seedProjectNavigation('p1')
     useBoardStore.getState().setSelectedGroupId('group-1')

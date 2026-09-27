@@ -682,9 +682,34 @@ describe('BoardView', () => {
     expect(mockGetTasks).toHaveBeenCalledTimes(2)
   })
 
-  test('skips fallback refresh while live updates are connected', async () => {
+  test('authoritative polling heals an inverted legacy frame while connected', async () => {
     vi.useFakeTimers()
     boardSocketMocks.status = 'connected'
+    const base = {
+      id: 'task-rolling-upgrade',
+      groupId: 'test-group',
+      params: { task: 'Rolling upgrade', message: '' },
+      priority: 'normal',
+      progress: 0,
+      createdAt: '2026-08-30T09:00:00Z',
+    }
+    mockGetTasks
+      .mockResolvedValueOnce([
+        {
+          ...base,
+          state: 'queued',
+          rowVersion: 1,
+          updatedAt: '2026-08-30T10:00:00Z',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          ...base,
+          state: 'canceled',
+          rowVersion: 2,
+          updatedAt: '2026-08-30T09:59:00Z',
+        },
+      ])
     useBoardStore.getState().setSelectedGroupId('test-group')
 
     render(<BoardView />)
@@ -692,11 +717,18 @@ describe('BoardView', () => {
       await Promise.resolve()
     })
     expect(mockGetTasks).toHaveBeenCalledTimes(1)
+    useBoardStore.getState().upsertTask({
+      ...base,
+      state: 'canceled',
+      updatedAt: '2026-08-30T09:59:00Z',
+    } as any)
+    expect(useBoardStore.getState().columns.queued).toHaveLength(1)
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000)
     })
 
-    expect(mockGetTasks).toHaveBeenCalledTimes(1)
+    expect(mockGetTasks).toHaveBeenCalledTimes(2)
+    expect(useBoardStore.getState().columns.canceled[0].rowVersion).toBe(2)
   })
 })
