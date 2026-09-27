@@ -217,18 +217,21 @@ container id) then `start` (recreates it from the resolved, now-updated image).
 
 Safety:
 
-- **Idle-only**: an agent in the `working` state is SKIPPED (reported as
-  `skippedBusy`). Rolling a busy agent would interrupt its work and, because the
-  sidecar's dedup WAL is container-local and destroyed with the container, risk a
-  redelivered assignment double-executing. `status` is a best-effort signal, so
-  **soak this on staging before enabling in production.**
-- **Own scope**: each agent is rolled within its own persisted org/user/workspace
-  (the existing tenant-scoped `stop`/`start` enforce every per-org invariant); no
-  privilege is fabricated.
-- **Single-flight**: a second concurrent roll of the same tool returns `409`.
-- **Authorization note**: this uses the same admin gate as the other destructive
-  cross-tenant admin endpoints (e.g. `DELETE /admin/agents/{id}`). A
-  platform-admin vs org-admin distinction is a separate, surface-wide hardening.
+- **Idle-only**: working Agents are reported as `skippedBusy`. Before replacing
+  each Agent, the service takes its PostgreSQL lifecycle lock and rechecks live
+  terminal/MCP leases, busy participants and working tasks. Any current owner
+  keeps the container in place, even when the displayed status lags.
+- **Stored ownership**: the admin route grants a sealed platform-admin authority.
+  The service rereads the Agent and its organization, user and workspace while
+  locked; it does not construct a caller-supplied tenant scope. Replacement
+  credentials and project access still belong to that stored owner.
+- **Single-flight**: a second roll of the same tool returns `409`. A PostgreSQL
+  per-tool lock also serializes roll, pull, local build and prune across API
+  replicas. One verified immutable image is used for the entire roll.
+- **Recovery ordering**: result processing and lease expiry acquire the Agent
+  lifecycle lock before participant, Agent or task row locks. Quarantine can
+  invalidate work and clear unverified container metadata without waiting on a
+  writer that already owns the Agent row.
 
 Status codes:
 

@@ -7,7 +7,8 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use agentforge_jobs::expire_working_leases;
+use agentforge_core::orchestration_protocol::{TaskOutcome, TaskResult};
+use agentforge_jobs::{SqlxTaskWriter, TaskWriter, expire_working_leases};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -224,4 +225,80 @@ async fn expired_working_leases_fail_closed_and_release_participants(pool: PgPoo
             .expect("healthy run status");
     assert_eq!(healthy_run_status, "working");
     assert!(healthy_finished_at.is_none());
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn result_and_expiry_wait_for_quarantine_before_locking_agent_rows(pool: PgPool) {
+    let (org_id, user_id) = seed_org_and_user(&pool).await;
+    let agent_id = seed_agent(&pool, org_id, user_id, "quarantined-agent").await;
+    seed_participant(&pool, org_id, agent_id, "busy", "NOW()").await;
+    let task_id = seed_task(&pool, org_id, user_id, agent_id, "quarantine", "NOW() - INTERVAL '5 minutes'").await;
+    let delivery_id = sqlx::query_scalar::<_, Uuid>("SELECT last_assignment_id FROM orchestration_tasks WHERE id = $1")
+        .bind(task_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    // Model reconciliation holding the lifecycle and task locks while it clears
+    // Agent metadata through another pool connection.
+    let mut quarantine = pool.begin().await.unwrap();
+    agentforge_db::lock_agent_lifecycle_in_tx(&mut quarantine, agent_id).await.unwrap();
+    sqlx::query("SELECT id FROM orchestration_tasks WHERE id = $1 FOR UPDATE")
+        .bind(task_id)
+        .execute(&mut *quarantine)
+        .await
+        .unwrap();
+
+    let result_pool = pool.clone();
+    let result = tokio::spawn(async move {
+        SqlxTaskWriter::new(result_pool)
+            .apply(
+                org_id,
+                TaskResult {
+                    delivery_id: Some(delivery_id),
+                    attempt: Some(1),
+                    task_id,
+                    agent_id,
+                    outcome: TaskOutcome::Completed { stdout: "done".into() },
+                },
+            )
+            .await
+    });
+    let expiry_pool = pool.clone();
+    let expiry = tokio::spawn(async move { expire_working_leases(&expiry_pool, Duration::from_secs(90)).await });
+
+    // Observe the actual advisory waits rather than guessing when the workers
+    // started. This database is isolated by sqlx::test.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let waiting: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event = 'advisory'",
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            if waiting == 2 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("both writers must wait for the lifecycle lock before taking Agent rows");
+
+    let mut clear = pool.begin().await.unwrap();
+    sqlx::query("SELECT id FROM agents WHERE id = $1 FOR UPDATE NOWAIT")
+        .bind(agent_id)
+        .execute(&mut *clear)
+        .await
+        .expect("quarantine metadata connection must not wait on either writer");
+    clear.commit().await.unwrap();
+    quarantine.commit().await.unwrap();
+
+    tokio::time::timeout(Duration::from_secs(5), async {
+        result.await.unwrap().unwrap();
+        expiry.await.unwrap().unwrap();
+    })
+    .await
+    .expect("both workers complete once quarantine releases its lifecycle guard");
 }

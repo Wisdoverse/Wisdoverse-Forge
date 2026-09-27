@@ -618,6 +618,9 @@ impl TaskWriter for SqlxTaskWriter {
             }
         };
         let mut tx = self.pool.begin().await?;
+        // Quarantine holds this guard while invalidating work and clearing the
+        // Agent through a separate connection. Take it before any row locks.
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, agent_id).await?;
 
         let inserted = sqlx::query(
             r#"INSERT INTO orchestration_inbox

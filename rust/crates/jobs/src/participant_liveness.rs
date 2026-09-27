@@ -443,7 +443,8 @@ pub(crate) const LOCK_EXPIRING_PARTICIPANTS_SQL: &str = r#"SELECT participant.id
           JOIN agents agent
             ON agent.id = participant.agent_id
            AND agent.organization_id = participant.organization_id
-         WHERE EXISTS (
+         WHERE participant.agent_id = ANY($1::uuid[])
+           AND EXISTS (
                SELECT 1
                  FROM orchestration_tasks task
                 WHERE task.organization_id = participant.organization_id
@@ -469,6 +470,7 @@ pub(crate) const EXPIRE_WORKING_LEASES_SQL: &str = r#"UPDATE orchestration_tasks
                completed_at = NOW(),
                updated_at = NOW()
          WHERE status = 'working'
+           AND (assigned_agent_id IS NULL OR assigned_agent_id = ANY($1::uuid[]))
            AND (
                (lease_expires_at IS NOT NULL AND lease_expires_at < NOW())
                OR (
@@ -1056,8 +1058,22 @@ pub struct ExpiredLeaseOutcome {
 
 pub async fn expire_working_leases(pool: &PgPool, stale_after: Duration) -> Result<Vec<ExpiredLeaseOutcome>> {
     let mut tx = pool.begin().await?;
-    sqlx::query_scalar::<_, Uuid>(LOCK_EXPIRING_PARTICIPANTS_SQL).fetch_all(&mut *tx).await?;
-    let expired_tasks = sqlx::query_as::<_, OrchestrationTask>(EXPIRE_WORKING_LEASES_SQL).fetch_all(&mut *tx).await?;
+    // ponytail: lock the working-Agent superset in UUID order; narrow candidates
+    // if this recovery sweep starts delaying unrelated completions at scale.
+    let agent_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT DISTINCT assigned_agent_id FROM orchestration_tasks \
+         WHERE status = 'working' AND assigned_agent_id IS NOT NULL ORDER BY assigned_agent_id",
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    for agent_id in &agent_ids {
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, *agent_id).await?;
+    }
+    // Restrict both rechecks to captured Agents: a later assignment must not
+    // introduce row locks for an Agent whose lifecycle guard we do not hold.
+    sqlx::query_scalar::<_, Uuid>(LOCK_EXPIRING_PARTICIPANTS_SQL).bind(&agent_ids).fetch_all(&mut *tx).await?;
+    let expired_tasks =
+        sqlx::query_as::<_, OrchestrationTask>(EXPIRE_WORKING_LEASES_SQL).bind(&agent_ids).fetch_all(&mut *tx).await?;
     if !expired_tasks.is_empty() {
         let task_ids: Vec<Uuid> = expired_tasks.iter().map(|task| task.id).collect();
         sqlx::query(CLOSE_EXPIRED_TASK_RUNS_SQL).bind(&task_ids).execute(&mut *tx).await?;
