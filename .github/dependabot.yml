@@ -120,12 +120,18 @@ updates:
         applies-to: version-updates
         patterns:
           - 'temporalio-*'
+      # API, SDK, exporters, and the tracing bridge share OpenTelemetry types.
+      # Review breaking upgrades together; crate versions need not be identical.
+      opentelemetry-stack:
+        applies-to: version-updates
+        patterns:
+          - 'opentelemetry*'
+          - 'tracing-opentelemetry'
       observability:
         applies-to: version-updates
         patterns:
           - 'tracing*'
           - 'metrics*'
-          - 'opentelemetry*'
         update-types:
           - minor
           - patch

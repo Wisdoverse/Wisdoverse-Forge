@@ -483,6 +483,11 @@ pipeline works unchanged.
 | `OTEL_TRACES_SAMPLER_ARG`     | `1.0`                  | Sampling ratio (0.0–1.0); invalid values disable sampling rather than exporting unexpectedly   |
 | `OTEL_SERVICE_NAME`           | binary name            | Resource `service.name` (`agentforge-server`, `agentforge-orchestrator` by default)            |
 
+OTLP 0.33 retries transient export failures up to three times with backoff.
+Use an explicit `http://` or `https://` collector URL. Schemeless gRPC endpoints
+default to TLS; set `OTEL_EXPORTER_OTLP_INSECURE=true` if such an endpoint needs
+plaintext transport. Explicit URL schemes retain their transport behavior.
+
 W3C `traceparent` contexts are propagated across the API → NATS → sidecar →
 container-CLI hops, so one user request shows up as a single trace end to end.
 
