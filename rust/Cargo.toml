@@ -91,7 +91,7 @@ rustix = { version = "1.0", features = ["fs"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 
 # Base64
-base64 = "0.22"
+base64 = "0.23"
 
 # Base32 — RFC 4648 NOPAD alphabet, used by NATS ed25519-nkey JWT signatures
 # (see nats-io/nkeys Go reference and docs.rs/data-encoding). Already transitive
