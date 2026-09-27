@@ -125,12 +125,13 @@ async fn main() -> anyhow::Result<()> {
     // Initialise components. The publisher and WAL are shared across the
     // heartbeat loop, startup/periodic WAL drain, and the relay-socket listener,
     // so both are `Arc`-wrapped and cloned per consumer.
-    let publisher = Arc::new(publisher::EventPublisher::new(
+    let publisher = Arc::new(publisher::EventPublisher::new_with_wal_path(
         nats_client.clone(),
         cfg.agent_id.clone(),
         &cfg.hmac_secret,
         resolved_cli_tool.clone(),
         resolved_runtime_kind,
+        cfg.wal_path.as_deref(),
     ));
     let cmd_handler = commands::CommandHandler::new(nats_client.clone(), cfg.agent_id.clone());
     let wal_instance = Arc::new(wal::Wal::new(cfg.wal_path.as_deref()));

@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+use crate::domain::agent::AgentContainerImageTrust;
+
 const VALID_QUOTA_RESOURCE_TYPES: &[&str] = &["agents", "storage", "events"];
 const VALID_TILE_TYPES: &[&str] = &["agent", "feed", "chart", "custom"];
 const VALID_RUNTIME_BACKENDS: &[&str] = &["container", "cli", "api"];
@@ -110,8 +112,16 @@ pub(crate) struct RuntimeSettings {
 pub(crate) struct RuntimeCliToolDetail {
     pub(crate) cli_tool: String,
     pub(crate) image: String,
+    pub(crate) image_id: Option<String>,
+    pub(crate) image_digest: Option<String>,
     pub(crate) version: Option<String>,
     pub(crate) image_present: bool,
+    pub(crate) image_ready: bool,
+    pub(crate) image_trust: Option<AgentContainerImageTrust>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) image_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) image_error_code: Option<String>,
     pub(crate) version_source: String,
 }
 

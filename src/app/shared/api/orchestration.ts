@@ -78,6 +78,15 @@ export interface TaskContextCounts {
   total: number
 }
 
+export interface TaskRunImageEvidence {
+  source: string
+  imageId: string
+  manifestDigest?: string
+  version?: string
+  versionSource: 'docker-label' | 'not-reported'
+  trust?: 'verified-signature' | 'host-local'
+}
+
 export interface TaskRunSummary {
   id: string
   agentId: string
@@ -88,6 +97,7 @@ export interface TaskRunSummary {
   cliTool?: string
   providerName?: string
   maxContextTokens?: number
+  image?: TaskRunImageEvidence
 }
 
 export type TaskCommentKind = 'comment' | 'blocker' | 'unblock'

@@ -10,7 +10,10 @@
 //! container-creation defense-in-depth is unaffected.
 
 use std::collections::{HashMap, HashSet};
+use std::process::Stdio;
+use std::time::Duration;
 
+use agentforge_core::image_trust::{DEFAULT_IMAGE_REPOSITORY, cosign_verify_args, is_public_cli_overlay};
 use bollard::auth::DockerCredentials;
 use bollard::models::ImageInspect;
 use bollard::query_parameters::{
@@ -18,6 +21,7 @@ use bollard::query_parameters::{
     RemoveImageOptionsBuilder, TagImageOptionsBuilder,
 };
 use futures_util::StreamExt;
+use tokio::process::Command;
 
 use crate::container::PlatformError;
 use crate::docker::DockerClient;
@@ -36,6 +40,114 @@ pub struct LocalImage {
     pub repo_digests: Vec<String>,
 }
 
+/// Immutable identity and operator-facing metadata for one local image ref.
+///
+/// Docker tags are mutable. Callers that create security-sensitive containers
+/// resolve the configured tag once, then pass this content id to Docker so a
+/// concurrent re-tag cannot swap the image between readiness and create.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalImageIdentity {
+    /// Docker content/config id (`sha256:...`), accepted as an immutable image
+    /// reference by the daemon.
+    pub id: String,
+    /// Registry manifest digest when the image was pulled from a registry.
+    /// Locally-built images legitimately have no manifest digest.
+    pub manifest_digest: Option<String>,
+    /// Immutable source registry reference (`repo@sha256:...`) corresponding
+    /// to the inspected configured ref. Local builds have no registry source.
+    pub registry_reference: Option<String>,
+    pub labels: HashMap<String, String>,
+}
+
+const IMAGE_SIGNATURE_VERIFICATION_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Verify one immutable registry image against the repository's pinned
+/// GitHub Actions signer allowlist. Mutable tags are rejected before `cosign`
+/// starts; callers decide which runtime environments require this proof.
+pub async fn verify_image_signature(registry_reference: &str) -> Result<(), PlatformError> {
+    let signer_repository = configured_image_signer_repository();
+    verify_image_signature_for_repository(registry_reference, &signer_repository).await
+}
+
+async fn verify_image_signature_for_repository(
+    registry_reference: &str,
+    signer_repository: &str,
+) -> Result<(), PlatformError> {
+    if !is_immutable_registry_reference(registry_reference) {
+        return Err(PlatformError::ImageVerification(
+            "expected an immutable repo@sha256:<64 hex> reference".to_string(),
+        ));
+    }
+
+    let mut command = Command::new("cosign");
+    command
+        .args(cosign_verify_args(registry_reference, signer_repository, None))
+        .stdin(Stdio::null())
+        .kill_on_drop(true);
+
+    let output = match tokio::time::timeout(IMAGE_SIGNATURE_VERIFICATION_TIMEOUT, command.output()).await {
+        Ok(Ok(output)) => output,
+        Ok(Err(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Err(PlatformError::ImageVerification("image_verifier_missing".to_string()));
+        }
+        Ok(Err(error)) => {
+            tracing::warn!(error = %error, "could not start cosign image verifier");
+            return Err(PlatformError::ImageVerification("image_verifier_start_failed".to_string()));
+        }
+        Err(_) => {
+            return Err(PlatformError::ImageVerification("image_verification_timeout".to_string()));
+        }
+    };
+
+    if !output.status.success() {
+        let diagnostic = bounded_diagnostic(&output.stderr);
+        let code = classify_cosign_failure(&diagnostic);
+        tracing::warn!(code, diagnostic, "cosign rejected container image");
+        return Err(PlatformError::ImageVerification(code.to_string()));
+    }
+    Ok(())
+}
+
+fn bounded_diagnostic(stderr: &[u8]) -> String {
+    String::from_utf8_lossy(stderr)
+        .chars()
+        .filter(|character| !character.is_control() || *character == ' ')
+        .take(512)
+        .collect()
+}
+
+fn classify_cosign_failure(diagnostic: &str) -> &'static str {
+    let diagnostic = diagnostic.to_ascii_lowercase();
+    if diagnostic.contains("unauthorized")
+        || diagnostic.contains("authentication required")
+        || diagnostic.contains("denied")
+    {
+        "image_registry_auth_failed"
+    } else if diagnostic.contains("no such host")
+        || diagnostic.contains("connection refused")
+        || diagnostic.contains("connection reset")
+        || diagnostic.contains("dial tcp")
+    {
+        "image_registry_unreachable"
+    } else if diagnostic.contains("no matching signatures")
+        || diagnostic.contains("no signatures")
+        || diagnostic.contains("certificate identity")
+        || diagnostic.contains("signature")
+    {
+        "image_signature_untrusted"
+    } else {
+        "image_signature_verification_failed"
+    }
+}
+
+fn configured_image_signer_repository() -> String {
+    std::env::var("AGENT_IMAGE_SIGNER_REPOSITORY")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_IMAGE_REPOSITORY.to_string())
+}
+
 /// Outcome of a single image-removal decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RemoveOutcome {
@@ -50,6 +162,43 @@ pub enum RemoveOutcome {
 }
 
 impl DockerClient {
+    /// Resolve a local tag/ref to the immutable identity Docker will run.
+    /// Missing images return `Ok(None)`; daemon failures remain errors.
+    pub async fn local_image_identity(&self, image_ref: &str) -> Result<Option<LocalImageIdentity>, PlatformError> {
+        match self.inner().inspect_image(image_ref).await {
+            Ok(info) => Ok(local_image_identity(info, image_ref)),
+            Err(err) => {
+                let platform_err = PlatformError::Docker(err);
+                if platform_err.is_missing_image() || platform_err.is_not_found() {
+                    Ok(None)
+                } else {
+                    Err(platform_err)
+                }
+            }
+        }
+    }
+
+    /// Inspect an immutable local image id while resolving registry provenance
+    /// against its configured source repository. This keeps legacy/custom
+    /// running containers attributable after the mutable tag has moved.
+    pub async fn local_image_identity_for_source(
+        &self,
+        image_id: &str,
+        configured_source: &str,
+    ) -> Result<Option<LocalImageIdentity>, PlatformError> {
+        match self.inner().inspect_image(image_id).await {
+            Ok(info) => Ok(local_image_identity(info, configured_source)),
+            Err(err) => {
+                let platform_err = PlatformError::Docker(err);
+                if platform_err.is_missing_image() || platform_err.is_not_found() {
+                    Ok(None)
+                } else {
+                    Err(platform_err)
+                }
+            }
+        }
+    }
+
     /// Pull `image_ref` (e.g. `ghcr.io/org/agent-codex:latest`) from its
     /// registry. The progress stream is drained fully so the pull has completed
     /// before this returns. `credentials` is `None` for public images (the
@@ -258,6 +407,93 @@ fn extract_local_digest(info: &ImageInspect) -> Option<String> {
     info.repo_digests.as_ref()?.iter().find_map(|rd| rd.rsplit_once('@').map(|(_, dig)| dig.to_string()))
 }
 
+fn image_repository(image_ref: &str) -> &str {
+    let without_digest = image_ref.split_once('@').map_or(image_ref, |(repository, _)| repository);
+    match without_digest.rsplit_once(':') {
+        Some((repository, tag)) if !tag.contains('/') => repository,
+        _ => without_digest,
+    }
+}
+
+fn extract_registry_reference(info: &ImageInspect, image_ref: &str) -> Option<String> {
+    let repository = image_repository(image_ref);
+    let repo_digests = info.repo_digests.as_ref()?;
+    let exact = repo_digests
+        .iter()
+        .filter(|repo_digest| {
+            repo_digest.split_once('@').is_some_and(|(candidate, digest)| candidate == repository && !digest.is_empty())
+        })
+        .collect::<Vec<_>>();
+    match exact.as_slice() {
+        [only] => return Some((**only).clone()),
+        [] => {}
+        _ => return None,
+    }
+
+    if image_ref.starts_with("sha256:") {
+        let public_sources = repo_digests
+            .iter()
+            .filter(|repo_digest| {
+                repo_digest.split_once('@').is_some_and(|(candidate, digest)| {
+                    candidate.rsplit('/').next().is_some_and(is_public_cli_overlay) && !digest.is_empty()
+                })
+            })
+            .collect::<Vec<_>>();
+        return match public_sources.as_slice() {
+            [only] => Some((**only).clone()),
+            _ => None,
+        };
+    }
+
+    let tool = image_ref.strip_prefix("agentforge-agent:")?;
+    if tool.contains(['/', ':', '@']) {
+        return None;
+    }
+    let overlay = format!("agent-{tool}");
+    if !is_public_cli_overlay(&overlay) {
+        return None;
+    }
+    let aliases = repo_digests
+        .iter()
+        .filter(|repo_digest| {
+            repo_digest.split_once('@').is_some_and(|(candidate, digest)| {
+                candidate.rsplit('/').next() == Some(overlay.as_str()) && !digest.is_empty()
+            })
+        })
+        .collect::<Vec<_>>();
+    match aliases.as_slice() {
+        [only] => Some((**only).clone()),
+        _ => None,
+    }
+}
+
+fn is_immutable_registry_reference(reference: &str) -> bool {
+    if reference.trim() != reference {
+        return false;
+    }
+    let Some((repository, digest)) = reference.split_once('@') else {
+        return false;
+    };
+    let Some(hex) = digest.strip_prefix("sha256:") else {
+        return false;
+    };
+    !repository.is_empty()
+        && !repository.contains('@')
+        && hex.len() == 64
+        && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn local_image_identity(info: ImageInspect, image_ref: &str) -> Option<LocalImageIdentity> {
+    let registry_reference = extract_registry_reference(&info, image_ref);
+    let manifest_digest = registry_reference
+        .as_deref()
+        .and_then(|reference| reference.rsplit_once('@').map(|(_, digest)| digest.to_string()))
+        .or_else(|| extract_local_digest(&info));
+    let id = info.id.filter(|id| !id.is_empty())?;
+    let labels = info.config.and_then(|config| config.labels).unwrap_or_default();
+    Some(LocalImageIdentity { id, manifest_digest, registry_reference, labels })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,5 +546,84 @@ mod tests {
 
         let empty = ImageInspect { id: None, repo_digests: Some(vec![]), ..Default::default() };
         assert_eq!(extract_local_digest(&empty), None);
+    }
+
+    #[test]
+    fn local_identity_requires_content_id_and_keeps_manifest_and_labels() {
+        let info = ImageInspect {
+            id: Some("sha256:configdigest".into()),
+            repo_digests: Some(vec![
+                "ghcr.io/other/agent-codex@sha256:wrongdigest".into(),
+                "ghcr.io/org/agent-codex@sha256:manifestdigest".into(),
+            ]),
+            config: Some(bollard::models::ImageConfig {
+                labels: Some(HashMap::from([("org.agentforge.cli-version".into(), "1.2.3".into())])),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let identity = local_image_identity(info, "ghcr.io/org/agent-codex:latest").expect("identity");
+        assert_eq!(identity.id, "sha256:configdigest");
+        assert_eq!(identity.manifest_digest.as_deref(), Some("sha256:manifestdigest"));
+        assert_eq!(identity.registry_reference.as_deref(), Some("ghcr.io/org/agent-codex@sha256:manifestdigest"));
+        assert_eq!(identity.labels.get("org.agentforge.cli-version").map(String::as_str), Some("1.2.3"));
+
+        assert!(local_image_identity(ImageInspect::default(), "agent-codex:latest").is_none());
+    }
+
+    #[test]
+    fn signature_verification_accepts_only_immutable_sha256_registry_references() {
+        let digest = "a".repeat(64);
+        assert!(is_immutable_registry_reference(&format!("ghcr.io/org/agent-codex@sha256:{digest}")));
+        assert!(!is_immutable_registry_reference("ghcr.io/org/agent-codex:latest"));
+        assert!(!is_immutable_registry_reference("ghcr.io/org/agent-codex@sha256:abc"));
+        assert!(!is_immutable_registry_reference(&format!(" ghcr.io/org/agent-codex@sha256:{digest}")));
+    }
+
+    #[test]
+    fn cosign_failures_map_to_stable_safe_codes() {
+        assert_eq!(classify_cosign_failure("UNAUTHORIZED: authentication required"), "image_registry_auth_failed");
+        assert_eq!(classify_cosign_failure("dial tcp: connection refused"), "image_registry_unreachable");
+        assert_eq!(classify_cosign_failure("no matching signatures"), "image_signature_untrusted");
+        assert_eq!(classify_cosign_failure("opaque failure"), "image_signature_verification_failed");
+    }
+
+    #[test]
+    fn canonical_runtime_alias_resolves_one_exact_public_overlay_repo_digest() {
+        let info = ImageInspect {
+            repo_digests: Some(vec![
+                "ghcr.io/org/agent-codextra@sha256:sibling".into(),
+                "ghcr.io/org/agent-codex@sha256:verified".into(),
+            ]),
+            ..Default::default()
+        };
+        assert_eq!(
+            extract_registry_reference(&info, "agentforge-agent:codex").as_deref(),
+            Some("ghcr.io/org/agent-codex@sha256:verified")
+        );
+    }
+
+    #[test]
+    fn canonical_runtime_alias_rejects_ambiguous_repo_digests() {
+        let info = ImageInspect {
+            repo_digests: Some(vec![
+                "ghcr.io/one/agent-gemini@sha256:first".into(),
+                "ghcr.io/two/agent-gemini@sha256:second".into(),
+            ]),
+            ..Default::default()
+        };
+        assert_eq!(extract_registry_reference(&info, "agentforge-agent:gemini"), None);
+    }
+
+    #[test]
+    fn immutable_local_id_recovers_one_public_registry_source() {
+        let info = ImageInspect {
+            repo_digests: Some(vec!["ghcr.io/org/agent-codex@sha256:verified".into()]),
+            ..Default::default()
+        };
+        assert_eq!(
+            extract_registry_reference(&info, "sha256:local-config-id").as_deref(),
+            Some("ghcr.io/org/agent-codex@sha256:verified")
+        );
     }
 }

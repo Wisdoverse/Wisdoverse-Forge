@@ -1,13 +1,17 @@
 //! `agentforge verify-image` — verify a published container image against its
-//! Sigstore cosign signature produced by the `publish-images.yml` workflow.
+//! Sigstore cosign signature produced by the official image workflows.
 //!
 //! ## Why this exists
 //!
 //! The ghcr.io container images are the PRIMARY shipped artifacts for the
 //! container runtime (sidecar, server, orchestrator, agent images). They are
-//! signed with Sigstore keyless cosign BY DIGEST in `publish-images.yml`.
+//! signed with Sigstore keyless cosign BY DIGEST. Mainline images are signed in
+//! `publish-images.yml`; versioned frontend, server, sidecar, orchestrator, and
+//! public CLI images built for a release are signed in `release.yml`. Public CLI
+//! overlays may also be signed by the CLI-only `watch-cli-versions.yml` rebuild
+//! workflow.
 //! This command lets an operator confirm an image was built and signed by the
-//! official publish workflow before running it.
+//! official image workflows before running it.
 //!
 //! ## Prerequisite
 //!
@@ -28,26 +32,25 @@
 //!
 //! `cosign verify` confirms that:
 //!   1. The image is signed by a GitHub Actions OIDC token.
-//!   2. The token was issued for the `publish-images.yml` workflow in the
-//!      official Wisdoverse Forge repository (identity PINNED via regexp).
+//!   2. The token was issued for an allowed workflow in the official
+//!      repository. `watch-cli-versions.yml` is allowed only for the three
+//!      public CLI overlay image names.
 //!   3. The token issuer is `https://token.actions.githubusercontent.com`.
 //!
 //! An image signed by a fork, a different workflow, or a different repository
 //! FAILS — we never trust "any Sigstore signature". The default identity
-//! regexp accepts the workflow at any ref (`@refs/heads/main`, `@refs/tags/v*`,
-//! or a `workflow_dispatch` ref) of the official repo; pass `--ref` to pin a
-//! single ref such as `refs/tags/v1.2.3`.
+//! regexp accepts only an allowed workflow running from `refs/heads/main`;
+//! pass `--ref` to deliberately verify another exact ref.
 
 use crate::error::{CliError, CliResult};
+#[cfg(test)]
+use agentforge_core::image_trust::cosign_identity_regexp as identity_regexp;
+use agentforge_core::image_trust::{
+    DEFAULT_IMAGE_REPOSITORY as DEFAULT_REPO, cosign_verify_args, expected_signer_description,
+};
 use clap::Args;
 use std::io::Write;
 use std::process::Command;
-
-const OIDC_ISSUER: &str = "https://token.actions.githubusercontent.com";
-const DEFAULT_REPO: &str = "Wisdoverse/Wisdoverse-Forge";
-/// The workflow file that signs published images. Pinned in the identity so a
-/// signature from any other workflow (or repo) fails closed.
-const PUBLISH_WORKFLOW: &str = ".github/workflows/publish-images.yml";
 
 /// Verify a published container image against its Sigstore cosign signature.
 ///
@@ -65,56 +68,9 @@ pub struct VerifyImageArgs {
     pub repo: String,
 
     /// Pin the signing identity to a single git ref, e.g. `refs/tags/v1.2.3`
-    /// or `refs/heads/main`. When omitted, any ref of the official publish
-    /// workflow is accepted (the workflow file + repo are always pinned).
+    /// or `refs/heads/main`. When omitted, only `refs/heads/main` is accepted.
     #[arg(long)]
     pub r#ref: Option<String>,
-}
-
-/// Build the `--certificate-identity-regexp` value pinning the signer to the
-/// official `publish-images.yml` workflow.
-///
-/// The repo and workflow path are always pinned. The ref portion is either the
-/// caller-supplied exact ref or a wildcard accepting any ref of that workflow.
-/// Regex metacharacters in the repo/ref are escaped so a `.` in a repo name
-/// (or a crafted ref) cannot widen the match.
-fn identity_regexp(repo: &str, git_ref: Option<&str>) -> String {
-    let repo_esc = escape_regex(repo);
-    let workflow_esc = escape_regex(PUBLISH_WORKFLOW);
-    let prefix = format!("^https://github\\.com/{repo_esc}/{workflow_esc}@");
-    match git_ref {
-        Some(r) => format!("{prefix}{}$", escape_regex(r)),
-        // `.+` (not `.*`) requires a non-empty ref segment so a bare
-        // `...@` cannot match.
-        None => format!("{prefix}.+$"),
-    }
-}
-
-/// Escape RE2 (cosign/Go regexp) metacharacters so user-supplied repo/ref
-/// values are matched literally.
-fn escape_regex(s: &str) -> String {
-    const SPECIAL: &[char] = &['\\', '.', '+', '*', '?', '(', ')', '[', ']', '{', '}', '^', '$', '|'];
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        if SPECIAL.contains(&c) {
-            out.push('\\');
-        }
-        out.push(c);
-    }
-    out
-}
-
-/// Assemble the `cosign verify` argument vector. Factored out so the exact
-/// flags + pinned identity can be unit-tested without a live registry.
-fn cosign_args(image: &str, identity_regexp: &str) -> Vec<String> {
-    vec![
-        "verify".to_string(),
-        "--certificate-identity-regexp".to_string(),
-        identity_regexp.to_string(),
-        "--certificate-oidc-issuer".to_string(),
-        OIDC_ISSUER.to_string(),
-        image.to_string(),
-    ]
 }
 
 pub fn run(opts: VerifyImageArgs, stdout: &mut dyn Write) -> CliResult<()> {
@@ -122,8 +78,7 @@ pub fn run(opts: VerifyImageArgs, stdout: &mut dyn Write) -> CliResult<()> {
         return Err(CliError::Other("image reference must not be empty".into()));
     }
 
-    let identity = identity_regexp(&opts.repo, opts.r#ref.as_deref());
-    let args = cosign_args(&opts.image, &identity);
+    let args = cosign_verify_args(&opts.image, &opts.repo, opts.r#ref.as_deref());
 
     let status = Command::new("cosign").args(&args).status().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
@@ -143,11 +98,13 @@ pub fn run(opts: VerifyImageArgs, stdout: &mut dyn Write) -> CliResult<()> {
              The image at `{}` was not signed by the official publish workflow \
              ({}) in repo {}. Pull only images you can verify, and report \
              unexpected signers as a security issue.",
-            opts.image, PUBLISH_WORKFLOW, opts.repo
+            opts.image,
+            expected_signer_description(&opts.image),
+            opts.repo
         )));
     }
 
-    let _ = writeln!(stdout, "verified: {} (signed by {} in {})", opts.image, PUBLISH_WORKFLOW, opts.repo);
+    let _ = writeln!(stdout, "verified: {} (signed by an official image workflow in {})", opts.image, opts.repo);
     Ok(())
 }
 
@@ -156,28 +113,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn identity_regexp_pins_workflow_and_accepts_any_ref_by_default() {
-        let id = identity_regexp(DEFAULT_REPO, None);
+    fn identity_regexp_pins_workflow_and_main_by_default() {
+        let id = identity_regexp(DEFAULT_REPO, "ghcr.io/wisdoverse/wisdoverse-forge/agent-codex:latest", None);
         // Dots are escaped (regex metacharacter); hyphens are NOT (literal in
         // RE2 outside a character class), keeping the pattern readable.
         assert_eq!(
             id,
-            "^https://github\\.com/Wisdoverse/Wisdoverse-Forge/\\.github/workflows/publish-images\\.yml@.+$"
+            "^https://github\\.com/Wisdoverse/Wisdoverse-Forge/(\\.github/workflows/publish-images\\.yml|\\.github/workflows/watch-cli-versions\\.yml|\\.github/workflows/release\\.yml)@refs/heads/main$"
         );
     }
 
     #[test]
     fn identity_regexp_pins_exact_ref_when_supplied() {
-        let id = identity_regexp(DEFAULT_REPO, Some("refs/tags/v1.2.3"));
+        let id = identity_regexp(
+            DEFAULT_REPO,
+            "ghcr.io/wisdoverse/wisdoverse-forge/agent-gemini@sha256:abc",
+            Some("refs/tags/v1.2.3"),
+        );
         assert_eq!(
             id,
-            "^https://github\\.com/Wisdoverse/Wisdoverse-Forge/\\.github/workflows/publish-images\\.yml@refs/tags/v1\\.2\\.3$"
+            "^https://github\\.com/Wisdoverse/Wisdoverse-Forge/(\\.github/workflows/publish-images\\.yml|\\.github/workflows/watch-cli-versions\\.yml|\\.github/workflows/release\\.yml)@refs/tags/v1\\.2\\.3$"
         );
     }
 
     #[test]
     fn identity_regexp_is_anchored_at_both_ends() {
-        let id = identity_regexp(DEFAULT_REPO, None);
+        let id = identity_regexp(DEFAULT_REPO, "ghcr.io/wisdoverse/wisdoverse-forge/agent-opencode:latest", None);
         assert!(id.starts_with('^'), "identity must be anchored at start: {id}");
         assert!(id.ends_with('$'), "identity must be anchored at end: {id}");
     }
@@ -186,7 +147,7 @@ mod tests {
     fn identity_regexp_escapes_repo_metacharacters() {
         // A repo (e.g. a private mirror) containing a `.` must not let that dot
         // act as a regex wildcard.
-        let id = identity_regexp("acme.co/Mirror", None);
+        let id = identity_regexp("acme.co/Mirror", "registry.example/agent-codex:latest", None);
         assert!(id.contains("acme\\.co/Mirror"), "repo dot must be escaped: {id}");
     }
 
@@ -195,12 +156,21 @@ mod tests {
         // Apply the COMPILED regex to attack URLs — guards against a future
         // edit that accidentally unanchors or broadens the pattern (asserting
         // the string shape alone would not catch that).
-        let id = identity_regexp(DEFAULT_REPO, None);
+        let id = identity_regexp(DEFAULT_REPO, "ghcr.io/wisdoverse/wisdoverse-forge/agent-codex:latest", None);
         let re = regex::Regex::new(&id).expect("identity regexp compiles");
 
-        // Legitimate signer (any ref) must match.
+        // Legitimate signer on main must match.
         assert!(re.is_match(
             "https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/publish-images.yml@refs/heads/main"
+        ));
+        assert!(re.is_match(
+            "https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/watch-cli-versions.yml@refs/heads/main"
+        ));
+        assert!(
+            re.is_match("https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/release.yml@refs/heads/main")
+        );
+        assert!(!re.is_match(
+            "https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/publish-images.yml@refs/tags/v1.2.3"
         ));
         // Different org/repo — must NOT match.
         assert!(!re.is_match("https://github.com/EVIL/repo/.github/workflows/publish-images.yml@refs/heads/main"));
@@ -221,9 +191,25 @@ mod tests {
     }
 
     #[test]
+    fn non_cli_images_trust_only_the_two_main_image_workflows() {
+        let id = identity_regexp(DEFAULT_REPO, "ghcr.io/wisdoverse/wisdoverse-forge/sidecar:main", None);
+        let re = regex::Regex::new(&id).unwrap();
+        assert!(re.is_match(
+            "https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/publish-images.yml@refs/heads/main"
+        ));
+        assert!(
+            re.is_match("https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/release.yml@refs/heads/main")
+        );
+        assert!(!re.is_match(
+            "https://github.com/Wisdoverse/Wisdoverse-Forge/.github/workflows/watch-cli-versions.yml@refs/heads/main"
+        ));
+    }
+
+    #[test]
     fn cosign_args_pin_identity_and_official_oidc_issuer() {
-        let identity = identity_regexp(DEFAULT_REPO, None);
-        let args = cosign_args("ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:abc", &identity);
+        let image = "ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:abc";
+        let identity = identity_regexp(DEFAULT_REPO, image, None);
+        let args = cosign_verify_args(image, DEFAULT_REPO, None);
 
         // First positional arg is the cosign subcommand.
         assert_eq!(args[0], "verify");
@@ -232,13 +218,15 @@ mod tests {
         let idx = args.iter().position(|a| a == "--certificate-identity-regexp").expect("identity flag present");
         assert_eq!(args[idx + 1], identity);
         assert!(args[idx + 1].contains("publish-images\\.yml"), "must pin the publish workflow");
+        assert!(args[idx + 1].contains("watch-cli-versions\\.yml"), "must pin the CLI rebuild workflow");
+        assert!(args[idx + 1].contains("release\\.yml"), "must pin the release workflow");
 
         // OIDC issuer is pinned to GitHub Actions.
         let issuer_idx = args.iter().position(|a| a == "--certificate-oidc-issuer").expect("oidc issuer flag present");
-        assert_eq!(args[issuer_idx + 1], OIDC_ISSUER);
+        assert_eq!(args[issuer_idx + 1], agentforge_core::image_trust::COSIGN_OIDC_ISSUER);
 
         // The image reference is the final positional arg.
-        assert_eq!(args.last().unwrap(), "ghcr.io/wisdoverse/wisdoverse-forge/sidecar@sha256:abc");
+        assert_eq!(args.last().unwrap(), image);
 
         // Defense against a regression to a permissive verify: an identity
         // (regexp or exact) MUST always be present so cosign cannot accept an

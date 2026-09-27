@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use agentforge_core::{AppError, AppResult, ErrorKind};
+use agentforge_core::{AppError, AppResult, CliToolKind, ErrorKind};
 use agentforge_jobs::{CliImagePruneSummary, CliToolImageState, pollable_tool_names, update_mode_for};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -307,6 +307,10 @@ pub(crate) fn roll_in_progress_error(tool: &str) -> AppError {
 pub(crate) fn roll_runtime_unavailable_error() -> AppError {
     ErrorKind::Unavailable("the container runtime is unavailable on this server; no agents were rolled".to_string())
         .into()
+}
+
+pub(crate) fn parse_roll_tool(tool: &str) -> AppResult<CliToolKind> {
+    CliToolKind::parse_legacy(tool).map_err(|err| ErrorKind::Validation(err.to_string()).into())
 }
 
 /// `{ ok: true, data: <roll report> }` envelope.

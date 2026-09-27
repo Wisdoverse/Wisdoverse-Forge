@@ -49,8 +49,11 @@ AGENT_CLI_IMAGE_TAG=latest                   # overlay tag to track
 Requires a reachable Docker daemon (the same socket the server already uses to
 spawn agents). If `CLI_IMAGE_AUTO_UPDATE_ENABLED=true` but no daemon is
 available, the worker logs a warning and does nothing. Public overlays pull
-anonymously; for a private registry, the host's ambient `docker login` credential
-is reused (no token is plumbed into the Rust process).
+anonymously. Stock Compose supports public signed registries only: it does not
+mount the host Docker credential store or plumb credentials to the in-server
+cosign process. A host-side `docker login` therefore does not enable private
+overlay verification; authenticated private registries need future explicit,
+narrowly scoped credential integration.
 
 ## Observe
 
@@ -89,6 +92,45 @@ Image-level ops only (pull / registry-inspect / local-inspect / tag / remove) â€
 they never create a container, build a `HostConfig`, or touch
 `platform/security.rs`, so the container-creation defense-in-depth is unchanged.
 No new Docker mount, no new secret surface for public images.
+
+Before changing `agentforge-agent:<tool>`, the updater verifies the candidate's
+signature and requires a valid semantic version in its CLI-version label. It
+rejects a candidate older than the current runtime alias; a different image at
+the same CLI version is allowed so patched, equal-version rebuilds can land.
+Candidates with missing or invalid labels fail closed. If an existing runtime
+alias has no valid version label, the updater also stops rather than guessing an
+anti-rollback floor.
+
+Updater pulls/tags, Claude builds, pruning, and operator rolls use the same
+PostgreSQL per-tool advisory lock. A roll therefore sees one stable runtime image
+instead of racing an alias change or prune on another API replica.
+
+### Manual recovery from a blocked version state
+
+Use this only for an intentional downgrade or to replace a legacy runtime alias
+whose version label is missing or invalid:
+
+1. Set `CLI_IMAGE_AUTO_UPDATE_ENABLED=false`, restart the server, and do not
+   start an operator roll during recovery.
+2. Choose the exact public candidate digest, verify its signature, pull it, and
+   confirm the printed label is the semantic version you intend to run:
+
+   ```bash
+   TOOL=codex
+   CANDIDATE='ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:<digest>'
+
+   agentforge verify-image "$CANDIDATE"
+   docker pull "$CANDIDATE"
+   docker image inspect \
+     --format '{{ index .Config.Labels "org.wisdoverse.cli-version" }}' \
+     "$CANDIDATE"
+   docker tag "$CANDIDATE" "agentforge-agent:$TOOL"
+   ```
+
+3. Start one new Agent and confirm its recorded image digest/version. Re-enable
+   automatic updates only after `AGENT_CLI_IMAGE_TAG` resolves to that intended
+   version or a newer one; otherwise leave the updater disabled and correct the
+   registry tag first.
 
 **Prune is shared-host safe by construction.** It NEVER runs a global
 `docker image prune` or a label/name glob removal. It removes only an image
@@ -175,18 +217,21 @@ container id) then `start` (recreates it from the resolved, now-updated image).
 
 Safety:
 
-- **Idle-only**: an agent in the `working` state is SKIPPED (reported as
-  `skippedBusy`). Rolling a busy agent would interrupt its work and, because the
-  sidecar's dedup WAL is container-local and destroyed with the container, risk a
-  redelivered assignment double-executing. `status` is a best-effort signal, so
-  **soak this on staging before enabling in production.**
-- **Own scope**: each agent is rolled within its own persisted org/user/workspace
-  (the existing tenant-scoped `stop`/`start` enforce every per-org invariant); no
-  privilege is fabricated.
-- **Single-flight**: a second concurrent roll of the same tool returns `409`.
-- **Authorization note**: this uses the same admin gate as the other destructive
-  cross-tenant admin endpoints (e.g. `DELETE /admin/agents/{id}`). A
-  platform-admin vs org-admin distinction is a separate, surface-wide hardening.
+- **Idle-only**: working Agents are reported as `skippedBusy`. Before replacing
+  each Agent, the service takes its PostgreSQL lifecycle lock and rechecks live
+  terminal/MCP leases, busy participants and working tasks. Any current owner
+  keeps the container in place, even when the displayed status lags.
+- **Stored ownership**: the admin route grants a sealed platform-admin authority.
+  The service rereads the Agent and its organization, user and workspace while
+  locked; it does not construct a caller-supplied tenant scope. Replacement
+  credentials and project access still belong to that stored owner.
+- **Single-flight**: a second roll of the same tool returns `409`. A PostgreSQL
+  per-tool lock also serializes roll, pull, local build and prune across API
+  replicas. One verified immutable image is used for the entire roll.
+- **Recovery ordering**: result processing and lease expiry acquire the Agent
+  lifecycle lock before participant, Agent or task row locks. Quarantine can
+  invalidate work and clear unverified container metadata without waiting on a
+  writer that already owns the Agent row.
 
 Status codes:
 

@@ -145,6 +145,14 @@ impl GitCredentialRepository {
 
     /// Latest token credential per Git platform CLI provider.
     pub async fn latest_cli_tokens(&self, scope: &TenantScope) -> AppResult<Vec<GitCredential>> {
+        self.latest_cli_tokens_by_owner(scope.org_id().as_uuid(), scope.user_id().as_uuid()).await
+    }
+
+    pub(crate) async fn latest_cli_tokens_by_owner(
+        &self,
+        organization_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<Vec<GitCredential>> {
         let creds = sqlx::query_as::<_, GitCredential>(
             r#"SELECT DISTINCT ON (provider) *
                FROM git_credentials
@@ -155,8 +163,8 @@ impl GitCredentialRepository {
                  AND token_encrypted IS NOT NULL
                ORDER BY provider, updated_at DESC, created_at DESC, id DESC"#,
         )
-        .bind(scope.org_id().as_uuid())
-        .bind(scope.user_id().as_uuid())
+        .bind(organization_id)
+        .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
         Ok(creds)

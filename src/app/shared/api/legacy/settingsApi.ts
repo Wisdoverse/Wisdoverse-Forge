@@ -94,8 +94,14 @@ export interface RuntimeSettings {
 export interface RuntimeCliToolDetail {
   cliTool: CliTool
   image: string
+  imageId?: string
+  imageDigest?: string
   version?: string
   imagePresent: boolean
+  imageReady?: boolean
+  imageTrust?: 'verified-signature' | 'host-local'
+  imageError?: string
+  imageErrorCode?: string
   versionSource: 'docker-label' | 'image-tag' | 'not-reported' | string
 }
 
@@ -304,6 +310,7 @@ function extractRuntimeSettings(data: Record<string, unknown>): RuntimeSettings 
             cliTool,
             image: `agentforge-agent:${cliTool}`,
             imagePresent: false,
+            imageReady: false,
             version: cliTool,
             versionSource: 'image-tag',
           })),
@@ -317,8 +324,15 @@ function mapRuntimeCliToolDetail(value: unknown): RuntimeCliToolDetail {
   return {
     cliTool,
     image: stringField(data, 'image') ?? `agentforge-agent:${cliTool}`,
+    imageId: stringField(data, 'imageId', 'image_id'),
+    imageDigest: stringField(data, 'imageDigest', 'image_digest'),
     version,
     imagePresent: boolField(data, false, 'imagePresent', 'image_present'),
+    imageReady: boolField(data, false, 'imageReady', 'image_ready'),
+    imageTrust: stringField(data, 'imageTrust', 'image_trust') as
+      RuntimeCliToolDetail['imageTrust'] | undefined,
+    imageError: stringField(data, 'imageError', 'image_error'),
+    imageErrorCode: stringField(data, 'imageErrorCode', 'image_error_code'),
     versionSource: stringField(data, 'versionSource', 'version_source') ?? 'not-reported',
   }
 }

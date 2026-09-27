@@ -64,6 +64,7 @@ argon2 = "0.5"
 
 # Validation
 regex = "1"
+semver = "1"
 
 # HTTP client (rustls-tls = no OpenSSL dep, required for musl static builds)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }

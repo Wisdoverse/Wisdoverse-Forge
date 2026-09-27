@@ -25,6 +25,7 @@ use std::sync::Arc;
 use agentforge_core::{AppConfig, AppResult};
 use agentforge_jobs::{ClaudeBuildContext, CliImageUpdateStatus, execute_claude_build, fetch_claude_latest_version};
 use agentforge_platform::DockerClient;
+use sqlx::PgPool;
 
 pub(crate) use crate::domain::cli_image::{
     LocalBuildToolPolicy, claude_build_in_progress_error, claude_build_runtime_unavailable_error,
@@ -32,6 +33,7 @@ pub(crate) use crate::domain::cli_image::{
 };
 
 pub struct CliImageBuildService {
+    pool: PgPool,
     status: Arc<CliImageUpdateStatus>,
     /// `None` when this deployment has no Docker runtime — a build request then
     /// fails fast with a clear 503 instead of a doomed background task.
@@ -46,12 +48,13 @@ pub struct CliImageBuildService {
 
 impl CliImageBuildService {
     pub(crate) fn from_runtime(
+        pool: PgPool,
         status: Arc<CliImageUpdateStatus>,
         docker: Option<Arc<DockerClient>>,
         event_sink: Option<async_nats::Client>,
         config: &AppConfig,
     ) -> Self {
-        Self { status, docker, event_sink, npm_registry: config.cli_image_npm_registry.clone() }
+        Self { pool, status, docker, event_sink, npm_registry: config.cli_image_npm_registry.clone() }
     }
 
     /// Start one claude build: resolve npm `latest`, claim the single-flight
@@ -81,6 +84,7 @@ impl CliImageBuildService {
 
         let ctx = ClaudeBuildContext {
             docker,
+            pool: self.pool.clone(),
             status: self.status.clone(),
             event_sink: self.event_sink.clone(),
             npm_registry: self.npm_registry.clone(),

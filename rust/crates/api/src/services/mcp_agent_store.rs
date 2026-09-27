@@ -46,6 +46,7 @@ impl McpAgentStore for SqlxMcpAgentStore {
                 name: record.name,
                 status: record.status,
                 container_id: record.container_id,
+                container_image_identity: record.container_image_identity,
                 cli_tool: record.cli_tool,
                 model: record.model,
                 provider: record.provider,
@@ -65,6 +66,7 @@ impl McpAgentStore for SqlxMcpAgentStore {
             name: agent.name.unwrap_or_else(|| format!("Agent {}", &agent.id.to_string()[..8])),
             status: agent.status,
             container_id: agent.container_id,
+            container_image_identity: agent.container_image_identity,
             cli_tool: agent.cli_tool,
             model: agent.model,
             provider: agent.provider,
@@ -76,7 +78,34 @@ impl McpAgentStore for SqlxMcpAgentStore {
         self.repo.update_agent_status(agent_id, status).await
     }
 
-    async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        self.repo.delete_agent(agent_id).await
+    async fn begin_agent_work(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: &str,
+    ) -> AppResult<chrono::DateTime<chrono::Utc>> {
+        self.repo.begin_agent_work(agent_id, expected_container_id).await
+    }
+
+    async fn renew_agent_work_lease(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: &str,
+        expected_lease: chrono::DateTime<chrono::Utc>,
+    ) -> AppResult<Option<chrono::DateTime<chrono::Utc>>> {
+        self.repo.renew_agent_work_lease(agent_id, expected_container_id, expected_lease).await
+    }
+
+    async fn finish_agent_work(
+        &self,
+        agent_id: Uuid,
+        expected_container_id: &str,
+        expected_lease: chrono::DateTime<chrono::Utc>,
+        status: AgentStatus,
+    ) -> AppResult<bool> {
+        self.repo.finish_agent_work(agent_id, expected_container_id, expected_lease, status).await
+    }
+
+    async fn delete_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
+        self.repo.delete_agent(agent_id, expected_container_id).await
     }
 }

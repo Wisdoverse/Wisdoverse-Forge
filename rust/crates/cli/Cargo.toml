@@ -10,6 +10,7 @@ name = "agentforge_cli"
 path = "src/lib.rs"
 
 [dependencies]
+agentforge-core.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 tokio.workspace = true

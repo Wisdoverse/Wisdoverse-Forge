@@ -1,20 +1,17 @@
 //! Admin service — business logic for admin-only operations.
 
-use std::sync::Arc;
-
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{ImpersonationLog, User};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-pub use crate::domain::admin::BulkDeleteResult;
 use crate::domain::admin::{
     ADMIN_USER_AUDIT_RESOURCE, ADMIN_USER_DELETED_ACTION, ADMIN_USER_ROLE_UPDATED_ACTION, AdminAgentDetailProjection,
     AdminAgentEventProjection, AdminAgentFilterPolicy, AdminAgentFilterQuery, AdminAgentListProjection,
-    AdminAgentProjection, AdminAgentTokens, AdminBulkDeletePolicy, AdminImpersonationPolicy, AdminListPage,
-    AdminOrgProjection, AdminRoleChange, AdminRolePolicy, AdminUserListProjection, AdminUserModificationPolicy,
-    AdminUserProjection, DeadEventPage, DeadEventRow, OrgControlPlaneSnapshot, admin_role_label,
-    admin_user_deleted_audit_details, admin_user_role_audit_details,
+    AdminAgentProjection, AdminAgentTokens, AdminImpersonationPolicy, AdminListPage, AdminOrgProjection,
+    AdminRoleChange, AdminRolePolicy, AdminUserListProjection, AdminUserModificationPolicy, AdminUserProjection,
+    DeadEventPage, DeadEventRow, OrgControlPlaneSnapshot, admin_role_label, admin_user_deleted_audit_details,
+    admin_user_role_audit_details,
 };
 pub(crate) use crate::domain::admin::{
     admin_agent_detail_response, admin_agent_list_response, admin_bulk_delete_response, admin_data_response,
@@ -24,7 +21,6 @@ use crate::repositories::admin::{
     AdminAgentEventRow, AdminAgentFilters, AdminAgentRow, AdminOrgRow, AdminRepository, AdminStats, DeadEventRecord,
 };
 use crate::repositories::audit::AuditRepository;
-use crate::services::auth_callout::AuthCalloutService;
 
 /// Persistence adapter: project a stored `User` row onto the admin-console
 /// projection. Lives in the service layer so `domain/admin.rs` stays free of
@@ -83,6 +79,10 @@ pub(crate) struct AdminAgentListInput<'a> {
     pub(crate) sort_order: Option<&'a str>,
 }
 
+/// Unforgeable proof that `users.is_admin` passed in this service.
+#[derive(Debug)]
+pub(crate) struct PlatformAdminAuthority(());
+
 impl From<AdminAgentRow> for AdminAgentProjection {
     fn from(row: AdminAgentRow) -> Self {
         Self {
@@ -134,21 +134,15 @@ pub struct AdminService {
     /// `ContextGovernanceService::emit_audit` uses the same repository-direct
     /// pattern.
     audit: AuditRepository,
-    auth_callout: Option<Arc<AuthCalloutService>>,
 }
 
 impl AdminService {
     pub fn new(repo: AdminRepository, audit: AuditRepository) -> Self {
-        Self { repo, audit, auth_callout: None }
+        Self { repo, audit }
     }
 
-    pub fn from_runtime(pool: PgPool, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
-        Self::new(AdminRepository::new(pool.clone()), AuditRepository::new(pool)).with_auth_callout(auth_callout)
-    }
-
-    pub(crate) fn with_auth_callout(mut self, auth_callout: Option<Arc<AuthCalloutService>>) -> Self {
-        self.auth_callout = auth_callout;
-        self
+    pub fn from_runtime(pool: PgPool) -> Self {
+        Self::new(AdminRepository::new(pool.clone()), AuditRepository::new(pool))
     }
 
     /// List users as the admin-console paginated projection (admin only).
@@ -347,56 +341,6 @@ impl AdminService {
         })
     }
 
-    /// Hard-delete a single agent (admin only).
-    pub async fn delete_agent(&self, agent_id: Uuid) -> AppResult<()> {
-        self.revoke_agent_connection(agent_id, "admin delete_agent").await;
-        self.repo.delete_agent(agent_id).await
-    }
-
-    pub async fn bulk_delete_agents_checked(&self, agent_ids: &[Uuid]) -> AppResult<Vec<BulkDeleteResult>> {
-        AdminBulkDeletePolicy::require_ids(agent_ids)?;
-        Ok(self.bulk_delete_agents(agent_ids).await)
-    }
-
-    /// Delete multiple agents, collecting per-ID success/failure results so the
-    /// frontend can show which IDs were handled. Error messages are derived
-    /// from `ErrorKind` (which implements `Display`) to avoid leaking internal
-    /// error details in the response.
-    pub async fn bulk_delete_agents(&self, agent_ids: &[Uuid]) -> Vec<BulkDeleteResult> {
-        self.revoke_agent_connections(agent_ids, "admin bulk_delete_agents").await;
-        let mut results = Vec::with_capacity(agent_ids.len());
-        for id in agent_ids {
-            match self.repo.delete_agent(*id).await {
-                Ok(()) => results.push(BulkDeleteResult { id: *id, ok: true, error: None }),
-                Err(err) => results.push(BulkDeleteResult {
-                    id: *id,
-                    ok: false,
-                    error: Some(AdminBulkDeletePolicy::error_message(&err)),
-                }),
-            }
-        }
-        results
-    }
-
-    async fn revoke_agent_connections(&self, agent_ids: &[Uuid], operation: &'static str) {
-        match self.auth_callout.as_ref() {
-            Some(callout) => {
-                for id in agent_ids {
-                    callout.revoke(*id).await;
-                }
-            }
-            None => tracing::info!(
-                count = agent_ids.len(),
-                operation,
-                "auth callout disabled — revocation falls back to JWT TTL"
-            ),
-        }
-    }
-
-    async fn revoke_agent_connection(&self, agent_id: Uuid, operation: &'static str) {
-        self.revoke_agent_connections(&[agent_id], operation).await;
-    }
-
     /// Check if the user has admin privileges. Returns an error if not.
     pub fn require_admin(auth_role: &str) -> AppResult<()> {
         AdminRolePolicy::require_admin(auth_role)
@@ -407,9 +351,10 @@ impl AdminService {
     /// defers the verdict to the domain policy so the service owns the I/O and
     /// the domain owns the error contract. Used for cross-org surfaces such as
     /// the dead-letter reader.
-    pub async fn require_platform_admin(&self, user_id: Uuid) -> AppResult<()> {
+    pub(crate) async fn require_platform_admin(&self, user_id: Uuid) -> AppResult<PlatformAdminAuthority> {
         let user = self.repo.find_user_by_id(user_id).await?;
-        AdminRolePolicy::require_platform_admin(user.is_admin)
+        AdminRolePolicy::require_platform_admin(user.is_admin)?;
+        Ok(PlatformAdminAuthority(()))
     }
 
     /// Org-admin gate keyed on the LIVE per-org membership role

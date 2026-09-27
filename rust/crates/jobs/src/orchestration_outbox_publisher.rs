@@ -4,9 +4,11 @@ use agentforge_core::RuntimeKind;
 use agentforge_core::clone_protocol::{
     CLONE_JOB_MAX_ATTEMPTS, CLONE_JOB_QUEUE, CLONE_OUTBOX_AGGREGATE_TYPE, CloneOutboxPayload,
 };
-use agentforge_core::orchestration_protocol::{SignedEnvelope, TaskAssignment, assign_subject, assign_subject_kind};
+use agentforge_core::orchestration_protocol::{
+    SignedEnvelope, TaskAssignment, assign_subject, assign_subject_kind, container_generation_fingerprint,
+};
 use agentforge_db::entities::OrchestrationOutbox;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use async_nats::{Client, jetstream};
 use chrono::Utc;
 use sqlx::{PgPool, Postgres, Transaction};
@@ -20,8 +22,14 @@ const NEXT_ASSIGNMENT_OUTBOX_SQL: &str = r#"SELECT *
      WHERE published_at IS NULL
        AND event_type = 'assignment'
      ORDER BY created_at ASC
-     FOR UPDATE SKIP LOCKED
      LIMIT 1"#;
+
+const LOCK_ASSIGNMENT_OUTBOX_SQL: &str = r#"SELECT *
+      FROM orchestration_outbox
+     WHERE id = $1
+       AND published_at IS NULL
+       AND event_type = 'assignment'
+     FOR UPDATE SKIP LOCKED"#;
 
 /// Next unpublished `project_clone` outbox row (M2 transactional outbox). Distinct
 /// from the assignment path by `aggregate_type`; relayed into `job_queue` rather
@@ -38,36 +46,14 @@ const MARK_OUTBOX_PUBLISHED_SQL: &str = r#"UPDATE orchestration_outbox
        SET published_at = NOW()
      WHERE id = $1"#;
 
-async fn assignment_is_current_in_tx(
-    tx: &mut Transaction<'_, Postgres>,
-    organization_id: uuid::Uuid,
-    task_id: uuid::Uuid,
-    delivery_id: uuid::Uuid,
-) -> Result<bool> {
-    Ok(sqlx::query_scalar::<_, uuid::Uuid>(
-        r#"SELECT id
-             FROM orchestration_tasks
-            WHERE id = $1
-              AND organization_id = $2
-              AND status = 'working'
-              AND last_assignment_id = $3
-            FOR SHARE"#,
-    )
-    .bind(task_id)
-    .bind(organization_id)
-    .bind(delivery_id)
-    .fetch_optional(&mut **tx)
-    .await
-    .context("lock current orchestration assignment")?
-    .is_some())
-}
-
 /// Serialize an assignment for publication. When `signing_secret` is `Some`,
 /// wrap it in a [`SignedEnvelope`] (HMAC-SHA256 over `agent_id:timestamp:payload`)
 /// signed with the target agent's per-agent secret, so the sidecar can verify
 /// integrity before executing a payload that runs with
 /// `--dangerously-skip-permissions` (F064). When `None`, emit the legacy raw
-/// assignment — sidecars accept both during the signing rollout.
+/// assignment. This raw form is retained only for non-container compatibility;
+/// container assignments are required to select a signing secret before this
+/// helper is called.
 fn encode_assignment(assignment: &TaskAssignment, signing_secret: Option<&str>) -> Result<Vec<u8>> {
     match signing_secret {
         Some(secret) => {
@@ -84,13 +70,175 @@ fn encode_assignment(assignment: &TaskAssignment, signing_secret: Option<&str>) 
     }
 }
 
+/// Container assignments are never allowed onto the wire unsigned: their
+/// generation fingerprint is non-secret and only becomes an execution fence
+/// when the containing assignment is authenticated. Non-container assignments
+/// retain the rollout flag's legacy behavior.
+fn select_assignment_signing_secret(
+    runtime_kind: RuntimeKind,
+    sign_non_container: bool,
+    stored_secret: Option<&str>,
+) -> Result<Option<&str>> {
+    let stored_secret = stored_secret.filter(|secret| !secret.trim().is_empty());
+    if runtime_kind == RuntimeKind::Container {
+        return stored_secret
+            .map(Some)
+            .ok_or_else(|| anyhow!("container assignment requires a per-container HMAC signing secret"));
+    }
+    Ok(if sign_non_container { stored_secret } else { None })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AssignmentRetirementReason {
+    MalformedPayload,
+    MalformedDeliveryMetadata,
+    TaskMissing,
+    TaskNotWorking,
+    TaskLeaseExpired,
+    AssignmentNotCurrent,
+    AgentMissing,
+    RuntimeKindMismatch,
+    MissingSigningSecret,
+    MissingGenerationFingerprint,
+    StaleGenerationFingerprint,
+}
+
+impl AssignmentRetirementReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::MalformedPayload => "malformed_payload",
+            Self::MalformedDeliveryMetadata => "malformed_delivery_metadata",
+            Self::TaskMissing => "task_missing",
+            Self::TaskNotWorking => "task_not_working",
+            Self::TaskLeaseExpired => "task_lease_expired",
+            Self::AssignmentNotCurrent => "assignment_not_current",
+            Self::AgentMissing => "agent_missing",
+            Self::RuntimeKindMismatch => "runtime_kind_mismatch",
+            Self::MissingSigningSecret => "missing_signing_secret",
+            Self::MissingGenerationFingerprint => "missing_generation_fingerprint",
+            Self::StaleGenerationFingerprint => "stale_generation_fingerprint",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AssignmentPublishDecision<'a> {
+    Publish { signing_secret: Option<&'a str> },
+    Retire { reason: AssignmentRetirementReason },
+}
+
+/// Decide whether an assignment is safe to place on the wire. This runs before
+/// envelope encoding so even a legacy sidecar that ignores the fingerprint can
+/// never receive an assignment authenticated by a replacement container's key.
+fn assignment_publish_decision<'a>(
+    runtime_kind: RuntimeKind,
+    sign_non_container: bool,
+    assignment: &TaskAssignment,
+    stored_secret: Option<&'a str>,
+) -> Result<AssignmentPublishDecision<'a>> {
+    if runtime_kind == RuntimeKind::Container && stored_secret.filter(|secret| !secret.trim().is_empty()).is_none() {
+        return Ok(AssignmentPublishDecision::Retire { reason: AssignmentRetirementReason::MissingSigningSecret });
+    }
+    let signing_secret = select_assignment_signing_secret(runtime_kind, sign_non_container, stored_secret)?;
+    if runtime_kind != RuntimeKind::Container {
+        return Ok(AssignmentPublishDecision::Publish { signing_secret });
+    }
+
+    let current_fingerprint = container_generation_fingerprint(
+        signing_secret.expect("container signing selection returns a secret").as_bytes(),
+    );
+    let Some(enqueued_fingerprint) =
+        assignment.container_generation_fingerprint.as_deref().filter(|fingerprint| !fingerprint.trim().is_empty())
+    else {
+        return Ok(AssignmentPublishDecision::Retire {
+            reason: AssignmentRetirementReason::MissingGenerationFingerprint,
+        });
+    };
+    if enqueued_fingerprint != current_fingerprint {
+        return Ok(AssignmentPublishDecision::Retire {
+            reason: AssignmentRetirementReason::StaleGenerationFingerprint,
+        });
+    }
+
+    Ok(AssignmentPublishDecision::Publish { signing_secret })
+}
+
+#[derive(Debug, Clone)]
+struct AssignmentTaskState {
+    status: String,
+    last_assignment_id: Option<uuid::Uuid>,
+    assigned_agent_id: Option<uuid::Uuid>,
+    lease_current: bool,
+}
+
+fn assignment_state_retirement_reason(
+    row: &OrchestrationOutbox,
+    assignment: &TaskAssignment,
+    task: Option<AssignmentTaskState>,
+) -> Option<AssignmentRetirementReason> {
+    let Some(delivery_id) = assignment.delivery_id else {
+        return Some(AssignmentRetirementReason::MalformedDeliveryMetadata);
+    };
+    if assignment.attempt.is_none()
+        || assignment.lease_expires_at.is_none()
+        || delivery_id != row.id
+        || assignment.task_id != row.aggregate_id
+    {
+        return Some(AssignmentRetirementReason::MalformedDeliveryMetadata);
+    }
+    let Some(task) = task else {
+        return Some(AssignmentRetirementReason::TaskMissing);
+    };
+    if task.status != "working" {
+        return Some(AssignmentRetirementReason::TaskNotWorking);
+    }
+    if !task.lease_current {
+        return Some(AssignmentRetirementReason::TaskLeaseExpired);
+    }
+    if task.last_assignment_id != Some(delivery_id) || task.assigned_agent_id != Some(assignment.agent_id) {
+        return Some(AssignmentRetirementReason::AssignmentNotCurrent);
+    }
+    None
+}
+
+async fn retire_assignment_outbox_in_tx(tx: &mut Transaction<'_, Postgres>, outbox_id: uuid::Uuid) -> Result<()> {
+    sqlx::query(MARK_OUTBOX_PUBLISHED_SQL)
+        .bind(outbox_id)
+        .execute(&mut **tx)
+        .await
+        .context("terminally retire stale orchestration assignment outbox row")?;
+    Ok(())
+}
+
+async fn retire_locked_assignment(
+    mut tx: Transaction<'_, Postgres>,
+    row: &OrchestrationOutbox,
+    assignment: Option<&TaskAssignment>,
+    reason: AssignmentRetirementReason,
+) -> Result<bool> {
+    retire_assignment_outbox_in_tx(&mut tx, row.id).await?;
+    tx.commit().await.context("commit retired orchestration assignment outbox row")?;
+    tracing::error!(
+        outbox_id = %row.id,
+        task_id = %row.aggregate_id,
+        agent_id = ?assignment.map(|value| value.agent_id),
+        reason = reason.as_str(),
+        "Retired unsafe orchestration assignment before publish; the task lease recovery path remains authoritative"
+    );
+    metrics::counter!(
+        "agentforge_orchestration_assignment_retired_total",
+        "reason" => reason.as_str()
+    )
+    .increment(1);
+    Ok(true)
+}
+
 pub struct OrchestrationOutboxPublisher {
     pool: PgPool,
     client: Client,
-    /// When true, wrap each assignment in a `SignedEnvelope` signed with the
-    /// target agent's per-agent `hmac_secret` (F064). Default OFF: the wire
-    /// format change must trail a rollout of sidecars that accept signed
-    /// envelopes, so operators enable it only after all sidecars are updated.
+    /// When true, also sign non-container assignments when the target has an
+    /// HMAC secret. Container assignments are always signed regardless of this
+    /// compatibility flag.
     sign_assignments: bool,
 }
 
@@ -148,97 +296,160 @@ impl OrchestrationOutboxPublisher {
     }
 
     async fn publish_next(&self) -> Result<bool> {
-        let mut tx = self.pool.begin().await.context("begin outbox tx")?;
-        let Some(row) = sqlx::query_as::<_, OrchestrationOutbox>(NEXT_ASSIGNMENT_OUTBOX_SQL)
-            .fetch_optional(&mut *tx)
+        // Peek without a row lock so the safety lock order can be lifecycle ->
+        // task -> outbox. Container quarantine uses that same order. Acquiring
+        // the Agent advisory after locking the outbox would invert it and can
+        // deadlock replacement/quarantine against the publisher.
+        let Some(candidate) = sqlx::query_as::<_, OrchestrationOutbox>(NEXT_ASSIGNMENT_OUTBOX_SQL)
+            .fetch_optional(&self.pool)
             .await
-            .context("select next orchestration outbox row")?
+            .context("peek next orchestration outbox row")?
         else {
-            tx.commit().await.context("commit empty outbox tx")?;
             return Ok(false);
         };
 
-        let assignment: TaskAssignment =
-            serde_json::from_value(row.payload.clone()).context("decode orchestration assignment outbox payload")?;
-
-        // Serialize publish against cancel/result/retry. A canceled task or a
-        // superseded delivery is acknowledged locally and never reaches an
-        // agent. Holding the task's share lock through the JetStream acks makes
-        // "publish then cancel" and "cancel then suppress" the only outcomes.
-        if !assignment_is_current_in_tx(&mut tx, row.organization_id.as_uuid(), row.aggregate_id, row.id).await? {
-            sqlx::query(MARK_OUTBOX_PUBLISHED_SQL)
-                .bind(row.id)
-                .execute(&mut *tx)
-                .await
-                .context("suppress stale orchestration assignment")?;
-            tx.commit().await.context("commit suppressed orchestration assignment")?;
-            tracing::info!(outbox_id = %row.id, task_id = %row.aggregate_id, "Suppressed stale orchestration assignment");
-            metrics::counter!("agentforge_orchestration_outbox_suppressed_total").increment(1);
-            return Ok(true);
-        }
-
-        // #457 phase 1c: resolve the target agent's runtime_kind for the
-        // namespaced subject. The hot auto-dispatch path (participant_liveness)
-        // carries it on the assignment; the cold API-dispatch path and pre-1c
-        // outbox rows leave it None, so fall back to one indexed PK lookup here
-        // (None only on cold/old rows, never the hot path). NOT NULL post-062;
-        // a vanished agent degrades to Container — the legacy copy below still
-        // covers that agent's old sidecar regardless.
-        let kind = match assignment.runtime_kind {
-            Some(kind) => kind,
-            None => {
-                let raw: Option<String> = sqlx::query_scalar("SELECT runtime_kind FROM agents WHERE id = $1")
-                    .bind(assignment.agent_id)
+        // A poison payload has no trustworthy Agent id, so it cannot enter the
+        // lifecycle lock order. Lock only this exact row and terminally retire
+        // it; otherwise one pre-change/corrupt head blocks the whole queue.
+        let candidate_assignment: TaskAssignment = match serde_json::from_value(candidate.payload.clone()) {
+            Ok(assignment) => assignment,
+            Err(decode_err) => {
+                let mut tx = self.pool.begin().await.context("begin poison outbox retirement tx")?;
+                let Some(row) = sqlx::query_as::<_, OrchestrationOutbox>(LOCK_ASSIGNMENT_OUTBOX_SQL)
+                    .bind(candidate.id)
                     .fetch_optional(&mut *tx)
                     .await
-                    .context("lookup agent runtime_kind for assignment publish")?;
-                raw.and_then(|raw| RuntimeKind::parse_legacy(&raw).ok()).unwrap_or_else(|| {
-                    // The agent row vanished mid-flight (or holds an unparseable
-                    // kind, impossible under the 062 CHECK). Defaulting to
-                    // Container is HARMLESS while we still dual-publish the legacy
-                    // copy, but after the orchestration.assigned legacy-drop deploy
-                    // a wrong-kind namespaced publish would silently strand a
-                    // cli/api agent's assignment. Surface it loudly + count it so
-                    // the legacy-drop gate can require this metric at zero.
-                    tracing::warn!(
-                        agent_id = %assignment.agent_id,
-                        outbox_id = %row.id,
-                        "assignment runtime_kind unresolved at publish; defaulting to Container \
-                         — harmless during dual-publish, an assignment-loss vector after legacy-drop"
-                    );
-                    metrics::counter!("agentforge_orchestration_assignment_kind_fallback_total").increment(1);
-                    RuntimeKind::Container
-                })
+                    .context("lock poison orchestration outbox row")?
+                else {
+                    tx.commit().await.context("commit skipped poison outbox tx")?;
+                    return Ok(false);
+                };
+                if serde_json::from_value::<TaskAssignment>(row.payload.clone()).is_ok() {
+                    tx.commit().await.context("commit changed poison outbox tx")?;
+                    return Ok(false);
+                }
+                tracing::error!(outbox_id = %row.id, error = %decode_err, "poison assignment outbox payload");
+                return retire_locked_assignment(tx, &row, None, AssignmentRetirementReason::MalformedPayload).await;
             }
         };
+
+        let mut tx = self.pool.begin().await.context("begin outbox tx")?;
+        // This acquisition intentionally precedes the outbox row lock. It
+        // freezes the target container generation until both JetStream acks
+        // complete, without introducing the quarantine lock inversion.
+        agentforge_db::lock_agent_lifecycle_in_tx(&mut tx, candidate_assignment.agent_id)
+            .await
+            .context("lock assignment Agent lifecycle before outbox")?;
+
+        // Hold a share lock while publishing so cancel/expiry cannot change a
+        // validated working delivery between this check and wire publication.
+        let task_row: Option<(String, Option<uuid::Uuid>, Option<uuid::Uuid>, bool)> = sqlx::query_as(
+            r#"SELECT status::text,
+                      last_assignment_id,
+                      assigned_agent_id,
+                      lease_expires_at IS NOT NULL AND lease_expires_at > NOW()
+                 FROM orchestration_tasks
+                WHERE id = $1
+                  AND organization_id = $2
+                FOR SHARE"#,
+        )
+        .bind(candidate.aggregate_id)
+        .bind(candidate.organization_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .context("lock authoritative task before assignment publish")?;
+
+        let Some(row) = sqlx::query_as::<_, OrchestrationOutbox>(LOCK_ASSIGNMENT_OUTBOX_SQL)
+            .bind(candidate.id)
+            .fetch_optional(&mut *tx)
+            .await
+            .context("lock exact orchestration outbox row")?
+        else {
+            tx.commit().await.context("commit skipped outbox tx")?;
+            return Ok(false);
+        };
+        let assignment: TaskAssignment = match serde_json::from_value(row.payload.clone()) {
+            Ok(assignment) => assignment,
+            Err(decode_err) => {
+                tracing::error!(outbox_id = %row.id, error = %decode_err, "poison assignment outbox payload");
+                return retire_locked_assignment(tx, &row, None, AssignmentRetirementReason::MalformedPayload).await;
+            }
+        };
+        if assignment.agent_id != candidate_assignment.agent_id {
+            return retire_locked_assignment(tx, &row, Some(&assignment), AssignmentRetirementReason::MalformedPayload)
+                .await;
+        }
+        let task_state = task_row.map(|(status, last_assignment_id, assigned_agent_id, lease_current)| {
+            AssignmentTaskState { status, last_assignment_id, assigned_agent_id, lease_current }
+        });
+        if let Some(reason) = assignment_state_retirement_reason(&row, &assignment, task_state) {
+            return retire_locked_assignment(tx, &row, Some(&assignment), reason).await;
+        }
+
+        let agent_row: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT runtime_kind, hmac_secret FROM agents WHERE id = $1 AND organization_id = $2")
+                .bind(assignment.agent_id)
+                .bind(row.organization_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .context("lookup current Agent generation for assignment publish")?;
+        let Some((raw_kind, stored_secret)) = agent_row else {
+            return retire_locked_assignment(tx, &row, Some(&assignment), AssignmentRetirementReason::AgentMissing)
+                .await;
+        };
+        let kind = match RuntimeKind::parse_legacy(&raw_kind) {
+            Ok(kind) => kind,
+            Err(_) => {
+                return retire_locked_assignment(
+                    tx,
+                    &row,
+                    Some(&assignment),
+                    AssignmentRetirementReason::RuntimeKindMismatch,
+                )
+                .await;
+            }
+        };
+        if assignment.runtime_kind.is_some_and(|enqueued| enqueued != kind) {
+            return retire_locked_assignment(
+                tx,
+                &row,
+                Some(&assignment),
+                AssignmentRetirementReason::RuntimeKindMismatch,
+            )
+            .await;
+        }
 
         let legacy_subject = assign_subject(assignment.agent_id);
         let namespaced_subject = assign_subject_kind(kind, assignment.agent_id);
 
-        // When signing is enabled, look up the target agent's per-agent secret
-        // and wrap the assignment in a SignedEnvelope so the sidecar can verify
-        // integrity before executing it (F064). A missing secret falls back to an
-        // unsigned publish (sidecars still accept legacy raw during rollout) with
-        // a loud warning, so a misconfiguration degrades rather than strands work.
-        let signing_secret: Option<String> = if self.sign_assignments {
-            let secret_row: Option<(Option<String>,)> = sqlx::query_as("SELECT hmac_secret FROM agents WHERE id = $1")
-                .bind(assignment.agent_id)
-                .fetch_optional(&mut *tx)
-                .await
-                .context("lookup agent hmac_secret for assignment signing")?;
-            let secret = secret_row.and_then(|(secret,)| secret);
-            if secret.is_none() {
-                tracing::warn!(
-                    agent_id = %assignment.agent_id,
-                    outbox_id = %row.id,
-                    "assignment signing enabled but agent has no hmac_secret; publishing unsigned"
-                );
-            }
-            secret
-        } else {
-            None
-        };
-        let bytes = encode_assignment(&assignment, signing_secret.as_deref())?;
+        // Container generations fail closed: their non-secret generation
+        // fingerprint must be authenticated by the SAME secret from which it
+        // was derived. Host CLI/API assignments retain the rollout flag's
+        // historical signed-when-possible / raw fallback behavior.
+        if kind != RuntimeKind::Container
+            && self.sign_assignments
+            && stored_secret.as_deref().filter(|secret| !secret.trim().is_empty()).is_none()
+        {
+            tracing::warn!(
+                agent_id = %assignment.agent_id,
+                outbox_id = %row.id,
+                "non-container assignment signing enabled but agent has no hmac_secret; preserving unsigned compatibility"
+            );
+        }
+        let signing_secret =
+            match assignment_publish_decision(kind, self.sign_assignments, &assignment, stored_secret.as_deref())
+                .with_context(|| {
+                    format!(
+                        "refusing to publish container assignment outbox row {} for agent {} without signing",
+                        row.id, assignment.agent_id
+                    )
+                })? {
+                AssignmentPublishDecision::Publish { signing_secret } => signing_secret,
+                AssignmentPublishDecision::Retire { reason } => {
+                    return retire_locked_assignment(tx, &row, Some(&assignment), reason).await;
+                }
+            };
+        let bytes = encode_assignment(&assignment, signing_secret)?;
         let publish_started = Instant::now();
         let js = jetstream::new(self.client.clone());
 
@@ -432,19 +643,14 @@ pub fn register_metrics() {
         "agentforge_orchestration_outbox_publish_errors_total",
         "Orchestration assignment outbox publish attempts that failed before DB publish mark"
     );
-    metrics::describe_counter!(
-        "agentforge_orchestration_outbox_suppressed_total",
-        "Stale or canceled orchestration assignment outbox rows suppressed before publish"
-    );
     metrics::describe_histogram!(
         "agentforge_orchestration_assignment_publish_seconds",
         "Time to publish one orchestration assignment outbox row to JetStream and receive ack"
     );
     metrics::describe_counter!(
-        "agentforge_orchestration_assignment_kind_fallback_total",
-        "#457 phase 1c: assignment publishes whose runtime_kind could not be resolved and \
-         defaulted to Container. The orchestration.assigned legacy-drop deploy is gated on this \
-         holding at zero (a non-zero value risks silently stranding a cli/api assignment post-drop)."
+        "agentforge_orchestration_assignment_retired_total",
+        "Assignment outbox rows terminally retired before publish because the payload, live task delivery, Agent, \
+         signing key, or container generation was no longer authoritative."
     );
     metrics::describe_counter!(
         "agentforge_project_clone_outbox_relayed_total",
@@ -467,9 +673,26 @@ pub fn register_metrics() {
 
     metrics::counter!("agentforge_orchestration_outbox_published_total").increment(0);
     metrics::counter!("agentforge_orchestration_outbox_publish_errors_total").increment(0);
-    metrics::counter!("agentforge_orchestration_outbox_suppressed_total").increment(0);
     metrics::histogram!("agentforge_orchestration_assignment_publish_seconds").record(0.0);
-    metrics::counter!("agentforge_orchestration_assignment_kind_fallback_total").increment(0);
+    for reason in [
+        AssignmentRetirementReason::MalformedPayload,
+        AssignmentRetirementReason::MalformedDeliveryMetadata,
+        AssignmentRetirementReason::TaskMissing,
+        AssignmentRetirementReason::TaskNotWorking,
+        AssignmentRetirementReason::TaskLeaseExpired,
+        AssignmentRetirementReason::AssignmentNotCurrent,
+        AssignmentRetirementReason::AgentMissing,
+        AssignmentRetirementReason::RuntimeKindMismatch,
+        AssignmentRetirementReason::MissingSigningSecret,
+        AssignmentRetirementReason::MissingGenerationFingerprint,
+        AssignmentRetirementReason::StaleGenerationFingerprint,
+    ] {
+        metrics::counter!(
+            "agentforge_orchestration_assignment_retired_total",
+            "reason" => reason.as_str()
+        )
+        .increment(0);
+    }
     metrics::counter!("agentforge_project_clone_outbox_relayed_total").increment(0);
     metrics::counter!("agentforge_project_clone_outbox_relay_errors_total").increment(0);
     metrics::counter!("agentforge_project_clone_outbox_poison_total").increment(0);
@@ -492,7 +715,8 @@ mod tests {
             message: String::new(),
             priority: "normal".into(),
             context_envelope: None,
-            runtime_kind: None,
+            runtime_kind: Some(RuntimeKind::Cli),
+            container_generation_fingerprint: None,
             image_paths: Vec::new(),
             trace_context: None,
         }
@@ -525,48 +749,160 @@ mod tests {
         assert_eq!(back.task_id, assignment.task_id);
     }
 
+    #[test]
+    fn container_signing_is_mandatory_while_non_container_remains_compatible() {
+        let signing_key = Uuid::new_v4().to_string();
+
+        assert_eq!(
+            select_assignment_signing_secret(RuntimeKind::Container, false, Some(&signing_key)).unwrap(),
+            Some(signing_key.as_str()),
+            "container assignments must be signed even when the compatibility flag is off"
+        );
+        assert!(select_assignment_signing_secret(RuntimeKind::Container, false, None).is_err());
+        assert!(select_assignment_signing_secret(RuntimeKind::Container, true, Some("   ")).is_err());
+
+        assert_eq!(
+            select_assignment_signing_secret(RuntimeKind::Cli, false, Some(&signing_key)).unwrap(),
+            None,
+            "the compatibility flag still controls non-container signing"
+        );
+        assert_eq!(select_assignment_signing_secret(RuntimeKind::Api, true, None).unwrap(), None);
+        assert_eq!(
+            select_assignment_signing_secret(RuntimeKind::Cli, true, Some(&signing_key)).unwrap(),
+            Some(signing_key.as_str())
+        );
+    }
+
+    #[test]
+    fn stale_or_legacy_container_rows_are_retired_before_legacy_sidecars_can_receive_them() {
+        let mut assignment = sample_assignment();
+        let old_secret = Uuid::new_v4().to_string();
+        let replacement_secret = Uuid::new_v4().to_string();
+
+        assert!(matches!(
+            assignment_publish_decision(RuntimeKind::Cli, false, &assignment, Some(&replacement_secret)).unwrap(),
+            AssignmentPublishDecision::Publish { signing_secret: None }
+        ));
+
+        assignment.runtime_kind = Some(RuntimeKind::Container);
+        assert_eq!(
+            assignment_publish_decision(RuntimeKind::Container, false, &assignment, Some(&replacement_secret)).unwrap(),
+            AssignmentPublishDecision::Retire { reason: AssignmentRetirementReason::MissingGenerationFingerprint }
+        );
+
+        assignment.container_generation_fingerprint = Some(container_generation_fingerprint(old_secret.as_bytes()));
+        assert_eq!(
+            assignment_publish_decision(RuntimeKind::Container, false, &assignment, Some(&replacement_secret)).unwrap(),
+            AssignmentPublishDecision::Retire { reason: AssignmentRetirementReason::StaleGenerationFingerprint },
+            "a replacement key must never authenticate an old-generation assignment for a legacy sidecar"
+        );
+
+        assignment.container_generation_fingerprint =
+            Some(container_generation_fingerprint(replacement_secret.as_bytes()));
+        assert_eq!(
+            assignment_publish_decision(RuntimeKind::Container, false, &assignment, Some(&replacement_secret)).unwrap(),
+            AssignmentPublishDecision::Publish { signing_secret: Some(replacement_secret.as_str()) }
+        );
+        assert_eq!(
+            assignment_publish_decision(RuntimeKind::Container, false, &assignment, None).unwrap(),
+            AssignmentPublishDecision::Retire { reason: AssignmentRetirementReason::MissingSigningSecret }
+        );
+    }
+
+    #[test]
+    fn live_task_and_delivery_metadata_are_revalidated_before_publish() {
+        let assignment = sample_assignment();
+        let row = OrchestrationOutbox {
+            id: assignment.delivery_id.unwrap(),
+            organization_id: agentforge_core::OrgId::from(Uuid::new_v4()),
+            aggregate_type: "orchestration_task".into(),
+            aggregate_id: assignment.task_id,
+            event_type: "assignment".into(),
+            payload: serde_json::Value::Null,
+            published_at: None,
+            created_at: Utc::now(),
+        };
+        let current = || AssignmentTaskState {
+            status: "working".into(),
+            last_assignment_id: assignment.delivery_id,
+            assigned_agent_id: Some(assignment.agent_id),
+            lease_current: true,
+        };
+        assert_eq!(assignment_state_retirement_reason(&row, &assignment, Some(current())), None);
+
+        let mut canceled = current();
+        canceled.status = "canceled".into();
+        assert_eq!(
+            assignment_state_retirement_reason(&row, &assignment, Some(canceled)),
+            Some(AssignmentRetirementReason::TaskNotWorking)
+        );
+        let mut expired = current();
+        expired.lease_current = false;
+        assert_eq!(
+            assignment_state_retirement_reason(&row, &assignment, Some(expired)),
+            Some(AssignmentRetirementReason::TaskLeaseExpired)
+        );
+        let mut superseded = current();
+        superseded.last_assignment_id = Some(Uuid::new_v4());
+        assert_eq!(
+            assignment_state_retirement_reason(&row, &assignment, Some(superseded)),
+            Some(AssignmentRetirementReason::AssignmentNotCurrent)
+        );
+
+        let mut malformed = assignment.clone();
+        malformed.delivery_id = None;
+        assert_eq!(
+            assignment_state_retirement_reason(&row, &malformed, Some(current())),
+            Some(AssignmentRetirementReason::MalformedDeliveryMetadata)
+        );
+    }
+
     #[sqlx::test(migrations = "../db/migrations")]
-    async fn only_the_current_working_assignment_is_publishable(pool: PgPool) {
-        let org_id = Uuid::new_v4();
-        let user_id = Uuid::new_v4();
-        let task_id = Uuid::new_v4();
-        let delivery_id = Uuid::new_v4();
+    async fn retiring_oldest_generation_row_unblocks_the_next_assignment(pool: PgPool) {
+        let organization_id = Uuid::new_v4();
+        let stale_id = Uuid::new_v4();
+        let next_id = Uuid::new_v4();
         sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, 'Outbox', $2)")
-            .bind(org_id)
-            .bind(format!("outbox-{org_id}"))
+            .bind(organization_id)
+            .bind(format!("outbox-{organization_id}"))
             .execute(&pool)
             .await
-            .unwrap();
-        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
-            .bind(user_id)
-            .bind(format!("outbox-{user_id}@example.com"))
+            .expect("seed organization");
+        for (id, age) in [(stale_id, "2 seconds"), (next_id, "1 second")] {
+            sqlx::query(
+                r#"INSERT INTO orchestration_outbox
+                   (id, organization_id, aggregate_type, aggregate_id, event_type, payload, created_at)
+                   VALUES ($1, $2, 'orchestration_task', $1, 'assignment', '{}'::jsonb,
+                           NOW() - $3::interval)"#,
+            )
+            .bind(id)
+            .bind(organization_id)
+            .bind(age)
             .execute(&pool)
             .await
-            .unwrap();
-        sqlx::query(
-            r#"INSERT INTO orchestration_tasks
-                   (id, organization_id, title, status, last_assignment_id, created_by)
-               VALUES ($1, $2, 'publish guard', 'working', $3, $4)"#,
-        )
-        .bind(task_id)
-        .bind(org_id)
-        .bind(delivery_id)
-        .bind(user_id)
-        .execute(&pool)
-        .await
-        .unwrap();
+            .expect("seed assignment outbox row");
+        }
 
-        let mut tx = pool.begin().await.unwrap();
-        assert!(assignment_is_current_in_tx(&mut tx, org_id, task_id, delivery_id).await.unwrap());
-        tx.commit().await.unwrap();
-
-        sqlx::query("UPDATE orchestration_tasks SET status = 'canceled' WHERE id = $1")
-            .bind(task_id)
-            .execute(&pool)
+        let mut tx = pool.begin().await.expect("begin retirement transaction");
+        let oldest = sqlx::query_as::<_, OrchestrationOutbox>(NEXT_ASSIGNMENT_OUTBOX_SQL)
+            .fetch_one(&mut *tx)
             .await
-            .unwrap();
-        let mut tx = pool.begin().await.unwrap();
-        assert!(!assignment_is_current_in_tx(&mut tx, org_id, task_id, delivery_id).await.unwrap());
-        tx.commit().await.unwrap();
+            .expect("select oldest assignment");
+        assert_eq!(oldest.id, stale_id);
+        retire_assignment_outbox_in_tx(&mut tx, oldest.id).await.expect("retire stale assignment");
+        tx.commit().await.expect("commit retirement");
+
+        let next = sqlx::query_as::<_, OrchestrationOutbox>(NEXT_ASSIGNMENT_OUTBOX_SQL)
+            .fetch_one(&pool)
+            .await
+            .expect("select next assignment");
+        assert_eq!(next.id, next_id, "retired poison head must not block newer assignments");
+        let retired: bool =
+            sqlx::query_scalar("SELECT published_at IS NOT NULL FROM orchestration_outbox WHERE id = $1")
+                .bind(stale_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read retired row");
+        assert!(retired);
     }
 }

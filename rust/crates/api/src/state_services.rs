@@ -66,7 +66,7 @@ use crate::services::workspace::WorkspaceService;
 
 impl AppState {
     pub(crate) fn admin_service(&self) -> AdminService {
-        AdminService::from_runtime(self.pool.clone(), self.auth_callout.clone())
+        AdminService::from_runtime(self.pool.clone())
     }
 
     pub(crate) fn cli_image_service(&self) -> CliImageService {
@@ -75,6 +75,7 @@ impl AppState {
 
     pub(crate) fn cli_image_build_service(&self) -> CliImageBuildService {
         CliImageBuildService::from_runtime(
+            self.pool.clone(),
             self.cli_image_status.clone(),
             self.docker.clone(),
             // Same toast sink the auto-updater uses (`broadcast.admin.cli_image`).

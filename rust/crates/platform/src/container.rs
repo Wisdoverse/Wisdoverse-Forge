@@ -44,9 +44,20 @@ pub enum PlatformError {
     /// `errorDetail` frame). Carries the daemon's message.
     #[error("Image build failed: {0}")]
     Build(String),
+
+    /// A registry image was not accepted by the pinned Sigstore signer policy.
+    #[error("Image signature verification failed: {0}")]
+    ImageVerification(String),
 }
 
 impl PlatformError {
+    pub fn image_verification_code(&self) -> Option<&str> {
+        match self {
+            Self::ImageVerification(code) => Some(code),
+            _ => None,
+        }
+    }
+
     /// True when Docker reported that the referenced container no longer exists.
     pub fn is_not_found(&self) -> bool {
         matches!(self, Self::NotFound(_))
@@ -213,6 +224,7 @@ impl DockerClient {
         Ok(ContainerInfo {
             id: info.id.unwrap_or_default(),
             name: info.name.unwrap_or_default(),
+            image_id: info.image.unwrap_or_default(),
             image: info.config.and_then(|c| c.image).unwrap_or_default(),
             status: state,
             created_at: info.created,

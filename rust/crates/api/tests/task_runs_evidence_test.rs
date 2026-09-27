@@ -11,6 +11,18 @@ use agentforge_jobs::{SqlxTaskWriter, TaskWriter};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+fn signed_image_identity(hex: char, version: &str) -> serde_json::Value {
+    let digest = format!("sha256:{}", hex.to_string().repeat(64));
+    serde_json::json!({
+        "source": format!("ghcr.io/example/agent-codex@{digest}"),
+        "imageId": digest.clone(),
+        "manifestDigest": digest,
+        "version": version,
+        "versionSource": "docker-label",
+        "trust": "verified-signature"
+    })
+}
+
 async fn seed_org_user_agent(pool: &PgPool, participant_status: &str) -> (Uuid, Uuid, Uuid, Uuid) {
     let org_id = Uuid::new_v4();
     let user_id = Uuid::new_v4();
@@ -66,13 +78,24 @@ async fn seed_org_user_agent(pool: &PgPool, participant_status: &str) -> (Uuid, 
     .execute(pool)
     .await
     .expect("seed group");
+    let image_identity = serde_json::json!({
+        "source": "agentforge-agent:claude",
+        "imageId": format!("sha256:{}", "c".repeat(64)),
+        "versionSource": "not-reported",
+        "trust": "host-local"
+    });
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status)
-         VALUES ($1, $2, $2, $3, 'run-agent', 'idle')",
+        "INSERT INTO agents
+            (id, organization_id, workspace_id, user_id, name, status, cli_tool, runtime_kind,
+             container_id, container_image_identity, hmac_secret, nats_connect_password)
+         VALUES ($1, $2, $2, $3, 'run-agent', 'idle', 'claude', 'container', $4, $5,
+                 'test-hmac-secret', 'test-nats-password')",
     )
     .bind(agent_id)
     .bind(org_id)
     .bind(user_id)
+    .bind(format!("run-container-{agent_id}"))
+    .bind(image_identity)
     .execute(pool)
     .await
     .expect("seed agent");
@@ -159,8 +182,87 @@ async fn assignment_creates_run_and_agent_result_closes_it(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../db/migrations")]
+async fn container_agent_without_image_identity_cannot_start_a_run(pool: PgPool) {
+    let (org_id, user_id, agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
+    let scope = scope_for(org_id, user_id);
+    sqlx::query("UPDATE agents SET container_image_identity = NULL WHERE id = $1")
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("clear image identity");
+    let service = orchestration_service(pool.clone());
+    let task = service
+        .create_task(&scope, "unverified run", None, None, None, Some(group_id), None, None, false)
+        .await
+        .expect("create task");
+
+    let blocked = service
+        .update_task(&scope, task.id, Some("queued".into()), None, None, None)
+        .await
+        .expect("container dispatch without immutable image evidence must remain blocked");
+    assert_eq!(blocked.status, "blocked");
+    assert_eq!(blocked.blocked_reason.as_deref(), Some("waiting_agent"));
+
+    let (status, run_count, participant_status): (String, i64, String) = sqlx::query_as(
+        r#"SELECT task.status,
+                  (SELECT count(*) FROM task_runs WHERE orchestration_task_id = task.id),
+                  (SELECT status FROM participants WHERE agent_id = $2)
+             FROM orchestration_tasks task
+            WHERE task.id = $1"#,
+    )
+    .bind(task.id)
+    .bind(agent_id)
+    .fetch_one(&pool)
+    .await
+    .expect("read rolled-back dispatch state");
+    assert_eq!(status, "blocked");
+    assert_eq!(run_count, 0);
+    assert_eq!(participant_status, "available");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn image_identity_cannot_outlive_its_container_reference(pool: PgPool) {
+    let (_org_id, _user_id, agent_id, _group_id) = seed_org_user_agent(&pool, "available").await;
+
+    sqlx::query("UPDATE agents SET container_id = NULL WHERE id = $1")
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect_err("detached image identity must violate the database constraint");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn deleting_an_agent_preserves_its_task_run_snapshot(pool: PgPool) {
+    let (org_id, user_id, agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
+    let scope = scope_for(org_id, user_id);
+    let task_id = create_and_dispatch(&pool, &scope, group_id).await;
+    apply_agent_result(&pool, &scope, task_id, TaskOutcome::Completed { stdout: "done".into() }).await;
+
+    sqlx::query("DELETE FROM agents WHERE id = $1").bind(agent_id).execute(&pool).await.expect("delete agent");
+
+    let (saved_agent_id, image): (Uuid, serde_json::Value) = sqlx::query_as(
+        "SELECT agent_id, capability_profile -> 'image'
+           FROM task_runs
+          WHERE orchestration_task_id = $1",
+    )
+    .bind(task_id)
+    .fetch_one(&pool)
+    .await
+    .expect("read retained task run");
+    assert_eq!(saved_agent_id, agent_id);
+    assert_eq!(image["trust"], "host-local");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
 async fn retry_creates_a_second_run(pool: PgPool) {
-    let (org_id, user_id, _agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
+    let (org_id, user_id, agent_id, group_id) = seed_org_user_agent(&pool, "available").await;
+    let image_a = signed_image_identity('a', "1.0.0");
+    sqlx::query("UPDATE agents SET container_image_identity = $2 WHERE id = $1")
+        .bind(agent_id)
+        .bind(&image_a)
+        .execute(&pool)
+        .await
+        .expect("set first image identity");
     let scope = scope_for(org_id, user_id);
     let task_id = create_and_dispatch(&pool, &scope, group_id).await;
     let service = orchestration_service(pool.clone());
@@ -172,6 +274,13 @@ async fn retry_creates_a_second_run(pool: PgPool) {
         TaskOutcome::Failed { stderr: "first attempt failed".into(), exit_code: Some(1) },
     )
     .await;
+    let image_b = signed_image_identity('b', "2.0.0");
+    sqlx::query("UPDATE agents SET container_image_identity = $2 WHERE id = $1")
+        .bind(agent_id)
+        .bind(&image_b)
+        .execute(&pool)
+        .await
+        .expect("set replacement image identity");
     let reset = service.retry_task(&scope, task_id).await.expect("retry task");
     assert_eq!(reset.status, "backlog");
     let working =
@@ -184,6 +293,8 @@ async fn retry_creates_a_second_run(pool: PgPool) {
     assert!(runs[0].finished_at.is_some());
     assert_eq!(runs[1].status, "working");
     assert_ne!(runs[0].idempotency_key, runs[1].idempotency_key);
+    assert_eq!(runs[0].capability_profile.get("image"), Some(&image_a));
+    assert_eq!(runs[1].capability_profile.get("image"), Some(&image_b));
 }
 
 #[sqlx::test(migrations = "../db/migrations")]

@@ -24,7 +24,7 @@ pub use clone_runtime::{
 };
 pub use container::PlatformError;
 pub use docker::DockerClient;
-pub use image::{LocalImage, RemoveOutcome};
+pub use image::{LocalImage, LocalImageIdentity, RemoveOutcome, verify_image_signature};
 pub use pool::{ContainerPool, PoolStatus};
 pub use security::{SecurityViolation, validate_security};
 pub use types::*;

@@ -14,7 +14,7 @@
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::context_envelope::ContextEnvelope;
@@ -31,6 +31,14 @@ pub const RESULT_SUBJECT_PREFIX: &str = "orchestration.result";
 /// JetStream stream used for durable task assignments.
 pub const ORCHESTRATION_ASSIGNMENTS_STREAM: &str = "ORCHESTRATION_ASSIGNMENTS";
 pub const DEFAULT_ASSIGNMENT_LEASE_SECS: i64 = 900;
+
+/// Non-secret identifier for one container generation. Container creation
+/// rotates the per-container HMAC secret, so its SHA-256 digest is stable for
+/// that container and changes on replacement without exposing signing key
+/// material on the assignment wire.
+pub fn container_generation_fingerprint(hmac_secret: &[u8]) -> String {
+    hex::encode(Sha256::digest(hmac_secret))
+}
 
 /// NATS subject that carries an assignment for the given agent in the legacy
 /// (pre-#457) un-namespaced shape: `orchestration.assigned.<uuid>`.
@@ -234,6 +242,12 @@ pub struct TaskAssignment {
     /// and the legacy subject (still dual-published) covers old sidecars anyway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_kind: Option<RuntimeKind>,
+    /// SHA-256 fingerprint of the target container's enqueue-time HMAC secret.
+    /// Container sidecars require an exact match before durable inbox intake,
+    /// fencing assignments created for a replaced container generation. It is
+    /// absent for Host CLI/API assignments, whose behavior is unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub container_generation_fingerprint: Option<String>,
     /// Container-relative paths (under `/workspace`) of instruction images the
     /// API materialized for this assignment, e.g.
     /// `/workspace/.task-images/<task_id>/<file>.png`. Empty for text-only tasks
@@ -328,6 +342,19 @@ fn compute_signature(hmac_key: &[u8], agent_id: &str, timestamp: i64, payload: &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn container_generation_fingerprint_is_stable_and_rotates_with_secret() {
+        let first = container_generation_fingerprint(b"container-secret-one");
+        let same = container_generation_fingerprint(b"container-secret-one");
+        let replacement = container_generation_fingerprint(b"container-secret-two");
+
+        assert_eq!(first, same);
+        assert_ne!(first, replacement);
+        assert_eq!(first.len(), 64, "SHA-256 fingerprint must be lowercase hex");
+        assert!(first.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert!(!first.contains("container-secret-one"));
+    }
 
     #[test]
     fn subjects_are_formatted_with_agent_id() {
@@ -473,6 +500,7 @@ mod tests {
             priority: "high".into(),
             context_envelope: None,
             runtime_kind: Some(RuntimeKind::Cli),
+            container_generation_fingerprint: None,
             image_paths: Vec::new(),
             trace_context: None,
         };
@@ -494,6 +522,7 @@ mod tests {
             priority: "normal".into(),
             context_envelope: None,
             runtime_kind: None,
+            container_generation_fingerprint: None,
             image_paths: Vec::new(),
             trace_context: None,
         };
@@ -567,6 +596,7 @@ mod tests {
             priority: "normal".into(),
             context_envelope: None,
             runtime_kind: None,
+            container_generation_fingerprint: None,
             image_paths: Vec::new(),
             trace_context: None,
         };

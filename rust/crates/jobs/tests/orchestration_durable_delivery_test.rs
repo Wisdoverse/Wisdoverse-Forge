@@ -11,6 +11,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use agentforge_core::RuntimeKind;
 use agentforge_core::orchestration_protocol::{
     ORCHESTRATION_ASSIGNMENTS_STREAM, SignedEnvelope, TaskAssignment, TaskOutcome, TaskResult, assign_subject,
     assign_subject_wildcard,
@@ -218,7 +219,7 @@ async fn seed_org_user_agent(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
         .await
         .expect("seed user");
     sqlx::query(
-        "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status) VALUES ($1, $2, $2, $3, 'test-agent', 'idle')",
+        "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status, runtime_kind) VALUES ($1, $2, $2, $3, 'test-agent', 'idle', 'api')",
     )
     .bind(agent_id)
     .bind(org_id)
@@ -244,11 +245,25 @@ async fn assignment_outbox_publishes_only_after_commit(pool: PgPool) {
     };
     ensure_assignments_stream(client.clone()).await;
 
-    let (org_id, _user_id, agent_id) = seed_org_user_agent(&pool).await;
+    let (org_id, user_id, agent_id) = seed_org_user_agent(&pool).await;
     let task_id = Uuid::now_v7();
     let delivery_id = Uuid::now_v7();
     let subject = assign_subject(agent_id);
     let consumer_name = format!("orch-assign-contract-{}", Uuid::now_v7().simple());
+    sqlx::query(
+        r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, created_by, assigned_agent_id, priority,
+                attempt, lease_expires_at, last_assignment_id, started_at)
+           VALUES ($1, $2, 'durable assignment', 'working', $3, $4, 'normal', 1, NOW() + INTERVAL '15 minutes', $5, NOW())"#,
+    )
+    .bind(task_id)
+    .bind(org_id)
+    .bind(user_id)
+    .bind(agent_id)
+    .bind(delivery_id)
+    .execute(&pool)
+    .await
+    .expect("seed working task");
     let assignment = TaskAssignment {
         delivery_id: Some(delivery_id),
         attempt: Some(1),
@@ -260,7 +275,8 @@ async fn assignment_outbox_publishes_only_after_commit(pool: PgPool) {
         message: "publish after commit".into(),
         priority: "normal".into(),
         context_envelope: None,
-        runtime_kind: None,
+        runtime_kind: Some(RuntimeKind::Api),
+        container_generation_fingerprint: None,
         image_paths: Vec::new(),
         trace_context: None,
     };
@@ -317,11 +333,25 @@ async fn assignment_outbox_backlog_drains_after_publisher_restart(pool: PgPool) 
     };
     ensure_assignments_stream(client.clone()).await;
 
-    let (org_id, _user_id, agent_id) = seed_org_user_agent(&pool).await;
+    let (org_id, user_id, agent_id) = seed_org_user_agent(&pool).await;
     let task_id = Uuid::now_v7();
     let delivery_id = Uuid::now_v7();
     let subject = assign_subject(agent_id);
     let consumer_name = format!("orch-assign-contract-{}", Uuid::now_v7().simple());
+    sqlx::query(
+        r#"INSERT INTO orchestration_tasks
+               (id, organization_id, title, status, created_by, assigned_agent_id, priority,
+                attempt, lease_expires_at, last_assignment_id, started_at)
+           VALUES ($1, $2, 'durable backlog assignment', 'working', $3, $4, 'normal', 1, NOW() + INTERVAL '15 minutes', $5, NOW())"#,
+    )
+    .bind(task_id)
+    .bind(org_id)
+    .bind(user_id)
+    .bind(agent_id)
+    .bind(delivery_id)
+    .execute(&pool)
+    .await
+    .expect("seed working task");
     let assignment = TaskAssignment {
         delivery_id: Some(delivery_id),
         attempt: Some(1),
@@ -333,7 +363,8 @@ async fn assignment_outbox_backlog_drains_after_publisher_restart(pool: PgPool) 
         message: "publish after publisher restart".into(),
         priority: "normal".into(),
         context_envelope: None,
-        runtime_kind: None,
+        runtime_kind: Some(RuntimeKind::Api),
+        container_generation_fingerprint: None,
         image_paths: Vec::new(),
         trace_context: None,
     };

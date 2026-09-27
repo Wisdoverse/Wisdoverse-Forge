@@ -86,6 +86,9 @@ pub struct Mount {
 pub struct ContainerInfo {
     pub id: String,
     pub name: String,
+    /// Immutable Docker image content/config id (`sha256:...`).
+    pub image_id: String,
+    /// Source reference recorded in the container config.
     pub image: String,
     pub status: ContainerState,
     pub created_at: Option<String>,
@@ -142,6 +145,7 @@ mod tests {
         let info = ContainerInfo {
             id: "abc123".to_string(),
             name: "test-agent".to_string(),
+            image_id: "sha256:image".to_string(),
             image: "agentforge/agent:latest".to_string(),
             status: ContainerState::Running,
             created_at: Some("2026-04-04T00:00:00Z".to_string()),

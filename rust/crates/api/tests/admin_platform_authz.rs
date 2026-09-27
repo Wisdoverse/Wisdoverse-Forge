@@ -27,7 +27,12 @@ use axum::http::{Request, StatusCode};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-use agentforge_api::test_support::{mint_test_jwt, test_app_with_mock_provider};
+use agentforge_api::{
+    domain::agent::NewAgent,
+    repositories::agent::AgentRepository,
+    test_support::{mint_test_jwt, tenant_scope_for_ids, test_app_with_mock_provider},
+};
+use agentforge_core::CliToolKind;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -235,6 +240,51 @@ async fn platform_admin_can_use_cross_org_admin_endpoints(pool: PgPool) {
         send(app, "POST", "/api/v1/admin/impersonate", &jwt, Some(json!({ "target_user_id": target }))).await;
     assert_eq!(status, StatusCode::OK, "platform admin impersonates: {body}");
     assert_eq!(body["ok"], true);
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn platform_admin_agent_delete_honors_lifecycle_admission(pool: PgPool) {
+    let (org_id, user_id) = seed_org_owner(&pool, true).await;
+    let scope = tenant_scope_for_ids(org_id, user_id);
+    let agent_id = AgentRepository::new(pool.clone())
+        .create_aggregate(
+            &scope,
+            NewAgent::container(
+                &scope,
+                CliToolKind::Codex,
+                Some("admin-delete-target"),
+                None,
+                None,
+                org_id,
+                None,
+                None,
+            )
+            .expect("build Agent"),
+        )
+        .await
+        .expect("create Agent");
+    sqlx::query("UPDATE agents SET interactive_lease_expires_at = NOW() + INTERVAL '1 minute' WHERE id = $1")
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("lease Agent");
+    let jwt = mint_test_jwt(org_id, user_id, "owner");
+
+    let app = test_app_with_mock_provider(pool.clone(), "mock", "unused").await;
+    let (status, _body) = send(app, "DELETE", &format!("/api/v1/admin/agents/{agent_id}"), &jwt, None).await;
+    assert_eq!(status, StatusCode::CONFLICT, "active interactive work must block admin deletion");
+
+    sqlx::query("UPDATE agents SET interactive_lease_expires_at = NULL WHERE id = $1")
+        .bind(agent_id)
+        .execute(&pool)
+        .await
+        .expect("release Agent");
+    let app = test_app_with_mock_provider(pool.clone(), "mock", "unused").await;
+    let (status, body) = send(app, "DELETE", &format!("/api/v1/admin/agents/{agent_id}"), &jwt, None).await;
+    assert_eq!(status, StatusCode::OK, "idle Agent can be deleted: {body}");
+    let remains: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM agents WHERE id = $1").bind(agent_id).fetch_one(&pool).await.unwrap();
+    assert_eq!(remains, 0);
 }
 
 // ---------------------------------------------------------------------------

@@ -98,30 +98,28 @@ middleware, the same gate as other `/admin` agent operations. The tool must also
 be rollable: `RollToolPolicy::ensure_rollable` rejects `claude` and unknown tools
 with `422` because they have no public registry image to roll onto.
 
-**Each agent is rolled under its own persisted tenant scope — never a fabricated
-or cross-organization one.** The roll does not invent elevated access. For every
-target agent it reads the agent's real organization, user, and workspace from the
-stored row and reconstructs that agent's own `TenantScope`, then performs the
-roll through the existing tenant-scoped stop and start primitives. A roll is a
-`stop` (removes the container, clears `container_id`) followed by a `start`
-(recreates from the resolved, now-updated image). Because it reuses those
-primitives, every per-organization invariant they enforce still holds: an agent
-in organization A is stopped and started only within organization A's scope, and
-the admin endpoint cannot move work or containers across organizations.
+**Replacement keeps the Agent's stored ownership.** The admin route supplies a
+sealed platform-admin authority. Under the Agent's PostgreSQL lifecycle lock,
+the service rereads its organization, user and workspace, then issues replacement
+credentials for that owner. It does not fabricate a caller-supplied tenant scope
+or move an Agent between organizations.
 
-Only **idle or offline** agents are rolled. A `working` agent is intentionally
-left alone and reported as `skipped_busy`, because rolling it would interrupt
-in-flight work and risk a redelivered assignment double-executing against the
-fresh container (the dedup write-ahead log is destroyed with the old container).
+Only Agents without active work are rolled. The service rechecks live
+interactive terminal/MCP leases, busy participants and working tasks while
+holding the lifecycle lock; a stale displayed status cannot admit replacement.
+Busy Agents are reported as `skippedBusy`. Result processing and lease recovery
+acquire that same lock before row locks so quarantine cleanup cannot deadlock
+against them.
 
 Concurrency and runtime guards keep the blast radius bounded:
 
-- A single-flight guard (`RollGuard`) allows one roll per tool at a time; a
-  concurrent same-tool roll returns `409`. The slot frees on drop regardless of
-  outcome.
-- If the container runtime is unavailable on the deployment and there is at least
-  one non-busy (idle/offline) agent to roll, the whole roll returns `503` once,
-  rather than emitting one identical per-agent error per agent.
+- A local single-flight guard and a PostgreSQL per-tool advisory lock reject a
+  concurrent same-tool roll with `409`, including across API replicas. Pull,
+  local build and prune use the same database guard.
+- The roll resolves and verifies one immutable image before replacing any
+  Agent, then uses its Docker image ID throughout the batch.
+- If Docker is unavailable and at least one Agent is eligible, the whole roll
+  returns `503` once.
 
 A roll can leave an agent down. When a respawn fails after a confirmed stop
 (`stopped: true` in the per-agent result), that agent is stopped and must be

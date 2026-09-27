@@ -134,9 +134,10 @@ The fallback is scheduled for removal once all staging hosts are migrated.
 ## Image registry
 
 Container images are published to GitHub Container Registry on every push to
-`main` and on every `v*` tag. Authenticated pulls work for any GitHub account
-once the package visibility is set to public on the project's GHCR settings
-page.
+`main`. Versioned releases use the manual `Release` workflow, dispatched from
+`refs/heads/main`; that workflow creates the `v*` tag only after its publish
+jobs succeed. Authenticated pulls work for any GitHub account once the package
+visibility is set to public on the project's GHCR settings page.
 
 | Image                                                               | Built from                     | Notes                                                                     |
 | ------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------- |
@@ -150,16 +151,27 @@ page.
 The Claude CLI image is intentionally **not** published in public GHCR
 because the package license points to Anthropic terms rather than a
 standard open-source redistribution license. Operators can build it locally
-with `make build-agent-all` or push it to a private registry whose terms
-permit redistribution.
+with `make build-agent-all`. A private registry may be permitted by the vendor
+terms, but stock Compose does not yet plumb registry credentials to both Docker
+and the in-server cosign verifier; authenticated private images require a future
+explicit credential integration.
 
 ### Tag scheme
 
-| Trigger             | Tags applied                                      |
-| ------------------- | ------------------------------------------------- |
-| Push to `main`      | `:main`, `:edge`, `:sha-<short>`                  |
-| Push tag `v0.2.0`   | `:0.2.0`, `:0.2`, `:0`, `:latest`, `:sha-<short>` |
-| `workflow_dispatch` | `:sha-<short>` only (use for ad-hoc rebuilds)     |
+| Producer / trigger                           | Tags applied                                                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Publish Images`: push or dispatch on `main` | `:main`, `:edge`, `:sha-<short>`; `agent-base` also gets `:sha-<full>`         |
+| `Release`: frontend/server/runtime images    | `:<version>`, `:<major.minor>`, `:<major>`, plus `:latest` for stable releases |
+| `Release`: `agent-base`                      | `:<version>`, plus `:latest` for stable releases                               |
+| `Release`: public Container CLI overlays     | `:<cli-version>`, `:<version>-<cli-version>`, plus `:latest` when stable       |
+| `Watch CLI Versions`: public overlays        | `:<cli-version>`, `:latest`, `:edge`                                           |
+
+The trusted image-producing workflows run only from `refs/heads/main`. Public
+Container CLI overlays are signed by digest and built from a verified,
+immutable `agent-base` digest. A manual dispatch from another branch is skipped.
+The release workflow resolves `agent-base` through the full commit-SHA tag and
+checks the exact signed digest's `org.opencontainers.image.revision` label before
+copying release tags.
 
 ### Pulling for `scripts/deploy.sh`
 
@@ -168,6 +180,7 @@ Set the registry-image env vars to point at GHCR:
 ```bash
 # In docker/.env or in your deploy environment:
 AGENT_REGISTRY=ghcr.io/wisdoverse/wisdoverse-forge
+AGENT_IMAGE_SIGNER_REPOSITORY=Wisdoverse/Wisdoverse-Forge
 ```
 
 Then invoke the deploy with the desired tag:

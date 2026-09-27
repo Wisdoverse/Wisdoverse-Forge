@@ -271,10 +271,10 @@ async fn handle_client_message(
             attach_terminal(state, scope, outbound_tx, terminals, agent_id, cols, rows).await
         }
         Some(ClientMessage::TerminalData { agent_id, data }) => {
-            write_terminal_data(outbound_tx, terminals, agent_id, &data)
+            write_terminal_data(state, scope, outbound_tx, terminals, agent_id, &data).await
         }
         Some(ClientMessage::TerminalInput { agent_id, keys }) => {
-            write_terminal_keys(outbound_tx, terminals, agent_id, &keys)
+            write_terminal_keys(state, scope, outbound_tx, terminals, agent_id, &keys).await
         }
         Some(ClientMessage::TerminalResize { agent_id, cols, rows }) => {
             resize_terminal(state, outbound_tx, terminals, agent_id, cols, rows).await
@@ -337,16 +337,20 @@ async fn attach_terminal(
     terminals.insert(agent_id, TerminalSession { container_id, input_tx, task });
 }
 
-fn write_terminal_data(
+async fn write_terminal_data(
+    state: &AppState,
+    scope: &TenantScope,
     outbound_tx: &OutboundTx,
     terminals: &HashMap<Uuid, TerminalSession>,
     agent_id: Uuid,
     data: &str,
 ) {
-    write_terminal_bytes(outbound_tx, terminals, agent_id, data.as_bytes().to_vec());
+    write_terminal_bytes(state, scope, outbound_tx, terminals, agent_id, data.as_bytes().to_vec()).await;
 }
 
-fn write_terminal_keys(
+async fn write_terminal_keys(
+    state: &AppState,
+    scope: &TenantScope,
     outbound_tx: &OutboundTx,
     terminals: &HashMap<Uuid, TerminalSession>,
     agent_id: Uuid,
@@ -354,21 +358,44 @@ fn write_terminal_keys(
 ) {
     let data = keys.concat();
     if !data.is_empty() {
-        write_terminal_bytes(outbound_tx, terminals, agent_id, data.into_bytes());
+        write_terminal_bytes(state, scope, outbound_tx, terminals, agent_id, data.into_bytes()).await;
     }
 }
 
-fn write_terminal_bytes(
+async fn write_terminal_bytes(
+    state: &AppState,
+    scope: &TenantScope,
     outbound_tx: &OutboundTx,
     terminals: &HashMap<Uuid, TerminalSession>,
     agent_id: Uuid,
     bytes: Vec<u8>,
 ) {
-    if bytes.len() > MAX_TERMINAL_INPUT_BYTES {
-        let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal input payload too large"));
+    if !terminal_input_size_allowed(outbound_tx, agent_id, bytes.len()) {
         return;
     }
+    let Some(expected_container_id) = terminals.get(&agent_id).map(|session| session.container_id.clone()) else {
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal is not attached"));
+        return;
+    };
+    match state.gateway_terminal_service().admit_input(scope, agent_id, &expected_container_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            let _ = outbound_tx.send(terminal_error_frame(
+                agent_id,
+                "agent is busy or its container changed; attach the terminal again",
+            ));
+            return;
+        }
+        Err(err) => {
+            tracing::warn!(error = ?err, %agent_id, "terminal input lifecycle admission failed");
+            let _ = outbound_tx.send(terminal_error_frame(agent_id, "could not safely send terminal input"));
+            return;
+        }
+    }
     match terminals.get(&agent_id) {
+        Some(session) if session.container_id != expected_container_id => {
+            let _ = outbound_tx.send(terminal_error_frame(agent_id, "agent container changed; attach again"));
+        }
         // `try_send` fails when the input queue is full (client flooding stdin
         // faster than the container drains) or the stream is closed — both are
         // surfaced to the client rather than buffered unboundedly (F058/F059).
@@ -380,6 +407,14 @@ fn write_terminal_bytes(
             let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal is not attached"));
         }
     }
+}
+
+fn terminal_input_size_allowed(outbound_tx: &OutboundTx, agent_id: Uuid, size: usize) -> bool {
+    if size > MAX_TERMINAL_INPUT_BYTES {
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal input payload too large"));
+        return false;
+    }
+    true
 }
 
 async fn resize_terminal(
@@ -555,14 +590,13 @@ mod tests {
         assert!(terminal_session_limit_reached(MAX_TERMINAL_SESSIONS + 1));
     }
 
-    #[tokio::test]
-    async fn write_terminal_bytes_rejects_oversized_payload() {
+    #[test]
+    fn write_terminal_bytes_rejects_oversized_payload() {
         let (tx, mut rx) = mpsc::channel::<String>(4);
         let outbound = OutboundTx { tx, close: Arc::new(tokio::sync::Notify::new()) };
-        let terminals: HashMap<Uuid, TerminalSession> = HashMap::new();
         let agent = Uuid::new_v4();
         // One byte over the cap is rejected with an error frame, never queued.
-        write_terminal_bytes(&outbound, &terminals, agent, vec![0u8; MAX_TERMINAL_INPUT_BYTES + 1]);
+        assert!(!terminal_input_size_allowed(&outbound, agent, MAX_TERMINAL_INPUT_BYTES + 1));
         let frame = rx.try_recv().expect("an error frame should be emitted");
         assert!(frame.contains("too large"), "frame: {frame}");
     }
