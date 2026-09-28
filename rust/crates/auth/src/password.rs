@@ -3,10 +3,7 @@
 //! Uses Argon2id with OWASP-recommended default parameters via the `argon2` crate.
 //! Passwords are hashed with a random salt and stored in PHC string format.
 
-use argon2::{
-    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
-    password_hash::{SaltString, rand_core::OsRng},
-};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use sha2::{Digest, Sha256};
 
 /// Sentinel written into `users.password_hash` by the F004 force-reset migration
@@ -26,9 +23,8 @@ pub struct PasswordVerification {
 ///
 /// Returns the hash in PHC string format (e.g. `$argon2id$v=19$m=...`).
 pub fn hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
-    let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default(); // Argon2id with safe defaults
-    let hash = argon2.hash_password(password.as_bytes(), &salt)?;
+    let hash = argon2.hash_password(password.as_bytes())?;
     Ok(hash.to_string())
 }
 
@@ -90,6 +86,15 @@ mod tests {
         let password = test_password();
         let hash = hash_password(&password).unwrap();
         assert!(verify_password(&password, &hash).unwrap());
+    }
+
+    #[test]
+    fn verifies_hash_from_argon2_05() {
+        // Argon2 0.5 reference vector: existing PHC hashes must survive the upgrade.
+        let hash = "$argon2id$v=19$m=256,t=2,p=1$c29tZXNhbHQ$nf65EOgLrQMR/uIPnA4rEsF5h7TKyQwu9U1bMCHGi/4";
+        let input = hex::decode("70617373776f7264").unwrap();
+        assert!(verify_password(std::str::from_utf8(&input).unwrap(), hash).unwrap());
+        assert!(!verify_password(&test_password(), hash).unwrap());
     }
 
     #[test]
