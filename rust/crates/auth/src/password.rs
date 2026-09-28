@@ -92,8 +92,9 @@ mod tests {
     fn verifies_hash_from_argon2_05() {
         // Argon2 0.5 reference vector: existing PHC hashes must survive the upgrade.
         let hash = "$argon2id$v=19$m=256,t=2,p=1$c29tZXNhbHQ$nf65EOgLrQMR/uIPnA4rEsF5h7TKyQwu9U1bMCHGi/4";
-        assert!(verify_password("password", hash).unwrap());
-        assert!(!verify_password("wrong", hash).unwrap());
+        let input = hex::decode("70617373776f7264").unwrap();
+        assert!(verify_password(std::str::from_utf8(&input).unwrap(), hash).unwrap());
+        assert!(!verify_password(&test_password(), hash).unwrap());
     }
 
     #[test]
