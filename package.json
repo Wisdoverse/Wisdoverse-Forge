@@ -88,8 +88,8 @@
     "pg": "^8.21.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-hook-form": "^7.80.0",
-    "react-i18next": "^17.0.12",
+    "react-hook-form": "^7.88.0",
+    "react-i18next": "^17.0.15",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
     "tailwind-merge": "^3.6.0",
@@ -104,7 +104,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@faker-js/faker": "^10.5.0",
+    "@faker-js/faker": "^10.6.0",
     "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
@@ -132,7 +132,7 @@
     "ts-proto": "^2.12.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.70.1",
-    "vite": "^8.3.0",
+    "vite": "^8.3.1",
     "vitest": "^4.1.11",
     "yaml": "^2.9.1"
   }
