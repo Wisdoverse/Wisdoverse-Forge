@@ -48,6 +48,7 @@ export default defineConfig({
     'governance-audit.spec.ts',
     'maintenance-repository.spec.ts',
     'maintenance-workflow.spec.ts',
+    'maintenance-delivery.spec.ts',
   ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

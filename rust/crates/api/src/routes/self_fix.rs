@@ -15,7 +15,7 @@
 //! are tenant-scoped by `auth.scope`; deployment-wide repository metadata is
 //! disclosed only after a live platform-admin check.
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::Value;
@@ -27,6 +27,7 @@ use agentforge_core::AppResult;
 use crate::domain::self_fix::self_fix_data_response;
 use crate::health::AppState;
 use crate::services::self_fix::MaintenanceRequestInput;
+use crate::services::self_fix::{ComparisonQuery, DecisionInput, HandoffInput, OutcomeQuery, VerificationInput};
 
 /// Read-only, live platform-admin setup check. The service verifies the caller
 /// before disclosing deployment-wide repository metadata or contacting GitHub.
@@ -55,6 +56,51 @@ async fn submit_request(
 async fn get_trace(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
     let trace = state.self_fix_service().maintenance_trace(&auth.scope, id).await?;
     Ok(Json(self_fix_data_response(trace)))
+}
+
+async fn get_delivery(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().maintenance_delivery(&auth.scope, id).await?)))
+}
+async fn create_report(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(input): Json<VerificationInput>,
+) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().create_verification(&auth.scope, id, input).await?)))
+}
+async fn record_decision(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(input): Json<DecisionInput>,
+) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().record_decision(&auth.scope, id, input).await?)))
+}
+async fn record_handoff(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(input): Json<HandoffInput>,
+) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().record_handoff(&auth.scope, id, input).await?)))
+}
+async fn get_comparison(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(input): Query<ComparisonQuery>,
+) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().maintenance_comparison(&auth.scope, input).await?)))
+}
+async fn get_outcomes(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(input): Query<OutcomeQuery>,
+) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().maintenance_outcomes(&auth.scope, input).await?)))
+}
+async fn get_report(State(state): State<AppState>, auth: AuthUser, Path(id): Path<Uuid>) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().maintenance_report(&auth.scope, id).await?)))
 }
 
 /// `GET /api/v1/self-fix/tasks/{id}/review` — PR review snapshot for a self-fix
@@ -93,6 +139,13 @@ pub fn self_fix_routes() -> Router<AppState> {
         .route("/self-fix/repository", get(get_repository))
         .route("/self-fix/requests", post(submit_request))
         .route("/self-fix/tasks/{id}/trace", get(get_trace))
+        .route("/self-fix/tasks/{id}/delivery", get(get_delivery))
+        .route("/self-fix/tasks/{id}/reports", post(create_report))
+        .route("/self-fix/tasks/{id}/decisions", post(record_decision))
+        .route("/self-fix/tasks/{id}/handoffs", post(record_handoff))
+        .route("/self-fix/comparison", get(get_comparison))
+        .route("/self-fix/outcomes", get(get_outcomes))
+        .route("/self-fix/reports/{id}", get(get_report))
         .route("/self-fix/tasks/{id}/review", get(get_review))
         .route("/self-fix/tasks/{id}/approve", post(approve))
 }

@@ -217,6 +217,92 @@ writes, agent execution, production migration, production readiness or pilot
 acceptance. A real operator and pilot path using the selected repository and
 its branch protection remains pending.
 
+## Maintenance delivery: local proof
+
+Validated on 2026-10-01 against Rust source tree
+`663652a915eeac2afa94fea7d4dc3e99ee55be75`, frontend app tree
+`66aa5cde013eb2ba5fdb482f472bb426cbbc3426`, shared-contract tree
+`39ea3d877e1446d6b84cf87ceca1b62818bb45f7`, and tests tree
+`b37130072a7c867d924552c4c5bac8e4ac82ba3f`. This supersedes the earlier
+local checks for the combined maintenance implementation in
+[PR #1196](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1196).
+
+Environment: Linux, Rust 1.98.1, Node.js 24.19.0, Chromium 151 and disposable
+PostgreSQL 18. The browser used real `dev@example.com` login, the rebuilt Rust
+API and PostgreSQL. A loopback GitHub substitute supplied repository, PR-head
+and check observations. Two explicitly synthetic finished-run records used
+`codex` and `claude` labels and captured image metadata. No vendor CLI ran,
+no real GitHub write occurred, and synthetic verdicts are not pilot acceptance.
+
+The required Rust `make ci` passed: 2,828 tests, zero failures, seven existing
+ignores, formatting and workspace/all-target Clippy. Dependency audit completed
+with four existing policy-allowed warnings (`event-listener` unsoundness and
+the yanked `chacha20`/two `spin` versions). Narrow domain tests and the real
+HTTP/PostgreSQL delivery test also passed. That integration test covers:
+
+- Authentication, tenant isolation, live administrator revocation during
+  provider I/O, version/run ownership and acceptance after head drift/outage.
+- Eight concurrent identical submissions returning one immutable report,
+  conflicting key reuse, idempotent verdict/handoff replay and queued-work
+  handoff refusal. A human verdict with a failing check cannot bypass the
+  existing merge gate.
+- Visible retry caps/backoff, retained report identity and snapshot after
+  explicit run deletion, and comparison conditions for two synthetic CLI
+  records. Raw artifact retention was not exercised.
+- A 107-task submission cohort including failed, canceled and unreviewed work;
+  non-overlapping 100/7 detail pages with unchanged full-cohort denominators;
+  unknown minutes, stale verdicts and distinct review activity in the period.
+
+Six real-login Playwright scenarios passed in 25.4 seconds. They cover keyboard
+repository refresh, narrow repository navigation, source submission/replay,
+source-head drift/outage, narrow-screen report/verdict/effort/handoff recording,
+and comparison followed by changed-head/outage acceptance refusal. The delivery
+scenario records six human minutes and a separately reported 12-minute
+baseline only as synthetic form data; it asserts no approval/merge request.
+
+The related Vitest suites passed 70 tests. After the browser identified field
+label/help-text and select-label issues, the final seven delivery UI tests,
+affected-file lint, formatting and typecheck passed again. FSD, full lint
+(including beginner-copy/metrics/protocol guards), production build, secret
+scan, migration manifest and `git diff --check` also passed.
+
+To reproduce, first prepare a disposable local database, active project/task
+place and administrator account, the local frontend/rebuilt API and a
+loopback-only GitHub test provider. Use the fixture variables listed in the
+earlier browser proof, plus `E2E_MAINTENANCE_DELIVERY_TASK_ID` and
+`E2E_MAINTENANCE_DELIVERY_OTHER_TASK_ID` for two deliberately provisioned,
+equivalent finished-run tasks. These tests write reports and human decisions;
+do not point them at pilot or production records. They skip without explicit
+fixtures and reject non-loopback frontend/provider-control hosts.
+
+```bash
+umask 022
+DATABASE_URL='<disposable PostgreSQL URL>' make -C rust ci
+npm run test:unit -- tests/unit/shared/maintenanceApi.test.ts \
+  tests/unit/shared/maintenanceDeliveryApi.test.ts \
+  tests/unit/app/MaintenanceWorkflow.test.tsx \
+  tests/unit/app/MaintenanceDelivery.test.tsx \
+  tests/unit/app/MaintenanceRepositorySection.test.tsx
+npm run test:e2e -- maintenance-repository.spec.ts \
+  maintenance-workflow.spec.ts maintenance-delivery.spec.ts
+```
+
+Apply migrations 102/103 before using the delivery endpoints. Migration 102
+builds `idx_task_runs_org_task_id` concurrently outside a transaction. If the
+build is interrupted, inspect `pg_index.indisvalid` for this named index and
+remove it only if invalid before retrying; `IF NOT EXISTS` cannot repair an
+invalid index. Migration 103 creates the append-only delivery records with
+tenant/run ownership constraints. Run deletion clears only the live run link;
+task/organization deletion cascades to delivery records. All 103 SQL files
+match the committed manifest and embedded migration list.
+
+This proves the local record/review workflow. Real equivalent Container CLI
+execution, interrupted vendor work and raw-artifact retention, production
+migration rehearsal, the selected repository's branch protection, and the
+3–5-team/four-week effort and quality evaluation remain pending. Follow the
+[Maintenance delivery guide](../guides/maintenance-delivery.md) and
+[Product Validation Guide](../guides/product-validation.md) for those records.
+
 ## Backend transaction ownership follow-up
 
 The subsequent backend change moves ownership of the cross-aggregate

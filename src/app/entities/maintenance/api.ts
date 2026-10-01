@@ -21,6 +21,9 @@ export type MaintenanceFailure =
   | 'cancelled'
   | 'unreachable'
   | 'failed'
+  | 'conflict'
+  | 'invalid-delivery'
+  | 'delivery-unavailable'
 
 export class MaintenanceError extends Error {
   constructor(public readonly reason: MaintenanceFailure) {
@@ -171,6 +174,10 @@ function backendFailure(payload: unknown): MaintenanceFailure {
   if (typeof error !== 'object' || error === null) return 'failed'
   const code = (error as Record<string, unknown>).code
   switch (code) {
+    case 'errors.maintenance.delivery_invalid':
+      return 'invalid-delivery'
+    case 'errors.maintenance.delivery_unavailable':
+      return 'delivery-unavailable'
     case 'errors.maintenance.invalid_request':
       return 'invalid-request'
     case 'errors.maintenance.destination_unavailable':
@@ -197,12 +204,15 @@ async function exchange<T>(
   const controller = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined
   let cancel = () => undefined
+  let interruption: 'cancelled' | 'timeout' | null = null
   const interrupted = new Promise<never>((_resolve, reject) => {
     cancel = () => {
+      interruption = 'cancelled'
       controller.abort()
       reject(new MaintenanceError('cancelled'))
     }
     timer = setTimeout(() => {
+      interruption = 'timeout'
       controller.abort()
       reject(new MaintenanceError('timeout'))
     }, MAINTENANCE_TIMEOUT_MS)
@@ -221,6 +231,7 @@ async function exchange<T>(
     if (response.status === 401) throw new MaintenanceError('unauthenticated')
     if (response.status === 403) throw new MaintenanceError('forbidden')
     if (response.status === 404) throw new MaintenanceError('missing')
+    if (response.status === 409) throw new MaintenanceError('conflict')
     if (!response.ok) {
       if (response.status !== 400) throw new MaintenanceError('failed')
       const payload: unknown = await Promise.race([response.json().catch(() => null), interrupted])
@@ -230,6 +241,7 @@ async function exchange<T>(
     if (payload.ok !== true) invalid()
     return read(payload.data)
   } catch (error) {
+    if (interruption) throw new MaintenanceError(interruption)
     if (error instanceof MaintenanceError) throw error
     throw new MaintenanceError(error instanceof SyntaxError ? 'invalid-response' : 'unreachable')
   } finally {
@@ -256,3 +268,6 @@ export function getMaintenanceTrace(taskId: string, signal?: AbortSignal) {
     signal
   )
 }
+
+// Shared within this entity slice; UI consumers use its public index.
+export { exchange, trace }

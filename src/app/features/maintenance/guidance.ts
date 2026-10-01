@@ -1,6 +1,12 @@
 import type { MaintenanceFailure } from '@app/entities/maintenance'
 
 export const maintenanceGuidance: Record<MaintenanceFailure, string> = {
+  conflict:
+    'This task or revision changed. Refresh its evidence before submitting again. If work is active, stop it using the task controls before recording a handoff.',
+  'invalid-delivery':
+    'Check the current revision, report, required text and minute limits, then submit again. A finished execution is required for run evidence; explain missing artifacts explicitly.',
+  'delivery-unavailable':
+    'The produced revision could not be verified. Refresh after GitHub recovers or the head change has been reviewed before recording acceptance.',
   unauthenticated:
     'Sign in again, then return to this task or retry with the same source reference.',
   forbidden:

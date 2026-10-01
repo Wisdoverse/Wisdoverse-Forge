@@ -8,6 +8,7 @@ use agentforge_core::{AppError, AppResult};
 use serde::Deserialize;
 
 use crate::domain::self_fix::SelfFixPolicy;
+mod verification;
 pub use crate::domain::self_fix::SelfFixRepositorySetup;
 
 #[derive(Debug, Clone)]

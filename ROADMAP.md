@@ -118,17 +118,39 @@ behavior it adds and provide the relevant operator or runtime proof.
    acceptance remain pending. Webhook intake remains out of scope for this item.
 3. **Verification reports.** Give reviewers the scope, changes, checks,
    failures, unverified areas and evidence for the exact revision. Separate
-   agent-reported completion from observed checks and human acceptance.
+   operator-reported checks from a fresh GitHub observation and a human
+   verdict. Revision-bound report submission, exact-revision GitHub observations,
+   and human acceptance requiring a finished run and a fresh matching GitHub
+   head are implemented in [PR #1196](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1196).
+   Commands in a report are recorded, not executed. See the
+   [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and the
+   [local delivery proof](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 4. **Recovery and handoff.** Expose retry limits/backoff, retain useful
    artifacts and failure causes, and let a person continue blocked work.
    Reconcile changed PR heads and CI state rather than relying on stale
-   approval. Existing sensitive-path refusal and expected-head guards remain.
+   approval. Source implements bounded recovery snapshots and handoff records,
+   including the task/revision/run context. Existing sensitive-path refusal and
+   expected-head guards remain. See the
+   [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and the
+   [local delivery proof](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 5. **Runtime comparison.** Exercise equivalent tasks through supported CLIs
-   and produce common task/result/evidence records. Test interrupted execution
-   and artifact retention; do not promise lossless vendor-session migration.
-6. **Outcome measurement.** Add accepted/rejected/rework outcomes and human
-   setup, handling, review and recovery time beside existing usage metrics.
-   Evaluate skill effectiveness on later work, not only draft acceptance.
+   and produce common task/result/evidence records. The implementation records
+   report conditions and identifies whether conditions match and
+   distinct supported CLIs are represented. This is condition comparison of
+   recorded evidence, not proof of real CLI execution or a benchmark. Real
+   per-CLI runs and interrupted-execution/artifact-retention validation remain
+   pending; do not promise lossless vendor-session migration. See the
+   [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
+   [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
+6. **Outcome measurement.** Source implements a submission cohort that retains
+   awaiting-review, failed and canceled tasks, with the latest report and
+   latest verdict represented once per task. Human effort uses six cumulative
+   categories; unknown minutes remain unknown, not zero, and the dashboard
+   shows the complete-minute denominator. Paired baselines are shown with
+   their limits and do not establish savings by themselves. Pilot measurement,
+   real-world effort outcomes, and skill effectiveness on later work remain
+   to be evaluated. See the [Maintenance delivery guide](docs/guides/maintenance-delivery.md)
+   and [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 7. **Observed workflow friction.** Prioritize board inline updates, approval
    queue and empty-state improvements only when they remove a measured step or
    a demonstrated pilot blocker.
