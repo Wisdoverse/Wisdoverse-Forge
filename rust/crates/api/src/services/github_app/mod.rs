@@ -213,7 +213,7 @@ impl GithubAppClient {
         let contents_write = access.permissions.get("contents").is_some_and(|p| p == "write");
         let pull_requests_write = access.permissions.get("pull_requests").is_some_and(|p| p == "write");
         SelfFixPolicy::require_repository_writable(repo.archived, repo.disabled, contents_write, pull_requests_write)?;
-        if repo.default_branch.is_empty() {
+        if !crate::domain::self_fix::valid_default_branch(&repo.default_branch) {
             return Err(SelfFixPolicy::repository_base_unavailable());
         }
 

@@ -424,16 +424,19 @@ model.
 
 The four `GITHUB_APP_*` variables are **all-or-none**: set all four to enable the
 loop, or leave all four unset to disable it. Setting only some fails startup so
-the loop can never boot half-wired. `LLM_ENCRYPTION_KEY` (see above) must be set
-— the private key is encrypted at rest.
+the loop can never boot half-wired. The API service receives the private key
+from its environment and keeps it in memory to sign App requests. Operators
+must manage it through the deployment's secret store and keep it out of logs.
+`LLM_ENCRYPTION_KEY` remains an independent production requirement; it does not
+encrypt this GitHub App key.
 
-| Variable                     | Default                   | Required          | Purpose                                                                                                                                                                 |
-| ---------------------------- | ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GITHUB_APP_ID`              | none                      | All four together | GitHub App identifier used to mint installation tokens and open/merge PRs                                                                                               |
-| `GITHUB_APP_INSTALLATION_ID` | none                      | All four together | Installation identifier (the per-account install of the App) that scopes the minted token                                                                               |
-| `GITHUB_APP_PRIVATE_KEY`     | none                      | All four together | App private key. Base64-encoded PEM (env-safe single line) is preferred; raw PEM starting with `-----BEGIN` is also accepted. Stored encrypted via `LLM_ENCRYPTION_KEY` |
-| `GITHUB_APP_REPO`            | none                      | All four together | Single approved `owner/repo` the self-fix loop targets; the server discovers its default branch from GitHub                                                                 |
-| `SELF_FIX_WORK_DIR`          | `/tmp/agentforge-selffix` | No                | Server-owned scratch root for the per-task clone the Bridge builds the PR from. Never inside an agent `/workspace`. One ephemeral subdirectory per task                 |
+| Variable                     | Default                   | Required          | Purpose                                                                                                                                                                                                                                                       |
+| ---------------------------- | ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_APP_ID`              | none                      | All four together | GitHub App identifier used to mint installation tokens and open/merge PRs                                                                                                                                                                                     |
+| `GITHUB_APP_INSTALLATION_ID` | none                      | All four together | Installation identifier (the per-account install of the App) that scopes the minted token                                                                                                                                                                     |
+| `GITHUB_APP_PRIVATE_KEY`     | none                      | All four together | App private key supplied through the API service environment and held in memory to sign App requests. Base64-encoded PEM (env-safe single line) is preferred; raw PEM starting with `-----BEGIN` is also accepted. Manage through the deployment secret store |
+| `GITHUB_APP_REPO`            | none                      | All four together | Single approved `owner/repo` the self-fix loop targets; the server discovers its default branch from GitHub                                                                                                                                                   |
+| `SELF_FIX_WORK_DIR`          | `/tmp/agentforge-selffix` | No                | Server-owned scratch root for the per-task clone the Bridge builds the PR from. Never inside an agent `/workspace`. One ephemeral subdirectory per task                                                                                                       |
 
 The GitHub App needs repository permissions **Contents: Read and write** and
 **Pull requests: Read and write**. The review/merge path also needs **Checks:
@@ -446,6 +449,14 @@ task reaching a
 draft PR you can Approve from the task's **Review** tab; the server squash-merges
 the exact reviewed commit and posts an audit comment. Sensitive-path changes are
 server-side hard-refused from in-platform merge and routed to a human maintainer.
+
+For Compose, set all four `GITHUB_APP_*` values in `docker/.env`; use the
+single-line base64 literal for `GITHUB_APP_PRIVATE_KEY`, not a shell expression.
+Protect the file as a secret. For the external profile, run `make deploy-server`
+to rebuild and recreate only the API service. For other profiles, recreate
+`agentforge-server` with the same Compose files and profile used by the running
+stack; the operator guide includes a production-profile command example. Keep
+the private key out of logs.
 
 ## Compose-Level Deployment Variables
 
