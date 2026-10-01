@@ -108,7 +108,14 @@ behavior it adds and provide the relevant operator or runtime proof.
    task, execution attempt, starting revision, produced change and current
    external state. Prevent duplicate work when the same source is submitted
    again. Start with deliberate submission; webhook/event intake is a separate
-   capability requiring deduplication and permission validation.
+   capability requiring deduplication and permission validation. The deliberate
+   intake and trace API, transactional deduplication, and tenant constraints are
+   implemented in the current source-linkage change; see the
+   [API guide](docs/guides/self-fix-loop.md#submit-and-trace-a-maintenance-source-api).
+   Local API proof is recorded in
+   [Runtime Validation](docs/runbooks/runtime-validation.md#maintenance-intake-and-trace-local-api-proof).
+   Browser submission and trace screens, and a real operator/pilot path, remain
+   pending. This item is only partially implemented.
 3. **Verification reports.** Give reviewers the scope, changes, checks,
    failures, unverified areas and evidence for the exact revision. Separate
    agent-reported completion from observed checks and human acceptance.

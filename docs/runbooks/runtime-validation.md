@@ -86,6 +86,62 @@ or pilot adoption. The hostname blocklist was unset locally; its behavior was
 tested using synthetic domains. Build/tooling checks retained their existing
 chunk-size and configuration deprecation warnings.
 
+## Maintenance intake and trace: local API proof
+
+Validated on 2026-10-01 at source revision `57c18e1d`, building on the repository
+setup change in [PR #1195](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1195).
+Environment: Linux, Node.js 24.19.0 and disposable PostgreSQL 17. The integration
+test drives the real Rust router, JWT middleware and repositories with signed
+test JWTs and a local GitHub HTTP mock. It uses synthetic installation
+credentials, `dev@example.com`, and the placeholder repository `acme/widgets`.
+The full workspace run required reclaiming approximately 9 GB of obsolete
+generated test binaries after the shared build cache exhausted its disk space.
+
+Passed from the repository root, with a disposable `DATABASE_URL` for Rust tests:
+
+```bash
+cd rust
+cargo test -p agentforge-api domain::maintenance::tests --lib
+cargo test -p agentforge-api --test maintenance_requests_route_test
+cargo test -p agentforge-api --test route_ddd_boundary_test
+make ci
+cd ..
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test:unit
+node scripts/check-secret-scan.mjs
+git diff --check
+```
+
+- Domain contracts: seven tests; architecture boundaries: eleven tests.
+- Full Rust workspace: 2,823 tests passed, seven existing tests ignored, zero
+  failures; formatting and clippy passed. Dependency audit completed with four
+  existing warnings allowed by repository policy.
+- The HTTP/database rehearsal covers eight concurrent submissions producing
+  exactly one task/source link, same-source reuse and organization separation,
+  foreign-destination refusal and cross-tenant foreign-key enforcement.
+- A forced source-write failure rolls back the task insert. New tasks remain
+  unassigned in backlog with no orchestration delivery. Permission revoked while
+  reading the provider prevents task creation despite an existing signed JWT.
+- Trace responses preserve intake/source heads while reporting updated merged
+  states and moved source/produced heads, retain execution identifiers and the
+  later rebuild base, and explicitly report unavailable provider observations.
+  Existing-source replay still works during a provider outage; older tasks with
+  no source record return `data: null`.
+- All 101 SQL migration files match the SHA256 manifest. New migrations are
+  also included in the embedded Rust migration source list.
+- Shared-contract validation: 204 unit-test files, 2,812 tests. Public artifact
+  scanning found no credential leaks in the checked tree.
+
+This proves the deliberate intake and trace API against a disposable database
+and a synthetic provider. It does not prove browser submission/trace screens,
+webhook intake, a real GitHub App installation, actual agent execution,
+production migration or pilot acceptance. The existing merge and CI gates are
+unchanged; PR state observations do not establish passing checks or approval.
+See the [API guide](../guides/self-fix-loop.md#submit-and-trace-a-maintenance-source-api)
+for prerequisites, retry behavior and the interrupted-index recovery boundary.
+
 ## Existing deployment proof
 
 Last validated on 2026-05-13 from the repository root using `make prod-ext`.

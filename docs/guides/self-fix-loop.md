@@ -31,8 +31,8 @@ App that is allowed to open and merge pull requests on your repository:
   stored encrypted at rest.
 
 You do **not** give the agent a GitHub token. The server holds the App
-credentials and mints a short-lived installation token only when it opens or
-merges a PR.
+credentials and mints a short-lived installation token for repository checks,
+PR creation and merging.
 
 ## Configure the server
 
@@ -128,6 +128,99 @@ again for every PR attempt; the preflight response does not reserve a revision.
 If a retry finds an existing PR targeting a different base branch, it refuses to
 reuse that PR. Inspect the PR on GitHub and create a new task for the current
 default branch; branch/head changes need another human review.
+
+## Submit and trace a maintenance source (API)
+
+This API path saves a maintenance brief as an **unassigned backlog task**.
+Before using it, complete the repository check above, sign in as a platform
+administrator, and choose an active task place in the current organization.
+Its project and workspace must also be active. The browser submission and trace
+screens remain planned work; the existing settings page checks repository setup.
+
+Use your existing login token in `FORGE_TOKEN`. Replace the example `groupId`
+with your task place's UUID and choose a stable reference for this request:
+
+```bash
+cat > maintenance-request.json <<'JSON'
+{
+  "groupId": "00000000-0000-4000-8000-000000000001",
+  "title": "Update a dependency",
+  "brief": "Update the agreed dependency, explain the change, and run the agreed checks.",
+  "source": { "kind": "request", "reference": "dependency-2026-10" }
+}
+JSON
+
+curl --fail-with-body \
+  -H "Authorization: Bearer ${FORGE_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  --data-binary @maintenance-request.json \
+  http://localhost:4003/api/v1/self-fix/requests
+```
+
+Success returns `data.requestId`, `data.taskId`, and `data.reused`. Open the
+returned task through `/tasks/<taskId>`, review its brief, and use the existing
+assignment workflow when ready. Submission creates no execution, branch,
+comment or PR and performs no merge. Store private briefs locally; do not commit
+the example request file after filling it with your team's work.
+
+To use a PR as the source, replace `source` with
+`{ "kind": "pull_request", "number": 42 }`. The server checks that number in
+the approved repository. New PR sources must be open and target its default
+branch. PR bodies and provider-supplied URLs are not imported into task prompts.
+The source PR is the origin of the brief; the existing execution path may
+produce a separate PR, which the trace reports separately.
+
+Repeated submission of the same source in the same organization and repository
+returns the original task, including after it is completed. It preserves the
+first brief, destination and starting-version snapshot. Request references are
+trimmed and ASCII case insensitive, contain at most 128 characters, start with
+a letter or digit, and otherwise use letters, digits, `.`, `_`, `:`, or `-`.
+Choose a different reference for genuinely new work. PR identity is its number.
+If a response is lost, retry the same source to retrieve the committed task;
+an existing source can be retrieved even when GitHub is unavailable.
+
+Set `TASK_ID` to the returned UUID to inspect its lineage:
+
+```bash
+curl --fail-with-body \
+  -H "Authorization: Bearer ${FORGE_TOKEN}" \
+  "http://localhost:4003/api/v1/self-fix/tasks/${TASK_ID}/trace"
+```
+
+The trace includes the source, task state, execution attempts and produced PR.
+`startingSha` records intake; `rebuildBaseSha` records the later rebuild and may
+differ. `source.submittedHeadSha` and `recordedPrHeadSha` remain stored facts.
+Each PR observation reports `checkedAt`, its current `snapshot`, and whether
+its head changed. `unavailable` means a current state could not be verified;
+`not_applicable` means a manual source; `not_created` means no produced PR.
+Older tasks without source records return `data: null`. Refresh is explicit,
+and these observations do not report CI success or grant merge approval.
+
+Both endpoints require live platform-administrator access. Requests for another
+organization's task return 404 before contacting GitHub. If the configured
+repository changes, old source records remain readable but their external
+observations report `unavailable`; they are not read through the new connection.
+
+### Deployment and validation boundary
+
+Apply migrations 100 and 101 before deploying the new API. Migration 100 builds
+the task's tenant key concurrently and runs outside a transaction. If deployment
+interrupts that build, an operator must check the index validity and remove an
+invalid `idx_orchestration_tasks_org_id` before retrying the migration; `IF NOT
+EXISTS` cannot repair an invalid index. Keep normal migration backups and checks.
+
+The source uniqueness constraint and task/source transaction prevent duplicate
+tasks and orphan tasks on write failure. A composite foreign key enforces the
+task's organization. This is deliberate API intake; webhook intake, browser
+submission/trace screens and real pilot acceptance remain unverified work.
+The local provider mock performs no real GitHub writes. Relevant checks are:
+
+```bash
+cd rust
+cargo test -p agentforge-api domain::maintenance::tests --lib
+cargo test -p agentforge-api --test maintenance_requests_route_test
+make ci
+```
 
 ## The happy path
 
