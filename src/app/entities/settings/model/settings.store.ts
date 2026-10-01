@@ -34,6 +34,7 @@ export const SETTINGS_SECTIONS = [
   'account',
   'teams',
   'task-templates',
+  'maintenance-repository',
   'projects',
   'about',
 ] as const

@@ -61,8 +61,31 @@ Restart the API service after setting these.
 
 ## Check the repository before creating work
 
-Sign in as a **platform administrator** and obtain your existing login token.
-Set `FORGE_TOKEN` locally to that token, then run the read-only setup check:
+Sign in as a **platform administrator**, open **Settings**, choose **Show team
+and project setup**, then **Maintenance repository** in **People and projects**
+(`/settings/maintenance-repository`).
+The page checks the connection when opened. Success shows the approved
+repository, its actual default branch, full starting version and last-check
+time. Preparation access and review/merge prerequisites appear separately.
+Next, confirm the agent setup and agree the required checks and reviewer before
+assigning a task.
+
+Being an organization owner does not grant platform-administrator access.
+Other users see guidance to ask an administrator, without fetching repository
+details. This page checks the server's existing configuration; the person
+running Forge still connects the GitHub App using the setup steps above.
+
+Choose **Check connection** after changing repository settings. A check has a
+30-second deadline and actionable recovery guidance for missing configuration,
+permissions, unavailable repositories or API/network failures. Refresh removes
+the previous result immediately. Leaving the page, changing accounts or an
+updated sign-in state revoking administrator access cancels pending display
+work. A server permission refusal also clears the result. Access is checked on
+each request; this screen does not poll for external permission changes. A
+result records a point in time and does not run CI or reserve a branch revision.
+
+For the same read-only check from a terminal, obtain your existing login token,
+set `FORGE_TOKEN` locally to that token, then run:
 
 ```bash
 curl --fail-with-body \
@@ -161,6 +184,31 @@ origin and a disposable PostgreSQL database. It covers non-`main` branches,
 branch-name encoding, permission/configuration failures, default-branch changes,
 clone cleanup and the existing merge guards. The HTTP test checks unauthenticated
 access and a revoked platform admin against the real router.
+
+The UI tests cover malformed responses, safe error messages, bounded requests,
+partial verification permissions, role revocation and late responses from a
+previous account. With Node.js dependencies installed, run from the repo root:
+
+```bash
+npm run test:unit -- tests/unit/shared/selfFixRepositoryApi.test.ts \
+  tests/unit/app/MaintenanceRepositorySection.test.tsx \
+  tests/unit/app/SettingsLayout.test.tsx
+```
+
+The browser spec uses real login and the running Rust API. It checks keyboard
+refresh, exact returned repository facts and permissions, guided failure or
+non-admin access, and mobile navigation/layout. Start a local API and browser
+app, configure the GitHub App if testing the connected path, set `E2E_PASSWORD`
+locally for `dev@example.com`, and use the canonical browser runner:
+
+```bash
+npm run test:e2e -- maintenance-repository.spec.ts
+```
+
+Set `BASE_URL`, `E2E_API_BASE_URL` or `PLAYWRIGHT_CHROMIUM_PATH` locally when
+using non-default ports or an installed system Chromium. The spec does not
+mock application authentication or create repository changes. A local GitHub
+test service proves only that integration, not a real installation.
 
 With Rust, Git and the protobuf compiler available, run the checks from `rust/`:
 

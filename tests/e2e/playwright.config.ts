@@ -46,6 +46,7 @@ export default defineConfig({
     'task-document-page.spec.ts',
     'analytics-dashboard.spec.ts',
     'governance-audit.spec.ts',
+    'maintenance-repository.spec.ts',
   ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
