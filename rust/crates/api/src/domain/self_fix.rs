@@ -7,7 +7,12 @@ use uuid::Uuid;
 
 /// Glob-prefix directories whose ANY descendant is sensitive.
 #[allow(dead_code)]
-const SENSITIVE_DIR_PREFIXES: &[&str] = &["rust/crates/auth/", "rust/crates/db/migrations/", ".github/workflows/"];
+const SENSITIVE_DIR_PREFIXES: &[&str] = &[
+    "rust/crates/auth/",
+    "rust/crates/db/migrations/",
+    ".github/workflows/",
+    "rust/crates/api/src/services/self_fix/",
+];
 
 /// Basenames sensitive wherever they appear.
 #[allow(dead_code)]
@@ -24,6 +29,8 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/services/github_app/mod.rs",
     "rust/crates/api/src/routes/self_fix.rs",
     "rust/crates/api/src/domain/self_fix.rs",
+    "rust/crates/api/src/domain/maintenance.rs",
+    "rust/crates/api/src/repositories/orchestration/maintenance_request.rs",
 ];
 
 #[allow(dead_code)]

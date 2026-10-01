@@ -260,6 +260,33 @@ impl GithubAppClient {
         Ok(self.repository_setup().await?.base_sha)
     }
 
+    pub(crate) fn repository_slug(&self) -> &str {
+        &self.cfg.repo
+    }
+
+    /// Read only narrow PR facts from the configured repository. Caller input
+    /// supplies a number, never a URL or provider endpoint.
+    pub(crate) async fn maintenance_pull_request(
+        &self,
+        number: i32,
+    ) -> AppResult<crate::domain::maintenance::MaintenancePullRequest> {
+        use crate::domain::maintenance::{GithubMaintenancePullRequest, source_unavailable};
+        let endpoint = "GET /repos/{repo}/pulls/{number}";
+        let url = format!("{}/repos/{}/pulls/{number}", Self::api_base(), self.cfg.repo);
+        let response = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(source_unavailable());
+        }
+        if !response.status().is_success() {
+            return Err(unavailable_status(response.status(), endpoint));
+        }
+        response
+            .json::<GithubMaintenancePullRequest>()
+            .await
+            .map_err(|_| source_unavailable())?
+            .snapshot(&self.cfg.repo, number)
+    }
+
     /// Open a draft PR for a self-fix branch.
     ///
     /// Retry-safe: on a partial-success retry the deterministic head branch is

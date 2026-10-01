@@ -6,6 +6,8 @@
 //! reads are impossible by construction.
 
 pub mod context_link;
+pub(crate) mod maintenance_request;
+pub(crate) use maintenance_request::MaintenanceRequestRepository;
 #[cfg(test)]
 mod retire_stale_tests;
 pub mod run_context_injection;

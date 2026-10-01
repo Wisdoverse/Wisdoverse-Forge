@@ -92,6 +92,18 @@ impl UserRepository {
             .ok_or_else(|| UserRepositoryPolicy::user_not_found(user_id))
     }
 
+    /// Keep a live administrator check valid through a short write transaction.
+    pub(crate) async fn find_is_admin_by_id_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        user_id: UserId,
+    ) -> AppResult<bool> {
+        sqlx::query_scalar::<_, bool>("SELECT is_admin FROM users WHERE id = $1 AND deleted_at IS NULL FOR SHARE")
+            .bind(user_id.as_uuid())
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or_else(|| UserRepositoryPolicy::user_not_found(user_id))
+    }
+
     /// Create a new user (registration).
     ///
     /// Registration is fail-closed for email-domain organizations: an unverified

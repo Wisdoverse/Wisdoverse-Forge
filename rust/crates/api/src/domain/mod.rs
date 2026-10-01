@@ -28,6 +28,7 @@ pub(crate) mod github_app;
 pub(crate) mod inbox;
 pub(crate) mod instruction_image;
 pub(crate) mod license;
+pub(crate) mod maintenance;
 pub(crate) mod mcp;
 pub(crate) mod memory;
 pub(crate) mod navigation;
