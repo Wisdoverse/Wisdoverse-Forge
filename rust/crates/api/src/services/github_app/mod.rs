@@ -7,6 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use agentforge_core::{AppError, AppResult};
 use serde::Deserialize;
 
+pub use crate::domain::github_app::RepositoryBase;
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct GithubAppConfig {
@@ -69,6 +71,7 @@ pub struct PullRequest {
     pub html_url: String,
     pub node_id: String,
     pub head: PrHead,
+    pub base: PrBase,
     #[serde(default)]
     pub draft: bool,
     /// `true` once the PR has been merged. GitHub omits this field on the
@@ -83,6 +86,12 @@ pub struct PullRequest {
 #[allow(dead_code)]
 pub struct PrHead {
     pub sha: String,
+}
+
+#[derive(Deserialize)]
+pub struct PrBase {
+    #[serde(rename = "ref")]
+    pub branch: String,
 }
 
 impl GithubAppClient {
@@ -174,13 +183,37 @@ impl GithubAppClient {
         Ok(format!("https://x-access-token:{token}@github.com/{}.git", self.cfg.repo))
     }
 
-    /// `origin/main` SHA — the base pin for self-fix branches.
+    /// Discover the configured repository's default branch and pin its tip.
+    /// Missing permissions, an empty repo or invalid metadata fail visibly;
+    /// there is no implicit `main` fallback.
     #[allow(dead_code)]
-    pub async fn default_branch_sha(&self) -> AppResult<String> {
-        let endpoint = "GET /repos/{repo}/git/ref/heads/main";
-        let url = format!("{}/repos/{}/git/ref/heads/main", Self::api_base(), self.cfg.repo);
+    pub async fn default_branch(&self) -> AppResult<RepositoryBase> {
+        let endpoint = "GET /repos/{repo}";
+        let url = format!("{}/repos/{}", Self::api_base(), self.cfg.repo);
         let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
+        if !resp.status().is_success() {
+            return Err(unavailable_status(resp.status(), endpoint));
+        }
+        #[derive(Deserialize)]
+        struct Repository {
+            default_branch: String,
+        }
+        let repo: Repository = resp.json().await.map_err(|_| unavailable(endpoint))?;
+        if !crate::domain::github_app::valid_default_branch(&repo.default_branch) {
+            return Err(unavailable(endpoint));
+        }
 
+        let endpoint = "GET /repos/{repo}/git/ref/heads/{branch}";
+        let mut url = reqwest::Url::parse(&format!("{}/repos/{}/git/ref/heads/", Self::api_base(), self.cfg.repo))
+            .map_err(|_| unavailable(endpoint))?;
+        // Preserve slash-separated branches and percent-encode each component
+        // (e.g. release/#next must not become a URL fragment).
+        url.path_segments_mut()
+            .map_err(|_| unavailable(endpoint))?
+            .pop_if_empty()
+            .extend(repo.default_branch.split('/'));
+        let resp =
+            self.authed(reqwest::Method::GET, url.into()).await?.send().await.map_err(|_| unavailable(endpoint))?;
         if !resp.status().is_success() {
             return Err(unavailable_status(resp.status(), endpoint));
         }
@@ -194,7 +227,7 @@ impl GithubAppClient {
             sha: String,
         }
         let parsed: RefResp = resp.json().await.map_err(|_| unavailable(endpoint))?;
-        Ok(parsed.object.sha)
+        crate::domain::github_app::repository_base(repo.default_branch, parsed.object.sha)
     }
 
     /// Open a draft PR for a self-fix branch.
@@ -233,6 +266,9 @@ impl GithubAppClient {
         if status.as_u16() == 422
             && let Some(existing) = self.find_open_pr_for_head(head_branch).await?
         {
+            if existing.base.branch != base {
+                return Err(crate::domain::github_app::pr_base_changed());
+            }
             return Ok(existing);
         }
         Err(unavailable_status(status, endpoint))

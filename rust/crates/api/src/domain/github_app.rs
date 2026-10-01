@@ -10,8 +10,42 @@
 //! shapes and numeric statuses, never a token, header, request body, or response
 //! body — so a failure can be surfaced to clients without leaking credentials.
 
-use agentforge_core::{AppError, ErrorKind};
+use agentforge_core::{AppError, AppResult, ErrorKind};
 use serde_json::{Value, json};
+
+/// One discovered repository base. Keep its name and revision together so the
+/// rebuild and draft PR cannot silently target different branches.
+#[derive(Debug, Clone)]
+pub struct RepositoryBase {
+    pub branch: String,
+    pub sha: String,
+}
+
+/// Validate Git's branch-name rules before using metadata in a URL or command.
+/// This also rejects empty/unborn defaults rather than falling back to `main`.
+pub(crate) fn valid_default_branch(branch: &str) -> bool {
+    !branch.is_empty()
+        && !branch.starts_with('-')
+        && !branch.ends_with('.')
+        && !branch.contains("..")
+        && !branch.contains("@{")
+        && !branch.chars().any(|c| c.is_control() || " ~^:?*[\\".contains(c))
+        && branch.split('/').all(|part| !part.is_empty() && !part.starts_with('.') && !part.ends_with(".lock"))
+}
+
+pub(crate) fn repository_base(branch: String, sha: String) -> AppResult<RepositoryBase> {
+    if !valid_default_branch(&branch) || sha.len() != 40 || !sha.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(request_failed("resolve repository default branch"));
+    }
+    Ok(RepositoryBase { branch, sha })
+}
+
+pub(crate) fn pr_base_changed() -> AppError {
+    ErrorKind::Conflict(
+        "self-fix: existing pull request targets a different base branch; review it on GitHub before retrying".into(),
+    )
+    .into()
+}
 
 /// Body for `POST /repos/{repo}/pulls` — open a DRAFT pull request.
 #[allow(dead_code)]

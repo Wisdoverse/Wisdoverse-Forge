@@ -10,9 +10,13 @@ merges.
 This guide is for an operator setting it up for the first time.
 
 **Current repository boundary.** This path uses one deployment-level
-`GITHUB_APP_REPO` configuration and assumes the base branch is `main`. General
-repository selection and support for other default branches are planned work
-in the [Product Roadmap](../../ROADMAP.md). For a pilot, follow the
+`GITHUB_APP_REPO` configuration. When opening a PR, the server discovers that
+repository's default branch through GitHub and pins its current commit. It uses
+the same branch for the clean rebuild and the PR target, including names such as
+`master` and `release/stable`. The repository must have an initial commit;
+discovery errors stop the operation rather than falling back to `main`.
+General repository selection and an operator setup-validation surface remain
+planned work in the [Product Roadmap](../../ROADMAP.md). For a pilot, follow the
 [Product Validation Guide](product-validation.md) within this existing boundary.
 
 ## What you need first
@@ -21,8 +25,8 @@ Before any self-fix task can open a pull request, the deployment needs a GitHub
 App that is allowed to open and merge pull requests on your repository:
 
 - A **GitHub App** installed on the target repository with these repository
-  permissions: **Contents: Read and write** and **Pull requests: Read and
-  write**.
+  permissions: **Contents: Read and write**, **Pull requests: Read and
+  write**, and **Checks: Read** so the server can verify CI on the PR head.
 - The App's **App ID** and the **Installation ID** for the install on your repo.
 - The App's **private key** (a `.pem` file you download from the App settings).
 - `LLM_ENCRYPTION_KEY` set (already required in production) — the private key is
@@ -64,7 +68,7 @@ Restart the API service after setting these.
    its `/workspace`.
 2. **The server opens a draft PR.** When the work is done, the server freezes the
    agent's container, copies the changed files onto a clean clone of the
-   configured repository's `main` branch in its own scratch directory,
+   configured repository's discovered default branch in its own scratch directory,
    validates them, force-pushes a
    deterministic `agent/<task-id>` branch, and opens a **draft** pull request.
    Nothing is merged.
@@ -84,14 +88,16 @@ safety check was bypassed.
 
 ## Status and troubleshooting
 
-| What you see                                          | What it means                                                                      | What to do                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Review** tab missing                                | The task is not a self-fix task                                                    | Only self-fix tasks expose the Review tab                                                   |
-| "No pull request has been opened yet"                 | The Bridge has not opened a PR                                                     | Confirm the task finished and the GitHub App is configured                                  |
-| **Approve** disabled, "CI checks not confirmed green" | CI has not reported success on the PR head                                         | Wait for checks to finish, then press **Refresh**                                           |
-| **Approve** disabled, "Touches a sensitive path"      | The change edits a protected area (auth, migrations, CI, the self-fix code itself) | A maintainer must review and merge it manually on GitHub; in-platform merge is hard-refused |
-| Approve fails with "GitHub not configured"            | The four `GITHUB_APP_*` variables are not all set                                  | Set them (see above) and restart the API                                                    |
-| Approve fails after CI went red or the head moved     | The server re-verified at merge time and refused                                   | Re-review the PR; nothing was merged                                                        |
+| What you see                                                            | What it means                                                                      | What to do                                                                                                                     |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Review** tab missing                                                  | The task is not a self-fix task                                                    | Only self-fix tasks expose the Review tab                                                                                      |
+| "No pull request has been opened yet"                                   | The Bridge has not opened a PR                                                     | Confirm the task finished and the GitHub App is configured                                                                     |
+| **Approve** disabled, "CI checks not confirmed green"                   | CI has not reported success on the PR head                                         | Wait for checks to finish, then press **Refresh**                                                                              |
+| **Approve** disabled, "Touches a sensitive path"                        | The change edits a protected area (auth, migrations, CI, the self-fix code itself) | A maintainer must review and merge it manually on GitHub; in-platform merge is hard-refused                                    |
+| Approve fails with "GitHub not configured"                              | The four `GITHUB_APP_*` variables are not all set                                  | Set them (see above) and restart the API                                                                                       |
+| Approve fails after CI went red or the head moved                       | The server re-verified at merge time and refused                                   | Re-review the PR; nothing was merged                                                                                           |
+| Opening the PR fails on `GET /repos/{repo}` or `git/ref/heads/{branch}` | Default-branch discovery failed                                                    | Check `GITHUB_APP_REPO`, the App installation and Contents permission; ensure the repository has an initial commit, then retry |
+| Opening the PR reports a different base branch                          | A retry found an existing PR against an earlier default branch                     | Review the existing PR on GitHub and resolve its target there before retrying; the server will not silently retarget it        |
 
 ## Safety model
 

@@ -34,8 +34,7 @@ const GIT_TIMEOUT: Duration = Duration::from_secs(300);
 const AUTHOR_NAME: &str = "Wisdoverse Self-Fix";
 const AUTHOR_EMAIL: &str = "self-fix@users.noreply.github.com";
 
-/// Base branch self-fix PRs target.
-const BASE_BRANCH: &str = "main";
+pub use crate::domain::github_app::RepositoryBase;
 
 /// What `open_pr` returns on success: the opened draft PR and the review status
 /// the Bridge selected (`in_review` or `sensitive_blocked`).
@@ -65,8 +64,8 @@ pub struct OpenedDraftPr {
 #[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait GitProvider: Send + Sync {
-    /// `origin/main` SHA — the base pin the agent's change is rebuilt onto.
-    async fn default_branch_sha(&self) -> AppResult<String>;
+    /// Default branch and tip used for BOTH the rebuild and the draft PR.
+    async fn default_branch(&self) -> AppResult<RepositoryBase>;
     /// Token-bearing clone/push remote for the server-owned clone's `origin`.
     /// NEVER logged.
     async fn authed_remote_url(&self) -> AppResult<String>;
@@ -96,8 +95,8 @@ pub trait GitProvider: Send + Sync {
 
 #[async_trait::async_trait]
 impl GitProvider for crate::services::github_app::GithubAppClient {
-    async fn default_branch_sha(&self) -> AppResult<String> {
-        crate::services::github_app::GithubAppClient::default_branch_sha(self).await
+    async fn default_branch(&self) -> AppResult<RepositoryBase> {
+        crate::services::github_app::GithubAppClient::default_branch(self).await
     }
 
     async fn authed_remote_url(&self) -> AppResult<String> {
@@ -243,7 +242,7 @@ fn rebuild_error_to_app(err: RebuildError) -> AppError {
 pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
     provider: &G,
     task_id: Uuid,
-    base_sha: &str,
+    base: &RepositoryBase,
     workspace_project_dir: &Path,
     commit_message: &str,
     pr_title: &str,
@@ -278,6 +277,8 @@ pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
             "--no-tags",
             "--depth",
             "50",
+            "--branch",
+            &base.branch,
             authed_url.as_str(),
             clone_dir.to_str().ok_or_else(|| SelfFixPolicy::git_step_failed("clone"))?,
         ],
@@ -292,7 +293,7 @@ pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
     // 3. Rebuild the vetted /workspace change onto base_sha in the clone.
     let outcome = rebuild_branch(
         &clone_dir,
-        base_sha,
+        &base.sha,
         workspace_project_dir,
         &branch,
         commit_message,
@@ -316,7 +317,7 @@ pub async fn run_pr_bridge<G: GitProvider + ?Sized>(
         .await?;
 
     // 6. Open the draft PR.
-    let pr = provider.create_draft_pr(&branch, BASE_BRANCH, pr_title, pr_body).await?;
+    let pr = provider.create_draft_pr(&branch, &base.branch, pr_title, pr_body).await?;
 
     Ok(BridgeResult { pr, review_status })
 }

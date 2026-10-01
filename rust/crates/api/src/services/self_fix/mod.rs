@@ -122,9 +122,9 @@ impl SelfFixService {
         //    agent. Reject (visible error) if it escapes the managed root.
         let workspace_project_dir = self.resolve_workspace_project_dir(scope, &task).await?;
 
-        // 4. Pin the base origin/main SHA and persist it.
-        let base_sha = GitProvider::default_branch_sha(github.as_ref()).await?;
-        self.tasks.set_base_commit_sha(scope, task_id, &base_sha).await?;
+        // 4. Discover the default branch, pin its tip and persist the revision.
+        let base = GitProvider::default_branch(github.as_ref()).await?;
+        self.tasks.set_base_commit_sha(scope, task_id, &base.sha).await?;
 
         // 5-10. Clone + rebuild + sensitive-check + push + open draft PR.
         let commit_message = format!("self-fix: {}", task.title);
@@ -133,7 +133,7 @@ impl SelfFixService {
         let result = run_pr_bridge(
             github.as_ref(),
             task_id,
-            &base_sha,
+            &base,
             &workspace_project_dir,
             &commit_message,
             &pr_title,

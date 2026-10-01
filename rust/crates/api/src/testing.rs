@@ -34,7 +34,8 @@ pub mod self_fix_rebuild {
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_bridge {
     pub use crate::services::self_fix::bridge::{
-        BridgeResult, GitProvider, OpenedDraftPr, SelfFixPrOutcome, branch_name, clone_dir_for, run_pr_bridge,
+        BridgeResult, GitProvider, OpenedDraftPr, RepositoryBase, SelfFixPrOutcome, branch_name, clone_dir_for,
+        run_pr_bridge,
     };
     pub use crate::services::self_fix::import::ImportLimits;
 }
@@ -44,7 +45,7 @@ pub mod self_fix_bridge {
 /// `GitProvider` (no real GitHub, no DB). Gated behind `test-support`.
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_merge {
-    pub use crate::services::self_fix::bridge::{GitProvider, OpenedDraftPr};
+    pub use crate::services::self_fix::bridge::{GitProvider, OpenedDraftPr, RepositoryBase};
     pub use crate::services::self_fix::merge_executor::{MergeOutcome, MergeRequest, run_merge_executor};
 }
 

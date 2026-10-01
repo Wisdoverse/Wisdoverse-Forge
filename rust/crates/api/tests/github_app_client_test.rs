@@ -55,12 +55,90 @@ async fn github_app_client_drives_pr_lifecycle() {
                 "html_url": "https://github.com/acme/widgets/pull/7",
                 "node_id": "PR_kw1",
                 "head": { "sha": "abc" },
+                "base": { "ref": "main" },
                 "draft": true,
             }));
         })
         .await;
 
     let c = client(&server.base_url());
+
+    // --- discover defaults, including a URL-special branch component -------
+    let base_sha = "0123456789abcdef0123456789abcdef01234567";
+    for branch in ["main", "master", "release/stable", "release/#next"] {
+        let metadata = server
+            .mock_async(|when, then| {
+                when.method(GET).path(format!("/repos/{REPO}")).header("Authorization", "Bearer ghs_x");
+                then.status(200).json_body(serde_json::json!({ "default_branch": branch }));
+            })
+            .await;
+        let reference = server
+            .mock_async(|when, then| {
+                when.method(GET).path(format!("/repos/{REPO}/git/ref/heads/{}", branch.replace('#', "%23")));
+                then.status(200).json_body(serde_json::json!({ "object": { "sha": base_sha } }));
+            })
+            .await;
+        let base = c.default_branch().await.expect("discover configured default");
+        assert_eq!(base.branch, branch);
+        assert_eq!(base.sha, base_sha);
+        metadata.assert_async().await;
+        reference.assert_async().await;
+        metadata.delete_async().await;
+        reference.delete_async().await;
+    }
+    // Metadata permission failures must not guess a branch or expose response bodies.
+    let denied = server
+        .mock_async(|when, then| {
+            when.method(GET).path(format!("/repos/{REPO}"));
+            then.status(403).body("private provider diagnostic ghs_x");
+        })
+        .await;
+    let err = c.default_branch().await.expect_err("permission failure must stop discovery");
+    assert!(!err.to_string().contains("ghs_x"));
+    denied.assert_async().await;
+    denied.delete_async().await;
+
+    for metadata_body in [
+        serde_json::json!({}),
+        serde_json::json!({ "default_branch": "" }),
+        serde_json::json!({ "default_branch": "../main" }),
+    ] {
+        let invalid = server
+            .mock_async(|when, then| {
+                when.method(GET).path(format!("/repos/{REPO}"));
+                then.status(200).json_body(metadata_body);
+            })
+            .await;
+        assert!(c.default_branch().await.is_err(), "invalid defaults must fail without fallback");
+        invalid.assert_async().await;
+        invalid.delete_async().await;
+    }
+    let metadata = server
+        .mock_async(|when, then| {
+            when.method(GET).path(format!("/repos/{REPO}"));
+            then.status(200).json_body(serde_json::json!({ "default_branch": "master" }));
+        })
+        .await;
+    let missing = server
+        .mock_async(|when, then| {
+            when.method(GET).path(format!("/repos/{REPO}/git/ref/heads/master"));
+            then.status(404);
+        })
+        .await;
+    assert!(c.default_branch().await.is_err(), "unborn/deleted defaults must not fall back to main");
+    missing.assert_async().await;
+    missing.delete_async().await;
+    let malformed = server
+        .mock_async(|when, then| {
+            when.method(GET).path(format!("/repos/{REPO}/git/ref/heads/master"));
+            then.status(200).json_body(serde_json::json!({ "object": { "sha": "not-a-commit" } }));
+        })
+        .await;
+    assert!(c.default_branch().await.is_err(), "a malformed commit must not reach git");
+    malformed.assert_async().await;
+    malformed.delete_async().await;
+    metadata.delete_async().await;
+
     let pr = c.create_draft_pr("self-fix/x", "main", "title", "body").await.expect("create draft pr");
     assert_eq!(pr.number, 7);
     assert_eq!(pr.html_url, "https://github.com/acme/widgets/pull/7");
@@ -190,6 +268,7 @@ async fn github_app_client_drives_pr_lifecycle() {
                     "html_url": "https://github.com/acme/widgets/pull/99",
                     "node_id": "PR_existing",
                     "head": { "sha": "deadbeef" },
+                    "base": { "ref": "main" },
                     "draft": true,
                 }
             ]));
@@ -202,6 +281,13 @@ async fn github_app_client_drives_pr_lifecycle() {
     assert_eq!(reused.head.sha, "deadbeef");
     create_422.assert_async().await;
     list_existing.assert_async().await;
+    let mismatch = c
+        .create_draft_pr("agent/retry", "master", "title", "body")
+        .await
+        .err()
+        .expect("a retry must not reuse a PR against the old default");
+    use axum::response::IntoResponse;
+    assert_eq!(mismatch.into_response().status(), axum::http::StatusCode::CONFLICT);
     create_422.delete_async().await;
     list_existing.delete_async().await;
 
@@ -216,7 +302,6 @@ async fn github_app_client_drives_pr_lifecycle() {
         .await;
     let err = c.merge_with_expected_head(7, "abc").await.expect_err("409 must be an error");
     // The head-moved guard maps to a 409 CONFLICT HTTP response.
-    use axum::response::IntoResponse;
     let status = err.into_response().status();
     assert_eq!(status, axum::http::StatusCode::CONFLICT, "409 must map to the head-moved conflict");
     merge_409.assert_async().await;
