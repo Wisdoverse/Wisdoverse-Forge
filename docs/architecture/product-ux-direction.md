@@ -2,9 +2,41 @@
 
 Wisdoverse Forge should keep its governed, auditable execution model, but the
 primary user experience needs a shorter path from setup to useful agent work.
-The product should feel less like a collection of infrastructure surfaces and
-more like a team workspace where agents can be assigned work, report progress,
-and leave reusable knowledge behind.
+The next cycle focuses that work on recurring repository maintenance, starting
+with dependency upgrades and failed-PR repair on one approved repository. A
+reviewer should be able to understand the requested change, inspect the result
+and its evidence, and accept it or hand it back with minimal administration.
+Existing general team-work surfaces remain supported.
+
+## Maintenance Workflow Direction (Planned)
+
+The target path is repository selection → maintenance brief → execution →
+verification evidence → human decision → repeat work or recovery. Productized
+repository setup, source-PR intake and richer verification are roadmap work,
+not claims that this path is already implemented end to end.
+
+- Reuse supported Container CLIs and the existing task/run/evidence model.
+- Make repository, permissions and required verification clear before dispatch.
+- Present the source request, starting revision, produced change, exact revision
+  verified, checks and unverified areas together when those integrations ship.
+- Separate execution completion from verification and human acceptance. A
+  checked review item or green CI cannot establish all task requirements.
+- Let teams review in GitHub where appropriate; measure and reduce duplicate
+  task-board administration rather than requiring another place to keep in sync.
+- Expose blocked work, bounded retry and a practical human handoff. Common
+  result records across CLIs do not imply lossless session migration.
+- Offer reusable skills when useful; completing a task must not depend on
+  extracting one.
+
+The existing self-fix path opens a draft PR for the deployment's configured
+repository, assumes `main`, and requires human-approved merge. Its sensitive-path
+refusal and expected-head checks remain the supported boundary. See
+[Self-Fix Loop](../guides/self-fix-loop.md).
+
+Prioritize the [roadmap](../../ROADMAP.md) backlog using observed pilot blockers
+and the [Product Validation Guide](../guides/product-validation.md). Acceptance
+evidence for UX changes should include the operator path and its effect on
+handling/review work, not only the existence of a new screen.
 
 ## Product Contract
 
@@ -105,24 +137,19 @@ API-facing errors, and operator-facing automation.
 
 See [Task Workflow Guide](../guides/task-workflow.md) for the operator-facing version of this flow.
 
-## Remaining Product Gaps
+## Product Gaps and Prioritization
 
-Shipped since this list was written: board-level human-block signals (latest
-blocker/unblock marks per task), skill usage per agent (Skills detail shows
-injections, distinct runs, last use, and per-agent attachment state), and an
-Operations overview page combining runtime readiness, AI services, agent
-availability, queue flow, and system health for triage.
+The next cycle prioritizes repository setup, source-to-result linkage,
+revision-bound verification, failure recovery and measured human acceptance.
+These are planned outcomes built on the existing surfaces above.
 
-Still open, in order of user visibility:
+Board inline updates, approval-queue counts/bulk actions, guided maintenance
+templates and clearer empty states should follow demonstrated user friction.
+Project-scoped templates and recurring tasks already exist; a better guided
+maintenance path needs its own validation.
 
-- Per-project task templates exist for templates; project-scoped _recurring_
-  tasks and project-scoped saved briefs in the task form's fill flow could be
-  broader (a project-level "starter set" the form applies by default).
-- Approval queue refinements: bulk approval for waiting-approval tasks and a
-  count badge on the Inbox queue.
-- Empty states should continue to prefer direct actions over conceptual
-  explanations when no project, task group, provider, runtime, agent, or
-  available participant exists.
-- Operator hardening remaining: full TUF metadata (key rotation, root
-  pinning), OpenTelemetry telemetry export, full SCIM schema (groups,
-  attributes, paging) — see ROADMAP P5 items 2/5.
+TUF-style metadata and OpenTelemetry trace export are implemented. Outstanding
+SCIM Groups/attribute extensions, artifact/run retention, OTLP metrics/logs,
+multi-organization operations and scale/performance work are demand-triggered
+investments in the [roadmap](../../ROADMAP.md#7-demand-triggered-investment),
+not evidence that the maintenance workflow has been adopted.

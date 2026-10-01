@@ -9,6 +9,12 @@ merges.
 
 This guide is for an operator setting it up for the first time.
 
+**Current repository boundary.** This path uses one deployment-level
+`GITHUB_APP_REPO` configuration and assumes the base branch is `main`. General
+repository selection and support for other default branches are planned work
+in the [Product Roadmap](../../ROADMAP.md). For a pilot, follow the
+[Product Validation Guide](product-validation.md) within this existing boundary.
+
 ## What you need first
 
 Before any self-fix task can open a pull request, the deployment needs a GitHub
@@ -57,8 +63,9 @@ Restart the API service after setting these.
    repository's code. An agent works it like any other task, editing files in
    its `/workspace`.
 2. **The server opens a draft PR.** When the work is done, the server freezes the
-   agent's container, copies the changed files onto a clean clone of your default
-   branch in its own scratch directory, validates them, force-pushes a
+   agent's container, copies the changed files onto a clean clone of the
+   configured repository's `main` branch in its own scratch directory,
+   validates them, force-pushes a
    deterministic `agent/<task-id>` branch, and opens a **draft** pull request.
    Nothing is merged.
 3. **Review it.** Open the task and switch to the **Review** tab. You see the PR

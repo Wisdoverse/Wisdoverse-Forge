@@ -99,6 +99,16 @@ If a change spans multiple areas, run the combined matrix before pushing.
 
 ## Pull Request Standard
 
+For new product capabilities, name the workflow outcome and relevant
+[roadmap](ROADMAP.md) priority. Reuse the current task/run/evidence and runtime
+boundaries. Platform expansion needs a demonstrated workflow blocker or an
+explicitly reviewed requirement; a new feature alone is not adoption evidence.
+
+Keep planned, implemented, runtime-verified and adopted status distinct. Link
+implementation PRs and reproducible validation; record measured product outcomes
+using the [Product Validation Guide](docs/guides/product-validation.md), with
+private pilot data kept outside the public repository.
+
 Every PR should include:
 
 - a short summary of the user or operator impact,
