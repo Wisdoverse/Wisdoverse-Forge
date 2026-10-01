@@ -103,11 +103,26 @@ pub struct SelfFixRepositorySetup {
 impl SelfFixRepositorySetup {
     pub(crate) fn validate(&self) -> AppResult<()> {
         SelfFixPolicy::require_repository_writable(false, false, self.contents_write, self.pull_requests_write)?;
-        if self.default_branch.is_empty() || self.base_sha.is_empty() {
+        if !valid_default_branch(&self.default_branch)
+            || self.base_sha.len() != 40
+            || !self.base_sha.bytes().all(|b| b.is_ascii_hexdigit())
+        {
             return Err(SelfFixPolicy::repository_base_unavailable());
         }
         Ok(())
     }
+}
+
+/// Reject invalid Git refs before provider metadata enters a URL or git command.
+pub(crate) fn valid_default_branch(branch: &str) -> bool {
+    !branch.is_empty()
+        && branch != "@"
+        && !branch.starts_with('-')
+        && !branch.ends_with('.')
+        && !branch.contains("..")
+        && !branch.contains("@{")
+        && !branch.chars().any(|c| c.is_control() || " ~^:?*[\\".contains(c))
+        && branch.split('/').all(|part| !part.is_empty() && !part.starts_with('.') && !part.ends_with(".lock"))
 }
 
 /// Read-side projection of a self-fix task's PR review state for the in-platform

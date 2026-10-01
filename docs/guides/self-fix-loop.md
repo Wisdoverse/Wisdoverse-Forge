@@ -27,12 +27,13 @@ App that is allowed to open and merge pull requests on your repository:
   enabled on the repository. Branch protection and required reviews still apply.
 - The App's **App ID** and the **Installation ID** for the install on your repo.
 - The App's **private key** (a `.pem` file you download from the App settings).
-- `LLM_ENCRYPTION_KEY` set (already required in production) — the private key is
-  stored encrypted at rest.
+- `LLM_ENCRYPTION_KEY` set for production deployments as an independent
+  production requirement. It is not used to encrypt this GitHub App key.
 
 You do **not** give the agent a GitHub token. The server holds the App
-credentials and mints a short-lived installation token for repository checks,
-PR creation and merging.
+credentials in memory and uses the private key to sign App requests and mint
+short-lived installation tokens. The operator must manage the key through the
+deployment's secret store and keep it out of logs.
 
 ## Configure the server
 
@@ -41,13 +42,23 @@ Set these four environment variables on the Rust API service (see
 together — if only some are set, the server refuses to start so the loop can
 never boot half-wired:
 
-```bash
+```dotenv
 GITHUB_APP_ID=123456
 GITHUB_APP_INSTALLATION_ID=987654
-# Base64-encoded contents of the .pem (env-safe single line). Raw PEM also works.
-GITHUB_APP_PRIVATE_KEY=$(base64 -w0 your-app.private-key.pem)
+GITHUB_APP_PRIVATE_KEY=<single-line-base64-encoded-private-key-pem>
 GITHUB_APP_REPO=your-org/your-repo
 ```
+
+Set the App ID, Installation ID, private key, and `GITHUB_APP_REPO` together.
+The private key may be raw PEM or a single-line base64 value. For Linux, create
+a base64 value without writing it to the terminal with
+`base64 -w0 your-app.private-key.pem > app-key.base64`. On macOS, use
+`base64 < your-app.private-key.pem | tr -d '\n' > app-key.base64`. In Windows
+PowerShell, use
+`[Convert]::ToBase64String([IO.File]::ReadAllBytes('your-app.private-key.pem')) | Set-Content -NoNewline app-key.base64`.
+Store the file securely, enter its single-line value through your deployment's
+secret management process, then remove the temporary copy. Do not enable shell
+tracing or log secret values.
 
 Optionally override where the server does its private clone work (a server-owned
 scratch directory, never inside an agent's `/workspace`):
@@ -58,6 +69,17 @@ SELF_FIX_WORK_DIR=/var/lib/agentforge/selffix
 ```
 
 Restart the API service after setting these.
+
+For Compose, put all four `GITHUB_APP_*` values in `docker/.env`; set the
+`GITHUB_APP_PRIVATE_KEY` value to the single-line base64 literal itself, not a
+shell `$(...)` expression. Protect `docker/.env` as a secret. For an external
+profile deployment, `make deploy-server` rebuilds and recreates only the API
+service. For other profiles, recreate `agentforge-server` with the same Compose
+files and profile used by the running stack, for example:
+
+```bash
+docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml --profile prod up -d --no-deps --force-recreate agentforge-server
+```
 
 ## Check the repository before creating work
 
@@ -103,7 +125,7 @@ and starting revision, and the installation's verification prerequisites:
   "data": {
     "repository": "your-org/your-repo",
     "defaultBranch": "develop",
-    "baseSha": "0123456789abcdef0123456789abcdef01234567",
+    "baseSha": "0123456789abcdef0123456789abcdef0123456789",
     "contentsWrite": true,
     "pullRequestsWrite": true,
     "checksRead": true,

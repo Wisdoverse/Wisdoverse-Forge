@@ -58,7 +58,7 @@ async fn repository_preflight_is_authenticated_and_live_admin_gated(pool: PgPool
     let ref_mock = server
         .mock_async(|when, then| {
             when.method(GET).path("/repos/acme/widgets/git/ref/heads/develop");
-            then.status(200).json_body(json!({ "object": { "sha": "starting-revision" } }));
+            then.status(200).json_body(json!({ "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } }));
         })
         .await;
     let mut state = app_state_with_mock_provider(pool.clone(), "mock", "ok").await;
@@ -92,7 +92,7 @@ async fn repository_preflight_is_authenticated_and_live_admin_gated(pool: PgPool
     assert_eq!(payload["ok"], true);
     assert_eq!(payload["data"]["repository"], "acme/widgets");
     assert_eq!(payload["data"]["defaultBranch"], "develop");
-    assert_eq!(payload["data"]["baseSha"], "starting-revision");
+    assert_eq!(payload["data"]["baseSha"], "0123456789abcdef0123456789abcdef01234567");
     assert!(!String::from_utf8_lossy(&body).contains("ghs_route_secret"));
 
     sqlx::query("UPDATE users SET is_admin = false WHERE id = $1")

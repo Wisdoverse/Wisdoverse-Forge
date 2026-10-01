@@ -62,17 +62,17 @@ async fn repository_setup_discovers_branch_and_checks_prerequisites_without_writ
         let reference = server
             .mock_async(|when, then| {
                 when.method(GET).path(format!("/repos/{REPO}/git/ref/heads/{encoded}"));
-                then.status(200).json_body(json!({ "object": { "sha": "starting-revision" } }));
+                then.status(200).json_body(json!({ "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } }));
             })
             .await;
         let setup = c.repository_setup().await.expect("repository setup");
         assert_eq!(setup.repository, REPO);
         assert_eq!(setup.default_branch, branch);
-        assert_eq!(setup.base_sha, "starting-revision");
+        assert_eq!(setup.base_sha, "0123456789abcdef0123456789abcdef01234567");
         assert!(setup.contents_write && setup.pull_requests_write && setup.checks_read && setup.squash_merge_allowed);
         let wire = serde_json::to_value(&setup).expect("safe setup projection");
         assert_eq!(wire["defaultBranch"], branch);
-        assert_eq!(wire["baseSha"], "starting-revision");
+        assert_eq!(wire["baseSha"], "0123456789abcdef0123456789abcdef01234567");
         assert!(!wire.to_string().contains("ghs_setup_secret"));
         repo.assert_async().await;
         reference.assert_async().await;
@@ -86,6 +86,11 @@ async fn repository_setup_discovers_branch_and_checks_prerequisites_without_writ
         (200, json!({ "default_branch": "develop", "archived": true, "disabled": false }), true),
         (200, json!({ "default_branch": "develop", "archived": false, "disabled": true }), true),
         (200, metadata(""), true),
+        (200, metadata("../main"), true),
+        (200, metadata("--upload-pack=unexpected"), true),
+        (200, metadata("a@{b"), true),
+        (200, metadata("main.lock"), true),
+        (200, metadata("@"), true),
         (200, json!({ "archived": false, "disabled": false }), false),
         (404, json!({ "message": "ghs_setup_secret" }), true),
         (401, json!({ "message": "ghs_setup_secret" }), true),
@@ -99,6 +104,22 @@ async fn repository_setup_discovers_branch_and_checks_prerequisites_without_writ
         repo.assert_async().await;
         repo.delete_async().await;
     }
+    let repo = repository(&server, 200, metadata("master")).await;
+    for sha in ["", "not-a-sha", "abc123", "g123456789abcdef0123456789abcdef01234567", "-"] {
+        let reference = server
+            .mock_async(|when, then| {
+                when.method(GET).path(format!("/repos/{REPO}/git/ref/heads/master"));
+                then.status(200).json_body(json!({ "object": { "sha": sha } }));
+            })
+            .await;
+        let err = c.repository_setup().await.expect_err("invalid revision must fail before git");
+        assert!(
+            matches!(err.kind, ErrorKind::ValidationWithCode { code, .. } if code == "errors.self_fix.repository_base_unavailable")
+        );
+        reference.assert_async().await;
+        reference.delete_async().await;
+    }
+    repo.delete_async().await;
     token_mock.delete_async().await;
 
     // Missing or read-only grants fail before reading a revision or pushing.
@@ -128,7 +149,7 @@ async fn repository_setup_discovers_branch_and_checks_prerequisites_without_writ
     let reference = server
         .mock_async(|when, then| {
             when.method(GET).path(format!("/repos/{REPO}/git/ref/heads/develop"));
-            then.status(200).json_body(json!({ "object": { "sha": "base" } }));
+            then.status(200).json_body(json!({ "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } }));
         })
         .await;
     let setup = client().repository_setup().await.expect("draft-only setup");
