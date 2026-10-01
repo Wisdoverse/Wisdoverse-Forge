@@ -14,6 +14,7 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 /// from production callers (the underlying module is `pub(crate)` without it).
 #[cfg(any(test, feature = "test-support"))]
 pub mod github_app {
+    pub use crate::domain::self_fix::SelfFixRepositorySetup;
     pub use crate::services::github_app::{GithubAppClient, GithubAppConfig, PrHead, PullRequest, build_app_jwt};
 }
 
@@ -33,6 +34,7 @@ pub mod self_fix_rebuild {
 /// origin and a fake `GitProvider` (no real GitHub). Gated behind `test-support`.
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_bridge {
+    pub use crate::domain::self_fix::SelfFixRepositorySetup;
     pub use crate::services::self_fix::bridge::{
         BridgeResult, GitProvider, OpenedDraftPr, SelfFixPrOutcome, branch_name, clone_dir_for, run_pr_bridge,
     };
@@ -44,6 +46,7 @@ pub mod self_fix_bridge {
 /// `GitProvider` (no real GitHub, no DB). Gated behind `test-support`.
 #[cfg(any(test, feature = "test-support"))]
 pub mod self_fix_merge {
+    pub use crate::domain::self_fix::SelfFixRepositorySetup;
     pub use crate::services::self_fix::bridge::{GitProvider, OpenedDraftPr};
     pub use crate::services::self_fix::merge_executor::{MergeOutcome, MergeRequest, run_merge_executor};
 }
@@ -59,6 +62,11 @@ pub mod self_fix_review {
     use crate::health::AppState;
     use agentforge_core::{AppResult, TenantScope};
     use uuid::Uuid;
+
+    pub async fn repository_setup(state: &AppState, scope: &TenantScope) -> AppResult<serde_json::Value> {
+        let setup = state.self_fix_service().repository_setup(scope).await?;
+        Ok(crate::domain::self_fix::self_fix_data_response(setup))
+    }
 
     /// `(pr_number, checks_green, sensitive, review_status)` from a review snapshot.
     pub async fn review_fields(

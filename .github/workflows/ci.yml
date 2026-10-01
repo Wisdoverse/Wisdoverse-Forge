@@ -366,6 +366,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify secret scan coverage
+        run: node --test scripts/__tests__/check-secret-scan.test.mjs
       - name: Scan for secrets
         env:
           # Internal hostname blocklist is injected from a repo secret so the

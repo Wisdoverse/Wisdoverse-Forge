@@ -29,8 +29,10 @@ not claims that this path is already implemented end to end.
   extracting one.
 
 The existing self-fix path opens a draft PR for the deployment's configured
-repository, assumes `main`, and requires human-approved merge. Its sensitive-path
-refusal and expected-head checks remain the supported boundary. See
+repository, discovers its default branch from GitHub, and requires human-approved
+merge. A read-only platform-admin repository preflight reports the base revision
+and verification prerequisites. Its sensitive-path refusal and expected-head
+checks remain the supported boundary. See
 [Self-Fix Loop](../guides/self-fix-loop.md).
 
 Prioritize the [roadmap](../../ROADMAP.md) backlog using observed pilot blockers

@@ -77,6 +77,32 @@ pub(crate) fn decode_self_fix_pr_job_payload(payload: Value) -> Result<SelfFixPr
     serde_json::from_value(payload)
 }
 
+/// The configured repository and one observed default-branch revision. The
+/// bridge uses this same snapshot for both rebuilding and the PR base.
+/// Permission flags describe installation-token grants, not CI results or
+/// human approval. No credentials are included.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfFixRepositorySetup {
+    pub repository: String,
+    pub default_branch: String,
+    pub base_sha: String,
+    pub contents_write: bool,
+    pub pull_requests_write: bool,
+    pub checks_read: bool,
+    pub squash_merge_allowed: bool,
+}
+
+impl SelfFixRepositorySetup {
+    pub(crate) fn validate(&self) -> AppResult<()> {
+        SelfFixPolicy::require_repository_writable(false, false, self.contents_write, self.pull_requests_write)?;
+        if self.default_branch.is_empty() || self.base_sha.is_empty() {
+            return Err(SelfFixPolicy::repository_base_unavailable());
+        }
+        Ok(())
+    }
+}
+
 /// Read-side projection of a self-fix task's PR review state for the in-platform
 /// review surface (milestone 8/9). Pure assembly of the persisted task columns
 /// plus a freshly-read CI-check verdict; carries no secrets and no internal URLs.
@@ -171,6 +197,62 @@ impl SelfFixMergeMetricPolicy {
 pub(crate) struct SelfFixPolicy;
 
 impl SelfFixPolicy {
+    pub(crate) fn require_repository_writable(
+        archived: bool,
+        disabled: bool,
+        contents_write: bool,
+        pull_requests_write: bool,
+    ) -> AppResult<()> {
+        if archived || disabled {
+            return Err(ErrorKind::ValidationWithCode {
+                code: "errors.self_fix.repository_unavailable",
+                message:
+                    "The configured repository is archived or disabled. Restore repository access before retrying."
+                        .into(),
+            }
+            .into());
+        }
+        if !contents_write || !pull_requests_write {
+            return Err(ErrorKind::ValidationWithCode {
+                code: "errors.self_fix.repository_permissions",
+                message: "The GitHub App installation needs Contents and Pull requests read/write permissions. \
+                          Update the installation permissions and retry after its cached token expires or restart the API."
+                    .into(),
+            }
+            .into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn repository_base_unavailable() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.repository_base_unavailable",
+            message: "The configured repository has no usable default-branch revision. \
+                      Confirm its default branch contains a commit before retrying."
+                .into(),
+        }
+        .into()
+    }
+
+    pub(crate) fn repository_base_changed() -> AppError {
+        ErrorKind::Conflict(
+            "The existing pull request targets a different base branch. Review it on GitHub and create a new task \
+             for the current repository default branch before retrying."
+                .into(),
+        )
+        .into()
+    }
+
+    pub(crate) fn repository_access_failed() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.repository_access",
+            message: "The GitHub App cannot read the configured repository or default branch. \
+                      Check GITHUB_APP_REPO, the installation's repository access and Contents permission, then retry."
+                .into(),
+        }
+        .into()
+    }
+
     /// Whether an `open_pr` failure is permanent — retrying can never succeed —
     /// versus transient (a network/GitHub incident worth retrying with backoff).
     ///
@@ -238,7 +320,7 @@ impl SelfFixPolicy {
         ErrorKind::ValidationWithCode {
             code: "errors.self_fix.github_not_configured",
             message: "The self-fix GitHub App is not configured on this deployment; \
-                      no pull request can be opened. Set the github_app_* settings and retry."
+                      no pull request can be opened. Configure all four GITHUB_APP_* variables, restart the API and retry."
                 .into(),
         }
         .into()

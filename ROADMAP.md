@@ -56,7 +56,7 @@ runbooks and tests.
 | First-run path | `make product`, Start checklist, task board, activation E2E | Preserve clean-install verification and measure actual first-task time |
 | Team work | Human comments and blockers, templates, recurring tasks, prerequisite waits, skills and usage | Board inline updates remain; workflow usefulness needs pilot evidence |
 | Review and evidence | Task runs, run-scoped evidence, review checklist and required checklist gates | A terminal run or a checked box does not establish that the change is correct |
-| Self-fix PR delivery | Server-owned GitHub App, draft-PR bridge, CI checks, expected-head merge, human approval | Deployment-level single-repository configuration; current bridge/client assume `main`; sensitive changes require review on GitHub |
+| Self-fix PR delivery | Server-owned GitHub App, repository preflight and default-branch discovery, draft-PR bridge, CI checks, expected-head merge, human approval | Deployment-level single-repository configuration; preflight reports prerequisites, not CI success; sensitive changes require review on GitHub |
 | Governance and operations | Roles/invites, OIDC and provisioning, audit exports, health/update surfaces, backup/restore guidance | Validate the supported deployment before real team use; advanced identity needs remain demand-triggered |
 | Runtime and supply chain | Multiple Container CLIs, isolation policy, signed offline bundles, TUF-style metadata, OpenTelemetry traces | Per-CLI runtime proof, compatibility and recovery evidence are required; OTLP metrics/logs remain future work |
 | Analytics | Agent reliability, token usage/cost estimates, skill acceptance and context-safety signals | No recorded pilot baseline for human effort, accepted outcomes, or sustained use |
@@ -96,9 +96,10 @@ existing primitives it reuses from behavior it adds and provide the relevant
 operator or runtime proof.
 
 1. **Repository setup.** Make the approved repository, default branch,
-   connection permissions and verification prerequisites explicit. Remove the
-   maintenance path's fixed-`main` assumptions before claiming support for
-   other default branches. Start with one repository per supported pilot setup;
+   connection permissions and verification prerequisites explicit. Build on the
+   read-only repository preflight and default-branch discovery; validate the
+   operator path on each pilot's repository and branch protection. Start with one
+   repository per supported pilot setup;
    broader repository/tenant configuration needs an explicit design and proof.
 2. **Source-to-result linkage.** Associate the source request or PR with its
    task, execution attempt, starting revision, produced change and current

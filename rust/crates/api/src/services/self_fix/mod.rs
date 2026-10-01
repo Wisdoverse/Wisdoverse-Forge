@@ -35,6 +35,7 @@ use uuid::Uuid;
 
 use crate::domain::admin::AdminRolePolicy;
 use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_container_cwd};
+pub use crate::domain::self_fix::SelfFixRepositorySetup;
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
@@ -104,6 +105,9 @@ impl SelfFixService {
         }
         let github = self.github.as_ref().ok_or_else(SelfFixPolicy::github_not_configured)?;
 
+        // Check repository access before stopping the agent or touching git.
+        let repository = GitProvider::repository_setup(github.as_ref()).await?;
+
         // 2. Best-effort TOCTOU freeze: stop the agent container so it cannot
         //    keep editing /workspace while we snapshot it. The agent has
         //    finished, so a stop failure must NOT abort the PR.
@@ -122,9 +126,8 @@ impl SelfFixService {
         //    agent. Reject (visible error) if it escapes the managed root.
         let workspace_project_dir = self.resolve_workspace_project_dir(scope, &task).await?;
 
-        // 4. Pin the base origin/main SHA and persist it.
-        let base_sha = GitProvider::default_branch_sha(github.as_ref()).await?;
-        self.tasks.set_base_commit_sha(scope, task_id, &base_sha).await?;
+        // 4. Persist the base revision observed with the default branch above.
+        self.tasks.set_base_commit_sha(scope, task_id, &repository.base_sha).await?;
 
         // 5-10. Clone + rebuild + sensitive-check + push + open draft PR.
         let commit_message = format!("self-fix: {}", task.title);
@@ -133,7 +136,7 @@ impl SelfFixService {
         let result = run_pr_bridge(
             github.as_ref(),
             task_id,
-            &base_sha,
+            &repository,
             &workspace_project_dir,
             &commit_message,
             &pr_title,
@@ -193,6 +196,13 @@ impl SelfFixService {
     async fn require_platform_admin(&self, scope: &TenantScope) -> AppResult<()> {
         let is_admin = self.users.find_is_admin_by_id(scope.user_id()).await?;
         AdminRolePolicy::require_platform_admin(is_admin)
+    }
+
+    /// Deployment-level repository setup is visible only to a live platform
+    /// admin. No task or GitHub write is needed to check it.
+    pub(crate) async fn repository_setup(&self, scope: &TenantScope) -> AppResult<SelfFixRepositorySetup> {
+        self.require_platform_admin(scope).await?;
+        self.github.as_ref().ok_or_else(SelfFixPolicy::github_not_configured)?.repository_setup().await
     }
 
     #[allow(dead_code)]

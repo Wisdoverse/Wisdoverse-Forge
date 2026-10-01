@@ -21,7 +21,7 @@
 
 use agentforge_api::repositories::orchestration::{CreateTaskRow, OrchestrationTaskRepository};
 use agentforge_api::test_support::{app_state_with_mock_provider, tenant_scope_for_ids};
-use agentforge_api::testing::self_fix_review::{approve, review_fields};
+use agentforge_api::testing::self_fix_review::{approve, repository_setup, review_fields};
 use agentforge_core::{ErrorKind, TenantScope};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -227,4 +227,26 @@ async fn approve_fails_closed_without_github(pool: PgPool) {
 
     let (_, _, _, review_status) = review_fields(&state, &scope, task.id).await.expect("snapshot after failed approve");
     assert_eq!(review_status.as_deref(), Some("approved"), "a failed approve does not advance to merged");
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn repository_setup_requires_live_platform_admin_before_configuration_check(pool: PgPool) {
+    let (org_id, admin_id) = seed_org(&pool).await;
+    let state = app_state_with_mock_provider(pool.clone(), "mock", "ok").await;
+    let scope = scope_for(org_id, admin_id);
+
+    let err = repository_setup(&state, &scope).await.expect_err("unconfigured repository");
+    assert!(
+        matches!(err.kind, ErrorKind::ValidationWithCode { code, .. } if code == "errors.self_fix.github_not_configured")
+    );
+
+    // A previously authenticated admin whose DB flag was revoked must receive
+    // Forbidden before any deployment-wide configuration is disclosed.
+    sqlx::query("UPDATE users SET is_admin = false WHERE id = $1")
+        .bind(admin_id)
+        .execute(&pool)
+        .await
+        .expect("revoke platform admin");
+    let err = repository_setup(&state, &scope).await.expect_err("revoked admin");
+    assert!(matches!(err.kind, ErrorKind::Forbidden(_)));
 }

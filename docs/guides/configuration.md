@@ -432,11 +432,17 @@ the loop can never boot half-wired. `LLM_ENCRYPTION_KEY` (see above) must be set
 | `GITHUB_APP_ID`              | none                      | All four together | GitHub App identifier used to mint installation tokens and open/merge PRs                                                                                               |
 | `GITHUB_APP_INSTALLATION_ID` | none                      | All four together | Installation identifier (the per-account install of the App) that scopes the minted token                                                                               |
 | `GITHUB_APP_PRIVATE_KEY`     | none                      | All four together | App private key. Base64-encoded PEM (env-safe single line) is preferred; raw PEM starting with `-----BEGIN` is also accepted. Stored encrypted via `LLM_ENCRYPTION_KEY` |
-| `GITHUB_APP_REPO`            | none                      | All four together | `owner/repo` the self-fix loop targets                                                                                                                                  |
+| `GITHUB_APP_REPO`            | none                      | All four together | Single approved `owner/repo` the self-fix loop targets; the server discovers its default branch from GitHub                                                                 |
 | `SELF_FIX_WORK_DIR`          | `/tmp/agentforge-selffix` | No                | Server-owned scratch root for the per-task clone the Bridge builds the PR from. Never inside an agent `/workspace`. One ephemeral subdirectory per task                 |
 
 The GitHub App needs repository permissions **Contents: Read and write** and
-**Pull requests: Read and write**. Success looks like a self-fix task reaching a
+**Pull requests: Read and write**. The review/merge path also needs **Checks:
+Read-only** and repository squash merging enabled. A platform admin can check
+repository access, default branch, starting revision and these prerequisites
+with `GET /api/v1/self-fix/repository` before creating work; see the operator
+guide for the authenticated command. Archived/disabled repositories or missing
+write permissions are refused before clone/push. Success looks like a self-fix
+task reaching a
 draft PR you can Approve from the task's **Review** tab; the server squash-merges
 the exact reviewed commit and posts an audit comment. Sensitive-path changes are
 server-side hard-refused from in-platform merge and routed to a human maintainer.

@@ -444,7 +444,7 @@ pub struct AppConfig {
     #[serde(default = "default_log_level")]
     pub log_level: String,
 
-    /// Allowed CORS origin for production (e.g. "https://app.agentforge.dev").
+    /// Allowed CORS origin for production (e.g. "https://forge.example.com").
     /// Required in production to prevent open CORS. In development this is ignored.
     pub cors_origin: Option<String>,
 

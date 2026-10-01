@@ -1,5 +1,6 @@
 //! Self-fix loop review + approve endpoints (nested under `/api/v1`).
 //!
+//! - `GET /api/v1/self-fix/repository` — platform-admin repository preflight.
 //! - `GET  /api/v1/self-fix/tasks/{id}/review`  — PR review snapshot (diff link,
 //!   head SHA, live CI verdict, sensitive flag, review status).
 //! - `POST /api/v1/self-fix/tasks/{id}/approve` — operator approval → server-side
@@ -8,9 +9,9 @@
 //!   refused here regardless of any client state (plan D4 — this is a dedicated
 //!   review surface, NOT the pre-dispatch `waiting_approval` button).
 //!
-//! Both handlers run behind the standard auth path: the [`AuthUser`] extractor
-//! enforces authentication, and every service call is tenant-scoped by
-//! `auth.scope`, so one org can never read or merge another org's self-fix task.
+//! All handlers use the standard [`AuthUser`] authentication path. Task calls
+//! are tenant-scoped by `auth.scope`; deployment-wide repository metadata is
+//! disclosed only after a live platform-admin check.
 
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
@@ -23,6 +24,13 @@ use agentforge_core::AppResult;
 
 use crate::domain::self_fix::self_fix_data_response;
 use crate::health::AppState;
+
+/// Read-only, live platform-admin setup check. The service verifies the caller
+/// before disclosing deployment-wide repository metadata or contacting GitHub.
+async fn get_repository(State(state): State<AppState>, auth: AuthUser) -> AppResult<Json<Value>> {
+    let setup = state.self_fix_service().repository_setup(&auth.scope).await?;
+    Ok(Json(self_fix_data_response(setup)))
+}
 
 /// `GET /api/v1/self-fix/tasks/{id}/review` — PR review snapshot for a self-fix
 /// task. Returns `{ ok: true, data: SelfFixReview }`. `checks_green` is read live
@@ -54,9 +62,10 @@ async fn approve(State(state): State<AppState>, auth: AuthUser, Path(id): Path<U
     Ok(Json(self_fix_data_response(result)))
 }
 
-/// Self-fix review/approve routes, merged into the `/api/v1` router behind auth.
+/// Self-fix setup/review/approve routes, merged into `/api/v1` behind auth.
 pub fn self_fix_routes() -> Router<AppState> {
     Router::new()
+        .route("/self-fix/repository", get(get_repository))
         .route("/self-fix/tasks/{id}/review", get(get_review))
         .route("/self-fix/tasks/{id}/approve", post(approve))
 }

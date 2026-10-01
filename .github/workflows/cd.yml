@@ -114,10 +114,7 @@ jobs:
           echo "Deploying to staging environment..."
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
-          # Add actual deployment commands here:
-          # - aws s3 sync dist/ s3://staging-bucket/
-          # - kubectl apply -f k8s/staging/
-          # - ssh deploy@staging.server.com 'cd /app && git pull && npm ci && pm2 restart all'
+          # Add deployment commands using targets from repository secrets.
 
       - name: Verify deployment
         run: |

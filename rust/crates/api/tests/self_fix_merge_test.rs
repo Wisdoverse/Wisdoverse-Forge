@@ -14,7 +14,9 @@
 
 use std::sync::Mutex;
 
-use agentforge_api::testing::self_fix_merge::{GitProvider, MergeRequest, OpenedDraftPr, run_merge_executor};
+use agentforge_api::testing::self_fix_merge::{
+    GitProvider, MergeRequest, OpenedDraftPr, SelfFixRepositorySetup, run_merge_executor,
+};
 use agentforge_core::{AppResult, ErrorKind};
 
 /// In-memory GitHub stand-in. Models the minimum the Merge Executor reads/writes:
@@ -57,8 +59,8 @@ impl FakeGitProvider {
 #[async_trait::async_trait]
 impl GitProvider for FakeGitProvider {
     // --- PR Bridge methods: unused by the Merge Executor; never called here. ---
-    async fn default_branch_sha(&self) -> AppResult<String> {
-        unreachable!("merge executor never calls default_branch_sha")
+    async fn repository_setup(&self) -> AppResult<SelfFixRepositorySetup> {
+        unreachable!("merge executor never calls repository_setup")
     }
     async fn authed_remote_url(&self) -> AppResult<String> {
         unreachable!("merge executor never calls authed_remote_url")
@@ -224,7 +226,7 @@ impl HeadAdvancingFake {
 
 #[async_trait::async_trait]
 impl GitProvider for HeadAdvancingFake {
-    async fn default_branch_sha(&self) -> AppResult<String> {
+    async fn repository_setup(&self) -> AppResult<SelfFixRepositorySetup> {
         unreachable!()
     }
     async fn authed_remote_url(&self) -> AppResult<String> {
@@ -309,7 +311,7 @@ impl AlreadyReadyFake {
 
 #[async_trait::async_trait]
 impl GitProvider for AlreadyReadyFake {
-    async fn default_branch_sha(&self) -> AppResult<String> {
+    async fn repository_setup(&self) -> AppResult<SelfFixRepositorySetup> {
         unreachable!()
     }
     async fn authed_remote_url(&self) -> AppResult<String> {
