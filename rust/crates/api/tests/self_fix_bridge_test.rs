@@ -22,7 +22,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use agentforge_api::testing::self_fix_bridge::{GitProvider, ImportLimits, OpenedDraftPr, run_pr_bridge};
+use agentforge_api::testing::self_fix_bridge::{
+    GitProvider, ImportLimits, OpenedDraftPr, SelfFixRepositorySetup, run_pr_bridge,
+};
 use agentforge_core::AppResult;
 use uuid::Uuid;
 
@@ -112,9 +114,13 @@ fn write_file(path: &Path, contents: &str) {
 /// Returns `(origin_dir, base_sha)`. The origin tracks a few base files and a
 /// nested path `rust/crates/auth/src/jwt.rs` so a "sensitive" change is possible.
 fn setup_origin(root: &TempRoot) -> (PathBuf, String) {
+    setup_origin_branch(root, "main")
+}
+
+fn setup_origin_branch(root: &TempRoot, branch: &str) -> (PathBuf, String) {
     let origin = root.join("origin");
     std::fs::create_dir_all(&origin).expect("mkdir origin");
-    git(&origin, &["init", "-q", "-b", "main"]);
+    git(&origin, &["init", "-q", "-b", branch]);
     // Allow pushes into the checked-out branch of this non-bare origin.
     git(&origin, &["config", "receive.denyCurrentBranch", "updateInstead"]);
     write_file(&origin.join("README.md"), "base readme\n");
@@ -127,31 +133,41 @@ fn setup_origin(root: &TempRoot) -> (PathBuf, String) {
     (origin, base_sha)
 }
 
-/// A fake `GitProvider` backed by a local `file://` origin. `default_branch_sha`
+/// A fake `GitProvider` backed by a local `file://` origin. `repository_setup`
 /// returns the pinned base; `authed_remote_url` returns the local origin path
 /// (stands in for the token-bearing GitHub URL); `create_draft_pr` records the
 /// call and returns a synthetic PR whose head_sha is the just-pushed branch tip.
 struct FakeGitProvider {
     origin: PathBuf,
     base_sha: String,
+    base_branch: String,
     pr_calls: std::sync::Mutex<Vec<(String, String, String)>>, // (head, base, title)
 }
 
 impl FakeGitProvider {
     fn new(origin: PathBuf, base_sha: String) -> Self {
-        Self { origin, base_sha, pr_calls: std::sync::Mutex::new(Vec::new()) }
+        Self { origin, base_sha, base_branch: "main".into(), pr_calls: std::sync::Mutex::new(Vec::new()) }
     }
 }
 
 #[async_trait::async_trait]
 impl GitProvider for FakeGitProvider {
-    async fn default_branch_sha(&self) -> AppResult<String> {
-        Ok(self.base_sha.clone())
+    async fn repository_setup(&self) -> AppResult<SelfFixRepositorySetup> {
+        Ok(SelfFixRepositorySetup {
+            repository: "acme/widgets".into(),
+            default_branch: self.base_branch.clone(),
+            base_sha: self.base_sha.clone(),
+            contents_write: true,
+            pull_requests_write: true,
+            checks_read: true,
+            squash_merge_allowed: true,
+        })
     }
 
     async fn authed_remote_url(&self) -> AppResult<String> {
-        // Local origin path stands in for the token-bearing GitHub remote.
-        Ok(self.origin.to_string_lossy().to_string())
+        // Use file:// so Git honors shallow-clone semantics, as it does for
+        // the production HTTPS origin (plain local paths ignore --depth).
+        Ok(format!("file://{}", self.origin.display()))
     }
 
     async fn create_draft_pr(
@@ -228,7 +244,7 @@ async fn happy_path_pushes_rebuilt_branch_and_selects_in_review() {
     let result = run_pr_bridge(
         &provider,
         task_id,
-        &base_sha,
+        &provider.repository_setup().await.expect("repository setup"),
         &ws,
         "self-fix: benign change",
         "[self-fix] benign change",
@@ -240,6 +256,7 @@ async fn happy_path_pushes_rebuilt_branch_and_selects_in_review() {
 
     assert_eq!(result.review_status, "in_review", "benign change must be in_review");
     assert_eq!(result.pr.number, 4242);
+    assert_eq!(provider.pr_calls.lock().unwrap()[0].1, "main", "existing main repositories remain supported");
 
     // The branch must exist on origin with the rebuilt commit (advanced past base).
     let branch = format!("agent/{task_id}");
@@ -262,6 +279,77 @@ async fn happy_path_pushes_rebuilt_branch_and_selects_in_review() {
     unsafe {
         std::env::remove_var("SELF_FIX_WORK_DIR");
     }
+}
+
+/// The PR base and rebuilt parent must come from the same observed branch,
+/// even if origin's HEAD points elsewhere before the clone starts.
+#[tokio::test]
+async fn non_main_default_branch_is_cloned_and_used_as_pr_base() {
+    if !it_enabled() || !git_available() {
+        return;
+    }
+    let _env = env_lock().await;
+    let root = TempRoot::new();
+    let (origin, base_sha) = setup_origin_branch(&root, "release/stable");
+    git(&origin, &["checkout", "-q", "--orphan", "other-default"]);
+    write_file(&origin.join("other-only.txt"), "must not reach the change\n");
+    git(&origin, &["add", "-A"]);
+    git(&origin, &["-c", "user.name=Origin", "-c", "user.email=origin@example.com", "commit", "-q", "-m", "other"]);
+    unsafe {
+        std::env::set_var("SELF_FIX_WORK_DIR", root.join("work"));
+    }
+    let ws = root.join("workspace");
+    write_file(&ws.join("README.md"), "maintenance change\n");
+    write_file(&ws.join("rust/crates/auth/src/jwt.rs"), "// base jwt\n");
+    write_file(&ws.join("src/app/feature.ts"), "export const x = 1;\n");
+    write_file(&ws.join(".gitignore"), "ignored/\n");
+    let mut provider = FakeGitProvider::new(origin.clone(), base_sha.clone());
+    provider.base_branch = "release/stable".into();
+    let task_id = Uuid::new_v4();
+    let setup = provider.repository_setup().await.expect("repository setup");
+    let result =
+        run_pr_bridge(&provider, task_id, &setup, &ws, "maintenance", "maintenance", "body", &ImportLimits::default())
+            .await
+            .expect("non-main repository should work");
+    assert_eq!(provider.pr_calls.lock().unwrap()[0].1, "release/stable");
+    assert_eq!(git(&origin, &["rev-parse", &format!("{}^", result.pr.head_sha)]), base_sha);
+    assert_eq!(git(&origin, &["rev-parse", "release/stable"]), base_sha, "the default branch is never pushed");
+    assert!(!git_try(&origin, &["cat-file", "-e", &format!("{}:other-only.txt", result.pr.head_sha)]).0);
+    assert!(!root.join("work").join(task_id.to_string()).exists());
+    unsafe {
+        std::env::remove_var("SELF_FIX_WORK_DIR");
+    }
+}
+
+#[tokio::test]
+async fn missing_write_permission_stops_before_clone_or_push() {
+    if !it_enabled() || !git_available() {
+        return;
+    }
+    let _env = env_lock().await;
+    let root = TempRoot::new();
+    let (origin, base_sha) = setup_origin(&root);
+    let provider = FakeGitProvider::new(origin.clone(), base_sha);
+    let mut setup = provider.repository_setup().await.expect("repository setup");
+    setup.contents_write = false;
+    let task_id = Uuid::new_v4();
+    let err = run_pr_bridge(
+        &provider,
+        task_id,
+        &setup,
+        &root.join("missing-workspace"),
+        "change",
+        "change",
+        "body",
+        &ImportLimits::default(),
+    )
+    .await
+    .expect_err("read-only installations must not push");
+    assert!(
+        matches!(err.kind, agentforge_core::ErrorKind::ValidationWithCode { code, .. } if code == "errors.self_fix.repository_permissions")
+    );
+    assert!(!git_try(&origin, &["rev-parse", &format!("agent/{task_id}")]).0);
+    assert!(provider.pr_calls.lock().unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -297,7 +385,7 @@ async fn sensitive_change_selects_sensitive_blocked() {
     let result = run_pr_bridge(
         &provider,
         task_id,
-        &base_sha,
+        &provider.repository_setup().await.expect("repository setup"),
         &ws,
         "self-fix: touches auth",
         "[self-fix] touches auth",
@@ -352,7 +440,7 @@ async fn empty_change_fails_visibly_and_pushes_nothing() {
     let result = run_pr_bridge(
         &provider,
         task_id,
-        &base_sha,
+        &provider.repository_setup().await.expect("repository setup"),
         &ws,
         "self-fix: noop",
         "[self-fix] noop",
@@ -424,7 +512,7 @@ async fn retry_with_different_commit_succeeds_via_force_push() {
     let result1 = run_pr_bridge(
         &provider,
         task_id,
-        &base_sha,
+        &provider.repository_setup().await.expect("repository setup"),
         &ws,
         "self-fix: first run",
         "[self-fix] first run",
@@ -451,7 +539,7 @@ async fn retry_with_different_commit_succeeds_via_force_push() {
     let result2 = run_pr_bridge(
         &provider2,
         task_id, // same task → same branch name
-        &base_sha,
+        &provider2.repository_setup().await.expect("repository setup"),
         &ws,
         "self-fix: second run (retry)",
         "[self-fix] second run (retry)",

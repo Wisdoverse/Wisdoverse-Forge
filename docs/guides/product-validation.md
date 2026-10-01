@@ -18,7 +18,9 @@ are hypotheses to test, not measured results.
   and a configured container agent with access to the project files.
 
 The current self-fix path uses a deployment-level repository configuration and
-assumes the target branch is `main`. The agent proposes a change; the server
+discovers its default branch from GitHub. A platform admin can check that
+repository's access, starting revision and verification prerequisites using
+`GET /api/v1/self-fix/repository`. The agent proposes a change; the server
 opens a draft PR; a person reviews and explicitly approves merge. Sensitive
 changes must be reviewed and merged on GitHub. Keep the pilot within these
 supported boundaries until a separately validated change expands them.

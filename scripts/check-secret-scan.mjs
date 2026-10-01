@@ -25,7 +25,9 @@ const useGitFileList = canUseGit()
 const trackedFiles = (useGitFileList ? gitLsFiles(scanRoots) : walkFiles(scanRoots)).filter(
   (file) => allowedExtensions.has(path.posix.extname(file))
 )
-const allTrackedFiles = useGitFileList ? gitLsFiles() : fallbackEnvFiles()
+// Public information can leak from docs, examples, fixtures, or a new file
+// before it is staged. Apply high-confidence checks to every repository file.
+const repositoryFiles = useGitFileList ? gitLsFiles() : walkFiles(['.'])
 const findings = []
 
 const secretPatterns = [
@@ -53,19 +55,21 @@ const internalHostnamePatterns = (process.env.INTERNAL_HOSTNAME_BLOCKLIST || '')
     regex: new RegExp(`\\b${hostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
   }))
 
-const allPatterns = [...secretPatterns, ...internalHostnamePatterns]
-
-for (const file of trackedFiles) {
-  if (shouldSkipFile(file)) {
-    continue
-  }
-
-  const source = fs.readFileSync(file, 'utf8')
+const heuristicFiles = new Set(trackedFiles.filter((file) => !shouldSkipFile(file)))
+for (const file of repositoryFiles) {
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) continue
+  const bytes = fs.readFileSync(file)
+  if (bytes.includes(0)) continue
+  const source = bytes.toString('utf8')
   const lines = source.split(/\r?\n/)
+  const patterns = [
+    ...secretPatterns.filter((pattern) => pattern.kind === 'literal' || heuristicFiles.has(file)),
+    ...internalHostnamePatterns,
+  ]
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
-    for (const pattern of allPatterns) {
+    for (const pattern of patterns) {
       if (!pattern.regex.test(line)) {
         continue
       }
@@ -78,27 +82,31 @@ for (const file of trackedFiles) {
   }
 }
 
-const trackedEnvFiles = allTrackedFiles.filter((file) => {
+const privateEnvFiles = repositoryFiles.filter((file) => {
   const basename = path.posix.basename(file)
-  return basename === '.env' || basename === '.env.production' || basename === '.env.local'
+  return (
+    fs.existsSync(file) &&
+    /^\.env(?:\.|$)/.test(basename) &&
+    !/^\.env\.(?:example|sample|template)(?:\.|$)/.test(basename)
+  )
 })
 
 if (findings.length > 0) {
-  console.error('ERROR: Potential secrets detected in source:')
+  console.error('ERROR: Potential secrets detected in repository files:')
   for (const finding of findings) {
     console.error(finding)
   }
 }
 
-if (trackedEnvFiles.length > 0) {
+if (privateEnvFiles.length > 0) {
   console.error('WARNING: .env files found in repository:')
-  for (const file of trackedEnvFiles) {
+  for (const file of privateEnvFiles) {
     console.error(file)
   }
 }
 
-if (findings.length > 0 || trackedEnvFiles.length > 0) {
-  const categories = Number(findings.length > 0) + Number(trackedEnvFiles.length > 0)
+if (findings.length > 0 || privateEnvFiles.length > 0) {
+  const categories = Number(findings.length > 0) + Number(privateEnvFiles.length > 0)
   console.error(`Found ${categories} secret leak categories — review and remediate`)
   process.exit(1)
 }
@@ -106,11 +114,13 @@ if (findings.length > 0 || trackedEnvFiles.length > 0) {
 console.log('No secret leaks detected')
 
 function gitLsFiles(paths = []) {
-  const command = ['ls-files', '-z']
+  const command = ['ls-files', '-z', '--cached', '--others', '--exclude-standard']
   if (paths.length > 0) {
     command.push('--', ...paths)
   }
-  return execFileSync('git', command, { encoding: 'utf8' }).split('\0').filter(Boolean)
+  return [
+    ...new Set(execFileSync('git', command, { encoding: 'utf8' }).split('\0').filter(Boolean)),
+  ]
 }
 
 function canUseGit() {
@@ -141,7 +151,7 @@ function walkInto(currentPath, found) {
   }
 
   const basename = path.basename(currentPath)
-  if (basename === '.git' || basename === 'node_modules') {
+  if (basename === '.git' || basename === 'node_modules' || basename === 'target') {
     return
   }
 
@@ -152,10 +162,6 @@ function walkInto(currentPath, found) {
 
 function normalizePath(filePath) {
   return filePath.split(path.sep).join(path.posix.sep).replace(/^\.\//, '')
-}
-
-function fallbackEnvFiles() {
-  return ['.env', '.env.production', '.env.local'].filter((file) => fs.existsSync(file))
 }
 
 function shouldSkipFile(file) {
@@ -172,6 +178,10 @@ function shouldSkipFile(file) {
 }
 
 function shouldIgnoreMatch(file, line, kind) {
+  // Placeholder and test exceptions apply only to ambiguous assignments.
+  // They must never hide a credential literal or an internal hostname.
+  if (kind !== 'assignment') return false
+
   if (line.includes('REPLACE_VIA_SECRET_MANAGER')) {
     return true
   }

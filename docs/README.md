@@ -81,6 +81,11 @@ operator, security, or API contract.
   appropriate. Keep pilot measurements on team-owned systems and publish only
   consented, anonymized summaries or synthetic examples.
 - Do not publish dated plans, private review notes, or migration journals in the public docs tree.
+- Use reserved example domains and `dev@example.com` for public examples. Keep
+  operator identities, private endpoints, and credentials out of docs and fixtures.
+  Run `node scripts/check-secret-scan.mjs` before publishing; CI supplies the
+  private hostname blocklist through the `INTERNAL_HOSTNAME_BLOCKLIST` repository
+  secret. Without that secret, the hostname check has no configured targets.
 - Every runtime, API, deployment, or workflow change updates the affected doc in the same PR.
 - Keep retired implementation paths out of active docs unless the running code still exposes a compatibility boundary.
 - Prefer relative links. Keep the first screen of each doc useful to its target audience.

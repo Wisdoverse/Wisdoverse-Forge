@@ -10,6 +10,9 @@ vi.mock('@app/features/settings', () => ({
     <div data-testid="settings-section-git-credentials">HTTPS code access settings</div>
   ),
   KeysSection: () => <div data-testid="settings-section-keys">Tool access keys settings</div>,
+  MaintenanceRepositorySection: () => (
+    <div data-testid="settings-section-maintenance-repository">Maintenance repository settings</div>
+  ),
   ProvidersSection: () => <div data-testid="settings-section-providers">AI services settings</div>,
   ResourcesSection: () => (
     <div data-testid="settings-section-resources">Agent size limits settings</div>
@@ -44,6 +47,19 @@ afterEach(() => {
 })
 
 describe('SettingsLayout', () => {
+  test('routes directly to maintenance setup and exposes its desktop and mobile links', () => {
+    const onSectionChange = vi.fn()
+    render(
+      <SettingsLayout routeSection="maintenance-repository" onSectionChange={onSectionChange} />
+    )
+    expect(screen.getByTestId('settings-section-maintenance-repository')).toBeInTheDocument()
+    const desktopNav = screen.getByTestId('settings-desktop-nav')
+    const link = within(desktopNav).getByRole('link', { name: /Maintenance repository:/ })
+    expect(link).toHaveAttribute('href', '/settings/maintenance-repository')
+    fireEvent.click(link)
+    expect(onSectionChange).toHaveBeenCalledWith('maintenance-repository')
+    expect(screen.getByRole('option', { name: 'Maintenance repository' })).toBeInTheDocument()
+  })
   test('keeps more setup collapsed by default for beginner setup navigation', () => {
     const onSectionChange = vi.fn()
 

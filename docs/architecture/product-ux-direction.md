@@ -11,9 +11,10 @@ Existing general team-work surfaces remain supported.
 ## Maintenance Workflow Direction (Planned)
 
 The target path is repository selection → maintenance brief → execution →
-verification evidence → human decision → repeat work or recovery. Productized
-repository setup, source-PR intake and richer verification are roadmap work,
-not claims that this path is already implemented end to end.
+verification evidence → human decision → repeat work or recovery. The current
+single-repository setup check is available in Settings. Repository selection,
+source-PR intake and richer verification remain roadmap work; the full target
+path is not implemented end to end.
 
 - Reuse supported Container CLIs and the existing task/run/evidence model.
 - Make repository, permissions and required verification clear before dispatch.
@@ -29,8 +30,13 @@ not claims that this path is already implemented end to end.
   extracting one.
 
 The existing self-fix path opens a draft PR for the deployment's configured
-repository, assumes `main`, and requires human-approved merge. Its sensitive-path
-refusal and expected-head checks remain the supported boundary. See
+repository, discovers its default branch from GitHub, and requires human-approved
+merge. A read-only platform-admin repository preflight reports the base revision
+and verification prerequisites. **Settings → People and projects → Maintenance
+repository** presents that check with recovery guidance and separate preparation
+and review access. It clears old results on refresh or identity/access changes.
+Its sensitive-path refusal and expected-head checks remain the supported
+boundary. See
 [Self-Fix Loop](../guides/self-fix-loop.md).
 
 Prioritize the [roadmap](../../ROADMAP.md) backlog using observed pilot blockers

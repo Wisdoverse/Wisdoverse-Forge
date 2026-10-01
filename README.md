@@ -106,7 +106,8 @@ Point your coding agent at the service contract:
 - **Human-approved self-fix PRs** for the deployment's configured repository.
   The server opens a draft PR and checks the reviewed commit before an operator
   approves merge. Follow [Self-Fix Loop](docs/guides/self-fix-loop.md) for setup
-  and its current single-repository, `main`-branch boundary.
+  and its current single-repository boundary. The server discovers that
+  repository's default branch when opening the PR.
 - **Skills, plugins, prompts, and saved access** so repeat work is easier to set
   up.
 - **Admin health and update pages** with plain-language next steps for common

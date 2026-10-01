@@ -55,6 +55,7 @@ async fn github_app_client_drives_pr_lifecycle() {
                 "html_url": "https://github.com/acme/widgets/pull/7",
                 "node_id": "PR_kw1",
                 "head": { "sha": "abc" },
+                "base": { "ref": "main" },
                 "draft": true,
             }));
         })
@@ -190,6 +191,7 @@ async fn github_app_client_drives_pr_lifecycle() {
                     "html_url": "https://github.com/acme/widgets/pull/99",
                     "node_id": "PR_existing",
                     "head": { "sha": "deadbeef" },
+                    "base": { "ref": "main" },
                     "draft": true,
                 }
             ]));
@@ -200,8 +202,12 @@ async fn github_app_client_drives_pr_lifecycle() {
     assert_eq!(reused.number, 99, "must return the existing PR number");
     assert_eq!(reused.html_url, "https://github.com/acme/widgets/pull/99");
     assert_eq!(reused.head.sha, "deadbeef");
-    create_422.assert_async().await;
-    list_existing.assert_async().await;
+    // A default-branch change between attempts must not silently reuse a PR
+    // targeting the old base, even though the deterministic head is identical.
+    let err = c.create_draft_pr("agent/retry", "develop", "title", "body").await.err().expect("different PR base");
+    assert!(matches!(err.kind, agentforge_core::ErrorKind::Conflict(_)));
+    create_422.assert_calls_async(2).await;
+    list_existing.assert_calls_async(2).await;
     create_422.delete_async().await;
     list_existing.delete_async().await;
 

@@ -28,6 +28,7 @@ import {
   AccountSection,
   GitCredentialsSection,
   KeysSection,
+  MaintenanceRepositorySection,
   ProvidersSection,
   ResourcesSection,
   RuntimeSection,
@@ -91,6 +92,13 @@ const SECTIONS: SectionItem[] = [
     description: 'Save reusable task briefs the team can apply when writing a task.',
     group: 'People and projects',
     Icon: ClipboardCheck,
+  },
+  {
+    id: 'maintenance-repository',
+    label: 'Maintenance repository',
+    description: 'Ask a Forge administrator to check the approved code repository and its access.',
+    group: 'People and projects',
+    Icon: GitBranch,
   },
   {
     id: 'account',
@@ -177,6 +185,8 @@ function SectionContent({ section }: { section: SettingsSection }) {
       return <ProjectsSection />
     case 'task-templates':
       return <TaskTemplatesSection />
+    case 'maintenance-repository':
+      return <MaintenanceRepositorySection />
     case 'about':
       return <AboutSection />
     default:

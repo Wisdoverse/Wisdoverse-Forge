@@ -7,6 +7,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use agentforge_core::{AppError, AppResult};
 use serde::Deserialize;
 
+use crate::domain::self_fix::SelfFixPolicy;
+pub use crate::domain::self_fix::SelfFixRepositorySetup;
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct GithubAppConfig {
@@ -42,6 +45,7 @@ pub fn build_app_jwt(
 struct CachedToken {
     token: String,
     expires_at_unix: u64,
+    permissions: std::collections::HashMap<String, String>,
 }
 
 #[allow(dead_code)]
@@ -59,6 +63,8 @@ const GITHUB_API_VERSION: &str = "2022-11-28";
 struct InstallTokenResp {
     token: String,
     expires_at: String,
+    #[serde(default)]
+    permissions: std::collections::HashMap<String, String>,
 }
 
 #[derive(Deserialize)]
@@ -69,6 +75,7 @@ pub struct PullRequest {
     pub html_url: String,
     pub node_id: String,
     pub head: PrHead,
+    pub base: PrBase,
     #[serde(default)]
     pub draft: bool,
     /// `true` once the PR has been merged. GitHub omits this field on the
@@ -83,6 +90,12 @@ pub struct PullRequest {
 #[allow(dead_code)]
 pub struct PrHead {
     pub sha: String,
+}
+
+#[derive(Deserialize)]
+pub struct PrBase {
+    #[serde(rename = "ref")]
+    pub branch: String,
 }
 
 impl GithubAppClient {
@@ -111,13 +124,13 @@ impl GithubAppClient {
 
     /// Mint or reuse an installation access token. Cached until ~60s before
     /// expiry. The app JWT and the installation token are NEVER logged.
-    async fn installation_token(&self) -> AppResult<String> {
+    async fn installation_access(&self) -> AppResult<CachedToken> {
         {
             let guard = self.cache.lock().await;
             if let Some(cached) = guard.as_ref()
                 && cached.expires_at_unix > Self::now_unix() + 60
             {
-                return Ok(cached.token.clone());
+                return Ok(cached.clone());
             }
         }
 
@@ -147,16 +160,17 @@ impl GithubAppClient {
             .map(|dt| dt.timestamp().max(0) as u64)
             .unwrap_or_else(|_| Self::now_unix());
 
+        let access = CachedToken { token: parsed.token, expires_at_unix, permissions: parsed.permissions };
         {
             let mut guard = self.cache.lock().await;
-            *guard = Some(CachedToken { token: parsed.token.clone(), expires_at_unix });
+            *guard = Some(access.clone());
         }
-        Ok(parsed.token)
+        Ok(access)
     }
 
     /// Build a request carrying the installation token + standard headers.
     async fn authed(&self, method: reqwest::Method, url: String) -> AppResult<reqwest::RequestBuilder> {
-        let token = self.installation_token().await?;
+        let token = self.installation_access().await?.token;
         Ok(self
             .http
             .request(method, url)
@@ -170,21 +184,54 @@ impl GithubAppClient {
     /// to `/workspace` and NEVER logged (the returned string carries a secret).
     #[allow(dead_code)]
     pub(crate) async fn authed_remote_url(&self) -> AppResult<String> {
-        let token = self.installation_token().await?;
+        let token = self.installation_access().await?.token;
         Ok(format!("https://x-access-token:{token}@github.com/{}.git", self.cfg.repo))
     }
 
-    /// `origin/main` SHA — the base pin for self-fix branches.
+    /// Read-only preflight for the deployment's single approved repository.
+    /// Discover its default branch and pin that branch's revision together;
+    /// never fall back to `main` if metadata or access is unavailable.
     #[allow(dead_code)]
-    pub async fn default_branch_sha(&self) -> AppResult<String> {
-        let endpoint = "GET /repos/{repo}/git/ref/heads/main";
-        let url = format!("{}/repos/{}/git/ref/heads/main", Self::api_base(), self.cfg.repo);
+    pub async fn repository_setup(&self) -> AppResult<SelfFixRepositorySetup> {
+        let access = self.installation_access().await?;
+        let endpoint = "GET /repos/{repo}";
+        let url = format!("{}/repos/{}", Self::api_base(), self.cfg.repo);
         let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
-
         if !resp.status().is_success() {
-            return Err(unavailable_status(resp.status(), endpoint));
+            return Err(repository_status_failed(resp.status(), endpoint));
         }
 
+        #[derive(Deserialize)]
+        struct RepositoryResp {
+            default_branch: String,
+            archived: bool,
+            disabled: bool,
+            #[serde(default)]
+            allow_squash_merge: bool,
+        }
+        let repo: RepositoryResp = resp.json().await.map_err(|_| unavailable(endpoint))?;
+        let contents_write = access.permissions.get("contents").is_some_and(|p| p == "write");
+        let pull_requests_write = access.permissions.get("pull_requests").is_some_and(|p| p == "write");
+        SelfFixPolicy::require_repository_writable(repo.archived, repo.disabled, contents_write, pull_requests_write)?;
+        if !crate::domain::self_fix::valid_default_branch(&repo.default_branch) {
+            return Err(SelfFixPolicy::repository_base_unavailable());
+        }
+
+        let endpoint = "GET /repos/{repo}/git/ref/heads/{branch}";
+        let mut url = reqwest::Url::parse(&format!("{}/repos/{}/git/ref/heads", Self::api_base(), self.cfg.repo))
+            .map_err(|_| unavailable(endpoint))?;
+        // Branch names can contain '/' and '#'. Treat the name as one path
+        // segment so it cannot change the request's query or fragment.
+        url.path_segments_mut().map_err(|_| unavailable(endpoint))?.push(&repo.default_branch);
+        let resp = self
+            .authed(reqwest::Method::GET, url.to_string())
+            .await?
+            .send()
+            .await
+            .map_err(|_| unavailable(endpoint))?;
+        if !resp.status().is_success() {
+            return Err(repository_status_failed(resp.status(), endpoint));
+        }
         #[derive(Deserialize)]
         struct RefResp {
             object: RefObject,
@@ -194,7 +241,23 @@ impl GithubAppClient {
             sha: String,
         }
         let parsed: RefResp = resp.json().await.map_err(|_| unavailable(endpoint))?;
-        Ok(parsed.object.sha)
+        let setup = SelfFixRepositorySetup {
+            repository: self.cfg.repo.clone(),
+            default_branch: repo.default_branch,
+            base_sha: parsed.object.sha,
+            contents_write,
+            pull_requests_write,
+            checks_read: access.permissions.get("checks").is_some_and(|p| p == "read" || p == "write"),
+            squash_merge_allowed: repo.allow_squash_merge,
+        };
+        setup.validate()?;
+        Ok(setup)
+    }
+
+    /// SHA of the observed repository default branch.
+    #[allow(dead_code)]
+    pub async fn default_branch_sha(&self) -> AppResult<String> {
+        Ok(self.repository_setup().await?.base_sha)
     }
 
     /// Open a draft PR for a self-fix branch.
@@ -233,6 +296,9 @@ impl GithubAppClient {
         if status.as_u16() == 422
             && let Some(existing) = self.find_open_pr_for_head(head_branch).await?
         {
+            if existing.base.branch != base {
+                return Err(SelfFixPolicy::repository_base_changed());
+            }
             return Ok(existing);
         }
         Err(unavailable_status(status, endpoint))
@@ -475,6 +541,16 @@ fn unavailable_status(status: reqwest::StatusCode, endpoint_label: &str) -> AppE
     crate::domain::github_app::status_failed(status.as_u16(), endpoint_label)
 }
 
+/// Missing installation/repository access needs operator correction; rate
+/// limits and server/transport failures retain the existing retryable mapping.
+fn repository_status_failed(status: reqwest::StatusCode, endpoint_label: &str) -> AppError {
+    if matches!(status.as_u16(), 401 | 404) {
+        SelfFixPolicy::repository_access_failed()
+    } else {
+        unavailable_status(status, endpoint_label)
+    }
+}
+
 /// Build a `GithubAppClient` from the four `github_app_*` config fields.
 /// Returns `None` if any required field is absent.
 ///
@@ -549,11 +625,15 @@ mod tests {
         });
         {
             let mut guard = client.cache.lock().await;
-            *guard =
-                Some(CachedToken { token: "ghs_cached".into(), expires_at_unix: GithubAppClient::now_unix() + 3600 });
+            *guard = Some(CachedToken {
+                token: "ghs_cached".into(),
+                expires_at_unix: GithubAppClient::now_unix() + 3600,
+                permissions: std::collections::HashMap::from([("contents".into(), "write".into())]),
+            });
         }
-        let token = client.installation_token().await.expect("cached token");
-        assert_eq!(token, "ghs_cached");
+        let access = client.installation_access().await.expect("cached token");
+        assert_eq!(access.token, "ghs_cached");
+        assert_eq!(access.permissions.get("contents").map(String::as_str), Some("write"));
     }
 
     // --- build_github_app_client / decode_private_key_pem unit tests ---
