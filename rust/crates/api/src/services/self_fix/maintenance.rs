@@ -6,11 +6,17 @@ use agentforge_core::{AppResult, TenantScope};
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::domain::admin::AdminRolePolicy;
 use crate::domain::maintenance::{
     MaintenanceExecution, MaintenanceObservation, MaintenanceRequestInput, MaintenanceSource, MaintenanceSubmission,
-    MaintenanceTrace, ensure_repairable, pull_request_url,
+    MaintenanceTrace, destination_unavailable, ensure_repairable, maintenance_task_params, pull_request_url,
 };
 use crate::domain::self_fix::SelfFixPolicy;
+use crate::repositories::identity::GroupRepository;
+use crate::repositories::orchestration::{
+    CreateMaintenanceRequestRow, CreateTaskRow, MaintenanceRequestRepository, OrchestrationTaskRepository,
+};
+use crate::repositories::user::UserRepository;
 use crate::services::github_app::GithubAppClient;
 
 use super::SelfFixService;
@@ -39,9 +45,55 @@ impl SelfFixService {
             }
             None => None,
         };
-        let (record, reused) =
-            self.maintenance_requests.create_or_reuse(scope, &request, &setup, source.as_ref()).await?;
-        Ok(MaintenanceSubmission { request_id: record.id, task_id: record.task_id, reused })
+        // The service owns cross-aggregate sequencing and the transaction boundary.
+        let mut tx = self.tasks.pool().begin().await?;
+        // Re-check after provider I/O and hold authority through commit.
+        let admin = UserRepository::find_is_admin_by_id_in_tx(&mut tx, scope.user_id()).await?;
+        AdminRolePolicy::require_platform_admin(admin)?;
+        MaintenanceRequestRepository::lock_source_in_tx(&mut tx, scope, &repository, &request.source).await?;
+        // Re-check under the source lock: concurrent submissions return one task.
+        if let Some(existing) =
+            MaintenanceRequestRepository::find_by_source_in_tx(&mut tx, scope, &repository, &request.source).await?
+        {
+            tx.commit().await?;
+            return Ok(MaintenanceSubmission { request_id: existing.id, task_id: existing.task_id, reused: true });
+        }
+        if GroupRepository::lock_active_destination_in_tx(&mut tx, scope, request.group_id).await?.is_none() {
+            return Err(destination_unavailable());
+        }
+        let params = maintenance_task_params(&request, &setup, source.as_ref());
+        let task = OrchestrationTaskRepository::create_in_tx(
+            &mut tx,
+            scope,
+            CreateTaskRow {
+                group_id: Some(request.group_id),
+                title: &request.title,
+                description: Some(&request.brief),
+                priority: "normal",
+                params: Some(&params),
+                initial_status: "backlog",
+                self_fix: true,
+                ..Default::default()
+            },
+        )
+        .await?;
+        let record = MaintenanceRequestRepository::insert_in_tx(
+            &mut tx,
+            scope,
+            CreateMaintenanceRequestRow {
+                task_id: task.id,
+                repository: &repository,
+                source_kind: request.source.kind,
+                source_reference: &request.source.reference,
+                source_pr_number: request.source.pr_number,
+                source_head_sha: source.as_ref().map(|pr| pr.head_sha.as_str()),
+                default_branch: &setup.default_branch,
+                starting_sha: &setup.base_sha,
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(MaintenanceSubmission { request_id: record.id, task_id: record.task_id, reused: false })
     }
 
     pub(crate) async fn maintenance_trace(

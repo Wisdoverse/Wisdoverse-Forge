@@ -7,7 +7,7 @@
 
 pub mod context_link;
 pub(crate) mod maintenance_request;
-pub(crate) use maintenance_request::MaintenanceRequestRepository;
+pub(crate) use maintenance_request::{CreateMaintenanceRequestRow, MaintenanceRequestRepository};
 #[cfg(test)]
 mod retire_stale_tests;
 pub mod run_context_injection;

@@ -192,10 +192,10 @@ unconfigured run from writing to a deployed environment.
 
 The related Vitest suite passed 68 tests. FSD checks, lint, formatting,
 typecheck, production build and the secret scan also passed. The Rust API
-subtree `f984009f192d05ea9e8284ada29c6e3724d9d8e3` matches the earlier API
-validation's backend revision. Its 2,823-test Rust workspace and full `make ci`
-evidence remains associated with that backend revision and was not rerun as
-part of this browser validation.
+subtree `f984009f192d05ea9e8284ada29c6e3724d9d8e3` and API revision `ba4ab478`
+are the backend baseline for this browser run. The earlier 2,823-test Rust
+workspace and full `make ci` evidence applies only to that backend revision; it
+does not validate the subsequent transaction-ownership refactor below.
 
 The frontend checks were:
 
@@ -216,6 +216,42 @@ This is local UI/API workflow proof only. It does not establish real GitHub
 writes, agent execution, production migration, production readiness or pilot
 acceptance. A real operator and pilot path using the selected repository and
 its branch protection remains pending.
+
+## Backend transaction ownership follow-up
+
+The subsequent backend change moves ownership of the cross-aggregate
+maintenance transaction into the service. The service locks and verifies the
+platform-admin role, locks the source before checking for an existing request,
+validates the destination, then creates the task and source record in the same
+transaction. The maintenance-request repository now provides SQL primitives;
+the Group repository owns the active-destination query and scoped lock. The
+frontend app source remains `2091ef19adf155de4ea23fce539584100b6af1b6`; the
+browser evidence above records that app against the earlier compiled API.
+
+The following results apply to the updated backend subtree
+`3729e710994317301be4b10b7cb766a26c65e266` and are separate from the earlier
+API-baseline evidence above:
+
+- Targeted transaction, concurrency, rollback and tenant-scope tests:
+  12 passed: the real HTTP/PostgreSQL maintenance-intake test and 11 architecture
+  boundary tests (`maintenance_requests_route_test` and
+  `route_ddd_boundary_test`).
+- Full Rust CI on the updated backend subtree passed. Reproduce it from the
+  repository root with a disposable PostgreSQL instance in `DATABASE_URL`:
+
+  ```bash
+  umask 022
+  cd rust && make ci
+  ```
+
+  The existing clone-secret test requires that file-permission mask.
+  Result: 2,823 passed, 0 failed and 7 ignored; `cargo fmt` and `cargo clippy`
+  passed. `cargo audit` reported four policy-allowed existing warnings:
+  `event-listener` 5.4.1 (RUSTSEC-2026-0221, unsound), `chacha20` 0.10.0
+  (yanked), and `spin` 0.9.8 and 0.10.0 (yanked).
+- Four local Playwright browser scenarios against the newly compiled API:
+  passed in 50.5 seconds. This is a local browser/API check, not a real GitHub
+  write, agent execution, production migration or pilot acceptance.
 
 ## Existing deployment proof
 

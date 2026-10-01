@@ -2,7 +2,7 @@
 
 use agentforge_core::{AppResult, GroupId, ProjectId, TenantScope};
 use agentforge_db::entities::{Group, GroupMember};
-use sqlx::{FromRow, PgPool};
+use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::domain::resource::ResourceRepositoryPolicy;
@@ -23,6 +23,26 @@ pub struct GroupRepository {
 impl GroupRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// Read and hold an active group's project/workspace rows until caller commit.
+    pub(crate) async fn lock_active_destination_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        group_id: Uuid,
+    ) -> AppResult<Option<Uuid>> {
+        Ok(sqlx::query_scalar::<_, Uuid>(
+            r#"SELECT g.id FROM groups g
+               JOIN projects p ON p.id = g.project_id AND p.organization_id = g.organization_id
+               JOIN workspaces w ON w.id = p.workspace_id AND w.organization_id = p.organization_id
+               WHERE g.id = $1 AND g.organization_id = $2
+                 AND g.deleted_at IS NULL AND p.deleted_at IS NULL AND w.deleted_at IS NULL
+               FOR SHARE OF g, p, w"#,
+        )
+        .bind(group_id)
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(&mut **tx)
+        .await?)
     }
 
     /// List groups for the current tenant, ordered by most recent first.
