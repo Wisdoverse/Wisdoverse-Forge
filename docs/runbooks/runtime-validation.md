@@ -40,6 +40,52 @@ access from another organization. They do not prove a production data migration
 or the full `prod-ext` orchestration chain. Follow the
 [migration guide](../guides/rustfs-migration.md) for cutover and rollback checks.
 
+## Maintenance repository settings: local proof
+
+Validated on 2026-10-01 at source revision `6378a1c4`, building on the repository
+preflight in `db517d76`; implementation: [PR #1195](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1195).
+Environment: Linux, Node.js 24.19.0, Chromium 151, disposable PostgreSQL 17,
+local Vite app and the compiled Rust API. Redis, NATS and orchestration were
+outside this check. GitHub responses came from a local HTTP test service using
+only synthetic installation credentials, `example-org/example-repo`, a
+`release/stable` default branch and a 40-character starting revision.
+
+Passed from the repository root:
+
+```bash
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test:unit
+npm run build
+node scripts/check-secret-scan.mjs
+node --test scripts/__tests__/check-secret-scan.test.mjs
+# Requires a running local app/API, real dev@example.com login via E2E_PASSWORD,
+# and local BASE_URL/E2E_API_BASE_URL/PLAYWRIGHT_CHROMIUM_PATH overrides if needed.
+npm run test:e2e -- maintenance-repository.spec.ts
+```
+
+- Unit suite: 204 files, 2,812 tests; secret-scanner regression suite: 8 tests.
+- The two browser cases passed with a connected administrator, a non-admin
+  organization owner, and inaccessible GitHub repository metadata (six case
+  executions). Application authentication and Rust API responses were not
+  replaced by browser mocks.
+- Desktop keyboard refresh displayed the exact repository, default branch,
+  full starting revision and four independent permission flags. Mobile
+  settings navigation and the 390-pixel content layout passed.
+- An additional disposable-database rehearsal revoked `users.is_admin` while
+  the page was open. Refresh returned HTTP 403 and removed the previous
+  repository details; reloading showed guidance without the check control.
+- Malformed responses, deadlines, cancellation, partial permissions and late
+  account responses are covered by the focused UI/API unit tests linked in
+  [Self-Fix Loop](../guides/self-fix-loop.md#validation-boundary).
+
+This proves the local settings path only. It does not establish a real GitHub
+installation, CI/branch-protection compatibility, production deployment,
+or pilot adoption. The hostname blocklist was unset locally; its behavior was
+tested using synthetic domains. Build/tooling checks retained their existing
+chunk-size and configuration deprecation warnings.
+
 ## Existing deployment proof
 
 Last validated on 2026-05-13 from the repository root using `make prod-ext`.
