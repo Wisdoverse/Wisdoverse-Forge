@@ -151,13 +151,38 @@ If a retry finds an existing PR targeting a different base branch, it refuses to
 reuse that PR. Inspect the PR on GitHub and create a new task for the current
 default branch; branch/head changes need another human review.
 
-## Submit and trace a maintenance source (API)
+## Submit and trace a maintenance source
 
-This API path saves a maintenance brief as an **unassigned backlog task**.
-Before using it, complete the repository check above, sign in as a platform
-administrator, and choose an active task place in the current organization.
-Its project and workspace must also be active. The browser submission and trace
-screens remain planned work; the existing settings page checks repository setup.
+Complete the repository check above, sign in as a platform administrator, and
+open **Tasks**. On the Tasks board or sidebar, select the project, then select
+its **Place for new tasks**. Expand **Maintenance request**, enter a title and
+brief, and identify the source with a stable request reference or a pull request
+number. Submission creates an **unassigned backlog task**. The form does not
+start execution.
+
+If the same source is submitted again, Forge reuses the existing task and keeps
+its original brief and destination. Select **Open maintenance task** to go to
+that original task. To work on the request, review it and use the existing
+assignment workflow when ready.
+
+Open task details to see the full-width **Maintenance source and result** panel.
+It links the source reference and source SHA, starting SHA, task execution
+records, and produced PR/head SHA. Current GitHub observations include their
+check time. Use **Refresh source and result** to request a new observation. A
+changed head is called out; unavailable provider state is shown as unavailable.
+The panel does not provide execution or merge controls. Its PR observations do not report CI
+success or grant merge approval.
+
+The **Maintenance repository** settings page also links to **Tasks** to start
+this workflow.
+
+### API submission and trace
+
+<a id="submit-and-trace-a-maintenance-source-api"></a>
+
+The same deliberate intake and trace are available through the API. Choose an
+active task place in the current organization; its project and workspace must
+also be active.
 
 Use your existing login token in `FORGE_TOKEN`. Replace the example `groupId`
 with your task place's UUID and choose a stable reference for this request:
@@ -233,9 +258,11 @@ EXISTS` cannot repair an invalid index. Keep normal migration backups and checks
 
 The source uniqueness constraint and task/source transaction prevent duplicate
 tasks and orphan tasks on write failure. A composite foreign key enforces the
-task's organization. This is deliberate API intake; webhook intake, browser
-submission/trace screens and real pilot acceptance remain unverified work.
-The local provider mock performs no real GitHub writes. Relevant checks are:
+task's organization. Local browser workflow proof is recorded in the
+[Runtime Validation runbook](../runbooks/runtime-validation.md#maintenance-browser-workflow-local-proof).
+Webhook intake, production migration, real operator or pilot acceptance, and a
+real agent/GitHub run remain unverified. The local provider mock performs no
+real GitHub writes. Relevant checks are:
 
 ```bash
 cd rust
@@ -302,7 +329,10 @@ access and a revoked platform admin against the real router.
 
 The UI tests cover malformed responses, safe error messages, bounded requests,
 partial verification permissions, role revocation and late responses from a
-previous account. With Node.js dependencies installed, run from the repo root:
+previous account. Maintenance source intake and task-detail tests cover
+submission replay, preserving the original destination and brief, and rendering
+the source/result trace. With Node.js dependencies installed, run from the
+repo root:
 
 ```bash
 npm run test:unit -- tests/unit/shared/selfFixRepositoryApi.test.ts \
@@ -323,7 +353,10 @@ npm run test:e2e -- maintenance-repository.spec.ts
 Set `BASE_URL`, `E2E_API_BASE_URL` or `PLAYWRIGHT_CHROMIUM_PATH` locally when
 using non-default ports or an installed system Chromium. The spec does not
 mock application authentication or create repository changes. A local GitHub
-test service proves only that integration, not a real installation.
+test service proves only that integration, not a real installation. For the
+maintenance request and task trace browser path, use a disposable local project
+and provider test service; see the [local workflow proof](../runbooks/runtime-validation.md#maintenance-browser-workflow-local-proof)
+for its fixture requirements and results.
 
 With Rust, Git and the protobuf compiler available, run the checks from `rust/`:
 

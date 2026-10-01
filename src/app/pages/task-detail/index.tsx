@@ -15,6 +15,7 @@ import {
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { taskPriorityLabel } from '@app/entities/task'
+import { MaintenanceTracePanel } from '@app/features/maintenance'
 import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { uiStyles } from '@app/shared/lib/uiStyles'
@@ -133,6 +134,7 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
             {storeTask.params.task}
           </h1>
           <TaskDocumentBody task={storeTask} />
+          <MaintenanceTracePanel taskId={storeTask.id} />
           {(storeTask.state === 'completed' || storeTask.state === 'failed') && (
             <ReviewChecklist taskId={storeTask.id} />
           )}

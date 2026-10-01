@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { BoardView } from '@app/features/board'
 import { ListView } from '@app/features/list'
+import { MaintenanceIntake } from '@app/features/maintenance'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 // Lazy components — the widgets/views barrel owns the lazy() wrappers so both
 // stay separate dynamic chunks behind the Suspense boundaries below.
@@ -30,18 +31,29 @@ export function TaskViewLoadingFallback({ viewName }: { viewName: string }) {
 }
 
 export function TasksPage() {
+  return (
+    <div data-testid="page-tasks" className="flex h-full min-h-0 flex-col">
+      <MaintenanceIntake />
+      <div className="min-h-0 flex-1">
+        <TaskViews />
+      </div>
+    </div>
+  )
+}
+
+function TaskViews() {
   const viewMode = useBoardStore((state) => state.viewMode)
   const navigate = useNavigate()
 
   if (viewMode === 'list')
     return (
-      <div data-testid="page-tasks" className="h-full">
+      <div className="h-full">
         <ListView />
       </div>
     )
   if (viewMode === 'timeline')
     return (
-      <div data-testid="page-tasks" className="h-full">
+      <div className="h-full">
         <Suspense fallback={<TaskViewLoadingFallback viewName="Timeline view" />}>
           <TimelineView />
         </Suspense>
@@ -49,14 +61,14 @@ export function TasksPage() {
     )
   if (viewMode === '3d')
     return (
-      <div data-testid="page-tasks" className="h-full">
+      <div className="h-full">
         <Suspense fallback={<TaskViewLoadingFallback viewName="visual map" />}>
           <Workshop3DView />
         </Suspense>
       </div>
     )
   return (
-    <div data-testid="page-tasks" className="h-full">
+    <div className="h-full">
       <BoardView
         onOpenProjectsSetup={() => {
           void navigate({ to: '/settings/$section', params: { section: 'projects' } })

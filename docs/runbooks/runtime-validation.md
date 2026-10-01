@@ -135,12 +135,87 @@ git diff --check
   scanning found no credential leaks in the checked tree.
 
 This proves the deliberate intake and trace API against a disposable database
-and a synthetic provider. It does not prove browser submission/trace screens,
-webhook intake, a real GitHub App installation, actual agent execution,
-production migration or pilot acceptance. The existing merge and CI gates are
-unchanged; PR state observations do not establish passing checks or approval.
+and a synthetic provider. Browser submission and trace proof is recorded in the
+following section. This API validation does not prove webhook intake, a real
+GitHub App installation, actual agent execution, production migration or pilot
+acceptance. The existing merge and CI gates are unchanged; PR state observations
+do not establish passing checks or approval.
 See the [API guide](../guides/self-fix-loop.md#submit-and-trace-a-maintenance-source-api)
 for prerequisites, retry behavior and the interrupted-index recovery boundary.
+
+## Maintenance browser workflow: local proof
+
+Validated on 2026-10-01 against frontend source tree
+`2091ef19adf155de4ea23fce539584100b6af1b6` and Rust API revision `ba4ab478`.
+Environment: Linux, Node.js 24.19.0, Chromium 151, Rust 1.98.1, disposable PostgreSQL 18,
+local frontend and compiled API, and a local GitHub provider substitute. The
+browser used the existing `dev@example.com` account through the real login flow.
+The provider substitute made no real GitHub writes; no agent task was executed.
+
+The four Playwright scenarios passed:
+
+- A platform administrator used keyboard activation to refresh repository
+  settings.
+- Settings navigation remained usable at a narrow viewport.
+- A maintenance request was submitted, then resubmitted under the same stable
+  source. The retry returned the original task, retained its title and brief, and
+  displayed its original source in the trace.
+- At a narrow viewport, a PR 42 source displayed its submitted head (40 `a`
+  characters), then reported the changed head (40 `c` characters) after refresh.
+  When the provider returned 503, the trace displayed unavailable state,
+  retained the submitted source revision, and exposed no merge action.
+
+The run used existing disposable local records for an active project, task
+place, organization and platform-admin account. Supply these environment values
+locally; do not commit their values:
+
+- `E2E_PASSWORD` for the existing `dev@example.com` account.
+- `BASE_URL` pointing to the local frontend only.
+- `E2E_MAINTENANCE_PROJECT_ID`, `E2E_MAINTENANCE_ORG_ID` and
+  `E2E_MAINTENANCE_TEAM_ID` for the disposable local records.
+- `E2E_MAINTENANCE_PROVIDER_CONTROL` pointing to the localhost-only test
+  provider control endpoint, which exposes `/test/state`.
+- `PLAYWRIGHT_CHROMIUM_PATH` for the local Chromium executable.
+
+Run the browser cases with:
+
+```bash
+npm run test:e2e -- maintenance-repository.spec.ts \
+  maintenance-workflow.spec.ts
+```
+
+Set `BASE_URL` to localhost for this run. The maintenance-workflow spec rejects
+non-loopback frontend and provider-control hosts. Without the maintenance
+fixture IDs, both workflow mutation tests skip; without the provider-control
+endpoint, the PR-observation mutation test also skips. This keeps an
+unconfigured run from writing to a deployed environment.
+
+The related Vitest suite passed 68 tests. FSD checks, lint, formatting,
+typecheck, production build and the secret scan also passed. The Rust API
+subtree `f984009f192d05ea9e8284ada29c6e3724d9d8e3` matches the earlier API
+validation's backend revision. Its 2,823-test Rust workspace and full `make ci`
+evidence remains associated with that backend revision and was not rerun as
+part of this browser validation.
+
+The frontend checks were:
+
+```bash
+npm run fsd:check
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test:unit -- tests/unit/app/MaintenanceWorkflow.test.tsx \
+  tests/unit/shared/maintenanceApi.test.ts \
+  tests/unit/app/TaskDocumentPage.test.tsx \
+  tests/unit/app/MaintenanceRepositorySection.test.tsx
+npm run build
+node scripts/check-secret-scan.mjs
+```
+
+This is local UI/API workflow proof only. It does not establish real GitHub
+writes, agent execution, production migration, production readiness or pilot
+acceptance. A real operator and pilot path using the selected repository and
+its branch protection remains pending.
 
 ## Existing deployment proof
 

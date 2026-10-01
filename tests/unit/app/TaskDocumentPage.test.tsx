@@ -24,6 +24,10 @@ const {
   fetchTaskReviewGates: vi.fn(),
 }))
 
+vi.mock('@app/shared/model/auth.context', () => ({
+  useAuth: () => ({ user: null, isAuthenticated: false, isLoading: false }),
+}))
+
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigateSpy,
