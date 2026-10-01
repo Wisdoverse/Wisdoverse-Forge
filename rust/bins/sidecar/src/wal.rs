@@ -151,7 +151,15 @@ impl Wal {
         fs::remove_file(path).await?;
         // Saturating decrement: if the counter ever drifts (e.g. a file was deleted
         // out of band) we should not wrap around to usize::MAX.
-        self.pending.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| Some(v.saturating_sub(1))).ok();
+        let mut current = self.pending.load(Ordering::Relaxed);
+        // Recompute after races so a concurrent append or acknowledgement is not lost.
+        loop {
+            let next = current.saturating_sub(1);
+            match self.pending.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
+                Ok(_) => break,
+                Err(observed) => current = observed,
+            }
+        }
         Ok(())
     }
 
