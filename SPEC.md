@@ -23,7 +23,7 @@ creates or resumes isolated agent runtimes; routes prompts, reusable context,
 and runtime events; and exposes enough status to review, debug, and operate
 multiple concurrent agent runs.
 
-The service solves five operational problems:
+The service addresses these operational problems:
 
 - It moves agent work out of one-off terminal supervision and into auditable
   task, workflow, and session state.
@@ -52,6 +52,26 @@ Important boundary:
 - A successful run can end at a workflow-defined handoff state such as review,
   validation, or deployment readiness; it does not always mean the work should
   be landed automatically.
+
+### Product Focus and Capability Claims
+
+The next product validation cycle targets recurring repository maintenance,
+starting with dependency upgrades and failed-PR repair on one approved
+repository. [ROADMAP.md](ROADMAP.md) defines the priorities;
+[Product Validation](docs/guides/product-validation.md) defines the evaluation.
+The platform continues to support its existing team-work capabilities.
+
+Roadmap items do not add API guarantees or imply implementation. Repository
+intake, richer verification, recovery and multi-repository behavior require
+their own implementation and validation before they become service claims.
+The existing self-fix PR path uses a deployment-level repository configuration
+and assumes `main`; it preserves human-approved merge and the
+[Self-Fix Security Model](docs/security/self-fix-loop.md).
+
+Task/run completion, observed verification, human acceptance, repository merge
+and deployment are distinct outcomes. Evaluation must identify the exact
+revision and evidence for an accepted change. Supporting multiple Container
+CLIs does not imply lossless migration of their internal session state.
 
 ## 2. Goals And Non-Goals
 

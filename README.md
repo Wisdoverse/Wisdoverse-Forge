@@ -6,13 +6,21 @@
 
 Wisdoverse Forge is a self-hosted, governed AI workbench for a team. It turns
 requests into managed agent work: create tasks, assign agents, watch progress,
-review results, and keep evidence and reusable learnings in one workspace.
+review results, and keep evidence and reusable procedures in one workspace.
+
+**Next product focus.** Validate recurring repository maintenance for small
+software teams, starting with dependency upgrades and failed-PR repair on one
+approved repository. The goal is less human handling and review work with
+traceable results, using the team's supported agent tools. This is the next
+validation cycle, not a claim that automated repository maintenance is already
+available. See the [Product Roadmap](ROADMAP.md) and
+[Product Validation Guide](docs/guides/product-validation.md).
 
 **Product status.** Early access for self-hosted teams. The one-command local
 path below is the supported first-run experience — from a clean checkout to one
 reviewed task in your first session. Before a deployment carries a real team,
 run [Runtime Validation](docs/runbooks/runtime-validation.md) and follow the
-[Long-Term Product Roadmap](ROADMAP.md) quality gates. Forge
+[Product Roadmap](ROADMAP.md) quality gates. Forge
 never phones home: your data and provider keys stay on your machines, and
 provider keys are encrypted with an operator-supplied key.
 
@@ -95,6 +103,10 @@ Point your coding agent at the service contract:
   - **Simple chat agents** for planning, writing, and review without file access.
 - **Review and evidence views** so people can check important work before using
   it.
+- **Human-approved self-fix PRs** for the deployment's configured repository.
+  The server opens a draft PR and checks the reviewed commit before an operator
+  approves merge. Follow [Self-Fix Loop](docs/guides/self-fix-loop.md) for setup
+  and its current single-repository, `main`-branch boundary.
 - **Skills, plugins, prompts, and saved access** so repeat work is easier to set
   up.
 - **Admin health and update pages** with plain-language next steps for common
@@ -144,10 +156,11 @@ docs/                  Architecture, runbooks, guides, specs
 
 ## Documentation
 
-- [ROADMAP.md](ROADMAP.md) — long-term product roadmap: vision, phases, quality bar
+- [ROADMAP.md](ROADMAP.md) — product direction, 90-day validation cycle, quality gates and demand-triggered investment
+- [Product Validation Guide](docs/guides/product-validation.md) — compare maintenance outcomes, human effort and sustained use
 - [Product UX Direction](docs/architecture/product-ux-direction.md) — product contract and acceptance checklist
 - [SPEC.md](SPEC.md) — language-agnostic service contract
-- [AGENTS.md](AGENTS.md) — symlink to `CLAUDE.md`, the agent entrypoint
+- [AGENTS.md](AGENTS.md) — canonical agent entrypoint; `CLAUDE.md` links to it
 - [docs/README.md](docs/README.md) — documentation map and truth hierarchy
 - [Architecture Overview](docs/architecture/overview.md) — runtime topology and data flow
 - [DDD Layer Contract](docs/architecture/ddd-contract.md) — route / service / domain / repository rules
