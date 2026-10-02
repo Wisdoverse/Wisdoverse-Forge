@@ -1,13 +1,17 @@
 # Product Validation Guide
 
-Use this guide to evaluate whether Forge reduces the human effort of recurring
-repository maintenance. The initial scope is dependency upgrades and failed-PR
-repair on one approved repository. The targets in [ROADMAP.md](../../ROADMAP.md)
-are hypotheses to test, not measured results.
+Use this optional guide when a team chooses to evaluate whether Forge reduces
+the human effort of recurring repository maintenance. The initial scope is
+dependency upgrades and failed-PR repair on one approved repository. The
+targets in [ROADMAP.md](../../ROADMAP.md) are hypotheses, not measured results
+or prerequisites for implementing or merging engineering work. To operate the
+maintenance workflow, start with the [Maintenance delivery guide](maintenance-delivery.md).
 
 ## Prerequisites and Current Boundary
 
-- A pilot owner, a reviewer and permission to work on the selected repository.
+- For an evaluation, an evaluation owner, a reviewer and permission to work on
+  the selected repository. An evaluation is not required to use or deliver the
+  maintenance workflow.
 - A working self-hosted instance following [Getting Started](getting-started.md)
   and the relevant [Runtime Validation](../runbooks/runtime-validation.md).
 - A configured provider or supported Container CLI, with recorded versions and
@@ -26,11 +30,12 @@ guide](maintenance-delivery.md) for the operator path and interpretation of
 these records. The repository connection is deployment-configured and its
 default branch is discovered from GitHub. This workflow does not provide
 webhook-driven automatic intake or per-task/multiple repository configuration.
-Real runs with two different CLIs, production operation and pilot/adoption
-evidence still require separate validation; implementation does not establish
-that any team has adopted the workflow.
+Real CLI runs, production operation and adoption evidence require separate
+validation. Technical validation is an engineering gate; adoption evidence is
+optional product evaluation. Implementation does not establish production
+readiness or that any team has adopted the workflow.
 
-## First Evaluation
+## Optional First Evaluation
 
 1. **Agree one representative task.** Write the requested change, starting
    revision, allowed scope, required checks and acceptance criteria. Identify
@@ -52,16 +57,18 @@ that any team has adopted the workflow.
    next action when another person must continue. Record failed attempts,
    manual work, cost and later regressions in the team's evaluation record.
 
-Success for this first evaluation means a reviewer can trace the request to
-the run, change and verification evidence and make an explicit decision. It
-does not require a merge, deployment or extracted skill.
+For this evaluation, success means a reviewer can trace the request to the run,
+change and verification evidence and make an explicit decision. It does not
+require a merge, deployment or extracted skill. Engineering implementation
+and merge do not wait for this evaluation or its results.
 
-## Comparable Tasks and Baseline
+## Optional Comparable Tasks and Baseline
 
-Start with 20–30 tasks across 3–5 consenting pilot teams. This is an exploratory
-sample for discovering failure modes and effort, not a production reliability
-benchmark. Include hard, unsuccessful and rejected tasks; do not select only
-completed runs.
+For a cross-team exploratory evaluation, use 20–30 tasks across 3–5 consenting
+teams. This sample can help discover failure modes and effort; it is not a
+production reliability benchmark. Include hard, unsuccessful and rejected
+tasks; do not select only completed runs. A team may run a smaller local
+evaluation when that better fits its decision.
 
 For each comparison, keep the repository starting revision, acceptance brief,
 required checks and access scope equivalent. Run repeated experiments in
@@ -171,13 +178,14 @@ PRs or writes after retry. If continuation cannot be demonstrated, mark it
 unsupported or requiring manual recovery; a durable task row alone is not
 proof that a vendor session can resume.
 
-## Pilot Review and Decision
+## Optional Product Review and Decision
 
-Review blockers weekly and hold a decision review at the end of the roadmap
-cycle. Start with the proposed targets: at least three teams using the workflow
-for four consecutive weeks, about 30% less comparable human effort, explicit
-review evidence and acceptable quality. Agree revisions to these targets after
-baseline measurement and before evaluating success.
+Review blockers on a cadence that fits the evaluation. Teams may assess repeat
+use over four consecutive weeks, about 30% less comparable human effort,
+explicit review evidence and acceptable quality. These are optional product
+evaluation targets, not requirements for engineering implementation or merge.
+Agree any target revisions after baseline measurement and before evaluating
+the result.
 
 - **Continue:** repeat use and effort/quality evidence justify the next scope.
 - **Adjust:** there is recurring demand, but a specific failure or workflow

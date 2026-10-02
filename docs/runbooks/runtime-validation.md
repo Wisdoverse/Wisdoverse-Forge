@@ -65,6 +65,14 @@ node --test scripts/__tests__/check-secret-scan.test.mjs
 npm run test:e2e -- maintenance-repository.spec.ts
 ```
 
+When the browser app uses an API port other than `4003`, set the optional
+`E2E_BROWSER_API_PORT` to that port; global setup stores it as `agentforge-port`
+in browser local storage so requests use the independent API instead of a shared
+service. `E2E_API_BASE_URL` separately sets the base URL for Node-side setup
+requests, such as registration. It does not configure the browser API port.
+The port is inherited through the normal global-setup storage state. Tests
+that skip global setup or replace that storage state do not inherit it.
+
 - Unit suite: 204 files, 2,812 tests; secret-scanner regression suite: 8 tests.
 - The two browser cases passed with a connected administrator, a non-admin
   organization owner, and inaccessible GitHub repository metadata (six case
@@ -287,21 +295,110 @@ npm run test:e2e -- maintenance-repository.spec.ts \
   maintenance-workflow.spec.ts maintenance-delivery.spec.ts
 ```
 
-Apply migrations 102/103 before using the delivery endpoints. Migration 102
+Apply migrations through 104 before using the current maintenance delivery
+schema. Migration 102
 builds `idx_task_runs_org_task_id` concurrently outside a transaction. If the
 build is interrupted, inspect `pg_index.indisvalid` for this named index and
 remove it only if invalid before retrying; `IF NOT EXISTS` cannot repair an
 invalid index. Migration 103 creates the append-only delivery records with
-tenant/run ownership constraints. Run deletion clears only the live run link;
-task/organization deletion cascades to delivery records. All 103 SQL files
-match the committed manifest and embedded migration list.
+tenant/run ownership constraints. Run deletion clears only the live run link.
+Migration 104 corrects migration 101's maintenance-request task foreign key
+without editing that immutable migration, so explicit task deletion also
+removes its maintenance request. This source-record change does not establish
+whole-organization deletion behavior. The 2026-10-01 validation below exercised
+migrations through 103 only; it does not verify migration 104 or an organization
+purge. At that historical revision, its 103 migration files matched the
+committed manifest and embedded migration list; this says nothing about the
+current migration 104.
 
-This proves the local record/review workflow. Real equivalent Container CLI
-execution, interrupted vendor work and raw-artifact retention, production
-migration rehearsal, the selected repository's branch protection, and the
-3–5-team/four-week effort and quality evaluation remain pending. Follow the
-[Maintenance delivery guide](../guides/maintenance-delivery.md) and
-[Product Validation Guide](../guides/product-validation.md) for those records.
+This proves the local record/review workflow for the revision recorded above.
+The current working changes have separate validation recorded below; do not
+infer those results from this historical browser proof.
+
+Optional product evaluation remains separate: teams may measure four-week
+repeat use, effort and quality across a consenting cohort. It does not block
+engineering implementation or merge. See the
+[Maintenance delivery guide](../guides/maintenance-delivery.md) for the
+operator workflow and the [Product Validation Guide](../guides/product-validation.md)
+for optional evaluation methods.
+
+## Current Engineering Validation (2026-10-02)
+
+The source was recovered into an isolated checkout after the host restart.
+Current code evidence is revision
+`9de10c760feea270b1a89d633ba472c5d67d3c46`, based on current
+`origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including PR #1196.
+The recovered source matched the intended changes from the earlier checkout,
+including its browser login port configuration. The runtime API and sidecar
+binaries were built at `352cb460cd0108fd56209da430bc8df433dea234`; their
+backend source is unchanged at the current code revision. Using Node.js
+24.20.0 and dependencies
+installed with `npm ci`, full lint (including FSD, copy, metrics and protocol
+checks), typecheck, format check, production build, and all 2,879 tests across
+208 unit-test files passed, including the 69 focused `BoardView`/`TaskCard`
+tests.
+
+At the same working tree, all eight maintenance browser scenarios passed in
+21.3 seconds against the local Rust API and disposable database. This includes
+real task-priority PATCH plus persisted GET readback, and an aborted background
+GET that retained the loaded cards before a successful manual retry. These
+results cover the local browser-to-API board path.
+
+A separate sidecar browser scenario passed in 21.3 seconds: browser request,
+Rust API/outbox, authenticated encrypted per-agent NATS callout, native sidecar,
+a deterministic fake `codex` Container CLI executable, result worker,
+database/object storage, and browser artifact readback. This validates only
+that bounded local path; it does not validate a vendor CLI, agent container,
+or Temporal workflow.
+
+A controlled native-host model run passed one browser case in 10.3 seconds
+(13.8 seconds total): browser task creation, per-agent NATS authentication,
+sidecar, `codex` 0.160.0 with `gpt-6-luna`, result worker, database and object
+storage, and browser readback of one artifact. The initial attempt timed out
+before calling the model; the controlled retry completed successfully. This
+proves one host CLI/model path, not execution in an agent container, Temporal
+workflow execution, or comparison across two CLIs.
+
+Earlier on 2026-10-02, before the host restart, all 104 migrations applied on
+disposable disk-backed PostgreSQL 17.11. The migration 104 contract was exercised with existing source, report, decision and handoff
+records: the original task deletion failed with FK error `23503`; migration 104
+was applied twice without losing records; a cross-tenant rewrite failed with
+`23503`; and task deletion removed the four records. A pre-104 custom-format
+`pg_dump` restored into a separate database with one row in each table and the
+original `NO ACTION` foreign keys. The manifest SHA for migration 104 matched
+its SQL file.
+
+An isolated PostgreSQL 18 container passed its readiness probe, but the
+migration regression timed out connecting to the test database. PostgreSQL 18
+migration compatibility is not recorded as passed.
+
+The compiled `maintenance_source_upgrade_and_explicit_deletion` Rust regression
+passed again at the recovered code revision against a separate PostgreSQL
+17.11 cluster on an ephemeral memory filesystem (one test, zero failures). An
+earlier disk-backed invocation was terminated during SQLx database cleanup
+after the host checkpoint stalled (`jbd2_log_wait_commit`); these memory-backed
+runs do not establish disk durability. The earlier disk-backed migration and
+backup/restore checks above are separate evidence. Nine GitHub API boundary
+Rust tests and 15 self-fix policy tests also passed at the recovered revision.
+All 104 migration checksums matched their committed manifest. An isolated
+NATS 2.12.7 instance accepted an authenticated backend JetStream request and
+rejected an anonymous connection. The per-agent callout and execution paths are
+covered separately by the browser runs above.
+An earlier `cargo audit` invocation exited 0 and reported zero vulnerabilities,
+with four warnings:
+`event-listener` 5.4.1 (`RUSTSEC-2026-0221`, unsound), `chacha20` 0.10.0
+(yanked), and `spin` 0.9.8 and 0.10.0 (yanked). The recovered checkout has not
+yet completed its audit. Full `make ci` was interrupted after cache cleanup
+removed its in-progress build directory. In the current retry, formatting and
+Clippy have passed and workspace tests are building. The focused Platform CLI
+health/version test passed (one test); the rebuilt CLI binary is still pending
+full build completion.
+Execution in an agent container, the Temporal-backed workflow, production
+migration/runtime validation and comparison across supported CLIs remain
+pending.
+These engineering gates remain required; pilot adoption is optional and does
+not gate implementation or merge. All databases, records and the backup were
+disposable test data; these checks do not validate production data or artifacts.
 
 ## Backend transaction ownership follow-up
 
