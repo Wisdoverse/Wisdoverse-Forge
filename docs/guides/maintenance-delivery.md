@@ -42,4 +42,6 @@ Outcomes default to seven days and accept windows up to 120 days. Summary denomi
 
 The task panel shows a bounded recent history. To retrieve an individual report and its latest human decision, an authenticated platform administrator can use `GET /api/v1/self-fix/reports/{id}` with the report ID.
 
-If a run or agent is explicitly removed, its report metadata and captured snapshot are retained; removing the live run link does not erase the recorded report. Raw artifacts referenced by a report remain subject to the existing artifact-storage retention policy. Deleting the task or organization cascades to its maintenance reports, decisions, and handoffs.
+If a run or agent is explicitly removed, its report metadata and captured snapshot are retained; removing the live run link does not erase the recorded report. Raw artifacts referenced by a report remain subject to the existing artifact-storage retention policy.
+
+Migration 104 corrects the source-record foreign keys without changing migration 101. Explicit administrative deletion of a task then removes its maintenance source, reports, decisions, and handoffs. It does not add a task-deletion API or a complete organization-purge workflow; other existing organization references still follow the deployment's deletion policy. Back up required evidence before deliberate deletion.
