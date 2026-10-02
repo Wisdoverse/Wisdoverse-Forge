@@ -151,7 +151,7 @@ impl Wal {
         fs::remove_file(path).await?;
         // Saturating decrement: if the counter ever drifts (e.g. a file was deleted
         // out of band) we should not wrap around to usize::MAX.
-        self.pending.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| Some(v.saturating_sub(1))).ok();
+        self.pending.try_update(Ordering::Relaxed, Ordering::Relaxed, |v| Some(v.saturating_sub(1))).ok();
         Ok(())
     }
 
