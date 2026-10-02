@@ -396,8 +396,10 @@ yet completed its audit. Full `make ci` was interrupted after cache cleanup
 removed its in-progress build directory. In the current retry, formatting and
 Clippy passed. Workspace tests then failed in
 `context_approval_flow_test::approving_memory_candidate_creates_governed_memory_once`
-with HTTP 500; an isolated diagnostic run is in progress. Full `make ci` and
-its audit are not recorded as passed. The focused Platform CLI health/version
+with HTTP 500 during host resource pressure. The unchanged case then passed
+an isolated run in 1.38 seconds after inactive build-cache release. A final
+workspace run is in progress; full `make ci` and its audit are not recorded as
+passed. The focused Platform CLI health/version
 test passed (one test). The compiled Linux CLI also passed real `health -o json`
 and `version -o json` commands against the API: readiness checks were retained,
 and the absent server version was reported as `(unknown)` without stderr.
