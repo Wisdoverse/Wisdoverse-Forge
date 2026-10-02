@@ -5,7 +5,8 @@ import {
   type APIRequestContext,
   type Page,
 } from '@playwright/test'
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { promisify } from 'node:util'
 import crypto from 'node:crypto'
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -44,6 +45,7 @@ const REAL_E2E_TEST_TIMEOUT_MS = positiveIntEnv(
 )
 const MAX_DIAGNOSTIC_ENTRIES = 40
 const MAX_DIAGNOSTIC_CHARS = 2_000
+const execFileAsync = promisify(execFile)
 
 if (REAL_E2E_ENABLED) {
   validateRealE2ESafety()
@@ -340,7 +342,7 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
       `INSERT INTO agents
          (id, organization_id, workspace_id, project_id, user_id, name, status, model, provider, cli_tool,
           runtime_kind, hmac_secret, nats_connect_password, cwd, runtime_id, last_activity_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'idle', $7, $8, $9, 'container',
+       VALUES ($1, $2, $3, $4, $5, $6, 'idle', $7, $8, $9, $14,
           $10, $11, $12, $13, NOW())`,
       [
         agentId,
@@ -354,8 +356,9 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
         cliTool,
         hmacSecret,
         natsPassword,
-        cliWorkDir,
+        SIDECAR_CONTAINER_IMAGE ? '/workspace' : cliWorkDir,
         `e2e-${suffix}`,
+        SIDECAR_CONTAINER_IMAGE ? 'container' : 'cli',
       ]
     )
     await db.query(
@@ -425,7 +428,9 @@ async function switchContextToken(
 
 async function cleanupFixture(fixture?: TestFixture) {
   if (!fixture) return
-  await deleteAssignmentConsumer(fixture.agentId).catch(() => undefined)
+  const consumerCleanupError = await deleteAssignmentConsumer(fixture.agentId).catch(
+    (error: unknown) => error
+  )
   await fixture.db.query('BEGIN')
   try {
     await fixture.db.query('DELETE FROM orchestration_inbox WHERE task_id = ANY($1::uuid[])', [
@@ -474,10 +479,9 @@ async function cleanupFixture(fixture?: TestFixture) {
   } finally {
     await fixture.db.end()
     await fixture.api.dispose()
-    await rm(path.dirname(fixture.fakeBinDir), { recursive: true, force: true }).catch(
-      () => undefined
-    )
+    await rm(path.dirname(fixture.fakeBinDir), { recursive: true, force: true })
   }
+  if (consumerCleanupError !== undefined) throw consumerCleanupError
 }
 
 async function deleteAssignmentConsumer(agentId: string) {
@@ -487,16 +491,29 @@ async function deleteAssignmentConsumer(agentId: string) {
     servers: `nats://127.0.0.1:${NATS_PORT}`,
     user: 'backend',
     pass: password,
+    timeout: 5_000,
   })
   try {
-    const jsm = await nc.jetstreamManager()
-    await jsm.consumers.delete('ORCHESTRATION_ASSIGNMENTS', assignmentConsumerName(agentId))
+    const response = await nc.request(
+      `$JS.API.CONSUMER.DELETE.ORCHESTRATION_ASSIGNMENTS.${assignmentConsumerName(agentId)}`,
+      '{}',
+      { timeout: 5_000 }
+    )
+    const result = JSON.parse(new TextDecoder().decode(response.data)) as {
+      success?: boolean
+      error?: { code: number; err_code: number; description?: string }
+    }
+    if (result.error?.code === 404 && result.error.err_code === 10014) return
+    if (result.success !== true) {
+      throw new Error(result.error?.description ?? 'Could not delete the assignment consumer')
+    }
   } finally {
     await nc.drain()
   }
 }
 
 async function dockerEnv(key: string): Promise<string | null> {
+  if (process.env[key] !== undefined) return process.env[key] || null
   const contents = await readFile(path.join(repoRoot, 'docker/.env'), 'utf8').catch(() => '')
   for (const line of contents.split('\n')) {
     const trimmed = line.trim()
@@ -626,6 +643,7 @@ function startSidecar(fixture: TestFixture): Promise<RunningSidecar> {
     NATS_URL: natsUrl,
     AGENT_ID: fixture.agentId,
     HMAC_SECRET: fixture.hmacSecret,
+    AGENTFORGE_RUNTIME_KIND: 'cli',
     WAL_PATH: fixture.walPath,
     CLI_TOOL: fixture.cliTool,
     AGENTFORGE_CLI_TOOL: fixture.cliTool,
@@ -653,7 +671,19 @@ function startSidecar(fixture: TestFixture): Promise<RunningSidecar> {
   return waitForSidecarReady(child, fixture)
 }
 
-function startContainerSidecar(fixture: TestFixture, image: string): Promise<RunningSidecar> {
+async function startContainerSidecar(fixture: TestFixture, image: string): Promise<RunningSidecar> {
+  const runnerUid = process.getuid?.()
+  const runnerGid = process.getgid?.()
+  if (runnerUid === undefined || runnerGid === undefined || runnerUid === 0) {
+    throw new Error('Container fixtures require a non-root POSIX runner')
+  }
+  const { stdout: imageOutput } = await execFileAsync(
+    'docker',
+    ['image', 'inspect', '--format', '{{.Id}}', image],
+    { timeout: SIDECAR_START_TIMEOUT_MS }
+  )
+  const imageId = imageOutput.trim()
+  if (!/^sha256:[a-f0-9]{64}$/.test(imageId)) throw new Error('Invalid inspected image ID')
   const realCliHome = requiredRealE2EEnv('ORCHESTRATION_REAL_CLI_HOME')
   const credentialDir = credentialDirForTool(fixture.cliTool)
   const natsUrl = `nats://${fixture.agentId}:${fixture.natsPassword}@${SIDECAR_CONTAINER_NATS_HOST}:${NATS_PORT}`
@@ -663,6 +693,7 @@ function startContainerSidecar(fixture: TestFixture, image: string): Promise<Run
     AGENTFORGE_NATS_URL: natsUrl,
     AGENT_ID: fixture.agentId,
     HMAC_SECRET: fixture.hmacSecret,
+    AGENTFORGE_RUNTIME_KIND: 'container',
     WAL_PATH: '/tmp/agentforge-wal',
     CLI_TOOL: fixture.cliTool,
     AGENTFORGE_CLI_TOOL: fixture.cliTool,
@@ -673,6 +704,10 @@ function startContainerSidecar(fixture: TestFixture, image: string): Promise<Run
   const envArgs = Object.entries(env).flatMap(([key, value]) => ['-e', `${key}=${value}`])
   const bootstrap = [
     'set -Eeuo pipefail',
+    // Keep bind-mounted artifacts owned by the runner so cleanup remains
+    // possible after the container stops, including failed starts.
+    `groupmod --non-unique --gid ${runnerGid} agent`,
+    `usermod --non-unique --uid ${runnerUid} --gid ${runnerGid} agent`,
     'install -d -o agent -g agent -m 700 /home/agent/.codex /home/agent/.claude /home/agent/.gemini /home/agent/.local/share/opencode /home/agent/.config/opencode /tmp/agentforge-wal /workspace',
     `if [ ! -d /run/agentforge-real-cli-home/${credentialDir} ]; then echo "missing ${credentialDir} credentials" >&2; exit 2; fi`,
     `cp -a /run/agentforge-real-cli-home/${credentialDir}/. /home/agent/${credentialDir}/`,
@@ -694,7 +729,6 @@ function startContainerSidecar(fixture: TestFixture, image: string): Promise<Run
   ].join('\n')
   const args = [
     'run',
-    '--rm',
     '--pull=never',
     '--name',
     containerName,
@@ -704,16 +738,24 @@ function startContainerSidecar(fixture: TestFixture, image: string): Promise<Run
     `${SIDECAR_CONTAINER_NATS_HOST}:host-gateway`,
     '--user',
     '0:0',
-    '--tmpfs',
-    '/workspace:rw,nosuid,nodev,size=64m',
-    '--tmpfs',
-    '/tmp/agentforge-wal:rw,nosuid,nodev,size=64m',
+    '--cpus',
+    '1',
+    '--memory',
+    '1g',
+    '--pids-limit',
+    '256',
+    '--security-opt',
+    'no-new-privileges',
+    '--mount',
+    `type=bind,source=${fixture.cliWorkDir},target=/workspace`,
+    '--mount',
+    `type=bind,source=${fixture.walPath},target=/tmp/agentforge-wal`,
     '-v',
     `${realCliHome}:/run/agentforge-real-cli-home:ro`,
     ...envArgs,
     '--entrypoint',
     '/bin/bash',
-    image,
+    imageId,
     '-lc',
     bootstrap,
   ]
@@ -722,7 +764,58 @@ function startContainerSidecar(fixture: TestFixture, image: string): Promise<Run
     env: process.env,
   })
 
-  return waitForSidecarReady(child, fixture, containerName)
+  let sidecar: RunningSidecar | undefined
+  try {
+    sidecar = await waitForSidecarReady(child, fixture, containerName)
+    const { stdout } = await execFileAsync(
+      'docker',
+      [
+        'inspect',
+        '--format',
+        '{"Id":{{json .Id}},"Image":{{json .Image}},"Running":{{json .State.Running}}}',
+        containerName,
+      ],
+      { timeout: SIDECAR_START_TIMEOUT_MS }
+    )
+    const container = JSON.parse(stdout) as {
+      Id: string
+      Image: string
+      Running: boolean
+    }
+    if (!/^[a-f0-9]{64}$/.test(container.Id) || container.Image !== imageId || !container.Running) {
+      throw new Error('Fixture container does not match the inspected running image')
+    }
+    const attached = await fixture.db.query(
+      `UPDATE agents SET container_id=$1
+       WHERE id=$2 AND organization_id=$3 AND workspace_id=$4
+         AND runtime_kind='container' AND container_id IS NULL`,
+      [container.Id, fixture.agentId, fixture.orgId, fixture.workspaceId]
+    )
+    if (attached.rowCount !== 1) throw new Error('Could not attach the isolated fixture container')
+
+    // Let the normal server path verify configured source/signature and record
+    // immutable image evidence. Never manufacture trust metadata in the seed.
+    const verified = await fixture.api.post(`/api/v1/agents/${fixture.agentId}/start`, {
+      headers: { Authorization: `Bearer ${fixture.token}` },
+    })
+    if (!verified.ok())
+      throw new Error(`Fixture image verification failed: HTTP ${verified.status()}`)
+    const recorded = await fixture.db.query(
+      `SELECT container_id, container_image_identity FROM agents
+       WHERE id=$1 AND organization_id=$2 AND workspace_id=$3`,
+      [fixture.agentId, fixture.orgId, fixture.workspaceId]
+    )
+    if (
+      recorded.rows[0]?.container_id !== container.Id ||
+      recorded.rows[0]?.container_image_identity?.imageId !== imageId
+    ) {
+      throw new Error('Server did not record the verified fixture image')
+    }
+    return sidecar
+  } catch (error) {
+    if (sidecar) await stopSidecar(sidecar)
+    throw error
+  }
 }
 
 function waitForSidecarReady(
