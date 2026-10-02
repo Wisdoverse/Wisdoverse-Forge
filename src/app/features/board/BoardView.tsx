@@ -1,7 +1,8 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { ArrowRight, FolderKanban } from 'lucide-react'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
@@ -68,6 +69,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
     setError,
   } = useBoardStore()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
   const agentGroups = useNavigationStore((s) => s.agentGroups)
   const canPublishWithContext = useContextFeaturesStore((s) => s.preview && s.injection)
@@ -90,6 +92,9 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   const [retireConfirmOpen, setRetireConfirmOpen] = useState(false)
   const [retiring, setRetiring] = useState(false)
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [refreshRetrying, setRefreshRetrying] = useState(false)
+  const taskRefreshRequest = useRef(0)
   const workload = useMemo(() => summarizeWorkload(columns), [columns])
   const staleCount = useMemo(() => staleTaskCount(Object.values(columns).flat()), [columns])
   const boardFilters = useMemo(
@@ -119,21 +124,46 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   }
   const loadTasksForGroup = useCallback(
     async (groupId: string, showLoading: boolean, shouldApply: () => boolean = () => true) => {
+      const requestId = ++taskRefreshRequest.current
+      const isCurrent = () => shouldApply() && taskRefreshRequest.current === requestId
       try {
-        if (showLoading && shouldApply()) setLoading(true)
-        if (shouldApply()) setError(null)
+        if (showLoading && isCurrent()) setLoading(true)
+        if (showLoading && isCurrent()) {
+          setError(null)
+          setRefreshError(null)
+        }
         const tasks = await orchestrationApi.getTasks(groupId)
-        if (shouldApply()) setTasks(tasks)
+        if (isCurrent()) {
+          setTasks(tasks)
+          setRefreshError(null)
+          setError(null)
+        }
       } catch (err) {
-        if (showLoading && shouldApply()) {
-          setError(boardActionErrorMessage('loadTasks', err))
+        if (isCurrent()) {
+          if (showLoading) setError(boardActionErrorMessage('loadTasks', err))
+          else setRefreshError(t('board.refresh.stale'))
         }
       } finally {
-        if (showLoading && shouldApply()) setLoading(false)
+        if (isCurrent()) setLoading(false)
       }
     },
-    [setError, setLoading, setTasks]
+    [setError, setLoading, setTasks, t]
   )
+
+  async function retryTaskRefresh() {
+    if (!selectedGroupId || refreshRetrying) return
+    const groupId = selectedGroupId
+    setRefreshRetrying(true)
+    try {
+      await loadTasksForGroup(
+        groupId,
+        false,
+        () => useBoardStore.getState().selectedGroupId === groupId
+      )
+    } finally {
+      setRefreshRetrying(false)
+    }
+  }
 
   useEffect(() => {
     if (!selectedGroupId) return
@@ -493,6 +523,24 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
               {actionNotice}
             </div>
           ) : null}
+          {refreshError && (
+            <div
+              data-testid="board-stale-refresh"
+              role="status"
+              aria-live="polite"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-apple-orange/25 bg-apple-orange/[0.08] px-3 py-2 text-ui-caption text-foreground-light dark:text-foreground-dark"
+            >
+              <span>{refreshError}</span>
+              <button
+                type="button"
+                onClick={() => void retryTaskRefresh()}
+                disabled={refreshRetrying}
+                className={cn(uiStyles.secondaryButton, 'min-h-8 px-2.5 py-1')}
+              >
+                {refreshRetrying ? t('board.refresh.retrying') : t('board.refresh.retry')}
+              </button>
+            </div>
+          )}
           {hasActiveBoardFilter && filterCounts.visible === 0 ? (
             <div
               data-testid="board-filter-empty"

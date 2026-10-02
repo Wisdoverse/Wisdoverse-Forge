@@ -10,6 +10,10 @@ vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
   return {
     ...actual,
     trackProductEvent: trackProductEventMock,
+    orchestrationApi: {
+      ...actual.orchestrationApi,
+      updateTask: vi.fn(),
+    },
   }
 })
 
@@ -70,7 +74,24 @@ describe('TaskCard', () => {
 
   test('shows priority badge', () => {
     render(<TaskCard task={mockTask} />)
-    expect(screen.getByText('High')).toBeDefined()
+    expect(
+      screen.getByRole('combobox', { name: 'Change priority for Refactor database migration' })
+    ).toHaveValue('high')
+  })
+
+  test('priority control does not open or drag the task card', () => {
+    const onClick = vi.fn()
+    render(<TaskCard task={mockTask} onClick={onClick} />)
+    const priority = screen.getByRole('combobox', {
+      name: 'Change priority for Refactor database migration',
+    })
+
+    fireEvent.pointerDown(priority, { button: 0, clientX: 8, clientY: 8 })
+    fireEvent.pointerUp(priority, { button: 0, clientX: 8, clientY: 8 })
+    fireEvent.click(priority)
+    fireEvent.keyDown(priority, { key: 'Enter' })
+
+    expect(onClick).not.toHaveBeenCalled()
   })
 
   test('shows a queued wait estimate with a why hint', () => {
@@ -107,7 +128,15 @@ describe('TaskCard', () => {
   })
 
   test('does not show an estimate for terminal or working tasks', () => {
-    render(<TaskCard task={{ ...mockTask, state: 'working', waitEstimate: { position: 1, typicalSeconds: 90, estimatedSeconds: 90 } }} />)
+    render(
+      <TaskCard
+        task={{
+          ...mockTask,
+          state: 'working',
+          waitEstimate: { position: 1, typicalSeconds: 90, estimatedSeconds: 90 },
+        }}
+      />
+    )
     expect(screen.queryByTestId('task-wait-estimate-task-1')).toBeNull()
   })
 
@@ -122,9 +151,13 @@ describe('TaskCard', () => {
         }}
       />
     )
-    expect(screen.getByTestId('task-error-preview').textContent).toContain('Ran out of context window')
+    expect(screen.getByTestId('task-error-preview').textContent).toContain(
+      'Ran out of context window'
+    )
     await waitFor(() => expect(trackProductEventMock).toHaveBeenCalledTimes(1))
-    expect(trackProductEventMock).toHaveBeenCalledWith('context_overflow_failure', { taskId: 'task-1' })
+    expect(trackProductEventMock).toHaveBeenCalledWith('context_overflow_failure', {
+      taskId: 'task-1',
+    })
 
     // Re-rendering the same card must not duplicate the best-effort event.
     cleanup()
@@ -156,7 +189,10 @@ describe('TaskCard', () => {
     const preview = screen.getByTestId('task-error-preview')
     expect(preview.textContent).toContain('took too long')
     expect(preview.textContent).toContain('attempt 2')
-    expect(trackProductEventMock).not.toHaveBeenCalledWith('context_overflow_failure', expect.anything())
+    expect(trackProductEventMock).not.toHaveBeenCalledWith(
+      'context_overflow_failure',
+      expect.anything()
+    )
   })
 
   test('does not add an attempt note on the first try', () => {

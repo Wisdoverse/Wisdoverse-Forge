@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Response } from '@playwright/test'
 
 // Opt in with a project in a disposable local stack. Uses canonical real login,
 // live Rust routes and PostgreSQL; GitHub may be a local provider test server.
@@ -24,6 +24,30 @@ async function openIntake(page: Page) {
     .click({ timeout: 30_000 })
   await expect(intake.getByRole('button', { name: 'Save maintenance task to wait' })).toBeEnabled()
   return intake
+}
+
+async function createMaintenanceTask(page: Page, title: string) {
+  const intake = await openIntake(page)
+  const groupId = await page.getByRole('combobox', { name: 'Place for new tasks' }).inputValue()
+  const reference = `board-${crypto.randomUUID()}`
+  await intake.getByLabel('Stable request reference').fill(reference)
+  await intake.getByLabel('Maintenance title').fill(title)
+  await intake.getByLabel('Maintenance brief').fill('Review this task through the real board API.')
+  const submission = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/v1/self-fix/requests') && response.request().method() === 'POST'
+  )
+  await intake.getByRole('button', { name: 'Save maintenance task to wait' }).click()
+  const response = await submission
+  expect(response.ok(), `Maintenance submission status ${response.status()}`).toBe(true)
+  return { taskId: (await response.json()).data.taskId as string, groupId }
+}
+
+function taskListResponse(response: Response, groupId: string) {
+  return (
+    response.request().method() === 'GET' &&
+    new URL(response.url()).pathname.endsWith(`/api/v1/orchestration/groups/${groupId}/tasks`)
+  )
 }
 
 test.describe('maintenance browser to API workflow', () => {
@@ -102,6 +126,85 @@ test.describe('maintenance browser to API workflow', () => {
     expect(await trace.locator('time').first().getAttribute('datetime')).toMatch(
       /^\d{4}-\d{2}-\d{2}T/
     )
+  })
+
+  test('updates priority through the real board API and reads it back on a narrow keyboard path', async ({
+    page,
+  }) => {
+    const title = `Board priority ${crypto.randomUUID()}`
+    const { taskId, groupId } = await createMaintenanceTask(page, title)
+    const readbackRequest = page.waitForResponse((response) => taskListResponse(response, groupId))
+    await page.reload()
+    const readback = await readbackRequest
+    expect(readback.ok()).toBe(true)
+    const initial = (await readback.json()).tasks.find((task: { id: string }) => task.id === taskId)
+    expect(initial?.priority).toBe('normal')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const priority = page.getByTestId(`task-priority-${taskId}`)
+    await expect(priority).toHaveValue('normal')
+    await priority.focus()
+    const update = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/orchestration/tasks/${taskId}`) &&
+        response.request().method() === 'PATCH'
+    )
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    const response = await update
+    expect(response.ok(), `Task update status ${response.status()}`).toBe(true)
+    expect(response.request().postDataJSON()).toEqual({ priority: 'high' })
+    expect((await response.json()).task).toMatchObject({ id: taskId, priority: 'high' })
+
+    const persistedReadback = page.waitForResponse((candidate) =>
+      taskListResponse(candidate, groupId)
+    )
+    await page.reload()
+    const persisted = await persistedReadback
+    expect(persisted.ok()).toBe(true)
+    const updated = (await persisted.json()).tasks.find(
+      (task: { id: string }) => task.id === taskId
+    )
+    expect(updated?.priority).toBe('high')
+    await expect(page.getByTestId(`task-priority-${taskId}`)).toHaveValue('high')
+  })
+
+  test('keeps cards during a failed background refresh and retries against the real API', async ({
+    page,
+  }) => {
+    await page.clock.install()
+    const title = `Board stale refresh ${crypto.randomUUID()}`
+    const { taskId, groupId } = await createMaintenanceTask(page, title)
+    await page.reload()
+    const card = page.getByTestId(`task-card-${taskId}`)
+    await expect(card).toBeVisible()
+
+    const targetPath = `/api/v1/orchestration/groups/${groupId}/tasks`
+    let shouldAbort = true
+    let aborted = false
+    await page.route(`**${targetPath}`, async (route) => {
+      if (shouldAbort && route.request().method() === 'GET' && !aborted) {
+        aborted = true
+        await route.abort()
+        return
+      }
+      await route.continue()
+    })
+    await page.clock.fastForward(30_001)
+    const stale = page.getByTestId('board-stale-refresh')
+    await expect(stale).toContainText('Could not refresh tasks. Showing the last loaded cards.')
+    await expect(card).toBeVisible()
+
+    shouldAbort = false
+    const retry = page.waitForResponse((response) => taskListResponse(response, groupId))
+    await stale.getByRole('button', { name: 'Check tasks again' }).click()
+    const refreshed = await retry
+    expect(refreshed.ok()).toBe(true)
+    expect((await refreshed.json()).tasks.some((task: { id: string }) => task.id === taskId)).toBe(
+      true
+    )
+    await expect(page.getByTestId('board-stale-refresh')).toHaveCount(0)
+    await expect(card).toBeVisible()
   })
 
   test('shows submitted and changed PR versions plus provider outage on a narrow screen', async ({

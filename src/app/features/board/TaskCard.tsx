@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDraggable } from '@dnd-kit/core'
 import { Brain, Clock3, Send, WandSparkles } from 'lucide-react'
@@ -13,7 +13,9 @@ import {
 } from '@app/shared/lib/taskFailureCopy'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import {
+  orchestrationApi,
   taskResultArtifacts,
   trackProductEvent,
   type HumanMark,
@@ -53,6 +55,10 @@ export function TaskCard({
   humanMark,
 }: TaskCardProps) {
   const { t } = useTranslation()
+  const [prioritySaving, setPrioritySaving] = useState(false)
+  const [priorityError, setPriorityError] = useState<string | null>(null)
+  const [prioritySaved, setPrioritySaved] = useState(false)
+  const priorityRequest = useRef(0)
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   })
@@ -72,6 +78,7 @@ export function TaskCard({
   const stateKey = taskMachineKey(task.state)
   const stateLabel = taskStateLabel(task.state)
   const priorityKey = taskMachineKey(task.priority)
+  const priorityIsEditable = ['low', 'normal', 'high', 'urgent'].includes(priorityKey)
   const canPublish =
     task.state === 'backlog' ||
     task.state === 'queued' ||
@@ -101,7 +108,54 @@ export function TaskCard({
           error: task.error,
         })
       : null
-  const showPriorityBadge = priorityKey !== 'normal'
+
+  useEffect(
+    () => () => {
+      priorityRequest.current += 1
+    },
+    []
+  )
+
+  async function updatePriority(priority: TaskSummary['priority']) {
+    if (priority === task.priority || prioritySaving) return
+    const board = useBoardStore.getState()
+    const groupId = board.selectedGroupId
+    const taskIsOnBoard = Object.values(board.columns).some((column) =>
+      column.some((boardTask) => boardTask.id === task.id)
+    )
+    if (!groupId || !taskIsOnBoard) {
+      setPriorityError(t('board.priority.error'))
+      return
+    }
+
+    const requestId = ++priorityRequest.current
+    setPrioritySaving(true)
+    setPriorityError(null)
+    setPrioritySaved(false)
+    try {
+      const response = await orchestrationApi.updateTask(task.id, { priority })
+      if (!response.ok || !response.task) throw new Error('Missing updated task')
+
+      const current = useBoardStore.getState()
+      const stillOnBoard = Object.values(current.columns).some((column) =>
+        column.some((boardTask) => boardTask.id === task.id)
+      )
+      if (
+        requestId !== priorityRequest.current ||
+        current.selectedGroupId !== groupId ||
+        !stillOnBoard
+      ) {
+        return
+      }
+
+      current.upsertTask(response.task)
+      setPrioritySaved(true)
+    } catch {
+      if (requestId === priorityRequest.current) setPriorityError(t('board.priority.error'))
+    } finally {
+      if (requestId === priorityRequest.current) setPrioritySaving(false)
+    }
+  }
 
   useEffect(() => {
     if (task.state !== 'failed' || !isContextOverflowFailure(task.error)) return
@@ -111,11 +165,19 @@ export function TaskCard({
   }, [task.state, task.error, task.id])
 
   function trackPressStart(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
+    if (isInteractiveCardTarget(e.target)) {
+      pointerStart.current = null
+      return
+    }
     if (e.button !== 0) return
     pointerStart.current = { x: e.clientX, y: e.clientY }
   }
 
   function activateFromPress(e: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
+    if (isInteractiveCardTarget(e.target)) {
+      pointerStart.current = null
+      return
+    }
     if (!onClick || !pointerStart.current) return
     const dx = Math.abs(e.clientX - pointerStart.current.x)
     const dy = Math.abs(e.clientY - pointerStart.current.y)
@@ -183,7 +245,31 @@ export function TaskCard({
           )}
         </div>
         <div className="flex items-center gap-1">
-          {showPriorityBadge && (
+          {priorityIsEditable ? (
+            <select
+              aria-label={t('board.priority.label', { task: task.params.task })}
+              data-testid={`task-priority-${task.id}`}
+              value={task.priority}
+              disabled={prioritySaving}
+              aria-busy={prioritySaving}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              onChange={(event) =>
+                void updatePriority(event.target.value as TaskSummary['priority'])
+              }
+              className={cn(
+                'h-7 w-[5.5rem] rounded-full border border-black/[0.08] bg-transparent px-2 text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.12] dark:text-foreground-dark',
+                task.priority === 'urgent' && 'text-apple-red'
+              )}
+            >
+              <option value="low">{t('board.priority.low')}</option>
+              <option value="normal">{t('board.priority.normal')}</option>
+              <option value="high">{t('board.priority.high')}</option>
+              <option value="urgent">{t('board.priority.urgent')}</option>
+            </select>
+          ) : (
             <span
               className={cn(
                 uiStyles.badge,
@@ -221,6 +307,30 @@ export function TaskCard({
       >
         {task.params.task}
       </p>
+
+      {prioritySaving && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mb-1 text-ui-caption text-secondary-light dark:text-secondary-dark"
+        >
+          {t('board.priority.saving')}
+        </p>
+      )}
+      {priorityError && (
+        <p
+          role="alert"
+          aria-live="polite"
+          className="mb-1 text-ui-caption font-medium text-apple-red"
+        >
+          {priorityError}
+        </p>
+      )}
+      {prioritySaved && (
+        <p role="status" aria-live="polite" className="mb-1 text-ui-caption text-apple-green">
+          {t('board.priority.saved')}
+        </p>
+      )}
 
       {showProgress && !compact && (
         <div data-testid="progress-bar" className="mb-2">
@@ -324,18 +434,22 @@ export function TaskCard({
   )
 }
 
+function isInteractiveCardTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    Boolean(target.closest('button, input, select, textarea, a, [contenteditable="true"]'))
+  )
+}
+
 /** Human hint for a wait prediction: the queue basis plus how to affect it. */
 export function waitEstimateHint(
   estimate: TaskWaitEstimate,
   t: (key: string, values?: Record<string, unknown>) => string
 ): string {
-  const basis = t(
-    estimate.typicalSeconds > 0 ? 'waitEstimate.basis' : 'waitEstimate.noHistory',
-    {
-      position: estimate.position,
-      typicalMin: Math.max(1, Math.round(estimate.typicalSeconds / 60)),
-    }
-  )
+  const basis = t(estimate.typicalSeconds > 0 ? 'waitEstimate.basis' : 'waitEstimate.noHistory', {
+    position: estimate.position,
+    typicalMin: Math.max(1, Math.round(estimate.typicalSeconds / 60)),
+  })
   return `${basis} ${t('waitEstimate.changeHint')}`
 }
 
