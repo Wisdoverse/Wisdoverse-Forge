@@ -106,6 +106,7 @@ impl GithubAppClient {
             http: reqwest::Client::builder()
                 .user_agent("agentforge-self-fix")
                 .timeout(Duration::from_secs(30))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .expect("reqwest client"),
             cfg,
@@ -171,6 +172,7 @@ impl GithubAppClient {
 
     /// Build a request carrying the installation token + standard headers.
     async fn authed(&self, method: reqwest::Method, url: String) -> AppResult<reqwest::RequestBuilder> {
+        let url = api_request_url(&Self::api_base(), &url)?;
         let token = self.installation_access().await?.token;
         Ok(self
             .http
@@ -532,6 +534,28 @@ impl GithubAppClient {
     }
 }
 
+/// Keep pagination and request parameters on the configured API origin. Build
+/// the request from that trusted base so only the path/query can vary.
+fn api_request_url(base: &str, candidate: &str) -> AppResult<reqwest::Url> {
+    let endpoint = "GitHub API request";
+    let mut url = reqwest::Url::parse(base).map_err(|_| unavailable(endpoint))?;
+    let requested = reqwest::Url::parse(candidate).map_err(|_| unavailable(endpoint))?;
+    if !matches!(url.scheme(), "http" | "https")
+        || requested.origin() != url.origin()
+        || !requested.username().is_empty()
+        || requested.password().is_some()
+        || requested.fragment().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err(unavailable(endpoint));
+    }
+    url.set_path(requested.path());
+    url.set_query(requested.query());
+    url.set_fragment(None);
+    Ok(url)
+}
+
 /// Parse a GitHub `Link` header and return the URL of the `rel="next"` page, if
 /// any. The header is a comma-separated list of `<url>; rel="name"` entries; we
 /// pick the one whose `rel` is `next`. Returns `None` when there is no next page.
@@ -615,6 +639,65 @@ fn decode_private_key_pem(value: &str) -> Option<String> {
 mod tests {
     use super::*;
     const TEST_RSA_PEM: &str = include_str!("../../../tests/fixtures/test_rsa_private_key.pem");
+
+    #[test]
+    fn api_request_url_keeps_the_configured_origin() {
+        for base in ["https://api.github.com", "http://127.0.0.1:12345"] {
+            let candidate = format!("{base}/repos/example-org/example-repo/commits/abc/check-runs?page=2");
+            assert_eq!(api_request_url(base, &candidate).expect("same-origin page").as_str(), candidate);
+            let encoded =
+                format!("{base}/repos/example-org/example-repo/git/ref/heads/release%2F%23stable?ref=release%2Fstable");
+            assert_eq!(api_request_url(base, &encoded).expect("encoded path and query").as_str(), encoded);
+        }
+        for candidate in [
+            "http://api.github.com/repos/example-org/example-repo",
+            "https://api.github.com:444/repos/example-org/example-repo",
+            "https://api.github.com.example.com/repos/example-org/example-repo",
+            "https://example.com/repos/example-org/example-repo",
+            "http://127.0.0.1/repos/example-org/example-repo",
+            "https://token@api.github.com/repos/example-org/example-repo",
+            "https://api.github.com/repos/example-org/example-repo#fragment",
+            "//example.com/repos/example-org/example-repo",
+        ] {
+            assert!(api_request_url("https://api.github.com", candidate).is_err(), "accepted {candidate}");
+        }
+        assert!(api_request_url("file:///tmp", "file:///tmp/page").is_err());
+    }
+
+    #[tokio::test]
+    async fn github_client_does_not_follow_redirects() {
+        use httpmock::prelude::*;
+        let target = MockServer::start_async().await;
+        let leak = target
+            .mock_async(|when, then| {
+                when.method(GET).path("/collect");
+                then.status(200);
+            })
+            .await;
+        let origin = MockServer::start_async().await;
+        let redirect = origin
+            .mock_async(|when, then| {
+                when.method(GET).path("/redirect");
+                then.status(302).header("Location", target.url("/collect"));
+            })
+            .await;
+        let client = GithubAppClient::new(GithubAppConfig {
+            app_id: "12345".into(),
+            installation_id: "1".into(),
+            private_key_pem: TEST_RSA_PEM.into(),
+            repo: "example-org/example-repo".into(),
+        });
+        let response = client
+            .http
+            .get(origin.url("/redirect"))
+            .bearer_auth("synthetic-token")
+            .send()
+            .await
+            .expect("redirect response");
+        assert_eq!(response.status(), reqwest::StatusCode::FOUND);
+        redirect.assert_async().await;
+        leak.assert_calls_async(0).await;
+    }
 
     #[test]
     fn app_jwt_has_backdated_iat_and_bounded_exp() {

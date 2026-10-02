@@ -12,6 +12,9 @@ const SENSITIVE_DIR_PREFIXES: &[&str] = &[
     "rust/crates/db/migrations/",
     ".github/workflows/",
     "rust/crates/api/src/services/self_fix/",
+    "rust/crates/api/src/services/github_app/",
+    "rust/crates/api/src/domain/maintenance_delivery/",
+    "rust/crates/api/src/repositories/orchestration/maintenance_delivery/",
 ];
 
 /// Basenames sensitive wherever they appear.
@@ -26,11 +29,12 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/services/self_fix/bridge.rs",
     "rust/crates/api/src/services/self_fix/import.rs",
     "rust/crates/api/src/services/self_fix/merge_executor.rs",
-    "rust/crates/api/src/services/github_app/mod.rs",
     "rust/crates/api/src/routes/self_fix.rs",
     "rust/crates/api/src/domain/self_fix.rs",
     "rust/crates/api/src/domain/maintenance.rs",
+    "rust/crates/api/src/domain/maintenance_delivery.rs",
     "rust/crates/api/src/repositories/orchestration/maintenance_request.rs",
+    "rust/crates/api/src/repositories/orchestration/maintenance_delivery.rs",
 ];
 
 #[allow(dead_code)]
@@ -444,7 +448,13 @@ mod tests {
         assert!(blocked(&["rust/crates/api/src/services/self_fix/bridge.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/self_fix/merge_executor.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/mod.rs"]));
+        assert!(blocked(&["rust/crates/api/src/services/github_app/verification.rs"]));
+        assert!(blocked(&["rust/crates/api/src/services/github_app/nested/client.rs"]));
         assert!(blocked(&["rust/crates/api/src/domain/self_fix.rs"]));
+        assert!(blocked(&["rust/crates/api/src/domain/maintenance_delivery.rs"]));
+        assert!(blocked(&["rust/crates/api/src/domain/maintenance_delivery/tests.rs"]));
+        assert!(blocked(&["rust/crates/api/src/repositories/orchestration/maintenance_delivery.rs"]));
+        assert!(blocked(&["rust/crates/api/src/repositories/orchestration/maintenance_delivery/outcomes.rs"]));
     }
 
     #[test]
