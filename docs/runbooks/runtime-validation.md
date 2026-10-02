@@ -368,9 +368,13 @@ was applied twice without losing records; a cross-tenant rewrite failed with
 original `NO ACTION` foreign keys. The manifest SHA for migration 104 matched
 its SQL file.
 
-An isolated PostgreSQL 18 container passed its readiness probe, but the
-migration regression timed out connecting to the test database. PostgreSQL 18
-migration compatibility is not recorded as passed.
+The migration 104 regression also passed on disposable PostgreSQL 18.6 in an
+isolated container (one test, zero failures, 7.26 seconds). The first attempt
+could not reach its test database because the internal network had not
+published its loopback port. After connecting the task-owned container to a
+separate task-owned bridge, the real schema-upgrade and deletion contract ran
+successfully. Its database storage was ephemeral memory; this does not prove
+production storage durability.
 
 The compiled `maintenance_source_upgrade_and_explicit_deletion` Rust regression
 passed again at the recovered code revision against a separate PostgreSQL
@@ -390,9 +394,13 @@ with four warnings:
 (yanked), and `spin` 0.9.8 and 0.10.0 (yanked). The recovered checkout has not
 yet completed its audit. Full `make ci` was interrupted after cache cleanup
 removed its in-progress build directory. In the current retry, formatting and
-Clippy have passed and workspace tests are building. The focused Platform CLI
-health/version test passed (one test); the rebuilt CLI binary is still pending
-full build completion.
+Clippy passed. Workspace tests then failed in
+`context_approval_flow_test::approving_memory_candidate_creates_governed_memory_once`
+with HTTP 500; an isolated diagnostic run is in progress. Full `make ci` and
+its audit are not recorded as passed. The focused Platform CLI health/version
+test passed (one test). The compiled Linux CLI also passed real `health -o json`
+and `version -o json` commands against the API: readiness checks were retained,
+and the absent server version was reported as `(unknown)` without stderr.
 Execution in an agent container, the Temporal-backed workflow, production
 migration/runtime validation and comparison across supported CLIs remain
 pending.
