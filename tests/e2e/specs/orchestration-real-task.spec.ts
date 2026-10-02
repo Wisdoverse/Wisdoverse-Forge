@@ -22,12 +22,14 @@ const DEFAULT_LOCAL_PASSWORD = 'DevPass1234!'
 const STABLE_E2E_EMAIL = 'dev@example.com'
 const REAL_E2E_ENABLED = process.env.ORCHESTRATION_REAL_E2E === '1'
 const REAL_CLI_E2E = process.env.ORCHESTRATION_REAL_CLI_E2E === '1'
-const REAL_CLI_TOOL = process.env.ORCHESTRATION_REAL_CLI_TOOL ?? 'codex'
+const CLI_TOOL = process.env.ORCHESTRATION_REAL_CLI_TOOL ?? 'codex'
 const REAL_CLI_MODEL = process.env.ORCHESTRATION_REAL_CLI_MODEL?.trim() || undefined
 const DATABASE_URL = configuredDatabaseUrl()
 const SIDECAR_BIN =
   process.env.AGENTFORGE_SIDECAR_BIN ?? path.join(rustRoot, 'target/debug/agentforge-sidecar')
 const SIDECAR_CONTAINER_IMAGE = process.env.AGENTFORGE_SIDECAR_CONTAINER_IMAGE?.trim() || undefined
+const SIDECAR_CONTAINER_NETWORK =
+  process.env.AGENTFORGE_SIDECAR_CONTAINER_NETWORK?.trim() || undefined
 const SIDECAR_CONTAINER_NATS_HOST =
   process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_HOST ?? 'host.docker.internal'
 const NATS_PORT = process.env.NATS_PORT ?? '4222'
@@ -182,11 +184,10 @@ function validateRealE2ESafety() {
   }
   if (REAL_CLI_E2E) {
     requiredRealE2EEnv('ORCHESTRATION_REAL_CLI_HOME')
-    if (!['claude', 'codex', 'gemini', 'opencode'].includes(REAL_CLI_TOOL)) {
-      throw new Error(
-        'ORCHESTRATION_REAL_CLI_TOOL must be "codex", "claude", "gemini", or "opencode" when ORCHESTRATION_REAL_CLI_E2E=1'
-      )
-    }
+  }
+  const tools = REAL_CLI_E2E ? ['claude', 'codex', 'gemini', 'opencode'] : ['claude', 'codex']
+  if (!tools.includes(CLI_TOOL)) {
+    throw new Error(`ORCHESTRATION_REAL_CLI_TOOL must be one of: ${tools.join(', ')}`)
   }
 }
 
@@ -261,27 +262,27 @@ async function seedFixture(baseURL: string): Promise<TestFixture> {
   const fakeBinDir = path.join(fixtureRoot, 'bin')
   const cliWorkDir = path.join(fixtureRoot, 'workspace')
   const walPath = path.join(fixtureRoot, 'wal')
-  const cliTool = REAL_CLI_E2E ? REAL_CLI_TOOL : 'codex'
+  const cliTool = CLI_TOOL
 
   await mkdir(fakeBinDir, { recursive: true })
   await mkdir(cliWorkDir, { recursive: true })
   await mkdir(walPath, { recursive: true })
   if (!REAL_CLI_E2E) {
-    const fakeCodex = path.join(fakeBinDir, 'codex')
+    const fakeCli = path.join(fakeBinDir, cliTool)
     await writeFile(
-      fakeCodex,
+      fakeCli,
       [
         '#!/usr/bin/env bash',
         'set -euo pipefail',
-        'if [[ "${1:-}" != "exec" ]]; then',
-        '  echo "unexpected codex invocation: $*" >&2',
+        `if [[ "\${1:-}" != "${cliTool === 'claude' ? '-p' : 'exec'}" ]]; then`,
+        `  echo "unexpected ${cliTool} invocation" >&2`,
         '  exit 2',
         'fi',
-        'prompt="${@: -1}"',
+        cliTool === 'claude' ? 'prompt="${2:-}"' : 'prompt="${@: -1}"',
         'echo "E2E sidecar completed: ${prompt}"',
       ].join('\n')
     )
-    await chmod(fakeCodex, 0o755)
+    await chmod(fakeCli, 0o755)
   }
 
   await db.query('BEGIN')
@@ -684,7 +685,7 @@ async function startContainerSidecar(fixture: TestFixture, image: string): Promi
   )
   const imageId = imageOutput.trim()
   if (!/^sha256:[a-f0-9]{64}$/.test(imageId)) throw new Error('Invalid inspected image ID')
-  const realCliHome = requiredRealE2EEnv('ORCHESTRATION_REAL_CLI_HOME')
+  const realCliHome = REAL_CLI_E2E ? requiredRealE2EEnv('ORCHESTRATION_REAL_CLI_HOME') : undefined
   const credentialDir = credentialDirForTool(fixture.cliTool)
   const natsUrl = `nats://${fixture.agentId}:${fixture.natsPassword}@${SIDECAR_CONTAINER_NATS_HOST}:${NATS_PORT}`
   const containerName = `agentforge-e2e-sidecar-${fixture.agentId}`
@@ -709,14 +710,18 @@ async function startContainerSidecar(fixture: TestFixture, image: string): Promi
     `groupmod --non-unique --gid ${runnerGid} agent`,
     `usermod --non-unique --uid ${runnerUid} --gid ${runnerGid} agent`,
     'install -d -o agent -g agent -m 700 /home/agent/.codex /home/agent/.claude /home/agent/.gemini /home/agent/.local/share/opencode /home/agent/.config/opencode /tmp/agentforge-wal /workspace',
-    `if [ ! -d /run/agentforge-real-cli-home/${credentialDir} ]; then echo "missing ${credentialDir} credentials" >&2; exit 2; fi`,
-    `cp -a /run/agentforge-real-cli-home/${credentialDir}/. /home/agent/${credentialDir}/`,
-    'if [ -f /run/agentforge-real-cli-home/.claude.json ]; then cp -a /run/agentforge-real-cli-home/.claude.json /home/agent/.claude.json; fi',
+    ...(realCliHome
+      ? [
+          `if [ ! -d /run/agentforge-real-cli-home/${credentialDir} ]; then echo "missing ${credentialDir} credentials" >&2; exit 2; fi`,
+          `cp -a /run/agentforge-real-cli-home/${credentialDir}/. /home/agent/${credentialDir}/`,
+          'if [ -f /run/agentforge-real-cli-home/.claude.json ]; then cp -a /run/agentforge-real-cli-home/.claude.json /home/agent/.claude.json; fi',
+        ]
+      : []),
     `chown -R agent:agent /home/agent/${credentialDir} /home/agent/.claude.json /tmp/agentforge-wal /workspace 2>/dev/null || chown -R agent:agent /home/agent/${credentialDir} /tmp/agentforge-wal /workspace`,
     [
       'exec setpriv --reuid=agent --regid=agent --init-groups env',
       'HOME=/home/agent',
-      'PATH=/home/agent/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      `PATH=${realCliHome ? '' : '/run/agentforge-test-cli:'}/home/agent/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
       'CODEX_HOME=/home/agent/.codex',
       'CLAUDE_CONFIG_DIR=/home/agent/.claude',
       'GEMINI_CONFIG_DIR=/home/agent/.gemini',
@@ -734,8 +739,9 @@ async function startContainerSidecar(fixture: TestFixture, image: string): Promi
     containerName,
     '--label',
     'com.agentforge.e2e=orchestration-real-cli',
-    '--add-host',
-    `${SIDECAR_CONTAINER_NATS_HOST}:host-gateway`,
+    ...(SIDECAR_CONTAINER_NETWORK
+      ? ['--network', SIDECAR_CONTAINER_NETWORK]
+      : ['--add-host', `${SIDECAR_CONTAINER_NATS_HOST}:host-gateway`]),
     '--user',
     '0:0',
     '--cpus',
@@ -750,8 +756,10 @@ async function startContainerSidecar(fixture: TestFixture, image: string): Promi
     `type=bind,source=${fixture.cliWorkDir},target=/workspace`,
     '--mount',
     `type=bind,source=${fixture.walPath},target=/tmp/agentforge-wal`,
-    '-v',
-    `${realCliHome}:/run/agentforge-real-cli-home:ro`,
+    '--mount',
+    realCliHome
+      ? `type=bind,source=${realCliHome},target=/run/agentforge-real-cli-home,readonly`
+      : `type=bind,source=${fixture.fakeBinDir},target=/run/agentforge-test-cli,readonly`,
     ...envArgs,
     '--entrypoint',
     '/bin/bash',
