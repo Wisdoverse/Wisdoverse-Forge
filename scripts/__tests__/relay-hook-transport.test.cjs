@@ -1,5 +1,7 @@
 'use strict'
 
+/* global __dirname:readonly, Buffer:readonly, queueMicrotask:readonly, setImmediate:readonly */
+
 const assert = require('node:assert/strict')
 const crypto = require('node:crypto')
 const { EventEmitter } = require('node:events')
