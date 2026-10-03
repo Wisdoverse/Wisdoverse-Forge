@@ -10,14 +10,10 @@ pub fn default_credentials_path() -> PathBuf {
     {
         return PathBuf::from(xdg).join("agentforge").join("credentials");
     }
-    match dirs_home() {
+    match crate::config::home_directory() {
         Some(home) => home.join(".agentforge").join("credentials"),
         None => PathBuf::from(".agentforge").join("credentials"),
     }
-}
-
-fn dirs_home() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(PathBuf::from)
 }
 
 /// Stores `token` at `path` with 0600 mode, creating parent dirs with 0700.
