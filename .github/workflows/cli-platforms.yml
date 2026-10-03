@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'rust/**'
+      - 'hooks/agentforge-relay-hook.cjs'
+      - 'scripts/__tests__/relay-hook-transport.test.cjs'
       - '.github/workflows/cli-platforms.yml'
       - '.github/workflows/release.yml'
       - 'scripts/check-cli-platform.py'
@@ -62,6 +64,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Test relay hook transport
+        run: node --test scripts/__tests__/relay-hook-transport.test.cjs
       - name: Install protobuf compiler (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -90,6 +97,14 @@ jobs:
           # MSVC supports packed debug information; the workspace default is Unix-specific.
           CARGO_PROFILE_TEST_SPLIT_DEBUGINFO: ${{ runner.os == 'Windows' && 'packed' || 'unpacked' }}
         run: cargo test --locked -p agentforge-cli --lib
+      - name: Test sidecar transport and filesystem on the native platform
+        working-directory: rust
+        shell: bash
+        env:
+          CARGO_PROFILE_TEST_DEBUG: '0'
+          # MSVC supports packed debug information; the workspace default is Unix-specific.
+          CARGO_PROFILE_TEST_SPLIT_DEBUGINFO: ${{ runner.os == 'Windows' && 'packed' || 'unpacked' }}
+        run: cargo test --locked -p agentforge-sidecar
       - name: Build operator binaries
         working-directory: rust
         shell: bash

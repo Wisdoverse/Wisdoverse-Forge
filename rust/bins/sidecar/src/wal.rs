@@ -89,12 +89,19 @@ impl Wal {
             return Ok(None);
         }
 
-        fs::create_dir_all(&self.path).await?;
+        crate::durable_fs::create_dirs(self.path.clone()).await?;
         let filename = format!("{}.json", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
-        let filepath = self.path.join(filename);
-        let mut file = fs::File::create(&filepath).await?;
+        let filepath = self.path.join(&filename);
+        let temp = self.path.join(format!(".{filename}.{}.tmp", uuid::Uuid::now_v7()));
+        let mut file = crate::durable_fs::create_file_async(temp.clone()).await?;
         file.write_all(data).await?;
         file.flush().await?;
+        file.sync_data().await?;
+        drop(file);
+        let target = filepath.clone();
+        tokio::task::spawn_blocking(move || crate::durable_fs::move_file(&temp, &target, false))
+            .await
+            .map_err(std::io::Error::other)??;
 
         self.pending.fetch_add(1, Ordering::Relaxed);
         Ok(Some(filepath))
