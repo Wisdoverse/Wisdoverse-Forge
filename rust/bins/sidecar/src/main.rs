@@ -162,7 +162,9 @@ async fn main() -> anyhow::Result<()> {
     // single-threaded (before any task is spawned), so the brief process-global
     // umask change during bind cannot affect concurrent file creation (F065). The
     // listener is served by `unix_socket_listener::run` further below.
+    #[cfg(unix)]
     let relay_socket = unix_socket_listener::RELAY_SOCKET_PATH;
+    #[cfg(unix)]
     let relay_listener = unix_socket_listener::bind_relay_listener(relay_socket)?;
 
     // Shutdown coordination.
@@ -302,9 +304,13 @@ async fn main() -> anyhow::Result<()> {
     // concurrent file creation (F065). The path is a single hardcoded const shared
     // with the hook default, the entrypoint, and the healthcheck — no env override,
     // so all four sides can never disagree.
+    #[cfg(unix)]
     let listener_publisher = publisher.clone();
+    #[cfg(unix)]
     let listener_wal = wal_instance.clone();
+    #[cfg(unix)]
     let listener_shutdown = shutdown_rx.clone();
+    #[cfg(unix)]
     let listener_task = tokio::spawn(async move {
         if let Err(err) =
             unix_socket_listener::run(relay_listener, relay_socket, listener_publisher, listener_wal, listener_shutdown)
@@ -313,6 +319,8 @@ async fn main() -> anyhow::Result<()> {
             tracing::error!(error = %err, "Relay socket listener exited with error");
         }
     });
+    #[cfg(not(unix))]
+    tracing::warn!("Unix CLI relay hooks are unavailable on this platform");
 
     // Spawn the periodic WAL-drain task. The WAL is otherwise only drained once
     // at startup, so an event buffered during the per-agent JWT reconnect would
@@ -353,7 +361,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Shutdown signal received");
     let _ = shutdown_tx.send(true);
 
-    let _ = tokio::join!(cmd_task, hb_task, listener_task, drain_task);
+    let _ = tokio::join!(cmd_task, hb_task, drain_task);
+    #[cfg(unix)]
+    let _ = listener_task.await;
     if let Some(task) = orchestration_task {
         let _ = task.await;
     }

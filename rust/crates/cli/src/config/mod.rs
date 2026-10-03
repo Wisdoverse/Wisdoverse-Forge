@@ -31,10 +31,17 @@ pub fn default_path() -> PathBuf {
     {
         return PathBuf::from(xdg).join("agentforge").join("config.yaml");
     }
-    match std::env::var_os("HOME").map(PathBuf::from) {
+    match home_directory() {
         Some(h) => h.join(".agentforge").join("config.yaml"),
         None => PathBuf::from(".agentforge").join("config.yaml"),
     }
+}
+
+pub(crate) fn home_directory() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").filter(|value| !value.is_empty());
+    #[cfg(windows)]
+    let home = home.or_else(|| std::env::var_os("USERPROFILE").filter(|value| !value.is_empty()));
+    home.map(PathBuf::from)
 }
 
 /// Loads config from `path`. Returns a Config with `defaults.output = "table"`
@@ -152,6 +159,20 @@ mod tests {
         let loaded = load(&p).unwrap();
         assert_eq!(loaded.server, "https://a.example");
         assert_eq!(loaded.defaults.tool, "claude");
+    }
+
+    #[test]
+    fn config_and_credentials_share_the_default_home() {
+        let d = tempdir().unwrap();
+        let home = d.path().as_os_str();
+        #[cfg(windows)]
+        let vars = [("XDG_CONFIG_HOME", None), ("HOME", None), ("USERPROFILE", Some(home))];
+        #[cfg(not(windows))]
+        let vars = [("XDG_CONFIG_HOME", None), ("HOME", Some(home))];
+        temp_env::with_vars(vars, || {
+            assert_eq!(default_path(), d.path().join(".agentforge/config.yaml"));
+            assert_eq!(crate::auth::default_credentials_path(), d.path().join(".agentforge/credentials"));
+        });
     }
 
     #[test]
