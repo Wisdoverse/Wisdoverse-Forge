@@ -964,6 +964,8 @@ fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_path
         CliToolKind::Gemini => {
             let mut c = Command::new("gemini");
             c.args(["-p", prompt]);
+            // An OAuth consent prompt can exit zero on stdin EOF without running a task.
+            c.env("NO_BROWSER", "true");
             // Honor the configured model like the claude/codex arms; without this a
             // Gemini agent silently runs the gemini CLI default model. (Images ride
             // the shared inline `@<path>` prompt reference above, which gemini-cli
@@ -1483,11 +1485,16 @@ mod tests {
     }
 
     #[test]
-    fn gemini_command_references_images_inline_and_passes_model() {
+    fn gemini_command_preserves_inputs_and_disables_browser_auth() {
         let img = "/workspace/.task-images/t/a.png".to_string();
         let cmd =
             cli_command("gemini", Some("gemini-2.5-pro"), "look", std::slice::from_ref(&img)).expect("gemini command");
         let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(
+            cmd.as_std()
+                .get_envs()
+                .any(|(key, value)| key == "NO_BROWSER" && value == Some(std::ffi::OsStr::new("true")))
+        );
         // Gemini has no image flag; the path is referenced inline in the prompt (`@<path>`),
         // which the CLI's @-mention handling reads from /workspace and attaches as an image part
         // (verified against gemini-cli 0.46.0 headless `-p`: the request carries an inlineData
