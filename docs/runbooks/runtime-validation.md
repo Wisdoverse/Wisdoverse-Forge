@@ -418,6 +418,76 @@ binary SHA-256: Claude 2.1.288, Codex 0.160.0, Gemini 0.46.0, and OpenCode
 and binary identity only; they do not establish vendor execution or a
 cross-CLI comparison.
 
+Cosign 3.0.6 first failed after 1.901 seconds in a read-only container while
+creating its default cache under `/home/agentforge/.sigstore`; that attempt
+verified no signature. A configuration-only candidate set `TUF_ROOT` to
+`/tmp/.sigstore`, which the
+[cosign v3.0.6 source](https://github.com/sigstore/cosign/blob/v3.0.6/pkg/cosign/env/env.go#L149)
+defines as a cache directory, not a trusted-root override.
+A corresponding three-line change in `rust/Dockerfile` passed independent
+static review and the owned prod-ext Compose render. The full-CI result at
+`9398461` predates this change and the separate `procps` addition to
+`docker/Dockerfile.agent-base` described below.
+The configuration-only test image preserved all eight filesystem layers, the user, entrypoint, existing image
+environment entries, and the installed cosign binary (SHA-256
+`03dcbf72137007402f8b2acbaa3f6176764c94d48f26769e3cc47576dcb06a36`); it only
+added the cache setting and did not change the trust root, issuer, identity
+allowlist, or verification timeout. With a cold cache, cosign verified one
+signature for the pinned public Codex image index
+`ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:c95fbfd887f08c43dc10066ec994e0f03ac6e8a6497ddb58992c944d2251f3ec`
+in 5.406 seconds (exit 0). A deliberately wrong reference was denied in 3.236
+seconds (exit 1) for certificate-identity mismatch. The certificate identity
+matched the public `watch-cli-versions.yml` workflow on `refs/heads/main`.
+Both bounded checks cleaned up their exact test containers; neither invoked a
+model or changed the running API.
+
+An offline inspection of that digest-pinned published image confirmed image ID
+`sha256:76a53e43dd9add028967666471e39c9fc6bc0d967fb2feee3f4e51dfe0fdc0b3`,
+revision `98a6a491cfe86c5c6ece0c980fdf8c79561cc2dd`, Codex 0.160.0, and default
+UID/GID 1011/1012. Its published sidecar SHA-256 was
+`9327b4a4c79d74bc29d8ddf73c86af0cd5453db137aeb82154d2514e07f8dd5e`; this is
+the published image's binary identity and does not identify the current draft
+sidecar. The read-only offline probe found `/workspace` was not writable; it
+does not establish managed-runner task admission. The existing Docker-baseline and
+production-environment/NATS test files passed all 16 tests; an existing Vite
+`__dirname` warning was non-failing. This one-index signature check is bounded
+verification evidence, not signed-release, admin-roll, or production
+qualification.
+
+A subsequent managed start passed signature-policy admission for the pinned
+public Codex image and returned HTTP 200 in 4.276 seconds. Tenant and container
+security checks passed; the database-backed OAuth credential mount was read-only,
+and the workspace was writable by UID/GID 1011/1012. The actual Codex CLI then
+exited before any task or model submission with
+`failed to invoke ps for pid-managed app server: No such file or directory`.
+The original failed qualification evidence was preserved. The first harness checked Docker stdout
+instead of the sidecar log, and a later `exec` capture failed after the
+container exited; the stopped container's recovered sidecar log showed NATS
+and its subscriber listening, then an orderly shutdown. Independent cleanup
+verification found this run's agent, participant, task and vault rows empty,
+preserved the two pre-existing agents, removed the run's OAuth and workspace
+mounts, and confirmed the original API image and health were unchanged. This
+was an admission/start pass followed by a CLI startup failure, not a task or
+vendor pass.
+
+The shared agent-base Dockerfile now installs `procps` for Codex's pid-managed
+app-server startup. The existing `agent-base-dockerfile.test.ts` passed both
+tests, including its runtime dependency assertion.
+A private additive test image based on the pinned public Codex digest installed
+`procps` 2:4.0.2-3. In a network-none container with an empty HOME, no host
+mounts and the default non-root user (UID/GID 1011/1012), the exact
+`/usr/bin/ps -p 1 -o stat= -o lstart=` invocation exited 0 and returned process
+status and start time. The binary was procps-ng 4.0.2 at `/usr/bin/ps`, SHA-256
+`b2a1f7b6ae39ca71cf915d9553877df8f65e1b5ee39c4c269ee3c0d0bb282546`. The
+Codex 0.160.0 native `app-server daemon start` also returned `started`; its
+version command reported the daemon running. No task, model, or provider was
+invoked. This is isolated process-prerequisite evidence, not a canonical full
+agent-image rebuild or managed task qualification.
+
+The final focused Docker policy suite passed 18 tests across three files. FSD,
+lint, formatting and TypeScript checks also passed for the source/test changes;
+these checks do not replace the historical full Rust CI source boundary.
+
 An operator-enclosure interruption qualification at source `8e05bcb` used
 `runtime_kind=cli`, no managed container ID, the sidecar from `0bdb075` (Rust tree
 `b167461df5fabfff1c58131453f021a56a84ce90`), and Codex 0.160.0 with
@@ -492,7 +562,9 @@ privileged/host-PID/socket restrictions, capability drop, no-new-privileges,
 immutable image identity and tenant labels passed. Missing CLI credentials
 returned the expected 400 without creating a container. Cleanup removed three
 containers and two agents and restored the server. These checks do not qualify
-a live admin roll; no signed release or all-CLI vendor behavior was qualified.
+a live admin roll; the separate bounded single-index signature check above
+does not qualify a signed release, and all-CLI vendor behavior remains
+unqualified.
 The separate offline CLI overlay probes establish installation only. The new
 native Compose network environment checker passed 9 selected cases plus two
 fail-closed parse/create checks; focused resolver/MCP tests passed 7/1.
@@ -511,12 +583,14 @@ Earlier wrong-tenant Temporal access returned 500 before the fix, and the
 original migration-104 deletion failed with FK error `23503`; both failures
 remain part of the evidence history.
 
-Still pending are a second successful real vendor CLI run, common-report and
-cross-CLI comparison, managed-container admission, signed-release/admin-roll
-qualification, actual
-artifact-storage policy qualification, real GitHub App and protected-repository
-acceptance, production migration/runtime acceptance, and macOS/Windows operator
-validation. Pilot adoption and measurement remain optional;
+Still pending are a canonical server image rebuilt with the TUF cache change,
+a canonical published signed agent image rebuilt with `procps` and the current
+draft sidecar, and a successful managed-runner task using those images; a
+second successful real vendor CLI run,
+common-report and cross-CLI comparison, broader signed-release/admin-roll
+qualification, actual artifact-storage policy qualification, real GitHub App
+and protected-repository acceptance, production migration/runtime acceptance,
+and macOS/Windows operator validation. Pilot adoption and measurement remain optional;
 engineering gates remain required. All databases, records, images and provider
 fixtures described above were test resources, not production data or release
 artifacts.
@@ -553,6 +627,7 @@ API-baseline evidence above:
   passed. `cargo audit` reported four policy-allowed existing warnings:
   `event-listener` 5.4.1 (RUSTSEC-2026-0221, unsound), `chacha20` 0.10.0
   (yanked), and `spin` 0.9.8 and 0.10.0 (yanked).
+
 - Four local Playwright browser scenarios against the newly compiled API:
   passed in 50.5 seconds. This is a local browser/API check, not a real GitHub
   write, agent execution, production migration or pilot acceptance.

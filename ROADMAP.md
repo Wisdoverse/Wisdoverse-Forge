@@ -1,12 +1,12 @@
 # Wisdoverse Forge Product Roadmap
 
-| | |
-| --- | --- |
-| Status | Active engineering direction; product adoption remains optional to evaluate |
-| Owner | Product with engineering; assign a delivery owner to each implementation PR |
-| Near-term horizon | Deliver and validate the ordered maintenance workflow against technical acceptance evidence |
-| Longer-term horizon | Demand-triggered investment; adoption evidence may inform priorities but does not gate current delivery |
-| Related | [Product UX Direction](docs/architecture/product-ux-direction.md), [Product Validation Guide](docs/guides/product-validation.md), [SPEC.md](SPEC.md), [Runtime Validation](docs/runbooks/runtime-validation.md) |
+|                     |                                                                                                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status              | Active engineering direction; product adoption remains optional to evaluate                                                                                                                                     |
+| Owner               | Product with engineering; assign a delivery owner to each implementation PR                                                                                                                                     |
+| Near-term horizon   | Deliver and validate the ordered maintenance workflow against technical acceptance evidence                                                                                                                     |
+| Longer-term horizon | Demand-triggered investment; adoption evidence may inform priorities but does not gate current delivery                                                                                                         |
+| Related             | [Product UX Direction](docs/architecture/product-ux-direction.md), [Product Validation Guide](docs/guides/product-validation.md), [SPEC.md](SPEC.md), [Runtime Validation](docs/runbooks/runtime-validation.md) |
 
 ## 1. Direction and Initial User
 
@@ -53,15 +53,15 @@ These are implementation baselines, not pilot adoption results. Runtime claims
 remain limited to the deployment, revision, and checks recorded in the linked
 runbooks and tests.
 
-| Foundation | Existing support | Boundary or outstanding evidence |
-| --- | --- | --- |
-| First-run path | `make product`, Start checklist, task board, activation E2E | Preserve clean-install verification and measure actual first-task time |
-| Team work | Human comments and blockers, templates, recurring tasks, prerequisite waits, skills and usage | Board inline priority updates and stale-refresh recovery have local browser/API evidence; workflow usefulness may be evaluated separately |
-| Review and evidence | Task runs, run-scoped evidence, review checklist and required checklist gates | A terminal run or a checked box does not establish that the change is correct |
-| Self-fix PR delivery | Server-owned GitHub App, Maintenance repository settings with read-only preflight and default-branch discovery, draft-PR bridge, CI checks, expected-head merge, human approval | Deployment-level single-repository configuration; preflight reports prerequisites, not CI success; sensitive changes require review on GitHub |
-| Governance and operations | Roles/invites, OIDC and provisioning, audit exports, health/update surfaces, backup/restore guidance | Validate the supported deployment before real team use; advanced identity needs remain demand-triggered |
-| Runtime and supply chain | Multiple Container CLIs, isolation policy, signed offline bundles, TUF-style metadata, OpenTelemetry traces | Per-CLI runtime proof, compatibility and recovery evidence are required; OTLP metrics/logs remain future work |
-| Analytics | Agent reliability, token usage/cost estimates, skill acceptance and context-safety signals | No recorded pilot baseline for human effort, accepted outcomes, or sustained use |
+| Foundation                | Existing support                                                                                                                                                                | Boundary or outstanding evidence                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| First-run path            | `make product`, Start checklist, task board, activation E2E                                                                                                                     | Preserve clean-install verification and measure actual first-task time                                                                        |
+| Team work                 | Human comments and blockers, templates, recurring tasks, prerequisite waits, skills and usage                                                                                   | Board inline priority updates and stale-refresh recovery have local browser/API evidence; workflow usefulness may be evaluated separately     |
+| Review and evidence       | Task runs, run-scoped evidence, review checklist and required checklist gates                                                                                                   | A terminal run or a checked box does not establish that the change is correct                                                                 |
+| Self-fix PR delivery      | Server-owned GitHub App, Maintenance repository settings with read-only preflight and default-branch discovery, draft-PR bridge, CI checks, expected-head merge, human approval | Deployment-level single-repository configuration; preflight reports prerequisites, not CI success; sensitive changes require review on GitHub |
+| Governance and operations | Roles/invites, OIDC and provisioning, audit exports, health/update surfaces, backup/restore guidance                                                                            | Validate the supported deployment before real team use; advanced identity needs remain demand-triggered                                       |
+| Runtime and supply chain  | Multiple Container CLIs, isolation policy, signed offline bundles, TUF-style metadata, OpenTelemetry traces                                                                     | Per-CLI runtime proof, compatibility and recovery evidence are required; OTLP metrics/logs remain future work                                 |
+| Analytics                 | Agent reliability, token usage/cost estimates, skill acceptance and context-safety signals                                                                                      | No recorded pilot baseline for human effort, accepted outcomes, or sustained use                                                              |
 
 The [Self-Fix Loop](docs/guides/self-fix-loop.md) currently opens changes for the
 configured repository and requires deliberate human approval to merge.
@@ -164,14 +164,25 @@ behavior it adds and provide the relevant operator or runtime proof.
    network-isolated installation probes for CLI path, version, file hash, and
    matching sidecar hash; no model was invoked. A corrective real Claude CLI
    attempt failed with `Failed to authenticate: OAuth session expired and could
-   not be refreshed`; it produced one failed run and receipt, with no checkpoint
+not be refreshed`; it produced one failed run and receipt, with no checkpoint
    or interruption recovery. An earlier Claude failure retained an empty
    API/database diagnostic but discarded nonzero-exit stdout, so its cause
    remains unknown. Neither Claude attempt is a successful vendor run. A second
-   successful real vendor CLI run and common-report/cross-CLI
-   comparison remain required, along with managed-container admission,
-   signed-image qualification, and production artifact storage evidence. Do
-   not promise lossless vendor-session migration. See the
+   successful real vendor CLI run and common-report/cross-CLI comparison remain
+   required. The pinned public Codex image passed signature-policy admission
+   and container start (HTTP 200 in 4.276 seconds), but CLI startup failed
+   before task/model submission because `ps` was missing for pid-managed
+   app-server startup. A private additive `procps` test image passed the exact
+   offline `ps` check and local daemon start/version check; it is not a rebuilt
+   canonical agent image. A successful managed task using a canonical published
+   signed agent image rebuilt from current source and the current draft sidecar,
+   broader signed-release/admin-roll qualification, and production
+   artifact-storage evidence remain pending.
+   One bounded cold-cache cosign check of the pinned public Codex image index
+   passed (5.406 seconds, one verified signature); an intentionally wrong
+   reference was denied for certificate-identity mismatch (3.236 seconds).
+   This is single-digest verification evidence. Do not promise lossless
+   vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 6. **Outcome measurement.** Source implements a submission cohort that retains
@@ -257,15 +268,15 @@ time separately. A faster agent run is not evidence of reduced human effort.
 Preserve existing capabilities while scheduling expansions when the workflow
 or a pilot supplies a concrete need.
 
-| Area | Trigger | Evidence before claiming readiness |
-| --- | --- | --- |
-| Multiple repositories and organizations | Repeat single-repository use and a demonstrated routing/access need | Repository permission isolation, external-state reconciliation, multi-tenant tests and operator path |
-| HA and queue scaling | Measured capacity or availability bottleneck | Backpressure/recovery visibility, reference-load soak and upgrade/rollback rehearsal |
-| Performance expansion | A measured workflow bottleneck | Reference hardware/data and p95 API/board measurements; the former p95 < 300 ms target needs a defined reference environment |
-| Deeper identity integration | A pilot requires it | SCIM Groups/attribute compatibility and provisioning/deprovisioning proof |
-| Artifact/run retention | Real storage growth or retention requirements | Documented policy, deletion boundaries and preservation of required audit evidence |
-| OTLP metrics and logs | Existing traces/metrics do not resolve an operational need | Correlated runtime proof, redaction and export configuration guidance |
-| Broader plugins and automation | A proven workflow needs a new tool or trigger | Adapter contract, least-privilege access, compatibility and retry evidence |
+| Area                                    | Trigger                                                             | Evidence before claiming readiness                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Multiple repositories and organizations | Repeat single-repository use and a demonstrated routing/access need | Repository permission isolation, external-state reconciliation, multi-tenant tests and operator path                         |
+| HA and queue scaling                    | Measured capacity or availability bottleneck                        | Backpressure/recovery visibility, reference-load soak and upgrade/rollback rehearsal                                         |
+| Performance expansion                   | A measured workflow bottleneck                                      | Reference hardware/data and p95 API/board measurements; the former p95 < 300 ms target needs a defined reference environment |
+| Deeper identity integration             | A pilot requires it                                                 | SCIM Groups/attribute compatibility and provisioning/deprovisioning proof                                                    |
+| Artifact/run retention                  | Real storage growth or retention requirements                       | Documented policy, deletion boundaries and preservation of required audit evidence                                           |
+| OTLP metrics and logs                   | Existing traces/metrics do not resolve an operational need          | Correlated runtime proof, redaction and export configuration guidance                                                        |
+| Broader plugins and automation          | A proven workflow needs a new tool or trigger                       | Adapter contract, least-privilege access, compatibility and retry evidence                                                   |
 
 Mobile apps, a paid plugin marketplace, operating a public hosted service and a
 cloud-managed runtime as the default are outside this cycle. Automatic merge or
