@@ -145,10 +145,15 @@ behavior it adds and provide the relevant operator or runtime proof.
    and produce common task/result/evidence records. The implementation records
    report conditions and identifies whether conditions match and
    distinct supported CLIs are represented. This is condition comparison of
-   recorded evidence, not proof of real CLI execution or a benchmark. Real
-   per-CLI runs and interrupted-execution/artifact-retention validation remain
-   pending as executable runtime gates. Do not promise lossless vendor-session
-   migration. See the
+   recorded evidence, not a benchmark. One real native-host Codex/model run
+   passed, and one container-sidecar path passed with a deterministic
+   Claude-protocol test CLI; neither establishes two real vendor CLI runs.
+   A credential-free Gemini CLI run reached task state `failed` with
+   `manual authorization needed`; its positive Playwright assertion failed as
+   expected, and the expected-negative classification passed. It is not a
+   successful vendor run. Cross-CLI comparison remains pending along with
+   interrupted-execution/artifact-retention validation. Do not promise
+   lossless vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 6. **Outcome measurement.** Source implements a submission cohort that retains
@@ -164,7 +169,7 @@ behavior it adds and provide the relevant operator or runtime proof.
    updates and stale-refresh recovery with retry. Focused component tests and
    the full unit suite pass. Eight local browser-to-API scenarios also passed,
    covering persisted priority updates and retention/retry after an aborted
-   refresh; see [current engineering validation](docs/runbooks/runtime-validation.md#current-engineering-validation-2026-10-02).
+   refresh; see [current engineering validation](docs/runbooks/runtime-validation.md#current-engineering-validation-2026-10-03).
    Approval-queue and empty-state work remains demand-led and should address an
    observed workflow need.
 

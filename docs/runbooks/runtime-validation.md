@@ -322,93 +322,108 @@ engineering implementation or merge. See the
 operator workflow and the [Product Validation Guide](../guides/product-validation.md)
 for optional evaluation methods.
 
-## Current Engineering Validation (2026-10-02)
+## Current Engineering Validation (2026-10-03)
 
-The source was recovered into an isolated checkout after the host restart.
-Current code evidence is revision
-`9de10c760feea270b1a89d633ba472c5d67d3c46`, based on current
-`origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including PR #1196.
-The recovered source matched the intended changes from the earlier checkout,
-including its browser login port configuration. The runtime API and sidecar
-binaries were built at `352cb460cd0108fd56209da430bc8df433dea234`; their
-backend source is unchanged at the current code revision. Using Node.js
-24.20.0 and dependencies
-installed with `npm ci`, full lint (including FSD, copy, metrics and protocol
-checks), typecheck, format check, production build, and all 2,879 tests across
-208 unit-test files passed, including the 69 focused `BoardView`/`TaskCard`
-tests.
-
-At the same working tree, all eight maintenance browser scenarios passed in
-21.3 seconds against the local Rust API and disposable database. This includes
-real task-priority PATCH plus persisted GET readback, and an aborted background
-GET that retained the loaded cards before a successful manual retry. These
-results cover the local browser-to-API board path.
-
-A separate sidecar browser scenario passed in 21.3 seconds: browser request,
-Rust API/outbox, authenticated encrypted per-agent NATS callout, native sidecar,
-a deterministic fake `codex` Container CLI executable, result worker,
-database/object storage, and browser artifact readback. This validates only
-that bounded local path; it does not validate a vendor CLI, agent container,
-or Temporal workflow.
-
-A controlled native-host model run passed one browser case in 10.3 seconds
-(13.8 seconds total): browser task creation, per-agent NATS authentication,
-sidecar, `codex` 0.160.0 with `gpt-6-luna`, result worker, database and object
-storage, and browser readback of one artifact. The initial attempt timed out
-before calling the model; the controlled retry completed successfully. This
-proves one host CLI/model path, not execution in an agent container, Temporal
-workflow execution, or comparison across two CLIs.
-
-Earlier on 2026-10-02, before the host restart, all 104 migrations applied on
-disposable disk-backed PostgreSQL 17.11. The migration 104 contract was exercised with existing source, report, decision and handoff
-records: the original task deletion failed with FK error `23503`; migration 104
-was applied twice without losing records; a cross-tenant rewrite failed with
-`23503`; and task deletion removed the four records. A pre-104 custom-format
-`pg_dump` restored into a separate database with one row in each table and the
-original `NO ACTION` foreign keys. The manifest SHA for migration 104 matched
-its SQL file.
-
-The migration 104 regression also passed on disposable PostgreSQL 18.6 in an
-isolated container (one test, zero failures, 7.26 seconds). The first attempt
-could not reach its test database because the internal network had not
-published its loopback port. After connecting the task-owned container to a
-separate task-owned bridge, the real schema-upgrade and deletion contract ran
-successfully. Its database storage was ephemeral memory; this does not prove
-production storage durability.
-
-The compiled `maintenance_source_upgrade_and_explicit_deletion` Rust regression
-passed again at the recovered code revision against a separate PostgreSQL
-17.11 cluster on an ephemeral memory filesystem (one test, zero failures). An
-earlier disk-backed invocation was terminated during SQLx database cleanup
-after the host checkpoint stalled (`jbd2_log_wait_commit`); these memory-backed
-runs do not establish disk durability. The earlier disk-backed migration and
-backup/restore checks above are separate evidence. Nine GitHub API boundary
-Rust tests and 15 self-fix policy tests also passed at the recovered revision.
-All 104 migration checksums matched their committed manifest. An isolated
-NATS 2.12.7 instance accepted an authenticated backend JetStream request and
-rejected an anonymous connection. The per-agent callout and execution paths are
-covered separately by the browser runs above.
-An earlier `cargo audit` invocation exited 0 and reported zero vulnerabilities,
-with four warnings:
+Current source is `0bdb0756000e78fd8acd65a4d252e5ed0612679e`, based on
+`origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including PR #1196;
+the Rust workspace tree is `b167461df5fabfff1c58131453f021a56a84ce90`. Rust
+`make ci` passed at this revision in 522.35 seconds: 2,835 passed, 0 failed,
+152 test summaries completed and 7 existing tests ignored. Formatting,
+all-target Clippy, workspace tests, doc tests and audit passed. Audit still
+reports four existing warnings:
 `event-listener` 5.4.1 (`RUSTSEC-2026-0221`, unsound), `chacha20` 0.10.0
-(yanked), and `spin` 0.9.8 and 0.10.0 (yanked). The recovered checkout has not
-yet completed its audit. Full `make ci` was interrupted after cache cleanup
-removed its in-progress build directory. In the current retry, formatting and
-Clippy passed. Workspace tests then failed in
-`context_approval_flow_test::approving_memory_candidate_creates_governed_memory_once`
-with HTTP 500 during host resource pressure. The unchanged case then passed
-an isolated run in 1.38 seconds after inactive build-cache release. A final
-workspace run is in progress; full `make ci` and its audit are not recorded as
-passed. The focused Platform CLI health/version
-test passed (one test). The compiled Linux CLI also passed real `health -o json`
-and `version -o json` commands against the API: readiness checks were retained,
-and the absent server version was reported as `(unknown)` without stderr.
-Execution in an agent container, the Temporal-backed workflow, production
-migration/runtime validation and comparison across supported CLIs remain
-pending.
-These engineering gates remain required; pilot adoption is optional and does
-not gate implementation or merge. All databases, records and the backup were
-disposable test data; these checks do not validate production data or artifacts.
+(yanked), and `spin` 0.9.8 and 0.10.0 (yanked); this is not a zero-issues
+result. Historical full CI also passed at `e59bfde` in 1,130.76 seconds; its
+network checker passed 9 selected cases plus two fail-closed checks. The
+`a7582f4` baseline full CI passed in 2,549.47 seconds. Earlier
+interrupted/failed attempts remain recorded: cache cleanup interrupted one
+run; `context_approval_flow_test::approving_memory_candidate_creates_governed_memory_once`
+returned HTTP 500 during resource pressure, then passed unchanged in isolation
+in 1.38 seconds; an OAuth reconnect test hit SQLx `PoolTimedOut` before its
+body, then passed unchanged in isolation in 3.20 seconds; and a debug build
+filled the disposable filesystem during linking.
+
+The frontend validation at the recovered checkout also passed: full lint
+(including FSD, copy, metrics and protocol checks), typecheck, format check,
+production build, and 2,879 tests across 208 unit-test files, including 69
+focused `BoardView`/`TaskCard` tests. Two focused participant regressions passed
+(memory store and PostgreSQL), including eight concurrent replays in a second
+organization; nine focused WAL tests passed after the atomic `try_update` API
+correction.
+
+The isolated `make prod-ext` profile passed using test binaries and synthetic
+GitHub data. The API server binary remains from `d332219` and the orchestrator
+binary from `a7582f4`. The native sidecar was rebuilt from `0bdb075`; native
+and musl builds passed. The test image was rebuilt and its in-container sidecar
+binary SHA matched the musl build; the native runtime binary has its own
+separate hash. Docker health reported the four
+core containers healthy. API `/health` and `/api/health`
+returned JSON; the API readiness response reported database, Redis, NATS and
+Docker checks true. Orchestrator `/health` reported `workflowRuntime: up`, and
+NATS `/healthz` returned healthy. The profile used ephemeral PostgreSQL,
+temporary Redis, loopback access and synthetic GitHub data. It does not prove
+production durability, signed-release qualification or production operation.
+
+Browser execution one reported three passes and six skips in 27.9 seconds;
+the passing Docker sidecar case took 22.2 seconds. The six skipped cases lacked
+fixture flags. In execution two, only those six skipped maintenance
+delivery/workflow cases were rerun; all six passed in 14.5 seconds. Across the
+two executions, nine scenarios passed. The sidecar used a real container and
+artifact path with a deterministic fake Claude-protocol CLI; it did not run the
+vendor Claude CLI. A previous native-host `codex` 0.160.0 / `gpt-6-luna` model
+browser run passed (one case, 10.3 seconds; 13.8 seconds total) after an initial
+timeout before model invocation.
+
+An earlier Gemini attempt was marked completed after an OAuth browser prompt,
+exited 0 without its success marker, and did not produce a successful task;
+the authentication cause remains unknown. The later credential-free Gemini
+0.46 path used the current native sidecar,
+NATS, outbox, result worker and API. It reached task state `failed` with the API
+diagnostic that authorization was required for a noninteractive session; no
+token was copied. The positive
+Playwright assertion therefore exited 1, as expected for this negative provider
+case, and the expected-negative classification passed. This is not a successful
+vendor run. An isolated `NO_BROWSER=true` probe with CI environment removed
+exited 41 before model invocation, so it also does not validate provider
+execution. The full CI pass above validates the current code; cross-CLI
+comparison remains unverified.
+
+The Temporal 1.26 gate workflow completed in 515 ms after 12 orchestrator
+migrations. Authenticated run returned 202, anonymous access returned 401,
+and a wrong-tenant request returned 404. This verifies that local gate workflow
+and tenant path only, not an AgentNode chain or production Temporal operation.
+Container-network checks exercised normal API start/restart and separate MCP
+creation using the configured network and a test image. Resource limits,
+privileged/host-PID/socket restrictions, capability drop, no-new-privileges,
+immutable image identity and tenant labels passed. Missing CLI credentials
+returned the expected 400 without creating a container. Cleanup removed three
+containers and two agents and restored the server. These checks do not qualify
+a live admin roll; no signed release or all-CLI overlay was qualified. The new
+native Compose network environment checker passed 9 selected cases plus two
+fail-closed parse/create checks; focused resolver/MCP tests passed 7/1.
+
+Earlier migration 104 evidence remains bounded to disposable databases. On
+disk-backed PostgreSQL 17.11, all 104 migrations applied; migration 104 applied
+twice without losing records, a cross-tenant rewrite failed with `23503`, and
+task deletion removed the four source/report/decision/handoff records. A
+pre-migration-104 backup restored with one row in each of those four tables and
+the original `NO ACTION` foreign keys. PostgreSQL 18.6 and an ephemeral-memory
+PostgreSQL 17.11 regression also passed. A prior disk-backed regression stopped
+during SQLx cleanup after a host checkpoint stalled, so the memory-backed runs
+do not establish disk durability. All 104 migration checksums matched their
+manifest.
+Earlier wrong-tenant Temporal access returned 500 before the fix, and the
+original migration-104 deletion failed with FK error `23503`; both failures
+remain part of the evidence history.
+
+Still pending are a second successful real vendor CLI run and cross-CLI
+comparison, interrupted-vendor/artifact-retention qualification, real GitHub
+App and protected-repository acceptance, signed-release/admin-roll
+qualification, production migration/runtime acceptance, and macOS/Windows
+operator validation. Pilot adoption and measurement remain optional;
+engineering gates remain required. All databases, records, images and provider
+fixtures described above were test resources, not production data or release
+artifacts.
 
 ## Backend transaction ownership follow-up
 
