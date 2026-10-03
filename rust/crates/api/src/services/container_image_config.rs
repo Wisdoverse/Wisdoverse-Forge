@@ -22,11 +22,7 @@ pub(crate) fn configured_container_network() -> String {
 }
 
 fn resolve_container_network(configured: Option<&str>) -> String {
-    configured
-        .map(str::trim)
-        .filter(|network| !network.is_empty())
-        .unwrap_or("agentforge-agents")
-        .to_string()
+    configured.map(str::trim).filter(|network| !network.is_empty()).unwrap_or("agentforge-agents").to_string()
 }
 
 pub(crate) fn recorded_image_trust_is_acceptable(tool: CliToolKind, trust: Option<&str>) -> bool {
