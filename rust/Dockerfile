@@ -54,6 +54,9 @@ FROM alpine:3.24 AS runtime
 # gates this image, so upgrade base packages before adding runtime deps.
 RUN apk --no-cache upgrade && apk --no-cache add ca-certificates cosign curl git
 
+# Compose mounts /tmp as writable storage while keeping the root filesystem read-only.
+ENV TUF_ROOT=/tmp/.sigstore
+
 # Create non-root user
 RUN addgroup -S agentforge && adduser -S agentforge -G agentforge
 

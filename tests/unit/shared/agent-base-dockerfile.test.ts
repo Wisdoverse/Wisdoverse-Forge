@@ -9,6 +9,14 @@ const agentBaseDockerfile = fs.readFileSync(
 )
 
 describe('agent base Dockerfile', () => {
+  it('installs procps for Codex pid-managed app-server startup', () => {
+    const runtimePackages = agentBaseDockerfile.match(
+      /RUN apt-get update && apt-get -y dist-upgrade[\s\S]*?apt-get install -y --no-install-recommends \\\n([\s\S]*?)\n    && rm -rf \/var\/lib\/apt\/lists\/\*/
+    )?.[1]
+
+    expect(runtimePackages).toContain('procps')
+  })
+
   it('builds Docker Compose from pinned source using a patched Go toolchain', () => {
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_GO_VERSION=1.26.4')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_VERSION=5.1.3')
