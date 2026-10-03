@@ -24,15 +24,15 @@ The optional Container CLI comparison uses a shared comparison reference and che
 
 All delivery endpoints require authenticated, live platform-administrator access and use the caller's organization. A task from another organization is not accessible. The API returns the standard `{ "ok": true, "data": ... }` envelope; the delivery read returns `null` for an ordinary task without a maintenance source.
 
-| Method and path under `/api/v1` | Purpose |
-| --- | --- |
-| `GET /self-fix/tasks/{id}/delivery` | Current revision, checks, recovery and bounded recent report/verdict/handoff history |
-| `POST /self-fix/tasks/{id}/reports` | Save a verification input and captured revision/run snapshot |
-| `POST /self-fix/tasks/{id}/decisions` | Record a human verdict on the latest report for the current run/revision |
-| `POST /self-fix/tasks/{id}/handoffs` | Save a blocker, next action and retained context for inactive work |
-| `GET /self-fix/reports/{id}` | Retrieve a retained report and its latest human decision |
-| `GET /self-fix/outcomes` | Query a submission cohort with `from`, `to`, optional `projectId` and detail-page `cursor` |
-| `GET /self-fix/comparison?reportIds={comma-separated IDs}` | Compare 2–8 distinct reports and show conditions that do or do not match |
+| Method and path under `/api/v1`                            | Purpose                                                                                    |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /self-fix/tasks/{id}/delivery`                        | Current revision, checks, recovery and bounded recent report/verdict/handoff history       |
+| `POST /self-fix/tasks/{id}/reports`                        | Save a verification input and captured revision/run snapshot                               |
+| `POST /self-fix/tasks/{id}/decisions`                      | Record a human verdict on the latest report for the current run/revision                   |
+| `POST /self-fix/tasks/{id}/handoffs`                       | Save a blocker, next action and retained context for inactive work                         |
+| `GET /self-fix/reports/{id}`                               | Retrieve a retained report and its latest human decision                                   |
+| `GET /self-fix/outcomes`                                   | Query a submission cohort with `from`, `to`, optional `projectId` and detail-page `cursor` |
+| `GET /self-fix/comparison?reportIds={comma-separated IDs}` | Compare 2–8 distinct reports and show conditions that do or do not match                   |
 
 Writes include a UUID `requestKey`, `expectedVersion` and `expectedRevision`; reports also include the current `runId` (or `null` when no run exists). Retry an unconfirmed write with the same key and unchanged input. An acknowledged replay returns the original record even if the task has since changed. Reusing a key for different input, or submitting stale version/run/revision state, returns a conflict; refresh evidence before preparing a new record. A report without a produced change must explain the missing artifact. The full input and response contracts are in [maintenance-delivery.ts](../../shared/types/maintenance-delivery.ts).
 
@@ -42,6 +42,17 @@ Outcomes default to seven days and accept windows up to 120 days. Summary denomi
 
 The task panel shows a bounded recent history. To retrieve an individual report and its latest human decision, an authenticated platform administrator can use `GET /api/v1/self-fix/reports/{id}` with the report ID.
 
-If a run or agent is explicitly removed, its report metadata and captured snapshot are retained; removing the live run link does not erase the recorded report. Raw artifacts referenced by a report remain subject to the existing artifact-storage retention policy.
+If a run or agent is explicitly removed, its report metadata and captured database
+snapshot are retained; the report does not copy raw artifact bytes into object
+storage. Removing the live run link does not erase the recorded report.
+Analytics and finished-run retention settings default to `0` (keep forever);
+configured database sweeps do not delete attachment object bytes. An authorized
+attachment deletion removes its object and then its metadata row. Workspace
+files follow the operator's backup and cleanup process. The sidecar's local WAL
+and assignment inbox support delivery and recovery, not archival: acknowledgment
+removes pending WAL payloads and completed assignment tombstones expire. Archive
+required raw evidence before deliberate task deletion or cleaning temporary
+validation data. A general artifact-storage retention policy and its deletion
+boundaries remain unqualified.
 
 Migration 104 corrects the source-record foreign keys without changing migration 101. Explicit administrative deletion of a task then removes its maintenance source, reports, decisions, and handoffs. It does not add a task-deletion API or a complete organization-purge workflow; other existing organization references still follow the deployment's deletion policy. Back up required evidence before deliberate deletion.

@@ -172,15 +172,32 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    required. The pinned public Codex image passed signature-policy admission
    and container start (HTTP 200 in 4.276 seconds), but CLI startup failed
    before task/model submission because `ps` was missing for pid-managed
-   app-server startup. A private additive `procps` test image passed the exact
-   offline `ps` check and local daemon start/version check; it is not a rebuilt
-   canonical agent image. A successful managed task using a canonical published
-   signed agent image rebuilt from current source and the current draft sidecar,
-   broader signed-release/admin-roll qualification, and production
-   artifact-storage evidence remain pending.
+   app-server startup. The unmodified canonical `docker/Dockerfile.agent-base`
+   built locally from source `d471658` in 1,379.946 seconds (image ID
+   `sha256:66d0290d9deb06634956f806373a4b429c070a9bb2a0b14da20a65393ae64a01`);
+   all four pinned CLI overlays inherited its 31 layers and passed
+   credential-free, network-isolated non-root probes for CLI path/version/hash,
+   `ps`, and matching sidecar hash. No model was invoked. This establishes local
+   image installation and process prerequisites only. A successful managed task
+   using a canonical published signed agent image rebuilt from current source and
+   the current sidecar, broader signed-release/admin-roll qualification, and
+   production artifact-storage evidence remain pending. The canonical server
+   image then built from `d471658` in 1,904.467 seconds (image ID
+   `sha256:55b5e355854bb00762b56b50e747a2f67f58ab7bde0eefa40ca9572e40df03ad`,
+   user `agentforge`, `TUF_ROOT=/tmp/.sigstore`). Cold-cache cosign verified the
+   previously pinned public Codex image's main-branch signature and rejected a
+   branch-mismatched certificate identity; this does not sign or admit the new
+   private overlays. A credential-free offline Codex 0.160.0 PID-daemon probe
+   also passed. It proves daemon startup only, not a managed task or vendor run.
    One bounded cold-cache cosign check of the pinned public Codex image index
    passed (5.406 seconds, one verified signature); an intentionally wrong
    reference was denied for certificate-identity mismatch (3.236 seconds).
+   A disposable API-to-RustFS attachment lifecycle also passed: API upload/read,
+   tenant and anonymous denial, same-volume service restart, byte/metadata
+   verification, and explicit owner deletion while an unrelated object remained.
+   This proves attachment persistence and deletion only, not raw run-artifact
+   retention, power-loss recovery, production cutover, or a storage policy; see
+   [runtime validation](docs/runbooks/runtime-validation.md#rustfs-attachment-persistence).
    This is single-digest verification evidence. Do not promise lossless
    vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and

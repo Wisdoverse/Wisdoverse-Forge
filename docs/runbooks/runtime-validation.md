@@ -17,7 +17,8 @@ The proofed contract is taken from `README.md`, `SPEC.md`, and
   starts the Temporal worker when Temporal is enabled.
 - Temporal runs the live workflow runtime on `:7233`; the UI is on `:8233`.
 - PostgreSQL is required. The existing `prod-ext` evidence below predates this
-  RustFS migration and does not validate RustFS deployment or data cutover.
+  RustFS migration and does not validate production RustFS deployment or data
+  cutover.
   Redis, NATS, Docker, and Temporal are part of that runtime path.
 - Container CLI task execution flows through sidecar, NATS, Rust API jobs,
   persisted task/run/evidence state, and browser-visible task surfaces.
@@ -324,10 +325,10 @@ for optional evaluation methods.
 
 ## Current Engineering Validation (2026-10-03)
 
-Current source is `9398461d30a4d89ed5a5d9d54853cad7786f49fe`, based on
-`origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including PR #1196;
-the Rust workspace tree is `630d87d7ccae3796f791372b35a6851f9c7e1231`. Rust
-`make ci` passed at this revision in 1,784.712 seconds: 2,836 passed, 0 failed,
+The latest full Rust CI covered source `9398461d30a4d89ed5a5d9d54853cad7786f49fe`,
+based on `origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including
+PR #1196; the Rust workspace tree was `630d87d7ccae3796f791372b35a6851f9c7e1231`.
+Rust `make ci` passed at this revision in 1,784.712 seconds: 2,836 passed, 0 failed,
 152 test summaries completed and 7 existing tests ignored. Formatting,
 all-target Clippy, workspace tests, doc tests and audit passed. Audit still
 reports four existing warnings:
@@ -396,8 +397,9 @@ Playwright assertion therefore exited 1, as expected for this negative provider
 case, and the expected-negative classification passed. This is not a successful
 vendor run. An isolated `NO_BROWSER=true` probe with CI environment removed
 exited 41 before model invocation, so it also does not validate provider
-execution. The full CI pass above validates the current code; cross-CLI
-comparison remains unverified.
+execution. The full Rust CI pass above covers source `9398461`; it predates the
+later Dockerfile changes described below. Cross-CLI comparison remains
+unverified.
 
 The older real Claude attempt (9.679 seconds) retained its API/database result
 with an empty diagnostic; its nonzero-exit stdout was discarded, so that
@@ -440,6 +442,22 @@ seconds (exit 1) for certificate-identity mismatch. The certificate identity
 matched the public `watch-cli-versions.yml` workflow on `refs/heads/main`.
 Both bounded checks cleaned up their exact test containers; neither invoked a
 model or changed the running API.
+
+The canonical server image subsequently built from source `d471658` in
+1,904.467 seconds as image
+`sha256:55b5e355854bb00762b56b50e747a2f67f58ab7bde0eefa40ca9572e40df03ad`,
+with user `agentforge` and `TUF_ROOT=/tmp/.sigstore`. In a cold-tmpfs,
+read-only, non-root probe, cosign verified the previously pinned public Codex
+image index's main-branch signature in 3.813 seconds. A branch-mismatched
+certificate identity was denied in 4.477 seconds. Together, these checks verify
+the public digest against the main-only identity policy; they do not sign or
+qualify the private CLI overlays or establish release admission.
+A separate offline package probe confirmed the packaged server binary
+(`ce2c1c4f1ca82add63631f29ae22830bc55417b8ff2c871ff82a228b380d1755`), cosign
+3.0.6 (`03dcbf72137007402f8b2acbaa3f6176764c94d48f26769e3cc47576dcb06a36`),
+and all 104 migration SQL hashes against source. It ran as UID/GID 100/101 with
+network disabled, a read-only root, all capabilities dropped and
+no-new-privileges; its exact container and UUID selector were cleaned.
 
 An offline inspection of that digest-pinned published image confirmed image ID
 `sha256:76a53e43dd9add028967666471e39c9fc6bc0d967fb2feee3f4e51dfe0fdc0b3`,
@@ -487,6 +505,52 @@ agent-image rebuild or managed task qualification.
 The final focused Docker policy suite passed 18 tests across three files. FSD,
 lint, formatting and TypeScript checks also passed for the source/test changes;
 these checks do not replace the historical full Rust CI source boundary.
+
+The unmodified canonical `docker/Dockerfile.agent-base` built from source
+`d471658dcd33fb72b6f4375e29c83fca97103bfa` in 1,379.946 seconds as image
+`sha256:66d0290d9deb06634956f806373a4b429c070a9bb2a0b14da20a65393ae64a01`.
+All four Rust runtime binaries were rebuilt; the sidecar SHA-256 is
+`e2b73362ab920344ad7e6440c01a984e49d7dac50e2e885fed353fd62bea2328`. Four
+pinned `docker/Dockerfile.agent` overlays (Claude 2.1.288, Codex 0.160.0,
+Gemini 0.46.0, OpenCode 1.18.34) inherited all 31 base layers. Their individual
+network-none, read-only-root, non-root probes passed the exact `ps` check,
+version and executable path/hash checks, and sidecar hash comparison; each
+container was removed and its UUID selector returned no match. No model or
+provider was invoked. This qualifies local image installation and process
+prerequisites only, not signed publication or managed task execution. A full
+server image build and the separate offline Codex daemon probe are now complete;
+the daemon probe is bounded to startup and version reporting, not a task.
+
+The canonical Codex 0.160.0 image passed an offline PID-managed daemon probe
+with an empty executable HOME, no host-auth mount, and no model call. The native
+daemon started in 4.091 seconds, and the version command reported it running in
+0.375 seconds. The exact disposable container was removed. This confirms local
+daemon startup only; it does not qualify signed publication, managed task
+execution, or provider behavior.
+
+### RustFS attachment persistence
+
+On 2026-10-03, an isolated API, disposable cloned database and pinned RustFS
+1.0.0 service passed an API-to-PostgreSQL-to-S3 attachment check. The test
+database clone retained its 104 successful migration records; any copied CLI
+or LLM credential rows were cleared before the API started. The API binary was
+from `d332219`, and its four attachment-storage source files
+matched source `d471658`. API upload/read passed, legacy `minio` attachment
+metadata remained readable, and anonymous and foreign-organization requests
+returned 401 and 404. After restarting the API and RustFS against the same
+owned volume, the 85-byte object's downloaded SHA-256 and metadata matched
+before and after restart. Explicit owner deletion removed its object and row
+while preserving an unrelated object. The exact temporary containers, volume,
+bucket, database clone, and generated credentials were cleaned; the standing API
+health and records remained intact.
+
+The initial harness failures remain recorded: the first `mc` attempt's
+credential-echo stdout was suppressed before it could be recorded, and another
+attempt reused a stale ephemeral port after restart. The recovered run used the
+exact owned container and its current allocated port. This proves attachment
+persistence across a service restart and explicit deletion only. It does not
+prove run/raw-artifact retention, power-loss recovery,
+production cutover, or a general storage policy.
 
 An operator-enclosure interruption qualification at source `8e05bcb` used
 `runtime_kind=cli`, no managed container ID, the sidecar from `0bdb075` (Rust tree
@@ -583,10 +647,9 @@ Earlier wrong-tenant Temporal access returned 500 before the fix, and the
 original migration-104 deletion failed with FK error `23503`; both failures
 remain part of the evidence history.
 
-Still pending are a canonical server image rebuilt with the TUF cache change,
-a canonical published signed agent image rebuilt with `procps` and the current
-draft sidecar, and a successful managed-runner task using those images; a
-second successful real vendor CLI run,
+Still pending are a published signed CLI agent image built from the canonical
+base with `procps` and the current sidecar, and a successful managed-runner task
+using that image. Other pending gates are a second successful real vendor CLI run,
 common-report and cross-CLI comparison, broader signed-release/admin-roll
 qualification, actual artifact-storage policy qualification, real GitHub App
 and protected-repository acceptance, production migration/runtime acceptance,
