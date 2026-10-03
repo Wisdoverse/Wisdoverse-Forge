@@ -324,24 +324,35 @@ for optional evaluation methods.
 
 ## Current Engineering Validation (2026-10-03)
 
-Current source is `0bdb0756000e78fd8acd65a4d252e5ed0612679e`, based on
+Current source is `9398461d30a4d89ed5a5d9d54853cad7786f49fe`, based on
 `origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including PR #1196;
-the Rust workspace tree is `b167461df5fabfff1c58131453f021a56a84ce90`. Rust
-`make ci` passed at this revision in 522.35 seconds: 2,835 passed, 0 failed,
+the Rust workspace tree is `630d87d7ccae3796f791372b35a6851f9c7e1231`. Rust
+`make ci` passed at this revision in 1,784.712 seconds: 2,836 passed, 0 failed,
 152 test summaries completed and 7 existing tests ignored. Formatting,
 all-target Clippy, workspace tests, doc tests and audit passed. Audit still
 reports four existing warnings:
 `event-listener` 5.4.1 (`RUSTSEC-2026-0221`, unsound), `chacha20` 0.10.0
 (yanked), and `spin` 0.9.8 and 0.10.0 (yanked); this is not a zero-issues
-result. Historical full CI also passed at `e59bfde` in 1,130.76 seconds; its
-network checker passed 9 selected cases plus two fail-closed checks. The
-`a7582f4` baseline full CI passed in 2,549.47 seconds. Earlier
+result. The earlier `0bdb0756000e78fd8acd65a4d252e5ed0612679e` revision also
+passed full CI in 522.35 seconds with 2,835 passed; that is historical
+evidence, not the current-head run. Historical full CI also passed at
+`e59bfde` in 1,130.76 seconds; its network checker passed 9 selected cases plus
+two fail-closed checks. The `a7582f4` baseline full CI passed in 2,549.47
+seconds. Earlier
 interrupted/failed attempts remain recorded: cache cleanup interrupted one
 run; `context_approval_flow_test::approving_memory_candidate_creates_governed_memory_once`
 returned HTTP 500 during resource pressure, then passed unchanged in isolation
 in 1.38 seconds; an OAuth reconnect test hit SQLx `PoolTimedOut` before its
 body, then passed unchanged in isolation in 3.20 seconds; and a debug build
 filled the disposable filesystem during linking.
+
+Failure-output handling now prefers nonblank stderr, falls back to stdout, and
+uses an exit-status diagnostic when both are blank. One focused unit test covers four
+process-output cases. A bounded expected-negative protocol case passed its
+failure classification (11.6 seconds; suite 16.5 seconds), retaining one failed
+task/run and result receipt with a newline-terminated API/database diagnostic
+and exit code 7.
+This is failure-observability evidence, not successful CLI or model execution.
 
 The frontend validation at the recovered checkout also passed: full lint
 (including FSD, copy, metrics and protocol checks), typecheck, format check,
@@ -387,6 +398,25 @@ vendor run. An isolated `NO_BROWSER=true` probe with CI environment removed
 exited 41 before model invocation, so it also does not validate provider
 execution. The full CI pass above validates the current code; cross-CLI
 comparison remains unverified.
+
+The older real Claude attempt (9.679 seconds) retained its API/database result
+with an empty diagnostic; its nonzero-exit stdout was discarded, so that
+attempt's cause remains unknown. In the corrective real Claude CLI attempt, the
+persisted failure message was
+`Failed to authenticate: OAuth session expired and could not be refreshed`.
+It recorded one CLI execution, one failed
+finished run, and one result receipt. No checkpoint was written, and no
+qualification kill, restart, or replay assertions ran; the final cleanup stop
+did run and cleanup checks passed. No additional provider attempt followed this
+authentication failure. This is a vendor failure, not a successful vendor or
+recovery pass.
+
+The four pinned CLI overlays passed credential-free, network-none installation
+probes for actual command path, version, resolved-file SHA-256, and sidecar
+binary SHA-256: Claude 2.1.288, Codex 0.160.0, Gemini 0.46.0, and OpenCode
+1.18.34. These probes did not invoke a model and establish image installation
+and binary identity only; they do not establish vendor execution or a
+cross-CLI comparison.
 
 An operator-enclosure interruption qualification at source `8e05bcb` used
 `runtime_kind=cli`, no managed container ID, the sidecar from `0bdb075` (Rust tree
@@ -462,7 +492,8 @@ privileged/host-PID/socket restrictions, capability drop, no-new-privileges,
 immutable image identity and tenant labels passed. Missing CLI credentials
 returned the expected 400 without creating a container. Cleanup removed three
 containers and two agents and restored the server. These checks do not qualify
-a live admin roll; no signed release or all-CLI overlay was qualified. The new
+a live admin roll; no signed release or all-CLI vendor behavior was qualified.
+The separate offline CLI overlay probes establish installation only. The new
 native Compose network environment checker passed 9 selected cases plus two
 fail-closed parse/create checks; focused resolver/MCP tests passed 7/1.
 
@@ -482,10 +513,10 @@ remain part of the evidence history.
 
 Still pending are a second successful real vendor CLI run, common-report and
 cross-CLI comparison, managed-container admission, signed-release/admin-roll
-qualification, actual artifact-storage policy qualification, real GitHub App
-and protected-repository acceptance, production migration/runtime acceptance,
-and macOS/Windows operator validation. Pilot adoption and measurement remain
-optional;
+qualification, actual
+artifact-storage policy qualification, real GitHub App and protected-repository
+acceptance, production migration/runtime acceptance, and macOS/Windows operator
+validation. Pilot adoption and measurement remain optional;
 engineering gates remain required. All databases, records, images and provider
 fixtures described above were test resources, not production data or release
 artifacts.

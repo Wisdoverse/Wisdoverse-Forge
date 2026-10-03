@@ -159,10 +159,19 @@ behavior it adds and provide the relevant operator or runtime proof.
    pass. A later corrected-image Codex recovery test passed bounded same-lease
    prompt replay with two CLI executions and one database run/receipt; this is
    not exactly-once execution, vendor-session migration, or artifact-storage
-   policy qualification. A second successful real vendor CLI run and
-   common-report/cross-CLI comparison remain required, along with managed-
-   container admission, signed-image qualification, and production artifact
-   storage evidence. Do not promise lossless vendor-session migration. See the
+   policy qualification. Four pinned CLI overlays (Claude 2.1.288, Codex
+   0.160.0, Gemini 0.46.0, and OpenCode 1.18.34) passed credential-free,
+   network-isolated installation probes for CLI path, version, file hash, and
+   matching sidecar hash; no model was invoked. A corrective real Claude CLI
+   attempt failed with `Failed to authenticate: OAuth session expired and could
+   not be refreshed`; it produced one failed run and receipt, with no checkpoint
+   or interruption recovery. An earlier Claude failure retained an empty
+   API/database diagnostic but discarded nonzero-exit stdout, so its cause
+   remains unknown. Neither Claude attempt is a successful vendor run. A second
+   successful real vendor CLI run and common-report/cross-CLI
+   comparison remain required, along with managed-container admission,
+   signed-image qualification, and production artifact storage evidence. Do
+   not promise lossless vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 6. **Outcome measurement.** Source implements a submission cohort that retains
