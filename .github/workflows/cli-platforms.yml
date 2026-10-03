@@ -85,6 +85,8 @@ jobs:
         shell: bash
         env:
           CARGO_PROFILE_TEST_DEBUG: '0'
+          # MSVC supports packed debug information; the workspace default is Unix-specific.
+          CARGO_PROFILE_TEST_SPLIT_DEBUGINFO: ${{ runner.os == 'Windows' && 'packed' || 'unpacked' }}
         run: cargo test --locked -p agentforge-cli --lib
       - name: Build operator binaries
         working-directory: rust
