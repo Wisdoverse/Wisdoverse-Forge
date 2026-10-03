@@ -3,6 +3,7 @@ use std::io;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
+use std::os::windows::process::CommandExt;
 use std::process::Stdio;
 use std::ptr;
 use std::sync::Arc;
@@ -63,17 +64,37 @@ async fn windows_pipe_security_and_hook_relay_survive_bad_peers_and_restart() {
         "permissive existing child directory must be rejected"
     );
 
-    let junction_root = temp.path().join("junction-root");
+    let fixture_parent = temp.path().join("junction fixtures with spaces");
+    std::fs::create_dir(&fixture_parent).expect("create junction fixture directory");
+    let junction_root = fixture_parent.join("private root");
     ensure_private_state_root(&junction_root).expect("create private junction test root");
-    let target = temp.path().join("junction-target");
+    let target = fixture_parent.join("junction target");
     std::fs::create_dir(&target).expect("create junction target");
     let sentinel = target.join("preserve.txt");
     std::fs::write(&sentinel, b"fixture target remains untouched").expect("seed target sentinel");
     let junction = junction_root.join("target-link");
-    let command = format!("mklink /J \"{}\" \"{}\"", junction.display(), target.display());
-    let created = std::process::Command::new("cmd.exe").arg("/C").arg(command).output().expect("run mklink /J");
+    let junction_text = junction.to_string_lossy();
+    let target_text = target.to_string_lossy();
+    assert!(cmd_path_is_safe(&junction_text), "junction fixture path has cmd.exe-special characters");
+    assert!(cmd_path_is_safe(&target_text), "junction target path has cmd.exe-special characters");
+    assert!(junction_text.contains(' ') && target_text.contains(' '), "fixture exercises quoted paths with spaces");
+    for path in ["bad%path", "bad!path", "bad\npath", "bad\rpath", "bad\"path"] {
+        assert!(!cmd_path_is_safe(path), "reject cmd.exe-special fixture path");
+    }
+    let command = format!(r#"mklink /J "{junction_text}" "{target_text}""#);
+    let created = std::process::Command::new("cmd.exe")
+        .args(["/D", "/C"])
+        .raw_arg(format!(r#""{command}""#))
+        .output()
+        .expect("run mklink /J");
     let junction_cleanup = JunctionCleanup(junction.clone());
-    assert!(created.status.success(), "create junction fixture without symlink privilege");
+    assert!(
+        created.status.success(),
+        "create junction fixture without symlink privilege (status: {}; stdout: {}; stderr: {})",
+        created.status,
+        String::from_utf8_lossy(&created.stdout),
+        String::from_utf8_lossy(&created.stderr)
+    );
     let error = ensure_private_state_root(&junction_root).expect_err("junction must be rejected");
     assert!(error.to_string().contains("reparse points"), "validator rejects the junction itself");
     assert_eq!(std::fs::read(&sentinel).expect("read preserved target sentinel"), b"fixture target remains untouched");
@@ -235,6 +256,10 @@ async fn authenticate_server(stream: &mut NamedPipeClient, publisher: &EventPubl
 async fn send_frame(stream: &mut NamedPipeClient, body: &[u8]) {
     stream.write_all(&(body.len() as u32).to_be_bytes()).await.expect("send frame header");
     stream.write_all(body).await.expect("send frame body");
+}
+
+fn cmd_path_is_safe(path: &str) -> bool {
+    !path.chars().any(|character| matches!(character, '%' | '!' | '\r' | '\n' | '"' | '&' | '|' | '<' | '>' | '^'))
 }
 
 struct JunctionCleanup(std::path::PathBuf);
