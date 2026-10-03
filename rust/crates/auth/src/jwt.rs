@@ -6,7 +6,7 @@
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use uuid::Uuid;
 
-use crate::claims::Claims;
+use crate::claims::{Claims, TokenPurpose};
 
 /// Manages JWT token creation and verification.
 ///
@@ -91,13 +91,57 @@ impl JwtManager {
         encode(&Header::new(self.algorithm), &claims, &self.encoding_key)
     }
 
+    /// Create a session-renewal token that cannot authorize API requests.
+    pub fn create_refresh_token(
+        &self,
+        user_id: Uuid,
+        org_id: Uuid,
+        role: &str,
+        expiry_seconds: u64,
+    ) -> Result<String, jsonwebtoken::errors::Error> {
+        self.create_refresh_token_with_axes_and_expiry(user_id, org_id, role, None, None, None, expiry_seconds)
+    }
+
+    /// Create a session-renewal token retaining active governance axes.
+    pub fn create_refresh_token_with_axes_and_expiry(
+        &self,
+        user_id: Uuid,
+        org_id: Uuid,
+        role: &str,
+        workspace_id: Option<Uuid>,
+        team_id: Option<Uuid>,
+        project_id: Option<Uuid>,
+        expiry_seconds: u64,
+    ) -> Result<String, jsonwebtoken::errors::Error> {
+        let now = chrono::Utc::now().timestamp() as u64;
+        let mut claims = Claims::new(user_id, org_id, role, now + expiry_seconds, now).with_scope_axes(
+            workspace_id,
+            team_id,
+            project_id,
+        );
+        claims.purpose = TokenPurpose::Refresh;
+        encode(&Header::new(self.algorithm), &claims, &self.encoding_key)
+    }
+
     /// Verify a JWT token and return its claims.
     ///
     /// Returns an error if the token is expired, malformed, or has an invalid signature.
     pub fn verify_token(&self, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+        self.verify_purpose(token, TokenPurpose::Access)
+    }
+
+    /// Verify a token only for session renewal.
+    pub fn verify_refresh_token(&self, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+        self.verify_purpose(token, TokenPurpose::Refresh)
+    }
+
+    fn verify_purpose(&self, token: &str, purpose: TokenPurpose) -> Result<Claims, jsonwebtoken::errors::Error> {
         let mut validation = Validation::new(self.algorithm);
         validation.validate_exp = true;
         let data = decode::<Claims>(token, &self.decoding_key, &validation)?;
+        if data.claims.purpose != purpose {
+            return Err(jsonwebtoken::errors::ErrorKind::InvalidToken.into());
+        }
         Ok(data.claims)
     }
 
@@ -115,6 +159,29 @@ mod tests {
 
     fn make_manager() -> JwtManager {
         JwtManager::new(TEST_SECRET, 3600)
+    }
+
+    #[test]
+    fn token_purpose_is_required_and_cannot_be_crossed() {
+        let mgr = make_manager();
+        let user_id = Uuid::now_v7();
+        let org_id = Uuid::now_v7();
+        let access = mgr.create_token(user_id, org_id, "member").unwrap();
+        let workspace = Some(Uuid::now_v7());
+        let refresh = mgr
+            .create_refresh_token_with_axes_and_expiry(user_id, org_id, "member", workspace, None, None, 604800)
+            .unwrap();
+        assert!(mgr.verify_token(&refresh).is_err());
+        assert!(mgr.verify_refresh_token(&access).is_err());
+        assert_eq!(mgr.verify_refresh_token(&refresh).unwrap().workspace_id, workspace);
+        let legacy = serde_json::json!({
+            "sub": user_id, "org": org_id, "role": "member",
+            "iat": chrono::Utc::now().timestamp(), "exp": chrono::Utc::now().timestamp() + 3600,
+        });
+        let untyped =
+            encode(&Header::new(Algorithm::HS256), &legacy, &EncodingKey::from_secret(TEST_SECRET.as_bytes())).unwrap();
+        assert!(mgr.verify_token(&untyped).is_err());
+        assert!(mgr.verify_refresh_token(&untyped).is_err());
     }
 
     #[test]

@@ -205,7 +205,7 @@ impl Config {
             host: read("ORCHESTRATOR_HOST").unwrap_or_else(default_host),
             database_url: read("ORCHESTRATOR_DATABASE_URL").unwrap_or_default(),
             log_level: read("ORCHESTRATOR_LOG_LEVEL").unwrap_or_else(default_log_level),
-            internal_token: read("ORCHESTRATOR_INTERNAL_TOKEN"),
+            internal_token: env::var("ORCHESTRATOR_INTERNAL_TOKEN").ok(),
             jwt_signing_key,
             // Prefer an orchestrator-specific override, fall back to the shared
             // deploy-wide `NATS_URL` so a single compose value enables the relay.
@@ -257,6 +257,16 @@ impl Config {
     }
 
     fn validate_runtime(&self) -> Result<(), config::ConfigError> {
+        for (name, token) in [
+            ("ORCHESTRATOR_INTERNAL_TOKEN", self.internal_token.as_deref()),
+            ("ORCHESTRATOR_MCP_TOKEN", self.temporal_enabled.then_some(self.mcp_token.as_str())),
+        ] {
+            if let Some(token) = token
+                && (token.len() < 32 || token.chars().any(char::is_whitespace))
+            {
+                return Err(config_message(format!("{name} must contain at least 32 non-whitespace bytes")));
+            }
+        }
         if self.temporal_enabled && self.mcp_token.trim().is_empty() {
             return Err(config_message("ORCHESTRATOR_MCP_TOKEN is required when ORCHESTRATOR_TEMPORAL_ENABLED=true"));
         }

@@ -40,7 +40,7 @@ impl AgentMessageService {
     }
 
     pub(crate) async fn delete_all(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<u64> {
-        self.agents.find_by_id(scope, agent_id).await?;
+        super::agent::authorize_agent_action(&self.agents, scope, agent_id, "edit").await?;
         self.messages.delete_all_by_agent(scope, agent_id).await
     }
 }

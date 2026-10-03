@@ -4,9 +4,8 @@
 //! validation, secret encryption/decryption, default selection, and connection
 //! test result persistence.
 
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 use agentforge_core::{AppResult, TenantScope, crypto};
 use agentforge_llm::{
@@ -28,33 +27,6 @@ use crate::domain::resource::{is_outbound_https_host_allowed, provider_base_url_
 use crate::repositories::user::llm_config::{
     InsertLlmProviderConfig, LlmProviderConfigRow, UpdateLlmProviderConfig, UserLlmConfigRepository,
 };
-
-/// How long a discovered model list stays fresh. Provider catalogs change on the
-/// order of weeks, and the list is provider-global (not tenant-specific), so a
-/// process-wide TTL cache keyed by `provider|base_url` keeps the interactive
-/// Add-service form fast without hammering provider APIs.
-const DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(3600);
-
-/// A cached model list with the instant it was fetched.
-type DiscoveryCacheEntry = (Instant, Vec<DiscoveredModel>);
-
-/// Process-global discovery cache. Keyed by `provider_key|base_url` — never by
-/// API key, since the model catalog at an endpoint is the same regardless of
-/// which tenant's key fetched it (the list is public metadata, not a secret).
-static DISCOVERY_CACHE: LazyLock<Mutex<HashMap<String, DiscoveryCacheEntry>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
-fn discovery_cache_get(key: &str) -> Option<Vec<DiscoveredModel>> {
-    let cache = DISCOVERY_CACHE.lock().ok()?;
-    let (stored_at, models) = cache.get(key)?;
-    if stored_at.elapsed() < DISCOVERY_CACHE_TTL { Some(models.clone()) } else { None }
-}
-
-fn discovery_cache_put(key: String, models: Vec<DiscoveredModel>) {
-    if let Ok(mut cache) = DISCOVERY_CACHE.lock() {
-        cache.insert(key, (Instant::now(), models));
-    }
-}
 
 pub(crate) struct LlmProviderService {
     repo: UserLlmConfigRepository,
@@ -370,17 +342,9 @@ impl LlmProviderService {
             return curated;
         }
 
-        let cache_key = format!("{provider_key}|{base}");
-        if let Some(models) = discovery_cache_get(&cache_key) {
-            return live_result(&provider_key, models);
-        }
-
         let client = reqwest::Client::new();
         match discover_models(&client, transport, &base, api_key.as_deref(), DEFAULT_DISCOVERY_TIMEOUT).await {
-            Ok(models) if !models.is_empty() => {
-                discovery_cache_put(cache_key, models.clone());
-                live_result(&provider_key, models)
-            }
+            Ok(models) if !models.is_empty() => live_result(&provider_key, models),
             // Empty list or any error: keep the curated fallback.
             _ => curated,
         }

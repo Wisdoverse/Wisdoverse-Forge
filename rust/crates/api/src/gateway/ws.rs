@@ -54,6 +54,8 @@ const TERMINAL_INPUT_CHANNEL_CAP: usize = 16;
 const MAX_TERMINAL_INPUT_BYTES: usize = 64 * 1024;
 /// Max time to write one frame to the client socket before treating it as dead.
 const WS_SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const WS_AUTH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+const WS_AUTH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(25);
 
 /// Max concurrent terminal attach sessions per WebSocket connection (F061), so a
 /// single client cannot exhaust Docker connections / fds / tokio tasks.
@@ -119,6 +121,9 @@ pub async fn ws_handler(
             WebSocketOriginRejection::MissingInProduction => {
                 tracing::warn!("WebSocket missing Origin header in production");
             }
+            WebSocketOriginRejection::MissingConfiguration => {
+                tracing::warn!("WebSocket Origin requires configured CORS_ORIGIN");
+            }
         }
         return Err(rejection.into_app_error());
     }
@@ -134,9 +139,12 @@ pub async fn ws_handler(
         claims.project_id.map(ProjectId::from),
     );
 
+    if !websocket_session_valid(&state, &scope, &claims).await {
+        return Err(websocket_unauthorized_error());
+    }
+
     // Role drives the audience-scoped admin subscriptions (e.g. the CLI image
     // toast). Captured here from the verified JWT, never from client input.
-    let role = claims.role;
 
     // Upgrade connection — authentication is done, hand off to async handler.
     // Bound inbound message/frame size so a client cannot push an arbitrarily
@@ -144,14 +152,19 @@ pub async fn ws_handler(
     Ok(ws
         .max_message_size(MAX_WS_MESSAGE_BYTES)
         .max_frame_size(MAX_WS_FRAME_BYTES)
-        .on_upgrade(move |socket| handle_ws(socket, state, scope, role)))
+        .on_upgrade(move |socket| handle_ws(socket, state, scope, claims)))
 }
 
 /// Handle an established WebSocket connection.
 ///
 /// Subscribes to `broadcast.{org_id}` on NATS and forwards messages
 /// to the client. Handles ping/pong and graceful disconnect.
-async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, role: String) {
+async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, claims: agentforge_auth::Claims) {
+    // Recheck after the upgrade, before subscribing or sending any tenant data.
+    if !websocket_session_valid(&state, &scope, &claims).await {
+        return;
+    }
+    let role = claims.role.clone();
     let org_id = scope.org_id().as_uuid();
     tracing::info!(org_id = %org_id, "WebSocket connected");
 
@@ -163,7 +176,16 @@ async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, role:
     let outbound_tx = OutboundTx { tx: outbound_tx, close: close.clone() };
     let nats_tasks = spawn_nats_forwarders(&state, &scope, &role, outbound_tx.clone());
     let mut terminals: HashMap<Uuid, TerminalSession> = HashMap::new();
-
+    let remaining = claims.exp.saturating_mul(1000).saturating_sub(chrono::Utc::now().timestamp_millis().max(0) as u64);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(remaining);
+    // These futures race the entire receive loop, so blocked Docker/DB/socket
+    // I/O cannot postpone expiration or withdrawal of authorization. Child
+    // handles stay outside the cancelled future for unconditional cleanup.
+    tokio::select! {
+    biased;
+    _ = tokio::time::sleep_until(deadline) => {},
+    _ = monitor_websocket_authorization(&state, &scope, &claims) => {},
+    _ = async {
     loop {
         tokio::select! {
             _ = close.notified() => {
@@ -208,6 +230,9 @@ async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, role:
         }
     }
 
+    } => {},
+    }
+
     for task in nats_tasks {
         task.abort();
     }
@@ -216,6 +241,23 @@ async fn handle_ws(socket: WebSocket, state: AppState, scope: TenantScope, role:
     }
 
     tracing::info!(org_id = %org_id, "WebSocket disconnected");
+}
+
+async fn websocket_session_valid(state: &AppState, scope: &TenantScope, claims: &agentforge_auth::Claims) -> bool {
+    matches!(
+        tokio::time::timeout(WS_AUTH_TIMEOUT, state.user_service().websocket_session_valid(scope, claims)).await,
+        Ok(Ok(true))
+    )
+}
+
+async fn monitor_websocket_authorization(state: &AppState, scope: &TenantScope, claims: &agentforge_auth::Claims) {
+    let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + WS_AUTH_INTERVAL, WS_AUTH_INTERVAL);
+    loop {
+        tick.tick().await;
+        if !websocket_session_valid(state, scope, claims).await {
+            return;
+        }
+    }
 }
 
 fn spawn_nats_forwarders(
@@ -277,7 +319,7 @@ async fn handle_client_message(
             write_terminal_keys(state, scope, outbound_tx, terminals, agent_id, &keys).await
         }
         Some(ClientMessage::TerminalResize { agent_id, cols, rows }) => {
-            resize_terminal(state, outbound_tx, terminals, agent_id, cols, rows).await
+            resize_terminal(state, scope, outbound_tx, terminals, agent_id, cols, rows).await
         }
         Some(ClientMessage::TerminalDetach { agent_id }) => detach_terminal_by_id(terminals, agent_id),
         None => {}
@@ -305,7 +347,7 @@ async fn attach_terminal(
         return;
     }
 
-    let Some(docker) = state.docker.clone() else {
+    let Some(_) = state.docker.as_ref() else {
         tracing::warn!(agent_id = %agent_id, "terminal attach rejected: docker unavailable");
         let _ = outbound_tx.send(terminal_error_frame(agent_id, docker_unavailable_message()));
         return;
@@ -325,7 +367,8 @@ async fn attach_terminal(
     let rows = rows.unwrap_or(24).max(1);
     let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(TERMINAL_INPUT_CHANNEL_CAP);
     let task = tokio::spawn(run_terminal_attach(
-        docker,
+        state.clone(),
+        scope.clone(),
         agent_id,
         container_id.clone(),
         cols,
@@ -419,6 +462,7 @@ fn terminal_input_size_allowed(outbound_tx: &OutboundTx, agent_id: Uuid, size: u
 
 async fn resize_terminal(
     state: &AppState,
+    scope: &TenantScope,
     outbound_tx: &OutboundTx,
     terminals: &HashMap<Uuid, TerminalSession>,
     agent_id: Uuid,
@@ -428,6 +472,14 @@ async fn resize_terminal(
     let Some(session) = terminals.get(&agent_id) else {
         return;
     };
+    if !matches!(
+        state.gateway_terminal_service().current_access(scope, agent_id, &session.container_id).await,
+        Ok(true)
+    ) {
+        let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal access is no longer available"));
+        return;
+    }
+
     let Some(docker) = state.docker.clone() else {
         let _ = outbound_tx.send(terminal_error_frame(agent_id, docker_unavailable_message()));
         return;
@@ -446,7 +498,8 @@ fn detach_terminal_by_id(terminals: &mut HashMap<Uuid, TerminalSession>, agent_i
 }
 
 async fn run_terminal_attach(
-    docker: Arc<DockerClient>,
+    state: AppState,
+    scope: TenantScope,
     agent_id: Uuid,
     container_id: String,
     cols: u16,
@@ -454,6 +507,13 @@ async fn run_terminal_attach(
     mut input_rx: mpsc::Receiver<Vec<u8>>,
     outbound_tx: OutboundTx,
 ) {
+    let Some(docker) = state.docker.clone() else {
+        return;
+    };
+    let access = state.gateway_terminal_service();
+    if !matches!(access.current_access(&scope, agent_id, &container_id).await, Ok(true)) {
+        return;
+    }
     if let Err(err) = resize_container_tty(&docker, &container_id, cols, rows).await {
         tracing::debug!(error = %err, agent_id = %agent_id, "initial terminal resize failed");
     }
@@ -477,7 +537,7 @@ async fn run_terminal_attach(
         Ok(attached) => attached,
         Err(err) => {
             tracing::warn!(agent_id = %agent_id, container_id = %container_id, error = %err, "terminal attach failed");
-            let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("terminal attach failed: {err}")));
+            let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal attach failed"));
             return;
         }
     };
@@ -491,22 +551,30 @@ async fn run_terminal_attach(
                 let Some(chunk) = chunk else {
                     break;
                 };
+                if !matches!(access.current_access(&scope, agent_id, &container_id).await, Ok(true)) {
+                    let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal access is no longer available"));
+                    break;
+                }
                 if let Err(err) = input.write_all(&chunk).await {
                     tracing::warn!(agent_id = %agent_id, error = %err, "terminal input failed");
-                    let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("terminal input failed: {err}")));
+                    let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal input failed"));
                     break;
                 }
             }
             chunk = output.next() => {
                 match chunk {
                     Some(Ok(output)) => {
+                        if !matches!(access.current_access(&scope, agent_id, &container_id).await, Ok(true)) {
+                            let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal access is no longer available"));
+                            break;
+                        }
                         if outbound_tx.send(terminal_output_frame(agent_id, output.as_ref())).is_err() {
                             break;
                         }
                     }
                     Some(Err(err)) => {
                         tracing::warn!(agent_id = %agent_id, error = %err, "terminal output failed");
-                        let _ = outbound_tx.send(terminal_error_frame(agent_id, format!("terminal output failed: {err}")));
+                        let _ = outbound_tx.send(terminal_error_frame(agent_id, "terminal output failed"));
                         break;
                     }
                     None => break,

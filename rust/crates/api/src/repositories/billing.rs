@@ -18,6 +18,10 @@ impl BillingRepository {
         Self { pool }
     }
 
+    pub(crate) fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     // ── Plans ──────────────────────────────────────────────────────────
 
     /// List all available billing plans.

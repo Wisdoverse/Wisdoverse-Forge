@@ -107,6 +107,7 @@ impl AgentPromptService {
         content: &str,
         images: Option<&[String]>,
     ) -> AppResult<AgentPromptDispatch> {
+        super::agent::authorize_agent_action(&self.agents, &scope, agent_id, "edit").await?;
         let prompt = PlainTextAgentPrompt::new(content, images)?;
         let agent = self.agents.find_by_id(&scope, agent_id).await?;
         let has_images = images.is_some_and(|ids| !ids.is_empty());
@@ -191,12 +192,12 @@ impl AgentPromptService {
     }
 
     pub(crate) async fn interrupt_sidecar(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        self.agents.find_by_id(scope, agent_id).await?;
+        super::agent::authorize_agent_action(&self.agents, scope, agent_id, "edit").await?;
         self.send_sidecar_interrupt(agent_id).await
     }
 
     pub(crate) async fn interrupt_provider_stream(&self, scope: &TenantScope, agent_id: AgentId) -> AppResult<()> {
-        self.agents.find_by_id(scope, agent_id).await?;
+        super::agent::authorize_agent_action(&self.agents, scope, agent_id, "edit").await?;
         let mut map = self.inflight_prompts.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(tx) = map.remove(&agent_id) {
             let _ = tx.send(());

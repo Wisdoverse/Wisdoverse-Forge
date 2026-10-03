@@ -434,6 +434,13 @@ impl RefreshSessionPolicy {
 pub(crate) struct UserAccountPolicy;
 
 impl UserAccountPolicy {
+    pub(crate) fn sso_account_link_required() -> AppError {
+        ErrorKind::ForbiddenWithCode {
+            code: "SSO_ACCOUNT_LINK_REQUIRED",
+            message: "This email already has a password sign-in. Use password sign-in and ask your organization administrator to arrange SSO access.".into(),
+        }.into()
+    }
+
     pub(crate) fn invalid_credentials() -> ErrorKind {
         ErrorKind::Unauthorized
     }

@@ -4,15 +4,15 @@ This document describes the primary storage systems in the current Rust-first ru
 
 ## Storage Inventory
 
-| Store                           | Scope                               | Primary Users                                                        |
-| ------------------------------- | ----------------------------------- | -------------------------------------------------------------------- |
-| Application PostgreSQL          | Main product data                   | Rust API, user/admin domains, agent/event data                       |
-| Orchestrator PostgreSQL         | Orchestration domain data           | Rust orchestrator tasks, reviews, teams, workflows, audit, knowledge |
-| Attachment object storage       | Uploaded file bytes                 | Rust API attachment service, agent prompt/file workflows             |
-| Redis                           | Optional cache and coordination     | Rust API and supporting services                                     |
-| NATS                            | Event transport                     | Runtime producers, Rust jobs consumers, realtime paths               |
-| Docker volumes / workspace root | Agent workspaces and runtime files  | MCP-backed agent execution                                           |
-| Browser local storage           | User preferences and local UI state | Frontend                                                             |
+| Store                           | Scope                                              | Primary Users                                                        |
+| ------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| Application PostgreSQL          | Main product data                                  | Rust API, user/admin domains, agent/event data                       |
+| Orchestrator PostgreSQL         | Orchestration domain data                          | Rust orchestrator tasks, reviews, teams, workflows, audit, knowledge |
+| Attachment object storage       | Uploaded file bytes                                | Rust API attachment service, agent prompt/file workflows             |
+| Redis                           | Optional cache and coordination                    | Rust API and supporting services                                     |
+| NATS                            | Event transport                                    | Runtime producers, Rust jobs consumers, realtime paths               |
+| Docker volumes / workspace root | Agent workspaces and runtime files                 | MCP-backed agent execution                                           |
+| Browser local storage           | Auth access token, cached user, and local UI state | Frontend                                                             |
 
 ## PostgreSQL Domains
 
@@ -65,7 +65,12 @@ configured through `CONTAINER_*` environment variables.
 
 ## Browser Storage
 
-The frontend may keep local presentation state, preferences, and view selections in browser storage. This data is user-local and is not the source of truth for backend state.
+The frontend stores the access JWT in `af:auth:access` and the cached user's
+email, organization ID, and role in `af:auth:user` in browser local storage.
+The refresh token is held separately in the `af_rt` cookie, which is `HttpOnly`
+and `SameSite=Strict`. Refresh requests issue a new access token and retain the
+existing refresh cookie. Browser local storage is readable by page JavaScript;
+it is not the source of truth for backend state.
 
 ## Guidance
 

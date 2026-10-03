@@ -233,7 +233,7 @@ impl LlmProvider for AnthropicProvider {
             .to_string();
 
         if content.is_empty() {
-            tracing::warn!(response = %json, "Anthropic response missing expected content structure");
+            tracing::warn!("Anthropic response missing expected content structure");
             return Err(LlmError::Parse("response missing content".into()));
         }
 

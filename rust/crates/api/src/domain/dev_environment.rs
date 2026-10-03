@@ -127,6 +127,14 @@ impl DevEnvironmentLifecyclePolicy {
 pub(crate) struct DevEnvironmentRuntimePolicy;
 
 impl DevEnvironmentRuntimePolicy {
+    pub(crate) fn prepare_workspace_failed(err: impl std::fmt::Display) -> AppError {
+        ErrorKind::Internal(anyhow::anyhow!("unable to prepare managed dev workspace: {err}")).into()
+    }
+
+    pub(crate) fn workspace_mount_unauthorized() -> AppError {
+        ErrorKind::Forbidden("workspace mount is not authorized".into()).into()
+    }
+
     pub(crate) fn docker_unavailable() -> AppError {
         ErrorKind::Internal(anyhow::anyhow!("Docker runtime not available for dev environments")).into()
     }
@@ -170,6 +178,16 @@ impl DevEnvironmentRuntimeSpec {
             .map(|image| image.trim().to_string())
             .filter(|image| !image.is_empty())
             .ok_or_else(|| ErrorKind::Validation("config.image is required to start a dev environment".into()))?;
+
+        if raw.mounts.len() > 1
+            || raw.mounts.iter().any(|mount| mount.source != "workspace" || mount.target != "/workspace")
+        {
+            return Err(ErrorKind::Validation(
+                "dev environment mounts must use source=workspace and target=/workspace; host paths are not accepted"
+                    .into(),
+            )
+            .into());
+        }
 
         Ok(Self {
             image,
@@ -512,7 +530,7 @@ mod tests {
         let spec = DevEnvironmentRuntimeSpec::parse(&json!({
             "image": " ubuntu:22.04 ",
             "env": {"A": "one", "B": "two"},
-            "mounts": [{"source": "/tmp/work", "target": "/workspace", "read_only": true}],
+            "mounts": [{"source": "workspace", "target": "/workspace", "read_only": true}],
             "network": "agentforge-dev",
             "resources": {"memory_bytes": 268435456}
         }))

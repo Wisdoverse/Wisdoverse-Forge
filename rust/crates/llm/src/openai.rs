@@ -276,7 +276,7 @@ impl LlmProvider for OpenAiProvider {
             .to_string();
 
         if content.is_empty() {
-            tracing::warn!(response = %json, "OpenAI response missing expected content structure");
+            tracing::warn!("OpenAI response missing expected content structure");
             return Err(LlmError::Parse("response missing content".into()));
         }
 

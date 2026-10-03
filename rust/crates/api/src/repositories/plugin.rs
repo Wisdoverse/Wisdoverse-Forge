@@ -37,6 +37,10 @@ impl PluginRepository {
     }
 
     /// List plugins for the org (includes global plugins where organization_id IS NULL).
+    pub(crate) fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     pub async fn list(&self, scope: &TenantScope) -> AppResult<Vec<Plugin>> {
         let plugins = sqlx::query_as::<_, Plugin>(
             r#"SELECT * FROM plugins

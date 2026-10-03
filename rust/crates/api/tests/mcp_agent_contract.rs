@@ -73,6 +73,24 @@ async fn mcp_requires_internal_token() {
 }
 
 #[tokio::test]
+async fn incorrect_internal_token_never_calls_agent_tools() {
+    let tools = Arc::new(TestTools::default());
+    let app = mcp_router("private-test-token", tools.clone());
+    let (status, _) = json_response(
+        app,
+        mcp_request(
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+                "name": "wisdoverse.agent.create", "arguments": {}
+            }}),
+            Some("incorrect-token"),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(tools.created.lock().expect("created").is_empty());
+}
+
+#[tokio::test]
 async fn mcp_initialize_and_tools_list_expose_agent_surface() {
     let app = mcp_router("secret-token", Arc::new(TestTools::default()));
 

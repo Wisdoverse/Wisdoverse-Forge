@@ -41,11 +41,14 @@ pub enum DiscoveryError {
     Status(u16),
     #[error("model discovery response could not be parsed: {0}")]
     Decode(String),
+    #[error("model discovery response exceeds its size limit")]
+    TooLarge,
 }
 
 /// Default discovery timeout. Discovery is interactive (an operator is waiting
 /// on the Add-service form), so fail fast and fall back to curated models.
 pub const DEFAULT_DISCOVERY_TIMEOUT: Duration = Duration::from_secs(8);
+const MAX_DISCOVERY_BYTES: usize = 1024 * 1024;
 
 /// The discovery base URL to use when the provider config carries no override.
 /// Mirrors each adapter's own default so discovery and inference agree on the
@@ -117,14 +120,20 @@ pub async fn discover_models(
         ProviderTransport::Ollama => request,
     };
 
-    let response = request.send().await.map_err(|err| DiscoveryError::Request(err.to_string()))?;
+    let mut response = request.send().await.map_err(|err| DiscoveryError::Request(err.to_string()))?;
     let status = response.status();
     if !status.is_success() {
         return Err(DiscoveryError::Status(status.as_u16()));
     }
 
-    let body = response.text().await.map_err(|err| DiscoveryError::Request(err.to_string()))?;
-    let json: Value = serde_json::from_str(&body).map_err(|err| DiscoveryError::Decode(err.to_string()))?;
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|err| DiscoveryError::Request(err.to_string()))? {
+        if chunk.len() > MAX_DISCOVERY_BYTES.saturating_sub(body.len()) {
+            return Err(DiscoveryError::TooLarge);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    let json: Value = serde_json::from_slice(&body).map_err(|err| DiscoveryError::Decode(err.to_string()))?;
 
     let models = match transport {
         ProviderTransport::Anthropic => parse_anthropic_models(&json),
@@ -427,5 +436,24 @@ mod tests {
         .expect_err("unauthorized surfaces as Status");
 
         assert!(matches!(err, DiscoveryError::Status(401)));
+    }
+
+    #[tokio::test]
+    async fn discover_rejects_oversized_response_before_parsing() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("x".repeat(MAX_DISCOVERY_BYTES + 1)))
+            .mount(&server)
+            .await;
+        let result = discover_models(
+            &Client::new(),
+            ProviderTransport::OpenAi,
+            &server.uri(),
+            Some("test-key"),
+            DEFAULT_DISCOVERY_TIMEOUT,
+        )
+        .await;
+        assert!(matches!(result, Err(DiscoveryError::TooLarge)));
     }
 }

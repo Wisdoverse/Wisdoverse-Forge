@@ -108,6 +108,16 @@ mod tests {
     const TEST_SECRET: &str = "test-secret-key-that-is-at-least-32-chars!!";
 
     #[tokio::test]
+    async fn refresh_token_cannot_extract_api_authority() {
+        let mgr = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let refresh = mgr.create_refresh_token(Uuid::now_v7(), Uuid::now_v7(), "admin", 604800).unwrap();
+        let bearer = format!("Bearer {refresh}");
+        let mut parts = build_parts(Some(&bearer), Some(mgr));
+        let err = AuthUser::from_request_parts(&mut parts, &()).await.unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::Unauthorized));
+    }
+
+    #[tokio::test]
     async fn valid_token_extracts_auth_user() {
         let mgr = Arc::new(JwtManager::new(TEST_SECRET, 3600));
         let user_id = Uuid::now_v7();
