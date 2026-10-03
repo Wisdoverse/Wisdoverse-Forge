@@ -42,14 +42,14 @@ For any new CLI command, the acceptance checklist is:
 Release artifacts for `agentforge` and `agentforge-sidecar` must cover the
 mainstream operator platforms below.
 
-| Tier | Platform | CPU           | Target Triple                                               | Notes                                                   |
-| ---- | -------- | ------------- | ----------------------------------------------------------- | ------------------------------------------------------- |
-| 1    | Linux    | x86_64        | `x86_64-unknown-linux-gnu` or `x86_64-unknown-linux-musl`   | Primary server and workstation path.                    |
-| 1    | Linux    | ARM64         | `aarch64-unknown-linux-gnu` or `aarch64-unknown-linux-musl` | Required for ARM servers and single-board hosts.        |
-| 1    | macOS    | Apple Silicon | `aarch64-apple-darwin`                                      | Primary local operator workstation path.                |
-| 1    | macOS    | Intel         | `x86_64-apple-darwin`                                       | Required while Intel Macs remain common in enterprises. |
-| 1    | Windows  | x86_64        | `x86_64-pc-windows-msvc`                                    | Required for PowerShell-based operators.                |
-| 2    | Windows  | ARM64         | `aarch64-pc-windows-msvc`                                   | Supported when CI and signer capacity are available.    |
+| Tier | Platform | CPU           | Target Triple                                               | Notes                                                        |
+| ---- | -------- | ------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
+| 1    | Linux    | x86_64        | `x86_64-unknown-linux-gnu` or `x86_64-unknown-linux-musl`   | Primary server and workstation path.                         |
+| 1    | Linux    | ARM64         | `aarch64-unknown-linux-gnu` or `aarch64-unknown-linux-musl` | Required for ARM servers and single-board hosts.             |
+| 1    | macOS    | Apple Silicon | `aarch64-apple-darwin`                                      | Primary local operator workstation path.                     |
+| 1    | macOS    | Intel         | `x86_64-apple-darwin`                                       | Required while Intel Macs remain common in enterprises.      |
+| 1    | Windows  | x86_64        | `x86_64-pc-windows-msvc`                                    | PowerShell commands; Host CLI runtime qualification pending. |
+| 2    | Windows  | ARM64         | `aarch64-pc-windows-msvc`                                   | Supported when CI and signer capacity are available.         |
 
 Tier 1 means each public release should provide a downloadable artifact, install
 instructions, checksum, and a smoke test. Tier 2 means the code should avoid
@@ -214,3 +214,46 @@ The PR description should include:
 - Install or upgrade notes.
 - A copy of the CLI help or example command when flags changed.
 - Validation output for the smallest relevant CLI smoke test.
+
+### Native platform checks
+
+PRs touching Rust, the operator release workflow, or this guide run **CLI
+Platforms** on native Linux x86_64/ARM64, macOS Intel/Apple Silicon, and Windows
+x86_64 runners. The release workflow reuses these checks before attaching the
+operator binaries to a release. Open the workflow's per-platform jobs to see
+the result; a successful build alone does not pass the check.
+
+Each job runs the CLI library tests, copies both binaries into a temporary
+installation, checks their SHA-256 hashes and `PATH`, and runs help/version,
+configuration, token storage/status/logout, and enrollment shell checks.
+Configuration and synthetic credentials stay inside temporary directories;
+the token never comes from a real account. The enrollment response comes from
+a loopback HTTP fixture, and the printed launch block runs the real sidecar
+with `--help` in Bash or PowerShell 7. The
+`cli-platform-report-<os>-<arch>` artifact records the tested revision, binary
+hashes, checks, and outcome.
+
+Configuration and credentials use `XDG_CONFIG_HOME/agentforge` when configured,
+otherwise `HOME/.agentforge`. Native Windows shells without a `HOME` environment
+variable use `USERPROFILE/.agentforge`, so changing the current directory does
+not move or expose the stored token.
+
+To repeat the bounded check on your own computer, prerequisites are Python 3.10+,
+Bash on Linux/macOS or PowerShell 7 on Windows, and both binaries built for your
+native target. Run from the repository root and replace the target below with
+the matching triple from the platform table:
+
+```bash
+python scripts/check-cli-platform.py \
+  --binary-dir rust/target/x86_64-unknown-linux-gnu/release \
+  --target x86_64-unknown-linux-gnu \
+  --binary-revision <source-revision> --report cli-platform-report.json
+```
+
+Success is a `PASS` report and exit code `0`. A failure names the failed check;
+fix it before relying on that platform's artifact. These checks do not qualify
+release archive installation, signatures, Windows credential ACLs, a live Forge
+server, NATS, or a vendor task. Windows relay hooks still require a native
+transport, and the sidecar's assignment/hook-state directory synchronization
+requires separate Windows runtime and recovery qualification. The Unix socket
+relay and its owner-only permissions remain active on Linux and macOS.
