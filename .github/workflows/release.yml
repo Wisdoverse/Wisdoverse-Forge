@@ -440,6 +440,7 @@ jobs:
   # for the Tier-1 platform matrix before uploading each per-target artifact.
   # `github-release` then attaches them to the release as
   #   agentforge-<os>-<arch>[.exe]  and  agentforge-sidecar-<os>-<arch>[.exe]
+  # plus versioned two-binary archives matching the operator install guide.
   # — exactly the names `release-supply-chain.yml` globs and `agentforge verify`
   # / the runbook reference (e.g. `agentforge-sidecar-linux-amd64`).
   #
@@ -454,6 +455,8 @@ jobs:
     name: Native operator binaries
     needs: [validate, quality-gate]
     uses: ./.github/workflows/cli-platforms.yml
+    with:
+      version: ${{ needs.validate.outputs.version }}
 
   # ===========================================================================
   # GitHub Release
@@ -481,7 +484,7 @@ jobs:
           pattern: release-binaries-*
           merge-multiple: true
           path: release-binaries/
-      - name: Generate SHA256SUMS for binaries
+      - name: Generate SHA256SUMS for operator binaries and archives
         run: |
           cd release-binaries
           ls -lh
