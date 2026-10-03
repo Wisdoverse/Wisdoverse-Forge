@@ -8,8 +8,15 @@ on:
       - '.github/workflows/cli-platforms.yml'
       - '.github/workflows/release.yml'
       - 'scripts/check-cli-platform.py'
+      - 'scripts/package-cli-release.py'
       - 'docs/guides/cli-platform-support.md'
   workflow_call:
+    inputs:
+      version:
+        description: 'Release version without v; PR checks use package.json by default'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -35,27 +42,22 @@ jobs:
             target: x86_64-unknown-linux-gnu
             os_label: linux
             arch_label: amd64
-            ext: ''
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             os_label: linux
             arch_label: arm64
-            ext: ''
           - runner: macos-15-intel
             target: x86_64-apple-darwin
             os_label: macos
             arch_label: amd64
-            ext: ''
           - runner: macos-15
             target: aarch64-apple-darwin
             os_label: macos
             arch_label: arm64
-            ext: ''
           - runner: windows-2025
             target: x86_64-pc-windows-msvc
             os_label: windows
             arch_label: amd64
-            ext: '.exe'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,22 +96,23 @@ jobs:
         run: |
           cargo build --locked --release --target ${{ matrix.target }} \
             --bin agentforge --bin agentforge-sidecar
-      - name: Check installation, config, credentials, and enrollment shell
+      - name: Package and install operator release archives
+        shell: bash
+        env:
+          CLI_RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python scripts/package-cli-release.py \
+            --binary-dir "rust/target/${{ matrix.target }}/release" \
+            --output-dir release-binaries --install-dir cli-install \
+            --os "${{ matrix.os_label }}" --arch "${{ matrix.arch_label }}" \
+            --version "$CLI_RELEASE_VERSION" --report cli-package-report.json
+      - name: Check the installed release archive
         shell: bash
         run: |
           python scripts/check-cli-platform.py \
-            --binary-dir "rust/target/${{ matrix.target }}/release" \
+            --binary-dir cli-install \
             --target "${{ matrix.target }}" --binary-revision "$(git rev-parse HEAD)" \
             --report cli-platform-report.json
-      - name: Stage release assets
-        shell: bash
-        run: |
-          mkdir -p release-binaries
-          SRC="rust/target/${{ matrix.target }}/release"
-          cp "$SRC/agentforge${{ matrix.ext }}" \
-            "release-binaries/agentforge-${{ matrix.os_label }}-${{ matrix.arch_label }}${{ matrix.ext }}"
-          cp "$SRC/agentforge-sidecar${{ matrix.ext }}" \
-            "release-binaries/agentforge-sidecar-${{ matrix.os_label }}-${{ matrix.arch_label }}${{ matrix.ext }}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-binaries-${{ matrix.os_label }}-${{ matrix.arch_label }}
@@ -121,6 +124,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli-platform-report-${{ matrix.os_label }}-${{ matrix.arch_label }}
-          path: cli-platform-report.json
+          path: |
+            cli-platform-report.json
+            cli-package-report.json
           retention-days: 7
           if-no-files-found: ignore

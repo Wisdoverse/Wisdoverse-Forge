@@ -108,27 +108,41 @@ primary operator path.
 
 Prerequisites:
 
-- A shell with `curl`, `grep`, `tar`, `shasum`, and permission to write to
+- A shell with `curl`, `awk`, `tar`, `shasum`, and permission to write to
   `/usr/local/bin`.
 - The release version and target name from the release page.
 
 Replace `v1.2.3` and the target archive with the current release artifact for
 your computer.
 
+| Computer            | Target archive name |
+| ------------------- | ------------------- |
+| Linux x86_64        | `linux-x86_64`      |
+| Linux ARM64         | `linux-arm64`       |
+| macOS Intel         | `macos-x86_64`      |
+| macOS Apple Silicon | `macos-arm64`       |
+
+The archive contains `agentforge` and `agentforge-sidecar` at its root. The
+commands stop before installation if a download or checksum check fails.
+
 ```bash
-VERSION=v1.2.3
-TARGET=linux-x86_64
+(
+  set -eu
+  VERSION=v1.2.3
+  TARGET=linux-x86_64
+  ARCHIVE="agentforge-${VERSION}-${TARGET}.tar.gz"
 
-curl -LO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/agentforge-${VERSION}-${TARGET}.tar.gz"
-curl -LO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/SHA256SUMS"
-grep " agentforge-${VERSION}-${TARGET}.tar.gz$" SHA256SUMS | shasum -a 256 -c -
-tar -xzf "agentforge-${VERSION}-${TARGET}.tar.gz"
-sudo install -m 0755 agentforge /usr/local/bin/agentforge
-sudo install -m 0755 agentforge-sidecar /usr/local/bin/agentforge-sidecar
+  curl -fLO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/${ARCHIVE}"
+  curl -fLO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/SHA256SUMS"
+  awk -v archive="$ARCHIVE" '$2 == archive { print }' SHA256SUMS | shasum -a 256 -c -
+  tar -xzf "$ARCHIVE"
+  sudo install -m 0755 agentforge /usr/local/bin/agentforge
+  sudo install -m 0755 agentforge-sidecar /usr/local/bin/agentforge-sidecar
 
-agentforge --version
-agentforge --help
-agentforge-sidecar --help
+  agentforge --version
+  agentforge --help
+  agentforge-sidecar --help
+)
 ```
 
 Success looks like:
@@ -157,24 +171,37 @@ Prerequisites:
 Replace `v1.2.3` with the current release version.
 
 ```powershell
+$ErrorActionPreference = "Stop"
 $Version = "v1.2.3"
 $Target = "windows-x86_64"
+$Archive = "agentforge-$Version-$Target.zip"
 $InstallDir = "$env:LOCALAPPDATA\Programs\AgentForge"
 
-New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/agentforge-$Version-$Target.zip" -OutFile "agentforge.zip"
+Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/$Archive" -OutFile $Archive
 Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/SHA256SUMS" -OutFile "SHA256SUMS"
-Get-FileHash .\agentforge.zip -Algorithm SHA256
-Expand-Archive .\agentforge.zip -DestinationPath $InstallDir -Force
+$ChecksumLines = @(Get-Content .\SHA256SUMS | Where-Object { ($_ -split '\s+', 2)[1] -ceq $Archive })
+if ($ChecksumLines.Count -ne 1) { throw "Expected exactly one checksum for $Archive" }
+$ExpectedHash = ($ChecksumLines[0] -split '\s+', 2)[0]
+if ($ExpectedHash -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash $Archive -Algorithm SHA256).Hash -ne $ExpectedHash) {
+  throw "Checksum mismatch for $Archive; do not install this download"
+}
 
-setx PATH "$env:PATH;$InstallDir"
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Expand-Archive $Archive -DestinationPath $InstallDir -Force
+
+$UserPaths = @([Environment]::GetEnvironmentVariable("Path", "User") -split ';' | Where-Object { $_ })
+if ($UserPaths -notcontains $InstallDir) {
+  [Environment]::SetEnvironmentVariable("Path", (($UserPaths + $InstallDir) -join ';'), "User")
+}
+$env:PATH = "$InstallDir;$env:PATH"
 & "$InstallDir\agentforge.exe" --version
 & "$InstallDir\agentforge.exe" --help
 & "$InstallDir\agentforge-sidecar.exe" --help
 ```
 
-Compare the printed SHA-256 value with the matching line in `SHA256SUMS` before
-using the binaries.
+The checksum must match before extraction. The commands update your user-level
+`PATH` and the current PowerShell window without changing the machine-level
+setting.
 
 Success looks like:
 
@@ -184,7 +211,7 @@ Success looks like:
 - `agentforge-sidecar.exe --help` prints the join-command guidance instead of
   trying to connect to the server.
 
-Next, open a new PowerShell window so `PATH` is refreshed, then connect:
+Next, connect from the current PowerShell window:
 
 ```powershell
 agentforge config set server https://forge.example.com
@@ -223,15 +250,15 @@ x86_64 runners. The release workflow reuses these checks before attaching the
 operator binaries to a release. Open the workflow's per-platform jobs to see
 the result; a successful build alone does not pass the check.
 
-Each job runs the CLI library tests, copies both binaries into a temporary
-installation, checks their SHA-256 hashes and `PATH`, and runs help/version,
+Each job runs the CLI library tests, creates the documented release archive,
+installs both binaries from it, checks their SHA-256 hashes and `PATH`, and runs help/version,
 configuration, token storage/status/logout, and enrollment shell checks.
 Configuration and synthetic credentials stay inside temporary directories;
 the token never comes from a real account. The enrollment response comes from
 a loopback HTTP fixture, and the printed launch block runs the real sidecar
 with `--help` in Bash or PowerShell 7. The
-`cli-platform-report-<os>-<arch>` artifact records the tested revision, binary
-hashes, checks, and outcome.
+`cli-platform-report-<os>-<arch>` artifact contains the package and command
+reports with the tested revision, archive and binary hashes, checks, and outcome.
 
 Configuration and credentials use `XDG_CONFIG_HOME/agentforge` when configured,
 otherwise `HOME/.agentforge`. Native Windows shells without a `HOME` environment
