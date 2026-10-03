@@ -157,17 +157,17 @@ async fn windows_pipe_security_and_hook_relay_survive_bad_peers_and_restart() {
         .spawn()
         .expect("Node.js is required for native Windows relay qualification");
     let input = serde_json::json!({
-        "hook_event_name": "SessionStart",
+        "hook_event_name": "UserPromptSubmit",
         "session_id": "synthetic-session",
         "cwd": "C:\\workspace",
-        "source": "startup"
+        "prompt": "Synthetic runtime qualification prompt"
     });
     node.stdin
         .take()
         .expect("Node stdin")
         .write_all(input.to_string().as_bytes())
         .await
-        .expect("write synthetic SessionStart hook");
+        .expect("write synthetic UserPromptSubmit hook");
     let output = tokio::time::timeout(Duration::from_secs(15), node.wait())
         .await
         .expect("hook process exits within its connection deadline")
@@ -182,14 +182,19 @@ async fn windows_pipe_security_and_hook_relay_survive_bad_peers_and_restart() {
     assert!(result.is_ok(), "listener exits cleanly");
 
     let entries = wal.replay().await.expect("read WAL");
-    assert_eq!(entries.len(), 1, "malformed and oversized peers add no WAL entries");
+    assert_eq!(
+        entries.len(),
+        1,
+        "malformed and oversized peers add no entries beside the healthy UserPromptSubmit event"
+    );
     let record: serde_json::Value = serde_json::from_slice(&entries[0].1).expect("decode WAL record");
     let event = &record["payload"]["data"];
-    assert_eq!(record["payload"]["event_type"], "session_start");
+    assert_eq!(record["payload"]["event_type"], "user_prompt_submit", "Node UserPromptSubmit hook reaches WAL");
     let event_id = event["id"].as_str().expect("hook event id").to_string();
     let lifecycle_sequence = event["lifecycleSequence"].as_i64().expect("lifecycle sequence");
     assert_eq!(lifecycle_sequence, 1);
     assert_eq!(event["sessionId"], "synthetic-session");
+    assert_eq!(event["prompt"], "Synthetic runtime qualification prompt");
     assert_eq!(event["runtimeId"], agent_id.to_string());
     assert_eq!(event["cliTool"], "claude");
     assert_eq!(event["sourceHookType"], "claude");
