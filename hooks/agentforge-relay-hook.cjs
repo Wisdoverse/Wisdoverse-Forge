@@ -1,18 +1,22 @@
 #!/usr/bin/env node
-// Thin relay hook — reads Claude Code hook JSON from stdin, transforms it,
-// and sends to the Go sidecar via Unix Domain Socket (length-prefixed framing).
+// Thin relay hook — reads CLI hook JSON from stdin, transforms it, and sends it
+// to the Rust sidecar over a Unix-domain socket or authenticated Windows pipe.
 // Exits immediately after sending (~10ms lifetime, 1 PID).
 
 'use strict'
 
 const net = require('node:net')
 const fs = require('node:fs')
-const { randomUUID } = require('node:crypto')
+const crypto = require('node:crypto')
+const { randomUUID } = crypto
 
-// Hardcoded to match the sidecar listener, the entrypoint readiness wait, and the
-// image healthcheck. No env override: a per-component override could drift these
-// four apart (sidecar binds path A while the hook writes to path B -> dropped events).
+// Fixed Unix endpoint matches the Rust UDS listener, entrypoint readiness wait,
+// and image healthcheck. Windows derives its separate named-pipe endpoint from
+// the validated agent ID; neither transport has an endpoint override.
 const SOCKET_PATH = '/tmp/agentforge-relay.sock'
+const WINDOWS_PIPE_PREFIX = '\\\\.\\pipe\\agentforge-relay-'
+const SERVER_PROOF_CONTEXT = Buffer.from('agentforge-relay-server-v1\0', 'utf8')
+const CANONICAL_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/
 const MAX_RESPONSE_CHARS = 65536 // 64K characters max response text
 
 // =============================================================================
@@ -318,6 +322,88 @@ function sendViaUds(eventJson) {
   })
 }
 
+function sendViaWindowsPipe(eventJson) {
+  const agentId = process.env.AGENTFORGE_AGENT_ID
+  if (typeof agentId !== 'string' || !CANONICAL_UUID.test(agentId)) {
+    return Promise.reject(new Error('AGENTFORGE_AGENT_ID is invalid for Windows relay'))
+  }
+
+  const secret = process.env.HMAC_SECRET
+  if (typeof secret !== 'string' || secret.length === 0) {
+    return Promise.reject(new Error('HMAC_SECRET is required for Windows relay'))
+  }
+
+  const pipePath = `${WINDOWS_PIPE_PREFIX}${agentId}`
+  const nonce = crypto.randomBytes(32)
+  const expectedTag = crypto
+    .createHmac('sha256', Buffer.from(secret, 'utf8'))
+    .update(Buffer.concat([SERVER_PROOF_CONTEXT, nonce]))
+    .digest()
+
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(pipePath)
+    let proof = Buffer.alloc(0)
+    let settled = false
+    let eventSent = false
+    let deadline
+
+    const fail = (message) => {
+      if (settled) return
+      settled = true
+      clearTimeout(deadline)
+      socket.destroy()
+      reject(new Error(message))
+    }
+
+    deadline = setTimeout(() => fail('Windows relay proof timeout'), 2000)
+    socket.setTimeout(2000, () => fail('Windows relay proof timeout'))
+    socket.on('error', () => fail('Windows relay unavailable'))
+    socket.on('end', () => {
+      if (!eventSent) fail('Windows relay closed before server proof')
+    })
+    socket.on('close', () => {
+      if (!settled) fail('Windows relay closed before server proof')
+    })
+    socket.once('connect', () => socket.write(nonce))
+    const onServerProof = (chunk) => {
+      if (settled || eventSent) return
+      proof = Buffer.concat([proof, chunk])
+      if (proof.length > 32) {
+        fail('Windows relay server proof invalid')
+        return
+      }
+      if (proof.length < 32) return
+
+      if (!crypto.timingSafeEqual(expectedTag, proof)) {
+        fail('Windows relay server proof invalid')
+        return
+      }
+
+      eventSent = true
+      socket.removeListener('data', onServerProof)
+      const payload = Buffer.from(eventJson, 'utf8')
+      const header = Buffer.alloc(4)
+      header.writeUInt32BE(payload.length, 0)
+      socket.write(Buffer.concat([header, payload]), (err) => {
+        if (err) {
+          fail('Windows relay unavailable')
+          return
+        }
+        if (settled) return
+        settled = true
+        clearTimeout(deadline)
+        socket.end()
+        resolve()
+      })
+    }
+    socket.on('data', onServerProof)
+  })
+}
+
+function sendEvent(eventJson) {
+  return process.platform === 'win32' ? sendViaWindowsPipe(eventJson) : sendViaUds(eventJson)
+}
+
 // =============================================================================
 // Main
 // =============================================================================
@@ -344,16 +430,16 @@ async function main() {
   const eventJson = JSON.stringify(event)
 
   try {
-    await sendViaUds(eventJson)
+    await sendEvent(eventJson)
   } catch (err) {
-    // Best-effort boundary: if the sidecar socket is unavailable (sidecar
+    // Best-effort boundary: if the sidecar relay is unavailable (sidecar
     // starting/restarting/OOM-killed mid-session) the event is dropped here,
     // BEFORE any durable layer — the WAL only covers events that reach the
     // sidecar. This stderr line is the only local trace. See
     // docs/architecture/overview.md "Relay event durability" (#893 / F067).
     const eventType = (event && event.type) || 'unknown'
     process.stderr.write(
-      `agentforge-relay-hook: dropped ${eventType} event (sidecar socket unavailable): ${err.message}\n`
+      `agentforge-relay-hook: dropped ${eventType} event (sidecar relay unavailable): ${err.message}\n`
     )
   }
 }

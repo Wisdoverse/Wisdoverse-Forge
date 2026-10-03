@@ -126,7 +126,7 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: [validate, build]
+    needs: [validate, build, release-binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -153,7 +153,7 @@ jobs:
 
   publish-docker:
     name: Publish Docker Images
-    needs: [validate, build]
+    needs: [validate, build, release-binaries]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -270,7 +270,7 @@ jobs:
 
   publish-agent-base:
     name: Publish Trusted Agent Base Tags
-    needs: [validate, build]
+    needs: [validate, build, release-binaries]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
@@ -434,12 +434,13 @@ jobs:
   # machines (see docs/guides/cli-platform-support.md and
   # docs/runbooks/host-cli-agent-enrollment.md).
   #
-  # This job cross-builds the two operator binaries:
+  # The shared CLI Platforms workflow natively builds and checks both binaries:
   #   - `agentforge`          (Platform CLI, bin name `agentforge`, crate rust/bins/cli)
   #   - `agentforge-sidecar`  (bin name `agentforge-sidecar`, crate rust/bins/sidecar)
-  # for the Tier-1 platform matrix and uploads each as a per-target artifact.
+  # for the Tier-1 platform matrix before uploading each per-target artifact.
   # `github-release` then attaches them to the release as
   #   agentforge-<os>-<arch>[.exe]  and  agentforge-sidecar-<os>-<arch>[.exe]
+  # plus versioned two-binary archives matching the operator install guide.
   # — exactly the names `release-supply-chain.yml` globs and `agentforge verify`
   # / the runbook reference (e.g. `agentforge-sidecar-linux-amd64`).
   #
@@ -451,105 +452,11 @@ jobs:
   # ===========================================================================
 
   release-binaries:
-    name: Build ${{ matrix.os_label }}-${{ matrix.arch_label }} binaries
+    name: Native operator binaries
     needs: [validate, quality-gate]
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            os_label: linux
-            arch_label: amd64
-            ext: ''
-          - runner: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            os_label: linux
-            arch_label: arm64
-            ext: ''
-            linker_pkg: gcc-aarch64-linux-gnu
-            linker: aarch64-linux-gnu-gcc
-          - runner: macos-latest
-            target: x86_64-apple-darwin
-            os_label: macos
-            arch_label: amd64
-            ext: ''
-          - runner: macos-latest
-            target: aarch64-apple-darwin
-            os_label: macos
-            arch_label: arm64
-            ext: ''
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            os_label: windows
-            arch_label: amd64
-            ext: '.exe'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Install protobuf compiler (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Install protobuf compiler (macOS)
-        if: runner.os == 'macOS'
-        run: brew install protobuf
-
-      - name: Install protobuf compiler (Windows)
-        if: runner.os == 'Windows'
-        run: choco install protoc -y
-
-      - name: Install aarch64 cross linker
-        if: matrix.linker_pkg != ''
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.linker_pkg }}
-
-      - name: Install Rust toolchain with target
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup target add ${{ matrix.target }} --toolchain stable
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: rust
-          key: ${{ matrix.target }}
-
-      - name: Build release binaries
-        working-directory: rust
-        shell: bash
-        env:
-          # aarch64-linux needs an explicit cross linker; native targets use the
-          # default. CARGO_TARGET_<TARGET>_LINKER is the canonical override.
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.linker }}
-        run: |
-          cargo build --release --target ${{ matrix.target }} \
-            --bin agentforge --bin agentforge-sidecar
-
-      - name: Stage and rename release assets
-        working-directory: rust
-        shell: bash
-        run: |
-          mkdir -p ../release-binaries
-          OS='${{ matrix.os_label }}'
-          ARCH='${{ matrix.arch_label }}'
-          EXT='${{ matrix.ext }}'
-          SRC="target/${{ matrix.target }}/release"
-          cp "$SRC/agentforge$EXT"         "../release-binaries/agentforge-$OS-$ARCH$EXT"
-          cp "$SRC/agentforge-sidecar$EXT" "../release-binaries/agentforge-sidecar-$OS-$ARCH$EXT"
-          ls -lh ../release-binaries/
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-binaries-${{ matrix.os_label }}-${{ matrix.arch_label }}
-          path: release-binaries/*
-          retention-days: 7
-          if-no-files-found: error
+    uses: ./.github/workflows/cli-platforms.yml
+    with:
+      version: ${{ needs.validate.outputs.version }}
 
   # ===========================================================================
   # GitHub Release
@@ -577,7 +484,7 @@ jobs:
           pattern: release-binaries-*
           merge-multiple: true
           path: release-binaries/
-      - name: Generate SHA256SUMS for binaries
+      - name: Generate SHA256SUMS for operator binaries and archives
         run: |
           cd release-binaries
           ls -lh

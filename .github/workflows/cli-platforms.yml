@@ -1,0 +1,146 @@
+name: CLI Platforms
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'rust/**'
+      - 'hooks/agentforge-relay-hook.cjs'
+      - 'scripts/__tests__/relay-hook-transport.test.cjs'
+      - '.github/workflows/cli-platforms.yml'
+      - '.github/workflows/release.yml'
+      - 'scripts/check-cli-platform.py'
+      - 'scripts/package-cli-release.py'
+      - 'docs/guides/cli-platform-support.md'
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version without v; PR checks use package.json by default'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-platforms-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  binaries:
+    name: Native CLI ${{ matrix.os_label }}-${{ matrix.arch_label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            os_label: linux
+            arch_label: amd64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            os_label: linux
+            arch_label: arm64
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            os_label: macos
+            arch_label: amd64
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            os_label: macos
+            arch_label: arm64
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            os_label: windows
+            arch_label: amd64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Test relay hook transport
+        run: node --test scripts/__tests__/relay-hook-transport.test.cjs
+      - name: Install protobuf compiler (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+      - name: Install protobuf compiler (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+      - name: Install protobuf compiler (Windows)
+        if: runner.os == 'Windows'
+        run: choco install protoc -y
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add ${{ matrix.target }} --toolchain stable
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+        with:
+          workspaces: rust
+          key: cli-native-${{ matrix.target }}
+      - name: Test CLI library on the native platform
+        working-directory: rust
+        shell: bash
+        env:
+          CARGO_PROFILE_TEST_DEBUG: '0'
+          # MSVC supports packed debug information; the workspace default is Unix-specific.
+          CARGO_PROFILE_TEST_SPLIT_DEBUGINFO: ${{ runner.os == 'Windows' && 'packed' || 'unpacked' }}
+        run: cargo test --locked -p agentforge-cli --lib
+      - name: Test sidecar transport and filesystem on the native platform
+        working-directory: rust
+        shell: bash
+        env:
+          CARGO_PROFILE_TEST_DEBUG: '0'
+          # MSVC supports packed debug information; the workspace default is Unix-specific.
+          CARGO_PROFILE_TEST_SPLIT_DEBUGINFO: ${{ runner.os == 'Windows' && 'packed' || 'unpacked' }}
+        run: cargo test --locked -p agentforge-sidecar
+      - name: Build operator binaries
+        working-directory: rust
+        shell: bash
+        run: |
+          cargo build --locked --release --target ${{ matrix.target }} \
+            --bin agentforge --bin agentforge-sidecar
+      - name: Package and install operator release archives
+        shell: bash
+        env:
+          CLI_RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python scripts/package-cli-release.py \
+            --binary-dir "rust/target/${{ matrix.target }}/release" \
+            --output-dir release-binaries --install-dir cli-install \
+            --os "${{ matrix.os_label }}" --arch "${{ matrix.arch_label }}" \
+            --version "$CLI_RELEASE_VERSION" --report cli-package-report.json
+      - name: Check the installed release archive
+        shell: bash
+        run: |
+          python scripts/check-cli-platform.py \
+            --binary-dir cli-install \
+            --target "${{ matrix.target }}" --binary-revision "$(git rev-parse HEAD)" \
+            --report cli-platform-report.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-binaries-${{ matrix.os_label }}-${{ matrix.arch_label }}
+          path: release-binaries/*
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload native check report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-platform-report-${{ matrix.os_label }}-${{ matrix.arch_label }}
+          path: |
+            cli-platform-report.json
+            cli-package-report.json
+          retention-days: 7
+          if-no-files-found: ignore

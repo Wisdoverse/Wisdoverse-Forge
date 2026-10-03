@@ -14,10 +14,17 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 mod commands;
 mod config;
 mod credentials;
+mod durable_fs;
 mod orchestration;
 mod publisher;
 mod unix_socket_listener;
 mod wal;
+#[cfg(windows)]
+mod windows_pipe_listener;
+#[cfg(all(windows, test))]
+mod windows_runtime_tests;
+#[cfg(windows)]
+mod windows_security;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InfoCommand {
@@ -111,6 +118,8 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(version = agentforge_core::VERSION, "Wisdoverse Forge Sidecar starting");
 
     let cfg = config::SidecarConfig::from_env()?;
+    #[cfg(windows)]
+    let cfg = cfg.prepare_windows_runtime()?;
     tracing::info!(agent_id = %cfg.agent_id, "Config loaded");
 
     // Connect to NATS.
@@ -162,8 +171,14 @@ async fn main() -> anyhow::Result<()> {
     // single-threaded (before any task is spawned), so the brief process-global
     // umask change during bind cannot affect concurrent file creation (F065). The
     // listener is served by `unix_socket_listener::run` further below.
+    #[cfg(unix)]
     let relay_socket = unix_socket_listener::RELAY_SOCKET_PATH;
+    #[cfg(unix)]
     let relay_listener = unix_socket_listener::bind_relay_listener(relay_socket)?;
+    #[cfg(windows)]
+    let relay_agent_id = uuid::Uuid::parse_str(&cfg.agent_id)?;
+    #[cfg(windows)]
+    let relay_listener = windows_pipe_listener::bind(relay_agent_id)?;
 
     // Shutdown coordination.
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
@@ -299,12 +314,15 @@ async fn main() -> anyhow::Result<()> {
     // Serve the relay-socket listener on the pre-bound socket. The Unix socket the
     // CLI relay hook writes to was bound owner-only above (`relay_listener`),
     // BEFORE any task spawned, so the brief umask change during bind cannot affect
-    // concurrent file creation (F065). The path is a single hardcoded const shared
-    // with the hook default, the entrypoint, and the healthcheck — no env override,
-    // so all four sides can never disagree.
+    // concurrent file creation (F065). Unix uses the fixed shared socket path;
+    // Windows uses the canonical agent identity in its private named-pipe path.
+    #[cfg(any(unix, windows))]
     let listener_publisher = publisher.clone();
+    #[cfg(any(unix, windows))]
     let listener_wal = wal_instance.clone();
+    #[cfg(any(unix, windows))]
     let listener_shutdown = shutdown_rx.clone();
+    #[cfg(unix)]
     let listener_task = tokio::spawn(async move {
         if let Err(err) =
             unix_socket_listener::run(relay_listener, relay_socket, listener_publisher, listener_wal, listener_shutdown)
@@ -313,6 +331,22 @@ async fn main() -> anyhow::Result<()> {
             tracing::error!(error = %err, "Relay socket listener exited with error");
         }
     });
+    #[cfg(windows)]
+    let listener_task = tokio::spawn(async move {
+        if let Err(err) = windows_pipe_listener::run(
+            relay_listener,
+            relay_agent_id,
+            listener_publisher,
+            listener_wal,
+            listener_shutdown,
+        )
+        .await
+        {
+            tracing::error!(error = %err, "Relay pipe listener exited with error");
+        }
+    });
+    #[cfg(not(any(unix, windows)))]
+    tracing::warn!("Unix CLI relay hooks are unavailable on this platform");
 
     // Spawn the periodic WAL-drain task. The WAL is otherwise only drained once
     // at startup, so an event buffered during the per-agent JWT reconnect would
@@ -353,7 +387,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Shutdown signal received");
     let _ = shutdown_tx.send(true);
 
-    let _ = tokio::join!(cmd_task, hb_task, listener_task, drain_task);
+    let _ = tokio::join!(cmd_task, hb_task, drain_task);
+    #[cfg(any(unix, windows))]
+    let _ = listener_task.await;
     if let Some(task) = orchestration_task {
         let _ = task.await;
     }

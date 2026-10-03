@@ -27,7 +27,7 @@ use async_nats::jetstream::consumer::{self, PullConsumer, pull};
 use async_nats::jetstream::{self, AckKind};
 use chrono::Utc;
 use futures::StreamExt;
-use tokio::fs::{self, OpenOptions};
+use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -94,22 +94,14 @@ impl AssignmentInbox {
         }
 
         let bytes = serde_json::to_vec(assignment).context("serialize assignment inbox payload")?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp)
-            .await
-            .with_context(|| format!("open assignment inbox temp file {}", temp.display()))?;
+        let mut file = crate::durable_fs::create_file_async(temp.clone()).await?;
         file.write_all(&bytes).await.context("write assignment inbox payload")?;
         file.flush().await.context("flush assignment inbox payload")?;
         file.sync_data().await.context("sync assignment inbox payload")?;
         drop(file);
 
-        match fs::rename(&temp, &pending).await {
-            Ok(()) => {
-                sync_dir(self.pending_dir.clone()).await?;
-                Ok(AssignmentInboxState::Accepted)
-            }
+        match move_file(temp.clone(), pending.clone(), false).await {
+            Ok(()) => Ok(AssignmentInboxState::Accepted),
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                 let _ = fs::remove_file(&temp).await;
                 Ok(AssignmentInboxState::Pending)
@@ -136,6 +128,13 @@ impl AssignmentInbox {
 
         let mut out = Vec::with_capacity(paths.len());
         for path in paths {
+            if let Some(delivery_id) =
+                path.file_stem().and_then(|stem| stem.to_str()).and_then(|stem| uuid::Uuid::parse_str(stem).ok())
+                && path_exists(&self.completed_path(delivery_id)).await?
+            {
+                self.mark_completed(delivery_id).await?;
+                continue;
+            }
             let bytes = fs::read(&path)
                 .await
                 .with_context(|| format!("read pending orchestration assignment {}", path.display()))?;
@@ -162,23 +161,15 @@ impl AssignmentInbox {
         }
 
         let bytes = serde_json::to_vec(result).context("serialize orchestration result outbox payload")?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp)
-            .await
-            .with_context(|| format!("open orchestration result temp file {}", temp.display()))?;
+        let mut file = crate::durable_fs::create_file_async(temp.clone()).await?;
         file.write_all(&bytes).await.context("write orchestration result outbox payload")?;
         file.flush().await.context("flush orchestration result outbox payload")?;
         file.sync_data().await.context("sync orchestration result outbox payload")?;
         drop(file);
 
         let result_path = self.result_path(delivery_id);
-        match fs::rename(&temp, &result_path).await {
-            Ok(()) => {
-                sync_dir(self.results_dir.clone()).await?;
-                Ok(())
-            }
+        match move_file(temp.clone(), result_path.clone(), false).await {
+            Ok(()) => Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                 let _ = fs::remove_file(&temp).await;
                 Ok(())
@@ -217,6 +208,13 @@ impl AssignmentInbox {
 
         let mut out = Vec::with_capacity(paths.len());
         for path in paths {
+            if let Some(delivery_id) =
+                path.file_stem().and_then(|stem| stem.to_str()).and_then(|stem| uuid::Uuid::parse_str(stem).ok())
+                && path_exists(&self.completed_path(delivery_id)).await?
+            {
+                self.mark_completed(delivery_id).await?;
+                continue;
+            }
             let bytes = fs::read(&path)
                 .await
                 .with_context(|| format!("read pending orchestration result {}", path.display()))?;
@@ -229,47 +227,38 @@ impl AssignmentInbox {
 
     async fn mark_completed(&self, delivery_id: uuid::Uuid) -> Result<()> {
         self.ensure_dirs().await?;
-
         let pending = self.pending_path(delivery_id);
         let result = self.result_path(delivery_id);
         let completed = self.completed_path(delivery_id);
 
-        if path_exists(&completed).await? {
+        // Commit the deduplication marker BEFORE removing the cached outcome.
+        // A restart at either cut must never turn a finished delivery into a
+        // fresh CLI invocation. Publication cannot overwrite another marker.
+        if !path_exists(&completed).await? {
             if path_exists(&pending).await? {
-                let _ = fs::remove_file(&pending).await;
+                match move_file(pending.clone(), completed.clone(), false).await {
+                    Ok(()) => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
+                    Err(err) => return Err(err).context("commit completed assignment marker"),
+                }
+            } else {
+                let temp = completed.with_extension(format!("{}.tmp", uuid::Uuid::now_v7()));
+                let mut file = crate::durable_fs::create_file_async(temp.clone()).await?;
+                file.write_all(b"{}").await?;
+                file.flush().await?;
+                file.sync_data().await?;
+                drop(file);
+                match move_file(temp.clone(), completed.clone(), false).await {
+                    Ok(()) => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                        remove_if_present(&temp).await?;
+                    }
+                    Err(err) => return Err(err).context("commit completed assignment tombstone"),
+                }
             }
-            if path_exists(&result).await? {
-                let _ = fs::remove_file(&result).await;
-            }
-            return Ok(());
         }
-
-        if path_exists(&result).await? {
-            fs::remove_file(&result)
-                .await
-                .with_context(|| format!("remove completed orchestration result {}", result.display()))?;
-            sync_dir(self.results_dir.clone()).await?;
-        }
-
-        if path_exists(&pending).await? {
-            fs::rename(&pending, &completed)
-                .await
-                .with_context(|| format!("rename assignment inbox {} -> {}", pending.display(), completed.display()))?;
-            sync_dir(self.pending_dir.clone()).await?;
-            sync_dir(self.completed_dir.clone()).await?;
-            return Ok(());
-        }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&completed)
-            .await
-            .with_context(|| format!("create completed assignment tombstone {}", completed.display()))?;
-        file.write_all(b"{}").await.context("write completed assignment tombstone")?;
-        file.flush().await.context("flush completed assignment tombstone")?;
-        file.sync_data().await.context("sync completed assignment tombstone")?;
-        sync_dir(self.completed_dir.clone()).await?;
+        remove_if_present(&pending).await?;
+        remove_if_present(&result).await?;
         Ok(())
     }
 
@@ -293,6 +282,11 @@ impl AssignmentInbox {
                 .modified()
                 .with_context(|| format!("read mtime for completed assignment tombstone {}", path.display()))?;
             if modified <= cutoff {
+                if let Some(delivery_id) =
+                    path.file_stem().and_then(|stem| stem.to_str()).and_then(|stem| uuid::Uuid::parse_str(stem).ok())
+                {
+                    self.mark_completed(delivery_id).await?;
+                }
                 fs::remove_file(&path)
                     .await
                     .with_context(|| format!("remove expired completed assignment tombstone {}", path.display()))?;
@@ -348,13 +342,13 @@ impl AssignmentInbox {
     }
 
     async fn ensure_dirs(&self) -> Result<()> {
-        fs::create_dir_all(&self.pending_dir)
+        crate::durable_fs::create_dirs(self.pending_dir.clone())
             .await
             .with_context(|| format!("create assignment inbox dir {}", self.pending_dir.display()))?;
-        fs::create_dir_all(&self.results_dir)
+        crate::durable_fs::create_dirs(self.results_dir.clone())
             .await
             .with_context(|| format!("create orchestration result outbox dir {}", self.results_dir.display()))?;
-        fs::create_dir_all(&self.completed_dir)
+        crate::durable_fs::create_dirs(self.completed_dir.clone())
             .await
             .with_context(|| format!("create assignment inbox dir {}", self.completed_dir.display()))?;
         Ok(())
@@ -384,14 +378,25 @@ async fn path_exists(path: &Path) -> std::io::Result<bool> {
     }
 }
 
+async fn move_file(source: PathBuf, target: PathBuf, replace: bool) -> std::io::Result<()> {
+    tokio::task::spawn_blocking(move || crate::durable_fs::move_file(&source, &target, replace))
+        .await
+        .map_err(std::io::Error::other)?
+}
+
+async fn remove_if_present(path: &Path) -> Result<()> {
+    match fs::remove_file(path).await {
+        Ok(()) => sync_dir(path.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()).await,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err).context("clean completed assignment state"),
+    }
+}
+
 async fn sync_dir(path: PathBuf) -> Result<()> {
-    tokio::task::spawn_blocking(move || -> std::io::Result<()> {
-        let dir = std::fs::File::open(path)?;
-        dir.sync_all()
-    })
-    .await
-    .context("join assignment inbox directory sync task")?
-    .context("sync assignment inbox directory")
+    tokio::task::spawn_blocking(move || -> std::io::Result<()> { crate::durable_fs::sync_dir(&path) })
+        .await
+        .context("join assignment inbox directory sync task")?
+        .context("sync assignment inbox directory")
 }
 
 /// Drives the `orchestration.assigned.<agent_id>` subscription.
@@ -1035,6 +1040,8 @@ async fn run_cli(cli_tool: &str, cli_model: Option<&str>, assignment: &TaskAssig
             exit_code: None,
         };
     };
+    cmd.env("AGENTFORGE_AGENT_ID", assignment.agent_id.to_string());
+    cmd.env("AGENTFORGE_CLI_TOOL", cli_tool);
     cmd.kill_on_drop(true);
 
     match tokio::time::timeout(timeout, cmd.output()).await {
@@ -1599,6 +1606,47 @@ mod tests {
         assert!(inbox.pending_result(delivery_id).await.unwrap().is_none());
         assert_eq!(inbox.pending_count().await.unwrap(), 0);
         assert!(inbox.is_completed(delivery_id).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn completed_marker_survives_restart_before_outbox_cleanup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wal_path = tmp.path().to_str().unwrap();
+        let first = AssignmentInbox::new(Some(wal_path));
+        let assignment = sample_assignment();
+        let delivery = assignment.delivery_id.unwrap();
+        first.accept(&assignment).await.unwrap();
+        first.store_result(&completed_result_for(&assignment, "saved outcome")).await.unwrap();
+        // Simulate the cut after a committed completion, before result cleanup.
+        move_file(first.pending_path(delivery), first.completed_path(delivery), false).await.unwrap();
+        drop(first);
+        let restarted = AssignmentInbox::new(Some(wal_path));
+        assert_eq!(restarted.accept(&assignment).await.unwrap(), AssignmentInboxState::Completed);
+        assert!(restarted.pending_results().await.unwrap().is_empty());
+        assert!(restarted.pending_assignments().await.unwrap().is_empty());
+        assert!(restarted.pending_result(delivery).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn completion_with_pending_alias_is_cleaned_before_replay_or_expiry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wal_path = tmp.path().to_str().unwrap();
+        let first = AssignmentInbox::new(Some(wal_path));
+        let assignment = sample_assignment();
+        let delivery = assignment.delivery_id.unwrap();
+        first.accept(&assignment).await.unwrap();
+        first.store_result(&completed_result_for(&assignment, "saved outcome")).await.unwrap();
+        // Unix no-clobber publication may expose both names before unlink;
+        // Windows restarts must also honor a marker with leftover pending data.
+        std::fs::copy(first.pending_path(delivery), first.completed_path(delivery)).unwrap();
+        drop(first);
+        let restarted = AssignmentInbox::new(Some(wal_path));
+        assert!(restarted.pending_assignments().await.unwrap().is_empty());
+        assert_eq!(restarted.pending_count().await.unwrap(), 0);
+        assert!(restarted.pending_results().await.unwrap().is_empty());
+        assert_eq!(restarted.accept(&assignment).await.unwrap(), AssignmentInboxState::Completed);
+        restarted.purge_completed_older_than(Duration::ZERO).await.unwrap();
+        assert!(restarted.pending_assignments().await.unwrap().is_empty());
     }
 
     #[tokio::test]

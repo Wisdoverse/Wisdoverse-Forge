@@ -42,14 +42,14 @@ For any new CLI command, the acceptance checklist is:
 Release artifacts for `agentforge` and `agentforge-sidecar` must cover the
 mainstream operator platforms below.
 
-| Tier | Platform | CPU           | Target Triple                                               | Notes                                                   |
-| ---- | -------- | ------------- | ----------------------------------------------------------- | ------------------------------------------------------- |
-| 1    | Linux    | x86_64        | `x86_64-unknown-linux-gnu` or `x86_64-unknown-linux-musl`   | Primary server and workstation path.                    |
-| 1    | Linux    | ARM64         | `aarch64-unknown-linux-gnu` or `aarch64-unknown-linux-musl` | Required for ARM servers and single-board hosts.        |
-| 1    | macOS    | Apple Silicon | `aarch64-apple-darwin`                                      | Primary local operator workstation path.                |
-| 1    | macOS    | Intel         | `x86_64-apple-darwin`                                       | Required while Intel Macs remain common in enterprises. |
-| 1    | Windows  | x86_64        | `x86_64-pc-windows-msvc`                                    | Required for PowerShell-based operators.                |
-| 2    | Windows  | ARM64         | `aarch64-pc-windows-msvc`                                   | Supported when CI and signer capacity are available.    |
+| Tier | Platform | CPU           | Target Triple                                               | Notes                                                                           |
+| ---- | -------- | ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1    | Linux    | x86_64        | `x86_64-unknown-linux-gnu` or `x86_64-unknown-linux-musl`   | Primary server and workstation path.                                            |
+| 1    | Linux    | ARM64         | `aarch64-unknown-linux-gnu` or `aarch64-unknown-linux-musl` | Required for ARM servers and single-board hosts.                                |
+| 1    | macOS    | Apple Silicon | `aarch64-apple-darwin`                                      | Primary local operator workstation path.                                        |
+| 1    | macOS    | Intel         | `x86_64-apple-darwin`                                       | Required while Intel Macs remain common in enterprises.                         |
+| 1    | Windows  | x86_64        | `x86_64-pc-windows-msvc`                                    | PowerShell commands; native relay and recovery checks are pending CI execution. |
+| 2    | Windows  | ARM64         | `aarch64-pc-windows-msvc`                                   | Supported when CI and signer capacity are available.                            |
 
 Tier 1 means each public release should provide a downloadable artifact, install
 instructions, checksum, and a smoke test. Tier 2 means the code should avoid
@@ -108,27 +108,41 @@ primary operator path.
 
 Prerequisites:
 
-- A shell with `curl`, `grep`, `tar`, `shasum`, and permission to write to
+- A shell with `curl`, `awk`, `tar`, `shasum`, and permission to write to
   `/usr/local/bin`.
 - The release version and target name from the release page.
 
 Replace `v1.2.3` and the target archive with the current release artifact for
 your computer.
 
+| Computer            | Target archive name |
+| ------------------- | ------------------- |
+| Linux x86_64        | `linux-x86_64`      |
+| Linux ARM64         | `linux-arm64`       |
+| macOS Intel         | `macos-x86_64`      |
+| macOS Apple Silicon | `macos-arm64`       |
+
+The archive contains `agentforge` and `agentforge-sidecar` at its root. The
+commands stop before installation if a download or checksum check fails.
+
 ```bash
-VERSION=v1.2.3
-TARGET=linux-x86_64
+(
+  set -eu
+  VERSION=v1.2.3
+  TARGET=linux-x86_64
+  ARCHIVE="agentforge-${VERSION}-${TARGET}.tar.gz"
 
-curl -LO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/agentforge-${VERSION}-${TARGET}.tar.gz"
-curl -LO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/SHA256SUMS"
-grep " agentforge-${VERSION}-${TARGET}.tar.gz$" SHA256SUMS | shasum -a 256 -c -
-tar -xzf "agentforge-${VERSION}-${TARGET}.tar.gz"
-sudo install -m 0755 agentforge /usr/local/bin/agentforge
-sudo install -m 0755 agentforge-sidecar /usr/local/bin/agentforge-sidecar
+  curl -fLO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/${ARCHIVE}"
+  curl -fLO "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/${VERSION}/SHA256SUMS"
+  awk -v archive="$ARCHIVE" '$2 == archive { print }' SHA256SUMS | shasum -a 256 -c -
+  tar -xzf "$ARCHIVE"
+  sudo install -m 0755 agentforge /usr/local/bin/agentforge
+  sudo install -m 0755 agentforge-sidecar /usr/local/bin/agentforge-sidecar
 
-agentforge --version
-agentforge --help
-agentforge-sidecar --help
+  agentforge --version
+  agentforge --help
+  agentforge-sidecar --help
+)
 ```
 
 Success looks like:
@@ -157,24 +171,37 @@ Prerequisites:
 Replace `v1.2.3` with the current release version.
 
 ```powershell
+$ErrorActionPreference = "Stop"
 $Version = "v1.2.3"
 $Target = "windows-x86_64"
+$Archive = "agentforge-$Version-$Target.zip"
 $InstallDir = "$env:LOCALAPPDATA\Programs\AgentForge"
 
-New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/agentforge-$Version-$Target.zip" -OutFile "agentforge.zip"
+Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/$Archive" -OutFile $Archive
 Invoke-WebRequest -Uri "https://github.com/Wisdoverse/Wisdoverse-Forge/releases/download/$Version/SHA256SUMS" -OutFile "SHA256SUMS"
-Get-FileHash .\agentforge.zip -Algorithm SHA256
-Expand-Archive .\agentforge.zip -DestinationPath $InstallDir -Force
+$ChecksumLines = @(Get-Content .\SHA256SUMS | Where-Object { ($_ -split '\s+', 2)[1] -ceq $Archive })
+if ($ChecksumLines.Count -ne 1) { throw "Expected exactly one checksum for $Archive" }
+$ExpectedHash = ($ChecksumLines[0] -split '\s+', 2)[0]
+if ($ExpectedHash -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash $Archive -Algorithm SHA256).Hash -ne $ExpectedHash) {
+  throw "Checksum mismatch for $Archive; do not install this download"
+}
 
-setx PATH "$env:PATH;$InstallDir"
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Expand-Archive $Archive -DestinationPath $InstallDir -Force
+
+$UserPaths = @([Environment]::GetEnvironmentVariable("Path", "User") -split ';' | Where-Object { $_ })
+if ($UserPaths -notcontains $InstallDir) {
+  [Environment]::SetEnvironmentVariable("Path", (($UserPaths + $InstallDir) -join ';'), "User")
+}
+$env:PATH = "$InstallDir;$env:PATH"
 & "$InstallDir\agentforge.exe" --version
 & "$InstallDir\agentforge.exe" --help
 & "$InstallDir\agentforge-sidecar.exe" --help
 ```
 
-Compare the printed SHA-256 value with the matching line in `SHA256SUMS` before
-using the binaries.
+The checksum must match before extraction. The commands update your user-level
+`PATH` and the current PowerShell window without changing the machine-level
+setting.
 
 Success looks like:
 
@@ -184,7 +211,7 @@ Success looks like:
 - `agentforge-sidecar.exe --help` prints the join-command guidance instead of
   trying to connect to the server.
 
-Next, open a new PowerShell window so `PATH` is refreshed, then connect:
+Next, connect from the current PowerShell window:
 
 ```powershell
 agentforge config set server https://forge.example.com
@@ -201,6 +228,22 @@ platform manages identity, task assignment, heartbeats, and result evidence.
 Start with [Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md)
 for the operational flow.
 
+For Host CLI relay events, install Node.js 24 and configure a supported vendor
+Container CLI with the AgentForge relay hook. Start the enrolled sidecar and
+wait until it reports healthy before launching the vendor CLI. The hook uses a
+local Unix-domain socket on Linux and macOS. On Windows it connects to
+`\\.\pipe\agentforge-relay-<uuid>` and verifies the sidecar's HMAC server proof
+before sending any event data. The Windows pipe accepts local clients only and
+uses an endpoint DACL limited to the current user and SYSTEM.
+
+On Windows, the sidecar's default WAL folder is
+`%LOCALAPPDATA%\AgentForge\agents\<uuid>\wal`; if `LOCALAPPDATA` is absent, it
+uses `%USERPROFILE%\AppData\Local\AgentForge\agents\<uuid>\wal`. A custom
+`WAL_PATH` must be absolute and pass the sidecar's private-directory and
+reparse-point checks before use. During recovery, a completed tombstone is
+processed before cleanup of pending or result files so an acknowledged event
+does not return to the queue.
+
 ## Contributor Requirements
 
 Any PR that changes the Platform CLI, sidecar CLI, installer, release packaging,
@@ -214,3 +257,55 @@ The PR description should include:
 - Install or upgrade notes.
 - A copy of the CLI help or example command when flags changed.
 - Validation output for the smallest relevant CLI smoke test.
+
+### Native platform checks
+
+PRs touching Rust, the operator release workflow, or this guide run **CLI
+Platforms** on native Linux x86_64/ARM64, macOS Intel/Apple Silicon, and Windows
+x86_64 runners. The workflow runs the built-in Node relay transport tests and
+`cargo test --locked -p agentforge-sidecar` on each native runner alongside the
+CLI library tests. On Windows, these checks cover named-pipe server
+authentication, private pipe/WAL boundaries, and recovery behavior. The
+release workflow reuses these checks before attaching the operator binaries to
+a release. Open the workflow's per-platform jobs to see the result; a
+successful build alone does not pass the check. Windows runtime qualification
+remains pending until the native Windows job completes successfully.
+
+Each job runs the CLI library tests, creates the documented release archive,
+installs both binaries from it, checks their SHA-256 hashes and `PATH`, and runs help/version,
+configuration, token storage/status/logout, and enrollment shell checks.
+Configuration and synthetic credentials stay inside temporary directories;
+the token never comes from a real account. The enrollment response comes from
+a loopback HTTP fixture, and the printed launch block runs the real sidecar
+with `--help` in Bash or PowerShell 7. The
+`cli-platform-report-<os>-<arch>` artifact contains the archive and command
+reports with the tested revision, archive and binary hashes, checks, and
+outcome. Native Node and sidecar test results are in the per-platform job log.
+
+Configuration and credentials use `XDG_CONFIG_HOME/agentforge` when configured,
+otherwise `HOME/.agentforge`. Native Windows shells without a `HOME` environment
+variable use `USERPROFILE/.agentforge`, so changing the current directory does
+not move or expose the stored token.
+
+To repeat the bounded check on your own computer, prerequisites are Python 3.10+,
+Bash on Linux/macOS or PowerShell 7 on Windows, and both binaries built for your
+native target. Run from the repository root and replace the target below with
+the matching triple from the platform table:
+
+```bash
+python scripts/check-cli-platform.py \
+  --binary-dir rust/target/x86_64-unknown-linux-gnu/release \
+  --target x86_64-unknown-linux-gnu \
+  --binary-revision <source-revision> --report cli-platform-report.json
+```
+
+Success is a `PASS` report and exit code `0`. A failure names the failed check;
+fix it before relying on that platform's artifact. The archive smoke checks and
+the native transport/filesystem tests are separate evidence: the former checks
+the installed binaries and local command flow, while the latter exercises
+bounded local transport and recovery behavior. NATS-dependent tests can skip
+when no NATS server is available. Neither check set qualifies a live Forge
+server, real NATS delivery, a real vendor task/session, Windows operator
+credential ACLs, release signatures, or archive installation from a public
+release. Those areas remain unqualified. The Unix socket relay and its
+owner-only permissions remain active on Linux and macOS.
