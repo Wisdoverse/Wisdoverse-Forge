@@ -407,6 +407,51 @@ so the provider cause is unknown. This qualification failed and does not prove
 provider/model success, raw-artifact retention, managed-container behavior, or
 signed-image qualification.
 
+The deterministic Codex-protocol test double then passed a bounded recovery
+drill (7.9 seconds, 11.4 seconds total). After controller SIGKILL, the stopped
+container had PID 0 and exit 137; restarting that same container replayed the
+original delivery within its original lease. The two executions corresponded to
+one database run and one result receipt; checkpoint and pending bytes retained
+their recorded hashes. This verifies only the test double's same-lease replay
+and process-loss file retention, not vendor behavior, exactly-once execution,
+session migration, or an artifact-storage policy. A tampered-checkpoint case
+was an expected negative: Playwright exited 1, the API and database retained a
+failed task under the same run and receipt, and raw API/database/run/inbox
+failure evidence was captured before fixture cleanup. Both package-owned
+database cleanup records report zero rows across their eight scoped tables.
+
+A separate real Codex 0.160.0 attempt, with `gpt-6-luna` selected, used source
+`58a18f6` and Rust tree `b167461df5fabfff1c58131453f021a56a84ce90` in the
+operator enclosure (`runtime_kind=cli`, no managed container ID). It failed
+before the checkpoint: its 142-byte stdout and original API/database result
+were retained, and stdout reported `codex-code-mode-host` missing. No
+checkpoint, process kill, restart, or replay assertion completed. This does not
+establish successful tool/file execution or a recovery pass; model identity is
+unverified beyond the selected model. Temporary-home, run-container, and
+database-fixture cleanup metadata passed. Independent database recheck passed:
+all eight scoped tables were empty after cleanup, and the browser JWT was
+recorded by hash then deleted. The corrected image build passed after adding
+the same-version host companion (image digest
+`7c8ab8e70afe181670237bcdedc4499cb0a67c3fec513190e93f3a99bdd8d1e2`). An
+offline, credential-free dependency probe verified `--help` and matching
+companion binary hashes without network access.
+
+The subsequent real bounded Codex recovery test passed (26.6 seconds, 29.7
+seconds total) at source `58a18f6` and Rust tree
+`b167461df5fabfff1c58131453f021a56a84ce90`, with Codex 0.160.0 and
+`gpt-6-luna` selected. The observed process tree included Codex, its same-version
+`codex-code-mode-host` companion, and `bash`/`python3`. After SIGKILL, the same
+container exited 137 with PID 0; restarting that container replayed the
+original prompt within its original 900-second lease. The delivery, attempt,
+and run remained unchanged across two actual CLI executions; the database held
+one run and one result receipt. The checkpoint hash remained stable, and the
+pending-to-completed tombstone retained its original bytes. Independent
+verification passed; all eight scoped database tables were empty after
+cleanup, and the temporary home, container, and browser JWT were removed. This
+is bounded same-lease prompt replay and file-retention evidence, not exactly-once
+execution, vendor-session migration, managed-container admission, or the full
+artifact-storage policy. It does not qualify signed releases or production.
+
 The Temporal 1.26 gate workflow completed in 515 ms after 12 orchestrator
 migrations. Authenticated run returned 202, anonymous access returned 401,
 and a wrong-tenant request returned 404. This verifies that local gate workflow
@@ -435,12 +480,12 @@ Earlier wrong-tenant Temporal access returned 500 before the fix, and the
 original migration-104 deletion failed with FK error `23503`; both failures
 remain part of the evidence history.
 
-Still pending are a second successful real vendor CLI run and cross-CLI
-comparison, interrupted-vendor/artifact-retention qualification (the attempted
-operator-enclosure interruption run above failed), real GitHub App and
-protected-repository acceptance, signed-release/admin-roll
-qualification, production migration/runtime acceptance, and macOS/Windows
-operator validation. Pilot adoption and measurement remain optional;
+Still pending are a second successful real vendor CLI run, common-report and
+cross-CLI comparison, managed-container admission, signed-release/admin-roll
+qualification, actual artifact-storage policy qualification, real GitHub App
+and protected-repository acceptance, production migration/runtime acceptance,
+and macOS/Windows operator validation. Pilot adoption and measurement remain
+optional;
 engineering gates remain required. All databases, records, images and provider
 fixtures described above were test resources, not production data or release
 artifacts.

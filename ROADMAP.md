@@ -151,10 +151,18 @@ behavior it adds and provide the relevant operator or runtime proof.
    A credential-free Gemini CLI run reached task state `failed` with
    `manual authorization needed`; its positive Playwright assertion failed as
    expected, and the expected-negative classification passed. It is not a
-   successful vendor run. Cross-CLI comparison remains pending along with
-   interrupted-execution/artifact-retention validation; the operator-enclosure
-   interruption attempt failed before reaching its required checkpoint. Do not
-   promise lossless vendor-session migration. See the
+   successful vendor run. The deterministic protocol test double passed a
+   bounded replay drill, but a real Codex operator-enclosure attempt
+   failed before its checkpoint because `codex-code-mode-host` was missing from
+   the qualification image. A 142-byte stdout/API/DB result was retained, but
+   the attempt does not establish successful tool/file execution or a recovery
+   pass. A later corrected-image Codex recovery test passed bounded same-lease
+   prompt replay with two CLI executions and one database run/receipt; this is
+   not exactly-once execution, vendor-session migration, or artifact-storage
+   policy qualification. A second successful real vendor CLI run and
+   common-report/cross-CLI comparison remain required, along with managed-
+   container admission, signed-image qualification, and production artifact
+   storage evidence. Do not promise lossless vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 6. **Outcome measurement.** Source implements a submission cohort that retains
