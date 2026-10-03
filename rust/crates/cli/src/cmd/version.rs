@@ -16,9 +16,10 @@ pub async fn run(info: &BuildInfo, ctx: &CliContext, stdout: &mut dyn Write, std
         result.insert("buildDate".into(), Value::String(info.date.clone()));
     }
 
-    // Best-effort: fetch server version from health endpoint.
+    // Best-effort: older readiness responses may include a version. The current
+    // infrastructure contract omits it, so report unknown without a parse error.
     let server_version =
-        match ctx.client.do_request(reqwest::Method::GET, "/api/v1/health", None, ResponseKind::Auto).await {
+        match ctx.client.do_request(reqwest::Method::GET, "/api/health", None, ResponseKind::Auto).await {
             Ok(Some(v)) => v
                 .get("version")
                 .and_then(|x| x.as_str())

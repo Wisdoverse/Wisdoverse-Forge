@@ -1167,6 +1167,24 @@ export const en = {
     gatesSatisfied: 'All required checks are complete. This task can be marked complete.',
   },
 
+  board: {
+    priority: {
+      label: 'Change priority for {{task}}',
+      low: 'Low',
+      normal: 'Normal',
+      high: 'High',
+      urgent: 'Urgent',
+      saving: 'Saving priority…',
+      saved: 'Priority updated.',
+      error: 'Could not save this priority. It is unchanged. Choose a priority again to retry.',
+    },
+    refresh: {
+      stale: 'Could not refresh tasks. Showing the last loaded cards.',
+      retry: 'Check tasks again',
+      retrying: 'Checking tasks…',
+    },
+  },
+
   // =========================================================================
   // Queued-time prediction (task board)
   // =========================================================================

@@ -108,6 +108,7 @@ services:
       - MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
       - AGENTFORGE_WORKSPACE_ROOT=${AGENTFORGE_WORKSPACE_ROOT:-/data/agentforge/workspaces}
       - CONTAINER_SERVER_URL=${CONTAINER_SERVER_URL:-http://agentforge:4003}
+      - CONTAINER_NETWORK=${CONTAINER_NETWORK:-agentforge-agents}
       - CONTAINER_AGENT_IMAGE=${CONTAINER_AGENT_IMAGE:-agentforge-agent:latest}
       - CONTAINER_IMAGE_CLAUDE=${CONTAINER_IMAGE_CLAUDE:-agentforge-agent:latest}
       - CONTAINER_IMAGE_OPENCODE=${CONTAINER_IMAGE_OPENCODE:-}

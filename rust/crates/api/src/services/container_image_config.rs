@@ -1,4 +1,4 @@
-//! Deployment image refs shared by readiness, MCP creation, and Agent start.
+//! Deployment settings shared by readiness, MCP creation, and Agent start.
 
 use std::collections::HashMap;
 use std::env;
@@ -15,6 +15,14 @@ pub(crate) fn configured_cli_images() -> HashMap<String, String> {
 pub(crate) fn configured_cli_image(tool: CliToolKind) -> String {
     let env_name = format!("CONTAINER_IMAGE_{}", tool.as_str().to_ascii_uppercase());
     resolve_cli_image(tool, env::var(env_name).ok().as_deref())
+}
+
+pub(crate) fn configured_container_network() -> String {
+    resolve_container_network(env::var("CONTAINER_NETWORK").ok().as_deref())
+}
+
+fn resolve_container_network(configured: Option<&str>) -> String {
+    configured.map(str::trim).filter(|network| !network.is_empty()).unwrap_or("agentforge-agents").to_string()
 }
 
 pub(crate) fn recorded_image_trust_is_acceptable(tool: CliToolKind, trust: Option<&str>) -> bool {
@@ -122,6 +130,14 @@ fn image_identity_evidence(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn container_network_preserves_default_and_deployment_override() {
+        for configured in [None, Some(""), Some("  ")] {
+            assert_eq!(resolve_container_network(configured), "agentforge-agents");
+        }
+        assert_eq!(resolve_container_network(Some(" isolated-agents ")), "isolated-agents");
+    }
 
     #[test]
     fn configured_override_and_canonical_fallback_are_exact() {

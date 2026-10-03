@@ -159,9 +159,10 @@ ARG AGENT_GID=1012
 # so debian packages (e.g. libgnutls30) can lag behind active CVEs. The Trivy
 # Image Scan workflow enforces a CRITICAL severity gate against this image and
 # all agent-* overlays that inherit from it.
+# Codex pid-managed app-server startup requires `ps`.
 RUN apt-get update && apt-get -y dist-upgrade \
     && apt-get install -y --no-install-recommends \
-    git git-lfs curl bash ca-certificates openssh-client tini \
+    git git-lfs curl bash ca-certificates openssh-client tini procps \
     python3 python3-pip python3-venv libnghttp2-14 \
     && rm -rf /var/lib/apt/lists/*
 

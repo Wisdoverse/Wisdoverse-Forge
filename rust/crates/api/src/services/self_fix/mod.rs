@@ -25,6 +25,15 @@ pub(crate) mod merge_executor;
 #[cfg(any(test, feature = "test-support"))]
 pub mod merge_executor;
 
+mod delivery;
+mod delivery_outcomes;
+mod delivery_write;
+mod maintenance;
+
+pub(crate) use crate::domain::maintenance::MaintenanceRequestInput;
+pub(crate) use crate::domain::maintenance_delivery::{
+    ComparisonQuery, DecisionInput, HandoffInput, OutcomeQuery, VerificationInput,
+};
 pub mod metrics;
 
 use std::path::PathBuf;
@@ -39,7 +48,9 @@ pub use crate::domain::self_fix::SelfFixRepositorySetup;
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
-use crate::repositories::orchestration::OrchestrationTaskRepository;
+use crate::repositories::orchestration::{
+    MaintenanceRequestRepository, OrchestrationTaskRepository, TaskRunRepository,
+};
 use crate::repositories::user::UserRepository;
 use crate::services::agent_container_control::AgentContainerControlService;
 use crate::services::agent_workspace::resolve_agent_workspace_paths;
@@ -56,6 +67,9 @@ use crate::services::self_fix::merge_executor::{MergeRequest, run_merge_executor
 /// per-task merge-attempt cap.
 pub(crate) struct SelfFixService {
     tasks: OrchestrationTaskRepository,
+    maintenance_requests: MaintenanceRequestRepository,
+    delivery: crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository,
+    runs: TaskRunRepository,
     agents: AgentRepository,
     users: UserRepository,
     container_control: AgentContainerControlService,
@@ -76,8 +90,16 @@ impl SelfFixService {
         limits: ImportLimits,
         max_merge_attempts: i32,
     ) -> Self {
+        let maintenance_requests = MaintenanceRequestRepository::new(tasks.pool().clone());
+        let runs = TaskRunRepository::new(tasks.pool().clone());
+        let delivery = crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository::new(
+            tasks.pool().clone(),
+        );
         Self {
             tasks,
+            maintenance_requests,
+            delivery,
+            runs,
             agents,
             users,
             container_control,

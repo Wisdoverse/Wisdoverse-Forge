@@ -39,9 +39,18 @@ _merge_, but a symlink/gitlink in the import is an unconditional abort.
 
 A pure policy classifies a changed path as **sensitive** when it touches auth,
 DB migrations, CI workflows, security/middleware/MCP files, or the self-fix code
-itself (its own service, the GitHub App client, this domain policy, and the
-self-fix route — own-code is sensitive so the loop cannot weaken its own
-guards). A change touching any sensitive path is recorded `sensitive_blocked`.
+itself (its own service, every GitHub App client module, this domain policy,
+maintenance intake and delivery policies and repositories, and the self-fix
+route — own-code is sensitive so the loop cannot weaken its own guards or
+review evidence). A change touching any sensitive path is recorded
+`sensitive_blocked`.
+
+GitHub API requests remain on the configured API origin. Pagination links
+cannot change its scheme, host or port, supply credentials, or add a fragment.
+The client refuses redirects, including during installation-token exchange;
+an unexpected redirect requires operator correction and does not forward
+credentials or contact the redirect target. `GITHUB_API_BASE` remains an
+operator-owned override for local validation, not a task input.
 
 A `sensitive_blocked` change is **hard-refused from in-platform merge** in
 `SelfFixService::approve_and_merge`, before any GitHub call, regardless of what a

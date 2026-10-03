@@ -1,5 +1,6 @@
 import { describe, test, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, waitFor, act, fireEvent, within } from '@testing-library/react'
+import '@app/i18n'
 import { BoardView } from '@app/features/board/BoardView'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -53,6 +54,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
   cleanup()
   useBoardStore.getState().reset()
   useNavigationStore.getState().reset()
@@ -634,6 +636,255 @@ describe('BoardView', () => {
     )
     expect(alert.textContent).not.toContain('task queue')
     expect(alert.textContent).not.toContain('API')
+  })
+
+  test('updates priority from the task card and keeps card interactions isolated', async () => {
+    const task = {
+      id: 'priority-task',
+      groupId: 'test-group',
+      state: 'backlog',
+      method: 'tasks/send',
+      params: { task: 'Prioritize this task', message: '' },
+      priority: 'normal',
+      progress: 0,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    const updatedTask = { ...task, priority: 'urgent' }
+    mockGetTasks.mockResolvedValueOnce([task] as any)
+    mockUpdateTask.mockResolvedValueOnce({ ok: true, task: updatedTask } as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    const priority = await screen.findByRole('combobox', {
+      name: 'Change priority for Prioritize this task',
+    })
+    fireEvent.pointerDown(priority, { button: 0, clientX: 8, clientY: 8 })
+    fireEvent.pointerUp(priority, { button: 0, clientX: 8, clientY: 8 })
+    fireEvent.click(priority)
+    expect(navigate).not.toHaveBeenCalled()
+
+    fireEvent.change(priority, { target: { value: 'urgent' } })
+    await waitFor(() => {
+      expect(mockUpdateTask).toHaveBeenCalledWith('priority-task', { priority: 'urgent' })
+      expect(
+        useBoardStore
+          .getState()
+          .columns.backlog.find((boardTask) => boardTask.id === 'priority-task')?.priority
+      ).toBe('urgent')
+    })
+    expect(await screen.findByText('Priority updated.')).toBeDefined()
+  })
+
+  test('keeps the old priority after a failed save and allows retry', async () => {
+    const task = {
+      id: 'priority-retry-task',
+      groupId: 'test-group',
+      state: 'backlog',
+      method: 'tasks/send',
+      params: { task: 'Retry priority update', message: '' },
+      priority: 'normal',
+      progress: 0,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    mockGetTasks.mockResolvedValueOnce([task] as any)
+    mockUpdateTask
+      .mockRejectedValueOnce(new Error('HTTP 500'))
+      .mockResolvedValueOnce({ ok: true, task: { ...task, priority: 'high' } } as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    const priority = await screen.findByRole('combobox', {
+      name: 'Change priority for Retry priority update',
+    })
+    fireEvent.change(priority, { target: { value: 'high' } })
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not save this priority. It is unchanged. Choose a priority again to retry.'
+    )
+    expect(priority).toHaveValue('normal')
+
+    fireEvent.change(priority, { target: { value: 'high' } })
+    await waitFor(() => expect(mockUpdateTask).toHaveBeenCalledTimes(2))
+    await waitFor(() => {
+      expect(
+        useBoardStore
+          .getState()
+          .columns.backlog.find((boardTask) => boardTask.id === 'priority-retry-task')?.priority
+      ).toBe('high')
+    })
+  })
+
+  test('does not apply a priority response after switching task groups', async () => {
+    const originalTask = {
+      id: 'group-one-task',
+      groupId: 'group-one',
+      state: 'backlog',
+      method: 'tasks/send',
+      params: { task: 'Old group task', message: '' },
+      priority: 'normal',
+      progress: 0,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    const nextTask = {
+      ...originalTask,
+      id: 'group-two-task',
+      groupId: 'group-two',
+      params: { task: 'Current group task', message: '' },
+    }
+    let resolveUpdate!: (result: unknown) => void
+    mockGetTasks.mockImplementation(async (groupId) =>
+      groupId === 'group-one' ? ([originalTask] as any) : ([nextTask] as any)
+    )
+    mockUpdateTask.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveUpdate = resolve
+      })
+    )
+    useBoardStore.getState().setSelectedGroupId('group-one')
+    render(<BoardView />)
+
+    const priority = await screen.findByRole('combobox', {
+      name: 'Change priority for Old group task',
+    })
+    fireEvent.change(priority, { target: { value: 'urgent' } })
+    await waitFor(() =>
+      expect(mockUpdateTask).toHaveBeenCalledWith('group-one-task', { priority: 'urgent' })
+    )
+
+    act(() => useBoardStore.getState().setSelectedGroupId('group-two'))
+    expect(await screen.findByText('Current group task')).toBeDefined()
+    await act(async () => {
+      resolveUpdate({ ok: true, task: { ...originalTask, priority: 'urgent' } })
+    })
+
+    expect(screen.queryByText('Old group task')).toBeNull()
+    expect(
+      Object.values(useBoardStore.getState().columns)
+        .flat()
+        .map((boardTask) => boardTask.id)
+    ).toEqual(['group-two-task'])
+  })
+
+  test('keeps loaded cards visible and offers retry after a background refresh fails', async () => {
+    const task = {
+      id: 'refresh-task',
+      groupId: 'test-group',
+      state: 'backlog',
+      method: 'tasks/send',
+      params: { task: 'Keep this loaded task', message: '' },
+      priority: 'normal',
+      progress: 0,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    let backgroundRefresh!: () => void
+    vi.spyOn(window, 'setInterval').mockImplementation((handler) => {
+      if (!backgroundRefresh) backgroundRefresh = handler as () => void
+      return 1
+    })
+    mockGetTasks.mockResolvedValueOnce([task] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+    expect(await screen.findByText('Keep this loaded task')).toBeDefined()
+
+    mockGetTasks.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await act(async () => backgroundRefresh())
+
+    expect(screen.getByTestId('board-stale-refresh')).toHaveTextContent(
+      'Could not refresh tasks. Showing the last loaded cards.'
+    )
+    expect(screen.getByText('Keep this loaded task')).toBeDefined()
+
+    let resolveRetry!: (tasks: unknown[]) => void
+    mockGetTasks.mockReturnValueOnce(new Promise((resolve) => (resolveRetry = resolve)) as any)
+    fireEvent.click(screen.getByRole('button', { name: 'Check tasks again' }))
+    expect(screen.getByTestId('board-stale-refresh')).toBeDefined()
+    await act(async () => {
+      resolveRetry([{ ...task, params: { task: 'Refreshed task', message: '' } }])
+    })
+
+    expect(screen.queryByTestId('board-stale-refresh')).toBeNull()
+    expect(screen.getByText('Refreshed task')).toBeDefined()
+  })
+
+  test('does not let an older background response overwrite a newer retry', async () => {
+    const task = {
+      id: 'refresh-order-task',
+      groupId: 'test-group',
+      state: 'backlog',
+      method: 'tasks/send',
+      params: { task: 'Initial task', message: '' },
+      priority: 'normal',
+      progress: 0,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    let backgroundRefresh!: () => void
+    vi.spyOn(window, 'setInterval').mockImplementation((handler) => {
+      if (!backgroundRefresh) backgroundRefresh = handler as () => void
+      return 1
+    })
+    mockGetTasks.mockResolvedValueOnce([task] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+    expect(await screen.findByText('Initial task')).toBeDefined()
+
+    mockGetTasks.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await act(async () => backgroundRefresh())
+    expect(screen.getByTestId('board-stale-refresh')).toBeDefined()
+
+    let resolveBackground!: (tasks: unknown[]) => void
+    mockGetTasks.mockReturnValueOnce(new Promise((resolve) => (resolveBackground = resolve)) as any)
+    act(() => backgroundRefresh())
+    mockGetTasks.mockResolvedValueOnce([
+      { ...task, params: { task: 'Newer retry task', message: '' } },
+    ] as any)
+    fireEvent.click(screen.getByRole('button', { name: 'Check tasks again' }))
+    expect(await screen.findByText('Newer retry task')).toBeDefined()
+    await act(async () => {
+      resolveBackground([{ ...task, params: { task: 'Older background task', message: '' } }])
+    })
+
+    expect(screen.getByText('Newer retry task')).toBeDefined()
+    expect(screen.queryByText('Older background task')).toBeNull()
+  })
+
+  test('clears the initial loading state when a background refresh supersedes it', async () => {
+    const task = {
+      id: 'slow-initial-task',
+      groupId: 'test-group',
+      state: 'backlog',
+      method: 'tasks/send',
+      params: { task: 'Loaded by background refresh', message: '' },
+      priority: 'normal',
+      progress: 0,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    let backgroundRefresh!: () => void
+    vi.spyOn(window, 'setInterval').mockImplementation((handler) => {
+      if (!backgroundRefresh) backgroundRefresh = handler as () => void
+      return 1
+    })
+    mockGetTasks
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockResolvedValueOnce([task] as any)
+    useBoardStore.getState().setSelectedGroupId('test-group')
+    render(<BoardView />)
+
+    expect(screen.getByRole('status', { name: /checking tasks/i })).toBeDefined()
+    await act(async () => backgroundRefresh())
+
+    expect(await screen.findByText('Loaded by background refresh')).toBeDefined()
+    expect(screen.queryByRole('status', { name: /checking tasks/i })).toBeNull()
   })
 
   test('shows column task count', async () => {

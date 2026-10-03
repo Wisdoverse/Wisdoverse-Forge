@@ -47,6 +47,8 @@ export default defineConfig({
     'analytics-dashboard.spec.ts',
     'governance-audit.spec.ts',
     'maintenance-repository.spec.ts',
+    'maintenance-workflow.spec.ts',
+    'maintenance-delivery.spec.ts',
   ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

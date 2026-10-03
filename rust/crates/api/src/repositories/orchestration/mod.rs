@@ -6,6 +6,9 @@
 //! reads are impossible by construction.
 
 pub mod context_link;
+pub(crate) mod maintenance_delivery;
+pub(crate) mod maintenance_request;
+pub(crate) use maintenance_request::{CreateMaintenanceRequestRow, MaintenanceRequestRepository};
 #[cfg(test)]
 mod retire_stale_tests;
 pub mod run_context_injection;
@@ -282,6 +285,20 @@ pub struct UpdateTaskRow {
 }
 
 impl OrchestrationTaskRepository {
+    pub(crate) async fn lock_by_id_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<OrchestrationTask> {
+        sqlx::query_as::<_, OrchestrationTask>(
+            "SELECT * FROM orchestration_tasks WHERE organization_id = $1 AND id = $2 FOR UPDATE",
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+    }
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }

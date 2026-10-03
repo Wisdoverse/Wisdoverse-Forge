@@ -32,12 +32,14 @@ use crate::services::agent_workspace::{
 };
 use crate::services::auth_callout::AuthCalloutService;
 use crate::services::container_image_config::{
-    capture_container_image_identity, configured_cli_images, recorded_image_trust_is_acceptable,
+    capture_container_image_identity, configured_cli_images, configured_container_network,
+    recorded_image_trust_is_acceptable,
 };
 use crate::services::orchestration::OrchestrationService;
 
 pub(crate) struct AgentContainerControlSettings {
     pub(crate) workspace_root: String,
+    pub(crate) container_network: String,
     pub(crate) nats_container_url: Option<String>,
     pub(crate) nats_agent_url: Option<String>,
     pub(crate) nats_url: Option<String>,
@@ -55,6 +57,7 @@ impl AgentContainerControlSettings {
     ) -> Self {
         Self {
             workspace_root,
+            container_network: configured_container_network(),
             nats_container_url: config.nats_container_url.clone(),
             nats_agent_url: config.nats_agent_url.clone(),
             nats_url: config.nats_url.clone(),
@@ -303,7 +306,7 @@ impl AgentContainerControlService {
             env,
             labels,
             resources: Default::default(),
-            network: Some("agentforge-agents".to_string()),
+            network: Some(self.settings.container_network.clone()),
             mounts,
             privileged: false,
             host_pid: false,
@@ -585,7 +588,7 @@ impl AgentContainerControlService {
             env,
             labels,
             resources: Default::default(),
-            network: Some("agentforge-agents".to_string()),
+            network: Some(self.settings.container_network.clone()),
             mounts,
             privileged: false,
             host_pid: false,
@@ -1138,6 +1141,7 @@ mod tests {
     fn control_settings_keep_runtime_urls_optional() {
         let settings = AgentContainerControlSettings {
             workspace_root: "/tmp/workspaces".to_string(),
+            container_network: "isolated-agents".to_string(),
             nats_container_url: None,
             nats_agent_url: None,
             nats_url: None,

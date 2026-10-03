@@ -137,14 +137,17 @@ async fn health_json() {
         return;
     }
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/api/v1/health"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "ok": true,
-            "data": { "status": "ok", "version": "1.2.3", "uptime": "10m" }
-        })))
-        .mount(&server)
-        .await;
+    // Compare output across the current Rust route and the legacy Go route.
+    for health_path in ["/api/health", "/api/v1/health"] {
+        Mock::given(method("GET"))
+            .and(path(health_path))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "data": { "status": "ok", "version": "1.2.3", "uptime": "10m" }
+            })))
+            .mount(&server)
+            .await;
+    }
 
     let (go, rs) = run_both(&server.uri(), &["health", "-o", "json"]);
     assert_parity(&["health", "-o", "json"], &go, &rs);

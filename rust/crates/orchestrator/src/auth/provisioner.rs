@@ -232,7 +232,7 @@ impl ParticipantStore for MemoryParticipantStore {
         let Some(participant_id) = state.by_external.get(&(org_id.to_string(), external_user_id.to_string())) else {
             return Ok(None);
         };
-        Ok(state.by_id.get(participant_id).cloned())
+        Ok(state.by_id.get(participant_id).filter(|record| record.org_id == org_id).cloned())
     }
 
     async fn list_humans(&self, org_id: &str) -> Result<Vec<ParticipantRecord>> {
@@ -250,7 +250,12 @@ impl ParticipantStore for MemoryParticipantStore {
         preferred_id: Option<&str>,
     ) -> Result<ParticipantRecord> {
         let mut state = self.state.lock().await;
-        let participant_id = match preferred_id {
+        if let Some(id) = state.by_external.get(&(org_id.to_string(), external_user_id.to_string()))
+            && let Some(existing) = state.by_id.get(id).filter(|record| record.org_id == org_id)
+        {
+            return Ok(existing.clone());
+        }
+        let participant_id = match preferred_id.filter(|id| !state.by_id.contains_key(*id)) {
             Some(participant_id) => participant_id.to_string(),
             None => {
                 state.next_id += 1;
@@ -271,7 +276,9 @@ impl ParticipantStore for MemoryParticipantStore {
 
     async fn update_human(&self, participant: &ParticipantRecord) -> Result<()> {
         let mut state = self.state.lock().await;
-        let Some(existing) = state.by_id.get(&participant.id).cloned() else {
+        let Some(existing) =
+            state.by_id.get(&participant.id).filter(|record| record.org_id == participant.org_id).cloned()
+        else {
             return Err(anyhow!("participant not found"));
         };
         state.by_external.remove(&(existing.org_id, existing.external_user_id));
@@ -334,16 +341,40 @@ impl ParticipantStore for PgParticipantStore {
         display_name: &str,
         preferred_id: Option<&str>,
     ) -> Result<ParticipantRecord> {
-        let row = if let Some(participant_id) = preferred_id {
+        let mut tx = self.pool.begin().await?;
+        // Serialize creation for this organization/subject, including the
+        // fallback when a preferred UUID already belongs to another actor.
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('participant:' || $1 || ':' || $2, 0))")
+            .bind(org_id)
+            .bind(external_user_id)
+            .execute(&mut *tx)
+            .await?;
+        let existing = sqlx::query(
+            "SELECT id::text AS id, casdoor_user_id, display_name, org_id, created_at FROM participants WHERE org_id=$1 AND casdoor_user_id=$2 AND type='human' ORDER BY created_at ASC LIMIT 1"
+        )
+        .bind(org_id)
+        .bind(external_user_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(row) = existing {
+            tx.commit().await?;
+            return row_to_participant(row);
+        }
+        let preferred = if let Some(participant_id) = preferred_id {
             sqlx::query(
-                "INSERT INTO participants (id, type, display_name, casdoor_user_id, org_id)                  VALUES (CAST($1 AS uuid), 'human', $2, $3, $4)                  RETURNING id::text AS id, casdoor_user_id, display_name, org_id, created_at"
+                "INSERT INTO participants (id, type, display_name, casdoor_user_id, org_id) VALUES (CAST($1 AS uuid), 'human', $2, $3, $4) ON CONFLICT (id) DO NOTHING RETURNING id::text AS id, casdoor_user_id, display_name, org_id, created_at"
             )
             .bind(participant_id)
             .bind(display_name)
             .bind(external_user_id)
             .bind(org_id)
-            .fetch_one(&self.pool)
+            .fetch_optional(&mut *tx)
             .await?
+        } else {
+            None
+        };
+        let row = if let Some(row) = preferred {
+            row
         } else {
             sqlx::query(
                 "INSERT INTO participants (type, display_name, casdoor_user_id, org_id)                  VALUES ('human', $1, $2, $3)                  RETURNING id::text AS id, casdoor_user_id, display_name, org_id, created_at"
@@ -351,15 +382,16 @@ impl ParticipantStore for PgParticipantStore {
             .bind(display_name)
             .bind(external_user_id)
             .bind(org_id)
-            .fetch_one(&self.pool)
+            .fetch_one(&mut *tx)
             .await?
         };
+        tx.commit().await?;
         row_to_participant(row)
     }
 
     async fn update_human(&self, participant: &ParticipantRecord) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE participants SET display_name = $1, casdoor_user_id = $2, org_id = $3              WHERE id = CAST($4 AS uuid) AND type = 'human'"
+            "UPDATE participants SET display_name = $1, casdoor_user_id = $2 WHERE id = CAST($4 AS uuid) AND org_id = $3 AND type = 'human'"
         )
         .bind(&participant.display_name)
         .bind(&participant.external_user_id)
@@ -385,4 +417,49 @@ fn row_to_participant(row: PgRow) -> Result<ParticipantRecord> {
         org_id: row.try_get("org_id")?,
         created_at: row.try_get("created_at")?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn check_scoped_uuid_replay(provisioner: Provisioner) {
+        let subject = Uuid::new_v4().to_string();
+        let first = provisioner.ensure_internal_participant("org-a", &subject).await.expect("first organization");
+        assert_eq!(first.id, subject);
+        let replays =
+            futures::future::join_all((0..8).map(|_| provisioner.ensure_internal_participant("org-b", &subject))).await;
+        let second = replays[0].as_ref().expect("second organization");
+        assert_ne!(second.id, first.id);
+        for replay in &replays {
+            assert_eq!(replay.as_ref().expect("concurrent replay").id, second.id);
+        }
+        let updated = provisioner
+            .create_or_update_internal_participant("org-a", &subject, Some("Updated original actor"))
+            .await
+            .expect("update original actor");
+        assert_eq!(updated.id, first.id);
+        assert_eq!(updated.created_at, first.created_at);
+        let original = provisioner.list_participants("org-a").await.expect("original organization");
+        let other = provisioner.list_participants("org-b").await.expect("other organization");
+        assert_eq!(original.len(), 1);
+        assert_eq!(other.len(), 1);
+        assert_eq!(original[0].display_name, "Updated original actor");
+        assert_eq!(other[0].display_name, subject);
+        assert_eq!(other[0].id, second.id);
+        assert_eq!(other[0].created_at, second.created_at);
+        assert_eq!(original[0].org_id, "org-a");
+        assert_eq!(other[0].org_id, "org-b");
+    }
+
+    #[tokio::test]
+    async fn memory_participants_preserve_scoped_uuid_identity() {
+        check_scoped_uuid_replay(Provisioner::new()).await;
+    }
+
+    #[sqlx::test]
+    async fn postgres_participants_preserve_scoped_uuid_identity(pool: PgPool) {
+        crate::migrations::run_migrations(&pool).await.expect("orchestrator schema");
+        check_scoped_uuid_replay(Provisioner::postgres(pool)).await;
+    }
 }

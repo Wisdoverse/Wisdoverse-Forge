@@ -151,6 +151,126 @@ If a retry finds an existing PR targeting a different base branch, it refuses to
 reuse that PR. Inspect the PR on GitHub and create a new task for the current
 default branch; branch/head changes need another human review.
 
+## Submit and trace a maintenance source
+
+Complete the repository check above, sign in as a platform administrator, and
+open **Tasks**. On the Tasks board or sidebar, select the project, then select
+its **Place for new tasks**. Expand **Maintenance request**, enter a title and
+brief, and identify the source with a stable request reference or a pull request
+number. Submission creates an **unassigned backlog task**. The form does not
+start execution.
+
+If the same source is submitted again, Forge reuses the existing task and keeps
+its original brief and destination. Select **Open maintenance task** to go to
+that original task. To work on the request, review it and use the existing
+assignment workflow when ready.
+
+Open task details to see the full-width **Maintenance source and result** panel.
+It links the source reference and source SHA, starting SHA, task execution
+records, and produced PR/head SHA. Current GitHub observations include their
+check time. Use **Refresh source and result** to request a new observation. A
+changed head is called out; unavailable provider state is shown as unavailable.
+The panel does not provide execution or merge controls. Its PR observations do not report CI
+success or grant merge approval.
+
+The **Maintenance repository** settings page also links to **Tasks** to start
+this workflow.
+
+### API submission and trace
+
+<a id="submit-and-trace-a-maintenance-source-api"></a>
+
+The same deliberate intake and trace are available through the API. Choose an
+active task place in the current organization; its project and workspace must
+also be active.
+
+Use your existing login token in `FORGE_TOKEN`. Replace the example `groupId`
+with your task place's UUID and choose a stable reference for this request:
+
+```bash
+cat > maintenance-request.json <<'JSON'
+{
+  "groupId": "00000000-0000-4000-8000-000000000001",
+  "title": "Update a dependency",
+  "brief": "Update the agreed dependency, explain the change, and run the agreed checks.",
+  "source": { "kind": "request", "reference": "dependency-2026-10" }
+}
+JSON
+
+curl --fail-with-body \
+  -H "Authorization: Bearer ${FORGE_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  --data-binary @maintenance-request.json \
+  http://localhost:4003/api/v1/self-fix/requests
+```
+
+Success returns `data.requestId`, `data.taskId`, and `data.reused`. Open the
+returned task through `/tasks/<taskId>`, review its brief, and use the existing
+assignment workflow when ready. Submission creates no execution, branch,
+comment or PR and performs no merge. Store private briefs locally; do not commit
+the example request file after filling it with your team's work.
+
+To use a PR as the source, replace `source` with
+`{ "kind": "pull_request", "number": 42 }`. The server checks that number in
+the approved repository. New PR sources must be open and target its default
+branch. PR bodies and provider-supplied URLs are not imported into task prompts.
+The source PR is the origin of the brief; the existing execution path may
+produce a separate PR, which the trace reports separately.
+
+Repeated submission of the same source in the same organization and repository
+returns the original task, including after it is completed. It preserves the
+first brief, destination and starting-version snapshot. Request references are
+trimmed and ASCII case insensitive, contain at most 128 characters, start with
+a letter or digit, and otherwise use letters, digits, `.`, `_`, `:`, or `-`.
+Choose a different reference for genuinely new work. PR identity is its number.
+If a response is lost, retry the same source to retrieve the committed task;
+an existing source can be retrieved even when GitHub is unavailable.
+
+Set `TASK_ID` to the returned UUID to inspect its lineage:
+
+```bash
+curl --fail-with-body \
+  -H "Authorization: Bearer ${FORGE_TOKEN}" \
+  "http://localhost:4003/api/v1/self-fix/tasks/${TASK_ID}/trace"
+```
+
+The trace includes the source, task state, execution attempts and produced PR.
+`startingSha` records intake; `rebuildBaseSha` records the later rebuild and may
+differ. `source.submittedHeadSha` and `recordedPrHeadSha` remain stored facts.
+Each PR observation reports `checkedAt`, its current `snapshot`, and whether
+its head changed. `unavailable` means a current state could not be verified;
+`not_applicable` means a manual source; `not_created` means no produced PR.
+Older tasks without source records return `data: null`. Refresh is explicit,
+and these observations do not report CI success or grant merge approval.
+
+Both endpoints require live platform-administrator access. Requests for another
+organization's task return 404 before contacting GitHub. If the configured
+repository changes, old source records remain readable but their external
+observations report `unavailable`; they are not read through the new connection.
+
+### Deployment and validation boundary
+
+Apply migrations 100 and 101 before deploying the new API. Migration 100 builds
+the task's tenant key concurrently and runs outside a transaction. If deployment
+interrupts that build, an operator must check the index validity and remove an
+invalid `idx_orchestration_tasks_org_id` before retrying the migration; `IF NOT
+EXISTS` cannot repair an invalid index. Keep normal migration backups and checks.
+
+The source uniqueness constraint and task/source transaction prevent duplicate
+tasks and orphan tasks on write failure. A composite foreign key enforces the
+task's organization. Local browser workflow proof is recorded in the
+[Runtime Validation runbook](../runbooks/runtime-validation.md#maintenance-browser-workflow-local-proof).
+Webhook intake, production migration, real operator or pilot acceptance, and a
+real agent/GitHub run remain unverified. The local provider mock performs no
+real GitHub writes. Relevant checks are:
+
+```bash
+cd rust
+cargo test -p agentforge-api domain::maintenance::tests --lib
+cargo test -p agentforge-api --test maintenance_requests_route_test
+make ci
+```
+
 ## The happy path
 
 1. **Create a self-fix task.** A task marked as a self-fix task targets the
@@ -209,7 +329,10 @@ access and a revoked platform admin against the real router.
 
 The UI tests cover malformed responses, safe error messages, bounded requests,
 partial verification permissions, role revocation and late responses from a
-previous account. With Node.js dependencies installed, run from the repo root:
+previous account. Maintenance source intake and task-detail tests cover
+submission replay, preserving the original destination and brief, and rendering
+the source/result trace. With Node.js dependencies installed, run from the
+repo root:
 
 ```bash
 npm run test:unit -- tests/unit/shared/selfFixRepositoryApi.test.ts \
@@ -230,7 +353,10 @@ npm run test:e2e -- maintenance-repository.spec.ts
 Set `BASE_URL`, `E2E_API_BASE_URL` or `PLAYWRIGHT_CHROMIUM_PATH` locally when
 using non-default ports or an installed system Chromium. The spec does not
 mock application authentication or create repository changes. A local GitHub
-test service proves only that integration, not a real installation.
+test service proves only that integration, not a real installation. For the
+maintenance request and task trace browser path, use a disposable local project
+and provider test service; see the [local workflow proof](../runbooks/runtime-validation.md#maintenance-browser-workflow-local-proof)
+for its fixture requirements and results.
 
 With Rust, Git and the protobuf compiler available, run the checks from `rust/`:
 
