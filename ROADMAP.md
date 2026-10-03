@@ -152,8 +152,9 @@ behavior it adds and provide the relevant operator or runtime proof.
    `manual authorization needed`; its positive Playwright assertion failed as
    expected, and the expected-negative classification passed. It is not a
    successful vendor run. Cross-CLI comparison remains pending along with
-   interrupted-execution/artifact-retention validation. Do not promise
-   lossless vendor-session migration. See the
+   interrupted-execution/artifact-retention validation; the operator-enclosure
+   interruption attempt failed before reaching its required checkpoint. Do not
+   promise lossless vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 6. **Outcome measurement.** Source implements a submission cohort that retains

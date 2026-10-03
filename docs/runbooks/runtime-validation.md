@@ -388,6 +388,25 @@ exited 41 before model invocation, so it also does not validate provider
 execution. The full CI pass above validates the current code; cross-CLI
 comparison remains unverified.
 
+An operator-enclosure interruption qualification at source `8e05bcb` used
+`runtime_kind=cli`, no managed container ID, the sidecar from `0bdb075` (Rust tree
+`b167461df5fabfff1c58131453f021a56a84ce90`), and Codex 0.160.0 with
+`gpt-6-luna` selected. The first attempt failed before task execution because its
+NATS peer port was fixed at 4222. After correcting it to 15443, an anonymous TCP
+preflight confirmed that the listener required authentication; the port-only
+harness correction passed independent review. One retry accepted
+an assignment, but the required `blocked.flag` checkpoint did not appear
+within 180 seconds. The board showed the task completed with one file while
+the workspace remained empty; that badge counts result artifacts derived from
+stdout and does not prove workspace files. A completed inbox assignment
+tombstone existed.
+No process-kill, restart, or replay assertions ran. The outer failure evidence
+and cleanup of the private home and exact run container were preserved, but
+fixture cleanup did not retain the completed task's raw stdout or API snapshot,
+so the provider cause is unknown. This qualification failed and does not prove
+provider/model success, raw-artifact retention, managed-container behavior, or
+signed-image qualification.
+
 The Temporal 1.26 gate workflow completed in 515 ms after 12 orchestrator
 migrations. Authenticated run returned 202, anonymous access returned 401,
 and a wrong-tenant request returned 404. This verifies that local gate workflow
@@ -417,8 +436,9 @@ original migration-104 deletion failed with FK error `23503`; both failures
 remain part of the evidence history.
 
 Still pending are a second successful real vendor CLI run and cross-CLI
-comparison, interrupted-vendor/artifact-retention qualification, real GitHub
-App and protected-repository acceptance, signed-release/admin-roll
+comparison, interrupted-vendor/artifact-retention qualification (the attempted
+operator-enclosure interruption run above failed), real GitHub App and
+protected-repository acceptance, signed-release/admin-roll
 qualification, production migration/runtime acceptance, and macOS/Windows
 operator validation. Pilot adoption and measurement remain optional;
 engineering gates remain required. All databases, records, images and provider
