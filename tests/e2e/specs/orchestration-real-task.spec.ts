@@ -33,6 +33,7 @@ const SIDECAR_CONTAINER_NETWORK =
 const SIDECAR_CONTAINER_NATS_HOST =
   process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_HOST ?? 'host.docker.internal'
 const NATS_PORT = process.env.NATS_PORT ?? '4222'
+const SIDECAR_CONTAINER_NATS_PORT = process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_PORT ?? NATS_PORT
 const SIDECAR_START_TIMEOUT_MS = positiveIntEnv(
   process.env.ORCHESTRATION_REAL_SIDECAR_START_TIMEOUT_MS,
   60_000
@@ -687,7 +688,7 @@ async function startContainerSidecar(fixture: TestFixture, image: string): Promi
   if (!/^sha256:[a-f0-9]{64}$/.test(imageId)) throw new Error('Invalid inspected image ID')
   const realCliHome = REAL_CLI_E2E ? requiredRealE2EEnv('ORCHESTRATION_REAL_CLI_HOME') : undefined
   const credentialDir = credentialDirForTool(fixture.cliTool)
-  const natsUrl = `nats://${fixture.agentId}:${fixture.natsPassword}@${SIDECAR_CONTAINER_NATS_HOST}:${NATS_PORT}`
+  const natsUrl = `nats://${fixture.agentId}:${fixture.natsPassword}@${SIDECAR_CONTAINER_NATS_HOST}:${SIDECAR_CONTAINER_NATS_PORT}`
   const containerName = `agentforge-e2e-sidecar-${fixture.agentId}`
   const env = {
     NATS_URL: natsUrl,
