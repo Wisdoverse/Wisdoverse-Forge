@@ -12,8 +12,9 @@ use windows_sys::Win32::Security::Authorization::{
     ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo, SE_FILE_OBJECT,
 };
 use windows_sys::Win32::Security::{
-    ACCESS_ALLOWED_ACE, ACL, DACL_SECURITY_INFORMATION, GetAce, GetTokenInformation, OWNER_SECURITY_INFORMATION,
-    SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER, TokenUser,
+    ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation, DACL_SECURITY_INFORMATION, GetAce,
+    GetAclInformation, GetTokenInformation, IsValidAcl, OWNER_SECURITY_INFORMATION, SECURITY_ATTRIBUTES, TOKEN_QUERY,
+    TOKEN_USER, TokenUser,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     CreateDirectoryW, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
@@ -130,6 +131,9 @@ pub fn verify_private_handle(handle: HANDLE) -> io::Result<()> {
     if error != 0 {
         return Err(io::Error::from_raw_os_error(error as i32));
     }
+    if descriptor.is_null() {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing local state/relay descriptor"));
+    }
     let _allocation = LocalAllocation(descriptor);
     let user = current_user_sid()?;
     if owner.is_null() || sid_string(owner)? != user || dacl.is_null() {
@@ -138,24 +142,44 @@ pub fn verify_private_handle(handle: HANDLE) -> io::Result<()> {
             "local state/relay must be owned by the current user with a private DACL",
         ));
     }
-    // SAFETY: GetSecurityInfo returned a non-null ACL within the live descriptor.
-    let ace_count = unsafe { (*dacl).AceCount };
+    // SAFETY: dacl is non-null and borrows the live descriptor. Check the ACL
+    // through Win32 before reading its size information or retrieving any ACE.
+    if unsafe { IsValidAcl(dacl) } == 0 {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid local state/relay DACL"));
+    }
+    let mut info = ACL_SIZE_INFORMATION { AceCount: 0, AclBytesInUse: 0, AclBytesFree: 0 };
+    // SAFETY: the valid ACL and initialized output buffer are live for this call.
+    if unsafe {
+        GetAclInformation(
+            dacl,
+            ptr::from_mut(&mut info).cast(),
+            std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    let ace_count = info.AceCount;
     if ace_count == 0 {
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "local state/relay DACL is empty"));
     }
     for index in 0..ace_count {
         let mut ace = ptr::null_mut();
         // SAFETY: dacl is live and index is within its declared ACE count.
-        if unsafe { GetAce(dacl, index as u32, &mut ace) } == 0 {
+        if unsafe { GetAce(dacl, index, &mut ace) } == 0 {
             return Err(io::Error::last_os_error());
         }
+        let header = ptr::NonNull::new(ace.cast::<ACE_HEADER>())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "missing local state/relay ACE"))?;
         // Only the explicit allow ACE shape used for this private boundary is
         // accepted. Unknown/callback/object ACEs are rejected, never guessed.
-        let allowed = ace.cast::<ACCESS_ALLOWED_ACE>();
-        // SAFETY: every ACE starts with ACE_HEADER. Inspect the type before SID.
-        if unsafe { (*allowed).Header.AceType } != ACCESS_ALLOWED_ACE_TYPE as u8 {
+        // SAFETY: successful GetAce on the valid, live ACL returns an ACE header;
+        // the output was checked non-null. Inspect the type before casting a SID.
+        if unsafe { header.as_ref().AceType } != ACCESS_ALLOWED_ACE_TYPE as u8 {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "unsupported local state/relay ACE"));
         }
+        let allowed = ace.cast::<ACCESS_ALLOWED_ACE>();
         // SAFETY: ACCESS_ALLOWED_ACE's SID begins at SidStart and the ACL API
         // guarantees that a successfully retrieved ACE contains its full SID.
         let sid = sid_string(unsafe { ptr::addr_of_mut!((*allowed).SidStart).cast() })?;
