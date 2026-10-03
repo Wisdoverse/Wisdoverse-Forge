@@ -25,7 +25,7 @@ use crate::domain::mcp::{
     cli_ready_timeout_error, docker_create_plan, docker_runtime_error, has_any_indicator, hash_bytes, infer_cli_tool,
     io_runtime_error, is_not_found_error, missing_container_id_error, runtime_markers, stale_working_status,
 };
-use crate::services::container_image_config::capture_container_image_identity;
+use crate::services::container_image_config::{capture_container_image_identity, configured_container_network};
 use crate::services::mcp_agent::{
     McpAgentRecord, McpAgentRuntime, McpAgentRuntimeCreate, McpAgentRuntimeCreateResult, McpAgentStore, SessionStatus,
 };
@@ -62,12 +62,13 @@ trait DockerMcpRuntimeBackend: Send + Sync {
 #[derive(Clone)]
 struct LiveDockerMcpRuntimeBackend {
     docker: Arc<DockerClient>,
+    container_network: String,
     prompt_chunk_delay: std::time::Duration,
 }
 
 impl LiveDockerMcpRuntimeBackend {
     fn new(docker: Arc<DockerClient>, prompt_chunk_delay: std::time::Duration) -> Self {
-        Self { docker, prompt_chunk_delay }
+        Self { docker, container_network: configured_container_network(), prompt_chunk_delay }
     }
 
     async fn collect_logs(&self, container_id: &str, tail: usize) -> AppResult<Vec<u8>> {
@@ -100,7 +101,7 @@ impl LiveDockerMcpRuntimeBackend {
 ///
 /// Resource limits default to the bounded platform defaults; `privileged` and
 /// `host_pid` are forced off and re-asserted by the platform layer.
-fn mcp_container_config(request: DockerCreateRequest) -> PlatformContainerConfig {
+fn mcp_container_config(request: DockerCreateRequest, container_network: &str) -> PlatformContainerConfig {
     PlatformContainerConfig {
         image: request.image,
         name: Some(request.name),
@@ -108,7 +109,7 @@ fn mcp_container_config(request: DockerCreateRequest) -> PlatformContainerConfig
         env: request.env.into_iter().map(|(key, value)| format!("{key}={value}")).collect(),
         labels: request.labels,
         resources: ResourceLimits::default(),
-        network: None,
+        network: Some(container_network.to_string()),
         mounts: request
             .mounts
             .into_iter()
@@ -148,7 +149,7 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
         let expected_image_id = request.image.clone();
         let container_id = self
             .docker
-            .create_container(mcp_container_config(request))
+            .create_container(mcp_container_config(request, &self.container_network))
             .await
             .map_err(|err| docker_runtime_error(err.to_string()))?;
         let verified =
@@ -585,13 +586,16 @@ mod tests {
             attach_stdout: true,
             attach_stderr: true,
         };
-        let config = mcp_container_config(request);
+        let mut config = mcp_container_config(request, "isolated-agents");
+        assert_eq!(config.network.as_deref(), Some("isolated-agents"));
         assert!(!config.privileged, "MCP containers must never be privileged");
         assert!(!config.host_pid, "MCP containers must never share host PID");
         assert!(config.resources.memory_bytes.is_some(), "memory must be bounded");
         assert!(config.resources.pids_limit.is_some(), "pids must be bounded");
         assert_eq!(config.env, vec!["AGENTFORGE_AGENT_ID=abc".to_string()]);
         assert!(agentforge_platform::validate_security(&config).is_ok(), "must pass the platform security policy");
+        config.network = Some("host".to_string());
+        assert!(agentforge_platform::validate_security(&config).is_err(), "unsafe network modes must stay denied");
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]

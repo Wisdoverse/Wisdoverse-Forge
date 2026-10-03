@@ -105,7 +105,10 @@ setup: ## Ensure external Docker networks exist
 	@case "$(_WORKSPACE_ROOT_DIR)" in *//*|*/./*|*/../*|*/.|*/..) echo "AGENTFORGE_WORKSPACE_ROOT must not contain ambiguous path components" >&2; exit 1 ;; esac
 	@workspace_path="$(_WORKSPACE_ROOT_DIR)"; current=; old_ifs=$$IFS; IFS=/; set -f; for component in $$workspace_path; do [ -n "$$component" ] || continue; current="$$current/$$component"; [ ! -L "$$current" ] || { echo "AGENTFORGE_WORKSPACE_ROOT must not contain symbolic links" >&2; exit 1; }; done; IFS=$$old_ifs; set +f
 	@case "$(_WORKSPACE_GID)" in ''|*[!0-9]*) echo "CLAUDE_GID must be numeric" >&2; exit 1 ;; esac
-	@docker network create agentforge-agents 2>/dev/null || true
+	@set --; [ ! -f "$(COMPOSE_ENV_FILE)" ] || set -- --env-file "$(COMPOSE_ENV_FILE)"; \
+		rendered_env=$$(printf 'networks:\n  agent-network:\n    name: $${CONTAINER_NETWORK:-agentforge-agents}\n    external: true\n' | docker compose --project-name agentforge-setup "$$@" -f - config --environment) || exit $$?; \
+		container_network=$$(printf '%s\n' "$$rendered_env" | sed -n 's/^CONTAINER_NETWORK=//p'); \
+		docker network inspect "$${container_network:-agentforge-agents}" >/dev/null 2>&1 || docker network create "$${container_network:-agentforge-agents}" >/dev/null
 	@mkdir -p "$(OAUTH_MOUNT_DIR_NAME)"
 	@docker run --rm --user 0:0 -v "$(OAUTH_MOUNT_DIR_NAME):/oauth-mount-dir" alpine:3.21 sh -c 'chown $(OAUTH_MOUNT_UID):$(OAUTH_MOUNT_GID) /oauth-mount-dir && chmod 700 /oauth-mount-dir' >/dev/null
 	@workspace_path="$(_WORKSPACE_ROOT_DIR)"; current=; old_ifs=$$IFS; IFS=/; set -f; for component in $$workspace_path; do [ -n "$$component" ] || continue; current="$$current/$$component"; [ ! -L "$$current" ] || { echo "AGENTFORGE_WORKSPACE_ROOT must not contain symbolic links" >&2; exit 1; }; done; IFS=$$old_ifs; set +f; docker run --rm --user 0:0 -v "$$workspace_path:/workspace-root" alpine:3.21 sh -c 'chgrp $(_WORKSPACE_GID) /workspace-root && chmod 2775 /workspace-root' >/dev/null
