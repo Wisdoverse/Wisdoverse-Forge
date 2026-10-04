@@ -10,7 +10,7 @@ const agentBaseDockerfile = fs.readFileSync(
 
 describe('agent base Dockerfile', () => {
   it('builds Docker Compose from pinned source using a patched Go toolchain', () => {
-    expect(agentBaseDockerfile).toContain('ARG COMPOSE_GO_VERSION=1.26.4')
+    expect(agentBaseDockerfile).toContain('ARG COMPOSE_GO_VERSION=1.26.8')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_VERSION=5.1.3')
     expect(agentBaseDockerfile).toContain(
       'ARG COMPOSE_COMMIT=977a4310f9f6d89d4b176fee01a5b7c109c1816a'
@@ -20,7 +20,7 @@ describe('agent base Dockerfile', () => {
     )
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_DOCKER_MODULE_VERSION=29.3.1')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_IN_TOTO_VERSION=0.11.0')
-    expect(agentBaseDockerfile).toContain('ARG COMPOSE_CONTAINERD_VERSION=2.2.4')
+    expect(agentBaseDockerfile).toContain('ARG COMPOSE_CONTAINERD_VERSION=2.2.5')
     expect(agentBaseDockerfile).toContain('ARG COMPOSE_OTEL_VERSION=1.43.0')
     expect(agentBaseDockerfile).toContain(
       'FROM golang:${COMPOSE_GO_VERSION}-bookworm AS compose-builder'
