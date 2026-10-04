@@ -398,6 +398,17 @@ async fn seed_git_credential(
     remote_url: Option<&str>,
     token: &str,
 ) -> Uuid {
+    seed_git_credential_for_owner(pool, seed.org_id, seed.user_id, provider, remote_url, token).await
+}
+
+async fn seed_git_credential_for_owner(
+    pool: &PgPool,
+    org_id: Uuid,
+    user_id: Uuid,
+    provider: &str,
+    remote_url: Option<&str>,
+    token: &str,
+) -> Uuid {
     let id = Uuid::new_v4();
     let encrypted = agentforge_core::crypto::encrypt_base64(&TEST_LLM_ENCRYPTION_KEY, token).expect("encrypt token");
     sqlx::query(
@@ -405,8 +416,8 @@ async fn seed_git_credential(
          VALUES ($1, $2, $3, $4, $5, 'token', $6, $7)",
     )
     .bind(id)
-    .bind(seed.org_id)
-    .bind(seed.user_id)
+    .bind(org_id)
+    .bind(user_id)
     .bind(format!("{provider} cred"))
     .bind(provider)
     .bind(encrypted.into_bytes())
@@ -415,6 +426,275 @@ async fn seed_git_credential(
     .await
     .expect("seed git credential");
     id
+}
+
+async fn seed_other_user(pool: &PgPool, org_id: Uuid, role: &str) -> Uuid {
+    let user_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+        .bind(user_id)
+        .bind(format!("fixture-{user_id}@example.com"))
+        .execute(pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, $3)")
+        .bind(org_id)
+        .bind(user_id)
+        .bind(role)
+        .execute(pool)
+        .await
+        .unwrap();
+    user_id
+}
+
+async fn clone_authority(
+    pool: &PgPool,
+    project_id: Uuid,
+    attempt: i32,
+) -> (Option<Uuid>, Option<chrono::DateTime<chrono::Utc>>) {
+    sqlx::query_as(
+        "SELECT requested_by, requested_at FROM project_clone_attempts WHERE project_id = $1 AND attempt = $2",
+    )
+    .bind(project_id)
+    .bind(attempt)
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+async fn process_credential(pool: &PgPool, seed: &Seed, project_id: Uuid, attempt: i32) -> Option<Uuid> {
+    let runner = FakeRunner::new(|| CloneRunOutcome::Ready {
+        branch: Some("main".into()),
+        head_sha: "fixture-sha".into(),
+        bytes: 1,
+    });
+    worker(pool, seed, runner.clone()).process_attempt_for_test(seed.org_id, project_id, attempt).await.unwrap();
+    let credential_id = attempt_row(pool, project_id, attempt).await.5;
+    assert_eq!(runner.last_call().unwrap().had_credential, credential_id.is_some());
+    credential_id
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn clone_credentials_belong_only_to_the_requester_with_explicit_host_priority(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "Personal clone", REPO_URL).await;
+    let own = seed_git_credential(&pool, &seed, "github", Some(GITHUB_HOST), "test-only-owner-token").await;
+    let fallback = seed_git_credential(&pool, &seed, "github", None, "test-only-fallback-token").await;
+    let other_user = seed_other_user(&pool, seed.org_id, "member").await;
+    let other = seed_git_credential_for_owner(
+        &pool,
+        seed.org_id,
+        other_user,
+        "github",
+        Some(GITHUB_HOST),
+        "test-only-other-user-token",
+    )
+    .await;
+    sqlx::query("UPDATE git_credentials SET updated_at = now() + interval '1 hour' WHERE id = ANY($1)")
+        .bind(vec![fallback, other])
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(process_credential(&pool, &seed, project_id, 1).await, Some(own));
+    let authority = clone_authority(&pool, project_id, 1).await;
+    assert_eq!(authority.0, Some(seed.user_id));
+    assert!(authority.1.is_some());
+    let row = agentforge_api::repositories::project_clone::ProjectCloneRepository::new(pool)
+        .find_attempt(seed.org_id, project_id, 1)
+        .await
+        .unwrap()
+        .unwrap();
+    let serialized = serde_json::to_value(row).unwrap();
+    for field in ["requested_by", "requested_at", "credential_id"] {
+        assert!(serialized.get(field).is_none());
+    }
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn clone_without_own_token_never_borrows_same_org_or_foreign_org_credentials(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "No personal token", REPO_URL).await;
+    let other_user = seed_other_user(&pool, seed.org_id, "member").await;
+    seed_git_credential_for_owner(
+        &pool,
+        seed.org_id,
+        other_user,
+        "github",
+        Some(GITHUB_HOST),
+        "test-only-other-user-token",
+    )
+    .await;
+    let foreign = crate::seed(&pool).await;
+    sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'member')")
+        .bind(foreign.org_id)
+        .bind(seed.user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    seed_git_credential_for_owner(
+        &pool,
+        foreign.org_id,
+        seed.user_id,
+        "github",
+        Some(GITHUB_HOST),
+        "test-only-foreign-org-token",
+    )
+    .await;
+    assert_eq!(process_credential(&pool, &seed, project_id, 1).await, None);
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn clone_credentials_require_current_authority_and_an_attributed_request(pool: PgPool) {
+    for denial in ["deleted", "membership", "role", "session", "legacy", "missing_time"] {
+        let seed = seed(&pool).await;
+        let project_id = create_cloned_project(&pool, &seed, denial, REPO_URL).await;
+        seed_git_credential(&pool, &seed, "github", Some(GITHUB_HOST), "test-only-owner-token").await;
+        match denial {
+            "deleted" => {
+                sqlx::query("UPDATE users SET deleted_at = now() WHERE id = $1")
+                    .bind(seed.user_id)
+                    .execute(&pool)
+                    .await
+                    .unwrap();
+            }
+            "membership" => {
+                sqlx::query("DELETE FROM organization_members WHERE organization_id = $1 AND user_id = $2")
+                    .bind(seed.org_id)
+                    .bind(seed.user_id)
+                    .execute(&pool)
+                    .await
+                    .unwrap();
+            }
+            "role" => {
+                sqlx::query(
+                    "UPDATE organization_members SET role = 'member' WHERE organization_id = $1 AND user_id = $2",
+                )
+                .bind(seed.org_id)
+                .bind(seed.user_id)
+                .execute(&pool)
+                .await
+                .unwrap();
+                sqlx::query("INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, 'member')")
+                    .bind(project_id)
+                    .bind(seed.user_id)
+                    .execute(&pool)
+                    .await
+                    .unwrap();
+            }
+            "session" => {
+                sqlx::query("UPDATE users SET sessions_invalid_before = now() WHERE id = $1")
+                    .bind(seed.user_id)
+                    .execute(&pool)
+                    .await
+                    .unwrap();
+            }
+            "legacy" => {
+                sqlx::query(
+                    "UPDATE project_clone_attempts SET requested_by = NULL, requested_at = NULL WHERE project_id = $1",
+                )
+                .bind(project_id)
+                .execute(&pool)
+                .await
+                .unwrap();
+            }
+            "missing_time" => {
+                sqlx::query("UPDATE project_clone_attempts SET requested_at = NULL WHERE project_id = $1")
+                    .bind(project_id)
+                    .execute(&pool)
+                    .await
+                    .unwrap();
+            }
+            _ => unreachable!(),
+        }
+        assert_eq!(process_credential(&pool, &seed, project_id, 1).await, None, "{denial}");
+    }
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn clone_allows_team_and_project_maintainers_without_org_admin_role(pool: PgPool) {
+    for management in ["team", "project"] {
+        let seed = seed(&pool).await;
+        let project_id = create_cloned_project(&pool, &seed, management, REPO_URL).await;
+        let own = seed_git_credential(&pool, &seed, "github", Some(GITHUB_HOST), "test-only-maintainer-token").await;
+        sqlx::query("UPDATE organization_members SET role = 'member' WHERE organization_id = $1 AND user_id = $2")
+            .bind(seed.org_id)
+            .bind(seed.user_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        if management == "team" {
+            sqlx::query("INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'maintainer')")
+                .bind(seed.team_id)
+                .bind(seed.user_id)
+                .execute(&pool)
+                .await
+                .unwrap();
+        } else {
+            sqlx::query("INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, 'maintainer')")
+                .bind(project_id)
+                .bind(seed.user_id)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        assert_eq!(process_credential(&pool, &seed, project_id, 1).await, Some(own));
+    }
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn automatic_retries_do_not_refresh_revoked_request_authority(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "Revoked retry", REPO_URL).await;
+    let own = seed_git_credential(&pool, &seed, "github", Some(GITHUB_HOST), "test-only-owner-token").await;
+    let original = clone_authority(&pool, project_id, 1).await;
+    sqlx::query("UPDATE users SET sessions_invalid_before = now() WHERE id = $1")
+        .bind(seed.user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let runner = FakeRunner::new(|| CloneRunOutcome::Timeout);
+    let retry_worker = worker(&pool, &seed, runner.clone());
+    for attempt in 1..=DEFAULT_MAX_ATTEMPTS {
+        retry_worker.process_attempt_for_test(seed.org_id, project_id, attempt).await.unwrap();
+        assert_eq!(clone_authority(&pool, project_id, attempt).await, original);
+        assert!(!runner.last_call().unwrap().had_credential);
+    }
+    let service = agentforge_api::services::project::ProjectService::from_pool(pool.clone());
+    let fresh = service.retry_clone(&scope(&seed), project_id.into()).await.unwrap();
+    let renewed = clone_authority(&pool, project_id, fresh.attempt).await;
+    assert_eq!(renewed.0, original.0);
+    assert!(renewed.1.unwrap() > original.1.unwrap());
+    assert_eq!(process_credential(&pool, &seed, project_id, fresh.attempt).await, Some(own));
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn manual_retry_uses_the_current_manager_instead_of_the_original_requester(pool: PgPool) {
+    let seed = seed(&pool).await;
+    let project_id = create_cloned_project(&pool, &seed, "Manager retry", REPO_URL).await;
+    let original = clone_authority(&pool, project_id, 1).await;
+    seed_git_credential(&pool, &seed, "github", Some(GITHUB_HOST), "test-only-original-token").await;
+    let manager = seed_other_user(&pool, seed.org_id, "admin").await;
+    let manager_token = seed_git_credential_for_owner(
+        &pool,
+        seed.org_id,
+        manager,
+        "github",
+        Some(GITHUB_HOST),
+        "test-only-current-manager-token",
+    )
+    .await;
+    sqlx::query("UPDATE project_clone_attempts SET status = 'failed' WHERE project_id = $1")
+        .bind(project_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let service = agentforge_api::services::project::ProjectService::from_pool(pool.clone());
+    let manager_scope = tenant_scope_for_ids(seed.org_id, manager);
+    let fresh = service.retry_clone(&manager_scope, project_id.into()).await.unwrap();
+    assert_eq!(clone_authority(&pool, project_id, 1).await, original);
+    let renewed = clone_authority(&pool, project_id, fresh.attempt).await;
+    assert_eq!(renewed.0, Some(manager));
+    assert!(renewed.1.unwrap() > original.1.unwrap());
+    assert_eq!(process_credential(&pool, &seed, project_id, fresh.attempt).await, Some(manager_token));
 }
 
 // ---------------------------------------------------------------------------
@@ -656,6 +936,7 @@ async fn rename_failure_yields_failed_not_false_ready(pool: PgPool) {
 async fn reconciler_recovers_expired_cloning_attempt(pool: PgPool) {
     let seed = seed(&pool).await;
     let project_id = create_cloned_project(&pool, &seed, "Stuck", REPO_URL).await;
+    let authority = clone_authority(&pool, project_id, 1).await;
 
     // Force attempt 1 into a crashed-worker state: cloning with an already-expired
     // lease.
@@ -687,6 +968,7 @@ async fn reconciler_recovers_expired_cloning_attempt(pool: PgPool) {
     assert_eq!(count_attempts(&pool, project_id).await, 2, "the recovered attempt is retried");
     let (status2, _c, _m, _b, _s, _cr) = attempt_row(&pool, project_id, 2).await;
     assert_eq!(status2, "queued");
+    assert_eq!(clone_authority(&pool, project_id, 2).await, authority);
 }
 
 #[sqlx::test(migrations = "../db/migrations")]

@@ -3,7 +3,7 @@
 //! Lives in the **api** crate (not `jobs`) because it needs api-side types the
 //! jobs crate cannot depend on without a cycle: the `RedactedError`/`CloneStatus`/
 //! `CloneErrorClass`/`WorkspaceDirName` domain types, the
-//! `ProjectCloneRepository`, and `GitCredentialService::resolve_for_host`. It
+//! `ProjectCloneRepository`, and `GitCredentialService::resolve_for_clone_attempt`. It
 //! consumes the `agentforge_jobs::queue` primitives and the
 //! `agentforge_platform::CloneRuntime` directly.
 //!
@@ -199,19 +199,6 @@ impl Default for CloneWorkerConfig {
             reconcile_interval: Duration::from_secs(60),
         }
     }
-}
-
-/// The identity + retry context needed to schedule a bounded retry, shared by the
-/// worker-failure path (built from the failed attempt) and the reconciler-recovery
-/// path (built from a `ReconcileCandidate`).
-struct RetryContext {
-    organization_id: Uuid,
-    workspace_id: Uuid,
-    project_id: Uuid,
-    /// The number of the FAILED attempt; the retry is `attempt + 1`.
-    attempt: i32,
-    repository_url: String,
-    provider: Option<String>,
 }
 
 /// The project-clone worker + reconciler.
@@ -866,18 +853,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     /// so the worker-failure path and the reconciler-recovery path share ONE
     /// retry implementation (and emit the SAME `clone.retry` event + metrics).
     async fn maybe_schedule_retry(&self, attempt: &ProjectCloneAttempt) {
-        self.schedule_retry_for(
-            &RetryContext {
-                organization_id: attempt.organization_id.as_uuid(),
-                workspace_id: attempt.workspace_id.as_uuid(),
-                project_id: attempt.project_id.as_uuid(),
-                attempt: attempt.attempt,
-                repository_url: attempt.repository_url.clone(),
-                provider: attempt.provider.clone(),
-            },
-            Some(attempt),
-        )
-        .await;
+        self.schedule_retry_for(attempt).await;
     }
 
     /// Compute the retry backoff deadline for a NEXT attempt, so a fast-failing
@@ -894,52 +870,36 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
     }
 
     /// The shared bounded-retry implementation. Schedules attempt+1 (with backoff)
-    /// when budget remains and emits `clone.retry` + metrics. `event_source`, when
-    /// `Some`, is the attempt row used to emit the WS/audit event; the reconciler
-    /// passes the recovered attempt so a reconciler-driven retry emits the SAME
-    /// event a worker-driven one does (#10).
-    async fn schedule_retry_for(&self, ctx: &RetryContext, event_source: Option<&ProjectCloneAttempt>) {
-        if ctx.attempt >= self.config.max_attempts {
+    /// when budget remains and emits `clone.retry` + metrics. Both failure and
+    /// recovery pass the authoritative row, preserving its requester and time.
+    async fn schedule_retry_for(&self, attempt: &ProjectCloneAttempt) {
+        if attempt.attempt >= self.config.max_attempts {
             tracing::info!(
-                project_id = %ctx.project_id,
-                attempt = ctx.attempt,
+                project_id = %attempt.project_id,
+                attempt = attempt.attempt,
                 max = self.config.max_attempts,
                 "clone failed at the retry ceiling; leaving it terminal"
             );
             return;
         }
-        let next = ctx.attempt + 1;
-        let run_after = self.retry_run_after(ctx.attempt);
-        match self
-            .repo
-            .schedule_retry(
-                ctx.organization_id,
-                ctx.workspace_id,
-                ctx.project_id,
-                next,
-                &ctx.repository_url,
-                ctx.provider.as_deref(),
-                Some(run_after),
-            )
-            .await
-        {
+        let next = attempt.attempt + 1;
+        let run_after = self.retry_run_after(attempt.attempt);
+        match self.repo.schedule_retry(attempt, None, Some(run_after)).await {
             Ok(Some(scheduled)) => {
                 metrics::counter!("agentforge_project_clone_retries_total").increment(1);
-                if let Some(source) = event_source {
-                    self.emit_event(source, "clone.retry", Some(CloneEvent::retry_extra(scheduled, run_after))).await;
-                }
+                self.emit_event(attempt, "clone.retry", Some(CloneEvent::retry_extra(scheduled, run_after))).await;
                 tracing::info!(
-                    project_id = %ctx.project_id,
+                    project_id = %attempt.project_id,
                     next_attempt = scheduled,
                     run_after = %run_after,
                     "scheduled bounded clone retry with backoff"
                 );
             }
             Ok(None) => {
-                tracing::debug!(project_id = %ctx.project_id, next, "retry attempt already exists; not duplicating");
+                tracing::debug!(project_id = %attempt.project_id, next, "retry attempt already exists; not duplicating");
             }
             Err(err) => {
-                tracing::warn!(project_id = %ctx.project_id, error = %err, "failed to schedule clone retry");
+                tracing::warn!(project_id = %attempt.project_id, error = %err, "failed to schedule clone retry");
             }
         }
     }
@@ -1117,18 +1077,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
 
         // Retry the recovered attempt if there is budget, through the SHARED retry
         // helper so it emits clone.retry + applies backoff exactly like the worker.
-        self.schedule_retry_for(
-            &RetryContext {
-                organization_id: candidate.organization_id,
-                workspace_id: candidate.workspace_id,
-                project_id: candidate.project_id,
-                attempt: candidate.attempt,
-                repository_url: candidate.repository_url.clone(),
-                provider: candidate.provider.clone(),
-            },
-            Some(&attempt),
-        )
-        .await;
+        self.schedule_retry_for(&attempt).await;
     }
 
     /// Adopt an attempt whose clone was already published on disk but whose DB
@@ -1362,15 +1311,7 @@ impl<R: CloneRunner + 'static> ProjectCloneWorker<R> {
         let Some(host) = host else {
             return Ok(None);
         };
-        // Build an org-scoped tenant scope for the resolution (the worker acts on
-        // behalf of the project's org; resolution is org-constrained in SQL).
-        let scope = agentforge_core::TenantScope::new(
-            attempt.organization_id,
-            // The user axis is unused by `resolve_for_host` (it is org-scoped),
-            // but TenantScope requires one; use a nil placeholder.
-            agentforge_core::UserId::from(Uuid::nil()),
-        );
-        self.credentials.resolve_for_host(&scope, host).await
+        self.credentials.resolve_for_clone_attempt(attempt, host).await
     }
 
     /// Record a clone lifecycle event: an audit-log row (spec §12) plus, when

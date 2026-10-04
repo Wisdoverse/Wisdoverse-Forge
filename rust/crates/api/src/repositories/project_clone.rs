@@ -19,6 +19,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::project_clone::{CloneAttemptStatus, CloneErrorClass, CloneStatus};
+use crate::domain::resource::ResourceRepositoryPolicy;
 
 /// The successful-finalize payload written onto a `ready` attempt + its project.
 #[derive(Debug, Clone)]
@@ -551,24 +552,31 @@ impl ProjectCloneRepository {
     /// Returns the new attempt number. Idempotent against the
     /// `uq_project_clone_attempt(project_id, attempt)` index: a duplicate retry
     /// insert (same project_id+next_attempt) is a no-op and returns `None`.
-    pub async fn schedule_retry(
+    /// A manual retry supplies its verified scope and establishes a new request
+    /// at database time. Background retries preserve the original authority.
+    pub(crate) async fn schedule_retry(
         &self,
-        organization_id: Uuid,
-        workspace_id: Uuid,
-        project_id: Uuid,
-        next_attempt: i32,
-        repository_url: &str,
-        provider: Option<&str>,
+        previous: &ProjectCloneAttempt,
+        requester: Option<&TenantScope>,
         run_after: Option<DateTime<Utc>>,
     ) -> AppResult<Option<i32>> {
+        if requester.is_some_and(|scope| scope.org_id() != previous.organization_id) {
+            return Err(ResourceRepositoryPolicy::project_not_found(previous.project_id));
+        }
+        let organization_id = previous.organization_id.as_uuid();
+        let workspace_id = previous.workspace_id.as_uuid();
+        let project_id = previous.project_id.as_uuid();
+        let next_attempt = previous.attempt + 1;
+        let requested_by = requester.map(TenantScope::user_id).or(previous.requested_by);
         let mut tx = self.pool.begin().await?;
 
         // Insert the next attempt row. ON CONFLICT on the (project_id, attempt)
         // unique index makes a duplicate retry a no-op (returns no row).
         let inserted: Option<(i32,)> = sqlx::query_as(
             r#"INSERT INTO project_clone_attempts
-                   (organization_id, workspace_id, project_id, attempt, repository_url, provider, status)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+                   (organization_id, workspace_id, project_id, attempt, repository_url, provider, status,
+                    requested_by, requested_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $10 THEN now() ELSE $9 END)
                ON CONFLICT (project_id, attempt) DO NOTHING
                RETURNING attempt"#,
         )
@@ -576,9 +584,12 @@ impl ProjectCloneRepository {
         .bind(workspace_id)
         .bind(project_id)
         .bind(next_attempt)
-        .bind(repository_url)
-        .bind(provider)
+        .bind(&previous.repository_url)
+        .bind(previous.provider.as_deref())
         .bind(CloneAttemptStatus::Queued.as_str())
+        .bind(requested_by.map(|user_id| user_id.as_uuid()))
+        .bind(previous.requested_at)
+        .bind(requester.is_some())
         .fetch_optional(&mut *tx)
         .await?;
 
