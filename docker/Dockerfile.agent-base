@@ -177,7 +177,12 @@ RUN apt-get update && apt-get -y dist-upgrade \
 
 # Pin npm 11.21.0 to use bundled tar 7.5.22 with the tar fix. Other bundled npm
 # dependencies have separate version and review lifecycles.
-RUN npm install -g npm@11.21.0 && npm cache clean --force
+# ponytail: patch bundled runtime dependencies until upstream npm ships these fixes.
+RUN npm install -g npm@11.21.0 \
+    && npm pkg delete devDependencies --prefix /usr/local/lib/node_modules/npm --workspaces=false \
+    && npm install --prefix /usr/local/lib/node_modules/npm --workspaces=false --ignore-scripts --omit=dev --save-exact --no-audit --no-fund \
+        brace-expansion@5.0.12 undici@6.28.1 ip-address@10.7.1 \
+    && npm cache clean --force
 
 # Docker CLI (static binary, no daemon) + Compose v2 plugin for DevEnv support.
 # Agent containers proxy docker commands through the sidecar.
