@@ -342,7 +342,7 @@ impl LlmProviderService {
             return curated;
         }
 
-        let client = reqwest::Client::new();
+        let client = agentforge_llm::provider::timed_client();
         match discover_models(&client, transport, &base, api_key.as_deref(), DEFAULT_DISCOVERY_TIMEOUT).await {
             Ok(models) if !models.is_empty() => live_result(&provider_key, models),
             // Empty list or any error: keep the curated fallback.

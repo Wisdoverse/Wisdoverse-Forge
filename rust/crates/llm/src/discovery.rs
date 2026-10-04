@@ -115,19 +115,20 @@ pub async fn discover_models(
         ProviderTransport::OpenAi | ProviderTransport::OpenAiCompatible => {
             request.header("authorization", format!("Bearer {}", api_key.unwrap_or_default()))
         }
-        // Gemini authenticates with a query-string key, not a header.
-        ProviderTransport::Gemini => request.query(&[("key", api_key.unwrap_or_default())]),
+        ProviderTransport::Gemini => request.header("x-goog-api-key", api_key.unwrap_or_default()),
         ProviderTransport::Ollama => request,
     };
 
-    let mut response = request.send().await.map_err(|err| DiscoveryError::Request(err.to_string()))?;
+    let mut response = request.send().await.map_err(|err| DiscoveryError::Request(err.without_url().to_string()))?;
     let status = response.status();
     if !status.is_success() {
         return Err(DiscoveryError::Status(status.as_u16()));
     }
 
     let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|err| DiscoveryError::Request(err.to_string()))? {
+    while let Some(chunk) =
+        response.chunk().await.map_err(|err| DiscoveryError::Request(err.without_url().to_string()))?
+    {
         if chunk.len() > MAX_DISCOVERY_BYTES.saturating_sub(body.len()) {
             return Err(DiscoveryError::TooLarge);
         }
@@ -230,7 +231,7 @@ pub fn parse_ollama_models(json: &Value) -> Vec<DiscoveredModel> {
 mod tests {
     use super::*;
     use serde_json::json;
-    use wiremock::matchers::{header, method, path, query_param};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
@@ -373,11 +374,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn discover_gemini_uses_query_key() {
+    async fn discover_gemini_uses_key_header_without_query() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v1beta/models"))
-            .and(query_param("key", "goog-test"))
+            .and(header("x-goog-api-key", "goog-test"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "models": [ { "name": "models/gemini-2.5-pro", "displayName": "Gemini 2.5 Pro", "supportedGenerationMethods": ["generateContent"] } ]
             })))
@@ -395,6 +396,7 @@ mod tests {
         .expect("discovery succeeds");
 
         assert_eq!(models, vec![DiscoveredModel::new("gemini-2.5-pro", "Gemini 2.5 Pro")]);
+        assert!(server.received_requests().await.unwrap()[0].url.query().is_none());
     }
 
     #[tokio::test]
