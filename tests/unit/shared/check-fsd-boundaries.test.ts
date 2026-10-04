@@ -317,7 +317,7 @@ export const thing = 1
       expect(result.errors.join('\n')).toContain('unknown/scratch')
     })
 
-    it('allows an unrecognised src/app dir to import only from shared', () => {
+    it('rejects an unrecognised src/app dir even when it imports only from shared', () => {
       const cwd = fixture({
         'src/app/scratch/util.ts': `
 import { helper } from '@app/shared/lib/utils'
@@ -329,7 +329,53 @@ export const helper = 1
       })
 
       const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining('[unknown-file] src/app/scratch/util.ts'),
+      ])
+    })
+
+    it('rejects unknown files without imports', () => {
+      const cwd = fixture({
+        'src/app/scratch/standalone.ts': 'export const value = true\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining('[unknown-file] src/app/scratch/standalone.ts'),
+      ])
+    })
+
+    it.each(['features', 'entities', 'widgets', 'pages'])(
+      'rejects a file directly under the %s layer instead of a slice',
+      (layer) => {
+        const cwd = fixture({
+          [`src/app/${layer}/flat.ts`]: 'export const value = true\n',
+        })
+
+        const result = checkFsdBoundaries({ cwd })
+
+        expect(result.ok).toBe(false)
+        expect(result.errors).toEqual([
+          expect.stringContaining(`[unknown-file] src/app/${layer}/flat.ts`),
+        ])
+      }
+    )
+
+    it('accepts valid app and shared files', () => {
+      const cwd = fixture({
+        'src/app/routes/index.ts': 'export const route = true\n',
+        'src/app/root.ts': 'export const root = true\n',
+        'src/app/shared/index.ts': 'export const shared = true\n',
+        'src/app/shared/lib/helper.ts': 'export const helper = true\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
       expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
     })
 
     it('forbids importing FROM an unrecognised src/app dir', () => {
