@@ -90,9 +90,8 @@ RUN npx vite build \
 # -----------------------------------------------------------------------------
 FROM base AS production
 
-# Pin npm 11.21.0 to use bundled tar 7.5.22 with the tar fix. Other bundled npm
-# dependencies have separate version and review lifecycles.
-RUN npm install -g npm@11.21.0 && npm cache clean --force
+# The static frontend server uses only Node.js; keep npm and npx out of the runtime.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 ARG USER_UID=1011
 ARG USER_GID=1012

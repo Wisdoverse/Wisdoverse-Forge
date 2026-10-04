@@ -75,7 +75,7 @@ ARG COMPOSE_IN_TOTO_VERSION=0.11.0
 # pkg/oci user path is not linked into this registry-only compose binary, so this
 # is defense-in-depth, but bumping is cleaner than carrying a dismissed alert.)
 ARG COMPOSE_CONTAINERD_VERSION=2.2.5
-ARG COMPOSE_OTEL_VERSION=1.43.0
+ARG COMPOSE_OTEL_VERSION=1.44.0
 ARG GITHUB_PROXY=
 WORKDIR /compose
 RUN apt-get update \
