@@ -143,12 +143,15 @@ denies sign-in when none of the mapped groups apply. If at least one applies,
 other stale mapped memberships are removed when safe. Owners and the user's
 last org membership remain stored, but that retention does not grant sign-in.
 
-Instant-off deprovisioning (optional): set `AUTH_SSO__DEPROVISION_TOKEN` (a
-shared secret) to enable `POST /api/v1/auth/deprovision` — provider/IdP
-automation (e.g. a SCIM `deactivate` webhook) sends `email` in the body and
-`x-forge-deprovision-token` in the header (compared in constant time). Each
-call removes every non-owner membership the user has, so revocation takes
-effect immediately instead of at the next sign-in. The same token also
+Deprovisioning webhook (optional): set `AUTH_SSO__DEPROVISION_TOKEN` (a
+shared secret) to enable `POST /api/v1/auth/deprovision`. Provider or IdP
+automation sends `email` in the body and `x-forge-deprovision-token` in the
+header, which is compared in constant time. Each call records a session
+invalidation cutoff and removes every non-owner membership. Refresh and
+context-switch requests are checked against that cutoff. Existing HTTP
+access tokens may remain valid for their configured lifetime, including JWT
+validation clock tolerance; the issuer lifetime defaults to 15 minutes.
+Owner memberships are retained. The same token also
 protects `POST /api/v1/auth/sso/provision` (SCIM-style provisioning): body
 `{email, displayName?, orgSlugs?: [...], roles?: [...]}` creates the account
 when missing and adds member (or admin) memberships for the requested org
