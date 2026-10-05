@@ -5,8 +5,9 @@ Read this guide for instructions, documentation, UI copy, errors, and reports.
 ## Strict Project Profile
 
 This project applies rules from ASD-STE100 Issue 9 to English prose.
+Follow the [repository writing standards](../README.md#writing-standards) for new or changed English technical text.
 The profile is mandatory for new or revised agent instructions.
-It does not establish full compliance with the standard's controlled dictionary.
+Sentence-length checks do not establish full dictionary compliance.
 
 - Use one instruction per sentence.
 - Use the imperative for instructions.
@@ -20,8 +21,9 @@ It does not establish full compliance with the standard's controlled dictionary.
 - Keep instructions out of notes.
 - Use one term for each concept.
 - Use each term with one meaning.
+- Use `check` and `test` only as nouns in prose.
 - Preserve technical names, code identifiers, commands, paths, and protocol fields exactly.
-- Do not claim full ASD-STE100 compliance without checking the official rules and dictionary.
+- Before a full compliance claim, examine the official rules and dictionary.
 
 The project applies the single-instruction rule without an exception for simultaneous actions.
 Code blocks and table fragments retain their technical syntax.
@@ -64,7 +66,7 @@ Do not rename these protocol identifiers for vocabulary consistency.
 
 - Review sentence length, action count, voice, conditions, paragraph scope, and terminology before committing instructions.
 - Verify commands and links against current source files.
-- Check that shortened text retains conditions, exceptions, ownership, and required validation.
+- Make sure that shortened text retains conditions, exceptions, ownership, and required validation.
 - Keep one canonical rule location where possible.
 - Use links instead of duplicate command catalogs or repository maps.
 

@@ -7,8 +7,8 @@ use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::Client;
 
 use crate::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
-    StreamDelta, Usage, timed_client,
+    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MAX_CHAT_RESPONSE_BYTES,
+    MessageContent, StreamDelta, Usage, provider_status_error, timed_client,
 };
 
 // Path-safe encoding: escape everything except unreserved chars, keep `-._~` literal.
@@ -38,6 +38,36 @@ impl GeminiProvider {
 
     pub fn with_base_url(api_key: String, base_url: String) -> Self {
         Self { client: timed_client(), api_key, base_url }
+    }
+
+    // The same path is exercised with a short deadline in the local mock test.
+    async fn chat_with_timeout(
+        &self,
+        request: ChatRequest,
+        timeout: std::time::Duration,
+    ) -> Result<ChatResponse, LlmError> {
+        tokio::time::timeout(timeout, async {
+            let mut s = self.stream(request.clone()).await?;
+            let mut content = String::new();
+            let mut usage = None;
+            while let Some(d) = s.next().await {
+                match d? {
+                    StreamDelta::Text(t) => {
+                        if t.len() > MAX_CHAT_RESPONSE_BYTES.saturating_sub(content.len()) {
+                            return Err(LlmError::Parse("provider response exceeds its size limit".into()));
+                        }
+                        content.push_str(&t);
+                    }
+                    StreamDelta::Usage { input_tokens, output_tokens } => {
+                        usage = Some(Usage { input_tokens, output_tokens })
+                    }
+                    StreamDelta::Done { .. } => break,
+                }
+            }
+            Ok(ChatResponse { content, model: request.model, usage })
+        })
+        .await
+        .map_err(|_| LlmError::Parse("provider response timed out".into()))?
     }
 }
 
@@ -96,10 +126,7 @@ impl LlmStream for GeminiProvider {
 
         let resp = self.client.post(url).header("x-goog-api-key", &self.api_key).json(&body).send().await?;
         if !resp.status().is_success() {
-            return Err(LlmError::Api {
-                status: resp.status().as_u16(),
-                message: resp.text().await.unwrap_or_default(),
-            });
+            return Err(provider_status_error(resp.status().as_u16()));
         }
         Ok(Box::pin(parse_gemini_sse(resp.bytes_stream())))
     }
@@ -117,20 +144,7 @@ impl LlmProvider for GeminiProvider {
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {
-        // Non-streaming fallback (aggregate the stream).
-        let mut s = self.stream(request.clone()).await?;
-        let mut content = String::new();
-        let mut usage = None;
-        while let Some(d) = s.next().await {
-            match d? {
-                StreamDelta::Text(t) => content.push_str(&t),
-                StreamDelta::Usage { input_tokens, output_tokens } => {
-                    usage = Some(Usage { input_tokens, output_tokens })
-                }
-                StreamDelta::Done { .. } => break,
-            }
-        }
-        Ok(ChatResponse { content, model: request.model, usage })
+        self.chat_with_timeout(request, std::time::Duration::from_secs(600)).await
     }
 }
 
@@ -340,5 +354,33 @@ data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"lo\"}]}}]}\n\n";
         assert_eq!(text, "Hello");
         assert_eq!(done, Some("interrupted".into()));
         assert!(got_usage, "expected a Usage delta before Done");
+    }
+}
+
+#[cfg(test)]
+mod deadline_tests {
+    use super::*;
+    use std::time::Duration;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn aggregate_deadline_includes_waiting_for_response_headers() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(2)))
+            .mount(&server)
+            .await;
+        let provider = GeminiProvider::with_base_url("test-only-key".into(), server.uri());
+        let request = ChatRequest {
+            model: "test-model".into(),
+            messages: vec![ChatMessage { role: "user".into(), content: "test prompt".into() }],
+            max_tokens: Some(16),
+            temperature: None,
+        };
+        assert!(matches!(
+            provider.chat_with_timeout(request, Duration::from_millis(30)).await,
+            Err(LlmError::Parse(message)) if message == "provider response timed out"
+        ));
     }
 }

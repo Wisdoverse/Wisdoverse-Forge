@@ -56,6 +56,24 @@ pub struct UserService {
 }
 
 impl UserService {
+    /// Revalidate durable account, session and organization authority for a
+    /// long-lived connection; the gateway enforces its bounded query timeout.
+    pub(crate) async fn websocket_session_valid(
+        &self,
+        scope: &TenantScope,
+        claims: &agentforge_auth::Claims,
+    ) -> AppResult<bool> {
+        if claims.exp <= Utc::now().timestamp().max(0) as u64 {
+            return Ok(false);
+        }
+        let floor = self.repo.active_session_floor(scope.user_id()).await?;
+        let membership = self.repo.find_membership_role(scope.user_id(), scope.org_id().as_uuid()).await?;
+        Ok(
+            matches!(floor, Some(value) if !agentforge_auth::session_token_revoked(claims.iat, value.map(|v| v.timestamp())))
+                && membership.as_deref() == Some(claims.role.as_str()),
+        )
+    }
+
     pub fn new(repo: UserRepository, jwt: Arc<JwtManager>) -> Self {
         Self {
             repo,
@@ -205,6 +223,9 @@ impl UserService {
     ) -> AppResult<agentforge_db::entities::User> {
         let email = UserEmail::parse(email)?;
         if let Some(user) = self.repo.find_by_email(email.value()).await? {
+            if user.password_hash.is_some() {
+                return Err(UserAccountPolicy::sso_account_link_required());
+            }
             return Ok(user);
         }
         self.repo.create(email.value(), None, display_name, admin_bootstrap_authorized).await
@@ -554,7 +575,8 @@ impl UserService {
     }
 
     pub(crate) async fn refresh_session(&self, refresh_token: &str) -> AppResult<RefreshedAccessToken> {
-        let claims = self.jwt.verify_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
+        let claims =
+            self.jwt.verify_refresh_token(refresh_token).map_err(|_| UserAccountPolicy::invalid_refresh_token())?;
         // F004: durable session invalidation. A refresh token issued before the
         // account's session floor (password reset or operator force-reset) is
         // rejected even after the password hash is no longer the sentinel, so a
@@ -602,7 +624,7 @@ impl UserService {
         let refresh_expires_in = RefreshSessionPolicy::refresh_expiry_seconds(remember_me);
         let refresh_token = self
             .jwt
-            .create_token_with_expiry(user.id.as_uuid(), org_id, role, refresh_expires_in)
+            .create_refresh_token(user.id.as_uuid(), org_id, role, refresh_expires_in)
             .map_err(UserAccountPolicy::refresh_token_creation_failed)?;
 
         Ok(LoginResult {
@@ -770,6 +792,36 @@ mod tests {
         UserService::new(UserRepository::new(pool.clone()), jwt.clone())
     }
 
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn sso_and_scim_do_not_link_unverified_password_accounts(pool: PgPool) {
+        let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
+        let password = Uuid::new_v4().to_string();
+        let hash = agentforge_auth::password::hash_password(&password).expect("hash password");
+        let repo = UserRepository::new(pool.clone());
+        let user = repo.create("dev@example.com", Some(&hash), None, true).await.expect("password account");
+        let (org_id, _) = seed_member(&pool, Some("owner")).await;
+        let slug: String = sqlx::query_scalar("SELECT slug FROM organizations WHERE id = $1")
+            .bind(org_id)
+            .fetch_one(&pool)
+            .await
+            .expect("org slug");
+        let service = user_service(&pool, &jwt);
+        assert!(service.ensure_sso_user("dev@example.com", None, false).await.is_err());
+        assert!(service.provision_user("dev@example.com", None, &[slug], &["admin".into()]).await.is_err());
+        assert!(repo.find_membership_role(user.id, org_id).await.expect("membership").is_none());
+        assert_eq!(
+            repo.find_by_email("dev@example.com").await.expect("lookup").expect("user").password_hash.as_deref(),
+            Some(hash.as_str())
+        );
+        assert!(service.login("dev@example.com", &password, false).await.is_ok());
+        let sso = service.ensure_sso_user("sso-only@example.com", None, false).await.expect("new SSO account");
+        assert!(sso.password_hash.is_none());
+        assert_eq!(
+            service.ensure_sso_user("sso-only@example.com", None, false).await.expect("existing SSO account").id,
+            sso.id
+        );
+    }
+
     /// #889/F002: a refresh token carrying a stale `role=admin` claim is
     /// re-minted at the user's LIVE membership role (here, demoted to `member`).
     #[sqlx::test(migrations = "../db/migrations")]
@@ -777,7 +829,7 @@ mod tests {
         let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
         let (org_id, user_id) = seed_member(&pool, Some("member")).await;
         // Stale elevated refresh token: role=admin baked in at an earlier issuance.
-        let refresh = jwt.create_token(user_id, org_id, "admin").expect("mint refresh");
+        let refresh = jwt.create_refresh_token(user_id, org_id, "admin", 604800).expect("mint refresh");
 
         let session = user_service(&pool, &jwt).refresh_session(&refresh).await.expect("refresh ok");
         let claims = jwt.verify_token(session.access_token()).expect("decode new access");
@@ -789,7 +841,7 @@ mod tests {
     async fn refresh_session_rejects_revoked_membership(pool: PgPool) {
         let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
         let (org_id, user_id) = seed_member(&pool, None).await; // no membership row
-        let refresh = jwt.create_token(user_id, org_id, "admin").expect("mint refresh");
+        let refresh = jwt.create_refresh_token(user_id, org_id, "admin", 604800).expect("mint refresh");
 
         let err = user_service(&pool, &jwt).refresh_session(&refresh).await.expect_err("revoked must fail");
         assert!(matches!(err.kind, agentforge_core::ErrorKind::Unauthorized), "got: {:?}", err.kind);
@@ -811,7 +863,7 @@ mod tests {
     async fn refresh_session_rejects_token_issued_before_session_floor(pool: PgPool) {
         let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
         let (org_id, user_id) = seed_member(&pool, Some("member")).await;
-        let refresh = jwt.create_token(user_id, org_id, "member").expect("mint refresh");
+        let refresh = jwt.create_refresh_token(user_id, org_id, "member", 604800).expect("mint refresh");
         // Floor in the future: the just-minted token's `iat` predates it.
         set_session_floor(&pool, user_id, chrono::Utc::now() + chrono::Duration::days(1)).await;
 
@@ -827,7 +879,7 @@ mod tests {
         let (org_id, user_id) = seed_member(&pool, Some("member")).await;
         // Floor in the past: a freshly minted token is newer and accepted.
         set_session_floor(&pool, user_id, chrono::Utc::now() - chrono::Duration::days(1)).await;
-        let refresh = jwt.create_token(user_id, org_id, "member").expect("mint refresh");
+        let refresh = jwt.create_refresh_token(user_id, org_id, "member", 604800).expect("mint refresh");
 
         let session = user_service(&pool, &jwt).refresh_session(&refresh).await.expect("post-floor token must pass");
         assert!(!session.access_token().is_empty());

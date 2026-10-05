@@ -8,6 +8,14 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Mandatory separation between API authorization and session renewal.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TokenPurpose {
+    Access,
+    Refresh,
+}
+
 /// JWT token payload.
 ///
 /// Fields follow the JWT registered claim names where applicable:
@@ -23,6 +31,8 @@ use uuid::Uuid;
 /// - `project_id` — active project sharing axis, when selected
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Claims {
+    /// Required token purpose; legacy untyped tokens require signing in again.
+    pub purpose: TokenPurpose,
     /// User ID (JWT "sub" claim).
     pub sub: Uuid,
     /// Organization ID.
@@ -47,7 +57,17 @@ pub struct Claims {
 impl Claims {
     /// Create claims without active workspace/team/project axes.
     pub fn new(sub: Uuid, org: Uuid, role: impl Into<String>, exp: u64, iat: u64) -> Self {
-        Self { sub, org, role: role.into(), workspace_id: None, team_id: None, project_id: None, exp, iat }
+        Self {
+            purpose: TokenPurpose::Access,
+            sub,
+            org,
+            role: role.into(),
+            workspace_id: None,
+            team_id: None,
+            project_id: None,
+            exp,
+            iat,
+        }
     }
 
     /// Return claims with active governance axes set.
@@ -116,6 +136,7 @@ mod tests {
             "sub": user_id,
             "org": org_id,
             "role": "member",
+            "purpose": "access",
             "exp": 1_700_000_000u64,
             "iat": 1_699_999_000u64,
         });
@@ -138,6 +159,7 @@ mod tests {
             "sub": Uuid::now_v7(),
             "org": Uuid::now_v7(),
             "role": "member",
+            "purpose": "access",
             "workspace_id": workspace_id,
             "team_id": team_id,
             "project_id": project_id,

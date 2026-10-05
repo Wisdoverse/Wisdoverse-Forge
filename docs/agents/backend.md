@@ -1,6 +1,7 @@
 # Backend And Runtime
 
 Read this guide for Rust, APIs, data, auth, security, and agent execution.
+This project permits the latest stable Rust release for toolchain upgrades.
 
 ## Runtime
 
@@ -59,7 +60,7 @@ The API uses `route -> service -> domain -> repository` boundaries.
 - When production drift requires tolerance, make the migration idempotent.
 - When adopting legacy tables, keep a schema-contract test for fresh databases and production.
 - For database changes, update entity structs and repository queries.
-- Test tenant boundaries for those changes.
+- Do tests for tenant boundaries in those changes.
 - Use `FOR UPDATE SKIP LOCKED` for PostgreSQL queue claims.
 - Treat `pg_notify` as a wake-up signal only.
 - Keep a polling fallback for queue work.

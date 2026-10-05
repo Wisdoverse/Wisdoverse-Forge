@@ -36,7 +36,7 @@ The [dependency policy](../security/dependency-policy.md) defines audit requirem
 ## Pull Requests
 
 - Use `gh` for GitHub and `glab` for GitLab.
-- If CLI flags differ, check the command's `--help` output.
+- If CLI flags differ, read the command's `--help` output.
 - Use the provider API when necessary.
 - For GitHub queues, take one snapshot with `npm run pr:summary`.
 - For GitLab queues, use `glab mr view --output json` or a field-limited `glab api` call.
@@ -97,5 +97,5 @@ It reads external service settings from `docker/.env`.
 - Before debugging external production, inspect `docker/.env` locally.
 - Keep its secrets and private deployment details out of public artifacts.
 - Run `make prod-ext` for the production validation path.
-- Before editing code, check API, orchestrator, NATS, Temporal, and service logs.
+- Before editing code, examine API, orchestrator, NATS, Temporal, and service logs.
 - Use the [deployment guide](../guides/deployment.md) for topology and prerequisites.

@@ -70,6 +70,28 @@ databases; direct/custom server starts fail closed unless they opt in.
 | `LOG_LEVEL`                         | `info`        | No                     | Tracing filter                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `CORS_ORIGIN`                       | none          | Required in production | Allowed browser origin for production CORS                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
+Access and refresh JWTs must have different purpose claims. The server rejects
+JWTs without a purpose claim. After the update, sign in again.
+
+An issued HTTP access token can stay valid until its configured
+`JWT_EXPIRY_SECONDS` lifetime ends. Account or session changes do not invalidate
+that token at once.
+
+Set `CORS_ORIGIN` to one browser origin, such as `https://staging.example.com`.
+Do not use `*` or a comma-separated list. The scheme, hostname, and port in
+`CORS_ORIGIN` must match the browser origin. For example, `localhost` and
+`127.0.0.1` are different origins. Compose uses `APP_URL` as a fallback when
+`CORS_ORIGIN` is blank.
+
+WebSocket requests with an `Origin` must match
+`CORS_ORIGIN`. Production WebSocket requests must include an `Origin` header. Development HTTP
+CORS accepts any origin. Development CORS does not change the WebSocket origin check.
+
+The bundled local Nginx access logs replace invite redemption paths, including
+trailing slashes and suffixes, with `/api/v1/invites/{token}/redeem`. Other
+request paths remain unchanged. This masking applies only to those Nginx access
+logs.
+
 ## Enterprise Sign-In (OpenID Connect)
 
 Optional single sign-on through any generic OIDC provider — Casdoor, Keycloak,
@@ -104,6 +126,11 @@ to `/api/v1/auth/sso/oidc/callback`; the backend validates the state (cookie
   `https://your-host/api/v1/auth/sso/oidc/callback`. SSO state lives in Redis
   when `REDIS_URL` is set, otherwise in the API process (single-replica).
 
+Password accounts continue to use password sign-in. SSO and SCIM do not link
+password accounts by email. They do not add mapped memberships to those accounts. If SSO reports
+`SSO_ACCOUNT_LINK_REQUIRED`, sign in with your existing password. Ask your organization administrator for an SSO migration. Before the migration,
+the administrator must make sure that you own the account.
+
 Role mapping (optional): set `AUTH_SSO__ROLE_CLAIM` (a userinfo claim with the
 user's group list, e.g. `groups`) plus `AUTH_SSO__ADMIN_GROUPS` (comma-separated
 group names). On each sign-in, a member whose groups include an admin group is
@@ -117,16 +144,23 @@ denies sign-in when none of the mapped groups apply. If at least one applies,
 other stale mapped memberships are removed when safe. Owners and the user's
 last org membership remain stored, but that retention does not grant sign-in.
 
-Instant-off deprovisioning (optional): set `AUTH_SSO__DEPROVISION_TOKEN` (a
-shared secret) to enable `POST /api/v1/auth/deprovision` — provider/IdP
-automation (e.g. a SCIM `deactivate` webhook) sends `email` in the body and
-`x-forge-deprovision-token` in the header (compared in constant time). Each
-call removes every non-owner membership the user has, so revocation takes
-effect immediately instead of at the next sign-in. The same token also
-protects `POST /api/v1/auth/sso/provision` (SCIM-style provisioning): body
-`{email, displayName?, orgSlugs?: [...], roles?: [...]}` creates the account
-when missing and adds member (or admin) memberships for the requested org
-slugs — unknown slugs are skipped. Unset = both endpoints are disabled (404).
+Deprovisioning webhook (optional): set `AUTH_SSO__DEPROVISION_TOKEN` (a
+shared secret) to enable `POST /api/v1/auth/deprovision`. Provider or IdP
+automation sends `email` in the body and `x-forge-deprovision-token` in the
+header. The server compares this header in constant time. Each call records a
+session invalidation cutoff and removes every non-owner membership. The server
+uses that cutoff for refresh and context-switch requests.
+
+An HTTP access token can stay valid until its configured lifetime expires.
+JWT validation uses 60 seconds of clock tolerance. The issuer lifetime
+defaults to 15 minutes. The service keeps owner memberships.
+
+Authentication for `POST /api/v1/auth/sso/provision` uses the same token
+(SCIM-style provisioning). The body
+`{email, displayName?, orgSlugs?: [...], roles?: [...]}` creates a missing
+account and adds member (or admin) memberships for the requested org slugs.
+The service ignores unknown slugs. If the token is not set, both endpoints
+return 404.
 
 SCIM 2.0 Users (same token, `x-forge-deprovision-token` header):
 
@@ -148,6 +182,42 @@ group — `member`, or `admin` when also in an admin group. With
 membership. Unknown team names are skipped, so a rename never blocks sign-in.
 
 `NODE_ENV` may still appear in Compose or frontend tooling, but the Rust API configuration source of truth is `ENVIRONMENT`.
+
+### Casdoor profile
+
+Prerequisites: Node.js 24 and Docker Compose.
+
+For a new local setup, follow these steps:
+
+1. Run `make bootstrap-local`.
+2. Run `make dev-casdoor` or `make prod-casdoor`.
+
+These targets generate missing secrets in `docker/.env` and private config
+files before Compose starts.
+
+Docker Compose resolves exported secret variables before values in `docker/.env`.
+Setup rejects blank exported values and conflicting nonblank values. A valid
+exported value fills a blank entry in `docker/.env`. `CASDOOR_CONFIG_DIR` uses
+Compose's `${VAR:-default}` behavior. A blank exported value selects the default
+path.
+
+Setup keeps the private configuration, with operator changes to redirect URIs
+and domains. Setup makes sure that stored secrets still match the effective values.
+
+Before you reuse a Casdoor database volume, put its matching secrets in `docker/.env`.
+Administrator access to PostgreSQL and Casdoor is necessary for credential changes.
+If those secrets are missing or use old defaults, follow these steps before startup:
+
+1. Change the password for the PostgreSQL `casdoor` role.
+2. Change the client credentials in Casdoor.
+3. Set the private configuration files to those values.
+
+Setup does not change the database. Setup does not overwrite mismatched private
+configuration files.
+
+The target starts Casdoor. A new installation includes the configured clients.
+Application SSO configuration and a real sign-in are still necessary.
+Set `AUTH_SSO__*` to match the client. Do a real sign-in.
 
 ## Local Agent Join Variables
 
@@ -317,6 +387,37 @@ registries only; authenticated private-registry use needs future explicit
 credential plumbing for both Docker and cosign.
 
 When `MCP_ENABLED=true`, Docker must be available to the Rust API service.
+Run `make setup` before you start the stack. The bootstrap generates a private
+`MCP_TOKEN`. When `MCP_ENABLED=true`, set the token to at least 32 non-whitespace bytes.
+Startup stops if the token is not set or does not have at least 32 non-whitespace bytes. Set `MCP_ENABLED=false` only when you intend to disable internal
+MCP workflows.
+
+## Development container workspace access
+
+Only organization owners and administrators can mount the managed workspace.
+Choose the active workspace first. If you set a project, it must belong to that
+workspace. Use this configuration:
+
+```json
+{
+  "image": "ubuntu:22.04",
+  "mounts": [{ "source": "workspace", "target": "/workspace", "read_only": true }]
+}
+```
+
+The server resolves the organization and workspace path. A workspace mount
+includes all its projects. Ordinary members can run environments without mounts.
+The server rejects host paths, other container targets, and duplicate mounts
+before startup.
+
+To replace an environment with custom host paths, follow these steps:
+
+1. Stop the environment.
+2. Delete its saved configuration.
+3. Create an environment with the example above.
+
+Containers in operation keep their original mounts until you stop them.
+A source update does not change those mounts.
 
 ## CLI Agent Image Updater Variables
 
@@ -622,8 +723,9 @@ If discovery cannot reach the provider (no key yet, an unreachable or private
 Base URL, or a provider that does not publish a model list), the form keeps the
 built-in list and shows a short "Showing the built-in models" note — adding the
 service still works normally. Discovery only contacts public HTTPS endpoints;
-private, loopback, and metadata addresses are refused. Results are cached
-briefly so repeated lookups are fast.
+private, loopback, and metadata addresses are refused. Discovery uses the
+current caller's credentials on every lookup; catalogs are not shared between
+users. Discovery responses are limited to 1 MiB.
 
 ## Guidance
 

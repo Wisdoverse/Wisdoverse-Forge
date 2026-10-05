@@ -10,16 +10,19 @@ pub(crate) use crate::domain::configuration::{
     configuration_data_response as plugin_data_response, configuration_delete_response as plugin_delete_response,
     plugin_agent_plugins_response,
 };
+use crate::repositories::agent::AgentRepository;
 use crate::repositories::plugin::{AgentPluginRow, PluginRepository};
 
 /// Business logic layer for plugin operations.
 pub struct PluginService {
     repo: PluginRepository,
+    agents: AgentRepository,
 }
 
 impl PluginService {
     pub fn new(repo: PluginRepository) -> Self {
-        Self { repo }
+        let agents = AgentRepository::new(repo.pool().clone());
+        Self { repo, agents }
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
@@ -81,11 +84,13 @@ impl PluginService {
         enabled: bool,
         config: Option<&serde_json::Value>,
     ) -> AppResult<()> {
+        super::agent::authorize_agent_action(&self.agents, scope, agent_id, "edit").await?;
         self.repo.set_for_agent(scope, agent_id, plugin_id, enabled, config).await
     }
 
     /// Remove the per-agent override (revert to plugin default).
     pub async fn remove_for_agent(&self, scope: &TenantScope, agent_id: AgentId, plugin_id: Uuid) -> AppResult<()> {
+        super::agent::authorize_agent_action(&self.agents, scope, agent_id, "edit").await?;
         self.repo.remove_for_agent(scope, agent_id, plugin_id).await
     }
 }

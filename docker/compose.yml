@@ -104,8 +104,8 @@ services:
       # the account NAME string — hardcoded to `"AGENTFORGE"` in
       # `bins/server/src/main.rs` to match `docker/nats.conf`. An account
       # public nkey would be rejected at CONNECT time.
-      - MCP_ENABLED=true
-      - MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
+      - MCP_ENABLED=${MCP_ENABLED:-true}
+      - MCP_TOKEN=${MCP_TOKEN:-}
       - AGENTFORGE_WORKSPACE_ROOT=${AGENTFORGE_WORKSPACE_ROOT:-/data/agentforge/workspaces}
       - CONTAINER_SERVER_URL=${CONTAINER_SERVER_URL:-http://agentforge:4003}
       - CONTAINER_NETWORK=${CONTAINER_NETWORK:-agentforge-agents}
@@ -689,13 +689,13 @@ services:
     environment:
       POSTGRES_DB: casdoor
       POSTGRES_USER: casdoor
-      POSTGRES_PASSWORD: ${CASDOOR_DB_PASSWORD:-casdoor}
+      POSTGRES_PASSWORD: ${CASDOOR_DB_PASSWORD:-}
 
     volumes:
       - casdoor-db-data:/var/lib/postgresql/data
 
     ports:
-      - '${CASDOOR_DB_PORT:-5433}:5432'
+      - '127.0.0.1:${CASDOOR_DB_PORT:-5433}:5432'
 
     profiles: [casdoor]
 
@@ -731,8 +731,18 @@ services:
       - '${CASDOOR_PORT:-8000}:8000'
 
     volumes:
-      - ./casdoor/app.conf:/conf/app.conf:ro
-      - ./casdoor/init_data.json:/init_data.json:ro
+      - type: bind
+        source: ${CASDOOR_CONFIG_DIR:-./casdoor/private}/app.conf
+        target: /conf/app.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CASDOOR_CONFIG_DIR:-./casdoor/private}/init_data.json
+        target: /init_data.json
+        read_only: true
+        bind:
+          create_host_path: false
 
     environment:
       - RUNNING_IN_DOCKER=true
@@ -879,8 +889,8 @@ services:
       - ORCHESTRATOR_OIDC_ISSUER=${OIDC_ISSUER:-http://casdoor:8000}
       - ORCHESTRATOR_OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-orchestrator}
       - ORCHESTRATOR_MCP_ENDPOINT=http://agentforge-server:${SERVER_PORT:-4003}/mcp
-      - ORCHESTRATOR_MCP_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
-      - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN:-orchestrator-internal-token}
+      - ORCHESTRATOR_MCP_TOKEN=${MCP_TOKEN:-}
+      - ORCHESTRATOR_INTERNAL_TOKEN=${MCP_TOKEN:-}
       # Realtime relay (issue #879): the orchestrator publishes workflow:* and
       # review.escalated events to `broadcast.{org_id}` so the main API forwards
       # them to browser sockets. Without this the relay is a deployed no-op. Use

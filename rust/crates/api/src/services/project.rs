@@ -228,16 +228,11 @@ impl ProjectService {
             return Err(CloneApiPolicy::retry_only_from_failed(&latest.status));
         }
 
-        let next_attempt = latest.attempt + 1;
         let scheduled = self
             .clones
             .schedule_retry(
-                latest.organization_id.as_uuid(),
-                latest.workspace_id.as_uuid(),
-                latest.project_id.as_uuid(),
-                next_attempt,
-                &latest.repository_url,
-                latest.provider.as_deref(),
+                &latest,
+                Some(scope),
                 None, // operator-initiated retry: enqueue immediately, no backoff
             )
             .await?;
@@ -296,6 +291,8 @@ mod tests {
             attempt: 1,
             repository_url: "https://github.com/o/r".into(),
             provider: Some("github".into()),
+            requested_by: Some(agentforge_core::UserId::new()),
+            requested_at: Some(chrono::Utc::now()),
             credential_id: Some(uuid::Uuid::now_v7()),
             status: status.into(),
             resolved_branch: None,

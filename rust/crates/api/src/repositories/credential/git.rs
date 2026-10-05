@@ -1,7 +1,7 @@
 //! Git credential repository — database queries for the git_credentials table.
 
 use agentforge_core::{AppResult, TenantScope};
-use agentforge_db::entities::GitCredential;
+use agentforge_db::entities::{GitCredential, ProjectCloneAttempt};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -110,34 +110,47 @@ impl GitCredentialRepository {
         Ok(creds)
     }
 
-    /// Candidate token credentials for a given clone host, ORG-scoped (NOT
-    /// user-scoped).
-    ///
-    /// The project-clone worker (M5) runs server-side on behalf of the project's
-    /// organization, not as the original creating user, so host-matching is
-    /// scoped to `organization_id` only — any token credential in the org that
-    /// targets the repo's host is a candidate. (Contrast `latest_cli_tokens`,
-    /// which is `(org, user)`-scoped for the interactive CLI-injection path.)
-    ///
-    /// Returns every token credential in the org that has a non-NULL encrypted
-    /// token, ordered newest-first, so the service can pick the single best
-    /// host-matching one (the host comparison lives in the service, where the
-    /// repo URL host and the credential `remote_url`/`provider` host are
-    /// normalized together). The query is deliberately host-agnostic in SQL —
-    /// the `remote_url` column stores free-form host text that needs the
-    /// service's `GitRemoteHost` normalization to compare reliably — but it stays
-    /// bounded by the `idx_git_creds_org` index and is org-constrained, so it can
-    /// never leak another tenant's credentials.
-    pub async fn org_token_candidates(&self, org_id: uuid::Uuid) -> AppResult<Vec<GitCredential>> {
+    /// Background-only resolution for an org-scoped, claimed database attempt.
+    /// The database supplies its requester; transport payloads cannot choose a
+    /// credential owner. Recheck live authority before selecting any secret.
+    pub(crate) async fn clone_token_candidates(&self, attempt: &ProjectCloneAttempt) -> AppResult<Vec<GitCredential>> {
         let creds = sqlx::query_as::<_, GitCredential>(
-            r#"SELECT *
-               FROM git_credentials
-               WHERE organization_id = $1
-                 AND credential_type = 'token'
-                 AND token_encrypted IS NOT NULL
-               ORDER BY updated_at DESC, created_at DESC, id DESC"#,
+            r#"SELECT gc.*
+               FROM project_clone_attempts a
+               JOIN git_credentials gc
+                 ON gc.organization_id = a.organization_id AND gc.user_id = a.requested_by
+               JOIN users u ON u.id = a.requested_by AND u.deleted_at IS NULL
+               JOIN organization_members om
+                 ON om.organization_id = a.organization_id AND om.user_id = a.requested_by
+               JOIN projects p
+                 ON p.id = a.project_id AND p.organization_id = a.organization_id
+                AND p.workspace_id = a.workspace_id AND p.deleted_at IS NULL
+               WHERE a.id = $1 AND a.organization_id = $2
+                 AND a.project_id = $3 AND a.workspace_id = $4 AND a.worker_id = $5
+                 AND a.status = 'cloning' AND a.lease_expires_at > now()
+                 AND a.requested_at IS NOT NULL
+                 AND (u.sessions_invalid_before IS NULL OR a.requested_at >= u.sessions_invalid_before)
+                 AND (
+                     om.role IN ('owner', 'admin')
+                     OR EXISTS (
+                         SELECT 1 FROM team_members tm
+                          WHERE tm.team_id = p.team_id AND tm.user_id = a.requested_by
+                            AND tm.role IN ('owner', 'admin', 'maintainer')
+                     )
+                     OR EXISTS (
+                         SELECT 1 FROM project_members pm
+                          WHERE pm.project_id = p.id AND pm.user_id = a.requested_by
+                            AND pm.role IN ('owner', 'admin', 'maintainer')
+                     )
+                 )
+                 AND gc.credential_type = 'token' AND gc.token_encrypted IS NOT NULL
+               ORDER BY gc.updated_at DESC, gc.created_at DESC, gc.id DESC"#,
         )
-        .bind(org_id)
+        .bind(attempt.id)
+        .bind(attempt.organization_id.as_uuid())
+        .bind(attempt.project_id.as_uuid())
+        .bind(attempt.workspace_id.as_uuid())
+        .bind(attempt.worker_id.as_deref())
         .fetch_all(&self.pool)
         .await?;
         Ok(creds)

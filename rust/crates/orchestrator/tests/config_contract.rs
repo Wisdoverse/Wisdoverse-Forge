@@ -82,7 +82,7 @@ fn overrides_workflow_runtime_env_vars() {
             ("ORCHESTRATOR_TEMPORAL_HOST", Some("temporal.example:7233")),
             ("ORCHESTRATOR_TEMPORAL_NAMESPACE", Some("prod")),
             ("ORCHESTRATOR_MCP_ENDPOINT", Some("http://mcp:4003/mcp")),
-            ("ORCHESTRATOR_MCP_TOKEN", Some("secret-token")),
+            ("ORCHESTRATOR_MCP_TOKEN", Some("test-private-mcp-token-at-least-32-bytes")),
         ],
         || {
             let config = Config::load().expect("config should load");
@@ -90,7 +90,7 @@ fn overrides_workflow_runtime_env_vars() {
             assert_eq!(config.temporal_host, "temporal.example:7233");
             assert_eq!(config.temporal_namespace, "prod");
             assert_eq!(config.mcp_endpoint, "http://mcp:4003/mcp");
-            assert_eq!(config.mcp_token, "secret-token");
+            assert_eq!(config.mcp_token, "test-private-mcp-token-at-least-32-bytes");
         },
     );
 }
@@ -120,4 +120,17 @@ fn rejects_non_hex_jwt_signing_key() {
             assert!(err.to_string().contains("hex"));
         },
     );
+}
+
+#[test]
+fn rejects_empty_or_weak_internal_token_when_temporal_is_disabled() {
+    for token in ["", " ", "short-token"] {
+        with_vars(
+            [("ORCHESTRATOR_TEMPORAL_ENABLED", Some("false")), ("ORCHESTRATOR_INTERNAL_TOKEN", Some(token))],
+            || {
+                let err = Config::load().expect_err("configured internal authority must be private");
+                assert!(err.to_string().contains("ORCHESTRATOR_INTERNAL_TOKEN"));
+            },
+        );
+    }
 }

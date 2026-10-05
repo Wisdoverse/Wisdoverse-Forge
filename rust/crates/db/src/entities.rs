@@ -261,6 +261,12 @@ pub struct ProjectCloneAttempt {
     pub attempt: i32,
     pub repository_url: String,
     pub provider: Option<String>,
+    /// Authenticated requester and original authorization time. Automatic
+    /// retries preserve both; old unattributed attempts remain anonymous.
+    #[serde(skip_serializing)]
+    pub requested_by: Option<UserId>,
+    #[serde(skip_serializing)]
+    pub requested_at: Option<DateTime<Utc>>,
     /// Which `git_credentials` row the worker used (never the secret). Internal
     /// forensic detail — `#[serde(skip_serializing)]` so a future direct
     /// serialization of this row can never leak which credential was used. The

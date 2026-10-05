@@ -251,15 +251,7 @@ impl AgentService {
     /// AUTHENTICATED caller (`scope.user_id()`), never a body-supplied id. Loads the
     /// owner + the caller's collaborator permission and defers to the domain policy.
     pub(crate) async fn authorize_action(&self, scope: &TenantScope, agent_id: AgentId, action: &str) -> AppResult<()> {
-        let agent = self.repo.find_by_id(scope, agent_id).await?;
-        let caller = scope.user_id().as_uuid();
-        let is_owner = agent.user_id.as_uuid() == caller;
-        let collaborators = self.repo.list_collaborators(scope, agent_id).await?;
-        let permission = collaborators
-            .iter()
-            .find(|collaborator| collaborator.user_id.as_uuid() == caller)
-            .map(|collaborator| collaborator.permission.as_str());
-        AgentAccessPolicy::require_action(is_owner, permission, action)
+        authorize_agent_action(&self.repo, scope, agent_id, action).await
     }
 
     /// Check whether a user can perform an agent action.
@@ -280,4 +272,21 @@ impl AgentService {
 
         Ok(agent_permission_projection(is_owner, collaborator_permission, action))
     }
+}
+
+/// Shared authorization for every service mutating an agent-associated resource.
+pub(crate) async fn authorize_agent_action(
+    agents: &AgentRepository,
+    scope: &TenantScope,
+    agent_id: AgentId,
+    action: &str,
+) -> AppResult<()> {
+    let agent = agents.find_by_id(scope, agent_id).await?;
+    let caller = scope.user_id().as_uuid();
+    let collaborators = agents.list_collaborators(scope, agent_id).await?;
+    let permission = collaborators
+        .iter()
+        .find(|collaborator| collaborator.user_id.as_uuid() == caller)
+        .map(|collaborator| collaborator.permission.as_str());
+    AgentAccessPolicy::require_action(agent.user_id.as_uuid() == caller, permission, action)
 }

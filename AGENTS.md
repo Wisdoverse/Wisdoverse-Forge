@@ -66,6 +66,7 @@ The [repository map](README.md#repository-map-for-agents) identifies active path
 
 ## Write And Finish
 
+- Follow the [repository writing standards](docs/README.md#writing-standards).
 - Apply the strict project profile in the [writing guide](docs/agents/writing.md).
 - Use one instruction per sentence.
 - Limit instruction sentences to 20 words and descriptive sentences to 25 words.

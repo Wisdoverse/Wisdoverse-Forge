@@ -11,7 +11,7 @@
 //! — this module only carves frames and extracts `data:` payload lines.
 
 use bytes::Bytes;
-use futures::stream::{self, Stream, StreamExt};
+use futures::stream::{Stream, StreamExt};
 
 use crate::provider::LlmError;
 
@@ -28,64 +28,43 @@ use crate::provider::LlmError;
 pub fn sse_data_payloads(
     bytes: impl Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 ) -> impl Stream<Item = Result<String, LlmError>> + Send + 'static {
-    let mut buf: Vec<u8> = Vec::with_capacity(4096);
-    let mut aborted = false;
-
-    bytes.flat_map(move |chunk_result| {
-        let mut out: Vec<Result<String, LlmError>> = Vec::new();
-        // Once the buffer cap was exceeded we stop accepting input for this
-        // stream — the single error has already been yielded.
-        if aborted {
-            return stream::iter(out);
-        }
-        match chunk_result {
-            Err(e) => out.push(Err(LlmError::Http(e))),
-            Ok(chunk) => {
-                // Normalize CRLF -> LF by dropping `\r` bytes as they arrive
-                // (F027). `\r` is ASCII, so this can never corrupt a multi-byte
-                // codepoint, and it makes `\r\n\r\n` terminators visible to the
-                // `\n\n` scan below.
-                buf.extend(chunk.iter().copied().filter(|&b| b != b'\r'));
-                // Carve complete frames by finding `\n\n` at byte level.
-                // `\n` is U+000A / ASCII 0x0A, so this boundary is always
-                // at a UTF-8 codepoint boundary regardless of chunk split.
-                while let Some(pos) = find_double_newline(&buf) {
-                    let frame_bytes: Vec<u8> = buf.drain(..pos + 2).collect();
-                    // Now safe to decode — the frame ends at an ASCII boundary.
-                    let frame = String::from_utf8_lossy(&frame_bytes);
+    async_stream::stream! {
+        futures::pin_mut!(bytes);
+        let mut buf = Vec::with_capacity(4096);
+        while let Some(chunk) = bytes.next().await {
+            let chunk = match chunk {
+                Ok(chunk) => chunk,
+                Err(error) => {
+                    yield Err(LlmError::from(error));
+                    return;
+                }
+            };
+            for byte in chunk.iter().copied().filter(|&byte| byte != b'\r') {
+                if buf.len() == MAX_SSE_BUFFER_BYTES {
+                    yield Err(LlmError::Parse("SSE frame exceeded maximum buffer size".into()));
+                    return;
+                }
+                buf.push(byte);
+                if buf.ends_with(b"\n\n") {
+                    // Decode only complete frames, preserving split UTF-8.
+                    let frame = String::from_utf8_lossy(&buf);
                     for line in frame.lines() {
-                        if let Some(payload) = line.strip_prefix("data: ") {
-                            out.push(Ok(payload.trim().to_string()));
-                        } else if let Some(payload) = line.strip_prefix("data:") {
-                            // Some servers omit the space after the colon.
-                            out.push(Ok(payload.trim().to_string()));
+                        if let Some(payload) = line.strip_prefix("data:") {
+                            yield Ok(payload.trim().to_string());
                         }
                     }
-                }
-                // F026: bound the buffer. After draining every complete frame, an
-                // oversized residue means the upstream is sending an unterminated
-                // (or absurdly large) frame — fail closed instead of growing.
-                if buf.len() > MAX_SSE_BUFFER_BYTES {
-                    out.push(Err(LlmError::Parse("SSE frame exceeded maximum buffer size".to_string())));
                     buf.clear();
-                    aborted = true;
                 }
             }
         }
-        stream::iter(out)
-    })
+    }
 }
 
-/// Maximum bytes the framer buffers without seeing a frame terminator. A
+/// Maximum normalized bytes in one frame, including its terminator. A
 /// well-behaved SSE frame is a few KB; this generous 4 MiB cap bounds memory
 /// against a malicious/malfunctioning upstream that never sends `\n\n` (DoS),
 /// reachable because the provider `base_url` is operator-controllable.
 const MAX_SSE_BUFFER_BYTES: usize = 4 * 1024 * 1024;
-
-/// Find the first `\n\n` byte pair in `buf`. Returns index of the first `\n`.
-fn find_double_newline(buf: &[u8]) -> Option<usize> {
-    buf.windows(2).position(|w| w == b"\n\n")
-}
 
 #[cfg(test)]
 mod tests {
@@ -109,6 +88,15 @@ mod tests {
         let chunks = vec![b"data: 1\n\ndata: 2\n\ndata: 3\n\n".to_vec()];
         let payloads: Vec<_> = sse_data_payloads(mk_stream(chunks)).map(|r| r.unwrap()).collect().await;
         assert_eq!(payloads, vec!["1", "2", "3"]);
+    }
+
+    #[tokio::test]
+    async fn a_large_chunk_of_small_complete_frames_does_not_exceed_the_frame_budget() {
+        let frame = format!("data: {}\n\n", "x".repeat(4096));
+        let chunks = vec![frame.repeat(1025).into_bytes()];
+        let payloads: Vec<_> = sse_data_payloads(mk_stream(chunks)).collect().await;
+        assert_eq!(payloads.len(), 1025);
+        assert!(payloads.into_iter().all(|payload| payload.unwrap().len() == 4096));
     }
 
     #[tokio::test]
@@ -174,6 +162,18 @@ mod tests {
         match &results[0] {
             Err(LlmError::Parse(msg)) => assert!(msg.contains("maximum buffer size"), "unexpected message: {msg}"),
             other => panic!("expected a Parse error for an unterminated oversized stream, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_oversized_complete_frames_before_yielding_payloads() {
+        let mut frame = b"data: ".to_vec();
+        frame.extend(std::iter::repeat_n(b'a', MAX_SSE_BUFFER_BYTES));
+        frame.extend_from_slice(b"\n\ndata: later\n\n");
+        for chunks in [vec![frame.clone()], vec![frame[..1024].to_vec(), frame[1024..].to_vec()]] {
+            let results: Vec<_> = sse_data_payloads(mk_stream(chunks)).collect().await;
+            assert_eq!(results.len(), 1);
+            assert!(matches!(&results[0], Err(LlmError::Parse(_))));
         }
     }
 

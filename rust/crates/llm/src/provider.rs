@@ -18,6 +18,9 @@ pub(crate) const PROVIDER_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// can exhaust the async runtime under load (F024).
 pub(crate) const PROVIDER_READ_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
+pub(crate) const MAX_CHAT_RESPONSE_BYTES: usize = 1024 * 1024;
+pub(crate) const CHAT_RESPONSE_TIMEOUT: Duration = Duration::from_secs(120);
+
 /// Build an outbound HTTP client with the given connect + read-idle timeouts.
 /// Crate-internal so tests can exercise the deadline behavior with short values
 /// against a stalled server.
@@ -25,16 +28,33 @@ pub(crate) fn client_with_timeouts(connect: Duration, read_idle: Duration) -> Cl
     Client::builder()
         .connect_timeout(connect)
         .read_timeout(read_idle)
+        .redirect(reqwest::redirect::Policy::none())
+        .referer(false)
         .build()
-        // A builder failure means the TLS backend could not initialize; fall back
-        // to a default client rather than panicking in a provider constructor.
-        .unwrap_or_else(|_| Client::new())
+        .expect("provider HTTP client initialization failed")
 }
 
 /// The shared, timeout-bounded HTTP client every provider uses for both
-/// non-streaming and streaming requests.
-pub(crate) fn timed_client() -> Client {
+/// non-streaming, streaming and model-discovery requests. Redirects are disabled
+/// so credentials and prompts stay with the selected endpoint.
+pub fn timed_client() -> Client {
     client_with_timeouts(PROVIDER_CONNECT_TIMEOUT, PROVIDER_READ_IDLE_TIMEOUT)
+}
+
+pub(crate) fn provider_status_error(status: u16) -> LlmError {
+    // An upstream error body may contain secrets and has no useful local bound.
+    LlmError::Api { status, message: "provider request failed".into() }
+}
+
+pub(crate) async fn bounded_response_json(mut response: reqwest::Response) -> Result<serde_json::Value, LlmError> {
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if chunk.len() > MAX_CHAT_RESPONSE_BYTES.saturating_sub(body.len()) {
+            return Err(LlmError::Parse("provider response exceeds its size limit".into()));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&body).map_err(|_| LlmError::Parse("provider response could not be parsed".into()))
 }
 
 /// Content of a chat message: plain text, or an ordered list of blocks
@@ -143,7 +163,7 @@ pub struct Usage {
 #[derive(Debug, thiserror::Error)]
 pub enum LlmError {
     #[error("HTTP error: {0}")]
-    Http(#[from] reqwest::Error),
+    Http(#[source] reqwest::Error),
 
     #[error("API error: {status} - {message}")]
     Api { status: u16, message: String },
@@ -156,6 +176,12 @@ pub enum LlmError {
 
     #[error("Not implemented: {0}")]
     NotImplemented(String),
+}
+
+impl From<reqwest::Error> for LlmError {
+    fn from(error: reqwest::Error) -> Self {
+        Self::Http(error.without_url())
+    }
 }
 
 /// One chunk of a streaming provider response.
@@ -240,6 +266,52 @@ mod timeout_tests {
     use std::time::Instant;
     use wiremock::matchers::method;
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn chunked_json_obeys_the_budget_without_content_length() {
+        use std::io::{BufRead, BufReader, Write};
+        for excess in [0, 1] {
+            let body = format!("\"{}\"", "x".repeat(MAX_CHAT_RESPONSE_BYTES - 2 + excess));
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                let mut reader = BufReader::new(&mut socket);
+                loop {
+                    let mut line = String::new();
+                    assert!(reader.read_line(&mut line).unwrap() > 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
+                drop(reader);
+                socket
+                    .write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n")
+                    .unwrap();
+                for chunk in body.as_bytes().chunks(4096) {
+                    if write!(socket, "{:x}\r\n", chunk.len()).is_err()
+                        || socket.write_all(chunk).is_err()
+                        || socket.write_all(b"\r\n").is_err()
+                    {
+                        return;
+                    }
+                }
+                let _ = socket.write_all(b"0\r\n\r\n");
+            });
+            let response =
+                timed_client().get(format!("http://{address}")).timeout(Duration::from_secs(5)).send().await.unwrap();
+            let result = bounded_response_json(response).await;
+            if excess == 0 {
+                assert_eq!(result.unwrap().as_str().unwrap().len(), MAX_CHAT_RESPONSE_BYTES - 2);
+            } else {
+                assert!(
+                    matches!(result, Err(LlmError::Parse(message)) if message == "provider response exceeds its size limit")
+                );
+            }
+            server.join().unwrap();
+        }
+    }
 
     /// F030 lock-in: the shared client's read-idle timeout must abort a stalled
     /// upstream instead of hanging. If a refactor drops `read_timeout`, this test

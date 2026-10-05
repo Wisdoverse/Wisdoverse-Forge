@@ -3,12 +3,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use agentforge_core::{AppResult, TenantScope};
+use agentforge_core::{AppResult, ProjectId, TenantScope};
 use agentforge_db::entities::DevEnvironment;
 use agentforge_platform::DockerClient;
 use agentforge_platform::types::{ContainerConfig, ContainerState, Mount, ResourceLimits};
 use async_trait::async_trait;
 use sqlx::PgPool;
+use std::path::Path;
 use uuid::Uuid;
 
 use crate::domain::dev_environment::{
@@ -24,6 +25,12 @@ use crate::repositories::dev_environment::DevEnvironmentRepository;
 /// Storage operations used by the dev environment service.
 #[async_trait]
 pub trait DevEnvironmentStore: Send + Sync {
+    async fn authorized_workspace_root(
+        &self,
+        scope: &TenantScope,
+        project_id: Option<Uuid>,
+        needs_mount: bool,
+    ) -> AppResult<Option<String>>;
     async fn list(&self, scope: &TenantScope) -> AppResult<Vec<DevEnvironment>>;
     async fn get(&self, scope: &TenantScope, id: Uuid) -> AppResult<DevEnvironment>;
     async fn create(
@@ -45,6 +52,36 @@ pub trait DevEnvironmentStore: Send + Sync {
 
 #[async_trait]
 impl DevEnvironmentStore for DevEnvironmentRepository {
+    async fn authorized_workspace_root(
+        &self,
+        scope: &TenantScope,
+        project_id: Option<Uuid>,
+        needs_mount: bool,
+    ) -> AppResult<Option<String>> {
+        let permissions = super::resource_permission::ResourcePermissionService::from_pool(self.pool().clone());
+        if let Some(project_id) = project_id {
+            permissions.require_project_manager(scope, ProjectId::from(project_id)).await?;
+        }
+        if !needs_mount {
+            return Ok(None);
+        }
+        // A workspace mount exposes every project inside it, so only an org
+        // manager may grant this capability to a development container.
+        permissions.require_org_manager(scope).await?;
+        let mount_scope = super::agent_workspace::AgentWorkspaceService::from_pool(self.pool().clone())
+            .resolve_workspace_mount_scope(
+                scope.org_id().as_uuid(),
+                scope.workspace_id().map(|id| id.as_uuid()),
+                project_id,
+            )
+            .await?;
+        let root = super::agent_workspace::workspace_root_from_env();
+        let paths = super::agent_workspace::resolve_agent_workspace_paths(&root, mount_scope, None)?;
+        super::agent_workspace::ensure_shared_workspace_directory(Path::new(&root), &paths.host_projects_root)
+            .map_err(DevEnvironmentRuntimePolicy::prepare_workspace_failed)?;
+        Ok(Some(paths.host_projects_root.to_string_lossy().into_owned()))
+    }
+
     async fn list(&self, scope: &TenantScope) -> AppResult<Vec<DevEnvironment>> {
         DevEnvironmentRepository::list(self, scope).await
     }
@@ -189,11 +226,17 @@ where
     ) -> AppResult<DevEnvironment> {
         let name = DevEnvironmentName::parse(name)?;
         // F018: reject a disallowed image at creation (fail-early UX), in addition
-        // to the authoritative gate in build_container_config at start. Only the
-        // image is validated here; other config is checked when the spec is parsed.
+        // to the authoritative gate in build_container_config at start. Mount
+        // requests are also parsed and authorized before anything is persisted.
         if let Some(image) = config.get("image").and_then(|v| v.as_str()) {
             DevEnvironmentImagePolicy::ensure_image_allowed(image, &self.allowed_image_registries)?;
         }
+        let needs_mount = if config.get("mounts").is_some() {
+            !DevEnvironmentRuntimeSpec::parse(config)?.mounts.is_empty()
+        } else {
+            false
+        };
+        self.repo.authorized_workspace_root(scope, project_id, needs_mount).await?;
         self.repo.create(scope, name.value(), project_id, config).await
     }
 
@@ -203,7 +246,12 @@ where
         DevEnvironmentLifecyclePolicy::ensure_can_start(&env.status, env.container_id.as_deref())?;
 
         let runtime = self.runtime.as_ref().ok_or_else(DevEnvironmentRuntimePolicy::docker_unavailable)?;
-        let config = build_container_config(scope, &env, &self.allowed_image_registries)?;
+        let spec = DevEnvironmentRuntimeSpec::parse(&env.config)?;
+        let workspace_root = self
+            .repo
+            .authorized_workspace_root(scope, env.project_id.map(|id| id.as_uuid()), !spec.mounts.is_empty())
+            .await?;
+        let config = build_container_config(scope, &env, &self.allowed_image_registries, workspace_root.as_deref())?;
         self.repo.update_status(scope, id, STARTING_STATUS, None).await?;
 
         let container_id = match runtime.create_container(config).await {
@@ -300,6 +348,7 @@ fn build_container_config(
     scope: &TenantScope,
     env: &DevEnvironment,
     allowed_image_registries: &[String],
+    authorized_workspace_root: Option<&str>,
 ) -> AppResult<ContainerConfig> {
     let spec = DevEnvironmentRuntimeSpec::parse(&env.config)?;
     // F018: fail closed before the daemon pulls/runs an unvetted image.
@@ -311,8 +360,12 @@ fn build_container_config(
     let mounts = spec
         .mounts
         .into_iter()
-        .map(|mount| Mount { source: mount.source, target: mount.target, read_only: mount.read_only })
-        .collect();
+        .map(|mount| {
+            let source =
+                authorized_workspace_root.ok_or_else(DevEnvironmentRuntimePolicy::workspace_mount_unauthorized)?;
+            Ok(Mount { source: source.to_string(), target: mount.target, read_only: mount.read_only })
+        })
+        .collect::<AppResult<Vec<_>>>()?;
 
     Ok(ContainerConfig {
         image: spec.image,
@@ -392,6 +445,15 @@ mod tests {
 
     #[async_trait]
     impl DevEnvironmentStore for MockStore {
+        async fn authorized_workspace_root(
+            &self,
+            _scope: &TenantScope,
+            _project_id: Option<Uuid>,
+            needs_mount: bool,
+        ) -> AppResult<Option<String>> {
+            Ok(needs_mount.then(|| "/tmp/authorized-workspace".to_string()))
+        }
+
         async fn list(&self, _scope: &TenantScope) -> AppResult<Vec<DevEnvironment>> {
             Ok(vec![self.env()])
         }
@@ -546,14 +608,15 @@ mod tests {
             json!({
                 "image": "ubuntu:22.04",
                 "env": {"A": "one", "B": "two"},
-                "mounts": [{"source": "/tmp/work", "target": "/workspace", "read_only": true}],
+                "mounts": [{"source": "workspace", "target": "/workspace", "read_only": true}],
                 "network": "agentforge-dev",
                 "resources": {"memory_bytes": 268435456}
             }),
             None,
         );
 
-        let config = build_container_config(&scope, &env, &[]).expect("container config");
+        let config =
+            build_container_config(&scope, &env, &[], Some("/tmp/authorized-workspace")).expect("container config");
         let expected_name = format!("agentforge-devenv-{}", env.id);
 
         assert_eq!(config.image, "ubuntu:22.04");
@@ -572,12 +635,34 @@ mod tests {
         let scope = test_scope();
         let env = test_env("stopped", json!({"env": ["A=one"]}), None);
 
-        let err = build_container_config(&scope, &env, &[]).expect_err("missing image should fail");
+        let err = build_container_config(&scope, &env, &[], Some("/tmp/authorized-workspace"))
+            .expect_err("missing image should fail");
 
         match err.kind {
             ErrorKind::Validation(message) => assert!(message.contains("config.image is required")),
             other => panic!("expected validation error, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn stored_host_mounts_are_rejected_before_any_docker_or_status_change() {
+        let scope = test_scope();
+        let env = test_env(
+            "stopped",
+            json!({
+                "image": "ubuntu:22.04",
+                "mounts": [{"source": "/data/other-organization", "target": "/workspace"}],
+            }),
+            None,
+        );
+        let id = env.id.as_uuid();
+        let store = MockStore::new(env);
+        let runtime = Arc::new(MockRuntime::with_container("must-not-create"));
+        let service = DevEnvironmentService::with_runtime(store.clone(), Some(runtime.clone()));
+        assert!(service.start(&scope, id).await.is_err());
+        assert!(runtime.created_configs().is_empty());
+        assert!(runtime.starts().is_empty());
+        assert!(store.updates().is_empty());
     }
 
     #[tokio::test]
