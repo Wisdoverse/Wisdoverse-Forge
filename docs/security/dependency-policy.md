@@ -84,21 +84,31 @@ For the full operator verification path (binaries and images), see
 
 ## Container image CVE remediation
 
-The container images are scanned post-build by the `image-vuln-scan.yml` Trivy
-workflow (frontend, `server`, `orchestrator`, `sidecar`, `agent-base`, and the
-`agent-<tool>` overlays); findings publish to the Security tab as SARIF. The job
-fails CI on `CRITICAL` and surfaces `HIGH`/`MEDIUM` for tracked remediation under
-the Severity SLA above. The remediation posture has four layers, each applied at
-build time so a freshly built image is patched regardless of how old its base tag
-is:
+The `image-vuln-scan.yml` Trivy workflow scans published container images on a
+schedule or through a manual request. It includes the frontend, `server`,
+`orchestrator`, `sidecar`, `agent-base`, and the `agent-<tool>` overlays. It uploads
+results as SARIF to the Security tab.
 
-- Base-package upgrade layer. Every image runs a mandatory upgrade step before
-  installing its own packages — `apk --no-cache upgrade` on the Alpine runtimes
-  (`rust/Dockerfile`, `rust/Dockerfile.sidecar`, `rust/Dockerfile.orchestrator`)
-  and `apt-get -y dist-upgrade` on the Debian agent base
-  (`docker/Dockerfile.agent-base`). This pulls the distro's current patched
-  packages (e.g. `libssl3`/`libcrypto3`) even when the pinned base tag still ships
-  an older build.
+The workflow uses `ignore-unfixed: true` and `.trivyignore.yaml`. Its `CRITICAL`
+check can stop that workflow. It reports `HIGH` and `MEDIUM` findings under the
+Severity SLA above. The workflow does not run as a PR merge or image publication
+gate.
+
+For image qualification, include findings with no available fix. Keep the raw
+findings. The necessary PR checks do not include image qualification.
+
+Image security uses four layers. During a build, distribution upgrades install
+the security updates available from the configured repositories. These upgrades
+do not replace base image checks or image scans:
+
+- Base package upgrades. Each image upgrades distribution packages before
+  installation of its own packages. The Alpine runtime recipes use
+  `apk --no-cache upgrade`. These recipes are `rust/Dockerfile`,
+  `rust/Dockerfile.sidecar`, and `rust/Dockerfile.orchestrator`.
+  The Debian agent base recipe uses `apt-get -y dist-upgrade` in
+  `docker/Dockerfile.agent-base`. These commands install the security updates
+  available from the configured repositories, including updates for `libssl3` and
+  `libcrypto3`. They do not authenticate or change base image references.
 - Pinned npm for node images. The node-based images (the frontend image and the
   agent base) pin a current npm (`npm install -g npm@<version>`) so npm's bundled
   dependencies (`tar`, `ip-address`, `brace-expansion`, and similar) are patched;
@@ -113,18 +123,99 @@ is:
   opens weekly base-image bump pull requests; the SLA table drives manual
   remediation of anything the upgrade layers do not cover.
 
-### Base images are floated, not digest-pinned (recorded decision)
+### OpenSSH client rebuild
 
-Base images use floating minor tags (`alpine:3.23`, `debian:bookworm-slim`,
-`node:24-slim`, `rust:1.96.0-bookworm`) rather than `@sha256` digest pins. This is
-a deliberate, recorded supply-chain decision: the mandatory build-time upgrade
-layer above patches the base regardless of tag age, the Trivy gate blocks
-`CRITICAL`, and Dependabot bumps the tags weekly. Together these cover the CVE
-exposure that digest pinning is usually argued to close, while keeping security
-refreshes flowing automatically instead of requiring a manual digest bump per
-base. The supply-chain integrity that digest pinning adds (defeating a re-pushed
-tag) is covered downstream by cosign signing and SLSA provenance on the output
-images (see "Container images" above). Consequently, Scorecard
-`PinnedDependenciesID` findings on the Dockerfile `FROM` lines are dismissed as
-won't-fix with this rationale. Revisit if the threat model shifts toward
-build-time base-tag tampering.
+The agent base and clone image builds install OpenSSH client/common
+`1:10.5p1-1~forge13+1`. The packages use official Debian OpenSSH 10.5p1 source and
+Trixie libraries. Docker and a repository checkout are necessary for the build.
+
+Build the agent base and clone images:
+
+```bash
+make build-agent-base
+make build-clone
+```
+
+The build compares the installed package versions with the specified version.
+After the agent base build, build the Container CLI overlays.
+
+Both runtime image recipes install `systemd-standalone-sysusers` for the account
+helper. The OpenSSH client dependencies can then use this package instead of full
+`systemd` and `libsystemd-shared` packages. The installation stops if the standalone
+package is missing or either full package is installed.
+
+The build script pins all three source SHA256 hashes. It also pins the public
+`debian-tag2upload-keyring` 1.2 data package. It accepts only the specified
+tag2upload signer fingerprint. Before source extraction, the build stops if a
+signature is expired, revoked, missing, or invalid.
+
+The build installs only Trixie libraries and headers. The build runs the standard
+Debian unit, compatibility, and key generation tests. The runtime images do not
+contain compiler dependencies, test/server packages, or downloaded package
+archives.
+
+This is a local package build. Forge maintainers must examine upstream security
+updates, source pins, and certificate validity. A hash or signature error stops
+the build. When a Trixie package has approval and includes the security
+corrections, replace this local package with that package.
+
+The local version is higher than Trixie 10.0 package versions. Usual APT upgrades
+cannot replace this local version with security backports that have lower versions. To roll
+back an image, replace the client and common packages together. Install the
+matching client tools. Before replacement, examine newer official package
+versions.
+
+Keep the image scans and their raw findings. These scans must include findings
+with no available fix. Distribution advisory data can still flag a local package
+build. Source signature validation and SSH function tests do not replace the
+image scan requirement. Source and SSH results are not Container CLI or
+production acceptance.
+
+### Curl family from Trixie backports
+
+Both recipes for agent runtime images add the official Debian Trixie backports
+repository. They use the Debian archive keyring as `Signed-By`. The usual Trixie
+update and `dist-upgrade` use the stable repository policy. The recipes do not set
+a permanent default release. They do not upgrade the full distribution from
+backports.
+
+After the stable package installation, each recipe selects only its curl packages
+from `trixie-backports`. Package removal is disabled. APT can install or upgrade
+the minimum backports dependencies for those packages. Include the package set
+from the APT solver in the build qualification record.
+
+The agent base selects `curl`, `libcurl4t64`, `libcurl3t64-gnutls`, and
+`libcurl4-gnutls`. The clone image selects only `libcurl3t64-gnutls` and
+`libcurl4-gnutls`. It does not include a curl executable. Each selected package
+must have an installed version of at least `8.21.0`.
+
+The curl executable in the agent base supplies the curl CLI. A clone library update
+does not supply that CLI. The image scans must include findings with no
+available fix. Keep the raw findings. This minimum package version does not
+change the requirements for other findings or findings with no available fix.
+
+Docker and a repository checkout are necessary for the build. Build the affected
+runtime images:
+
+```bash
+make build-agent-base
+make build-clone
+make build-agent-all
+```
+
+### Policy for base image references
+
+The agent runtime base uses the floating `node:24-trixie-slim` tag. The clone base
+pins `debian:trixie-slim` to
+`sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a`.
+The Dockerfiles specify these references. The agent tag selects the image
+published under that tag. The clone digest identifies one input. An approved
+pin update is necessary to change that digest.
+
+During a build, package upgrades install the updates available from the selected
+distribution repositories. They do not make a floating base reference immutable.
+They do not authenticate the upstream image.
+
+Cosign signatures and SLSA provenance are for produced images and their build records.
+They do not authenticate upstream base images. Examine each `FROM` reference as
+an input dependency. Output signatures do not authenticate base images.

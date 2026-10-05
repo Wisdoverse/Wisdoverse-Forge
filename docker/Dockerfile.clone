@@ -17,10 +17,16 @@
 #   (or: make build-clone)
 # =============================================================================
 
-# Debian Bookworm slim — same Debian family as the agent base (node:24-slim),
-# so the cloned repo's file ownership/safe.directory semantics match what later
-# agents expect.
-FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
+# Compile the OpenSSH client for Trixie. Do not install Sid runtime packages.
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS openssh-builder
+WORKDIR /build
+COPY docker/scripts/build-openssh-client.sh /usr/local/bin/build-openssh-client.sh
+RUN bash /usr/local/bin/build-openssh-client.sh
+
+# The digest pins the Debian Trixie slim input for the clone runtime.
+# Use the same runtime distribution as the agent base.
+# The UID/GID values below set repository ownership during agent handoff.
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
 
 LABEL org.opencontainers.image.title="Wisdoverse Forge Clone" \
       org.opencontainers.image.description="Ephemeral least-privilege git clone container" \
@@ -36,9 +42,24 @@ ARG AGENT_GID=1012
 # Install ONLY what a clone needs. `apt-get dist-upgrade` applies Debian security
 # backports on top of the base layer (same hardening as agent-base). tini gives a
 # proper PID 1 that reaps zombies and forwards signals for the worker's timeout.
-RUN apt-get update && apt-get -y dist-upgrade \
+RUN --mount=type=bind,from=openssh-builder,source=/out,target=/tmp/openssh,ro \
+    apt-get update && apt-get -y dist-upgrade \
     && apt-get install -y --no-install-recommends \
-       git ca-certificates openssh-client tini \
+       git ca-certificates tini systemd-standalone-sysusers \
+    /tmp/openssh/openssh-client_*.deb /tmp/openssh/openssh-common_*.deb \
+    && printf '%s\n' 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/forge-backports.list \
+    && apt-get update \
+    && apt-get install -y -t trixie-backports --no-install-recommends --no-remove \
+       libcurl3t64-gnutls libcurl4-gnutls \
+    && for pkg in libcurl3t64-gnutls libcurl4-gnutls; do \
+         dpkg --compare-versions "$(dpkg-query -W -f='${Version}' "$pkg")" ge 8.21.0 || exit 1; \
+       done \
+    && test "$(dpkg-query -W -f='${Version}' openssh-client)" = '1:10.5p1-1~forge13+1' \
+    && test "$(dpkg-query -W -f='${Version}' openssh-common)" = '1:10.5p1-1~forge13+1' \
+    && test "$(dpkg-query -W -f='${db:Status-Status}' systemd-standalone-sysusers)" = 'installed' \
+    && ! dpkg-query -W -f='${db:Status-Status}\n' systemd libsystemd-shared 2>/dev/null | grep -qx installed \
+    && ! command -v curl \
+    && rm -f /etc/apt/sources.list.d/forge-backports.list \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root agent user with the same UID/GID as the agent base image.

@@ -29,9 +29,25 @@ RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
 
 # Install CLI tool with pinned version for immutable, reproducible images.
 # Version is set at build time by CI pipeline (npm view <pkg> version).
+# OpenCode postinstall runs --version. Install the native payload without a CLI call.
 RUN case "$CLI_TOOL" in \
       claude)   npm install -g @anthropic-ai/claude-code@${CLI_VERSION} ;; \
-      opencode) npm install -g opencode-ai@${CLI_VERSION} ;; \
+      opencode) npm install -g --ignore-scripts opencode-ai@${CLI_VERSION} \
+        && node -e 'const fs=require("node:fs"),path=require("node:path"); \
+          const root=path.join(process.argv[1],"opencode-ai"); \
+          const wrapper=require(path.join(root,"package.json")); \
+          let name; \
+          if(process.arch==="arm64") name="opencode-linux-arm64"; \
+          else if(process.arch==="x64") name="opencode-linux-x64"+(/\bavx2\b/.test(fs.readFileSync("/proc/cpuinfo","utf8"))?"":"-baseline"); \
+          else throw Error("unsupported Linux architecture: "+process.arch); \
+          const manifest=require.resolve(name+"/package.json",{paths:[root]}); \
+          const native=require(manifest); \
+          if(native.version!==wrapper.version) throw Error("OpenCode native package version mismatch"); \
+          const source=path.join(path.dirname(manifest),"bin","opencode"); \
+          if(!fs.lstatSync(source).isFile()) throw Error("OpenCode native binary missing"); \
+          const destination=path.join(root,"bin","opencode.exe"); \
+          fs.copyFileSync(source,destination,fs.constants.COPYFILE_FICLONE); \
+          fs.chmodSync(destination,0o755);' "$(npm root -g)" ;; \
       codex)    npm install -g @openai/codex@${CLI_VERSION} ;; \
       gemini)   npm install -g @google/gemini-cli@${CLI_VERSION} ;; \
       *)        echo "Unknown CLI_TOOL: $CLI_TOOL" && exit 1 ;; \

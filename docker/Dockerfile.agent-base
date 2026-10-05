@@ -154,8 +154,14 @@ RUN apt-get update \
     && go version -m /out/docker-compose | tee /out/docker-compose.buildinfo \
     && grep -q "go${COMPOSE_GO_VERSION}" /out/docker-compose.buildinfo
 
+# Compile the OpenSSH client for Trixie. Do not install Sid runtime packages.
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS openssh-builder
+WORKDIR /build
+COPY docker/scripts/build-openssh-client.sh /usr/local/bin/build-openssh-client.sh
+RUN bash /usr/local/bin/build-openssh-client.sh
+
 # Stage: Agent base image
-FROM node:${NODE_VERSION}-slim
+FROM node:${NODE_VERSION}-trixie-slim
 
 LABEL org.opencontainers.image.title="Wisdoverse Forge Agent Base" \
       org.opencontainers.image.description="Base layer for agent containers: system deps, sidecar, Forge CLI, and platform CLIs" \
@@ -166,18 +172,31 @@ ARG AGENT_UID=1011
 ARG AGENT_GID=1012
 
 # Install system deps (tini provides a proper PID 1 init process)
-# Python 3.11 (Bookworm LTS, supported until 2027-10) for agent tool use
+# Agent tools use Python from Debian Trixie packages.
 #
-# `apt-get dist-upgrade` applies debian security backports on top of the
-# upstream node:*-slim layer. node:*-slim is refreshed on Node release cadence,
-# so debian packages (e.g. libgnutls30) can lag behind active CVEs. The Trivy
-# Image Scan workflow enforces a CRITICAL severity gate against this image and
-# all agent-* overlays that inherit from it.
+# Upgrade the distribution before tool installation.
+# This step installs security updates available from the configured Trixie repositories.
+# The image scan includes the agent base and its overlays.
 # Codex pid-managed app-server startup requires `ps`.
-RUN apt-get update && apt-get -y dist-upgrade \
+RUN --mount=type=bind,from=openssh-builder,source=/out,target=/tmp/openssh,ro \
+    apt-get update && apt-get -y dist-upgrade \
     && apt-get install -y --no-install-recommends \
-    git git-lfs curl bash ca-certificates openssh-client tini procps \
+    git git-lfs curl bash ca-certificates tini procps \
     python3 python3-pip python3-venv libnghttp2-14 \
+    systemd-standalone-sysusers \
+    /tmp/openssh/openssh-client_*.deb /tmp/openssh/openssh-common_*.deb \
+    && printf '%s\n' 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/forge-backports.list \
+    && apt-get update \
+    && apt-get install -y -t trixie-backports --no-install-recommends --no-remove \
+       curl libcurl4t64 libcurl3t64-gnutls libcurl4-gnutls \
+    && for pkg in curl libcurl4t64 libcurl3t64-gnutls libcurl4-gnutls; do \
+         dpkg --compare-versions "$(dpkg-query -W -f='${Version}' "$pkg")" ge 8.21.0 || exit 1; \
+       done \
+    && test "$(dpkg-query -W -f='${Version}' openssh-client)" = '1:10.5p1-1~forge13+1' \
+    && test "$(dpkg-query -W -f='${Version}' openssh-common)" = '1:10.5p1-1~forge13+1' \
+    && test "$(dpkg-query -W -f='${db:Status-Status}' systemd-standalone-sysusers)" = 'installed' \
+    && ! dpkg-query -W -f='${db:Status-Status}\n' systemd libsystemd-shared 2>/dev/null | grep -qx installed \
+    && rm -f /etc/apt/sources.list.d/forge-backports.list \
     && rm -rf /var/lib/apt/lists/*
 
 # Pin npm 11.21.0 to use bundled tar 7.5.22 with the tar fix. Other bundled npm
