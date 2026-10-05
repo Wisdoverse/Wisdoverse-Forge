@@ -795,8 +795,8 @@ mod tests {
     #[sqlx::test(migrations = "../db/migrations")]
     async fn sso_and_scim_do_not_link_unverified_password_accounts(pool: PgPool) {
         let jwt = Arc::new(JwtManager::new(TEST_SECRET, 3600));
-        let password = "PrivateTestPassword123!";
-        let hash = agentforge_auth::password::hash_password(password).expect("hash password");
+        let password = Uuid::new_v4().to_string();
+        let hash = agentforge_auth::password::hash_password(&password).expect("hash password");
         let repo = UserRepository::new(pool.clone());
         let user = repo.create("dev@example.com", Some(&hash), None, true).await.expect("password account");
         let (org_id, _) = seed_member(&pool, Some("owner")).await;
@@ -813,7 +813,7 @@ mod tests {
             repo.find_by_email("dev@example.com").await.expect("lookup").expect("user").password_hash.as_deref(),
             Some(hash.as_str())
         );
-        assert!(service.login("dev@example.com", password, false).await.is_ok());
+        assert!(service.login("dev@example.com", &password, false).await.is_ok());
         let sso = service.ensure_sso_user("sso-only@example.com", None, false).await.expect("new SSO account");
         assert!(sso.password_hash.is_none());
         assert_eq!(
