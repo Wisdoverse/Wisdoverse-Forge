@@ -13,8 +13,8 @@
 //     downward-layering    imports may only point down the layer order
 //                          app → pages → widgets → features → entities → shared
 //                          (feature ↛ feature cross-slice included)
-//     unknown-dir          F074: an unrecognized src/app dir may import only
-//                          shared and may be imported by nothing
+//     unknown-dir          F074: unrecognized src/app paths are rejected as
+//                          files and may be imported by nothing
 //     public-api           an import crossing INTO a features/widgets/pages
 //                          slice must target the slice root barrel, not a
 //                          deep file
@@ -36,7 +36,7 @@ const extensions = ['.tsx', '.ts', '.jsx', '.js']
 // F074: `unknown` (an unrecognised src/app dir) is deliberately NOT in this rank
 // map. The old default classified such dirs as `app` (highest), letting them
 // import from any layer with no violation flagged. They are now handled
-// explicitly (import-only-shared, importable-by-none), which a single rank
+// explicitly (invalid files, importable-by-none), which a single rank
 // cannot express.
 const layerRank = new Map([
   ['shared', 0],
@@ -50,6 +50,7 @@ const layerRank = new Map([
 const appLayerDirs = new Set(['routes', 'layouts', 'providers', 'hooks', 'i18n', 'styles'])
 
 // Layers whose slices expose a public API through their root barrel.
+const sliceOwningLayers = new Set(['entities', 'features', 'widgets', 'pages'])
 const slicedLayers = new Set(['features', 'widgets', 'pages'])
 
 // shared-purity: genuinely generic infra stores (theme/toast-style UI state)
@@ -89,15 +90,17 @@ function toPosix(root, filePath) {
 function classify(appRoot, filePath) {
   const relative = path.relative(appRoot, filePath).split(path.sep)
   const first = relative[0]
+  if (sliceOwningLayers.has(first) && relative.length < 3) {
+    return { layer: 'unknown', slice: first }
+  }
   if (first === 'shared') return { layer: 'shared', slice: relative[1] ?? null }
   if (first === 'entities') return { layer: 'entities', slice: relative[1] ?? null }
   if (first === 'features') return { layer: 'features', slice: relative[1] ?? null }
   if (first === 'widgets') return { layer: 'widgets', slice: relative[1] ?? null }
   if (first === 'pages') return { layer: 'pages', slice: relative[1] ?? null }
   if (appLayerDirs.has(first) || relative.length === 1) return { layer: 'app', slice: first }
-  // F074: an unrecognised multi-segment dir (not an FSD layer, not a known app
-  // dir, not a single top-level file) is `unknown` — ranked lowest, not `app`,
-  // so it cannot silently import from higher layers.
+  // F074: an unrecognised multi-segment dir or malformed sliced-layer path is
+  // `unknown`, so it cannot silently import from higher layers.
   return { layer: 'unknown', slice: first }
 }
 
@@ -243,6 +246,9 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
     const source = classify(appRoot, sourceFile)
     const relFile = toPosix(root, sourceFile)
     fileLayers.set(relFile, source.layer)
+    if (source.layer === 'unknown') {
+      addError(relFile, `[unknown-file] ${relFile} does not match a known src/app location`)
+    }
 
     let imports
     try {
@@ -304,9 +310,9 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
 
       const layerViolation = `${relFile} (${source.layer}/${source.slice ?? '-'}) imports ${specifier} (${target.layer}/${target.slice ?? '-'})`
 
-      // unknown-dir (ERROR, F074): an unrecognised src/app dir is not a valid
-      // module location — nothing may import from it, and it may itself depend
-      // only on shared.
+      // unknown-dir (ERROR, F074): an unrecognised src/app path is not a valid
+      // module location — nothing may import from it, and its own imports must
+      // still follow the unknown layer's shared-only dependency rule.
       if (target.layer === 'unknown' || (source.layer === 'unknown' && target.layer !== 'shared')) {
         addError(relFile, layerViolation)
         continue
