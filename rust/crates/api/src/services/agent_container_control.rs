@@ -11,7 +11,9 @@ use std::sync::Arc;
 
 use agentforge_core::{AgentId, AppConfig, AppError, AppResult, CliToolKind, RuntimeKind, TenantScope};
 use agentforge_db::entities::Agent;
-use agentforge_platform::{ContainerConfig, ContainerInfo, ContainerState, DockerClient, LocalImageIdentity, Mount};
+use agentforge_platform::{
+    ContainerConfig, ContainerInfo, ContainerState, DockerClient, LocalImageIdentity, Mount, PlatformError,
+};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -32,7 +34,7 @@ use crate::services::agent_workspace::{
 };
 use crate::services::auth_callout::AuthCalloutService;
 use crate::services::container_image_config::{
-    capture_container_image_identity, configured_cli_images, configured_container_network,
+    capture_container_image_identity, configured_cli_images, configured_container_network, image_verification_failure,
     recorded_image_trust_is_acceptable,
 };
 use crate::services::orchestration::OrchestrationService;
@@ -83,6 +85,59 @@ pub(crate) struct AgentContainerControlService {
 /// Proof that the caller owns the per-Agent lifecycle advisory lock. Only this
 /// module can construct it, so Docker-mutating bodies cannot be called bare.
 struct LifecycleGuard;
+
+enum ContainerAdmissionError {
+    Unavailable(AppError),
+    Rejected(AppError),
+}
+
+impl From<PlatformError> for ContainerAdmissionError {
+    fn from(error: PlatformError) -> Self {
+        match error {
+            PlatformError::SecurityViolation(_) => Self::Rejected(
+                AgentContainerRuntimePolicy::lifecycle_action_unavailable(
+                    "verify security for",
+                    "container security requirements are not met",
+                )
+                .into(),
+            ),
+            _ => Self::inspection_unavailable(),
+        }
+    }
+}
+
+impl ContainerAdmissionError {
+    fn inspection_unavailable() -> Self {
+        Self::Unavailable(
+            AgentContainerRuntimePolicy::lifecycle_action_unavailable(
+                "verify security for",
+                "security inspection is temporarily unavailable; try again",
+            )
+            .into(),
+        )
+    }
+
+    fn image_verification(error: AppError) -> Self {
+        // These safe codes come from the image policy and verifier boundary.
+        // Other failures do not prove that the image violates the policy.
+        match image_verification_failure(&error).0 {
+            "image_signature_untrusted" | "image_registry_source_ambiguous" | "image_host_local_not_allowed" => {
+                Self::Rejected(error)
+            }
+            _ => Self::Unavailable(error),
+        }
+    }
+
+    fn should_quarantine(&self) -> bool {
+        matches!(self, Self::Rejected(_))
+    }
+
+    fn into_app_error(self) -> AppError {
+        match self {
+            Self::Unavailable(error) | Self::Rejected(error) => error,
+        }
+    }
+}
 
 pub(crate) enum AgentContainerReplaceOutcome {
     Respawned,
@@ -191,9 +246,11 @@ impl AgentContainerControlService {
                         && agent.hmac_secret.is_some()
                         && agent.nats_connect_password.is_some() =>
                 {
-                    if let Err(err) = self.ensure_container_image_identity(scope, &agent, container_id, &info).await {
-                        self.quarantine_unverified_container(scope, agent_id, container_id).await;
-                        return Err(err);
+                    if let Err(err) = self.ensure_container_admission(scope, &agent, container_id, &info).await {
+                        if err.should_quarantine() {
+                            self.quarantine_unverified_container(scope, agent_id, container_id).await;
+                        }
+                        return Err(err.into_app_error());
                     }
                     return Ok(AgentContainerStartOutcome::already_running(container_id));
                 }
@@ -803,13 +860,17 @@ impl AgentContainerControlService {
             }
             Ok(info) => {
                 let agent = self.agents.get(scope, agent_id).await?;
-                match self.ensure_container_image_identity(scope, &agent, container_id, &info).await {
+                match self.ensure_container_admission(scope, &agent, container_id, &info).await {
                     Ok(updated) => Ok(updated),
                     Err(err) => {
-                        OrchestrationTaskRepository::invalidate_active_work_for_quarantine_in_tx(tx, scope, agent_id)
+                        if err.should_quarantine() {
+                            OrchestrationTaskRepository::invalidate_active_work_for_quarantine_in_tx(
+                                tx, scope, agent_id,
+                            )
                             .await?;
-                        self.quarantine_unverified_container(scope, agent_id, container_id).await;
-                        Err(err)
+                            self.quarantine_unverified_container(scope, agent_id, container_id).await;
+                        }
+                        Err(err.into_app_error())
                     }
                 }
             }
@@ -843,17 +904,33 @@ impl AgentContainerControlService {
         Ok(true)
     }
 
+    async fn ensure_container_admission(
+        &self,
+        scope: &TenantScope,
+        agent: &Agent,
+        expected_container_id: &str,
+        container: &ContainerInfo,
+    ) -> Result<bool, ContainerAdmissionError> {
+        if agent.container_id.as_deref() != Some(expected_container_id) {
+            return Ok(false);
+        }
+        let docker = self.docker.as_ref().ok_or_else(ContainerAdmissionError::inspection_unavailable)?;
+        docker.validate_container_security(expected_container_id).await.map_err(ContainerAdmissionError::from)?;
+        self.ensure_container_image_identity(scope, agent, expected_container_id, container).await
+    }
+
     async fn ensure_container_image_identity(
         &self,
         scope: &TenantScope,
         agent: &Agent,
         expected_container_id: &str,
         container: &ContainerInfo,
-    ) -> AppResult<bool> {
+    ) -> Result<bool, ContainerAdmissionError> {
         if agent.container_id.as_deref() != Some(expected_container_id) {
             return Ok(false);
         }
-        let cli_tool = AgentContainerRuntimePolicy::cli_tool(agent.cli_tool.as_deref(), agent.model.as_deref())?;
+        let cli_tool = AgentContainerRuntimePolicy::cli_tool(agent.cli_tool.as_deref(), agent.model.as_deref())
+            .map_err(ContainerAdmissionError::Rejected)?;
         let recorded_identity = agent.container_image_identity.as_ref();
         let recorded_image_matches =
             recorded_identity.and_then(|identity| identity.get("imageId")).and_then(serde_json::Value::as_str)
@@ -864,23 +941,35 @@ impl AgentContainerControlService {
             return Ok(false);
         }
 
-        let docker = self.docker.as_ref().ok_or_else(AgentContainerRuntimePolicy::control_docker_unavailable)?;
+        let docker = self.docker.as_ref().ok_or_else(ContainerAdmissionError::inspection_unavailable)?;
         let configured_image = AgentContainerImagePolicy::resolve_configured_for_start(
             agent.cli_tool.as_deref(),
             agent.model.as_deref(),
             &self.settings.cli_images,
-        )?;
+        )
+        .map_err(ContainerAdmissionError::Rejected)?;
         let identity = docker
             .local_image_identity_for_source(&container.image_id, &configured_image)
             .await
-            .map_err(|err| AgentContainerRuntimePolicy::lifecycle_action_unavailable("inspect image for", err))?
-            .ok_or_else(|| AgentContainerRuntimePolicy::image_identity_unavailable(&configured_image))?;
+            .map_err(|_| ContainerAdmissionError::inspection_unavailable())?
+            .ok_or_else(|| {
+                ContainerAdmissionError::Rejected(
+                    AgentContainerRuntimePolicy::image_identity_unavailable(&configured_image).into(),
+                )
+            })?;
         if identity.id != container.image_id {
-            return Err(AgentContainerRuntimePolicy::image_identity_unavailable(&configured_image).into());
+            return Err(ContainerAdmissionError::Rejected(
+                AgentContainerRuntimePolicy::image_identity_unavailable(&configured_image).into(),
+            ));
         }
-        let evidence = capture_container_image_identity(cli_tool, &configured_image, &identity).await?;
-        let evidence = evidence.to_value()?;
-        self.agents.set_container_image_identity(scope, agent.id, expected_container_id, &evidence).await
+        let evidence = capture_container_image_identity(cli_tool, &configured_image, &identity)
+            .await
+            .map_err(ContainerAdmissionError::image_verification)?;
+        let evidence = evidence.to_value().map_err(|_| ContainerAdmissionError::inspection_unavailable())?;
+        self.agents
+            .set_container_image_identity(scope, agent.id, expected_container_id, &evidence)
+            .await
+            .map_err(|_| ContainerAdmissionError::inspection_unavailable())
     }
 
     async fn quarantine_unverified_container(
@@ -1136,6 +1225,41 @@ async fn remove_container_for_replacement(docker: &DockerClient, container_id: &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_admission_errors_quarantine_only_verified_rejections_and_hide_details() {
+        let rejected = ContainerAdmissionError::from(PlatformError::SecurityViolation("private host path".to_owned()));
+        assert!(rejected.should_quarantine());
+        assert!(!rejected.into_app_error().to_string().contains("private host path"));
+        for status_code in [404, 503] {
+            let unavailable = ContainerAdmissionError::from(PlatformError::Docker(
+                bollard::errors::Error::DockerResponseServerError {
+                    status_code,
+                    message: "private daemon detail".to_owned(),
+                },
+            ));
+            assert!(!unavailable.should_quarantine());
+            assert!(!unavailable.into_app_error().to_string().contains("private daemon detail"));
+        }
+        for (code, rejected) in [
+            ("image_verifier_missing", false),
+            ("image_verifier_start_failed", false),
+            ("image_verification_timeout", false),
+            ("image_registry_auth_failed", false),
+            ("image_registry_unreachable", false),
+            ("image_signature_verification_failed", false),
+            ("unknown_verification_failure", false),
+            ("image_signature_untrusted", true),
+            ("image_registry_source_ambiguous", true),
+            ("image_host_local_not_allowed", true),
+        ] {
+            let error: AppError = AgentContainerImagePolicy::verification_failed(code, "Check runtime health").into();
+            let message = error.to_string();
+            let admission = ContainerAdmissionError::image_verification(error);
+            assert_eq!(admission.should_quarantine(), rejected, "{code}");
+            assert_eq!(admission.into_app_error().to_string(), message, "safe recovery guidance must remain visible");
+        }
+    }
 
     #[test]
     fn control_settings_keep_runtime_urls_optional() {

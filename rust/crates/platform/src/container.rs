@@ -170,8 +170,19 @@ impl DockerClient {
         Ok(response.id)
     }
 
-    /// Start a previously created container.
+    /// Verify actual security settings without preventing inspection or cleanup.
+    pub async fn validate_container_security(&self, id: &str) -> Result<(), PlatformError> {
+        let info =
+            self.inner().inspect_container(id, None::<InspectContainerOptions>).await.map_err(PlatformError::Docker)?;
+        security::validate_runtime_security(&info).map_err(|_| {
+            // Do not return inspect fields, mount paths, or daemon configuration.
+            PlatformError::SecurityViolation("container does not meet the runtime security requirements".to_string())
+        })
+    }
+
+    /// Start a previously created container after verifying its actual settings.
     pub async fn start_container(&self, id: &str) -> Result<(), PlatformError> {
+        self.validate_container_security(id).await?;
         self.inner().start_container(id, None::<StartContainerOptions>).await.map_err(PlatformError::Docker)?;
 
         tracing::info!(container_id = %id, "Container started");
@@ -235,6 +246,133 @@ impl DockerClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn start_requires_verified_runtime_security_before_sending_start() {
+        use bollard::{API_DEFAULT_VERSION, Docker};
+        use serde_json::json;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+        use tokio::sync::oneshot;
+
+        let valid = json!({"HostConfig": {
+            "Privileged": false, "Memory": 67108864, "PidsLimit": 16, "NetworkMode": "bridge",
+            "CapDrop": ["ALL"], "SecurityOpt": ["no-new-privileges"]
+        }, "Mounts": [], "Config": {"Env": ["PRIVATE_TEST_VALUE=sentinel"]}});
+        let mut unsafe_config = valid.clone();
+        unsafe_config["HostConfig"]["CapAdd"] = json!(["SYS_ADMIN"]);
+        for (status, body, allowed) in [
+            (200, valid.to_string(), true),
+            (200, unsafe_config.to_string(), false),
+            (200, json!({}).to_string(), false),
+            (503, json!({"message": "private daemon detail"}).to_string(), false),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let (shutdown, mut stopped) = oneshot::channel();
+            let server = tokio::spawn(async move {
+                let mut requests = Vec::new();
+                loop {
+                    let (mut stream, _) = tokio::select! {
+                        _ = &mut stopped => break,
+                        accepted = listener.accept() => accepted.unwrap(),
+                    };
+                    let mut header = Vec::new();
+                    while !header.windows(4).any(|part| part == b"\r\n\r\n") {
+                        let mut buffer = [0; 4096];
+                        let read = stream.read(&mut buffer).await.unwrap();
+                        assert!(read > 0 && header.len() < 16384);
+                        header.extend_from_slice(&buffer[..read]);
+                    }
+                    let request = String::from_utf8(header).unwrap().lines().next().unwrap().to_owned();
+                    let response = if request.contains("/json") {
+                        format!(
+                            "HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    } else {
+                        assert!(request.contains("/start"));
+                        "HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n".to_owned()
+                    };
+                    requests.push(request);
+                    stream.write_all(response.as_bytes()).await.unwrap();
+                }
+                requests
+            });
+            let docker = DockerClient::from_bollard(
+                Docker::connect_with_http(&format!("http://{address}"), 5, API_DEFAULT_VERSION).unwrap(),
+            );
+            let result = docker.start_container("runtime-fixture").await;
+            shutdown.send(()).unwrap();
+            let requests = server.await.unwrap();
+            assert_eq!(result.is_ok(), allowed);
+            assert_eq!(requests.len(), if allowed { 2 } else { 1 });
+            assert!(requests[0].contains("/containers/runtime-fixture/json"));
+            if let Err(PlatformError::SecurityViolation(message)) = result {
+                assert!(!message.contains("PRIVATE_TEST_VALUE"));
+                assert!(!message.contains("sentinel"));
+            }
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a local Docker daemon and FORGE_RUNTIME_ADMISSION_TEST_IMAGE"]
+    async fn runtime_security_checks_actual_docker_settings() {
+        use bollard::{Docker, models::ContainerInspectResponse};
+        let image = std::env::var("FORGE_RUNTIME_ADMISSION_TEST_IMAGE").expect("set an approved local system image");
+        let docker = DockerClient::from_bollard(Docker::connect_with_local_defaults().unwrap());
+        for hardened in [true, false] {
+            let host = HostConfig {
+                privileged: Some(false),
+                memory: Some(64 * 1024 * 1024),
+                pids_limit: Some(16),
+                cap_drop: Some(vec!["ALL".to_owned()]),
+                security_opt: hardened.then(|| vec!["no-new-privileges".to_owned()]),
+                network_mode: Some("none".to_owned()),
+                ..Default::default()
+            };
+            let created = docker
+                .inner()
+                .create_container(
+                    None::<CreateContainerOptions>,
+                    ContainerCreateBody {
+                        image: Some(image.clone()),
+                        user: Some("1004:1003".to_owned()),
+                        entrypoint: Some(vec!["/bin/sh".to_owned()]),
+                        cmd: Some(vec!["-c".to_owned(), "true".to_owned()]),
+                        labels: Some(std::collections::HashMap::from([(
+                            "forge.test".to_owned(),
+                            "runtime-security-admission".to_owned(),
+                        )])),
+                        host_config: Some(host),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+            let result = docker.validate_container_security(&created.id).await;
+            // Unsafe fixtures remain created and are never started.
+            let start = if hardened && result.is_ok() { Some(docker.start_container(&created.id).await) } else { None };
+            let inspected: Result<ContainerInspectResponse, _> =
+                docker.inner().inspect_container(&created.id, None::<InspectContainerOptions>).await;
+            let removed = docker
+                .inner()
+                .remove_container(
+                    &created.id,
+                    Some(RemoveContainerOptions { force: true, v: true, ..Default::default() }),
+                )
+                .await;
+            assert!(removed.is_ok(), "owned fixture cleanup failed");
+            assert_eq!(result.is_ok(), hardened);
+            if hardened {
+                assert!(start.unwrap().is_ok());
+            } else {
+                assert!(matches!(result, Err(PlatformError::SecurityViolation(_))));
+                let info = inspected.unwrap();
+                assert_eq!(info.state.unwrap().status.unwrap().to_string(), "created");
+            }
+        }
+    }
 
     #[test]
     fn platform_not_found_error_is_classified() {
