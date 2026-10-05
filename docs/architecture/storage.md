@@ -65,12 +65,13 @@ configured through `CONTAINER_*` environment variables.
 
 ## Browser Storage
 
-The frontend stores the access JWT in `af:auth:access` and the cached user's
-email, organization ID, and role in `af:auth:user` in browser local storage.
-The refresh token is held separately in the `af_rt` cookie, which is `HttpOnly`
-and `SameSite=Strict`. Refresh requests issue a new access token and retain the
-existing refresh cookie. Browser local storage is readable by page JavaScript;
-it is not the source of truth for backend state.
+The browser stores the access JWT in `af:auth:access` and the cached user's
+email, organization ID, and role in `af:auth:user` in local storage. The browser
+stores the refresh token in the `af_rt` cookie. The cookie uses the `HttpOnly`
+and `SameSite=Strict` attributes. If the server accepts a refresh request, it sends a new access token.
+The server does not replace the refresh cookie.
+
+Page JavaScript can read local storage. Local storage is not the source of truth for backend state.
 
 ## Guidance
 

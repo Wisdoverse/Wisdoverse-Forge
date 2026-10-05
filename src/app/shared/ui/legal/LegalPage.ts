@@ -560,7 +560,7 @@ export class LegalPage {
           <li>Entries in change history, such as changes to settings or saved work</li>
           <li>Saved preferences and settings choices, such as display options</li>
           <li>Tool activity history, such as which kind of action ran and whether it succeeded</li>
-          <li>Task and chat inputs, including code and selected files or images, may be sent to an AI provider configured for your deployment when you use AI features</li>
+          <li>When you use AI features, your deployment can send task and chat inputs, with code and selected files or images, to its configured AI provider</li>
           <li>Feature usage patterns, such as views opened, settings changed, and features enabled</li>
           <li>Service request history, such as the action requested, status, and time</li>
           <li>Live update connection history, such as connection status and message type</li>
@@ -648,7 +648,7 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Infrastructure Security</h3>
         <ul class="legal-list">
           <li>Protective checks that help the Service recover when supporting systems are unhealthy</li>
-          <li>Optional monitoring configured by your deployment operator may receive service activity and error details</li>
+          <li>If your deployment operator configures monitoring, the provider can receive service activity and error details</li>
           <li>Safe database query practices to reduce injection risk</li>
           <li>Browser access policies that limit which sites can call the Service</li>
           <li>Security review supported by security history</li>
@@ -665,10 +665,10 @@ export class LegalPage {
         </div>
         <h3 class="legal-subsection-title">Service Providers</h3>
         <p class="legal-text">
-          Your deployment may connect to configured service providers. AI providers may receive task and chat inputs,
-          including code and selected file or image content. Optional operator-configured monitoring may receive service
-          activity and error details. Ask your deployment operator which providers are enabled and what information they
-          receive.
+          Your deployment can connect to configured service providers. Configured AI providers can receive task and
+          chat inputs, with code and selected file or image content. If your deployment operator configures
+          monitoring, its provider can receive service activity and error details. Ask your deployment operator which
+          providers are enabled and what information they receive.
         </p>
         <ul class="legal-list">
           <li><strong>Stripe, Inc.</strong> &mdash; Payment processing. Stripe receives payment information necessary to process transactions. See <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe's Privacy Policy</a>.</li>
@@ -694,8 +694,8 @@ export class LegalPage {
       <div class="legal-section">
         <h2 class="legal-section-title">5. Your Rights</h2>
         <p class="legal-text">
-          Privacy laws and available request processes depend on where you live and how your deployment is operated.
-          Contact your deployment operator to ask about requests to access, correct, or delete personal information.
+          Privacy laws and request processes can be different for each location and deployment.
+          Contact your deployment operator to ask how to request access, correction, or deletion of personal information.
         </p>
       </div>
 
@@ -706,14 +706,15 @@ export class LegalPage {
         </p>
         <h3 class="legal-subsection-title">Data Export</h3>
         <p class="legal-text">
-          Data export and deletion procedures depend on your deployment. Ask your deployment operator what can be
-          exported, what is removed or retained, and how login sessions and access keys are handled.
+          Data export and deletion procedures can be different for each deployment. Ask your deployment operator what data you
+          can export and what data the operator removes or keeps. Ask how the operator handles login sessions and
+          access keys.
         </p>
         <h3 class="legal-subsection-title">Account Deletion</h3>
         <p class="legal-text">
-          Deleting or deactivating an account may leave profile information or history in the deployment. Ask your
-          deployment operator what will be retained, whether login sessions and access keys need separate revocation,
-          and how related history and backups are handled.
+          The deployment can keep profile information or history after account deletion or deactivation. Ask your
+          deployment operator what information stays. Ask whether login sessions and access keys have a different revocation procedure.
+          Ask how the operator handles related history and backups.
         </p>
       </div>
 
@@ -752,8 +753,8 @@ export class LegalPage {
           deployment operator can configure it.
         </p>
         <p class="legal-text">
-          Other records, files, and backups follow separate policies. Ask your deployment operator which providers
-          receive information, the configured retention periods, and the deletion procedure.
+          Other records, files, and backups have their own policies. Ask your deployment operator which providers
+          receive information. Ask about configured retention periods and the deletion procedure.
         </p>
       </div>
 
@@ -777,7 +778,7 @@ export class LegalPage {
         <p class="legal-text">
           If we become aware that we have collected personal data from a child under 13 without verification of
           parental consent, contact your deployment operator to ask about the available process. If you believe the
-          Service may hold information about a child under 13, contact that operator.
+          Service holds information about a child under 13, contact that operator.
         </p>
       </div>
 
@@ -807,8 +808,8 @@ export class LegalPage {
             contact your deployment operator. This is the person or team that runs your Forge installation.
           </p>
           <p class="legal-text">
-            Ask which recipients are enabled, how long each category of information is retained, and how to request
-            deletion. Storage and backup policies may differ from telemetry and run-history expiry.
+            Ask which recipients are enabled. Ask how long the operator keeps each category of information. Ask how to request
+            deletion. Retention periods for storage and backups can be different from those for telemetry and run history.
           </p>
         </div>
       </div>
