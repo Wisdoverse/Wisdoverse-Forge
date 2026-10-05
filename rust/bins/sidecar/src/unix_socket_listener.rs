@@ -21,13 +21,15 @@
 
 #[cfg(unix)]
 use std::path::Path;
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 use std::sync::Arc;
 
+#[cfg(any(unix, windows))]
+use tokio::io::{AsyncRead, AsyncReadExt};
 #[cfg(unix)]
-use tokio::io::AsyncReadExt;
-#[cfg(unix)]
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixListener;
+#[cfg(all(unix, test))]
+use tokio::net::UnixStream;
 #[cfg(unix)]
 use tokio::sync::{Semaphore, watch};
 
@@ -36,7 +38,7 @@ use crate::wal::Wal;
 
 /// Reject frames larger than this (DoS guard). Hook events are small JSON blobs;
 /// 10 MiB is generous headroom over the hook's own 64K response truncation.
-#[cfg(any(unix, test))]
+#[cfg(any(unix, windows, test))]
 const MAX_FRAME_SIZE: u32 = 10 * 1024 * 1024;
 
 /// Upper bound on the confirm-handoff `flush()` in the WAL-first relay path.
@@ -67,7 +69,7 @@ const MAX_CONCURRENT_RELAY_CONNECTIONS: usize = 256;
 /// if the sidecar bound a different path the entrypoint/healthcheck would keep
 /// polling this one, report "relay socket not ready", and could mark the
 /// container unhealthy.
-#[cfg(any(unix, test))]
+#[cfg(any(unix, windows, test))]
 pub const RELAY_SOCKET_PATH: &str = "/tmp/agentforge-relay.sock";
 
 /// Bind the relay Unix socket **owner-only**, closing the TOCTOU window where the
@@ -206,15 +208,15 @@ pub async fn run(
 }
 
 /// Read one length-prefixed frame from `stream`, decode it, and durably publish.
-#[cfg(unix)]
-async fn handle_connection(
-    mut stream: UnixStream,
+#[cfg(any(unix, windows))]
+pub(crate) async fn handle_connection<S: AsyncRead + Unpin>(
+    mut stream: S,
     publisher: Arc<EventPublisher>,
     wal: Arc<Wal>,
 ) -> anyhow::Result<()> {
     // 4-byte big-endian length header.
     let mut header = [0u8; 4];
-    stream.read_exact(&mut header).await?;
+    tokio::time::timeout(std::time::Duration::from_secs(2), stream.read_exact(&mut header)).await??;
     let len = u32::from_be_bytes(header);
 
     if len > MAX_FRAME_SIZE {
@@ -222,7 +224,7 @@ async fn handle_connection(
     }
 
     let mut buf = vec![0u8; len as usize];
-    stream.read_exact(&mut buf).await?;
+    tokio::time::timeout(std::time::Duration::from_secs(2), stream.read_exact(&mut buf)).await??;
 
     let value = match decode_frame(&buf) {
         Ok(value) => value,
@@ -241,7 +243,7 @@ async fn handle_connection(
 }
 
 /// Decode a frame body into a JSON value. Pure and exhaustively unit-tested.
-#[cfg(any(unix, test))]
+#[cfg(any(unix, windows, test))]
 fn decode_frame(body: &[u8]) -> Result<serde_json::Value, serde_json::Error> {
     serde_json::from_slice(body)
 }
@@ -250,7 +252,7 @@ fn decode_frame(body: &[u8]) -> Result<serde_json::Value, serde_json::Error> {
 /// expects: `{"payload":{"event_type":..,"data":..}}`. Keeping this aligned with
 /// the replay reader is load-bearing — a mismatch means the buffered event is
 /// silently skipped on replay.
-#[cfg(any(unix, test))]
+#[cfg(any(unix, windows, test))]
 fn wal_record(event_type: &str, data: &serde_json::Value) -> Vec<u8> {
     let record = serde_json::json!({
         "payload": {
@@ -297,7 +299,7 @@ fn durable_publish_outcome(published_ok: bool, flushed_ok: bool) -> WalAction {
 /// buffered in the client — *before* the server accepts it — so without the
 /// flush+WAL-first ordering an event accepted mid-reconnect would be lost if the
 /// sidecar restarted before the buffer drained.
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 async fn durably_publish(publisher: &EventPublisher, wal: &Wal, event_type: &str, data: serde_json::Value) {
     let data = match publisher.prepare_hook_event(event_type, data) {
         Ok(data) => data,

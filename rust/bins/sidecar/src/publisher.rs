@@ -81,6 +81,14 @@ impl EventPublisher {
         hex::encode(mac.finalize().into_bytes())
     }
 
+    #[cfg(windows)]
+    pub(crate) fn relay_server_tag(&self, nonce: &[u8; 32]) -> [u8; 32] {
+        let mut mac = HmacSha256::new_from_slice(&self.hmac_key).expect("HMAC key length is always valid");
+        mac.update(b"agentforge-relay-server-v1\0");
+        mac.update(nonce);
+        mac.finalize().into_bytes().into()
+    }
+
     /// Publish an event to the `events.ingest.<runtime_kind>.<agent_id>` NATS
     /// subject (issue #457). The HMAC is computed over `agent_id:ts:payload`
     /// and is independent of the subject, so the platform's signature check is
@@ -279,23 +287,17 @@ fn load_hook_state(path: &Path, generation_fingerprint: &str) -> HookStateSnapsh
 
 fn persist_hook_state(path: &Path, snapshot: &HookStateSnapshot) -> std::io::Result<()> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    #[cfg(windows)]
+    crate::windows_security::create_private_dirs(parent)?;
+    #[cfg(not(windows))]
     std::fs::create_dir_all(parent)?;
-    let temp_path = parent.join(format!(".{HOOK_STATE_FILE}.{}.tmp", std::process::id()));
+    let temp_path = parent.join(format!(".{HOOK_STATE_FILE}.{}.tmp", uuid::Uuid::now_v7()));
     let bytes = serde_json::to_vec(snapshot).map_err(std::io::Error::other)?;
-    let mut options = std::fs::OpenOptions::new();
-    options.create(true).truncate(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(&temp_path)?;
+    let mut file = crate::durable_fs::create_file(&temp_path)?;
     file.write_all(&bytes)?;
     file.sync_all()?;
-    std::fs::rename(&temp_path, path)?;
-    // Make the rename itself crash-durable, not only the temporary file's
-    // contents. Sidecar restarts are an explicit supported entrypoint path.
-    std::fs::File::open(parent)?.sync_all()?;
+    drop(file);
+    crate::durable_fs::move_file(&temp_path, path, true)?;
     Ok(())
 }
 

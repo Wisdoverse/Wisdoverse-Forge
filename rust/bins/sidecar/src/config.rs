@@ -62,6 +62,33 @@ fn default_heartbeat() -> u64 {
 }
 
 impl SidecarConfig {
+    #[cfg(windows)]
+    pub fn prepare_windows_runtime(mut self) -> anyhow::Result<Self> {
+        let agent_id = uuid::Uuid::parse_str(&self.agent_id)?;
+        self.agent_id = agent_id.to_string();
+        anyhow::ensure!(!self.hmac_secret.trim().is_empty(), "HMAC_SECRET is required for the local relay");
+        let root = match &self.wal_path {
+            Some(path) => std::path::PathBuf::from(path),
+            None => {
+                let local = std::env::var_os("LOCALAPPDATA")
+                    .filter(|path| !path.is_empty())
+                    .map(std::path::PathBuf::from)
+                    .or_else(|| {
+                        std::env::var_os("USERPROFILE")
+                            .filter(|path| !path.is_empty())
+                            .map(|path| std::path::PathBuf::from(path).join("AppData").join("Local"))
+                    })
+                    .ok_or_else(|| anyhow::anyhow!("Set LOCALAPPDATA or an absolute private WAL_PATH"))?;
+                local.join("AgentForge").join("agents").join(agent_id.to_string()).join("wal")
+            }
+        };
+        anyhow::ensure!(root.is_absolute(), "WAL_PATH must be an absolute private folder");
+        crate::windows_security::ensure_private_state_root(&root)?;
+        self.wal_path =
+            Some(root.into_os_string().into_string().map_err(|_| anyhow::anyhow!("WAL_PATH must be UTF-8"))?);
+        Ok(self)
+    }
+
     /// Build configuration from environment variables.
     ///
     /// Environment variables are matched case-insensitively and nested keys use
