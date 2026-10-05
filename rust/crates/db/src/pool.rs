@@ -185,6 +185,11 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
         "099_validate_event_receipt_generation.sql",
         include_str!("../migrations/099_validate_event_receipt_generation.sql"),
     ),
+    ("100_maintenance_task_tenant_key.sql", include_str!("../migrations/100_maintenance_task_tenant_key.sql")),
+    ("101_maintenance_requests.sql", include_str!("../migrations/101_maintenance_requests.sql")),
+    ("102_task_run_ownership_key.sql", include_str!("../migrations/102_task_run_ownership_key.sql")),
+    ("103_maintenance_delivery.sql", include_str!("../migrations/103_maintenance_delivery.sql")),
+    ("104_maintenance_source_deletion.sql", include_str!("../migrations/104_maintenance_source_deletion.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.

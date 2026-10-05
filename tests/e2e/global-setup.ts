@@ -52,6 +52,14 @@ function isLocalTarget(baseURL: string): boolean {
 }
 
 async function globalSetup(config: FullConfig): Promise<void> {
+  const browserApiPort = process.env.E2E_BROWSER_API_PORT
+  if (
+    browserApiPort !== undefined &&
+    (!/^\d+$/.test(browserApiPort) || Number(browserApiPort) < 1 || Number(browserApiPort) > 65_535)
+  ) {
+    throw new Error('E2E_BROWSER_API_PORT must be a decimal port from 1 to 65535')
+  }
+
   const baseURL = config.projects[0]?.use?.baseURL ?? process.env.BASE_URL
   if (!baseURL) {
     throw new Error('E2E baseURL missing: set baseURL in playwright.config.ts or BASE_URL env var')
@@ -99,6 +107,12 @@ async function globalSetup(config: FullConfig): Promise<void> {
   })
   try {
     const context = await browser.newContext({ baseURL })
+    if (browserApiPort !== undefined) {
+      await context.addInitScript(
+        (port) => localStorage.setItem('agentforge-port', port),
+        browserApiPort
+      )
+    }
     const page = await context.newPage()
 
     // Navigate first so we're on the correct origin before touching localStorage.

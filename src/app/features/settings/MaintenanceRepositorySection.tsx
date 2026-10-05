@@ -71,6 +71,9 @@ export function MaintenanceRepositorySection() {
           checks before allowing a merge.
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <a href="/tasks" className={LINK_STYLE}>
+            Open the task board to submit maintenance work
+          </a>
           <a href="/settings/runtime" className={LINK_STYLE}>
             Review agent setup
           </a>

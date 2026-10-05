@@ -17,7 +17,8 @@ The proofed contract is taken from `README.md`, `SPEC.md`, and
   starts the Temporal worker when Temporal is enabled.
 - Temporal runs the live workflow runtime on `:7233`; the UI is on `:8233`.
 - PostgreSQL is required. The existing `prod-ext` evidence below predates this
-  RustFS migration and does not validate RustFS deployment or data cutover.
+  RustFS migration and does not validate production RustFS deployment or data
+  cutover.
   Redis, NATS, Docker, and Temporal are part of that runtime path.
 - Container CLI task execution flows through sidecar, NATS, Rust API jobs,
   persisted task/run/evidence state, and browser-visible task surfaces.
@@ -65,6 +66,14 @@ node --test scripts/__tests__/check-secret-scan.test.mjs
 npm run test:e2e -- maintenance-repository.spec.ts
 ```
 
+When the browser app uses an API port other than `4003`, set the optional
+`E2E_BROWSER_API_PORT` to that port; global setup stores it as `agentforge-port`
+in browser local storage so requests use the independent API instead of a shared
+service. `E2E_API_BASE_URL` separately sets the base URL for Node-side setup
+requests, such as registration. It does not configure the browser API port.
+The port is inherited through the normal global-setup storage state. Tests
+that skip global setup or replace that storage state do not inherit it.
+
 - Unit suite: 204 files, 2,812 tests; secret-scanner regression suite: 8 tests.
 - The two browser cases passed with a connected administrator, a non-admin
   organization owner, and inaccessible GitHub repository metadata (six case
@@ -85,6 +94,606 @@ installation, CI/branch-protection compatibility, production deployment,
 or pilot adoption. The hostname blocklist was unset locally; its behavior was
 tested using synthetic domains. Build/tooling checks retained their existing
 chunk-size and configuration deprecation warnings.
+
+## Maintenance intake and trace: local API proof
+
+Validated on 2026-10-01 at source revision `57c18e1d`, building on the repository
+setup change in [PR #1195](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1195).
+Environment: Linux, Node.js 24.19.0 and disposable PostgreSQL 17. The integration
+test drives the real Rust router, JWT middleware and repositories with signed
+test JWTs and a local GitHub HTTP mock. It uses synthetic installation
+credentials, `dev@example.com`, and the placeholder repository `acme/widgets`.
+The full workspace run required reclaiming approximately 9 GB of obsolete
+generated test binaries after the shared build cache exhausted its disk space.
+
+Passed from the repository root, with a disposable `DATABASE_URL` for Rust tests:
+
+```bash
+cd rust
+cargo test -p agentforge-api domain::maintenance::tests --lib
+cargo test -p agentforge-api --test maintenance_requests_route_test
+cargo test -p agentforge-api --test route_ddd_boundary_test
+make ci
+cd ..
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test:unit
+node scripts/check-secret-scan.mjs
+git diff --check
+```
+
+- Domain contracts: seven tests; architecture boundaries: eleven tests.
+- Full Rust workspace: 2,823 tests passed, seven existing tests ignored, zero
+  failures; formatting and clippy passed. Dependency audit completed with four
+  existing warnings allowed by repository policy.
+- The HTTP/database rehearsal covers eight concurrent submissions producing
+  exactly one task/source link, same-source reuse and organization separation,
+  foreign-destination refusal and cross-tenant foreign-key enforcement.
+- A forced source-write failure rolls back the task insert. New tasks remain
+  unassigned in backlog with no orchestration delivery. Permission revoked while
+  reading the provider prevents task creation despite an existing signed JWT.
+- Trace responses preserve intake/source heads while reporting updated merged
+  states and moved source/produced heads, retain execution identifiers and the
+  later rebuild base, and explicitly report unavailable provider observations.
+  Existing-source replay still works during a provider outage; older tasks with
+  no source record return `data: null`.
+- All 101 SQL migration files match the SHA256 manifest. New migrations are
+  also included in the embedded Rust migration source list.
+- Shared-contract validation: 204 unit-test files, 2,812 tests. Public artifact
+  scanning found no credential leaks in the checked tree.
+
+This proves the deliberate intake and trace API against a disposable database
+and a synthetic provider. Browser submission and trace proof is recorded in the
+following section. This API validation does not prove webhook intake, a real
+GitHub App installation, actual agent execution, production migration or pilot
+acceptance. The existing merge and CI gates are unchanged; PR state observations
+do not establish passing checks or approval.
+See the [API guide](../guides/self-fix-loop.md#submit-and-trace-a-maintenance-source-api)
+for prerequisites, retry behavior and the interrupted-index recovery boundary.
+
+## Maintenance browser workflow: local proof
+
+Validated on 2026-10-01 against frontend source tree
+`2091ef19adf155de4ea23fce539584100b6af1b6` and Rust API revision `ba4ab478`.
+Environment: Linux, Node.js 24.19.0, Chromium 151, Rust 1.98.1, disposable PostgreSQL 18,
+local frontend and compiled API, and a local GitHub provider substitute. The
+browser used the existing `dev@example.com` account through the real login flow.
+The provider substitute made no real GitHub writes; no agent task was executed.
+
+The four Playwright scenarios passed:
+
+- A platform administrator used keyboard activation to refresh repository
+  settings.
+- Settings navigation remained usable at a narrow viewport.
+- A maintenance request was submitted, then resubmitted under the same stable
+  source. The retry returned the original task, retained its title and brief, and
+  displayed its original source in the trace.
+- At a narrow viewport, a PR 42 source displayed its submitted head (40 `a`
+  characters), then reported the changed head (40 `c` characters) after refresh.
+  When the provider returned 503, the trace displayed unavailable state,
+  retained the submitted source revision, and exposed no merge action.
+
+The run used existing disposable local records for an active project, task
+place, organization and platform-admin account. Supply these environment values
+locally; do not commit their values:
+
+- `E2E_PASSWORD` for the existing `dev@example.com` account.
+- `BASE_URL` pointing to the local frontend only.
+- `E2E_MAINTENANCE_PROJECT_ID`, `E2E_MAINTENANCE_ORG_ID` and
+  `E2E_MAINTENANCE_TEAM_ID` for the disposable local records.
+- `E2E_MAINTENANCE_PROVIDER_CONTROL` pointing to the localhost-only test
+  provider control endpoint, which exposes `/test/state`.
+- `PLAYWRIGHT_CHROMIUM_PATH` for the local Chromium executable.
+
+Run the browser cases with:
+
+```bash
+npm run test:e2e -- maintenance-repository.spec.ts \
+  maintenance-workflow.spec.ts
+```
+
+Set `BASE_URL` to localhost for this run. The maintenance-workflow spec rejects
+non-loopback frontend and provider-control hosts. Without the maintenance
+fixture IDs, both workflow mutation tests skip; without the provider-control
+endpoint, the PR-observation mutation test also skips. This keeps an
+unconfigured run from writing to a deployed environment.
+
+The related Vitest suite passed 68 tests. FSD checks, lint, formatting,
+typecheck, production build and the secret scan also passed. The Rust API
+subtree `f984009f192d05ea9e8284ada29c6e3724d9d8e3` and API revision `ba4ab478`
+are the backend baseline for this browser run. The earlier 2,823-test Rust
+workspace and full `make ci` evidence applies only to that backend revision; it
+does not validate the subsequent transaction-ownership refactor below.
+
+The frontend checks were:
+
+```bash
+npm run fsd:check
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test:unit -- tests/unit/app/MaintenanceWorkflow.test.tsx \
+  tests/unit/shared/maintenanceApi.test.ts \
+  tests/unit/app/TaskDocumentPage.test.tsx \
+  tests/unit/app/MaintenanceRepositorySection.test.tsx
+npm run build
+node scripts/check-secret-scan.mjs
+```
+
+This is local UI/API workflow proof only. It does not establish real GitHub
+writes, agent execution, production migration, production readiness or pilot
+acceptance. A real operator and pilot path using the selected repository and
+its branch protection remains pending.
+
+## Maintenance delivery: local proof
+
+Validated on 2026-10-01 against Rust source tree
+`663652a915eeac2afa94fea7d4dc3e99ee55be75`, frontend app tree
+`66aa5cde013eb2ba5fdb482f472bb426cbbc3426`, shared-contract tree
+`39ea3d877e1446d6b84cf87ceca1b62818bb45f7`, and tests tree
+`b37130072a7c867d924552c4c5bac8e4ac82ba3f`. This supersedes the earlier
+local checks for the combined maintenance implementation in
+[PR #1196](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1196).
+
+Environment: Linux, Rust 1.98.1, Node.js 24.19.0, Chromium 151 and disposable
+PostgreSQL 18. The browser used real `dev@example.com` login, the rebuilt Rust
+API and PostgreSQL. A loopback GitHub substitute supplied repository, PR-head
+and check observations. Two explicitly synthetic finished-run records used
+`codex` and `claude` labels and captured image metadata. No vendor CLI ran,
+no real GitHub write occurred, and synthetic verdicts are not pilot acceptance.
+
+The required Rust `make ci` passed: 2,828 tests, zero failures, seven existing
+ignores, formatting and workspace/all-target Clippy. Dependency audit completed
+with four existing policy-allowed warnings (`event-listener` unsoundness and
+the yanked `chacha20`/two `spin` versions). Narrow domain tests and the real
+HTTP/PostgreSQL delivery test also passed. That integration test covers:
+
+- Authentication, tenant isolation, live administrator revocation during
+  provider I/O, version/run ownership and acceptance after head drift/outage.
+- Eight concurrent identical submissions returning one immutable report,
+  conflicting key reuse, idempotent verdict/handoff replay and queued-work
+  handoff refusal. A human verdict with a failing check cannot bypass the
+  existing merge gate.
+- Visible retry caps/backoff, retained report identity and snapshot after
+  explicit run deletion, and comparison conditions for two synthetic CLI
+  records. Raw artifact retention was not exercised.
+- A 107-task submission cohort including failed, canceled and unreviewed work;
+  non-overlapping 100/7 detail pages with unchanged full-cohort denominators;
+  unknown minutes, stale verdicts and distinct review activity in the period.
+
+Six real-login Playwright scenarios passed in 25.4 seconds. They cover keyboard
+repository refresh, narrow repository navigation, source submission/replay,
+source-head drift/outage, narrow-screen report/verdict/effort/handoff recording,
+and comparison followed by changed-head/outage acceptance refusal. The delivery
+scenario records six human minutes and a separately reported 12-minute
+baseline only as synthetic form data; it asserts no approval/merge request.
+
+The related Vitest suites passed 70 tests. After the browser identified field
+label/help-text and select-label issues, the final seven delivery UI tests,
+affected-file lint, formatting and typecheck passed again. FSD, full lint
+(including beginner-copy/metrics/protocol guards), production build, secret
+scan, migration manifest and `git diff --check` also passed.
+
+To reproduce, first prepare a disposable local database, active project/task
+place and administrator account, the local frontend/rebuilt API and a
+loopback-only GitHub test provider. Use the fixture variables listed in the
+earlier browser proof, plus `E2E_MAINTENANCE_DELIVERY_TASK_ID` and
+`E2E_MAINTENANCE_DELIVERY_OTHER_TASK_ID` for two deliberately provisioned,
+equivalent finished-run tasks. These tests write reports and human decisions;
+do not point them at pilot or production records. They skip without explicit
+fixtures and reject non-loopback frontend/provider-control hosts.
+
+```bash
+umask 022
+DATABASE_URL='<disposable PostgreSQL URL>' make -C rust ci
+npm run test:unit -- tests/unit/shared/maintenanceApi.test.ts \
+  tests/unit/shared/maintenanceDeliveryApi.test.ts \
+  tests/unit/app/MaintenanceWorkflow.test.tsx \
+  tests/unit/app/MaintenanceDelivery.test.tsx \
+  tests/unit/app/MaintenanceRepositorySection.test.tsx
+npm run test:e2e -- maintenance-repository.spec.ts \
+  maintenance-workflow.spec.ts maintenance-delivery.spec.ts
+```
+
+Apply migrations through 104 before using the current maintenance delivery
+schema. Migration 102
+builds `idx_task_runs_org_task_id` concurrently outside a transaction. If the
+build is interrupted, inspect `pg_index.indisvalid` for this named index and
+remove it only if invalid before retrying; `IF NOT EXISTS` cannot repair an
+invalid index. Migration 103 creates the append-only delivery records with
+tenant/run ownership constraints. Run deletion clears only the live run link.
+Migration 104 corrects migration 101's maintenance-request task foreign key
+without editing that immutable migration, so explicit task deletion also
+removes its maintenance request. This source-record change does not establish
+whole-organization deletion behavior. The 2026-10-01 validation below exercised
+migrations through 103 only; it does not verify migration 104 or an organization
+purge. At that historical revision, its 103 migration files matched the
+committed manifest and embedded migration list; this says nothing about the
+current migration 104.
+
+This proves the local record/review workflow for the revision recorded above.
+The current working changes have separate validation recorded below; do not
+infer those results from this historical browser proof.
+
+Optional product evaluation remains separate: teams may measure four-week
+repeat use, effort and quality across a consenting cohort. It does not block
+engineering implementation or merge. See the
+[Maintenance delivery guide](../guides/maintenance-delivery.md) for the
+operator workflow and the [Product Validation Guide](../guides/product-validation.md)
+for optional evaluation methods.
+
+## Current Engineering Validation (2026-10-03)
+
+The latest full Rust CI covered source `9398461d30a4d89ed5a5d9d54853cad7786f49fe`,
+based on `origin/main` `8f5f9a69831ded1aa8cf604d600f11e7a2bbc3a1` and including
+PR #1196; the Rust workspace tree was `630d87d7ccae3796f791372b35a6851f9c7e1231`.
+Rust `make ci` passed at this revision in 1,784.712 seconds: 2,836 passed, 0 failed,
+152 test summaries completed and 7 existing tests ignored. Formatting,
+all-target Clippy, workspace tests, doc tests and audit passed. Audit still
+reports four existing warnings:
+`event-listener` 5.4.1 (`RUSTSEC-2026-0221`, unsound), `chacha20` 0.10.0
+(yanked), and `spin` 0.9.8 and 0.10.0 (yanked); this is not a zero-issues
+result. The earlier `0bdb0756000e78fd8acd65a4d252e5ed0612679e` revision also
+passed full CI in 522.35 seconds with 2,835 passed; that is historical
+evidence, not the current-head run. Historical full CI also passed at
+`e59bfde` in 1,130.76 seconds; its network checker passed 9 selected cases plus
+two fail-closed checks. The `a7582f4` baseline full CI passed in 2,549.47
+seconds. Earlier
+interrupted/failed attempts remain recorded: cache cleanup interrupted one
+run; `context_approval_flow_test::approving_memory_candidate_creates_governed_memory_once`
+returned HTTP 500 during resource pressure, then passed unchanged in isolation
+in 1.38 seconds; an OAuth reconnect test hit SQLx `PoolTimedOut` before its
+body, then passed unchanged in isolation in 3.20 seconds; and a debug build
+filled the disposable filesystem during linking.
+
+Failure-output handling now prefers nonblank stderr, falls back to stdout, and
+uses an exit-status diagnostic when both are blank. One focused unit test covers four
+process-output cases. A bounded expected-negative protocol case passed its
+failure classification (11.6 seconds; suite 16.5 seconds), retaining one failed
+task/run and result receipt with a newline-terminated API/database diagnostic
+and exit code 7.
+This is failure-observability evidence, not successful CLI or model execution.
+
+The frontend validation at the recovered checkout also passed: full lint
+(including FSD, copy, metrics and protocol checks), typecheck, format check,
+production build, and 2,879 tests across 208 unit-test files, including 69
+focused `BoardView`/`TaskCard` tests. Two focused participant regressions passed
+(memory store and PostgreSQL), including eight concurrent replays in a second
+organization; nine focused WAL tests passed after the atomic `try_update` API
+correction.
+
+The isolated `make prod-ext` profile passed using test binaries and synthetic
+GitHub data. The API server binary remains from `d332219` and the orchestrator
+binary from `a7582f4`. The native sidecar was rebuilt from `0bdb075`; native
+and musl builds passed. The test image was rebuilt and its in-container sidecar
+binary SHA matched the musl build; the native runtime binary has its own
+separate hash. Docker health reported the four
+core containers healthy. API `/health` and `/api/health`
+returned JSON; the API readiness response reported database, Redis, NATS and
+Docker checks true. Orchestrator `/health` reported `workflowRuntime: up`, and
+NATS `/healthz` returned healthy. The profile used ephemeral PostgreSQL,
+temporary Redis, loopback access and synthetic GitHub data. It does not prove
+production durability, signed-release qualification or production operation.
+
+Browser execution one reported three passes and six skips in 27.9 seconds;
+the passing Docker sidecar case took 22.2 seconds. The six skipped cases lacked
+fixture flags. In execution two, only those six skipped maintenance
+delivery/workflow cases were rerun; all six passed in 14.5 seconds. Across the
+two executions, nine scenarios passed. The sidecar used a real container and
+artifact path with a deterministic fake Claude-protocol CLI; it did not run the
+vendor Claude CLI. A previous native-host `codex` 0.160.0 / `gpt-6-luna` model
+browser run passed (one case, 10.3 seconds; 13.8 seconds total) after an initial
+timeout before model invocation.
+
+An earlier Gemini attempt was marked completed after an OAuth browser prompt,
+exited 0 without its success marker, and did not produce a successful task;
+the authentication cause remains unknown. The later credential-free Gemini
+0.46 path used the current native sidecar,
+NATS, outbox, result worker and API. It reached task state `failed` with the API
+diagnostic that authorization was required for a noninteractive session; no
+token was copied. The positive
+Playwright assertion therefore exited 1, as expected for this negative provider
+case, and the expected-negative classification passed. This is not a successful
+vendor run. An isolated `NO_BROWSER=true` probe with CI environment removed
+exited 41 before model invocation, so it also does not validate provider
+execution. The full Rust CI pass above covers source `9398461`; it predates the
+later Dockerfile changes described below. Cross-CLI comparison remains
+unverified.
+
+The older real Claude attempt (9.679 seconds) retained its API/database result
+with an empty diagnostic; its nonzero-exit stdout was discarded, so that
+attempt's cause remains unknown. In the corrective real Claude CLI attempt, the
+persisted failure message was
+`Failed to authenticate: OAuth session expired and could not be refreshed`.
+It recorded one CLI execution, one failed
+finished run, and one result receipt. No checkpoint was written, and no
+qualification kill, restart, or replay assertions ran; the final cleanup stop
+did run and cleanup checks passed. No additional provider attempt followed this
+authentication failure. This is a vendor failure, not a successful vendor or
+recovery pass.
+
+The four pinned CLI overlays passed credential-free, network-none installation
+probes for actual command path, version, resolved-file SHA-256, and sidecar
+binary SHA-256: Claude 2.1.288, Codex 0.160.0, Gemini 0.46.0, and OpenCode
+1.18.34. These probes did not invoke a model and establish image installation
+and binary identity only; they do not establish vendor execution or a
+cross-CLI comparison.
+
+Cosign 3.0.6 first failed after 1.901 seconds in a read-only container while
+creating its default cache under `/home/agentforge/.sigstore`; that attempt
+verified no signature. A configuration-only candidate set `TUF_ROOT` to
+`/tmp/.sigstore`, which the
+[cosign v3.0.6 source](https://github.com/sigstore/cosign/blob/v3.0.6/pkg/cosign/env/env.go#L149)
+defines as a cache directory, not a trusted-root override.
+A corresponding three-line change in `rust/Dockerfile` passed independent
+static review and the owned prod-ext Compose render. The full-CI result at
+`9398461` predates this change and the separate `procps` addition to
+`docker/Dockerfile.agent-base` described below.
+The configuration-only test image preserved all eight filesystem layers, the user, entrypoint, existing image
+environment entries, and the installed cosign binary (SHA-256
+`03dcbf72137007402f8b2acbaa3f6176764c94d48f26769e3cc47576dcb06a36`); it only
+added the cache setting and did not change the trust root, issuer, identity
+allowlist, or verification timeout. With a cold cache, cosign verified one
+signature for the pinned public Codex image index
+`ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:c95fbfd887f08c43dc10066ec994e0f03ac6e8a6497ddb58992c944d2251f3ec`
+in 5.406 seconds (exit 0). A deliberately wrong reference was denied in 3.236
+seconds (exit 1) for certificate-identity mismatch. The certificate identity
+matched the public `watch-cli-versions.yml` workflow on `refs/heads/main`.
+Both bounded checks cleaned up their exact test containers; neither invoked a
+model or changed the running API.
+
+The canonical server image subsequently built from source `d471658` in
+1,904.467 seconds as image
+`sha256:55b5e355854bb00762b56b50e747a2f67f58ab7bde0eefa40ca9572e40df03ad`,
+with user `agentforge` and `TUF_ROOT=/tmp/.sigstore`. In a cold-tmpfs,
+read-only, non-root probe, cosign verified the previously pinned public Codex
+image index's main-branch signature in 3.813 seconds. A branch-mismatched
+certificate identity was denied in 4.477 seconds. Together, these checks verify
+the public digest against the main-only identity policy; they do not sign or
+qualify the private CLI overlays or establish release admission.
+A separate offline package probe confirmed the packaged server binary
+(`ce2c1c4f1ca82add63631f29ae22830bc55417b8ff2c871ff82a228b380d1755`), cosign
+3.0.6 (`03dcbf72137007402f8b2acbaa3f6176764c94d48f26769e3cc47576dcb06a36`),
+and all 104 migration SQL hashes against source. It ran as UID/GID 100/101 with
+network disabled, a read-only root, all capabilities dropped and
+no-new-privileges; its exact container and UUID selector were cleaned.
+
+An offline inspection of that digest-pinned published image confirmed image ID
+`sha256:76a53e43dd9add028967666471e39c9fc6bc0d967fb2feee3f4e51dfe0fdc0b3`,
+revision `98a6a491cfe86c5c6ece0c980fdf8c79561cc2dd`, Codex 0.160.0, and default
+UID/GID 1011/1012. Its published sidecar SHA-256 was
+`9327b4a4c79d74bc29d8ddf73c86af0cd5453db137aeb82154d2514e07f8dd5e`; this is
+the published image's binary identity and does not identify the current draft
+sidecar. The read-only offline probe found `/workspace` was not writable; it
+does not establish managed-runner task admission. The existing Docker-baseline and
+production-environment/NATS test files passed all 16 tests; an existing Vite
+`__dirname` warning was non-failing. This one-index signature check is bounded
+verification evidence, not signed-release, admin-roll, or production
+qualification.
+
+A subsequent managed start passed signature-policy admission for the pinned
+public Codex image and returned HTTP 200 in 4.276 seconds. Tenant and container
+security checks passed; the database-backed OAuth credential mount was read-only,
+and the workspace was writable by UID/GID 1011/1012. The actual Codex CLI then
+exited before any task or model submission with
+`failed to invoke ps for pid-managed app server: No such file or directory`.
+The original failed qualification evidence was preserved. The first harness checked Docker stdout
+instead of the sidecar log, and a later `exec` capture failed after the
+container exited; the stopped container's recovered sidecar log showed NATS
+and its subscriber listening, then an orderly shutdown. Independent cleanup
+verification found this run's agent, participant, task and vault rows empty,
+preserved the two pre-existing agents, removed the run's OAuth and workspace
+mounts, and confirmed the original API image and health were unchanged. This
+was an admission/start pass followed by a CLI startup failure, not a task or
+vendor pass.
+
+The shared agent-base Dockerfile now installs `procps` for Codex's pid-managed
+app-server startup. The existing `agent-base-dockerfile.test.ts` passed both
+tests, including its runtime dependency assertion.
+A private additive test image based on the pinned public Codex digest installed
+`procps` 2:4.0.2-3. In a network-none container with an empty HOME, no host
+mounts and the default non-root user (UID/GID 1011/1012), the exact
+`/usr/bin/ps -p 1 -o stat= -o lstart=` invocation exited 0 and returned process
+status and start time. The binary was procps-ng 4.0.2 at `/usr/bin/ps`, SHA-256
+`b2a1f7b6ae39ca71cf915d9553877df8f65e1b5ee39c4c269ee3c0d0bb282546`. The
+Codex 0.160.0 native `app-server daemon start` also returned `started`; its
+version command reported the daemon running. No task, model, or provider was
+invoked. This is isolated process-prerequisite evidence, not a canonical full
+agent-image rebuild or managed task qualification.
+
+The final focused Docker policy suite passed 18 tests across three files. FSD,
+lint, formatting and TypeScript checks also passed for the source/test changes;
+these checks do not replace the historical full Rust CI source boundary.
+
+The unmodified canonical `docker/Dockerfile.agent-base` built from source
+`d471658dcd33fb72b6f4375e29c83fca97103bfa` in 1,379.946 seconds as image
+`sha256:66d0290d9deb06634956f806373a4b429c070a9bb2a0b14da20a65393ae64a01`.
+All four Rust runtime binaries were rebuilt; the sidecar SHA-256 is
+`e2b73362ab920344ad7e6440c01a984e49d7dac50e2e885fed353fd62bea2328`. Four
+pinned `docker/Dockerfile.agent` overlays (Claude 2.1.288, Codex 0.160.0,
+Gemini 0.46.0, OpenCode 1.18.34) inherited all 31 base layers. Their individual
+network-none, read-only-root, non-root probes passed the exact `ps` check,
+version and executable path/hash checks, and sidecar hash comparison; each
+container was removed and its UUID selector returned no match. No model or
+provider was invoked. This qualifies local image installation and process
+prerequisites only, not signed publication or managed task execution. A full
+server image build and the separate offline Codex daemon probe are now complete;
+the daemon probe is bounded to startup and version reporting, not a task.
+
+The canonical Codex 0.160.0 image passed an offline PID-managed daemon probe
+with an empty executable HOME, no host-auth mount, and no model call. The native
+daemon started in 4.091 seconds, and the version command reported it running in
+0.375 seconds. The exact disposable container was removed. This confirms local
+daemon startup only; it does not qualify signed publication, managed task
+execution, or provider behavior.
+
+### RustFS attachment persistence
+
+On 2026-10-03, an isolated API, disposable cloned database and pinned RustFS
+1.0.0 service passed an API-to-PostgreSQL-to-S3 attachment check. The test
+database clone retained its 104 successful migration records; any copied CLI
+or LLM credential rows were cleared before the API started. The API binary was
+from `d332219`, and its four attachment-storage source files
+matched source `d471658`. API upload/read passed, legacy `minio` attachment
+metadata remained readable, and anonymous and foreign-organization requests
+returned 401 and 404. After restarting the API and RustFS against the same
+owned volume, the 85-byte object's downloaded SHA-256 and metadata matched
+before and after restart. Explicit owner deletion removed its object and row
+while preserving an unrelated object. The exact temporary containers, volume,
+bucket, database clone, and generated credentials were cleaned; the standing API
+health and records remained intact.
+
+The initial harness failures remain recorded: the first `mc` attempt's
+credential-echo stdout was suppressed before it could be recorded, and another
+attempt reused a stale ephemeral port after restart. The recovered run used the
+exact owned container and its current allocated port. This proves attachment
+persistence across a service restart and explicit deletion only. It does not
+prove run/raw-artifact retention, power-loss recovery,
+production cutover, or a general storage policy.
+
+An operator-enclosure interruption qualification at source `8e05bcb` used
+`runtime_kind=cli`, no managed container ID, the sidecar from `0bdb075` (Rust tree
+`b167461df5fabfff1c58131453f021a56a84ce90`), and Codex 0.160.0 with
+`gpt-6-luna` selected. The first attempt failed before task execution because its
+NATS peer port was fixed at 4222. After correcting it to 15443, an anonymous TCP
+preflight confirmed that the listener required authentication; the port-only
+harness correction passed independent review. One retry accepted
+an assignment, but the required `blocked.flag` checkpoint did not appear
+within 180 seconds. The board showed the task completed with one file while
+the workspace remained empty; that badge counts result artifacts derived from
+stdout and does not prove workspace files. A completed inbox assignment
+tombstone existed.
+No process-kill, restart, or replay assertions ran. The outer failure evidence
+and cleanup of the private home and exact run container were preserved, but
+fixture cleanup did not retain the completed task's raw stdout or API snapshot,
+so the provider cause is unknown. This qualification failed and does not prove
+provider/model success, raw-artifact retention, managed-container behavior, or
+signed-image qualification.
+
+The deterministic Codex-protocol test double then passed a bounded recovery
+drill (7.9 seconds, 11.4 seconds total). After controller SIGKILL, the stopped
+container had PID 0 and exit 137; restarting that same container replayed the
+original delivery within its original lease. The two executions corresponded to
+one database run and one result receipt; checkpoint and pending bytes retained
+their recorded hashes. This verifies only the test double's same-lease replay
+and process-loss file retention, not vendor behavior, exactly-once execution,
+session migration, or an artifact-storage policy. A tampered-checkpoint case
+was an expected negative: Playwright exited 1, the API and database retained a
+failed task under the same run and receipt, and raw API/database/run/inbox
+failure evidence was captured before fixture cleanup. Both package-owned
+database cleanup records report zero rows across their eight scoped tables.
+
+A separate real Codex 0.160.0 attempt, with `gpt-6-luna` selected, used source
+`58a18f6` and Rust tree `b167461df5fabfff1c58131453f021a56a84ce90` in the
+operator enclosure (`runtime_kind=cli`, no managed container ID). It failed
+before the checkpoint: its 142-byte stdout and original API/database result
+were retained, and stdout reported `codex-code-mode-host` missing. No
+checkpoint, process kill, restart, or replay assertion completed. This does not
+establish successful tool/file execution or a recovery pass; model identity is
+unverified beyond the selected model. Temporary-home, run-container, and
+database-fixture cleanup metadata passed. Independent database recheck passed:
+all eight scoped tables were empty after cleanup, and the browser JWT was
+recorded by hash then deleted. The corrected image build passed after adding
+the same-version host companion (image digest
+`7c8ab8e70afe181670237bcdedc4499cb0a67c3fec513190e93f3a99bdd8d1e2`). An
+offline, credential-free dependency probe verified `--help` and matching
+companion binary hashes without network access.
+
+The subsequent real bounded Codex recovery test passed (26.6 seconds, 29.7
+seconds total) at source `58a18f6` and Rust tree
+`b167461df5fabfff1c58131453f021a56a84ce90`, with Codex 0.160.0 and
+`gpt-6-luna` selected. The observed process tree included Codex, its same-version
+`codex-code-mode-host` companion, and `bash`/`python3`. After SIGKILL, the same
+container exited 137 with PID 0; restarting that container replayed the
+original prompt within its original 900-second lease. The delivery, attempt,
+and run remained unchanged across two actual CLI executions; the database held
+one run and one result receipt. The checkpoint hash remained stable, and the
+pending-to-completed tombstone retained its original bytes. Independent
+verification passed; all eight scoped database tables were empty after
+cleanup, and the temporary home, container, and browser JWT were removed. This
+is bounded same-lease prompt replay and file-retention evidence, not exactly-once
+execution, vendor-session migration, managed-container admission, or the full
+artifact-storage policy. It does not qualify signed releases or production.
+
+The Temporal 1.26 gate workflow completed in 515 ms after 12 orchestrator
+migrations. Authenticated run returned 202, anonymous access returned 401,
+and a wrong-tenant request returned 404. This verifies that local gate workflow
+and tenant path only, not an AgentNode chain or production Temporal operation.
+Container-network checks exercised normal API start/restart and separate MCP
+creation using the configured network and a test image. Resource limits,
+privileged/host-PID/socket restrictions, capability drop, no-new-privileges,
+immutable image identity and tenant labels passed. Missing CLI credentials
+returned the expected 400 without creating a container. Cleanup removed three
+containers and two agents and restored the server. These checks do not qualify
+a live admin roll; the separate bounded single-index signature check above
+does not qualify a signed release, and all-CLI vendor behavior remains
+unqualified.
+The separate offline CLI overlay probes establish installation only. The new
+native Compose network environment checker passed 9 selected cases plus two
+fail-closed parse/create checks; focused resolver/MCP tests passed 7/1.
+
+Earlier migration 104 evidence remains bounded to disposable databases. On
+disk-backed PostgreSQL 17.11, all 104 migrations applied; migration 104 applied
+twice without losing records, a cross-tenant rewrite failed with `23503`, and
+task deletion removed the four source/report/decision/handoff records. A
+pre-migration-104 backup restored with one row in each of those four tables and
+the original `NO ACTION` foreign keys. PostgreSQL 18.6 and an ephemeral-memory
+PostgreSQL 17.11 regression also passed. A prior disk-backed regression stopped
+during SQLx cleanup after a host checkpoint stalled, so the memory-backed runs
+do not establish disk durability. All 104 migration checksums matched their
+manifest.
+Earlier wrong-tenant Temporal access returned 500 before the fix, and the
+original migration-104 deletion failed with FK error `23503`; both failures
+remain part of the evidence history.
+
+Still pending are a published signed CLI agent image built from the canonical
+base with `procps` and the current sidecar, and a successful managed-runner task
+using that image. Other pending gates are a second successful real vendor CLI run,
+common-report and cross-CLI comparison, broader signed-release/admin-roll
+qualification, actual artifact-storage policy qualification, real GitHub App
+and protected-repository acceptance, production migration/runtime acceptance,
+and macOS/Windows operator validation. Pilot adoption and measurement remain optional;
+engineering gates remain required. All databases, records, images and provider
+fixtures described above were test resources, not production data or release
+artifacts.
+
+## Backend transaction ownership follow-up
+
+The subsequent backend change moves ownership of the cross-aggregate
+maintenance transaction into the service. The service locks and verifies the
+platform-admin role, locks the source before checking for an existing request,
+validates the destination, then creates the task and source record in the same
+transaction. The maintenance-request repository now provides SQL primitives;
+the Group repository owns the active-destination query and scoped lock. The
+frontend app source remains `2091ef19adf155de4ea23fce539584100b6af1b6`; the
+browser evidence above records that app against the earlier compiled API.
+
+The following results apply to the updated backend subtree
+`3729e710994317301be4b10b7cb766a26c65e266` and are separate from the earlier
+API-baseline evidence above:
+
+- Targeted transaction, concurrency, rollback and tenant-scope tests:
+  12 passed: the real HTTP/PostgreSQL maintenance-intake test and 11 architecture
+  boundary tests (`maintenance_requests_route_test` and
+  `route_ddd_boundary_test`).
+- Full Rust CI on the updated backend subtree passed. Reproduce it from the
+  repository root with a disposable PostgreSQL instance in `DATABASE_URL`:
+
+  ```bash
+  umask 022
+  cd rust && make ci
+  ```
+
+  The existing clone-secret test requires that file-permission mask.
+  Result: 2,823 passed, 0 failed and 7 ignored; `cargo fmt` and `cargo clippy`
+  passed. `cargo audit` reported four policy-allowed existing warnings:
+  `event-listener` 5.4.1 (RUSTSEC-2026-0221, unsound), `chacha20` 0.10.0
+  (yanked), and `spin` 0.9.8 and 0.10.0 (yanked).
+
+- Four local Playwright browser scenarios against the newly compiled API:
+  passed in 50.5 seconds. This is a local browser/API check, not a real GitHub
+  write, agent execution, production migration or pilot acceptance.
 
 ## Existing deployment proof
 

@@ -964,6 +964,8 @@ fn cli_command(cli_tool: &str, cli_model: Option<&str>, prompt: &str, image_path
         CliToolKind::Gemini => {
             let mut c = Command::new("gemini");
             c.args(["-p", prompt]);
+            // An OAuth consent prompt can exit zero on stdin EOF without running a task.
+            c.env("NO_BROWSER", "true");
             // Honor the configured model like the claude/codex arms; without this a
             // Gemini agent silently runs the gemini CLI default model. (Images ride
             // the shared inline `@<path>` prompt reference above, which gemini-cli
@@ -1015,6 +1017,18 @@ fn truncate_output(s: String) -> String {
     out
 }
 
+fn failure_output(output: &std::process::Output, cli_tool: &str) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stderr.trim().is_empty() {
+        return truncate_output(stderr.into_owned());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !stdout.trim().is_empty() {
+        return truncate_output(stdout.into_owned());
+    }
+    format!("cli_tool '{cli_tool}' exited with {} without diagnostic output", output.status)
+}
+
 async fn run_cli(cli_tool: &str, cli_model: Option<&str>, assignment: &TaskAssignment) -> TaskOutcome {
     if let Err(err) = apply_context_envelope(cli_tool, assignment).await {
         tracing::warn!(
@@ -1041,10 +1055,9 @@ async fn run_cli(cli_tool: &str, cli_model: Option<&str>, assignment: &TaskAssig
         Ok(Ok(output)) if output.status.success() => {
             TaskOutcome::Completed { stdout: truncate_output(String::from_utf8_lossy(&output.stdout).into_owned()) }
         }
-        Ok(Ok(output)) => TaskOutcome::Failed {
-            stderr: truncate_output(String::from_utf8_lossy(&output.stderr).into_owned()),
-            exit_code: output.status.code(),
-        },
+        Ok(Ok(output)) => {
+            TaskOutcome::Failed { stderr: failure_output(&output, cli_tool), exit_code: output.status.code() }
+        }
         Ok(Err(err)) => TaskOutcome::Failed { stderr: format!("failed to spawn {cli_tool}: {err}"), exit_code: None },
         Err(_) => TaskOutcome::Failed {
             stderr: format!("cli_tool '{cli_tool}' exceeded assignment lease timeout ({}s)", timeout.as_secs()),
@@ -1483,11 +1496,16 @@ mod tests {
     }
 
     #[test]
-    fn gemini_command_references_images_inline_and_passes_model() {
+    fn gemini_command_preserves_inputs_and_disables_browser_auth() {
         let img = "/workspace/.task-images/t/a.png".to_string();
         let cmd =
             cli_command("gemini", Some("gemini-2.5-pro"), "look", std::slice::from_ref(&img)).expect("gemini command");
         let args: Vec<String> = cmd.as_std().get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(
+            cmd.as_std()
+                .get_envs()
+                .any(|(key, value)| key == "NO_BROWSER" && value == Some(std::ffi::OsStr::new("true")))
+        );
         // Gemini has no image flag; the path is referenced inline in the prompt (`@<path>`),
         // which the CLI's @-mention handling reads from /workspace and attaches as an image part
         // (verified against gemini-cli 0.46.0 headless `-p`: the request carries an inlineData
@@ -1516,6 +1534,22 @@ mod tests {
                 assert!(exit_code.is_none());
             }
             TaskOutcome::Completed { .. } => panic!("expected Failed"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failure_output_keeps_nonempty_diagnostic_for_nonzero_exit() {
+        for (script, expected) in [
+            ("printf 'login required'; exit 7", "login required"),
+            ("printf 'normal output'; printf 'provider failure\\n' >&2; exit 7", "provider failure\n"),
+            ("printf 'login required'; printf '\\n\\t ' >&2; exit 7", "login required"),
+            ("exit 7", "cli_tool 'claude' exited with exit status: 7 without diagnostic output"),
+        ] {
+            let output =
+                std::process::Command::new("sh").args(["-c", script]).output().expect("run diagnostic fixture");
+            assert_eq!(output.status.code(), Some(7));
+            assert_eq!(failure_output(&output, "claude"), expected);
         }
     }
 

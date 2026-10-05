@@ -1,12 +1,12 @@
 # Wisdoverse Forge Product Roadmap
 
-| | |
-| --- | --- |
-| Status | Active direction; maintenance workflow and adoption targets pending validation |
-| Owner | Product with engineering; assign a delivery owner to each implementation PR |
-| Near-term horizon | A 90-day validation cycle, starting when pilot owners and the baseline method are agreed |
-| Longer-term horizon | Demand-triggered investment after the validation review |
-| Related | [Product UX Direction](docs/architecture/product-ux-direction.md), [Product Validation Guide](docs/guides/product-validation.md), [SPEC.md](SPEC.md), [Runtime Validation](docs/runbooks/runtime-validation.md) |
+|                     |                                                                                                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status              | Active engineering direction; product adoption remains optional to evaluate                                                                                                                                     |
+| Owner               | Product with engineering; assign a delivery owner to each implementation PR                                                                                                                                     |
+| Near-term horizon   | Deliver and validate the ordered maintenance workflow against technical acceptance evidence                                                                                                                     |
+| Longer-term horizon | Demand-triggered investment; adoption evidence may inform priorities but does not gate current delivery                                                                                                         |
+| Related             | [Product UX Direction](docs/architecture/product-ux-direction.md), [Product Validation Guide](docs/guides/product-validation.md), [SPEC.md](SPEC.md), [Runtime Validation](docs/runbooks/runtime-validation.md) |
 
 ## 1. Direction and Initial User
 
@@ -15,10 +15,12 @@ focuses on recurring repository maintenance: turn an agreed maintenance request
 into a reviewable change, keep execution and verification evidence, and make
 failed work straightforward to recover or hand back to a person.
 
-The first workflow to validate is dependency upgrades and failed-PR repair for
+The first workflow to deliver is dependency upgrades and failed-PR repair for
 small software teams maintaining repositories. Begin with one approved
-repository. Multiple repositories are a later step, after the first workflow
-shows repeat use and lower human effort.
+repository. Multiple repositories are a later step, after a concrete routing
+or access need justifies the added scope. Teams may optionally evaluate
+adoption and human effort; recruiting teams, waiting four weeks, or measuring a
+target reduction does not block implementation or merge.
 
 This is a product hypothesis, not a claim that Forge already operates a
 maintenance service or that this is its permanent exclusive scope. Existing
@@ -51,15 +53,15 @@ These are implementation baselines, not pilot adoption results. Runtime claims
 remain limited to the deployment, revision, and checks recorded in the linked
 runbooks and tests.
 
-| Foundation | Existing support | Boundary or outstanding evidence |
-| --- | --- | --- |
-| First-run path | `make product`, Start checklist, task board, activation E2E | Preserve clean-install verification and measure actual first-task time |
-| Team work | Human comments and blockers, templates, recurring tasks, prerequisite waits, skills and usage | Board inline updates remain; workflow usefulness needs pilot evidence |
-| Review and evidence | Task runs, run-scoped evidence, review checklist and required checklist gates | A terminal run or a checked box does not establish that the change is correct |
-| Self-fix PR delivery | Server-owned GitHub App, Maintenance repository settings with read-only preflight and default-branch discovery, draft-PR bridge, CI checks, expected-head merge, human approval | Deployment-level single-repository configuration; preflight reports prerequisites, not CI success; sensitive changes require review on GitHub |
-| Governance and operations | Roles/invites, OIDC and provisioning, audit exports, health/update surfaces, backup/restore guidance | Validate the supported deployment before real team use; advanced identity needs remain demand-triggered |
-| Runtime and supply chain | Multiple Container CLIs, isolation policy, signed offline bundles, TUF-style metadata, OpenTelemetry traces | Per-CLI runtime proof, compatibility and recovery evidence are required; OTLP metrics/logs remain future work |
-| Analytics | Agent reliability, token usage/cost estimates, skill acceptance and context-safety signals | No recorded pilot baseline for human effort, accepted outcomes, or sustained use |
+| Foundation                | Existing support                                                                                                                                                                | Boundary or outstanding evidence                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| First-run path            | `make product`, Start checklist, task board, activation E2E                                                                                                                     | Preserve clean-install verification and measure actual first-task time                                                                        |
+| Team work                 | Human comments and blockers, templates, recurring tasks, prerequisite waits, skills and usage                                                                                   | Board inline priority updates and stale-refresh recovery have local browser/API evidence; workflow usefulness may be evaluated separately     |
+| Review and evidence       | Task runs, run-scoped evidence, review checklist and required checklist gates                                                                                                   | A terminal run or a checked box does not establish that the change is correct                                                                 |
+| Self-fix PR delivery      | Server-owned GitHub App, Maintenance repository settings with read-only preflight and default-branch discovery, draft-PR bridge, CI checks, expected-head merge, human approval | Deployment-level single-repository configuration; preflight reports prerequisites, not CI success; sensitive changes require review on GitHub |
+| Governance and operations | Roles/invites, OIDC and provisioning, audit exports, health/update surfaces, backup/restore guidance                                                                            | Validate the supported deployment before real team use; advanced identity needs remain demand-triggered                                       |
+| Runtime and supply chain  | Multiple Container CLIs, isolation policy, signed offline bundles, TUF-style metadata, OpenTelemetry traces                                                                     | Per-CLI runtime proof, compatibility and recovery evidence are required; OTLP metrics/logs remain future work                                 |
+| Analytics                 | Agent reliability, token usage/cost estimates, skill acceptance and context-safety signals                                                                                      | No recorded pilot baseline for human effort, accepted outcomes, or sustained use                                                              |
 
 The [Self-Fix Loop](docs/guides/self-fix-loop.md) currently opens changes for the
 configured repository and requires deliberate human approval to merge.
@@ -72,22 +74,24 @@ criteria and P4 effectiveness targets must be evaluated separately from
 whether their UI and measurement hooks exist. Do not treat the old phase labels
 as evidence that every phase passed.
 
-## 3. The Next 90 Days
+## 3. Direct Engineering Delivery
 
-Week numbers are planning windows, not release promises. A stage advances only
-when its evidence is available; record delays and blocked criteria instead of
-declaring success from elapsed time.
+Engineering delivery proceeds against the ordered backlog below and the normal
+review, CI, migration, and runtime gates. Product adoption is a separate,
+optional evaluation. Do not wait for a pilot cohort, four weeks of repeat use,
+or a measured 30% effort reduction before implementing or merging an item.
+Technical gates require executable evidence through the real API and database,
+Platform CLI where applicable, recovery behavior, and migration compatibility
+on the supported runtime. Static inspection alone does not pass those gates.
+Record the tested revision and environment in the linked runbook; local proof
+does not establish production readiness.
 
-| Window | Outcome | Priority work | Exit evidence |
-| --- | --- | --- | --- |
-| Weeks 1–2 | A defined user, workflow and comparison baseline | Recruit 3–5 pilot teams; appoint pilot and delivery owners; agree acceptance criteria; collect representative upgrade/failed-PR tasks; measure the existing process | Consenting pilot owners, reproducible task samples, baseline method and an agreed review record |
-| Weeks 3–6 | One repository produces reviewable maintenance changes | Productize repository setup, default-branch handling and prerequisites; add maintenance briefs; link source work to task/run/PR; present verification and handoff clearly | A documented single-repository path exercised on real tasks, with evidence tied to the exact change and human acceptance recorded |
-| Weeks 7–10 | Repeat work and failures need less supervision | Address observed CI, conflict and external-state failures; make bounded retries and handoff visible; rehearse interrupted work; compare at least two supported Container CLIs where practical | Failure/recovery examples, no duplicate side effects in rehearsed retries, preserved artifacts, and comparable review evidence across tested CLIs |
-| Weeks 11–12 | An explicit continue, adjust, or stop decision | Compare effort, quality, cost and four-week repeat use; document limitations; decide whether multiple repositories justify the next investment | Pilot readout with denominators, failures and uncertainty; a decision and the next prioritized scope |
-
-Follow the [Product Validation Guide](docs/guides/product-validation.md).
-Evaluation records stay on the team's systems; Forge does not require
-phone-home telemetry or publishing private pilot details.
+The implementation order and current evidence are in
+[Ordered Delivery Backlog](#4-ordered-delivery-backlog). Follow the
+[Product Validation Guide](docs/guides/product-validation.md) when a team
+chooses to measure product outcomes. Keep evaluation records on team-owned
+systems; Forge does not require phone-home telemetry or publication of private
+pilot details.
 
 ## 4. Ordered Delivery Backlog
 
@@ -101,42 +105,132 @@ behavior it adds and provide the relevant operator or runtime proof.
    bounded checks and recovery guidance are implemented in
    [PR #1195](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1195). Local
    operator-path proof is recorded in [Runtime Validation](docs/runbooks/runtime-validation.md#maintenance-repository-settings-local-proof).
-   Validate each pilot's repository and branch protection. Start with one
-   repository per supported pilot setup;
+   Validate the selected repository and its branch protection as engineering
+   prerequisites. Keep the supported setup to one repository;
    broader repository/tenant configuration needs an explicit design and proof.
 2. **Source-to-result linkage.** Associate the source request or PR with its
    task, execution attempt, starting revision, produced change and current
    external state. Prevent duplicate work when the same source is submitted
    again. Start with deliberate submission; webhook/event intake is a separate
-   capability requiring deduplication and permission validation.
+   capability requiring deduplication and permission validation. The deliberate
+   intake API, transactional deduplication, tenant constraints, Tasks-page
+   submission form and task-detail source/result view are implemented; see the
+   [Self-Fix Loop guide](docs/guides/self-fix-loop.md#submit-and-trace-a-maintenance-source).
+   Local browser workflow proof is recorded in
+   [Runtime Validation](docs/runbooks/runtime-validation.md#maintenance-browser-workflow-local-proof).
+   Real API/database and agent/GitHub paths, migration compatibility, and
+   production operation require their own executable validation; local browser
+   proof is not production acceptance. Webhook intake remains out of scope for
+   this item.
 3. **Verification reports.** Give reviewers the scope, changes, checks,
    failures, unverified areas and evidence for the exact revision. Separate
-   agent-reported completion from observed checks and human acceptance.
+   operator-reported checks from a fresh GitHub observation and a human
+   verdict. Revision-bound report submission, exact-revision GitHub observations,
+   and human acceptance requiring a finished run and a fresh matching GitHub
+   head are implemented in [PR #1196](https://github.com/Wisdoverse/Wisdoverse-Forge/pull/1196).
+   Commands in a report are recorded, not executed. Validate report and verdict
+   behavior through the real API/database path, including stale-revision and
+   migration behavior. See the
+   [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and the
+   [local delivery proof](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 4. **Recovery and handoff.** Expose retry limits/backoff, retain useful
    artifacts and failure causes, and let a person continue blocked work.
    Reconcile changed PR heads and CI state rather than relying on stale
-   approval. Existing sensitive-path refusal and expected-head guards remain.
+   approval. Source implements bounded recovery snapshots and handoff records,
+   including the task/revision/run context. Existing sensitive-path refusal and
+   expected-head guards remain. See the
+   [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and the
+   [local delivery proof](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
 5. **Runtime comparison.** Exercise equivalent tasks through supported CLIs
-   and produce common task/result/evidence records. Test interrupted execution
-   and artifact retention; do not promise lossless vendor-session migration.
-6. **Outcome measurement.** Add accepted/rejected/rework outcomes and human
-   setup, handling, review and recovery time beside existing usage metrics.
-   Evaluate skill effectiveness on later work, not only draft acceptance.
-7. **Observed workflow friction.** Prioritize board inline updates, approval
-   queue and empty-state improvements only when they remove a measured step or
-   a demonstrated pilot blocker.
+   and produce common task/result/evidence records. The implementation records
+   report conditions and identifies whether conditions match and
+   distinct supported CLIs are represented. This is condition comparison of
+   recorded evidence, not a benchmark. One real native-host Codex/model run
+   passed, and one container-sidecar path passed with a deterministic
+   Claude-protocol test CLI; neither establishes two real vendor CLI runs.
+   A credential-free Gemini CLI run reached task state `failed` with
+   `manual authorization needed`; its positive Playwright assertion failed as
+   expected, and the expected-negative classification passed. It is not a
+   successful vendor run. The deterministic protocol test double passed a
+   bounded replay drill, but a real Codex operator-enclosure attempt
+   failed before its checkpoint because `codex-code-mode-host` was missing from
+   the qualification image. A 142-byte stdout/API/DB result was retained, but
+   the attempt does not establish successful tool/file execution or a recovery
+   pass. A later corrected-image Codex recovery test passed bounded same-lease
+   prompt replay with two CLI executions and one database run/receipt; this is
+   not exactly-once execution, vendor-session migration, or artifact-storage
+   policy qualification. Four pinned CLI overlays (Claude 2.1.288, Codex
+   0.160.0, Gemini 0.46.0, and OpenCode 1.18.34) passed credential-free,
+   network-isolated installation probes for CLI path, version, file hash, and
+   matching sidecar hash; no model was invoked. A corrective real Claude CLI
+   attempt failed with `Failed to authenticate: OAuth session expired and could
+not be refreshed`; it produced one failed run and receipt, with no checkpoint
+   or interruption recovery. An earlier Claude failure retained an empty
+   API/database diagnostic but discarded nonzero-exit stdout, so its cause
+   remains unknown. Neither Claude attempt is a successful vendor run. A second
+   successful real vendor CLI run and common-report/cross-CLI comparison remain
+   required. The pinned public Codex image passed signature-policy admission
+   and container start (HTTP 200 in 4.276 seconds), but CLI startup failed
+   before task/model submission because `ps` was missing for pid-managed
+   app-server startup. The unmodified canonical `docker/Dockerfile.agent-base`
+   built locally from source `d471658` in 1,379.946 seconds (image ID
+   `sha256:66d0290d9deb06634956f806373a4b429c070a9bb2a0b14da20a65393ae64a01`);
+   all four pinned CLI overlays inherited its 31 layers and passed
+   credential-free, network-isolated non-root probes for CLI path/version/hash,
+   `ps`, and matching sidecar hash. No model was invoked. This establishes local
+   image installation and process prerequisites only. A successful managed task
+   using a canonical published signed agent image rebuilt from current source and
+   the current sidecar, broader signed-release/admin-roll qualification, and
+   production artifact-storage evidence remain pending. The canonical server
+   image then built from `d471658` in 1,904.467 seconds (image ID
+   `sha256:55b5e355854bb00762b56b50e747a2f67f58ab7bde0eefa40ca9572e40df03ad`,
+   user `agentforge`, `TUF_ROOT=/tmp/.sigstore`). Cold-cache cosign verified the
+   previously pinned public Codex image's main-branch signature and rejected a
+   branch-mismatched certificate identity; this does not sign or admit the new
+   private overlays. A credential-free offline Codex 0.160.0 PID-daemon probe
+   also passed. It proves daemon startup only, not a managed task or vendor run.
+   One bounded cold-cache cosign check of the pinned public Codex image index
+   passed (5.406 seconds, one verified signature); an intentionally wrong
+   reference was denied for certificate-identity mismatch (3.236 seconds).
+   A disposable API-to-RustFS attachment lifecycle also passed: API upload/read,
+   tenant and anonymous denial, same-volume service restart, byte/metadata
+   verification, and explicit owner deletion while an unrelated object remained.
+   This proves attachment persistence and deletion only, not raw run-artifact
+   retention, power-loss recovery, production cutover, or a storage policy; see
+   [runtime validation](docs/runbooks/runtime-validation.md#rustfs-attachment-persistence).
+   This is single-digest verification evidence. Do not promise lossless
+   vendor-session migration. See the
+   [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
+   [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
+6. **Outcome measurement.** Source implements a submission cohort that retains
+   awaiting-review, failed and canceled tasks, with the latest report and
+   latest verdict represented once per task. Human effort uses six cumulative
+   categories; unknown minutes remain unknown, not zero, and the dashboard
+   shows the complete-minute denominator. Paired baselines are shown with
+   their limits and do not establish savings by themselves. Pilot measurement,
+   real-world effort outcomes, and skill effectiveness on later work remain
+   to be evaluated. See the [Maintenance delivery guide](docs/guides/maintenance-delivery.md)
+   and [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
+7. **Board workflow friction.** Current changes implement inline task-priority
+   updates and stale-refresh recovery with retry. Focused component tests and
+   the full unit suite pass. Eight local browser-to-API scenarios also passed,
+   covering persisted priority updates and retention/retry after an aborted
+   refresh; see [current engineering validation](docs/runbooks/runtime-validation.md#current-engineering-validation-2026-10-03).
+   Approval-queue and empty-state work remains demand-led and should address an
+   observed workflow need.
 
 ## 5. Success Measures
 
-**Primary product outcome:** weekly human-accepted maintenance changes per
-active pilot workspace, accompanied by total human effort and quality.
+**Optional product outcome measure:** weekly human-accepted maintenance changes
+per active workspace, accompanied by total human effort and quality.
 Execution success and task volume are operational signals, not substitutes
 for accepted results.
 
-### Proposed pilot decision thresholds
+### Optional product-evaluation targets
 
-Agree these targets with pilot owners after establishing the baseline. They
-are experiment targets, not observed results or service guarantees.
+Teams may use these targets after establishing a baseline. They are optional
+experiment targets, not implementation or merge gates, observed results, or
+service guarantees.
 
 - Recruit 3–5 pilot teams; seek at least 3 teams using the workflow in each of
   four consecutive evaluation weeks.
@@ -191,15 +285,15 @@ time separately. A faster agent run is not evidence of reduced human effort.
 Preserve existing capabilities while scheduling expansions when the workflow
 or a pilot supplies a concrete need.
 
-| Area | Trigger | Evidence before claiming readiness |
-| --- | --- | --- |
-| Multiple repositories and organizations | Repeat single-repository use and a demonstrated routing/access need | Repository permission isolation, external-state reconciliation, multi-tenant tests and operator path |
-| HA and queue scaling | Measured capacity or availability bottleneck | Backpressure/recovery visibility, reference-load soak and upgrade/rollback rehearsal |
-| Performance expansion | A measured workflow bottleneck | Reference hardware/data and p95 API/board measurements; the former p95 < 300 ms target needs a defined reference environment |
-| Deeper identity integration | A pilot requires it | SCIM Groups/attribute compatibility and provisioning/deprovisioning proof |
-| Artifact/run retention | Real storage growth or retention requirements | Documented policy, deletion boundaries and preservation of required audit evidence |
-| OTLP metrics and logs | Existing traces/metrics do not resolve an operational need | Correlated runtime proof, redaction and export configuration guidance |
-| Broader plugins and automation | A proven workflow needs a new tool or trigger | Adapter contract, least-privilege access, compatibility and retry evidence |
+| Area                                    | Trigger                                                             | Evidence before claiming readiness                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Multiple repositories and organizations | Repeat single-repository use and a demonstrated routing/access need | Repository permission isolation, external-state reconciliation, multi-tenant tests and operator path                         |
+| HA and queue scaling                    | Measured capacity or availability bottleneck                        | Backpressure/recovery visibility, reference-load soak and upgrade/rollback rehearsal                                         |
+| Performance expansion                   | A measured workflow bottleneck                                      | Reference hardware/data and p95 API/board measurements; the former p95 < 300 ms target needs a defined reference environment |
+| Deeper identity integration             | A pilot requires it                                                 | SCIM Groups/attribute compatibility and provisioning/deprovisioning proof                                                    |
+| Artifact/run retention                  | Real storage growth or retention requirements                       | Documented policy, deletion boundaries and preservation of required audit evidence                                           |
+| OTLP metrics and logs                   | Existing traces/metrics do not resolve an operational need          | Correlated runtime proof, redaction and export configuration guidance                                                        |
+| Broader plugins and automation          | A proven workflow needs a new tool or trigger                       | Adapter contract, least-privilege access, compatibility and retry evidence                                                   |
 
 Mobile apps, a paid plugin marketplace, operating a public hosted service and a
 cloud-managed runtime as the default are outside this cycle. Automatic merge or
