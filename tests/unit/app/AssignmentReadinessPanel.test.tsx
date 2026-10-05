@@ -1,5 +1,6 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { i18n } from '@app/i18n'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { AssignmentReadinessPanel } from '@app/features/board/AssignmentReadinessPanel'
 
 const emptyWorkload = {
@@ -17,6 +18,8 @@ const healthyWorkload = {
   blocked: 0,
   review: 0,
 }
+
+beforeEach(() => i18n.changeLanguage('en'))
 
 afterEach(() => {
   cleanup()
@@ -72,6 +75,23 @@ describe('AssignmentReadinessPanel', () => {
     expect(emptyState).not.toHaveTextContent('available agent')
     expect(emptyState).not.toHaveTextContent('Not sent yet')
     expect(emptyState).not.toHaveTextContent('ready agent')
+  })
+
+  test('keeps setup and errors visible before optional status details', () => {
+    render(
+      <AssignmentReadinessPanel
+        participants={[]}
+        workload={emptyWorkload}
+        loading={false}
+        error="Agent status could not load."
+        onRefresh={vi.fn()}
+      />
+    )
+    const details = screen.getByText('Agent and task details').closest('details')
+    expect(details).not.toHaveAttribute('open')
+    expect(screen.getByRole('link', { name: 'Open Agents' }).closest('details')).toBeNull()
+    expect(screen.getByRole('alert').closest('details')).toBeNull()
+    expect(screen.getByTestId('assignment-readiness-empty').closest('details')).toBe(details)
   })
 
   test('does not count chat-only agents as able to take Tasks', () => {

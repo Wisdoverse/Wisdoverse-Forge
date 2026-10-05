@@ -173,6 +173,7 @@ export const zh: TranslationKeys = {
   // 导航
   // =========================================================================
   nav: {
+    navigationLabel: '工作区导航',
     home: '首页',
     start: '设置清单',
     dashboard: '仪表板',
@@ -317,6 +318,7 @@ export const zh: TranslationKeys = {
   // =========================================================================
   commandPalette: {
     title: '找到你要做的事',
+    closeLabel: '关闭搜索',
     inputLabel: '搜索页面和可做的事',
     placeholder: '搜索你想做什么，例如：发送任务、添加智能体、登录工具',
     discovery: {
@@ -476,6 +478,7 @@ export const zh: TranslationKeys = {
   // 应用布局
   // =========================================================================
   appLayout: {
+    skipToWorkspace: '跳转到工作区',
     pages: {
       start: {
         title: '设置清单',
@@ -531,6 +534,8 @@ export const zh: TranslationKeys = {
     },
     topBar: {
       openNavigation: '打开导航',
+      closeNavigation: '关闭导航',
+      taskView: '任务视图',
       search: '搜索',
       searchLabel: '搜索页面和可做的事',
       switchToLight: '切换到浅色模式',
@@ -1141,6 +1146,7 @@ export const zh: TranslationKeys = {
   },
 
   board: {
+    statusDetails: '智能体与任务详情',
     priority: {
       label: '更改“{{task}}”的优先级',
       low: '低',

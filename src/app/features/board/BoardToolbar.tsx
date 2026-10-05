@@ -77,34 +77,38 @@ export function BoardToolbar({
     searchQuery.trim().length > 0 || priorityFilter !== 'all' || assigneeFilter !== 'all'
   const advancedFilterCount = Number(priorityFilter !== 'all') + Number(assigneeFilter !== 'all')
   const filtersButtonLabel =
-    advancedFilterCount > 0 ? `Filters (${advancedFilterCount} active)` : 'Filters'
+    advancedFilterCount > 0
+      ? `Filters and options (${advancedFilterCount} active)`
+      : 'Filters and options'
 
   return (
     <section data-testid="board-toolbar" className={cn(uiStyles.card, 'px-3 py-2')}>
       <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2 @[48rem]/workspace:flex-row @[48rem]/workspace:items-start">
             {taskDestinationSelector}
-            <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
+            <label className="min-w-0 flex-1">
               <span className="sr-only">Search tasks</span>
-              <Search
-                size={15}
-                strokeWidth={2}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
-                aria-hidden="true"
-              />
-              <input
-                data-testid="board-search"
-                type="search"
-                value={searchQuery}
-                onChange={(event) => onSearchQueryChange(event.target.value)}
-                aria-describedby={searchHelpId}
-                placeholder="Search task names, agents, or help needed..."
-                className={cn(
-                  uiStyles.input,
-                  'bg-black/[0.02] pl-9 pr-3 focus:bg-white dark:focus:bg-white/[0.06]'
-                )}
-              />
+              <span className="relative block">
+                <Search
+                  size={15}
+                  strokeWidth={2}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-light dark:text-secondary-dark"
+                  aria-hidden="true"
+                />
+                <input
+                  data-testid="board-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => onSearchQueryChange(event.target.value)}
+                  aria-describedby={searchHelpId}
+                  placeholder="Search task names, agents, or help needed..."
+                  className={cn(
+                    uiStyles.input,
+                    'bg-black/[0.02] pl-9 pr-3 focus:bg-white dark:focus:bg-white/[0.06]'
+                  )}
+                />
+              </span>
               <span
                 id={searchHelpId}
                 className="mt-1 block text-ui-caption text-secondary-light dark:text-secondary-dark"
@@ -120,7 +124,7 @@ export function BoardToolbar({
               onClick={() => setFiltersOpen((open) => !open)}
               className={cn(
                 uiStyles.secondaryButton,
-                'shrink-0',
+                'h-11 min-h-11 shrink-0 @xl/workspace:h-7 @xl/workspace:min-h-7',
                 filtersOpen || advancedFilterCount > 0
                   ? 'bg-black/[0.06] dark:bg-white/[0.1]'
                   : 'bg-black/[0.02] dark:bg-white/[0.04]'
@@ -131,7 +135,7 @@ export function BoardToolbar({
             </button>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span
               role="status"
               aria-live="polite"
@@ -144,43 +148,13 @@ export function BoardToolbar({
                 Show all tasks
               </button>
             )}
-            {onRetireStale && (
-              <button
-                type="button"
-                data-testid="board-retire-stale"
-                onClick={onRetireStale}
-                disabled={retiring}
-                title="Retire backlog and queued tasks that have not changed for 7+ days."
-                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-button border border-black/[0.08] px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light dark:border-white/[0.1] dark:text-secondary-dark dark:hover:text-foreground-dark"
-              >
-                <Archive size={13} strokeWidth={2} aria-hidden="true" />
-                {retiring ? 'Retiring...' : 'Retire stale tasks'}
-              </button>
-            )}
-            {onExportTasks && (
-              <button
-                type="button"
-                data-testid="board-export-tasks"
-                onClick={onExportTasks}
-                disabled={exporting}
-                title="Download the latest task history as CSV for compliance records."
-                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-button border border-black/[0.08] px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:border-apple-blue/35 hover:text-foreground-light disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:text-secondary-dark dark:hover:text-foreground-dark"
-              >
-                <Download size={13} strokeWidth={2} aria-hidden="true" />
-                {exporting ? 'Exporting...' : 'Export task history'}
-              </button>
-            )}
-            <FilterGroup
-              ariaLabel="Choose card detail level"
-              icon={<LayoutGrid size={14} strokeWidth={2} aria-hidden="true" />}
-              options={DISPLAY_OPTIONS.map((option) => ({ ...option, count: null }))}
-              value={displayMode}
-              onChange={onDisplayModeChange}
-            />
           </div>
         </div>
         {filtersOpen ? (
-          <div id={filtersPanelId} className="flex flex-wrap items-center gap-2">
+          <div
+            id={filtersPanelId}
+            className="flex min-w-0 flex-col gap-2 @xl/workspace:flex-row @xl/workspace:flex-wrap @xl/workspace:items-center"
+          >
             <FilterGroup
               ariaLabel="Filter tasks by priority"
               icon={<ListFilter size={14} strokeWidth={2} aria-hidden="true" />}
@@ -201,6 +175,39 @@ export function BoardToolbar({
               value={assigneeFilter}
               onChange={onAssigneeFilterChange}
             />
+            <FilterGroup
+              ariaLabel="Choose card detail level"
+              icon={<LayoutGrid size={14} strokeWidth={2} aria-hidden="true" />}
+              options={DISPLAY_OPTIONS.map((option) => ({ ...option, count: null }))}
+              value={displayMode}
+              onChange={onDisplayModeChange}
+            />
+            {onRetireStale && (
+              <button
+                type="button"
+                data-testid="board-retire-stale"
+                onClick={onRetireStale}
+                disabled={retiring}
+                title="Retire backlog and queued tasks that have not changed for 7+ days."
+                className="inline-flex min-h-11 max-w-full shrink-0 items-center gap-1.5 rounded-button border border-black/[0.08] px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:text-foreground-light disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:text-secondary-dark dark:hover:text-foreground-dark @xl/workspace:h-7 @xl/workspace:min-h-7"
+              >
+                <Archive size={13} strokeWidth={2} aria-hidden="true" />
+                {retiring ? 'Retiring...' : 'Retire stale tasks'}
+              </button>
+            )}
+            {onExportTasks && (
+              <button
+                type="button"
+                data-testid="board-export-tasks"
+                onClick={onExportTasks}
+                disabled={exporting}
+                title="Download the latest task history as CSV for compliance records."
+                className="inline-flex min-h-11 max-w-full shrink-0 items-center gap-1.5 rounded-button border border-black/[0.08] px-2 text-ui-caption font-medium text-secondary-light transition-colors hover:border-apple-blue/35 hover:text-foreground-light disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:text-secondary-dark dark:hover:text-foreground-dark @xl/workspace:h-7 @xl/workspace:min-h-7"
+              >
+                <Download size={13} strokeWidth={2} aria-hidden="true" />
+                {exporting ? 'Exporting...' : 'Export task history'}
+              </button>
+            )}
           </div>
         ) : null}
       </div>
@@ -244,7 +251,7 @@ function FilterGroup<T extends string>({
             aria-label={countLabel ? `${option.ariaLabel}, ${countLabel}` : option.ariaLabel}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1 rounded-button px-2 text-ui-caption font-medium transition-colors',
+              'inline-flex h-11 min-h-11 shrink-0 items-center gap-1 rounded-button px-2 text-ui-caption font-medium transition-colors @xl/workspace:h-7 @xl/workspace:min-h-7',
               selected
                 ? 'bg-black/[0.06] text-foreground-light dark:bg-white/[0.1] dark:text-foreground-dark'
                 : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'

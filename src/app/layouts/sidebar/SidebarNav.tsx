@@ -194,9 +194,9 @@ export function SidebarNav({
         aria-current={active ? 'page' : undefined}
         className={cn(
           'relative flex items-center gap-2.5 rounded-button text-ui-body transition-colors',
-          expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
+          expanded ? 'min-h-11 w-full px-2.5 py-2' : 'h-11 w-11 justify-center',
           active
-            ? 'rounded-button bg-black/[0.06] text-foreground-light dark:bg-white/[0.08] dark:text-foreground-dark'
+            ? 'rounded-button bg-black/[0.06] text-foreground-light before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-apple-blue dark:bg-white/[0.08] dark:text-foreground-dark'
             : 'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
         )}
         title={accessibleLabel}
@@ -236,7 +236,7 @@ export function SidebarNav({
       return true
     })
     return (
-      <div className={cn('flex flex-col gap-0.5', expanded ? 'px-2' : 'px-1.5 items-center')}>
+      <div className={cn('flex flex-col gap-0.5', expanded ? 'px-2' : 'items-center px-0.5')}>
         {items.map(renderItem)}
       </div>
     )
@@ -244,7 +244,7 @@ export function SidebarNav({
 
   return (
     <div
-      className={cn('flex flex-col gap-0.5', expanded ? 'px-2 pb-2' : 'px-1.5 pb-2 items-center')}
+      className={cn('flex flex-col gap-0.5', expanded ? 'px-2 pb-2' : 'items-center px-0.5 pb-2')}
     >
       {BOTTOM_ITEMS.map(renderItem)}
       {renderItem({
@@ -268,7 +268,7 @@ export function SidebarNav({
         aria-label={themeLabel}
         className={cn(
           'flex items-center gap-2.5 rounded-button text-ui-body transition-colors',
-          expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
+          expanded ? 'min-h-11 w-full px-2.5 py-2' : 'h-11 w-11 justify-center',
           'text-secondary-light hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark'
         )}
         title={themeLabel}
@@ -286,7 +286,7 @@ export function SidebarNav({
         aria-label="Logout: sign out of Forge"
         className={cn(
           'flex items-center gap-2.5 rounded-button text-ui-body transition-colors',
-          expanded ? 'px-2.5 py-1.5 w-full' : 'w-9 h-9 justify-center',
+          expanded ? 'min-h-11 w-full px-2.5 py-2' : 'h-11 w-11 justify-center',
           'text-foreground-light/80 dark:text-foreground-dark/80 hover:bg-red-500/10 hover:text-red-500'
         )}
         title="Logout: sign out of Forge"

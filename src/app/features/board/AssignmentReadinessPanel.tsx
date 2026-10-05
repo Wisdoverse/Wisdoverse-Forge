@@ -1,4 +1,5 @@
-import { ArrowRight, RefreshCw, UserCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { ArrowRight, ChevronDown, RefreshCw, UserCheck } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { agentCapabilitySummary } from '@app/shared/lib/agentCapabilityCopy'
@@ -41,6 +42,7 @@ export function AssignmentReadinessPanel({
   error,
   onRefresh,
 }: AssignmentReadinessPanelProps) {
+  const { t } = useTranslation()
   // Defensive: never assume a non-null list here, so a malformed/partial
   // readiness payload degrades to an empty panel instead of crashing the board.
   const roster = participants ?? []
@@ -90,7 +92,11 @@ export function AssignmentReadinessPanel({
               {handoffSummary}
             </p>
             {error && (
-              <p role="alert" aria-live="polite" className="mt-0.5 text-ui-caption text-apple-red">
+              <p
+                role="alert"
+                aria-live="polite"
+                className="mt-0.5 text-ui-caption text-[var(--color-danger-text)]"
+              >
                 {error}
               </p>
             )}
@@ -104,17 +110,11 @@ export function AssignmentReadinessPanel({
               <ArrowRight size={13} strokeWidth={2.25} aria-hidden="true" />
             </a>
           )}
-          <MetricPill label="Can take work" value={available.length} />
-          <MetricPill label="Working now" value={busy.length} />
-          <MetricPill label="Not connected" value={offline.length} />
-          {chatOnly.length > 0 ? (
-            <MetricPill label="Questions only" value={chatOnly.length} />
-          ) : null}
           <button
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className={cn(uiStyles.subtleButton, 'w-8 px-0')}
+            className={cn(uiStyles.subtleButton, 'w-11 px-0 sm:w-8')}
             aria-label="Check agent status"
             title="Check agent status"
           >
@@ -128,57 +128,77 @@ export function AssignmentReadinessPanel({
         </div>
       </div>
 
-      {!isCompactHealthy ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-          <MetricPill
-            label="Not sent yet"
-            value={workload.backlog}
-            testId="assignment-metric-backlog"
+      <details className="group mt-2 border-t border-black/[0.06] dark:border-white/[0.08]">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-button text-ui-caption font-medium text-secondary-light dark:text-secondary-dark sm:min-h-8">
+          {t('board.statusDetails')}
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            className="transition-transform group-open:rotate-180"
           />
-          <MetricPill
-            label="Needs agent"
-            value={workload.unassigned}
-            testId="assignment-metric-unassigned"
-          />
-          <MetricPill
-            label="Being worked on"
-            value={workload.inFlight}
-            testId="assignment-metric-working"
-          />
-          <MetricPill
-            label="Needs help"
-            value={workload.blocked}
-            tone={workload.blocked > 0 ? 'warn' : 'default'}
-            testId="assignment-metric-blocked"
-          />
-          <MetricPill
-            label="Ready to check"
-            value={workload.review}
-            tone={workload.review > 0 ? 'success' : 'default'}
-          />
-        </div>
-      ) : null}
+        </summary>
+        <div className="pb-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <MetricPill label="Can take work" value={available.length} />
+            <MetricPill label="Working now" value={busy.length} />
+            <MetricPill label="Not connected" value={offline.length} />
+            {chatOnly.length > 0 ? (
+              <MetricPill label="Questions only" value={chatOnly.length} />
+            ) : null}
+          </div>
+          {!isCompactHealthy ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
+              <MetricPill
+                label="Not sent yet"
+                value={workload.backlog}
+                testId="assignment-metric-backlog"
+              />
+              <MetricPill
+                label="Needs agent"
+                value={workload.unassigned}
+                testId="assignment-metric-unassigned"
+              />
+              <MetricPill
+                label="Being worked on"
+                value={workload.inFlight}
+                testId="assignment-metric-working"
+              />
+              <MetricPill
+                label="Needs help"
+                value={workload.blocked}
+                tone={workload.blocked > 0 ? 'warn' : 'default'}
+                testId="assignment-metric-blocked"
+              />
+              <MetricPill
+                label="Ready to check"
+                value={workload.review}
+                tone={workload.review > 0 ? 'success' : 'default'}
+              />
+            </div>
+          ) : null}
 
-      {!isCompactHealthy && roster.length === 0 && !loading ? (
-        <div
-          data-testid="assignment-readiness-empty"
-          className="mt-2 rounded-card border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
-        >
-          <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
-            Connect an agent before sending work
-          </p>
-          <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
-            Set up a place for new tasks in this project, then add or start an agent. Until then,
-            new tasks wait on this board.
-          </p>
+          {!isCompactHealthy && roster.length === 0 && !loading ? (
+            <div
+              data-testid="assignment-readiness-empty"
+              className="mt-2 rounded-card border border-dashed border-apple-blue/25 bg-apple-blue/[0.04] px-3 py-2"
+            >
+              <p className="text-ui-caption font-semibold text-foreground-light dark:text-foreground-dark">
+                Connect an agent before sending work
+              </p>
+              <p className="mt-0.5 text-ui-caption leading-snug text-secondary-light dark:text-secondary-dark">
+                Set up a place for new tasks in this project, then add or start an agent. Until
+                then, new tasks wait on this board.
+              </p>
+            </div>
+          ) : !isCompactHealthy && roster.length > 0 ? (
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
+              {roster.map((participant) => (
+                <ParticipantChip key={participant.agentId} participant={participant} />
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : !isCompactHealthy && roster.length > 0 ? (
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
-          {roster.map((participant) => (
-            <ParticipantChip key={participant.agentId} participant={participant} />
-          ))}
-        </div>
-      ) : null}
+      </details>
     </section>
   )
 }

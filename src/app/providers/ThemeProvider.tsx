@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { ThemeContext, type Theme } from '@app/shared/model/theme.context'
 
 const STORAGE_KEY = 'agentforge-theme'
-const META_LIGHT = '#f5f5f7'
-const META_DARK = '#0f172a'
+const META_LIGHT = '#f4f6f8'
+const META_DARK = '#151a22'
 
 function isTheme(value: unknown): value is Theme {
   return value === 'light' || value === 'dark'

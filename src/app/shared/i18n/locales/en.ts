@@ -173,6 +173,7 @@ export const en = {
   // Navigation
   // =========================================================================
   nav: {
+    navigationLabel: 'Workspace navigation',
     home: 'Home',
     start: 'Setup checklist',
     dashboard: 'Dashboard',
@@ -324,6 +325,7 @@ export const en = {
   // =========================================================================
   commandPalette: {
     title: 'Find what you need',
+    closeLabel: 'Close search',
     inputLabel: 'Search pages and things to do',
     placeholder: 'Search what you want to do, e.g. send a task, add agent, sign in',
     discovery: {
@@ -486,6 +488,7 @@ export const en = {
   // App Layout
   // =========================================================================
   appLayout: {
+    skipToWorkspace: 'Skip to workspace',
     pages: {
       start: {
         title: 'Setup checklist',
@@ -541,6 +544,8 @@ export const en = {
     },
     topBar: {
       openNavigation: 'Open navigation',
+      closeNavigation: 'Close navigation',
+      taskView: 'Task view',
       search: 'Search',
       searchLabel: 'Search pages and things to do',
       switchToLight: 'Switch to light mode',
@@ -1168,6 +1173,7 @@ export const en = {
   },
 
   board: {
+    statusDetails: 'Agent and task details',
     priority: {
       label: 'Change priority for {{task}}',
       low: 'Low',

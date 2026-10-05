@@ -1,4 +1,12 @@
-import { useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react'
 import { PanelRightOpen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useRouterState } from '@tanstack/react-router'
@@ -103,6 +111,15 @@ export function AppLayout({
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 768 : false
   )
+  const navigationDialog = useRef<HTMLDialogElement>(null)
+  const sidebarAsOverlay = isMobile && sidebarExpanded
+
+  useLayoutEffect(() => {
+    const dialog = navigationDialog.current
+    if (!dialog) return
+    if (sidebarAsOverlay && !dialog.open) dialog.showModal()
+    else if (!sidebarAsOverlay && dialog.open) dialog.close()
+  }, [sidebarAsOverlay])
 
   // Auto-collapse sidebar on narrow viewports
   useEffect(() => {
@@ -256,6 +273,16 @@ export function AppLayout({
   // a field — same action as the board's Add Task button.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.isComposing) return
+      const target = e.target instanceof HTMLElement ? e.target : null
+      if (target?.closest('.xterm')) return
+      if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
+        if (cmdkOpen && (e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault()
+          setCmdkOpen(false)
+        }
+        return
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setCmdkOpen((prev) => !prev)
@@ -265,13 +292,9 @@ export function AppLayout({
         toggleSidebar()
       }
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const target = e.target as HTMLElement | null
         if (
           target &&
-          (target.tagName === 'INPUT' ||
-            target.tagName === 'TEXTAREA' ||
-            target.tagName === 'SELECT' ||
-            target.isContentEditable)
+          (target.closest('input, textarea, select, [role="textbox"]') || target.isContentEditable)
         ) {
           return
         }
@@ -281,7 +304,7 @@ export function AppLayout({
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [toggleSidebar, handleNewTaskAction])
+  }, [toggleSidebar, handleNewTaskAction, cmdkOpen])
 
   function handleCommandSelect(commandId: string) {
     if (commandId.startsWith('nav:')) {
@@ -310,29 +333,47 @@ export function AppLayout({
     handleNavigate(restored ? '/start' : '/settings/account')
   }
 
-  // On mobile, sidebar is hidden unless expanded (where it overlays content)
-  const showSidebar = !isMobile || sidebarExpanded
-  const sidebarAsOverlay = isMobile && sidebarExpanded
+  const sidebar = (
+    <Sidebar
+      activePath={activePath}
+      onNavigate={handleNavigate}
+      onCreateTaskForProject={handleCreateTaskForProject}
+    />
+  )
   return (
     <div className="relative flex h-[100dvh] overflow-hidden bg-background-light dark:bg-background-dark md:h-screen">
-      {sidebarAsOverlay && (
-        <button
-          type="button"
-          aria-label="Close left menu"
-          onClick={() => useNavigationStore.setState({ sidebarExpanded: false })}
-          className="absolute inset-0 z-20 bg-black/30 backdrop-blur-sm"
-        />
+      <a
+        href="#forge-workspace"
+        className="sr-only z-50 rounded-button bg-apple-blue px-4 py-3 text-ui-body font-medium text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+      >
+        {t('appLayout.skipToWorkspace')}
+      </a>
+      {isMobile ? (
+        <dialog
+          ref={navigationDialog}
+          aria-label={t('nav.navigationLabel')}
+          onCancel={() => useNavigationStore.setState({ sidebarExpanded: false })}
+          onClose={() => useNavigationStore.setState({ sidebarExpanded: false })}
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return
+            const bounds = e.currentTarget.getBoundingClientRect()
+            if (
+              e.clientX < bounds.left ||
+              e.clientX > bounds.right ||
+              e.clientY < bounds.top ||
+              e.clientY > bounds.bottom
+            ) {
+              useNavigationStore.setState({ sidebarExpanded: false })
+            }
+          }}
+          className="fixed inset-y-0 left-0 m-0 h-[100dvh] max-h-none max-w-[calc(100vw-32px)] border-0 bg-transparent p-0 text-foreground-light backdrop:bg-black/40 backdrop:backdrop-blur-sm dark:text-foreground-dark"
+        >
+          {sidebar}
+        </dialog>
+      ) : (
+        sidebar
       )}
-      {showSidebar && (
-        <div className={sidebarAsOverlay ? 'absolute inset-y-0 left-0 z-30' : 'contents'}>
-          <Sidebar
-            activePath={activePath}
-            onNavigate={handleNavigate}
-            onCreateTaskForProject={handleCreateTaskForProject}
-          />
-        </div>
-      )}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="@container/workspace flex min-w-0 flex-1 flex-col">
         <TopBar
           title={pageTitle}
           subtitle={pageSubtitle}
@@ -359,6 +400,8 @@ export function AppLayout({
           </div>
         )}
         <main
+          id="forge-workspace"
+          tabIndex={-1}
           data-testid="main-content"
           className="flex-1 overflow-auto bg-white dark:bg-surface-dark"
         >

@@ -88,6 +88,7 @@ describe('BoardView', () => {
     useBoardStore.getState().setSelectedGroupId('group-1')
     render(<BoardView />)
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Filters and options' }))
     fireEvent.click(await screen.findByTestId('board-retire-stale'))
     const dialog = screen.getByRole('dialog', { name: 'Retire stale tasks?' })
     expect(dialog).toBeDefined()
@@ -525,7 +526,7 @@ describe('BoardView', () => {
 
     expect(await screen.findByText('Review launch note')).toBeDefined()
     const toolbar = screen.getByTestId('board-toolbar')
-    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters$/i }))
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters and options/i }))
 
     fireEvent.click(
       within(toolbar).getByRole('button', { name: /show high priority tasks, 0 matching tasks/i })
@@ -595,7 +596,7 @@ describe('BoardView', () => {
     expect(await screen.findByText('Production incident')).toBeDefined()
     const toolbar = screen.getByTestId('board-toolbar')
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters$/i }))
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters and options/i }))
     fireEvent.click(
       within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
     )

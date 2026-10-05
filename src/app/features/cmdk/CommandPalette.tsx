@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 import { Command } from 'cmdk'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
@@ -233,7 +234,16 @@ export function CommandPalette({
   const showGettingStarted = useSettingsStore((s) => shouldShowGettingStarted(s.preferences))
   const [search, setSearch] = useState('')
   const [showSecondaryActions, setShowSecondaryActions] = useState(false)
-  if (!isOpen) return null
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (isOpen && !dialog.open) {
+      dialog.showModal()
+      searchInputRef.current?.focus()
+    } else if (!isOpen && dialog.open) dialog.close()
+  }, [isOpen])
   const hasSearch = search.trim().length > 0
   const navCommands = NAV_COMMANDS.filter(
     (cmd) =>
@@ -262,24 +272,27 @@ export function CommandPalette({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+    <dialog
+      ref={dialogRef}
+      aria-modal="true"
+      aria-labelledby="command-palette-title"
+      aria-describedby="command-palette-help"
+      onCancel={onClose}
+      onClose={onClose}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target !== e.currentTarget) return
+        const bounds = e.currentTarget.getBoundingClientRect()
+        if (
+          e.clientX < bounds.left ||
+          e.clientX > bounds.right ||
+          e.clientY < bounds.top ||
+          e.clientY > bounds.bottom
+        )
+          onClose()
       }}
+      className="m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-lg overflow-y-auto rounded-panel border border-black/[0.1] bg-white p-0 text-foreground-light shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-sm dark:border-white/[0.12] dark:bg-surface-dark dark:text-foreground-dark"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="command-palette-title"
-        aria-describedby="command-palette-help"
-        className={cn(
-          'w-full max-w-lg mx-4',
-          'bg-surface dark:bg-surface-dark',
-          'rounded-card border border-black/[0.08] shadow-panel dark:border-white/[0.1]',
-          'overflow-hidden'
-        )}
-      >
+      {isOpen && (
         <Command>
           <div className="border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.08]">
             <p
@@ -297,18 +310,29 @@ export function CommandPalette({
               ))}
             </ol>
           </div>
-          <Command.Input
-            aria-label={t('commandPalette.inputLabel')}
-            value={search}
-            onValueChange={setSearch}
-            placeholder={t('commandPalette.placeholder')}
-            className={cn(
-              'w-full px-4 py-3 text-ui-body outline-none',
-              'bg-transparent border-b border-black/[0.08] dark:border-white/[0.08]',
-              'text-foreground-light dark:text-foreground-dark',
-              'placeholder:text-secondary-light dark:placeholder:text-secondary-dark'
-            )}
-          />
+          <div className="flex items-center border-b border-black/[0.08] dark:border-white/[0.08]">
+            <Command.Input
+              ref={searchInputRef}
+              aria-label={t('commandPalette.inputLabel')}
+              value={search}
+              onValueChange={setSearch}
+              placeholder={t('commandPalette.placeholder')}
+              className={cn(
+                'w-full px-4 py-3 text-ui-body outline-none',
+                'min-w-0 bg-transparent',
+                'text-foreground-light dark:text-foreground-dark',
+                'placeholder:text-secondary-light dark:placeholder:text-secondary-dark'
+              )}
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('commandPalette.closeLabel')}
+              className="mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-button text-secondary-light hover:bg-black/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06] sm:h-8 sm:w-8"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
           <Command.List className="max-h-80 overflow-y-auto py-2">
             <Command.Empty className="px-4 py-6 text-center text-ui-body text-secondary-light dark:text-secondary-dark">
               <div role="status" aria-live="polite">
@@ -443,7 +467,7 @@ export function CommandPalette({
             </Command.Group>
           </Command.List>
         </Command>
-      </div>
-    </div>
+      )}
+    </dialog>
   )
 }

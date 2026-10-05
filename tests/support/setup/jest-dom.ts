@@ -37,3 +37,15 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 if (typeof Element.prototype.scrollIntoView === 'undefined') {
   Element.prototype.scrollIntoView = function () {}
 }
+
+// jsdom has no modal-dialog API. Browser tests cover native focus and inertness.
+if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close = function () {
+    if (!this.open) return
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  }
+}

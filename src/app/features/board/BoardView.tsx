@@ -472,7 +472,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
   return (
     <>
       <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex h-full flex-col gap-3 p-1">
+        <div className="flex min-h-full flex-col gap-3 p-1 md:h-full">
           <AssignmentReadinessPanel
             participants={participants}
             workload={workload}
@@ -566,7 +566,7 @@ export function BoardView({ onOpenProjectsSetup, onOpenTaskQueues }: BoardViewPr
               </button>
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto md:flex-row md:overflow-x-auto md:overflow-y-hidden">
+            <div className="flex flex-none flex-col gap-3 md:min-h-0 md:flex-1 md:flex-row md:overflow-x-auto md:overflow-y-hidden">
               {COLUMN_ORDER.map((colId) => (
                 <KanbanColumn
                   key={colId}

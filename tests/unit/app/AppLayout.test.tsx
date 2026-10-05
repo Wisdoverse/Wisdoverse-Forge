@@ -150,6 +150,53 @@ describe('AppLayout', () => {
     expect(within(revealButton).getByText('Activity')).toBeDefined()
   })
 
+  test('provides a keyboard route directly to the workspace', () => {
+    render(<MemoryRouter />)
+    expect(screen.getByRole('link', { name: 'Skip to workspace' })).toHaveAttribute(
+      'href',
+      '#forge-workspace'
+    )
+    expect(screen.getByTestId('main-content')).toHaveAttribute('tabindex', '-1')
+  })
+
+  test('closes mobile navigation on cancellation, navigation, and desktop resize', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 320, configurable: true })
+    const onNavigate = vi.fn()
+    render(<MemoryRouter onNavigate={onNavigate} />)
+    const openNavigation = screen.getByRole('button', { name: 'Open navigation' })
+    fireEvent.click(openNavigation)
+    const navigation = screen.getByRole('dialog', { name: 'Workspace navigation' })
+    expect(navigation).toHaveAttribute('open')
+    fireEvent(navigation, new Event('cancel'))
+    expect(navigation).not.toHaveAttribute('open')
+
+    fireEvent.click(openNavigation)
+    fireEvent.click(screen.getByTestId('sidebar-nav-inbox'))
+    expect(onNavigate).toHaveBeenCalledWith('/inbox')
+    expect(navigation).not.toHaveAttribute('open')
+
+    fireEvent.click(openNavigation)
+    Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true })
+    fireEvent(window, new Event('resize'))
+    expect(screen.queryByRole('dialog', { name: 'Workspace navigation' })).toBeNull()
+    expect(screen.getByTestId('sidebar')).toBeDefined()
+  })
+
+  test('keeps global task and sidebar shortcuts inside the active modal', () => {
+    seedProjectNavigation('p1')
+    useBoardStore.getState().setSelectedGroupId('group-1')
+    render(<MemoryRouter />)
+    fireEvent.click(screen.getByTestId('top-bar-command-search'))
+    const expanded = useNavigationStore.getState().sidebarExpanded
+    fireEvent.keyDown(document, { key: 'n' })
+    fireEvent.keyDown(document, { key: '\\', ctrlKey: true })
+    expect(useNavigationStore.getState().sidebarExpanded).toBe(expanded)
+    expect(screen.queryByRole('dialog', { name: /tell an agent what to do/i })).toBeNull()
+    expect(screen.getByRole('dialog', { name: /find what you need/i })).toBeDefined()
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
+    expect(screen.queryByRole('dialog', { name: /find what you need/i })).toBeNull()
+  })
+
   test('empty live updates can open the task board', () => {
     routerState.path = '/settings'
     const onNavigate = vi.fn()
@@ -175,10 +222,10 @@ describe('AppLayout', () => {
     useBoardStore.getState().setSelectedGroupId('group-1')
 
     render(<MemoryRouter />)
-    expect(screen.getByText('Board')).toBeDefined()
-    expect(screen.getByText('List')).toBeDefined()
-    expect(screen.getByText('Timeline')).toBeDefined()
-    expect(screen.getByText('Map')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Board', exact: true })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'List', exact: true })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Timeline', exact: true })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Map', exact: true })).toBeDefined()
     expect(screen.getByRole('button', { name: /new task/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: '3D' })).toBeNull()
     expect(screen.queryByRole('button', { name: /\+ task/i })).toBeNull()
@@ -240,7 +287,6 @@ describe('AppLayout', () => {
 
     const searchButton = screen.getByTestId('top-bar-command-search')
     expect(searchButton).toHaveAccessibleName('Search pages and things to do')
-    expect(searchButton).toHaveClass('h-8', 'w-8')
     expect(within(searchButton).queryByText('Search')).toBeNull()
 
     fireEvent.click(searchButton)

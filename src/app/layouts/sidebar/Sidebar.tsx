@@ -36,8 +36,9 @@ export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: Side
   return (
     <nav
       data-testid="sidebar"
+      aria-label={t('nav.navigationLabel')}
       className={cn(
-        'flex flex-shrink-0 flex-col overflow-hidden border-r border-black/[0.08] bg-background-light py-2 transition-all duration-300 ease-out dark:border-white/[0.1] dark:bg-background-dark',
+        'flex h-full min-h-0 flex-shrink-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain border-r border-black/[0.08] bg-[#f4f6f9] py-2 transition-all duration-300 ease-out dark:border-white/[0.1] dark:bg-[#17191e]',
         sidebarExpanded ? 'w-[240px]' : 'w-[52px]'
       )}
     >
@@ -63,7 +64,7 @@ export function Sidebar({ activePath, onNavigate, onCreateTaskForProject }: Side
         <>
           <p className={cn(uiStyles.groupLabel, 'mt-4 px-4')}>{t('nav.groups.projects')}</p>
 
-          <div className="flex-1 overflow-y-auto min-h-0 pb-2">
+          <div className="flex-none pb-2 md:min-h-0 md:flex-1 md:overflow-y-auto">
             <ProjectTree
               teams={teams}
               projects={projects}
