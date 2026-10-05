@@ -44,8 +44,14 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 ### Authentication
 
 - JWT-based authentication with short-lived access tokens
-- Refresh token rotation
-- Secure token storage recommendations in documentation
+- The access JWT and cached user details are stored in browser local storage.
+  The refresh token is stored separately in the `HttpOnly`, `SameSite=Strict`
+  `af_rt` cookie. Refresh requests issue a new access token and retain the
+  existing refresh cookie.
+- Access and refresh JWTs require distinct purpose claims. Tokens issued before
+  this change do not include that claim and users must sign in again after
+  upgrading. HTTP access-token revocation is not immediate: an issued access
+  token can remain valid until its configured expiry.
 
 ### Data Protection
 

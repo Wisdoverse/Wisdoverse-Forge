@@ -20,7 +20,8 @@ pub async fn build_live_mcp_components(
         return Ok(None);
     }
 
-    let token = read_required("MCP_TOKEN").context("MCP_ENABLED=true requires MCP_TOKEN")?;
+    let token = read_required("MCP_TOKEN").context("MCP_ENABLED=true requires a private MCP_TOKEN")?;
+    validate_mcp_token(&token)?;
     let docker = docker.ok_or_else(|| anyhow!("MCP_ENABLED=true requires Docker to be available"))?;
     let config = live_runtime_config();
     let store = SqlxMcpAgentStore::new(pool.clone());
@@ -64,4 +65,26 @@ fn read_required(name: &str) -> anyhow::Result<String> {
         return Err(anyhow!("environment variable {name} is empty"));
     }
     Ok(value)
+}
+
+fn validate_mcp_token(token: &str) -> anyhow::Result<()> {
+    if token.len() < 32 || token.chars().any(char::is_whitespace) {
+        return Err(anyhow!(
+            "MCP_TOKEN must contain at least 32 non-whitespace bytes; run the setup bootstrap to generate a private token"
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_mcp_token;
+
+    #[test]
+    fn mcp_token_requires_private_bootstrap_strength() {
+        for invalid in ["", "   ", "short-token", &"x".repeat(27), &format!("{} ", "x".repeat(64))] {
+            assert!(validate_mcp_token(invalid).is_err());
+        }
+        assert!(validate_mcp_token("cf24b73e19d501f8a804963facbe760d31ef58a09c27b064cb978fde502691aa").is_ok());
+    }
 }

@@ -20,9 +20,9 @@ serde_json.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 futures.workspace = true
+tokio.workspace = true
 bytes = "1"
 percent-encoding = "2"
 
 [dev-dependencies]
-tokio.workspace = true
 wiremock = "0.6"

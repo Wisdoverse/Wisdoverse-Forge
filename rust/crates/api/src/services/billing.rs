@@ -87,6 +87,9 @@ impl BillingService {
         coupon_code: Option<&str>,
     ) -> AppResult<CheckoutSession> {
         self.ensure_gateway_configured()?;
+        super::resource_permission::ResourcePermissionService::from_pool(self.repo.pool().clone())
+            .require_org_manager(scope)
+            .await?;
         BillingCycle::parse(billing_cycle)?;
         BillingRedirectUrlPolicy::validate(success_url, "success_url")?;
         BillingRedirectUrlPolicy::validate(cancel_url, "cancel_url")?;
@@ -125,6 +128,9 @@ impl BillingService {
         payment_method_id: Option<&str>,
     ) -> AppResult<Subscription> {
         self.ensure_gateway_configured()?;
+        super::resource_permission::ResourcePermissionService::from_pool(self.repo.pool().clone())
+            .require_org_manager(scope)
+            .await?;
         let plan = self.repo.find_plan_by_id(plan_id).await?;
         let price_id = BillingPlanPolicy::require_stripe_price_id(&plan.name, plan.stripe_price_id.as_deref())?;
         let payment_method_id = PaymentMethodId::parse(payment_method_id)?;
@@ -151,6 +157,9 @@ impl BillingService {
     /// Cancel the current active subscription.
     pub async fn cancel(&self, scope: &TenantScope, immediately: bool) -> AppResult<Subscription> {
         self.ensure_gateway_configured()?;
+        super::resource_permission::ResourcePermissionService::from_pool(self.repo.pool().clone())
+            .require_org_manager(scope)
+            .await?;
         let sub = self
             .repo
             .get_subscription(scope)
@@ -177,6 +186,9 @@ impl BillingService {
     /// Resume a subscription that is scheduled to cancel.
     pub async fn resume(&self, scope: &TenantScope) -> AppResult<Subscription> {
         self.ensure_gateway_configured()?;
+        super::resource_permission::ResourcePermissionService::from_pool(self.repo.pool().clone())
+            .require_org_manager(scope)
+            .await?;
         let sub = self
             .repo
             .get_subscription(scope)
@@ -203,6 +215,9 @@ impl BillingService {
     /// Create a Stripe customer portal session for the current organization.
     pub async fn create_portal_session(&self, scope: &TenantScope, return_url: &str) -> AppResult<PortalSession> {
         self.ensure_gateway_configured()?;
+        super::resource_permission::ResourcePermissionService::from_pool(self.repo.pool().clone())
+            .require_org_manager(scope)
+            .await?;
         BillingRedirectUrlPolicy::validate(return_url, "return_url")?;
         let sub = self
             .repo

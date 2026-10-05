@@ -97,7 +97,7 @@ impl AuthService {
 
         let refresh_token = self
             .jwt
-            .create_token_with_axes_and_expiry(
+            .create_refresh_token_with_axes_and_expiry(
                 user_id.as_uuid(),
                 org_id,
                 &role,

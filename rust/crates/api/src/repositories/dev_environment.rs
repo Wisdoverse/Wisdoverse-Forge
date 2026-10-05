@@ -17,6 +17,10 @@ impl DevEnvironmentRepository {
         Self { pool }
     }
 
+    pub(crate) fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     /// List dev environments for the org.
     pub async fn list(&self, scope: &TenantScope) -> AppResult<Vec<DevEnvironment>> {
         let envs = sqlx::query_as::<_, DevEnvironment>(

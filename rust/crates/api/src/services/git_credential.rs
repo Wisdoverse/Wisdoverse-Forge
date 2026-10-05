@@ -1,7 +1,7 @@
 //! Git credential service - validation, management, and Git platform CLI injection.
 
 use agentforge_core::{AppResult, TenantScope, crypto};
-use agentforge_db::entities::GitCredential;
+use agentforge_db::entities::{GitCredential, ProjectCloneAttempt};
 use agentforge_platform::SecretBytes;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -210,7 +210,7 @@ impl GitCredentialService {
         resolve_cli_token_rows(creds, encryption_key)
     }
 
-    /// Resolve EXACTLY ONE org-scoped git credential whose host matches the clone
+    /// Resolve EXACTLY ONE requester-owned git credential whose host matches the clone
     /// repository URL's host (M5/M6 host-matched credential selection).
     ///
     /// This is NOT "latest token per provider": it picks the single credential
@@ -233,15 +233,19 @@ impl GitCredentialService {
     ///
     /// The decrypted bytes are returned ONLY here, in a [`SecretBytes`] wrapper,
     /// and only the SINGLE selected credential is decrypted (the others are never
-    /// touched), minimizing the plaintext blast radius. Org-scoped: a credential
-    /// from another organization can never be selected.
-    pub async fn resolve_for_host(&self, scope: &TenantScope, host: &str) -> AppResult<Option<ResolvedCredential>> {
+    /// touched), minimizing the plaintext blast radius. The database checks the
+    /// claimed attempt's requester, organization and current authorization.
+    pub(crate) async fn resolve_for_clone_attempt(
+        &self,
+        attempt: &ProjectCloneAttempt,
+        host: &str,
+    ) -> AppResult<Option<ResolvedCredential>> {
         let target = host.trim().trim_end_matches('.').to_ascii_lowercase();
         if target.is_empty() {
             return Ok(None);
         }
 
-        let candidates = self.repo.org_token_candidates(scope.org_id().as_uuid()).await?;
+        let candidates = self.repo.clone_token_candidates(attempt).await?;
 
         // Two passes so an EXPLICIT remote_url host match always beats a
         // provider-canonical fallback, regardless of row order.

@@ -28,6 +28,8 @@ const STREAM_START_TIMEOUT: Duration = Duration::from_secs(60);
 /// Catches the case where an upstream keeps the connection alive with heartbeat
 /// bytes (which reset the transport read timeout) but sends no real content.
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
+const MAX_ASSISTANT_OUTPUT_BYTES: usize = 1024 * 1024;
+const MAX_STREAM_DURATION: std::time::Duration = std::time::Duration::from_secs(600);
 
 fn prompt_context_policy(model: &str) -> PromptContextPolicy {
     PromptContextPolicy::new(model, model_context_limit(model))
@@ -307,12 +309,23 @@ impl PromptService {
             let mut errored = false;
             let mut cancelled = false;
 
+            let deadline = tokio::time::Instant::now() + MAX_STREAM_DURATION;
             loop {
                 tokio::select! {
                     biased;
                     _ = &mut cancel_rx => {
                         cancelled = true;
                         finish_reason = "interrupted".into();
+                        break;
+                    }
+                    _ = tokio::time::sleep_until(deadline) => {
+                        errored = true;
+                        finish_reason = "error".into();
+                        yield Ok(SseFrame::Error {
+                            code: "stream_duration_exceeded".into(),
+                            message: "The model response took too long. Please try a smaller request.".into(),
+                            retryable: false,
+                        });
                         break;
                     }
                     next = tokio::time::timeout(STREAM_IDLE_TIMEOUT, llm_stream.next()) => match next {
@@ -333,6 +346,16 @@ impl PromptService {
                         }
                         Ok(None) => break,
                         Ok(Some(Ok(StreamDelta::Text(t)))) => {
+                            if t.len() > MAX_ASSISTANT_OUTPUT_BYTES.saturating_sub(buffer.len()) {
+                                errored = true;
+                                finish_reason = "error".into();
+                                yield Ok(SseFrame::Error {
+                                    code: "response_size_exceeded".into(),
+                                    message: "The model response is too large. Please ask for a smaller response.".into(),
+                                    retryable: false,
+                                });
+                                break;
+                            }
                             buffer.push_str(&t);
                             yield Ok(SseFrame::Delta { text: t });
                         }
@@ -540,5 +563,32 @@ mod stream_tests {
             "error message mentions prompt content, got: {}",
             err.kind
         );
+    }
+
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn oversized_reply_is_not_emitted_or_persisted(pool: PgPool) {
+        let (scope, agent_id) = seed_agent_with_provider(&pool, "mock").await;
+        let messages = Arc::new(MessageRepository::new(pool.clone()));
+        let agents = Arc::new(AgentRepository::new(pool));
+        let factory = Arc::new(LlmProviderFactory::with_mock("mock", &"x".repeat(MAX_ASSISTANT_OUTPUT_BYTES + 1)));
+        let keys: Arc<dyn KeyResolver> = Arc::new(MockKeyResolver::with_key("k"));
+        let svc = PromptService::new(messages.clone(), agents, factory, keys);
+        let (_tx, rx) = oneshot::channel();
+        let mut stream = svc
+            .stream(scope.clone(), agent_id, "claude-sonnet-4-6".into(), None, "hi".into(), Vec::new(), rx)
+            .await
+            .expect("build stream");
+        let mut frames = Vec::new();
+        while let Some(frame) = stream.next().await {
+            frames.push(frame.expect("frame"));
+        }
+        assert!(
+            frames
+                .iter()
+                .any(|frame| matches!(frame, SseFrame::Error { code, .. } if code == "response_size_exceeded"))
+        );
+        assert!(!frames.iter().any(|frame| matches!(frame, SseFrame::Delta { .. })));
+        let stored = messages.list(&scope, agent_id, 50, None).await.expect("history");
+        assert!(stored.iter().all(|message| message.content.len() <= MAX_ASSISTANT_OUTPUT_BYTES));
     }
 }

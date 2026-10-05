@@ -278,8 +278,9 @@ impl ProjectRepository {
         if let Some(clone) = input.clone.as_ref() {
             sqlx::query(
                 r#"INSERT INTO project_clone_attempts
-                       (organization_id, workspace_id, project_id, attempt, repository_url, provider, status)
-                   VALUES ($1, $2, $3, 1, $4, $5, $6)"#,
+                       (organization_id, workspace_id, project_id, attempt, repository_url, provider, status,
+                        requested_by, requested_at)
+                   VALUES ($1, $2, $3, 1, $4, $5, $6, $7, now())"#,
             )
             .bind(org_id)
             .bind(workspace_id)
@@ -287,6 +288,7 @@ impl ProjectRepository {
             .bind(&clone.url)
             .bind(clone.provider.map(|p| p.as_str()))
             .bind(CloneAttemptStatus::Queued.as_str())
+            .bind(scope.user_id().as_uuid())
             .execute(&mut **tx)
             .await?;
 

@@ -5,8 +5,8 @@ use futures::stream::{BoxStream, StreamExt};
 use reqwest::Client;
 
 use crate::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
-    StreamDelta, Usage, timed_client,
+    CHAT_RESPONSE_TIMEOUT, ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream,
+    MessageContent, StreamDelta, Usage, bounded_response_json, provider_status_error, timed_client,
 };
 
 /// Anthropic Messages API provider.
@@ -107,9 +107,7 @@ impl LlmStream for AnthropicProvider {
             .await?;
 
         if !resp.status().is_success() {
-            let status = resp.status().as_u16();
-            let msg = resp.text().await.unwrap_or_default();
-            return Err(LlmError::Api { status, message: msg });
+            return Err(provider_status_error(resp.status().as_u16()));
         }
 
         let byte_stream = resp.bytes_stream();
@@ -214,16 +212,16 @@ impl LlmProvider for AnthropicProvider {
             .header("anthropic-version", "2023-06-01")
             .header("content-type", "application/json")
             .json(&body)
+            .timeout(CHAT_RESPONSE_TIMEOUT)
             .send()
             .await?;
 
         let status = resp.status().as_u16();
         if status != 200 {
-            let text = resp.text().await.unwrap_or_default();
-            return Err(LlmError::Api { status, message: text });
+            return Err(provider_status_error(status));
         }
 
-        let json: serde_json::Value = resp.json().await?;
+        let json = bounded_response_json(resp).await?;
 
         let content = json["content"]
             .as_array()
@@ -233,7 +231,7 @@ impl LlmProvider for AnthropicProvider {
             .to_string();
 
         if content.is_empty() {
-            tracing::warn!(response = %json, "Anthropic response missing expected content structure");
+            tracing::warn!("Anthropic response missing expected content structure");
             return Err(LlmError::Parse("response missing content".into()));
         }
 

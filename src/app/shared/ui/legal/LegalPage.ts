@@ -557,8 +557,10 @@ export class LegalPage {
         </p>
         <ul class="legal-list">
           <li>Agent history, including when an agent was created and whether it is ready, working, or unavailable</li>
+          <li>Entries in change history, such as changes to settings or saved work</li>
+          <li>Saved preferences and settings choices, such as display options</li>
           <li>Tool activity history, such as which kind of action ran and whether it succeeded</li>
-          <li>Project repository details, such as branch names, commit hashes, and file change counts; we do not collect the content of your code files</li>
+          <li>When you use AI features, your deployment can send task and chat inputs, with code and selected files or images, to its configured AI provider</li>
           <li>Feature usage patterns, such as views opened, settings changed, and features enabled</li>
           <li>Service request history, such as the action requested, status, and time</li>
           <li>Live update connection history, such as connection status and message type</li>
@@ -576,10 +578,9 @@ export class LegalPage {
         </ul>
         <h3 class="legal-subsection-title">Payment Information</h3>
         <p class="legal-text">
-          If you subscribe to a paid plan, payment information (credit card number, billing address) is collected and
-          processed directly by Stripe, Inc. We receive only limited payment metadata (last four digits of your card,
-          card brand, expiration date, billing country) from Stripe for billing history. We do not store full
-          credit card numbers on our servers.
+          Payment history: If your deployment uses Stripe, it sends the payment information needed to process a
+          transaction to Stripe. Forge stores Stripe billing identifiers and subscription status for the organization
+          when those records are created.
         </p>
       </div>
 
@@ -647,7 +648,7 @@ export class LegalPage {
         <h3 class="legal-subsection-title">Infrastructure Security</h3>
         <ul class="legal-list">
           <li>Protective checks that help the Service recover when supporting systems are unhealthy</li>
-          <li>Sensitive data filtering in error tracking to reduce accidental exposure of passwords, access keys, and credit card numbers</li>
+          <li>If your deployment operator configures monitoring, the provider can receive service activity and error details</li>
           <li>Safe database query practices to reduce injection risk</li>
           <li>Browser access policies that limit which sites can call the Service</li>
           <li>Security review supported by security history</li>
@@ -664,12 +665,13 @@ export class LegalPage {
         </div>
         <h3 class="legal-subsection-title">Service Providers</h3>
         <p class="legal-text">
-          We share data with trusted third-party service providers who assist us in operating the Service, subject to
-          strict data processing agreements:
+          Your deployment can connect to configured service providers. Configured AI providers can receive task and
+          chat inputs, with code and selected file or image content. If your deployment operator configures
+          monitoring, its provider can receive service activity and error details. Ask your deployment operator which
+          providers are enabled and what information they receive.
         </p>
         <ul class="legal-list">
           <li><strong>Stripe, Inc.</strong> &mdash; Payment processing. Stripe receives payment information necessary to process transactions. See <a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe's Privacy Policy</a>.</li>
-          <li><strong>Sentry (Functional Software, Inc.)</strong> &mdash; Error tracking and monitoring. Sentry receives error reports with PII automatically filtered (passwords, tokens, and credit card numbers are redacted before transmission). See <a href="https://sentry.io/privacy/" target="_blank" rel="noopener">Sentry's Privacy Policy</a>.</li>
         </ul>
         <h3 class="legal-subsection-title">Legal Requirements</h3>
         <p class="legal-text">
@@ -692,53 +694,8 @@ export class LegalPage {
       <div class="legal-section">
         <h2 class="legal-section-title">5. Your Rights</h2>
         <p class="legal-text">
-          In accordance with the General Data Protection Regulation (GDPR) and other applicable data protection laws,
-          you have the following rights regarding your personal data:
-        </p>
-        <h3 class="legal-subsection-title">Right of Access (Article 15)</h3>
-        <p class="legal-text">
-          You have the right to request a copy of the personal data we hold about you, along with information about how
-          we process it.
-        </p>
-        <h3 class="legal-subsection-title">Right to Rectification (Article 16)</h3>
-        <p class="legal-text">
-          You have the right to request correction of any inaccurate personal data we hold about you, and to have
-          incomplete data completed.
-        </p>
-        <h3 class="legal-subsection-title">Right to Erasure (Article 17)</h3>
-        <p class="legal-text">
-          You have the right to request the deletion of your personal data when it is no longer necessary for the
-          purposes for which it was collected, when you withdraw consent, or when processing is unlawful.
-        </p>
-        <h3 class="legal-subsection-title">Right to Data Portability (Article 20)</h3>
-        <p class="legal-text">
-          You have the right to receive your personal data in a structured, commonly used, and machine-readable format,
-          and to transmit that data to another controller.
-        </p>
-        <h3 class="legal-subsection-title">Right to Restrict Processing (Article 18)</h3>
-        <p class="legal-text">
-          You have the right to request that we restrict the processing of your personal data in certain circumstances,
-          such as when you contest the accuracy of the data or object to processing.
-        </p>
-        <h3 class="legal-subsection-title">Right to Object (Article 21)</h3>
-        <p class="legal-text">
-          You have the right to object to the processing of your personal data for direct marketing purposes or when
-          processing is based on legitimate interests. Upon receiving your objection, we will cease processing unless
-          we demonstrate compelling legitimate grounds that override your interests.
-        </p>
-        <h3 class="legal-subsection-title">Right to Withdraw Consent</h3>
-        <p class="legal-text">
-          Where we rely on your consent for processing, you may withdraw that consent at any time without affecting the
-          lawfulness of processing that occurred before your withdrawal.
-        </p>
-        <h3 class="legal-subsection-title">Right to Lodge a Complaint</h3>
-        <p class="legal-text">
-          You have the right to lodge a complaint with a supervisory authority if you believe that our processing of
-          your personal data infringes applicable data protection law.
-        </p>
-        <p class="legal-text">
-          To exercise any of these rights, please contact us at <a href="mailto:privacy@wisdoverse.com">privacy@wisdoverse.com</a>.
-          We will respond to your request within 30 days.
+          Privacy laws and request processes can be different for each location and deployment.
+          Contact your deployment operator to ask how to request access, correction, or deletion of personal information.
         </p>
       </div>
 
@@ -749,26 +706,15 @@ export class LegalPage {
         </p>
         <h3 class="legal-subsection-title">Data Export</h3>
         <p class="legal-text">
-          You can request a copy of your personal data through the account settings page or a supported export flow.
-          The export includes your profile information, agent history, change history, and settings choices in a
-          file format that can be read by other tools.
+          Data export and deletion procedures can be different for each deployment. Ask your deployment operator what data you
+          can export and what data the operator removes or keeps. Ask how the operator handles login sessions and
+          access keys.
         </p>
         <h3 class="legal-subsection-title">Account Deletion</h3>
         <p class="legal-text">
-          You can permanently delete your account and associated data through the account settings page or a supported
-          deletion flow. Upon deletion:
-        </p>
-        <ul class="legal-list">
-          <li>Your profile information is permanently removed</li>
-          <li>Active agents are stopped</li>
-          <li>Change history and agent data are deleted</li>
-          <li>Saved login sessions and access keys are revoked</li>
-          <li>Security history referencing your account is anonymized (the history is kept for legal requirements but your personal identifiers are removed)</li>
-          <li>Payment history is retained as required by applicable tax and financial regulations</li>
-        </ul>
-        <p class="legal-text">
-          Account deletion is permanent and irreversible. We recommend exporting your data before requesting deletion.
-          The deletion process may take up to 30 days to propagate across all backup systems.
+          The deployment can keep profile information or history after account deletion or deactivation. Ask your
+          deployment operator what information stays. Ask whether login sessions and access keys have a different revocation procedure.
+          Ask how the operator handles related history and backups.
         </p>
       </div>
 
@@ -803,44 +749,20 @@ export class LegalPage {
       <div class="legal-section">
         <h2 class="legal-section-title">8. Data Retention</h2>
         <p class="legal-text">
-          We retain your data only for as long as necessary to fulfill the purposes described in this Privacy Policy or
-          as required by law. Our specific retention periods are:
+          Automatic cleanup of tool and analytics activity and finished task attempts is off by default. Your
+          deployment operator can configure it.
         </p>
-        <ul class="legal-list">
-          <li><strong>Tool events and agent data:</strong> 90 days from creation, after which events are automatically purged by our cleanup workers</li>
-          <li><strong>Account information:</strong> Retained until you delete your account or request data erasure</li>
-          <li><strong>Security history:</strong> 1 year from creation, retained for safety reviews and legal requirements (anonymized upon account deletion)</li>
-          <li><strong>Image attachments (prompt images):</strong> 7 days (automatic lifecycle policy)</li>
-          <li><strong>Image attachments (general):</strong> 30 days (automatic lifecycle policy)</li>
-          <li><strong>Saved login sessions:</strong> Automatically expired and cleaned up according to their configured lifetime</li>
-          <li><strong>Payment history:</strong> Retained as required by applicable tax and financial regulations (typically 7 years)</li>
-          <li><strong>Error tracking data (Sentry):</strong> Subject to Sentry's retention policies (typically 90 days)</li>
-        </ul>
         <p class="legal-text">
-          When data reaches the end of its retention period, it is permanently deleted or anonymized. Backup copies may
-          persist for an additional period consistent with our backup rotation schedule (typically up to 30 days after
-          deletion from production systems).
+          Other records, files, and backups have their own policies. Ask your deployment operator which providers
+          receive information. Ask about configured retention periods and the deletion procedure.
         </p>
       </div>
 
       <div class="legal-section">
         <h2 class="legal-section-title">9. International Transfers</h2>
         <p class="legal-text">
-          Your information may be transferred to and processed in countries other than your country of residence. These
-          countries may have data protection laws that differ from those in your jurisdiction.
-        </p>
-        <p class="legal-text">
-          When we transfer personal data internationally, we ensure appropriate safeguards are in place to protect your
-          data in accordance with this Privacy Policy and applicable law. These safeguards may include:
-        </p>
-        <ul class="legal-list">
-          <li>Standard contractual clauses approved by relevant data protection authorities</li>
-          <li>Data processing agreements with our service providers that include adequate data protection commitments</li>
-          <li>Ensuring that recipients are located in countries with adequate levels of data protection as determined by applicable regulatory bodies</li>
-        </ul>
-        <p class="legal-text">
-          By using the Service, you consent to the transfer of your information to our facilities and to those of third
-          parties with whom we share it as described in this Privacy Policy.
+          Your deployment operator can tell you whether information is transferred across borders, which providers
+          receive it, and what safeguards apply.
         </p>
       </div>
 
@@ -850,14 +772,13 @@ export class LegalPage {
           <p class="legal-text">
             The Service is not intended for use by individuals under the age of 13. We do not knowingly collect
             personal information from children under 13. If you are a parent or guardian and become aware that your
-            child has provided us with personal information, please contact us at
-            <a href="mailto:privacy@wisdoverse.com">privacy@wisdoverse.com</a>.
+            child has provided personal information, contact your deployment operator.
           </p>
         </div>
         <p class="legal-text">
           If we become aware that we have collected personal data from a child under 13 without verification of
-          parental consent, we will take steps to remove that information from our servers promptly. If you believe we
-          may have any information from or about a child under 13, please contact us immediately.
+          parental consent, contact your deployment operator to ask about the available process. If you believe the
+          Service holds information about a child under 13, contact that operator.
         </p>
       </div>
 
@@ -884,16 +805,11 @@ export class LegalPage {
         <div class="legal-contact">
           <p class="legal-text">
             If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices,
-            please contact us:
+            contact your deployment operator. This is the person or team that runs your Forge installation.
           </p>
           <p class="legal-text">
-            <strong>Wisdoverse Forge</strong><br>
-            Privacy Inquiries: <a href="mailto:privacy@wisdoverse.com">privacy@wisdoverse.com</a><br>
-            Data Protection Officer: <a href="mailto:dpo@wisdoverse.com">dpo@wisdoverse.com</a>
-          </p>
-          <p class="legal-text">
-            We are committed to resolving complaints about your privacy and our collection or use of your personal
-            information. We will respond to all privacy-related inquiries within 30 days.
+            Ask which recipients are enabled. Ask how long the operator keeps each category of information. Ask how to request
+            deletion. Retention periods for storage and backups can be different from those for telemetry and run history.
           </p>
         </div>
       </div>

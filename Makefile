@@ -147,6 +147,7 @@ dev-tools: setup ## Start development with admin tools (Adminer, Redis Commander
 
 .PHONY: dev-casdoor
 dev-casdoor: setup ## Start development with Casdoor SSO
+	@ENV_FILE="$(COMPOSE_ENV_FILE)" node scripts/setup-casdoor.mjs
 	$(COMPOSE) -f docker/compose.dev.yml --profile dev --profile casdoor up --build
 
 .PHONY: dev-down
@@ -179,6 +180,7 @@ prod-storage: setup ## Start production with RustFS (migrate existing objects fi
 
 .PHONY: prod-casdoor
 prod-casdoor: setup ## Start production with Casdoor SSO
+	@ENV_FILE="$(COMPOSE_ENV_FILE)" node scripts/setup-casdoor.mjs
 	$(COMPOSE) -f docker/compose.prod.yml --profile prod --profile casdoor up -d --build
 
 .PHONY: prod-down

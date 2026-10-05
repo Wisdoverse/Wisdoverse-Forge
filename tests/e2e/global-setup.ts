@@ -18,7 +18,8 @@
  */
 
 import { chromium, request, type FullConfig } from '@playwright/test'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { chmod, lstat, mkdir, open } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,6 +42,40 @@ const E2E_EMAIL = process.env.E2E_EMAIL ?? STABLE_E2E_EMAIL
 // validation). The older 11-char 'DevPass123!' default now fails register
 // ("password must be at least 12 characters") on a fresh stack.
 const DEFAULT_LOCAL_PASSWORD = 'DevPass1234!'
+
+export async function writePrivateStorageState(filePath: string, contents: string): Promise<void> {
+  const dirPath = path.dirname(filePath)
+  await mkdir(dirPath, { recursive: true, mode: 0o700 })
+  const dirStat = await lstat(dirPath)
+  if (!dirStat.isDirectory() || dirStat.isSymbolicLink()) {
+    throw new Error(`E2E auth state directory must be a real directory: ${dirPath}`)
+  }
+
+  let fileStat
+  try {
+    fileStat = await lstat(filePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  if (fileStat && (!fileStat.isFile() || fileStat.isSymbolicLink())) {
+    throw new Error(`E2E auth state must be a regular file: ${filePath}`)
+  }
+
+  // Node mode bits do not enforce equivalent ACLs on Windows.
+  if (process.platform !== 'win32') await chmod(dirPath, 0o700)
+  const flags =
+    constants.O_WRONLY |
+    constants.O_CREAT |
+    constants.O_TRUNC |
+    (process.platform !== 'win32' ? (constants.O_NOFOLLOW ?? 0) : 0)
+  const file = await open(filePath, flags, 0o600)
+  try {
+    if (process.platform !== 'win32') await file.chmod(0o600)
+    await file.writeFile(contents)
+  } finally {
+    await file.close()
+  }
+}
 
 function isLocalTarget(baseURL: string): boolean {
   try {
@@ -74,8 +109,6 @@ async function globalSetup(config: FullConfig): Promise<void> {
     throw new Error(`E2E setup: E2E_PASSWORD env var is required for ${E2E_EMAIL} on ${baseURL}`)
   }
   const E2E_PASSWORD = password ?? DEFAULT_LOCAL_PASSWORD
-
-  await mkdir(AUTH_DIR, { recursive: true })
 
   // For staging behind custom DNS, route the Node HTTP call through the local API port.
   const apiBaseURL = process.env.E2E_API_BASE_URL ?? baseURL
@@ -159,7 +192,7 @@ async function globalSetup(config: FullConfig): Promise<void> {
     }
 
     const state = await context.storageState()
-    await writeFile(STORAGE_STATE_PATH, JSON.stringify(state, null, 2))
+    await writePrivateStorageState(STORAGE_STATE_PATH, JSON.stringify(state, null, 2))
   } finally {
     await browser.close()
   }

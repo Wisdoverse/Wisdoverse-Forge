@@ -64,7 +64,6 @@ describe('LegalPage', () => {
       'Live update connection history, such as connection status and message type'
     )
     expect(text).toContain('Login sessions are signed and expire automatically')
-    expect(text).toContain('Saved login sessions and access keys are revoked')
     expect(text).toContain('core Wisdoverse Forge agent, task, saved work, and team space features')
     expect(text).toContain(
       'confirm who you are and let you open the parts of the Service your role allows'

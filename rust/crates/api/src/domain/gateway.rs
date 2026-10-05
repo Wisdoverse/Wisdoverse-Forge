@@ -96,6 +96,7 @@ where
 pub(crate) enum WebSocketOriginRejection {
     Disallowed(String),
     MissingInProduction,
+    MissingConfiguration,
 }
 
 impl WebSocketOriginRejection {
@@ -113,7 +114,11 @@ impl WebSocketOriginPolicy {
         production: bool,
     ) -> Result<(), WebSocketOriginRejection> {
         let Some(allowed_origin) = allowed_origin else {
-            return Ok(());
+            return if production || origin.is_some() {
+                Err(WebSocketOriginRejection::MissingConfiguration)
+            } else {
+                Ok(())
+            };
         };
 
         match origin {
@@ -140,12 +145,20 @@ impl GatewayTerminalAttachTarget {
     }
 
     pub(crate) fn lookup_failed(kind: &ErrorKind) -> Self {
-        Self::Rejected { message: format!("agent lookup failed: {kind}") }
+        let message = match kind {
+            ErrorKind::Internal(_) => "agent lookup is temporarily unavailable".to_string(),
+            _ => format!("agent lookup failed: {kind}"),
+        };
+        Self::Rejected { message }
     }
 }
 
 pub(crate) fn websocket_unauthorized_error() -> AppError {
     ErrorKind::Unauthorized.into()
+}
+
+pub(crate) fn terminal_authorization_denied() -> AppError {
+    ErrorKind::Forbidden("operation not permitted".into()).into()
 }
 
 pub(crate) fn realtime_unavailable_frame() -> String {
@@ -212,6 +225,15 @@ mod tests {
     use agentforge_core::{OrgId, ProjectId, TeamId, UserId, WorkspaceId};
 
     #[test]
+    fn terminal_lookup_redacts_internal_failures() {
+        let target = GatewayTerminalAttachTarget::lookup_failed(&ErrorKind::Internal(anyhow::anyhow!(
+            "private database diagnostic"
+        )));
+        assert!(matches!(target, GatewayTerminalAttachTarget::Rejected { message }
+            if message == "agent lookup is temporarily unavailable"));
+    }
+
+    #[test]
     fn origin_policy_rejects_cross_origin_and_missing_production_origin() {
         assert!(WebSocketOriginPolicy::validate(Some("https://app.test"), Some("https://app.test"), true).is_ok());
         assert!(matches!(
@@ -223,6 +245,17 @@ mod tests {
             Err(WebSocketOriginRejection::MissingInProduction)
         ));
         assert!(WebSocketOriginPolicy::validate(None, Some("https://app.test"), false).is_ok());
+        for origin in [None, Some("https://app.test"), Some("https://evil.test")] {
+            assert!(matches!(
+                WebSocketOriginPolicy::validate(origin, None, true),
+                Err(WebSocketOriginRejection::MissingConfiguration)
+            ));
+        }
+        assert!(WebSocketOriginPolicy::validate(None, None, false).is_ok());
+        assert!(matches!(
+            WebSocketOriginPolicy::validate(Some("https://evil.test"), None, false),
+            Err(WebSocketOriginRejection::MissingConfiguration)
+        ));
     }
 
     #[test]

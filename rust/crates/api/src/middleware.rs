@@ -55,13 +55,21 @@ pub fn cors_layer(is_production: bool, cors_origin: Option<&str>) -> CorsLayer {
     }
 }
 
+type HttpRequestSpan = fn(&axum::http::Request<axum::body::Body>) -> tracing::Span;
+
 /// HTTP request/response tracing layer.
 ///
-/// Emits `tracing` spans for each request with method, URI, status code,
+/// Emits `tracing` spans for each request with method, route, status code,
 /// and latency. Integrates with the `tracing-subscriber` configured in `main`.
-pub fn trace_layer() -> TraceLayer<tower_http::classify::SharedClassifier<tower_http::classify::ServerErrorsAsFailures>>
-{
-    TraceLayer::new_for_http()
+pub fn trace_layer()
+-> TraceLayer<tower_http::classify::SharedClassifier<tower_http::classify::ServerErrorsAsFailures>, HttpRequestSpan> {
+    TraceLayer::new_for_http().make_span_with(http_request_span as HttpRequestSpan)
+}
+
+fn http_request_span(request: &axum::http::Request<axum::body::Body>) -> tracing::Span {
+    // Query strings and dynamic path segments can both contain credentials.
+    let route = request.extensions().get::<axum::extract::MatchedPath>().map_or("<unmatched>", |path| path.as_str());
+    tracing::debug_span!("request", method = %request.method(), path = route, version = ?request.version())
 }
 
 /// Custom panic response handler that returns JSON error bodies.
@@ -140,6 +148,59 @@ where
             .filter(|s| !s.is_empty() && s.len() <= 256)
             .map(|s| IdempotencyKey(s.to_string()))
             .ok_or_else(IdempotencyKeyPolicy::missing_header_error)
+    }
+}
+
+#[cfg(test)]
+mod trace_tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use tower::ServiceExt;
+    use tracing::instrument::WithSubscriber;
+
+    #[derive(Clone)]
+    struct Buffer(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Buffer {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn request_trace_omits_query_and_path_credentials() {
+        let buffer = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let writer = Buffer(buffer.clone());
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .finish();
+        async {
+            let app = axum::Router::new()
+                .route("/ws", axum::routing::get(|| async { "ok" }))
+                .route("/api/v1/invites/{token}/redeem", axum::routing::get(|| async { "ok" }))
+                .layer(trace_layer());
+            for uri in [
+                "/ws?token=private-jwt-sentinel&code=private-oauth-sentinel",
+                "/api/v1/invites/private-invite-sentinel/redeem",
+            ] {
+                let request = axum::http::Request::builder().uri(uri).body(axum::body::Body::empty()).unwrap();
+                assert_eq!(app.clone().oneshot(request).await.unwrap().status(), StatusCode::OK);
+            }
+        }
+        .with_subscriber(subscriber)
+        .await;
+        let output = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+        assert!(output.contains("/ws"));
+        assert!(output.contains("/api/v1/invites/{token}/redeem"));
+        assert!(!output.contains("private-jwt-sentinel"));
+        assert!(!output.contains("private-oauth-sentinel"));
+        assert!(!output.contains("private-invite-sentinel"));
     }
 }
 

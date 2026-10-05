@@ -15,7 +15,11 @@
 
 use agentforge_api::{domain::agent::NewAgent, repositories::agent::AgentRepository, services::agent::AgentService};
 use agentforge_core::{AgentId, AgentStatus, CliToolKind, ErrorKind, TenantScope};
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use serde_json::{Value, json};
 use sqlx::PgPool;
+use tower::ServiceExt;
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
@@ -94,6 +98,132 @@ fn assert_forbidden(err: &agentforge_core::AppError, ctx: &str) {
     );
     let msg = format!("{}", err.kind);
     assert!(msg.contains("operation not permitted"), "{ctx}: body must say 'operation not permitted', got: {msg}");
+}
+
+async fn request(app: axum::Router, method: &str, uri: &str, jwt: &str, body: Option<Value>) -> (StatusCode, Value) {
+    let builder = Request::builder().method(method).uri(uri).header("authorization", format!("Bearer {jwt}"));
+    let request = match body {
+        Some(body) => builder.header("content-type", "application/json").body(Body::from(body.to_string())).unwrap(),
+        None => builder.body(Body::empty()).unwrap(),
+    };
+    let response = app.oneshot(request).await.expect("full-app request");
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.expect("read response");
+    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+}
+
+#[sqlx::test(migrations = "../db/migrations")]
+async fn agent_write_routes_require_edit_and_preserve_state_when_forbidden(pool: PgPool) {
+    let (org_id, _workspace_id, owner_id) = seed_org_workspace_user(&pool).await;
+    sqlx::query("INSERT INTO organization_members (organization_id, user_id, role) VALUES ($1, $2, 'owner')")
+        .bind(org_id)
+        .bind(owner_id)
+        .execute(&pool)
+        .await
+        .expect("seed owner membership");
+    sqlx::query("UPDATE users SET email = 'dev@example.com' WHERE id = $1")
+        .bind(owner_id)
+        .execute(&pool)
+        .await
+        .expect("use standard test identity");
+    let agent_id = agentforge_api::test_support::seed_cli_agent(&pool, org_id, owner_id, "claude").await.as_uuid();
+
+    let bare_id = seed_extra_user(&pool, org_id).await;
+    let viewer_id = seed_extra_user(&pool, org_id).await;
+    let editor_id = seed_extra_user(&pool, org_id).await;
+    sqlx::query(
+        "INSERT INTO agent_collaborators (agent_id, user_id, permission) VALUES ($1, $2, 'view'), ($1, $3, 'edit')",
+    )
+    .bind(agent_id)
+    .bind(viewer_id)
+    .bind(editor_id)
+    .execute(&pool)
+    .await
+    .expect("seed collaborators");
+    let plugin_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO plugins (id, organization_id, name) VALUES ($1, $2, 'route-authz')")
+        .bind(plugin_id)
+        .bind(org_id)
+        .execute(&pool)
+        .await
+        .expect("seed plugin");
+    sqlx::query("INSERT INTO agent_plugins (agent_id, plugin_id, enabled) VALUES ($1, $2, true)")
+        .bind(agent_id)
+        .bind(plugin_id)
+        .execute(&pool)
+        .await
+        .expect("seed plugin override");
+    sqlx::query(
+        "INSERT INTO agent_messages (organization_id, agent_id, role, content) VALUES ($1, $2, 'user', 'keep me')",
+    )
+    .bind(org_id)
+    .bind(agent_id)
+    .execute(&pool)
+    .await
+    .expect("seed message");
+
+    let owner_jwt = agentforge_api::test_support::mint_test_jwt(org_id, owner_id, "owner");
+    let bare_jwt = agentforge_api::test_support::mint_test_jwt(org_id, bare_id, "member");
+    let viewer_jwt = agentforge_api::test_support::mint_test_jwt(org_id, viewer_id, "member");
+    let editor_jwt = agentforge_api::test_support::mint_test_jwt(org_id, editor_id, "member");
+    let app = agentforge_api::test_support::test_app_with_mock_provider(pool.clone(), "mock", "unused").await;
+    let base = format!("/api/v1/agents/{agent_id}");
+    let forbidden_routes = [
+        ("DELETE", format!("{base}/messages"), None),
+        ("PUT", format!("{base}/plugins/{plugin_id}"), Some(json!({"enabled":false}))),
+        ("DELETE", format!("{base}/plugins/{plugin_id}"), None),
+        ("POST", format!("{base}/prompt"), Some(json!({"content":"unauthorized"}))),
+        ("POST", format!("{base}/prompt/interrupt"), None),
+    ];
+
+    for jwt in [&bare_jwt, &viewer_jwt] {
+        for (method, uri, body) in &forbidden_routes {
+            let (status, _) = request(app.clone(), method, uri, jwt, body.clone()).await;
+            assert_eq!(status, StatusCode::FORBIDDEN, "{method} {uri}");
+        }
+    }
+    let messages: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM agent_messages WHERE agent_id = $1")
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("verify history");
+    let overrides: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM agent_plugins WHERE agent_id = $1 AND plugin_id = $2")
+            .bind(agent_id)
+            .bind(plugin_id)
+            .fetch_one(&pool)
+            .await
+            .expect("verify plugin override");
+    assert_eq!(messages, 1, "denied history deletion leaves message rows unchanged");
+    assert_eq!(overrides, 1, "denied plugin changes leave override unchanged");
+    let enabled: bool = sqlx::query_scalar("SELECT enabled FROM agent_plugins WHERE agent_id = $1 AND plugin_id = $2")
+        .bind(agent_id)
+        .bind(plugin_id)
+        .fetch_one(&pool)
+        .await
+        .expect("verify plugin state");
+    assert!(enabled, "denied plugin update leaves enabled state unchanged");
+
+    for (method, uri, body) in &forbidden_routes {
+        let (status, _) = request(app.clone(), method, uri, &editor_jwt, body.clone()).await;
+        assert!(status.is_success(), "edit collaborator may use {method} {uri}; got {status}");
+    }
+    let (status, _) = request(app, "DELETE", &format!("{base}/messages"), &owner_jwt, None).await;
+    assert!(status.is_success(), "owner route path remains authorized");
+    let messages: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM agent_messages WHERE agent_id = $1")
+        .bind(agent_id)
+        .fetch_one(&pool)
+        .await
+        .expect("verify authorized history deletion");
+    let overrides: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM agent_plugins WHERE agent_id = $1 AND plugin_id = $2")
+            .bind(agent_id)
+            .bind(plugin_id)
+            .fetch_one(&pool)
+            .await
+            .expect("verify authorized plugin removal");
+    assert_eq!(messages, 0, "authorized message deletion persists");
+    assert_eq!(overrides, 0, "authorized plugin removal persists");
 }
 
 // ---------------------------------------------------------------------------

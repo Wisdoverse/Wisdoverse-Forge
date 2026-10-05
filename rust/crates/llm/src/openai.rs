@@ -5,8 +5,8 @@ use futures::stream::{BoxStream, StreamExt};
 use reqwest::Client;
 
 use crate::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream, MessageContent,
-    StreamDelta, Usage, timed_client,
+    CHAT_RESPONSE_TIMEOUT, ChatMessage, ChatRequest, ChatResponse, ContentBlock, LlmError, LlmProvider, LlmStream,
+    MessageContent, StreamDelta, Usage, bounded_response_json, provider_status_error, timed_client,
 };
 
 /// OpenAI Chat Completions API provider.
@@ -136,10 +136,7 @@ impl LlmStream for OpenAiProvider {
         }
         let resp = rb.send().await?;
         if !resp.status().is_success() {
-            return Err(LlmError::Api {
-                status: resp.status().as_u16(),
-                message: resp.text().await.unwrap_or_default(),
-            });
+            return Err(provider_status_error(resp.status().as_u16()));
         }
         Ok(Box::pin(parse_openai_sse(resp.bytes_stream())))
     }
@@ -253,6 +250,7 @@ impl LlmProvider for OpenAiProvider {
             .client
             .post(chat_completions_url(&self.base_url))
             .header("content-type", "application/json")
+            .timeout(CHAT_RESPONSE_TIMEOUT)
             .json(&body);
 
         if !self.api_key.is_empty() {
@@ -262,11 +260,10 @@ impl LlmProvider for OpenAiProvider {
         let resp = req.send().await?;
         let status = resp.status().as_u16();
         if status != 200 {
-            let text = resp.text().await.unwrap_or_default();
-            return Err(LlmError::Api { status, message: text });
+            return Err(provider_status_error(status));
         }
 
-        let json: serde_json::Value = resp.json().await?;
+        let json = bounded_response_json(resp).await?;
 
         let content = json["choices"]
             .as_array()
@@ -276,7 +273,7 @@ impl LlmProvider for OpenAiProvider {
             .to_string();
 
         if content.is_empty() {
-            tracing::warn!(response = %json, "OpenAI response missing expected content structure");
+            tracing::warn!("OpenAI response missing expected content structure");
             return Err(LlmError::Parse("response missing content".into()));
         }
 
