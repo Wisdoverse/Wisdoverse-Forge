@@ -95,6 +95,7 @@ Treat operators as first-time users by default. New features, UI copy, CLI
 commands, runbooks, and errors must start from the shortest safe path for a
 non-specialist user, then move advanced implementation details into validation,
 troubleshooting, or architecture sections.
+See [Writing Standards](docs/README.md#writing-standards).
 
 - State prerequisites before commands or configuration.
 - Use copy-pasteable examples with clear placeholders.
