@@ -1,188 +1,243 @@
 # Wisdoverse Forge
 
-[![CI](https://github.com/Wisdoverse/Wisdoverse-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Wisdoverse/Wisdoverse-Forge/actions/workflows/ci.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Wisdoverse/Wisdoverse-Forge/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Wisdoverse/Wisdoverse-Forge)
-[![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
+<p align="center">
+  <img src="public/og-image.png" alt="Wisdoverse Forge — A self-hosted AI workbench for teams" width="900" />
+</p>
 
-Wisdoverse Forge is a self-hosted, governed AI workbench for a team. It turns
-requests into managed agent work: create tasks, assign agents, watch progress,
-review results, and keep evidence and reusable procedures in one workspace.
+<p align="center">
+  <strong>Run agent work. Review results. Keep useful knowledge.</strong>
+</p>
 
-**Next product focus.** Validate recurring repository maintenance for small
-software teams, starting with dependency upgrades and failed-PR repair on one
-approved repository. The goal is less human handling and review work with
-traceable results, using the team's supported agent tools. This is the next
-validation cycle, not a claim that automated repository maintenance is already
-available. See the [Product Roadmap](ROADMAP.md) and
-[Product Validation Guide](docs/guides/product-validation.md).
+<p align="center">
+  <a href="https://github.com/Wisdoverse/Wisdoverse-Forge/actions/workflows/ci.yml"><img src="https://github.com/Wisdoverse/Wisdoverse-Forge/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+  <a href="https://securityscorecards.dev/viewer/?uri=github.com/Wisdoverse/Wisdoverse-Forge"><img src="https://api.securityscorecards.dev/projects/github.com/Wisdoverse/Wisdoverse-Forge/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL%201.1-blue.svg" alt="License: BSL 1.1" /></a>
+</p>
 
-**Product status.** Early access for self-hosted teams. The one-command local
-path below is the supported first-run experience — from a clean checkout to one
-reviewed task in your first session. Before a deployment carries a real team,
-run [Runtime Validation](docs/runbooks/runtime-validation.md) and follow the
-[Product Roadmap](ROADMAP.md) quality gates. Forge
-never phones home: your data and provider keys stay on your machines, and
-provider keys are encrypted with an operator-supplied key.
+<p align="center">
+  <a href="#running-wisdoverse-forge">🚀 Quickstart</a> ·
+  <a href="#what-it-provides">✨ Features</a> ·
+  <a href="#documentation">📖 Documentation</a> ·
+  <a href="CONTRIBUTING.md">🤝 Contribute</a> ·
+  <a href="SUPPORT.md">💬 Get help</a>
+</p>
+
+Wisdoverse Forge is a self-hosted AI workbench for teams.
+It brings tasks, agents, execution records, and human review into one workspace.
+Your deployment stores project context and work evidence.
+You choose the AI services and tools that agents use.
+
+> **Early access.** Start with a local trial.
+> Use the [runtime validation guide](docs/runbooks/runtime-validation.md) before a deployment serves a real team.
+> Source is available under [BSL 1.1](LICENSE).
+> Commercial production and hosted services require a separate written license.
+
+## What It Provides
+
+| | Capability | What you get |
+| --- | --- | --- |
+| 📝 | **Tasks and runs** | A task board, run history, and visible progress for each project |
+| 🤖 | **Agent choices** | Agents for project files, managed local machines, and chat |
+| 🔎 | **Review and evidence** | Results, activity, and work records in one place |
+| 🛠️ | **Repository maintenance** | Draft PRs, verification reports, recovery, and human review for one configured repository |
+| 🧩 | **Reusable guidance** | Skills, plugins, prompts, and shared context for repeat work |
+| 🔐 | **Team controls** | Workspace access controls and encrypted provider credentials |
+| 🩺 | **Operations** | Health and update pages with setup and recovery guidance |
+| 🌐 | **Language choices** | English and Chinese UI text |
+
+**Project files** agents work with shared project files.
+**This computer** agents work from a managed local machine.
+**Simple chat agents** support planning and review in Chat.
+Chat agents cannot receive Tasks.
+
+The [maintenance workflow](docs/guides/maintenance-delivery.md) keeps reported verification, observed GitHub checks, and human decisions separate.
+A saved acceptance decision does not merge a PR.
+The [self-fix guide](docs/guides/self-fix-loop.md) explains repository setup and merge controls.
+
+### From a request to a reviewed result
+
+```mermaid
+flowchart LR
+    task["📝 Create a task"] --> agent["🤖 Assign an agent"]
+    agent --> run["⚙️ Run the work"]
+    run --> review["🔎 Review the result"]
+    review --> knowledge["📚 Keep useful guidance"]
+```
+
+Saving reusable guidance is optional.
 
 ## Running Wisdoverse Forge
 
 ### What you need first
 
-- Docker and Docker Compose v2
-- Node.js 24.15+
-- Make, Git
-- Enough local resources to run the browser app, backend services, and agent
-  work area together
+| Tool | Requirement |
+| --- | --- |
+| 🐳 Docker | Docker Engine or Docker Desktop with Compose v2 and a running daemon |
+| 🟢 Node.js | Version 24.15 or later, with npm |
+| 🧰 Shell tools | Git, Make, Bash, and curl |
+| 🌍 Network | Access to package and container registries for the first installation |
+
+The full local stack needs resources for the browser, backend services, and agent containers.
+The commands below use Bash.
+On Windows, use a Bash environment such as WSL with Docker integration.
+For native CLI installation, use the [platform guide](docs/guides/cli-platform-support.md).
 
 ### Option 1. One-command start
 
-This is the path a real user takes: clone, run one command, follow the setup
-checklist in the browser.
+From a terminal, run:
 
-1. Install the prerequisites (Docker + Docker Compose v2, Node.js 24.15+, Make,
-   Git).
-2. Clone the repository, then run:
+```bash
+git clone https://github.com/Wisdoverse/Wisdoverse-Forge.git wisdoverse-forge
+cd wisdoverse-forge
+make product
+```
 
-   ```bash
-   git clone https://github.com/Wisdoverse/Wisdoverse-Forge.git wisdoverse-forge
-   cd wisdoverse-forge
-   make product
-   ```
+`make product` installs missing app dependencies and prepares `docker/.env`.
+It starts the backend services and performs health checks.
+It starts the browser app and attempts to open `http://localhost:4002`.
 
-`make product` installs app dependencies if missing, prepares
-`docker/.env`, starts and health-checks the backend services, starts the
-browser app, and opens it at `http://localhost:4002`. Press **Ctrl+C** in that
-terminal to stop the browser app and the services the command started;
-`make product-down` stops the stack later. The full first-run guide is
-[Getting Started](docs/guides/getting-started.md).
+**Your first task:**
 
-Success looks like this:
+1. Open `http://localhost:4002`.
+2. On a fresh local installation, register the first account.
+3. Follow the **Start** checklist for team, project, and tool setup.
+4. For a task with file access, create a **Project files** or **This computer** agent.
+5. Create one small task in **Tasks**.
+6. Open the task's **Result** after the run completes.
+7. Read **Activity** to examine what happened.
 
-- The browser opens on the app; you can register the first account.
-- The **Start** checklist guides you through a workspace, an AI service, an
-  agent, and one small task.
-- Settings lets you add an AI service and choose **Check connection**.
+The [first-use guide](docs/guides/getting-started.md#4-first-use-path) gives the complete setup sequence.
 
-Developers who want terminals separated still have two commands:
-`make quickstart-local` for the backend stack, then `npm run dev` for the
-browser app.
+**Stop or recover:**
+
+- Press **Ctrl+C** to stop the browser and the backend services that this command started.
+- To stop the local backend later, run `make product-down`.
+- If startup fails, read service logs with `make dev-logs`.
+- Use the [troubleshooting guide](docs/guides/troubleshooting.md) for the next recovery step.
+
+<details>
+<summary>⚙️ Other setup paths</summary>
 
 ### Option 2. Ask an agent to set it up
 
-Tell your coding agent to set up this repository against your machine:
+Give your coding agent this instruction:
 
-> Set up Wisdoverse Forge from `docs/guides/getting-started.md`. Run `make product` (or, for separate terminals: `npm install`, `make quickstart-local`, `npm run dev`). Open `http://localhost:4002`, register the first account, follow the Start checklist, add an AI service in Settings, and create an agent. If a single-host VPS deployment is needed, follow the prebuilt-image path `make quickstart-selfhost-pull DOMAIN=<domain>` from the same guide.
+> Read `docs/guides/getting-started.md`.
+> Confirm that the prerequisites are available.
+> Run `make product`.
+> Report the app address and health results.
+> Keep credentials and private deployment details out of logs and commits.
 
-To connect this computer as a managed agent, follow
-[Host CLI Agent Enrollment](docs/runbooks/host-cli-agent-enrollment.md). For
-multi-platform CLI expectations, see
-[CLI Platform Support](docs/guides/cli-platform-support.md).
+The browser checklist provides the account and agent setup steps.
 
 ### Option 3. Work on this repository
 
-Brief the agent with the repository contracts before editing:
+For separate terminals, prepare the backend first:
 
-> Work on Wisdoverse Forge from repository truth. Read `AGENTS.md`, `SPEC.md`, `CLAUDE.md`, `docs/README.md`, `docs/architecture/ddd-contract.md`, and `CONTRIBUTING.md` before changing code. Keep backend changes in `rust/`, frontend changes in `src/app/` (Feature-Sliced Design layers) and `shared/`, and deployment changes in `docker/` plus the matching runbook. Run `npm run fsd:check`, `npm run lint`, `npm run typecheck`, and `cd rust && make ci` against any change. Use `gh` for GitHub PRs and `glab` for GitLab.
+```bash
+npm install
+make quickstart-local
+```
+
+In another terminal, start the browser app:
+
+```bash
+npm run dev
+```
+
+Before edits, read [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+Use the contribution guide's validation table for the changed area.
 
 ### Option 4. Implement a compatible service
 
-Point your coding agent at the service contract:
+Use [SPEC.md](SPEC.md) for the service contract.
+Use [shared/types/](shared/types/) for protocol types.
+Use [runtime validation](docs/runbooks/runtime-validation.md) for the verified runtime boundary.
 
-> Implement a Wisdoverse Forge-compatible service according to `SPEC.md` and
-> the protocol contracts in `shared/types/`. Match the proven boundary in
-> `docs/runbooks/runtime-validation.md`.
+### Self-host or connect a local machine
 
----
+- For a server deployment, follow [Getting Started](docs/guides/getting-started.md) and [Deployment](docs/guides/deployment.md).
+- For a managed local agent, follow [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md).
+- For installation without internet access, follow [Offline Install](docs/guides/offline-install.md).
 
-## What It Provides
-
-- **Tasks and runs** so teams can see what agents are doing and what happened.
-- **Agents that fit different work styles**:
-  - **Project files** for agents that edit shared project files.
-  - **This computer** for agents that work from a local machine.
-  - **Simple chat agents** for planning, writing, and review without file access.
-- **Review and evidence views** so people can check important work before using
-  it.
-- **Human-approved self-fix PRs** for the deployment's configured repository.
-  The server opens a draft PR and checks the reviewed commit before an operator
-  approves merge. Follow [Self-Fix Loop](docs/guides/self-fix-loop.md) for setup
-  and its current single-repository boundary. The server discovers that
-  repository's default branch when opening the PR.
-- **Skills, plugins, prompts, and saved access** so repeat work is easier to set
-  up.
-- **Admin health and update pages** with plain-language next steps for common
-  setup problems.
-- **Platform CLI (`agentforge`)** for operators who want to run migrations,
-  check setup, or connect a local machine as a managed agent.
-- **English and Chinese UI copy** with user-safe error messages.
-
-For technical readers, the current implementation uses a Rust API and
-WebSocket gateway, a Rust orchestrator, PostgreSQL, Redis, NATS, RustFS, Docker,
-Temporal, and a React/Vite/Three.js browser app. The frontend follows strict
-Feature-Sliced Design boundaries (`app -> pages -> widgets -> features ->
-entities -> shared`) checked by `npm run fsd:check`.
-
-## Repository Map (for agents)
-
-```
-rust/                  Rust workspace (active backend)
-  crates/core/         Shared domain types, errors, RuntimeKind, CliToolKind
-  crates/db/           SQLx pool + migrations
-  crates/auth/         JWT + Argon2 + auth middleware
-  crates/infra/        Redis + NATS clients
-  crates/api/          Axum routes / services / repositories / WS gateway / MCP bridge
-                       (route → service → domain → repository layering enforced
-                        by tests/route_ddd_boundary_test.rs)
-  crates/platform/     Docker, security policy, warm pool
-  crates/jobs/         PostgreSQL task queue
-  crates/llm/          Multi-provider LLM gateway
-  crates/orchestrator/ Temporal workflow logic
-  crates/cli/          Platform CLI library
-  bins/server/         Main API binary
-  bins/orchestrator/   Orchestrator service binary
-  bins/sidecar/        Agent container sidecar
-  bins/cli/            `agentforge` operator CLI
-src/                   React/Vite/Three.js frontend
-  app/entities/        Domain types + specifications + stores (FSD entity layer)
-  app/features/        User workflows (FSD feature layer)
-  app/widgets/         Composed view surfaces (FSD widget layer)
-  app/pages/           Route-level surfaces (FSD page layer)
-  app/shared/          Cross-slice utilities, i18n, generated clients
-shared/                Cross-stack TypeScript contracts + generated proto output
-hooks/                 Agent container hook relay
-docker/                Dockerfiles + Compose files (dev / prod / external profiles)
-tests/                 Vitest + Playwright suites
-docs/                  Architecture, runbooks, guides, specs
-```
+</details>
 
 ## Documentation
 
-- [ROADMAP.md](ROADMAP.md) — product direction, 90-day validation cycle, quality gates and demand-triggered investment
-- [Product Validation Guide](docs/guides/product-validation.md) — compare maintenance outcomes, human effort and sustained use
-- [Product UX Direction](docs/architecture/product-ux-direction.md) — product contract and acceptance checklist
-- [SPEC.md](SPEC.md) — language-agnostic service contract
-- [AGENTS.md](AGENTS.md) — canonical agent entrypoint; `CLAUDE.md` links to it
-- [docs/README.md](docs/README.md) — documentation map and truth hierarchy
-- [Architecture Overview](docs/architecture/overview.md) — runtime topology and data flow
-- [DDD Layer Contract](docs/architecture/ddd-contract.md) — route / service / domain / repository rules
-- [Aggregate Catalog](docs/architecture/aggregate-catalog.md) — DDD aggregates and modules
-- [Threat Model](docs/security/threat-model.md) — STRIDE per trust boundary
-- [Observability and SLOs](docs/runbooks/observability-slo.md) — SLIs, SLOs, alerts
-- [Self-host Operator Runbook](docs/runbooks/self-host-ops.md) — config knobs, weekly checklist, incident pointers, rotation
-- [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md) — operator guide for local CLI joins
-- [Migration 062 Runbook](docs/runbooks/migration-062-runtime-kind.md) — `runtime_kind` migration sequence (062/063/064/065)
-- [Runtime Validation](docs/runbooks/runtime-validation.md) — current proofed runtime boundary
-- [Offline Install](docs/guides/offline-install.md) — air-gapped bundles, checksums, Ed25519 signing
-- [CLI Platform Support](docs/guides/cli-platform-support.md) — Platform CLI + sidecar multi-platform expectations
-- [CLI Agent Image Auto-Update](docs/guides/cli-image-auto-update.md) — keep agent images current, prune superseded overlays, operator-initiated roll
-- [Project Git Clone](docs/guides/project-git-clone.md) — create a project from a git repository; clone status, retry, and the layered SSRF/credential defense
-- [Clone Egress Firewall](docs/runbooks/clone-egress-firewall.md) — required deploy-layer egress policy for project git clone
-- [Versioning Policy](docs/versioning.md) — API versioning and release policy
-- [Contributing](CONTRIBUTING.md) — workflow, validation, and PR expectations
-- [Support](SUPPORT.md) — where to get help and how to ask
-- [Code of Conduct](CODE_OF_CONDUCT.md) — community standards
-- [Security Policy](SECURITY.md) — vulnerability disclosure
+| | Start here | Purpose |
+| --- | --- | --- |
+| 🚀 | [Getting Started](docs/guides/getting-started.md) | Local trial and first task |
+| ⚙️ | [Configuration](docs/guides/configuration.md) · [Deployment](docs/guides/deployment.md) | Environment settings and server setup |
+| 🛠️ | [Self-Fix Loop](docs/guides/self-fix-loop.md) · [Maintenance Delivery](docs/guides/maintenance-delivery.md) | Repository setup, verification, review, and handoff |
+| 💻 | [CLI Platform Support](docs/guides/cli-platform-support.md) · [Host CLI Enrollment](docs/runbooks/host-cli-agent-enrollment.md) | Operator CLI and managed local agents |
+| 🏗️ | [Architecture](docs/architecture/overview.md) · [Service Contract](SPEC.md) | Runtime topology and API contracts |
+| 🧪 | [Runtime Validation](docs/runbooks/runtime-validation.md) | Reproducible evidence and current limitations |
+| 🧭 | [Roadmap](ROADMAP.md) · [Product Validation](docs/guides/product-validation.md) | Planned work and optional outcome evaluation |
+| 📚 | [Documentation Index](docs/README.md) | Full guide and runbook map |
+
+### Current direction
+
+The next cycle focuses on dependency upgrades and failed-PR repair for one approved repository.
+The [roadmap](ROADMAP.md) defines delivery priorities and quality gates.
+Available workflow records do not establish autonomous maintenance, adoption, or measured time savings.
+
+## Repository Map (for agents)
+
+The backend uses Rust with PostgreSQL, Redis, NATS, RustFS, Docker, and Temporal.
+The browser app uses React, Vite, and Three.js.
+The [architecture overview](docs/architecture/overview.md) describes service ownership and event flow.
+
+<details>
+<summary>🗂️ Explore the source tree</summary>
+
+```text
+rust/                  Active Rust backend workspace
+  crates/core/         Domain types, errors, and tenant scope
+  crates/db/           SQLx pool, migrations, and persisted entities
+  crates/auth/         JWT, Argon2, and auth middleware
+  crates/infra/        Redis and NATS clients
+  crates/api/          Axum routes, services, domain types, repositories, and WebSocket gateway
+  crates/platform/     Docker runtime, security policy, and warm pool
+  crates/jobs/         PostgreSQL task queue
+  crates/llm/          Provider gateway
+  crates/orchestrator/ Temporal workflows
+  crates/cli/          Platform CLI library
+  bins/server/         API binary
+  bins/orchestrator/   Orchestrator binary
+  bins/sidecar/        Agent container sidecar
+  bins/cli/            agentforge operator CLI
+src/app/               Active browser app with Feature-Sliced Design boundaries
+shared/                TypeScript contracts and generated protocol output
+hooks/                 Agent event relay
+docker/                Dockerfiles and Compose profiles
+tests/                 Vitest and Playwright suites
+docs/                  Architecture, guides, runbooks, and service contracts
+```
+
+Imports follow `app -> pages -> widgets -> features -> entities -> shared`.
+The [DDD contract](docs/architecture/ddd-contract.md) defines backend layer boundaries.
+The [aggregate catalog](docs/architecture/aggregate-catalog.md) lists domain modules.
+
+</details>
+
+## Community
+
+| | How to take part |
+| --- | --- |
+| 🤝 | [Contribute code or documentation](CONTRIBUTING.md) |
+| 🐛 | [Report a bug](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/new?template=bug_report.yml) |
+| 💡 | [Suggest a feature](https://github.com/Wisdoverse/Wisdoverse-Forge/issues/new?template=feature_request.yml) |
+| 💬 | [Get setup help](SUPPORT.md) |
+| 🛡️ | [Report a vulnerability privately](SECURITY.md) |
+| 💜 | [Read the Code of Conduct](CODE_OF_CONDUCT.md) |
+
+For a contribution, use the [repository writing standards](docs/README.md#writing-standards).
+Keep secrets and private deployment details out of public issues and PRs.
 
 ## License
 
-Wisdoverse Forge is licensed under the Wisdoverse Forge Business Source License 1.1 (`LicenseRef-Wisdoverse-Forge-BSL-1.1`). Each version changes to the Apache License, Version 2.0 four years after that version is first made publicly available by Wisdoverse. See [LICENSE](LICENSE) for the full terms.
+Wisdoverse Forge is source available under the [Wisdoverse Forge BSL 1.1](LICENSE).
+Before a version's change date, the license permits learning, research, education, development, testing, internal evaluation, and non-production use.
+Commercial production, hosted services, resale, and competing products require a separate written commercial license.
+Each version changes to Apache License 2.0 four years after Wisdoverse first makes that version publicly available.
+See [LICENSE](LICENSE) for the complete terms.
