@@ -101,6 +101,31 @@ operator, security, or API contract.
 - Avoid dated filenames unless the date is part of a public artifact identity.
 - When behavior is environment-specific, state the exact profile, command, and port.
 
+Use the writing rules and dictionary in
+[ASD-STE100 Issue 9](https://asd-ste100.org/assets/files/ASD-STE100_ISSUE9.pdf)
+(2025-01-15). These rules are for new and changed English technical text.
+This includes operator UI text, errors, and pull request descriptions.
+
+- Use dictionary words with their approved meaning and part of speech.
+  Use technical nouns and verbs in the standard's categories.
+  Record product terms in the [glossary](architecture/glossary.md).
+  Keep one name for each concept. Use `check` and `test` only as nouns.
+  For example: “Do a test.”
+- Write instructions and warnings with a maximum of 20 words per sentence.
+  Give one instruction per sentence, except when actions occur at the same time.
+  Put conditions before instructions.
+- Write descriptions and notes with a maximum of 25 words per sentence.
+  Give each paragraph one topic and a maximum of six sentences.
+- Use approved verb forms: infinitive, imperative, simple present, simple past,
+  simple future, and past participles as adjectives.
+  Use active voice. Descriptive passive voice is permitted only when the actor is unknown.
+- Write noun groups with a maximum of three words.
+  Give long official technical names in full. Then explain them.
+  Use American spelling. Do not use semicolons.
+- Do not change identifiers, commands, vendor names, or translations.
+  Keep conditions, recovery steps, and security meaning.
+  Examine word meanings and parts of speech against the official dictionary before publication.
+
 ## Related Files
 
 - [../README.md](../README.md) — repository entry point
