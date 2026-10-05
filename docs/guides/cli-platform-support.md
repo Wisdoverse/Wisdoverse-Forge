@@ -278,7 +278,7 @@ Configuration and synthetic credentials stay inside temporary directories;
 the token never comes from a real account. The enrollment response comes from
 a loopback HTTP fixture, and the printed launch block runs the real sidecar
 with `--help` in Bash or PowerShell 7. The
-`cli-platform-report-<os>-<arch>` artifact contains the archive and command
+`cli-platform-report-<os>-<arch>` artifact contains the package and command
 reports with the tested revision, archive and binary hashes, checks, and
 outcome. Native Node and sidecar test results are in the per-platform job log.
 
