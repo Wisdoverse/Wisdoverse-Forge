@@ -94,6 +94,26 @@ describe('TaskCard', () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 
+  test('opens from card keyboard activation without scrolling or activating inner actions', () => {
+    const onClick = vi.fn()
+    const onPublish = vi.fn()
+    render(
+      <TaskCard task={{ ...mockTask, state: 'backlog' }} onClick={onClick} onPublish={onPublish} />
+    )
+    const card = screen.getByTestId('task-card-task-1')
+    expect(fireEvent.keyDown(card, { key: ' ', cancelable: true })).toBe(false)
+    fireEvent.keyDown(card, { key: 'Enter' })
+    expect(onClick).toHaveBeenCalledTimes(2)
+    const send = screen.getByRole('button', {
+      name: 'Preview and send Refactor database migration',
+    })
+    fireEvent.keyDown(send, { key: 'Enter' })
+    expect(onClick).toHaveBeenCalledTimes(2)
+    fireEvent.click(send)
+    expect(onPublish).toHaveBeenCalledOnce()
+    expect(onClick).toHaveBeenCalledTimes(2)
+  })
+
   test('shows a queued wait estimate with a why hint', () => {
     render(
       <TaskCard

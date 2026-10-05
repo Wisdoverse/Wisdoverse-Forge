@@ -12,7 +12,7 @@
      ----------------------------------------------------------------------------- */
   --color-bg-primary: var(--primitive-white); /* Main app background */
   --color-bg-surface: var(--primitive-white); /* Cards, panels */
-  --color-bg-subtle: var(--primitive-gray-100); /* #f5f5f7 - Apple gray */
+  --color-bg-subtle: #f4f6f8;
   --color-bg-muted: var(--primitive-gray-150); /* #e8e8ed - Deeper gray */
   --color-bg-elevated: var(--primitive-white); /* Elevated elements (modals) */
   --color-bg-hover: var(--primitive-alpha-black-4); /* Hover state */
@@ -22,11 +22,11 @@
   /* -----------------------------------------------------------------------------
      Text Colors
      ----------------------------------------------------------------------------- */
-  --color-text-primary: var(--primitive-gray-900); /* #1d1d1f - Apple black */
-  --color-text-secondary: #424245; /* Secondary text */
-  --color-text-muted: var(--primitive-gray-400); /* #86868b - Muted text */
+  --color-text-primary: #19212e;
+  --color-text-secondary: #5f6673; /* Secondary text */
+  --color-text-muted: #5f6673;
   --color-text-disabled: var(--primitive-gray-300); /* #aeaeb2 - Disabled */
-  --color-text-placeholder: var(--primitive-gray-400); /* Placeholder text */
+  --color-text-placeholder: #5f6673; /* Placeholder text */
   --color-text-inverse: var(--primitive-white); /* Text on dark backgrounds */
 
   /* -----------------------------------------------------------------------------
@@ -88,7 +88,7 @@
   --color-input-border: var(--primitive-alpha-black-12);
   --color-input-border-hover: var(--primitive-alpha-black-20);
   --color-input-border-focus: #0071e3;
-  --color-input-placeholder: var(--primitive-gray-400);
+  --color-input-placeholder: #5f6673;
 
   /* -----------------------------------------------------------------------------
      Shadows (Light theme uses softer, more refined shadows)

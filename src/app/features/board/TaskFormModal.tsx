@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bug,
@@ -209,7 +209,7 @@ export function TaskFormModal({
   const assignedToRef = useRef('')
   const uploadImage = useAgentsStore((state) => state.uploadImage)
 
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const errorBannerRef = useRef<HTMLDivElement>(null)
   const projectId = watch('projectId')
   const selectedProject = projects.find((project) => project.id === projectId)
@@ -376,14 +376,14 @@ export function TaskFormModal({
     if (isOpen) setValue('projectId', selectedProjectId ?? '')
   }, [isOpen, selectedProjectId, setValue])
 
-  useEffect(() => {
-    if (!isOpen) return
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (isOpen && !dialog.open) {
+      dialog.showModal()
+      setFocus('title')
+    } else if (!isOpen && dialog.open) dialog.close()
+  }, [isOpen, setFocus])
 
   useEffect(() => {
     if (!isOpen) return
@@ -402,8 +402,6 @@ export function TaskFormModal({
       cancelled = true
     }
   }, [isOpen, projectId])
-
-  if (!isOpen) return null
 
   async function handleFormSubmit(data: TaskFormData) {
     setSubmitError(null)
@@ -447,6 +445,8 @@ export function TaskFormModal({
     onClose()
   }
 
+  if (!isOpen) return <dialog ref={dialogRef} onClose={onClose} />
+
   async function handleProjectChange(projectId: string) {
     setSubmitError(null)
     setDependencyIds([])
@@ -485,22 +485,26 @@ export function TaskFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="task-form-title"
-        className={cn(
-          'relative max-h-[80vh] w-[480px] max-w-[calc(100vw-24px)] overflow-y-auto',
-          'rounded-panel border border-black/[0.08] bg-white p-6 dark:border-white/[0.1] dark:bg-[#2c2c2e]'
-        )}
-      >
+    <dialog
+      ref={dialogRef}
+      aria-modal="true"
+      aria-labelledby="task-form-title"
+      onCancel={onClose}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target !== e.currentTarget) return
+        const bounds = e.currentTarget.getBoundingClientRect()
+        if (
+          e.clientX < bounds.left ||
+          e.clientX > bounds.right ||
+          e.clientY < bounds.top ||
+          e.clientY > bounds.bottom
+        )
+          onClose()
+      }}
+      className="m-auto max-h-[calc(100dvh-32px)] w-[480px] max-w-[calc(100vw-32px)] overflow-y-auto rounded-panel border border-black/[0.1] bg-white p-4 text-foreground-light shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-sm dark:border-white/[0.12] dark:bg-surface-dark dark:text-foreground-dark sm:p-6"
+    >
+      <div>
         <div className="flex items-center justify-between mb-4">
           <div className="min-w-0">
             <h2 id="task-form-title" className="text-ui-title font-semibold">
@@ -515,7 +519,7 @@ export function TaskFormModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="flex h-7 w-7 items-center justify-center rounded-button text-secondary-light transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-button text-secondary-light sm:h-8 sm:w-8 transition-colors hover:bg-black/[0.04] hover:text-foreground-light dark:text-secondary-dark dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark"
           >
             <X size={14} strokeWidth={2} />
           </button>
@@ -891,7 +895,9 @@ export function TaskFormModal({
             <input
               id="task-title"
               autoComplete="off"
-              {...register('title', { required: 'Add a short title so the agent knows the goal.' })}
+              {...register('title', {
+                required: 'Add a short title so the agent knows the goal.',
+              })}
               aria-invalid={errors.title ? 'true' : undefined}
               aria-describedby={errors.title ? 'task-title-error' : 'task-title-help'}
               className={uiStyles.input}
@@ -1195,7 +1201,7 @@ export function TaskFormModal({
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   )
 }
 

@@ -9,7 +9,10 @@ interface SidebarHeaderProps {
 export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
   return (
     <div
-      className={cn('flex items-center px-3 py-3', expanded ? 'justify-between' : 'justify-center')}
+      className={cn(
+        'flex items-center py-2',
+        expanded ? 'justify-between px-2' : 'justify-center px-0.5'
+      )}
     >
       {expanded ? (
         <div data-testid="sidebar-logo" className="flex min-w-0 items-center gap-2">
@@ -26,7 +29,7 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           aria-label="Expand left menu"
           title="Expand left menu"
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-button bg-apple-blue',
+            'flex h-11 w-11 items-center justify-center rounded-button bg-apple-blue',
             'text-ui-body font-bold text-white transition-transform active:scale-95',
             'cursor-pointer hover:bg-apple-blue-focus'
           )}
@@ -42,7 +45,7 @@ export function SidebarHeader({ expanded, onToggle }: SidebarHeaderProps) {
           aria-label="Collapse left menu"
           title="Collapse left menu"
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-button',
+            'flex h-11 w-11 items-center justify-center rounded-button',
             'text-secondary-light dark:text-secondary-dark',
             'hover:bg-black/[0.04] hover:text-foreground-light dark:hover:bg-white/[0.06] dark:hover:text-foreground-dark',
             'transition-colors'

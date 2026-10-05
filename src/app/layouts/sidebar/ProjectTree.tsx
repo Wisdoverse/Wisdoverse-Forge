@@ -330,7 +330,7 @@ function ProjectMenuItem({ Icon, label, detail, tone = 'default', onClick }: Pro
       type="button"
       role="menuitem"
       className={cn(
-        'flex w-full items-center gap-2 rounded-button px-2.5 py-2 text-left transition-colors',
+        'flex min-h-11 w-full items-center gap-2 rounded-button px-2.5 py-2 text-left transition-colors sm:min-h-0',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35',
         tone === 'danger'
           ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
@@ -382,7 +382,7 @@ function EmptyTreeHint({ title, detail, actionLabel, Icon, onAction, testId }: E
         <button
           type="button"
           className={cn(
-            'mt-2 inline-flex items-center gap-1.5 rounded-button px-2 py-1 text-ui-caption font-medium',
+            'mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-button px-2 py-1 text-ui-caption font-medium sm:min-h-0',
             'text-apple-blue hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue/35'
           )}
           onClick={onAction}
@@ -751,7 +751,7 @@ export function ProjectTree({
               onClick={() => onToggleTeam(team.id)}
               onContextMenu={(event) => handleTeamContextMenu(event, team)}
               className={cn(
-                'flex w-full items-center gap-1.5 rounded-button px-2 py-1 text-ui-body',
+                'flex min-h-11 w-full items-center gap-1.5 rounded-button px-2 py-1 text-ui-body sm:min-h-0',
                 'text-secondary-light dark:text-secondary-dark',
                 'transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
               )}
@@ -779,7 +779,7 @@ export function ProjectTree({
                       onClick={() => onSelectProject(project.id)}
                       onContextMenu={(event) => handleProjectContextMenu(event, team, project)}
                       className={cn(
-                        'flex w-full items-center gap-2 rounded-button px-2 py-1 text-left text-ui-body transition-colors',
+                        'flex min-h-11 w-full items-center gap-2 rounded-button px-2 py-1 text-left text-ui-body transition-colors sm:min-h-0',
                         selectedProjectId === project.id
                           ? 'bg-apple-blue/10 text-apple-blue font-medium'
                           : 'text-foreground-light dark:text-foreground-dark hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
@@ -831,7 +831,7 @@ export function ProjectTree({
               <button
                 type="button"
                 role="menuitem"
-                className="w-full rounded-button px-2.5 py-1.5 text-left text-ui-caption text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06]"
+                className="min-h-11 w-full rounded-button px-2.5 py-1.5 text-left text-ui-caption text-foreground-light hover:bg-black/[0.04] dark:text-foreground-dark dark:hover:bg-white/[0.06] sm:min-h-0"
                 onClick={() => openTeamEditor(teamMenu.team)}
               >
                 Edit team details
@@ -841,7 +841,7 @@ export function ProjectTree({
               <button
                 type="button"
                 role="menuitem"
-                className="w-full rounded-button px-2.5 py-1.5 text-left text-ui-caption text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="min-h-11 w-full rounded-button px-2.5 py-1.5 text-left text-ui-caption text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 sm:min-h-0"
                 onClick={() => handleDeleteTeam(teamMenu.team)}
               >
                 Delete Team
@@ -984,7 +984,7 @@ export function ProjectTree({
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-details-title"
-            className="relative w-[360px] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
+            className="relative w-[360px] max-w-[calc(100vw-32px)] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
             onSubmit={handleSaveTeam}
           >
             <h2
@@ -1046,7 +1046,7 @@ export function ProjectTree({
             role="dialog"
             aria-modal="true"
             aria-labelledby="project-config-title"
-            className="relative w-[360px] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
+            className="relative w-[360px] max-w-[calc(100vw-32px)] rounded-card border border-black/[0.08] bg-white p-5 shadow-xl dark:border-white/[0.1] dark:bg-surface-dark"
             onSubmit={handleSaveProject}
           >
             <h2

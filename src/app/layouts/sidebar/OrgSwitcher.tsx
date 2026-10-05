@@ -44,7 +44,7 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
         aria-label={`Team space selector: ${selectedName}`}
         title="Choose team space"
         className={cn(
-          'flex w-full items-center gap-2 rounded-button px-2 py-1.5 text-ui-body transition-colors',
+          'flex min-h-11 w-full items-center gap-2 rounded-button px-2 py-1.5 sm:min-h-0 text-ui-body transition-colors',
           'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
         )}
       >
@@ -92,7 +92,7 @@ export function OrgSwitcher({ orgs, selectedOrgId, onSelect }: OrgSwitcherProps)
                 setOpen(false)
               }}
               className={cn(
-                'w-full flex items-center gap-2 px-3 py-1.5 text-ui-body text-left',
+                'w-full flex min-h-11 items-center gap-2 px-3 py-1.5 sm:min-h-0 text-ui-body text-left',
                 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]',
                 org.id === selectedOrgId && 'text-apple-blue font-medium'
               )}

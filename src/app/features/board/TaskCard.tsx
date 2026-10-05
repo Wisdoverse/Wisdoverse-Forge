@@ -212,12 +212,16 @@ export function TaskCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onClick?.()
+        if (e.target !== e.currentTarget || e.defaultPrevented) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
       }}
       className={cn(
-        'cursor-pointer rounded-card border border-black/[0.08] bg-white text-left dark:border-white/[0.1] dark:bg-[#2c2c2e]',
+        'cursor-pointer rounded-card border border-black/[0.08] bg-white text-left dark:border-white/[0.1] dark:bg-surface-dark-elevated',
         compact ? 'p-2.5' : 'p-3',
-        'transition-colors hover:border-apple-blue/30 hover:bg-white dark:hover:border-apple-blue/35 dark:hover:bg-white/[0.05]',
+        'shadow-sm transition-colors hover:border-apple-blue/30 hover:bg-white dark:hover:border-apple-blue/35 dark:hover:bg-white/[0.05]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus',
         isDragging && 'opacity-50'
       )}
@@ -260,7 +264,7 @@ export function TaskCard({
                 void updatePriority(event.target.value as TaskSummary['priority'])
               }
               className={cn(
-                'h-7 w-[5.5rem] rounded-full border border-black/[0.08] bg-transparent px-2 text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.12] dark:text-foreground-dark',
+                'h-11 w-[5.5rem] rounded-button sm:h-7 border border-black/[0.08] bg-transparent px-2 text-ui-caption font-medium text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.12] dark:text-foreground-dark',
                 task.priority === 'urgent' && 'text-apple-red'
               )}
             >
@@ -291,7 +295,7 @@ export function TaskCard({
                 event.stopPropagation()
                 onPublish(task)
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-button text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
+              className="flex h-11 w-11 items-center sm:h-7 sm:w-7 justify-center rounded-button text-apple-blue transition-colors hover:bg-apple-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus"
             >
               <Send size={13} strokeWidth={2} aria-hidden="true" />
             </button>

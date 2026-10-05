@@ -93,6 +93,18 @@ describe('CommandPalette', () => {
     expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
+  test('closes on Ctrl+K in search but keeps composing input open', () => {
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen={true} onClose={onClose} />)
+    const input = screen.getByLabelText('Search pages and things to do')
+
+    fireEvent.keyDown(input, { key: 'k', ctrlKey: true, isComposing: true })
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(input, { key: 'k', ctrlKey: true })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   test('shows navigation commands', () => {
     useContextFeaturesStore.setState({ governance: true, loaded: true, loading: false })
 

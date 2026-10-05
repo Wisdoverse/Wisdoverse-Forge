@@ -51,27 +51,40 @@ describe('BoardToolbar', () => {
     })
 
     const selector = screen.getByRole('combobox', { name: 'Place for new tasks' })
-    const filters = screen.getByRole('button', { name: /^filters$/i })
+    const filters = screen.getByRole('button', { name: /^filters and options/i })
     expect(selector.compareDocumentPosition(filters) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(4)
   })
 
-  test('keeps advanced task filters collapsed until the user asks for them', () => {
-    renderToolbar()
+  test('keeps advanced options collapsed until the user asks for them', () => {
+    const props = renderToolbar({ onExportTasks: vi.fn(), onRetireStale: vi.fn() })
 
-    const filtersButton = screen.getByRole('button', { name: /^filters$/i })
+    const filtersButton = screen.getByRole('button', { name: /^filters and options/i })
     expect(filtersButton).toHaveAttribute('aria-expanded', 'false')
+    expect(document.getElementById(filtersButton.getAttribute('aria-controls')!)).toBeNull()
     expect(screen.queryByRole('group', { name: /filter tasks by priority/i })).toBeNull()
     expect(
       screen.queryByRole('group', { name: /filter tasks by whether an agent is chosen/i })
     ).toBeNull()
+    expect(screen.queryByRole('group', { name: /choose card detail level/i })).toBeNull()
+    expect(screen.queryByTestId('board-export-tasks')).toBeNull()
+    expect(screen.queryByTestId('board-retire-stale')).toBeNull()
 
     fireEvent.click(filtersButton)
 
     expect(filtersButton).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(filtersButton.getAttribute('aria-controls')!)).not.toBeNull()
     expect(screen.getByRole('group', { name: /filter tasks by priority/i })).toBeDefined()
     expect(
       screen.getByRole('group', { name: /filter tasks by whether an agent is chosen/i })
     ).toBeDefined()
+    expect(screen.getByRole('group', { name: /choose card detail level/i })).toBeDefined()
+    expect(screen.getByTestId('board-export-tasks')).toBeDefined()
+    expect(screen.getByTestId('board-retire-stale')).toBeDefined()
+
+    fireEvent.click(screen.getByTestId('board-export-tasks'))
+    fireEvent.click(screen.getByTestId('board-retire-stale'))
+    expect(props.onExportTasks).toHaveBeenCalledOnce()
+    expect(props.onRetireStale).toHaveBeenCalledOnce()
   })
 
   test('uses beginner-friendly filter labels and task counts', () => {
@@ -84,7 +97,7 @@ describe('BoardToolbar', () => {
       'Search only narrows tasks shown below. Use Show all tasks to return to the full board.'
     )
     expect(screen.queryByPlaceholderText(/blockers/i)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /^filters$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^filters and options/i }))
     expect(
       screen.getByRole('button', { name: /show tasks at all priority levels, 6 matching tasks/i })
     ).toBeDefined()
@@ -107,7 +120,7 @@ describe('BoardToolbar', () => {
     const props = renderToolbar()
     const toolbar = screen.getByTestId('board-toolbar')
 
-    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters$/i }))
+    fireEvent.click(within(toolbar).getByRole('button', { name: /^filters and options/i }))
     fireEvent.click(
       within(toolbar).getByRole('button', { name: /show urgent priority tasks, 1 matching task/i })
     )

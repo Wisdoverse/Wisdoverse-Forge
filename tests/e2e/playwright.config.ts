@@ -27,6 +27,7 @@ export default defineConfig({
   testDir: './specs',
   testMatch: [
     'react-app-smoke.spec.ts',
+    'ui-modernization.spec.ts',
     'getting-started.spec.ts',
     'legacy-nav-golden.spec.ts',
     'auth-reset-password.spec.ts',

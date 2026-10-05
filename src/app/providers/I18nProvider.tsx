@@ -20,6 +20,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LANG_KEY, lang)
   }, [])
 
+  useEffect(() => {
+    document.documentElement.lang = language
+  }, [language])
+
   // Keep state in sync if i18n changes externally
   useEffect(() => {
     const handleChanged = (lng: string) => {

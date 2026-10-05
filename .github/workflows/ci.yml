@@ -316,8 +316,8 @@ jobs:
       - name: Resolve Chromium executable path
         run: |
           echo "PLAYWRIGHT_CHROMIUM_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
-      - name: Run E2E smoke (fully-mocked specs)
-        run: npm run test:e2e -- react-app-smoke.spec.ts provider-prompt.spec.ts
+      - name: Run E2E smoke and UI interactions
+        run: npm run test:e2e -- react-app-smoke.spec.ts provider-prompt.spec.ts ui-modernization.spec.ts
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

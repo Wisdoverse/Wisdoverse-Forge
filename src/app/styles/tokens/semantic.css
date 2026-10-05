@@ -10,11 +10,11 @@
   /* -----------------------------------------------------------------------------
      Background Colors
      ----------------------------------------------------------------------------- */
-  --color-bg-primary: var(--primitive-gray-950); /* Main app background */
-  --color-bg-surface: var(--primitive-gray-850); /* Cards, panels */
-  --color-bg-subtle: var(--primitive-gray-800); /* Secondary surfaces */
+  --color-bg-primary: #151a22; /* Main app background */
+  --color-bg-surface: #1e2530; /* Cards, panels */
+  --color-bg-subtle: #252f3b; /* Secondary surfaces */
   --color-bg-muted: var(--primitive-gray-700); /* Tertiary surfaces */
-  --color-bg-elevated: var(--primitive-gray-800); /* Elevated elements (modals) */
+  --color-bg-elevated: #252f3b; /* Elevated elements (modals) */
   --color-bg-hover: var(--primitive-alpha-white-5); /* Hover state */
   --color-bg-active: var(--primitive-alpha-white-10); /* Active/pressed state */
   --color-bg-selected: var(--primitive-alpha-white-10); /* Selected state */
@@ -22,9 +22,9 @@
   /* -----------------------------------------------------------------------------
      Text Colors (WCAG AA compliant - 4.5:1 minimum contrast ratio)
      ----------------------------------------------------------------------------- */
-  --color-text-primary: var(--primitive-white); /* Main text */
-  --color-text-secondary: var(--primitive-alpha-white-80); /* Secondary text */
-  --color-text-muted: rgba(255, 255, 255, 0.7); /* Muted/helper text - WCAG AA compliant */
+  --color-text-primary: #edf1f7; /* Main text */
+  --color-text-secondary: #b1b8c4; /* Secondary text */
+  --color-text-muted: #b1b8c4; /* Muted/helper text - WCAG AA compliant */
   --color-text-disabled: rgba(255, 255, 255, 0.5); /* Disabled text - explicit color */
   --color-text-placeholder: rgba(255, 255, 255, 0.5); /* Placeholder text - 3:1 minimum */
   --color-text-inverse: var(--primitive-gray-900); /* Text on light backgrounds */

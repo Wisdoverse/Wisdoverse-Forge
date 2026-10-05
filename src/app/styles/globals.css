@@ -2,12 +2,36 @@
 
 @config "../../../tailwind.config.ts";
 
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-SemiBold.woff2') format('woff2');
+}
+
 @layer base {
   :root {
-    --background: 247 247 248;
-    --foreground: 29 29 31;
+    --background: 244 246 248;
+    --foreground: 25 33 46;
     --surface: 255 255 255;
-    --secondary: 122 122 122;
+    --secondary: 95 102 115;
     --border: 0 0 0 / 0.08;
     --ring: 0 113 227;
     --radius: 8px;
@@ -15,26 +39,17 @@
   }
 
   .dark {
-    --background: 28 28 30;
-    --foreground: 245 245 247;
-    --surface: 35 35 38;
-    --secondary: 204 204 204;
+    --background: 21 26 34;
+    --foreground: 237 241 247;
+    --surface: 30 37 48;
+    --secondary: 177 184 196;
     --border: 255 255 255 / 0.1;
     --ring: 41 151 255;
     color-scheme: dark;
   }
 
   body {
-    font-family:
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      'SF Pro Display',
-      'SF Pro Text',
-      Inter,
-      'Helvetica Neue',
-      Arial,
-      sans-serif;
+    font-family: 'IBM Plex Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     letter-spacing: 0;
     color: rgb(var(--foreground));
     background: rgb(var(--background));
@@ -54,6 +69,7 @@
     input,
     select,
     textarea,
+    summary,
     [tabindex]:not([tabindex='-1'])
   ):focus-visible {
     outline: 2px solid rgb(var(--ring));

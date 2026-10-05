@@ -67,7 +67,7 @@ beforeEach(() => {
   if (!document.querySelector('meta[name="theme-color"]')) {
     const meta = document.createElement('meta')
     meta.setAttribute('name', 'theme-color')
-    meta.setAttribute('content', '#f5f5f7')
+    meta.setAttribute('content', '#f4f6f8')
     document.head.appendChild(meta)
   }
 })
@@ -173,13 +173,13 @@ describe('ThemeProvider', () => {
     )
 
     const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement
-    expect(meta.getAttribute('content')).toBe('#f5f5f7')
+    expect(meta.getAttribute('content')).toBe('#f4f6f8')
 
     await user.click(screen.getByText('SetDark'))
-    expect(meta.getAttribute('content')).toBe('#0f172a')
+    expect(meta.getAttribute('content')).toBe('#151a22')
 
     await user.click(screen.getByText('SetLight'))
-    expect(meta.getAttribute('content')).toBe('#f5f5f7')
+    expect(meta.getAttribute('content')).toBe('#f4f6f8')
   })
 
   test('follows system preference when no explicit choice stored', () => {

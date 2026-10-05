@@ -27,23 +27,23 @@ const config: Config = {
           elevated: 'rgba(255, 255, 255, 0.92)',
           light: '#FFFFFF',
           pearl: '#FAFAFC',
-          parchment: '#F5F5F7',
+          parchment: '#EDF1F7',
         },
         'surface-dark': {
-          DEFAULT: '#232326',
-          elevated: '#2A2A2C',
+          DEFAULT: '#1E2530',
+          elevated: '#252F3B',
         },
         background: {
-          light: '#F7F7F8',
-          dark: '#1C1C1E',
+          light: '#F4F6F8',
+          dark: '#151A22',
         },
         foreground: {
-          light: '#1D1D1F',
-          dark: '#F5F5F7',
+          light: '#19212E',
+          dark: '#EDF1F7',
         },
         secondary: {
-          light: '#86868B',
-          dark: '#98989D',
+          light: '#5F6673',
+          dark: '#B1B8C4',
         },
       },
       borderRadius: {
@@ -53,17 +53,7 @@ const config: Config = {
         badge: '9999px',
       },
       fontFamily: {
-        sans: [
-          'system-ui',
-          '-apple-system',
-          'BlinkMacSystemFont',
-          'SF Pro Display',
-          'SF Pro Text',
-          'Inter',
-          'Helvetica Neue',
-          'Arial',
-          'sans-serif',
-        ],
+        sans: ['IBM Plex Sans', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
         mono: ['SF Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       fontSize: {
