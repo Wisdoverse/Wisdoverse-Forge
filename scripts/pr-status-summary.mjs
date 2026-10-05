@@ -19,6 +19,7 @@ const MIN_MONITOR_CACHE_TTL_SECONDS = DEFAULT_MONITOR_CACHE_TTL_SECONDS
 const GH_FIELDS = [
   'autoMergeRequest',
   'headRefName',
+  'headRefOid',
   'isDraft',
   'mergeStateStatus',
   'number',

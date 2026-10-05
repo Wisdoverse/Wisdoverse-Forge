@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { describe, expect, it } from 'vitest'
 import {
   classifyPullRequest,
   renderSummary,
@@ -29,6 +31,7 @@ function pr(overrides: Record<string, unknown> = {}) {
   return {
     autoMergeRequest: { enabledAt: '2026-05-25T12:00:00Z' },
     headRefName: 'codex/example',
+    headRefOid: 'A'.repeat(40),
     isDraft: false,
     mergeStateStatus: 'BLOCKED',
     number: 101,
@@ -47,7 +50,181 @@ function pr(overrides: Record<string, unknown> = {}) {
   }
 }
 
+const summaryScript = fileURLToPath(
+  new URL('../../../scripts/pr-status-summary.mjs', import.meta.url)
+)
+
+function runSummaryCli(
+  cwd: string,
+  args: string[],
+  env: Record<string, string> = {},
+  preloadUrl = ''
+) {
+  const cliArgs = preloadUrl
+    ? ['--import', preloadUrl, summaryScript, ...args]
+    : [summaryScript, ...args]
+
+  return spawnSync(process.execPath, cliArgs, {
+    cwd,
+    encoding: 'utf8',
+    timeout: 10_000,
+    env: {
+      LANG: 'C',
+      LC_ALL: 'C',
+      PATH: '',
+      ...env,
+    },
+  })
+}
+
+function createGhPreload(cwd: string) {
+  const preloadPath = join(cwd, 'fake-gh-preload.mjs')
+  writeFileSync(
+    preloadPath,
+    `import childProcess from 'node:child_process'
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
+
+childProcess.spawnSync = (command, args = []) => {
+  if (command !== 'gh') throw new Error('unexpected child command')
+  appendFileSync(process.env.GH_CALLS_FILE, 'call\\n')
+  writeFileSync(process.env.GH_ARGS_FILE, JSON.stringify(args))
+  return {
+    status: 0,
+    stdout: readFileSync(process.env.GH_RESPONSE_FILE, 'utf8'),
+    stderr: '',
+  }
+}
+syncBuiltinESMExports()
+`
+  )
+  return pathToFileURL(preloadPath).href
+}
+
 describe('PR status summary', () => {
+  it.each(['ACTION', 'WAIT', 'DONE'] as const)(
+    'retains a normalized head SHA in %s items',
+    (status) => {
+      const input = pr({
+        autoMergeRequest: status === 'ACTION' ? null : { enabledAt: '2026-05-25T12:00:00Z' },
+        headRefOid: 'ABCDEF0123456789ABCDEF0123456789ABCDEF01',
+        mergeStateStatus: status === 'ACTION' ? 'DIRTY' : 'BLOCKED',
+        state: status === 'DONE' ? 'MERGED' : 'OPEN',
+      })
+
+      expect(classifyPullRequest(input)).toMatchObject({
+        headSha: 'abcdef0123456789abcdef0123456789abcdef01',
+        status,
+      })
+    }
+  )
+
+  it.each([
+    ['missing', undefined],
+    ['non-string', 123],
+    ['short', 'a'.repeat(39)],
+    ['non-hex', 'g'.repeat(40)],
+    ['whitespace', `${'a'.repeat(39)} `],
+  ])('returns an unknown head SHA for %s input', (_label, headRefOid) => {
+    expect(classifyPullRequest(pr({ headRefOid })).headSha).toBeNull()
+  })
+
+  it('propagates the head SHA through the CLI input snapshot', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'pr-summary-input-'))
+    const inputFile = join(tmp, 'prs.json')
+
+    try {
+      writeFileSync(inputFile, JSON.stringify([pr()]))
+      const result = runSummaryCli(tmp, ['--input', inputFile, '--json'])
+
+      expect(result.status).toBe(0)
+      expect(JSON.parse(result.stdout).wait[0].headSha).toBe('a'.repeat(40))
+    } finally {
+      rmSync(tmp, { force: true, recursive: true })
+    }
+  })
+
+  it('queries, caches, and replays the head SHA without a second GitHub read', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'pr-summary-gh-'))
+    const cacheFile = join(tmp, 'cache.json')
+    const callsFile = join(tmp, 'calls.txt')
+    const argsFile = join(tmp, 'args.txt')
+    const responseFile = join(tmp, 'response.json')
+    const response = [pr()]
+
+    try {
+      const preloadUrl = createGhPreload(tmp)
+      writeFileSync(responseFile, JSON.stringify(response))
+      const env = {
+        GH_ARGS_FILE: argsFile,
+        GH_CALLS_FILE: callsFile,
+        GH_RESPONSE_FILE: responseFile,
+      }
+
+      const queried = runSummaryCli(tmp, ['--cache-file', cacheFile, '--json'], env, preloadUrl)
+      expect(queried.status).toBe(0)
+      expect(JSON.parse(queried.stdout).wait[0].headSha).toBe('a'.repeat(40))
+      const capturedArgs = JSON.parse(readFileSync(argsFile, 'utf8'))
+      expect(capturedArgs.slice(0, 4)).toEqual(['pr', 'list', '--state', 'open'])
+      expect(capturedArgs[capturedArgs.indexOf('--json') + 1].split(',')).toContain('headRefOid')
+
+      const replayed = runSummaryCli(
+        tmp,
+        ['--cache-file', cacheFile, '--local-only', '--json'],
+        env,
+        preloadUrl
+      )
+      expect(replayed.status).toBe(0)
+      expect(JSON.parse(replayed.stdout).wait[0].headSha).toBe('a'.repeat(40))
+      expect(readFileSync(callsFile, 'utf8')).toBe('call\n')
+    } finally {
+      rmSync(tmp, { force: true, recursive: true })
+    }
+  })
+
+  it('rejects an old field-list cache in local-only mode without calling GitHub', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'pr-summary-old-cache-'))
+    const cacheFile = join(tmp, 'cache.json')
+    const callsFile = join(tmp, 'calls.txt')
+    const argsFile = join(tmp, 'args.txt')
+    const responseFile = join(tmp, 'response.json')
+    const options = parseArgs([])
+    const oldQuery = {
+      ...cacheQuery(options),
+      fields: cacheQuery(options).fields.replace(',headRefOid', ''),
+    }
+
+    try {
+      const preloadUrl = createGhPreload(tmp)
+      writeFileSync(responseFile, JSON.stringify([pr()]))
+      writeFileSync(
+        cacheFile,
+        `${JSON.stringify({
+          version: CACHE_VERSION,
+          fetchedAt: Date.now(),
+          query: oldQuery,
+          pullRequests: [pr()],
+        })}\n`
+      )
+      const result = runSummaryCli(
+        tmp,
+        ['--cache-file', cacheFile, '--local-only', '--json'],
+        {
+          GH_ARGS_FILE: argsFile,
+          GH_CALLS_FILE: callsFile,
+          GH_RESPONSE_FILE: responseFile,
+        },
+        preloadUrl
+      )
+
+      expect(result.status).toBe(2)
+      expect(result.stderr).toContain('local PR snapshot does not match this query')
+      expect(existsSync(callsFile)).toBe(false)
+    } finally {
+      rmSync(tmp, { force: true, recursive: true })
+    }
+  })
+
   it('keeps review-required and pending-check PRs in WAIT when auto-merge is enabled', () => {
     const item = classifyPullRequest(pr())
 

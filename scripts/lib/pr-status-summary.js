@@ -86,6 +86,10 @@ function buildItem(pr, status, reasons, failedChecks, pendingChecks) {
     number: Number(pr.number),
     title: typeof pr.title === 'string' ? pr.title : '',
     branch: typeof pr.headRefName === 'string' ? pr.headRefName : '',
+    headSha:
+      typeof pr.headRefOid === 'string' && /^[a-f\d]{40}$/i.test(pr.headRefOid)
+        ? pr.headRefOid.toLowerCase()
+        : null,
     url: typeof pr.url === 'string' ? pr.url : '',
     reasons,
     failedChecks,

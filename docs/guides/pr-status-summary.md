@@ -264,7 +264,7 @@ The script can read a saved `gh pr list` JSON file:
 
 ```bash
 gh pr list --state open --limit 120 \
-  --json autoMergeRequest,headRefName,isDraft,mergeStateStatus,number,reviewDecision,state,statusCheckRollup,title,url \
+  --json autoMergeRequest,headRefName,headRefOid,isDraft,mergeStateStatus,number,reviewDecision,state,statusCheckRollup,title,url \
   > /tmp/prs.json
 
 npm run pr:summary -- --input /tmp/prs.json
@@ -272,3 +272,11 @@ npm run pr:summary -- --input /tmp/prs.json
 
 Use the JSON form when another system already collected the PR state and you
 want the agent to read only the compact summary.
+
+Every JSON item includes `headSha`: a valid 40-character hexadecimal
+`headRefOid` is normalized to lowercase, and a missing or malformed value is
+`null`. It identifies the PR head represented by the snapshot; it does not
+prove CI success, review approval, or mergeability. Local-only snapshots
+collected with the previous field list are rejected. When a remote read is
+authorized, refresh once with `npm run pr:summary:refresh` before using the
+local-only command again.
