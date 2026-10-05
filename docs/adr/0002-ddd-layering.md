@@ -64,5 +64,5 @@ directly on `domain::`.
   anti-patterns.
 - `docs/architecture/aggregate-catalog.md` — current aggregates and their
   module paths.
-- `AGENTS.md` — "Backend Contracts" section.
+- [Backend API and data rules](../agents/backend.md#api-and-data).
 - PR series #210–#228, #289, #290 — concrete examples of the refactor.

@@ -38,6 +38,7 @@ review.
 
 ## References
 
-- `AGENTS.md` — "Current Runtime Contract" and "Repository Map" sections.
+- [Backend runtime rules](../agents/backend.md#runtime).
+- [Repository map](../../README.md#repository-map-for-agents).
 - `docs/architecture/overview.md` — system context and service inventory.
 - `docs/runbooks/runtime-validation.md` — proofed runtime boundary.
