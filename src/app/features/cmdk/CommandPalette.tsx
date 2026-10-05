@@ -279,6 +279,14 @@ export function CommandPalette({
       aria-describedby="command-palette-help"
       onCancel={onClose}
       onClose={onClose}
+      onKeyDownCapture={(e) => {
+        if (e.nativeEvent.isComposing) return
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault()
+          e.stopPropagation()
+          onClose()
+        }
+      }}
       onClick={(e) => {
         if (e.target !== e.currentTarget) return
         const bounds = e.currentTarget.getBoundingClientRect()

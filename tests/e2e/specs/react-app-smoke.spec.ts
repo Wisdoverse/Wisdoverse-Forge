@@ -577,8 +577,12 @@ test.describe('React App Smoke Tests', () => {
 
     test('top bar search button opens command palette', async ({ page }) => {
       const searchButton = page.getByTestId('top-bar-command-search')
-      await expect(searchButton).toHaveClass(/\bh-8\b/)
-      await expect(searchButton).toHaveText('')
+      await expect(searchButton).toBeVisible()
+      await expect(searchButton).toHaveAccessibleName('Search pages and things to do')
+      const bounds = await searchButton.boundingBox()
+      expect(bounds).not.toBeNull()
+      expect(bounds!.width).toBeGreaterThanOrEqual(44)
+      expect(bounds!.height).toBeGreaterThanOrEqual(44)
       await searchButton.click()
 
       await expect(page.getByPlaceholder(/Search what you want to do/)).toBeVisible({
@@ -1422,8 +1426,7 @@ test.describe('React App Smoke Tests', () => {
       const input = page.getByPlaceholder(/Search what you want to do/)
       await expect(input).toBeVisible({ timeout: 5000 })
 
-      // cmdk captures Escape on the input element — click backdrop instead
-      await page.mouse.click(5, 5)
+      await page.keyboard.press('Escape')
       await expect(input).toBeHidden({ timeout: 3000 })
     })
   })

@@ -200,6 +200,13 @@ test.describe('UI modernization', () => {
     await page.keyboard.press('Escape')
     await expect(palette).toBeHidden()
     await expect(trigger).toBeFocused()
+
+    await page.keyboard.press('Control+k')
+    await expect(palette).toBeVisible()
+    await expect(searchInput).toBeFocused()
+    await page.keyboard.press('Control+k')
+    await expect(palette).toBeHidden()
+    await expect(trigger).toBeFocused()
   })
 
   test('opens the ready task form and returns focus without sending a task', async ({
