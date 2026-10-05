@@ -53,6 +53,5 @@ chain take over.
 ## References
 
 - `rust/crates/core/src/error.rs` — `AppError`, `ErrorKind`, `IntoResponse`.
-- `AGENTS.md` — "Backend Contracts" / "Rust error handling follows the
-  3-layer pattern".
+- [Backend API and data rules](../agents/backend.md#api-and-data).
 - `thiserror`, `anyhow`, and Axum `IntoResponse` upstream documentation.

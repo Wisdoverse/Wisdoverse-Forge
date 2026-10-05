@@ -54,5 +54,5 @@ regressions.
 
 - `src/app/` — current layout.
 - `npm run fsd:check` — boundary linter.
-- `AGENTS.md` — "Frontend Contracts" section.
+- [Frontend Feature-Sliced Design rules](../agents/frontend.md#feature-sliced-design).
 - Feature-Sliced Design upstream docs.

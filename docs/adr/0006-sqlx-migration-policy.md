@@ -53,6 +53,6 @@ LOCKED`. `pg_notify` is a wake-up signal only; a polling fallback must
 
 - `rust/crates/db/migrations/` — current migration set.
 - `docs/guides/disaster-recovery.md` — backup and restore procedure.
-- `AGENTS.md` — "Backend Contracts" / "DB migrations" section.
+- [Backend database and queue rules](../agents/backend.md#database-and-queue).
 - `agentforge-jobs` source — the `pg_notify` + `FOR UPDATE SKIP LOCKED`
   pattern.

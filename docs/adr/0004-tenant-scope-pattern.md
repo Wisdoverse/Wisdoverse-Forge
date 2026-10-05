@@ -58,5 +58,5 @@ claims through the same middleware path before reaching application code.
 
 - `rust/crates/core/src/tenant.rs` — `TenantScope` definition.
 - `rust/crates/auth/src/middleware.rs` — the sole constructor.
-- `AGENTS.md` — "Backend Contracts" / "Tenant-scoped repository methods".
+- [Backend API and data rules](../agents/backend.md#api-and-data).
 - PR #289 — the most recent precedent for documenting a pre-auth exception.
