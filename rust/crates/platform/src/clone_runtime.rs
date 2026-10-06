@@ -90,7 +90,7 @@ use bollard::errors::Error as BollardError;
 use bollard::models::{ContainerCreateBody, HostConfig, NetworkCreateRequest, NetworkingConfig};
 use bollard::query_parameters::{
     CreateContainerOptions, InspectContainerOptions, ListContainersOptionsBuilder, RemoveContainerOptionsBuilder,
-    StartContainerOptions, WaitContainerOptionsBuilder,
+    WaitContainerOptionsBuilder,
 };
 use futures_util::StreamExt;
 use serde::Deserialize;
@@ -616,11 +616,7 @@ impl CloneDockerBackend for LiveCloneDockerBackend {
     }
 
     async fn start_container(&self, id: &str) -> AppResult<()> {
-        self.docker
-            .inner()
-            .start_container(id, None::<StartContainerOptions>)
-            .await
-            .map_err(|err| docker_error("start clone container", err))
+        self.docker.start_container(id).await.map_err(|err| docker_error("start clone container", err))
     }
 
     async fn wait_exit(&self, id: &str) -> AppResult<i64> {
@@ -1355,7 +1351,7 @@ fn civil_to_unix_secs(y: i64, m: i64, d: i64, hh: i64, mm: i64, ss: i64) -> i64 
     days * 86400 + hh * 3600 + mm * 60 + ss
 }
 
-fn docker_error(context: &str, err: BollardError) -> AppError {
+fn docker_error(context: &str, err: impl std::fmt::Display) -> AppError {
     // Docker errors are infrastructure-level; surface as Internal with context.
     AppError::from(ErrorKind::Internal(anyhow::anyhow!("{context}: {err}")))
 }

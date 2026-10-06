@@ -3,7 +3,9 @@
 //! Enforces hard denials for privileged containers, namespace-sharing network
 //! modes, forbidden mounts, and missing memory/pids resource limits.
 
-use crate::types::ContainerConfig;
+use bollard::models::ContainerInspectResponse;
+
+use crate::types::{ContainerConfig, Mount, ResourceLimits};
 
 /// A security policy violation detected during container config validation.
 #[derive(Debug, thiserror::Error)]
@@ -28,6 +30,18 @@ pub enum SecurityViolation {
 
     #[error("a pids limit is required")]
     MissingPidsLimit,
+
+    #[error("container security settings cannot be verified")]
+    UnverifiedRuntimeConfig,
+
+    #[error("all capabilities must be dropped without adding capabilities")]
+    Capabilities,
+
+    #[error("no-new-privileges must be enabled")]
+    NoNewPrivileges,
+
+    #[error("the PID namespace must be private")]
+    SharedPid,
 }
 
 /// Host directories that must never be bind-mounted into agent containers.
@@ -175,6 +189,126 @@ pub fn validate_security(config: &ContainerConfig) -> Result<(), Vec<SecurityVio
     if violations.is_empty() { Ok(()) } else { Err(violations) }
 }
 
+/// Validate the daemon's actual settings before starting or reusing a container.
+/// Only security fields are projected; image environment and credentials are not used.
+pub(crate) fn validate_runtime_security(container: &ContainerInspectResponse) -> Result<(), Vec<SecurityViolation>> {
+    let Some(host) = container.host_config.as_ref() else {
+        return Err(vec![SecurityViolation::UnverifiedRuntimeConfig]);
+    };
+    let mut violations = Vec::new();
+    if host.privileged.is_none() {
+        violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+    }
+    if host.network_mode.as_deref().is_none_or(str::is_empty) {
+        violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+    }
+    if !host.cap_drop.as_ref().is_some_and(|caps| caps.iter().any(|cap| cap.eq_ignore_ascii_case("ALL")))
+        || host.cap_add.as_ref().is_some_and(|caps| !caps.is_empty())
+    {
+        violations.push(SecurityViolation::Capabilities);
+    }
+    let nnp: Vec<_> =
+        host.security_opt.iter().flatten().filter(|option| option.starts_with("no-new-privileges")).collect();
+    if nnp.is_empty()
+        || nnp.iter().any(|option| {
+            !matches!(option.as_str(), "no-new-privileges" | "no-new-privileges:true" | "no-new-privileges=true")
+        })
+    {
+        violations.push(SecurityViolation::NoNewPrivileges);
+    }
+    if host.pid_mode.as_deref().is_some_and(|mode| !matches!(mode, "" | "private" | "host")) {
+        violations.push(SecurityViolation::SharedPid);
+    }
+
+    let actual_mounts = container.mounts.as_deref().unwrap_or_default();
+    let has_mount = |kind: &str, target: &str| {
+        actual_mounts
+            .iter()
+            .any(|mount| mount.typ.as_deref() == Some(kind) && mount.destination.as_deref() == Some(target))
+    };
+    for bind in host.binds.iter().flatten() {
+        let parts: Vec<_> = bind.split(':').collect();
+        if !(2..=3).contains(&parts.len()) || parts[0].is_empty() || !parts[1].starts_with('/') {
+            violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+            continue;
+        }
+        let kind = if parts[0].starts_with('/') { "bind" } else { "volume" };
+        if !has_mount(kind, parts[1]) {
+            violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+        }
+        if is_forbidden_mount(parts[0]) {
+            violations.push(SecurityViolation::ForbiddenMount(parts[0].to_owned()));
+        }
+    }
+    for mount in host.mounts.iter().flatten() {
+        let Some(target) = mount.target.as_deref().filter(|target| target.starts_with('/')) else {
+            violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+            continue;
+        };
+        match mount.typ {
+            Some(bollard::models::MountType::BIND) => {
+                let Some(source) = mount.source.as_deref().filter(|source| source.starts_with('/')) else {
+                    violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+                    continue;
+                };
+                if !has_mount("bind", target) {
+                    violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+                }
+                if is_forbidden_mount(source) {
+                    violations.push(SecurityViolation::ForbiddenMount(source.to_owned()));
+                }
+            }
+            Some(bollard::models::MountType::VOLUME) => {
+                if !has_mount("volume", target) {
+                    violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+                }
+            }
+            Some(bollard::models::MountType::TMPFS) => {}
+            _ => violations.push(SecurityViolation::UnverifiedRuntimeConfig),
+        }
+    }
+    let mut mounts = Vec::new();
+    for mount in actual_mounts {
+        if mount.destination.as_deref().is_none_or(|target| !target.starts_with('/')) {
+            violations.push(SecurityViolation::UnverifiedRuntimeConfig);
+            continue;
+        }
+        match mount.typ.as_deref() {
+            Some("bind") => match mount.source.as_deref() {
+                Some(source) if source.starts_with('/') => mounts.push(Mount {
+                    source: source.to_owned(),
+                    target: mount.destination.clone().unwrap_or_default(),
+                    read_only: mount.rw == Some(false),
+                }),
+                _ => violations.push(SecurityViolation::UnverifiedRuntimeConfig),
+            },
+            // Docker resolves named volumes below its own data root. They are
+            // not host bind mounts. Tmpfs may appear only in HostConfig.Tmpfs.
+            Some("volume" | "tmpfs") => {}
+            _ => violations.push(SecurityViolation::UnverifiedRuntimeConfig),
+        }
+    }
+    let config = ContainerConfig {
+        image: String::new(),
+        name: None,
+        working_dir: None,
+        env: Vec::new(),
+        labels: Default::default(),
+        resources: ResourceLimits { memory_bytes: host.memory, pids_limit: host.pids_limit, ..Default::default() },
+        network: host.network_mode.clone(),
+        mounts,
+        privileged: host.privileged == Some(true),
+        host_pid: host.pid_mode.as_deref() == Some("host"),
+        tty: false,
+        open_stdin: false,
+        attach_stdin: false,
+        attach_stdout: false,
+        attach_stderr: false,
+    };
+    violations.extend(validate_security(&config).err().unwrap_or_default());
+    if violations.is_empty() { Ok(()) } else { Err(violations) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,6 +338,126 @@ mod tests {
     #[test]
     fn accepts_valid_config() {
         assert!(validate_security(&valid_config()).is_ok());
+    }
+
+    fn runtime_config() -> ContainerInspectResponse {
+        let mut host = crate::container::agent_host_config(&valid_config());
+        // The daemon resolves an unspecified creation network to its default.
+        host.network_mode = Some("default".to_owned());
+        ContainerInspectResponse { host_config: Some(host), mounts: Some(Vec::new()), ..Default::default() }
+    }
+
+    #[test]
+    fn runtime_security_accepts_hardened_defaults_and_mount_types() {
+        assert!(validate_runtime_security(&runtime_config()).is_ok());
+        for value in ["no-new-privileges", "no-new-privileges:true", "no-new-privileges=true"] {
+            let mut container = runtime_config();
+            container.host_config.as_mut().unwrap().security_opt = Some(vec![value.to_owned()]);
+            container.host_config.as_mut().unwrap().cap_add = Some(Vec::new());
+            container.host_config.as_mut().unwrap().pid_mode = Some("private".to_owned());
+            assert!(validate_runtime_security(&container).is_ok(), "{value}");
+        }
+        for (kind, source) in [("bind", "/workspace/projects"), ("volume", "/var/lib/docker/volumes/fixture/_data")] {
+            let mut container = runtime_config();
+            let declared_source = if kind == "bind" { source } else { "fixture" };
+            container.host_config.as_mut().unwrap().binds = Some(vec![format!("{declared_source}:/workspace")]);
+            container.mounts = Some(vec![bollard::models::MountPoint {
+                typ: Some(kind.to_owned()),
+                source: Some(source.to_owned()),
+                destination: Some("/workspace".to_owned()),
+                ..Default::default()
+            }]);
+            assert!(validate_runtime_security(&container).is_ok(), "{kind}");
+        }
+        let mut container = runtime_config();
+        container.mounts = None;
+        container.host_config.as_mut().unwrap().tmpfs = Some(HashMap::from([("/tmp".to_owned(), "rw".to_owned())]));
+        assert!(validate_runtime_security(&container).is_ok());
+    }
+
+    #[test]
+    fn runtime_security_rejects_unsafe_or_missing_settings() {
+        use serde_json::json;
+        let base = serde_json::to_value(runtime_config()).unwrap();
+        let cases = [
+            ("Privileged", json!(true)),
+            ("Privileged", json!(null)),
+            ("Memory", json!(null)),
+            ("Memory", json!(0)),
+            ("Memory", json!(-1)),
+            ("PidsLimit", json!(null)),
+            ("PidsLimit", json!(0)),
+            ("PidsLimit", json!(-1)),
+            ("CapDrop", json!(null)),
+            ("CapDrop", json!([])),
+            ("CapDrop", json!(["NET_RAW"])),
+            ("CapAdd", json!(["ALL"])),
+            ("CapAdd", json!(["SYS_ADMIN"])),
+            ("SecurityOpt", json!(null)),
+            ("SecurityOpt", json!([])),
+            ("SecurityOpt", json!(["no-new-privileges=false"])),
+            ("SecurityOpt", json!(["no-new-privileges:false"])),
+            ("SecurityOpt", json!(["no-new-privileges=invalid"])),
+            ("SecurityOpt", json!(["no-new-privileges", "no-new-privileges=false"])),
+            ("PidMode", json!("host")),
+            ("PidMode", json!("container:another")),
+            ("PidMode", json!("ns:/proc/1/ns/pid")),
+            ("NetworkMode", json!("host")),
+            ("NetworkMode", json!("container:another")),
+            ("NetworkMode", json!("ns:/proc/1/ns/net")),
+            ("NetworkMode", json!("service:another")),
+            ("NetworkMode", json!(null)),
+            ("NetworkMode", json!("")),
+        ];
+        for (field, value) in cases {
+            let mut data = base.clone();
+            data["HostConfig"][field] = value;
+            let container = serde_json::from_value(data).unwrap();
+            assert!(validate_runtime_security(&container).is_err(), "{field}");
+        }
+        let mut container = runtime_config();
+        container.host_config = None;
+        assert!(validate_runtime_security(&container).is_err());
+    }
+
+    #[test]
+    fn runtime_security_rejects_forbidden_and_unverified_mounts() {
+        for (kind, source) in [
+            (Some("bind"), Some("/etc")),
+            (Some("bind"), Some("/safe/../var/run/docker.sock")),
+            (Some("bind"), Some("/")),
+            (Some("bind"), Some("relative-source")),
+            (Some("bind"), None),
+            (None, Some("/workspace")),
+            (Some("unknown"), Some("/workspace")),
+            (Some("npipe"), Some("docker_engine")),
+        ] {
+            let mut container = runtime_config();
+            container.mounts = Some(vec![bollard::models::MountPoint {
+                typ: kind.map(str::to_owned),
+                source: source.map(str::to_owned),
+                destination: Some("/workspace".to_owned()),
+                ..Default::default()
+            }]);
+            assert!(validate_runtime_security(&container).is_err(), "{kind:?}: {source:?}");
+        }
+        let mut container = runtime_config();
+        container.host_config.as_mut().unwrap().binds = Some(vec!["/workspace:/workspace".to_owned()]);
+        assert!(validate_runtime_security(&container).is_err(), "declared mounts need resolved inspect evidence");
+        container.host_config.as_mut().unwrap().binds = Some(vec!["/var/run/docker.sock:/sock".to_owned()]);
+        container.mounts = Some(vec![bollard::models::MountPoint {
+            typ: Some("tmpfs".to_owned()),
+            destination: Some("/tmp".to_owned()),
+            ..Default::default()
+        }]);
+        assert!(validate_runtime_security(&container).is_err(), "unrelated tmpfs cannot prove a bind mount");
+        let mut container = runtime_config();
+        container.mounts = Some(vec![bollard::models::MountPoint {
+            typ: Some("bind".to_owned()),
+            source: Some("/workspace".to_owned()),
+            ..Default::default()
+        }]);
+        assert!(validate_runtime_security(&container).is_err(), "bind destination is required");
     }
 
     #[test]

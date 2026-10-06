@@ -6,9 +6,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use bollard::errors::Error as BollardError;
-use bollard::query_parameters::{
-    AttachContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
-};
+use bollard::query_parameters::{AttachContainerOptions, InspectContainerOptions, LogsOptions, RemoveContainerOptions};
 use chrono::Utc;
 use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
@@ -162,11 +160,7 @@ impl DockerMcpRuntimeBackend for LiveDockerMcpRuntimeBackend {
     }
 
     async fn start_container(&self, container_id: &str) -> AppResult<()> {
-        self.docker
-            .inner()
-            .start_container(container_id, None::<StartContainerOptions>)
-            .await
-            .map_err(docker_into_app_error)
+        self.docker.start_container(container_id).await.map_err(|err| docker_runtime_error(err.to_string()))
     }
 
     async fn remove_container(&self, container_id: &str, force: bool) -> AppResult<()> {
