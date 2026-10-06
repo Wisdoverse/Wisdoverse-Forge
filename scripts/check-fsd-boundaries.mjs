@@ -27,10 +27,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { init, parse } from 'es-module-lexer'
+import { init, parse } from 'es-module-lexer/minimal'
 import ts from 'typescript'
 
-await init
+await init()
 
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
 // F074: `unknown` (an unrecognised src/app dir) is deliberately NOT in this rank
