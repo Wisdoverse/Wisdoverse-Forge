@@ -1,5 +1,10 @@
+import { useState } from 'react'
 import { MarkdownContent } from '@app/shared/ui/markdown'
-import { taskResultArtifacts, type TaskSummary } from '@app/shared/api/orchestration'
+import {
+  taskResultArtifacts,
+  type TaskResultArtifact,
+  type TaskSummary,
+} from '@app/shared/api/orchestration'
 import { taskBlockedPreview } from '@app/shared/lib/taskFailureCopy'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
@@ -8,11 +13,16 @@ import {
   missingBriefCopy,
   nextActionForTask,
 } from '../model/taskGuidance'
+import { SkillDraftModal } from '../SkillDraftModal'
 
 export const SECTION_LABEL =
   'mb-2 mt-8 text-ui-caption font-medium uppercase tracking-wide text-secondary-light dark:text-secondary-dark'
 
 export function TaskDocumentBody({ task }: { task: TaskSummary }) {
+  const [draft, setDraft] = useState<{
+    task: TaskSummary
+    artifacts: TaskResultArtifact[]
+  } | null>(null)
   const artifacts = taskResultArtifacts(task.result)
   const next = nextActionForTask(task, artifacts.length, task.contextCounts?.total ?? 0)
   const assignment = assignmentSummary(task)
@@ -137,6 +147,21 @@ export function TaskDocumentBody({ task }: { task: TaskSummary }) {
               </li>
             ))}
           </ul>
+          <button
+            type="button"
+            className={`${uiStyles.subtleButton} mt-3 min-h-11`}
+            onClick={() => setDraft({ task, artifacts })}
+          >
+            Draft saved guidance
+          </button>
+          {draft && (
+            <SkillDraftModal
+              open
+              task={draft.task}
+              artifacts={draft.artifacts}
+              onClose={() => setDraft(null)}
+            />
+          )}
         </section>
       )}
     </div>

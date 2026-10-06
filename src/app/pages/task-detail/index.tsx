@@ -101,8 +101,8 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div className="shrink-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <div className="mx-auto max-w-[760px] px-4 py-5 sm:px-6">
           <nav
             aria-label="Breadcrumb"
@@ -134,7 +134,7 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
           >
             {storeTask.params.task}
           </h1>
-          <TaskDocumentBody task={storeTask} />
+          <TaskDocumentBody key={storeTask.id} task={storeTask} />
           <MaintenanceTracePanel taskId={storeTask.id} />
           {storeTask.selfFix && <MaintenanceDeliveryPanel taskId={storeTask.id} />}
           {(storeTask.state === 'completed' || storeTask.state === 'failed') && (
@@ -144,8 +144,8 @@ export function TaskDocumentPage({ taskId }: TaskDocumentPageProps) {
           <HistoryTab task={storeTask} />
         </div>
       </div>
-      <aside className="hidden w-[280px] flex-shrink-0 flex-col border-l border-black/[0.08] bg-background-light dark:border-white/[0.1] dark:bg-background-dark min-h-0 overflow-hidden lg:flex">
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <aside className="flex w-full flex-col border-t border-black/[0.08] bg-background-light dark:border-white/[0.1] dark:bg-background-dark max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11 lg:min-h-0 lg:w-[280px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-hidden">
+        <div className="p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           <PropertiesGroup task={storeTask} />
           {storeTask.selfFix && (
             <RailSection title="Review">

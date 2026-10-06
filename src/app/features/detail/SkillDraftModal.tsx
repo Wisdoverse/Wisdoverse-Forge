@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2, LibraryBig, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
@@ -44,6 +44,15 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
   const [fieldError, setFieldError] = useState<'name' | 'content' | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const contentInputRef = useRef<HTMLTextAreaElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!open || !dialog) return
+    if (!dialog.open) dialog.showModal()
+    nameInputRef.current?.focus()
+    return () => dialog.close()
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -109,16 +118,15 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+    <dialog
+      ref={dialogRef}
+      aria-modal="true"
+      aria-labelledby="skill-draft-title"
+      onCancel={onClose}
+      className="fixed inset-0 m-0 flex h-dvh max-h-none w-dvw max-w-none items-end justify-center border-0 bg-transparent p-4 backdrop:bg-black/40 backdrop:backdrop-blur-sm sm:items-center"
+    >
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="skill-draft-title"
         className={cn(
           'relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-y-auto',
           'rounded-card border border-black/[0.08] bg-white p-5 dark:border-white/[0.1] dark:bg-[#2c2c2e]'
@@ -130,15 +138,15 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
               Draft reusable guidance
             </h2>
             <p className="mt-1 text-ui-caption text-secondary-light dark:text-secondary-dark">
-              Turn this completed task into guidance your team can reuse. Check what should repeat
-              before saving it for your team space.
+              Turn this completed task into guidance your team can reuse. Examine the steps before
+              you save this guidance.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className={cn(uiStyles.subtleButton, 'w-8 shrink-0 px-0')}
+            className={cn(uiStyles.subtleButton, 'min-h-11 min-w-11 shrink-0 px-0')}
           >
             <X size={15} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -155,8 +163,8 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="rounded-card border border-apple-blue/20 bg-apple-blue/10 px-3 py-2 text-ui-caption text-apple-blue">
-              Check 3 things before saving: the name is recognizable, the matching words are words
-              teammates would type in a task, and the steps can stand alone without this task open.
+              Review the guidance name. Use matching words that teammates will recognize. Keep steps
+              that work without this task.
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -294,7 +302,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
           </form>
         )}
       </div>
-    </div>
+    </dialog>
   )
 }
 

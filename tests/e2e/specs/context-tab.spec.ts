@@ -54,6 +54,9 @@ test.describe('Task document context rail', () => {
     await openContextDocument(page)
 
     await expect(page.getByTestId('task-next-action')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeHidden()
+    const contextToggle = page.getByRole('button', { name: 'Context', exact: true })
+    await expect(contextToggle).toBeVisible()
+    await contextToggle.click()
+    await expect(contextToggle.locator('..').getByTestId('context-tab')).toBeVisible()
   })
 })
