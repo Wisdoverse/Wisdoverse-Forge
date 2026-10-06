@@ -167,9 +167,11 @@ behavior it adds and provide the relevant operator or runtime proof.
 not be refreshed`; it produced one failed run and receipt, with no checkpoint
    or interruption recovery. An earlier Claude failure retained an empty
    API/database diagnostic but discarded nonzero-exit stdout, so its cause
-   remains unknown. Neither Claude attempt is a successful vendor run. A second
-   successful real vendor CLI run and common-report/cross-CLI comparison remain
-   required. The pinned public Codex image passed signature-policy admission
+   remains unknown. Neither Claude attempt is a successful vendor run.
+   The maintainers deferred acceptance of a second successful real vendor CLI run
+   and the common-report/cross-CLI comparison. This does not block current
+   implementation or merge. Production acceptance remains separate.
+   The pinned public Codex image passed signature-policy admission
    and container start (HTTP 200 in 4.276 seconds), but CLI startup failed
    before task/model submission because `ps` was missing for pid-managed
    app-server startup. The unmodified canonical `docker/Dockerfile.agent-base`
