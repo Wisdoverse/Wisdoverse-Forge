@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import '@app/i18n'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
@@ -13,6 +14,7 @@ const {
   listTaskReviewChecks,
   setTaskReviewCheck,
   fetchTaskReviewGates,
+  trackProductEvent,
 } = vi.hoisted(() => ({
   navigateSpy: vi.fn(),
   getTask: vi.fn(),
@@ -22,6 +24,7 @@ const {
   listTaskReviewChecks: vi.fn(),
   setTaskReviewCheck: vi.fn(),
   fetchTaskReviewGates: vi.fn(),
+  trackProductEvent: vi.fn(),
 }))
 
 vi.mock('@app/shared/model/auth.context', () => ({
@@ -39,6 +42,7 @@ vi.mock('@app/shared/api/orchestration', async (importOriginal) => {
     ...actual,
     orchestrationApi: {
       ...actual.orchestrationApi,
+      trackProductEvent: (...args: unknown[]) => trackProductEvent(...args),
       getTask: (...args: unknown[]) => getTask(...args),
       getTaskRuns: (...args: unknown[]) => getTaskRuns(...args),
       getSelfFixReview: (...args: unknown[]) => getSelfFixReview(...args),
@@ -82,6 +86,7 @@ beforeEach(() => {
   })
   listTaskReviewChecks.mockResolvedValue([])
   fetchTaskReviewGates.mockResolvedValue({ requiredKeys: [], satisfied: true, missing: [] })
+  trackProductEvent.mockResolvedValue(undefined)
   setTaskReviewCheck.mockImplementation(
     async (_taskId: string, checkKey: string, done: boolean) => ({
       checkKey,
@@ -187,6 +192,80 @@ describe('TaskDocumentPage', () => {
     )
     expect(await screen.findByRole('heading', { name: 'Delivered' })).toBeDefined()
     expect(screen.getByTestId('task-handoff-checklist')).toBeDefined()
+  })
+
+  test('opens and closes saved guidance from a completed task without losing its result', async () => {
+    useBoardStore.getState().setTasks([
+      seedTask({
+        state: 'completed',
+        progress: 100,
+        result: [{ name: 'summary.md', mimeType: 'text/markdown', data: '## Delivered' }],
+      }),
+    ] as never)
+
+    render(<TaskDocumentPage taskId="task-1" />)
+
+    expect(trackProductEvent).not.toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Delivered' })).toBeDefined()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Draft saved guidance' }))
+    expect(await screen.findByRole('dialog', { name: 'Draft reusable guidance' })).toBeDefined()
+    expect(trackProductEvent).toHaveBeenCalledWith('skill_draft_opened', {
+      taskId: 'task-1',
+      taskTitle: 'Fix the build',
+    })
+    expect(screen.getByText(/Remove passwords, access keys, customer data/i)).toBeDefined()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close dialog' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Draft reusable guidance' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Delivered' })).toBeDefined()
+  })
+
+  test('closes the saved-guidance draft when the page opens another task', async () => {
+    useBoardStore.getState().setTasks([
+      seedTask({
+        state: 'completed',
+        result: [{ name: 'first.md', mimeType: 'text/markdown', data: '## First result' }],
+      }),
+      seedTask({
+        id: 'task-2',
+        state: 'completed',
+        params: { task: 'Second task', message: 'second brief' },
+        result: [{ name: 'second.md', mimeType: 'text/markdown', data: '## Second result' }],
+      }),
+    ] as never)
+
+    const view = render(<TaskDocumentPage taskId="task-1" />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Draft saved guidance' }))
+    expect(await screen.findByRole('dialog', { name: 'Draft reusable guidance' })).toBeDefined()
+
+    view.rerender(<TaskDocumentPage taskId="task-2" />)
+
+    expect(screen.queryByRole('dialog', { name: 'Draft reusable guidance' })).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Second task' })).toBeDefined()
+    expect(await screen.findByRole('heading', { name: 'Second result' })).toBeDefined()
+  })
+
+  test('keeps draft edits when the same task receives an update', async () => {
+    const task = seedTask({ state: 'completed' })
+    useBoardStore.getState().setTasks([task] as never)
+    render(<TaskDocumentPage taskId="task-1" />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Draft saved guidance' }))
+    const name = screen.getByRole('textbox', { name: 'Guidance name' })
+    await user.clear(name)
+    await user.type(name, 'Keep these edits')
+
+    act(() => {
+      useBoardStore.getState().upsertTask({
+        ...task,
+        progress: 100,
+        params: { ...task.params, task: 'Updated task title' },
+      } as never)
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Updated task title' })).toBeDefined()
+    expect(name).toHaveValue('Keep these edits')
+    expect(trackProductEvent).toHaveBeenCalledTimes(1)
   })
 
   test('turns missing brief and result files into next steps', () => {

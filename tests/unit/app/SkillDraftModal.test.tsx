@@ -61,9 +61,7 @@ describe('SkillDraftModal', () => {
 
     expect(screen.getByRole('button', { name: 'Close without saving' })).toBeDefined()
     expect(screen.getByRole('heading', { name: 'Draft reusable guidance' })).toBeDefined()
-    expect(
-      screen.getByText(/Check what should repeat before saving it for your team space/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Examine the steps before you save this guidance/i)).toBeDefined()
     expect(screen.queryByRole('heading', { name: 'Draft saved instruction' })).toBeNull()
     expect(
       screen.queryByText(/Review what should repeat before saving it for your team space/i)
@@ -104,9 +102,7 @@ describe('SkillDraftModal', () => {
     )
 
     expect(screen.getByText(/check before saving/i)).toBeDefined()
-    expect(
-      screen.getByText(/the matching words are words teammates would type in a task/i)
-    ).toBeDefined()
+    expect(screen.getByText(/Use matching words that teammates will recognize/i)).toBeDefined()
     expect(screen.queryByText(/trigger words/i)).toBeNull()
     expect(screen.getByLabelText(/^matching words for future tasks$/i)).toBeDefined()
     expect(screen.queryByLabelText(/^use when$/i)).toBeNull()
@@ -222,7 +218,7 @@ describe('SkillDraftModal', () => {
       />
     )
 
-    expect(screen.getByText(/check 3 things before saving/i)).toBeDefined()
+    expect(screen.getByText(/Review the guidance name/i)).toBeDefined()
     expect(document.querySelectorAll('[id="skill-draft-trigger-help"]')).toHaveLength(1)
     expect(document.querySelectorAll('[id="skill-draft-trigger-intro"]')).toHaveLength(1)
     expect(screen.getByText(/type words teammates would put in a task/i)).toBeDefined()
