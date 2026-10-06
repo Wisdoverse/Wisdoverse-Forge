@@ -123,7 +123,6 @@ test.describe('Task document page', () => {
     await waitForDocument(page)
 
     const cancel = page.getByRole('button', { name: 'Cancel', exact: true })
-    await cancel.scrollIntoViewIfNeeded()
     await expect(cancel).toBeVisible()
     const cancelBox = await cancel.boundingBox()
     expect(cancelBox?.height).toBeGreaterThanOrEqual(44)
@@ -132,7 +131,6 @@ test.describe('Task document page', () => {
     await expect(cancel).toBeVisible()
 
     const contextToggle = page.getByRole('button', { name: 'Context', exact: true })
-    await contextToggle.scrollIntoViewIfNeeded()
     await contextToggle.click()
     await expect(contextToggle.locator('..').getByTestId('context-tab')).toBeVisible()
     expect(
@@ -144,7 +142,9 @@ test.describe('Task document page', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/tasks/${DOCUMENT_TASK.id}`, { waitUntil: 'domcontentloaded' })
     await waitForDocument(page)
-    const heading = await page.getByRole('heading', { level: 1 }).boundingBox()
+    const heading = await page
+      .getByRole('heading', { level: 1, name: DOCUMENT_TASK.params.task })
+      .boundingBox()
     const properties = await page
       .getByRole('region', { name: 'Properties', exact: true })
       .boundingBox()
@@ -180,8 +180,17 @@ test.describe('Task document page', () => {
     const bounds = await dialog.boundingBox()
     expect(bounds!.x).toBeGreaterThanOrEqual(0)
     expect(bounds!.width).toBeLessThanOrEqual(320)
+    await trigger.evaluate((element) => element.focus())
+    expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
     await dialog.getByRole('button', { name: 'Close dialog', exact: true }).focus()
     await page.keyboard.press('Shift+Tab')
+    expect(
+      await dialog.evaluate(
+        (element) =>
+          document.activeElement === document.body || element.contains(document.activeElement)
+      )
+    ).toBe(true)
+    await page.keyboard.press('Tab')
     expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
