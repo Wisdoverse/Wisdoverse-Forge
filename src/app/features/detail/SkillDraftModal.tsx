@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2, LibraryBig, Users, X } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
@@ -46,7 +46,7 @@ export function SkillDraftModal({ open, task, artifacts, onClose }: SkillDraftMo
   const contentInputRef = useRef<HTMLTextAreaElement>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current
     if (!open || !dialog) return
     if (!dialog.open) dialog.showModal()
