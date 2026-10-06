@@ -242,17 +242,19 @@ describe('GitCredentialsSection', () => {
     const removeNowButton = screen.getByRole('button', {
       name: /confirm removing github code access/i,
     })
-    deleteGitCredentialMock.mockImplementationOnce(
-      () => new Promise((resolve) => setTimeout(() => resolve(true), 20))
-    )
+    const request = deferred<boolean>()
+    deleteGitCredentialMock.mockReturnValueOnce(request.promise)
 
     await user.click(removeNowButton)
     expect(removeNowButton).toHaveTextContent('Removing...')
     expect(removeNowButton).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByRole('button', { name: /keep access/i })).toBeDisabled()
+    request.resolve(true)
 
     await waitFor(() => {
       expect(deleteGitCredentialMock).toHaveBeenCalledWith('git-1')
+      expect(removeNowButton).toHaveTextContent(/^Remove$/)
+      expect(removeNowButton).not.toHaveAttribute('aria-busy')
     })
   })
 
