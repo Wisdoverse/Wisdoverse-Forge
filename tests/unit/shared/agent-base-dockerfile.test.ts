@@ -7,14 +7,36 @@ const agentBaseDockerfile = fs.readFileSync(
   path.join(projectRoot, 'docker/Dockerfile.agent-base'),
   'utf8'
 )
+const cloneDockerfile = fs.readFileSync(path.join(projectRoot, 'docker/Dockerfile.clone'), 'utf8')
+
+const selectOpenSshRuntimeAptInstruction = (dockerfile: string) =>
+  dockerfile.match(
+    /RUN --mount=type=bind,from=openssh-builder,[\s\S]*?&& rm -rf \/var\/lib\/apt\/lists\/\*/
+  )?.[0]
 
 describe('agent base Dockerfile', () => {
   it('installs procps for Codex pid-managed app-server startup', () => {
-    const runtimePackages = agentBaseDockerfile.match(
-      /RUN apt-get update && apt-get -y dist-upgrade[\s\S]*?apt-get install -y --no-install-recommends \\\n([\s\S]*?)\n    && rm -rf \/var\/lib\/apt\/lists\/\*/
-    )?.[1]
+    const runtimeAptInstruction = selectOpenSshRuntimeAptInstruction(agentBaseDockerfile)
 
-    expect(runtimePackages).toContain('procps')
+    expect(runtimeAptInstruction).toContain('procps')
+  })
+
+  it.each([
+    ['agent base', agentBaseDockerfile],
+    ['clone', cloneDockerfile],
+  ])('uses standalone sysusers for the %s runtime install', (_name, dockerfile) => {
+    const runtimeAptInstruction = selectOpenSshRuntimeAptInstruction(dockerfile) ?? ''
+
+    expect(runtimeAptInstruction).toContain('systemd-standalone-sysusers')
+    expect(runtimeAptInstruction.indexOf('systemd-standalone-sysusers')).toBeLessThan(
+      runtimeAptInstruction.indexOf('/tmp/openssh/openssh-client_*.deb')
+    )
+    expect(runtimeAptInstruction).toContain(
+      `test "$(dpkg-query -W -f='\${db:Status-Status}' systemd-standalone-sysusers)" = 'installed'`
+    )
+    expect(runtimeAptInstruction).toContain(
+      "! dpkg-query -W -f='${db:Status-Status}\\n' systemd libsystemd-shared 2>/dev/null | grep -qx installed"
+    )
   })
 
   it('builds Docker Compose from pinned source using a patched Go toolchain', () => {
