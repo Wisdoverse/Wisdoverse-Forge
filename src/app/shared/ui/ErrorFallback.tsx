@@ -15,7 +15,7 @@ type ErrorFallbackProps = {
  */
 export function ErrorFallback({
   title = 'Something went wrong',
-  detail = 'The page hit an unexpected error. Reloading usually fixes it — your work on the server is unaffected.',
+  detail = 'This page cannot display its content. Reloading can discard unsaved changes. Reload this page to try again.',
   onReload,
   testId = 'error-fallback',
 }: ErrorFallbackProps) {

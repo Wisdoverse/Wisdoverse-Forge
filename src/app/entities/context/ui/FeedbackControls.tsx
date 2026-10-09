@@ -92,6 +92,9 @@ export function FeedbackControls({ item, onRecord, onRecorded }: FeedbackControl
           <button
             key={option.label}
             type="button"
+            aria-label={option.text}
+            aria-pressed={selected === option.label}
+            aria-busy={pending === option.label || undefined}
             disabled={pending !== null}
             onClick={() => record(option.label)}
             title={option.description}
