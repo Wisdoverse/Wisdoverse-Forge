@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { FeedbackControls } from '@app/entities/context/ui/FeedbackControls'
 import type {
@@ -85,16 +85,36 @@ describe('FeedbackControls', () => {
   })
 
   test('records feedback and confirms what future tasks will do', async () => {
-    const onRecord = vi.fn(async (label: ContextFeedbackLabel) => outcome(label))
+    let complete!: (result: ContextFeedbackOutcome) => void
+    const request = new Promise<ContextFeedbackOutcome>((resolve) => {
+      complete = resolve
+    })
+    const onRecord = vi.fn(() => request)
 
-    render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
+    render(
+      <FeedbackControls
+        item={contextItem({ feedback: { label: 'useful', updatedAt: now } })}
+        onRecord={onRecord}
+      />
+    )
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Too sensitive' }))
+    expect(screen.getByRole('button', { name: 'Useful', pressed: true })).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: 'Too sensitive', pressed: false })
+    await userEvent.setup().click(button)
 
     expect(onRecord).toHaveBeenCalledWith('too_sensitive')
+    expect(screen.getByRole('button', { name: 'Too sensitive', pressed: true })).toBe(button)
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    for (const option of screen.getAllByRole('button')) expect(option).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Useful', pressed: false })).toBeDisabled()
+    await act(async () => complete(outcome('too_sensitive')))
+
     expect(
       await screen.findByText('Saved: future tasks will handle this item more carefully.')
     ).toBeInTheDocument()
+    expect(button).not.toHaveAttribute('aria-busy')
+    expect(button).toBeEnabled()
+    expect(button).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('confirms outdated feedback without vague review wording', async () => {
@@ -118,7 +138,12 @@ describe('FeedbackControls', () => {
       throw new Error('API 403: Forbidden')
     })
 
-    render(<FeedbackControls item={contextItem()} onRecord={onRecord} />)
+    render(
+      <FeedbackControls
+        item={contextItem({ feedback: { label: 'useful', updatedAt: now } })}
+        onRecord={onRecord}
+      />
+    )
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Outdated' }))
 
@@ -128,6 +153,9 @@ describe('FeedbackControls', () => {
     expect(alert.textContent).toContain('Ask an owner or admin')
     expect(alert.textContent).not.toContain('API 403')
     expect(alert.textContent).not.toContain('Forbidden')
+    expect(screen.getByRole('button', { name: 'Useful', pressed: true })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Outdated', pressed: false })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Outdated' })).not.toHaveAttribute('aria-busy')
     expect(screen.getByRole('button', { name: 'Outdated' })).not.toHaveClass('bg-apple-blue')
   })
 })

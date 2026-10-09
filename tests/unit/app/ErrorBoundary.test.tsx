@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ErrorBoundary } from '@app/shared/ui/ErrorBoundary'
+import { ErrorFallback } from '@app/shared/ui/ErrorFallback'
+import { RouteErrorFallback } from '@app/shared/ui/RouteErrorFallback'
 import { isChunkLoadError, recoverFromChunkError } from '@app/shared/lib/chunkError'
 
 function Boom({ error }: { error: Error }): never {
@@ -47,6 +50,30 @@ describe('ErrorBoundary (F069)', () => {
     )
     expect(screen.getByTestId('error-fallback')).toBeInTheDocument()
     expect(screen.getByTestId('error-fallback-reload')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Reloading can discard unsaved changes.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('server is unaffected')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('kaboom')
+    expect(screen.getByRole('link', { name: 'Go to Tasks' })).toHaveAttribute('href', '/tasks')
+  })
+
+  test('shows the same recovery guidance after a route error', () => {
+    render(<RouteErrorFallback error={new Error('internal-diagnostic')} reset={vi.fn()} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Reloading can discard unsaved changes.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('server is unaffected')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('internal-diagnostic')
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeEnabled()
+    expect(screen.getByRole('link', { name: 'Go to Tasks' })).toHaveAttribute('href', '/tasks')
+  })
+
+  test('reloads when the user chooses recovery after the unsaved-change warning', async () => {
+    const onReload = vi.fn()
+    render(<ErrorFallback onReload={onReload} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Reloading can discard unsaved changes.')
+    expect(onReload).not.toHaveBeenCalled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Reload' }))
+    expect(onReload).toHaveBeenCalledOnce()
   })
 
   // The reload is injected (no window.location mocking — jsdom's location.reload
