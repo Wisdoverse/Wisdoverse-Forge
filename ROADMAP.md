@@ -180,10 +180,10 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    all four pinned CLI overlays inherited its 31 layers and passed
    credential-free, network-isolated non-root probes for CLI path/version/hash,
    `ps`, and matching sidecar hash. No model was invoked. This establishes local
-   image installation and process prerequisites only. A successful managed task
-   using a canonical published signed agent image rebuilt from current source and
-   the current sidecar, broader signed-release/admin-roll qualification, and
-   production artifact-storage evidence remain pending. The canonical server
+   image installation and process prerequisites only. The current-source
+   published image and managed-task gates have since passed. See the current-main
+   proof below. Broader signed-release/admin-roll qualification and production
+   artifact-storage evidence remain pending. The canonical server
    image then built from `d471658` in 1,904.467 seconds (image ID
    `sha256:55b5e355854bb00762b56b50e747a2f67f58ab7bde0eefa40ca9572e40df03ad`,
    user `agentforge`, `TUF_ROOT=/tmp/.sigstore`). Cold-cache cosign verified the
@@ -200,7 +200,22 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    This proves attachment persistence and deletion only, not raw run-artifact
    retention, power-loss recovery, production cutover, or a storage policy; see
    [runtime validation](docs/runbooks/runtime-validation.md#rustfs-attachment-persistence).
-   This is single-digest verification evidence. Do not promise lossless
+   At source `e35ccae7e4fd3c87a6a0a1c825cba89bdb14b804`, four published image
+   digests passed signature verification. The published Codex 0.162.1 image
+   then passed normal managed admission and a real task in 17.365 seconds.
+   The request selected `gpt-6-luna`; the provider-reported model remains
+   unverified. API and database results matched, with one completed run,
+   result receipt and published assignment. The task created a 63-byte file
+   whose hash matched the retained stdout.
+
+   The server and PostgreSQL 18.6 retained the result and file through a
+   same-volume restart. The server applied migration 105 without changes to
+   earlier migration checksums. The canonical `make prod-ext` profile passed
+   local health checks and one Temporal gate workflow. These results do not
+   qualify production operation, Redis, raw artifact-storage policy, or a live
+   admin roll. See the [dated runtime proof](docs/runbooks/runtime-validation.md#published-images-and-managed-task-proof-2026-10-10)
+   for image digests, migration details, recovery and cleanup evidence.
+   Do not promise lossless
    vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).

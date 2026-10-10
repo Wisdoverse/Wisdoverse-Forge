@@ -647,16 +647,15 @@ Earlier wrong-tenant Temporal access returned 500 before the fix, and the
 original migration-104 deletion failed with FK error `23503`; both failures
 remain part of the evidence history.
 
-Still pending are a published signed CLI agent image built from the canonical
-base with `procps` and the current sidecar, and a successful managed-runner task
-using that image. Other pending gates are a second successful real vendor CLI run,
-common-report and cross-CLI comparison, broader signed-release/admin-roll
-qualification, actual artifact-storage policy qualification, real GitHub App
-and protected-repository acceptance, production migration/runtime acceptance,
-and macOS/Windows operator validation. Pilot adoption and measurement remain optional;
-engineering gates remain required. All databases, records, images and provider
-fixtures described above were test resources, not production data or release
-artifacts.
+Before the 2026-10-10 qualification below, a published signed CLI image from
+the canonical base and a managed task using that image remained pending. That
+status is historical. Other gates remain pending: a second successful real
+vendor CLI run, common-report and cross-CLI comparison, broader signed-release
+and admin-roll qualification, artifact-storage policy qualification, real
+GitHub App and protected-repository acceptance, production migration/runtime
+acceptance, and macOS/Windows operator validation. Pilot adoption and measurement
+remain optional. Engineering gates remain required. All fixtures described here
+were test resources, not production data or release artifacts.
 
 ## Backend transaction ownership follow-up
 
@@ -694,6 +693,64 @@ API-baseline evidence above:
 - Four local Playwright browser scenarios against the newly compiled API:
   passed in 50.5 seconds. This is a local browser/API check, not a real GitHub
   write, agent execution, production migration or pilot acceptance.
+
+## Published images and managed task proof (2026-10-10)
+
+The source revision was `e35ccae7e4fd3c87a6a0a1c825cba89bdb14b804`.
+The [publishing run](https://github.com/Wisdoverse/Wisdoverse-Forge/actions/runs/38069461001)
+produced these images under `ghcr.io/wisdoverse/wisdoverse-forge`.
+
+| Image | Published digest |
+| --- | --- |
+| `server` | `sha256:78595523fb31aa7d2d9f369dbd61ca32076c2c1959102bdd136e969f5e05cc2a` |
+| `orchestrator` | `sha256:7207a7d5cc4245f1edfd941d07b1cf784d0418cd606aeef96b34f8d7ba236c51` |
+| `agent-base` | `sha256:4161f56bad3f29ca093792845a56c4c1377015b8c9a6749b59e106818a7b84e8` |
+| `agent-codex` | `sha256:edb6d4b288163c5d5e9032d3144de83da86fa5936457b42cc5e263a6f525974a` |
+
+Cosign verified all four digests against the main-branch publishing workflow identity and GitHub Actions issuer.
+Verification rejected an incorrect branch in the certificate identity.
+
+The signed Codex 0.162.1 image passed an offline probe with networking disabled,
+a read-only root, and a non-root user. The probe used no host credentials, and
+its container was absent after the probe. Managed admission passed for that
+digest with resource limits, dropped capabilities, a read-only OAuth mount, a
+workspace-scoped network, and no Docker socket. Normal API start took 6.273 seconds.
+
+A managed task completed in 17.365 seconds. The task requested `gpt-6-luna`, but
+the provider-reported model was not independently verified. The API and database
+results matched: one completed run, one result receipt, and one published
+assignment. The task created a 63-byte file with SHA-256
+`a6bc7981657596a91ab7d980db5a1dfb21274dea3079641f073553fce3bb738f`.
+An independently computed file digest matched the hash in task stdout. API and database stdout
+matched at 141 bytes.
+
+The second real vendor CLI and comparison acceptance remain deferred.
+
+The current-source server image applied migration 105 to PostgreSQL 18.6. The
+database advanced from 104 to 105 successful migrations. Earlier migration
+checksums stayed unchanged, and migration 105 matched its source checksum
+`4c5908c1e03de6533b71f9ac3231814ecb07f8fac7dcb6ee78df9a162af6d91ecbe427cde00b102a65be810cb5ceb17b`.
+One legacy fixture's fields stayed unchanged. Its new requester and timestamp fields
+remained null. This was a local migration check, not a production migration.
+
+The canonical `make prod-ext` profile passed in 31.139 seconds at this source
+revision. Its services were healthy. Redis was omitted and remains unqualified.
+The GitHub App was not configured. One real Temporal gate workflow completed in
+0.644 seconds with the expected output. Another organization's status request returned 404.
+
+The normal Agent stop removed its container and cleared its staged runtime secrets.
+The uploaded Codex connection was deleted. The server and PostgreSQL then
+restarted with the same database volume. The completed result, one run,
+one receipt, and the 63-byte workspace file remained unchanged. Migration count
+remained 105. This bounded recovery check took 11.4 seconds.
+
+Cleanup removed six test containers, four data volumes, and three test networks.
+It removed private credential copies and the new server, orchestrator, and `nats-box` image references.
+It preserved the existing Codex image and shared caches. This run created no
+Rust compilation cache. Standing API, orchestrator, and browser health remained 200.
+
+This local proof does not establish production deployment, power-loss recovery,
+a live admin roll, or raw artifact-storage policy.
 
 ## Existing deployment proof
 

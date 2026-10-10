@@ -61,11 +61,16 @@ repository. [ROADMAP.md](ROADMAP.md) defines the priorities;
 [Product Validation](docs/guides/product-validation.md) defines the evaluation.
 The platform continues to support its existing team-work capabilities.
 
-Roadmap items do not add API guarantees or imply implementation. Repository
-intake, richer verification, recovery and multi-repository behavior require
-their own implementation and validation before they become service claims.
+Roadmap items do not add API guarantees or imply implementation. The platform
+supports maintenance intake and revision-bound verification reports for one
+approved repository. Broader service claims require current API, database and
+migration validation. Webhook intake remains unimplemented. Recovery requires
+separate validation. Multi-repository behavior requires separate design,
+implementation and validation.
+
 The existing self-fix PR path uses a deployment-level repository configuration
-and assumes `main`; it preserves human-approved merge and the
+and discovers that repository's default branch from GitHub. It keeps
+human-approved merge and follows the
 [Self-Fix Security Model](docs/security/self-fix-loop.md).
 
 Task/run completion, observed verification, human acceptance, repository merge
