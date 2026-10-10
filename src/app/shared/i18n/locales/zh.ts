@@ -578,7 +578,8 @@ export const zh: TranslationKeys = {
     emailInUse: '这个邮箱已被使用。请直接登录，或重置密码。',
     usernameInUse: '这个用户名已被使用。请换一个用户名。',
     emailDomainRestricted: '请使用已批准的工作邮箱，或让所有者邀请你加入。',
-    passwordRequirements: '12+ 字符、大小写字母、数字、特殊字符',
+    passwordRequirements:
+      '12+ 个字符、一个大写字母（A-Z）、一个小写字母（a-z）、一个数字、一个符号（如 ! 或 ?）',
     passwordWeak: '弱',
     passwordFair: '一般',
     passwordGood: '良好',

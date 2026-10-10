@@ -46,6 +46,7 @@ scripts/test-*.sh
 e2e-*.mjs
 todo.txt
 .worktrees/
+.worktree/
 dist-new/
 tests/e2e/test-results/
 tests/e2e/.auth/

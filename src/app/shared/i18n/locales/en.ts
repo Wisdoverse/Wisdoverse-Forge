@@ -589,7 +589,8 @@ export const en = {
     emailInUse: 'Use a different email, or sign in and reset the password if this is yours.',
     usernameInUse: 'Choose a different username; this one is already taken.',
     emailDomainRestricted: 'Use an approved work email, or ask an owner for an invite.',
-    passwordRequirements: '12+ characters, uppercase, lowercase, number, special character',
+    passwordRequirements:
+      '12+ characters, capital letter (A-Z), small letter (a-z), number, symbol like ! or ?',
     passwordWeak: 'Weak',
     passwordFair: 'Fair',
     passwordGood: 'Good',

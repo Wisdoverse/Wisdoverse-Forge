@@ -38,6 +38,9 @@ if (typeof Element.prototype.scrollIntoView === 'undefined') {
   Element.prototype.scrollIntoView = function () {}
 }
 
+// jsdom cannot scroll. Use browser tests to verify viewport movement.
+window.scrollTo = function () {}
+
 // jsdom has no modal-dialog API. Browser tests cover native focus and inertness.
 if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
   HTMLDialogElement.prototype.showModal = function () {

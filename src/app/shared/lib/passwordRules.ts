@@ -22,15 +22,15 @@ export function passwordRuleStates(password: string): PasswordRuleState[] {
     },
     {
       id: 'upper',
-      label: 'Add at least one uppercase letter to the password.',
+      label: 'Add at least one capital letter (A-Z) to the password.',
       met: /[A-Z]/.test(password),
-      missingMessage: `Add at least one uppercase letter to the password, then ${DEFAULT_RETRY_ACTION}.`,
+      missingMessage: `Add at least one capital letter (A-Z) to the password. Then ${DEFAULT_RETRY_ACTION}.`,
     },
     {
       id: 'lower',
-      label: 'Add at least one lowercase letter to the password.',
+      label: 'Add at least one small letter (a-z) to the password.',
       met: /[a-z]/.test(password),
-      missingMessage: `Add at least one lowercase letter to the password, then ${DEFAULT_RETRY_ACTION}.`,
+      missingMessage: `Add at least one small letter (a-z) to the password. Then ${DEFAULT_RETRY_ACTION}.`,
     },
     {
       id: 'number',
@@ -40,9 +40,9 @@ export function passwordRuleStates(password: string): PasswordRuleState[] {
     },
     {
       id: 'special',
-      label: 'Add at least one symbol to the password.',
+      label: 'Add at least one symbol, like ! or ?, to the password.',
       met: SYMBOL_PATTERN.test(password),
-      missingMessage: `Add at least one symbol to the password, then ${DEFAULT_RETRY_ACTION}.`,
+      missingMessage: `Add at least one symbol, like ! or ?, to the password. Then ${DEFAULT_RETRY_ACTION}.`,
     },
   ]
 }
