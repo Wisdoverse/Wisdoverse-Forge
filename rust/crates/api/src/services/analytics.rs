@@ -8,7 +8,7 @@ pub(crate) use crate::domain::observability::PricingTable;
 pub(crate) use crate::domain::observability::analytics_data_response;
 use crate::domain::observability::{
     AgentReliabilityItem, AgentReliabilityReport, AgentReliabilityWindow, AgentUsageItem, AgentUsageReport,
-    AnalyticsEventName, AnalyticsListPage, AnalyticsSummary,
+    AnalyticsEventName, AnalyticsListPage, AnalyticsSummary, TaskReliabilityReport,
 };
 use crate::repositories::analytics::AnalyticsRepository;
 
@@ -54,7 +54,7 @@ impl AnalyticsService {
         self.repo.summary(scope).await
     }
 
-    /// Per-agent work reliability over a rolling window of finished runs.
+    /// Per-agent reliability for completed and failed tasks.
     pub(crate) async fn agent_reliability(
         &self,
         scope: &TenantScope,
@@ -74,6 +74,32 @@ impl AnalyticsService {
             })
             .collect();
         Ok(AgentReliabilityReport { window_hours: window.hours(), agents })
+    }
+
+    /// Report task settlement and observation coverage.
+    pub(crate) async fn task_reliability(
+        &self,
+        scope: &TenantScope,
+        hours: Option<i64>,
+    ) -> AppResult<TaskReliabilityReport> {
+        let window = AgentReliabilityWindow::normalize(hours);
+        let row = self.repo.task_reliability_row(scope, window.hours()).await?;
+        let terminal_persistence_rate = (row.coverage_complete && row.started_tasks > 0)
+            .then(|| row.terminal_with_persisted_results as f64 / row.started_tasks as f64);
+        Ok(TaskReliabilityReport {
+            window_hours: window.hours(),
+            window_started_at: row.window_started_at,
+            observed_at: row.observed_at,
+            coverage_since: row.coverage_since,
+            coverage_complete: row.coverage_complete,
+            started_tasks: row.started_tasks,
+            terminal_with_persisted_results: row.terminal_with_persisted_results,
+            terminal_without_persisted_results: row.terminal_without_persisted_results,
+            unfinished_tasks: row.unfinished_tasks,
+            deleted_tasks: row.deleted_tasks,
+            unplaced_historical_tasks: row.unplaced_historical_tasks,
+            terminal_persistence_rate,
+        })
     }
 
     /// Per-agent LLM usage over a rolling window with each agent's share of

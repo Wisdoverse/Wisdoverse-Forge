@@ -191,6 +191,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("103_maintenance_delivery.sql", include_str!("../migrations/103_maintenance_delivery.sql")),
     ("104_maintenance_source_deletion.sql", include_str!("../migrations/104_maintenance_source_deletion.sql")),
     ("105_project_clone_requester.sql", include_str!("../migrations/105_project_clone_requester.sql")),
+    ("106_task_start_cohorts.sql", include_str!("../migrations/106_task_start_cohorts.sql")),
 ];
 
 /// Run pending SQLx migrations against the database.
