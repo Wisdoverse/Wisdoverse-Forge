@@ -5,6 +5,8 @@ import { ErrorBoundary } from '@app/shared/ui/ErrorBoundary'
 import { ErrorFallback } from '@app/shared/ui/ErrorFallback'
 import { RouteErrorFallback } from '@app/shared/ui/RouteErrorFallback'
 import { isChunkLoadError, recoverFromChunkError } from '@app/shared/lib/chunkError'
+import * as chunkRecovery from '@app/shared/lib/chunkError'
+import * as reliability from '@app/shared/lib/frontendReliability'
 
 function Boom({ error }: { error: Error }): never {
   throw error
@@ -40,6 +42,27 @@ describe('ErrorBoundary (F069)', () => {
       </ErrorBoundary>
     )
     expect(screen.getByTestId('ok')).toBeInTheDocument()
+  })
+
+  test.each(['root', 'route'])('records %s failure before chunk recovery', (kind) => {
+    const order: string[] = []
+    vi.spyOn(reliability, 'recordFrontendCrash').mockImplementation(() => {
+      order.push('record')
+    })
+    vi.spyOn(chunkRecovery, 'recoverFromChunkError').mockImplementation(() => {
+      order.push('recover')
+      return true
+    })
+    const error = new Error('Failed to fetch dynamically imported module')
+    if (kind === 'root')
+      render(
+        <ErrorBoundary>
+          <Boom error={error} />
+        </ErrorBoundary>
+      )
+    else render(<RouteErrorFallback error={error} reset={vi.fn()} />)
+    expect(order).toEqual(['record', 'recover'])
+    expect(screen.getByRole('alert')).toHaveTextContent('Reloading can discard unsaved changes.')
   })
 
   test('renders the recovery UI on a non-chunk render throw — no blank screen', () => {

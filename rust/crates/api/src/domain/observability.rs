@@ -109,6 +109,48 @@ pub(crate) struct TaskReliabilityReport {
     pub(crate) terminal_persistence_rate: Option<f64>,
 }
 
+/// Client observations do not establish coverage of all browser documents.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FrontendReliabilityReport {
+    pub(crate) window_hours: i64,
+    pub(crate) window_started_at: DateTime<Utc>,
+    pub(crate) observed_at: DateTime<Utc>,
+    pub(crate) population_coverage_verified: bool,
+    pub(crate) started_sessions: i64,
+    pub(crate) crashed_sessions: i64,
+    pub(crate) ended_without_observed_crash: i64,
+    pub(crate) unfinished_sessions: i64,
+    pub(crate) orphan_sessions: i64,
+    pub(crate) invalid_observations: i64,
+    pub(crate) observed_crash_free_rate: Option<f64>,
+}
+
+pub(crate) fn validate_frontend_observation(name: &str, properties: &Value) -> AppResult<()> {
+    if !name.starts_with("frontend_session_") {
+        return Ok(());
+    }
+    let valid_name = matches!(name, "frontend_session_started" | "frontend_session_ended" | "frontend_session_crashed");
+    let valid_id = properties
+        .as_object()
+        .filter(|value| value.len() == 1)
+        .and_then(|value| value.get("browserSessionId"))
+        .and_then(Value::as_str)
+        .and_then(|value| Uuid::parse_str(value).ok().map(|id| (value, id)))
+        .is_some_and(|(value, id)| {
+            id.get_version_num() == 4
+                && id.get_variant() == uuid::Variant::RFC4122
+                && id.hyphenated().to_string() == value
+        });
+    if !valid_name || !valid_id {
+        return Err(ErrorKind::Validation(
+            "Frontend observations require a supported event and only a canonical UUID v4 browserSessionId.".into(),
+        )
+        .into());
+    }
+    Ok(())
+}
+
 /// Per-agent LLM usage over a rolling window: assistant replies with token
 /// usage recorded by the prompt stream, plus each agent's share of the
 /// window's total tokens (honest cost proxy — no provider pricing assumed).

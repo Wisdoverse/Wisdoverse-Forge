@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AuthManager, type AuthUser } from '@app/shared/auth/AuthManager'
 import { initLegacyApis, resetLegacyApis } from '@app/shared/api/legacy'
 import { AuthContext } from '@app/shared/model/auth.context'
+import { observeFrontendSession } from '@app/shared/lib/frontendReliability'
 
 const apiUrl = `${window.location.protocol}//${window.location.host}/api/v1`
 
@@ -13,6 +14,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const am = authManagerRef.current
+
+    const observe = (): void => {
+      observeFrontendSession(
+        am.isAuthenticated() ? am.getUser() : null,
+        am.getAccessToken(),
+        apiUrl
+      )
+    }
+    const unsubscribeObservation = am.onAccessTokenChange(observe)
+    observe()
 
     am.onAuthChange((authenticated) => {
       setIsAuthenticated(authenticated)
@@ -60,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void checkAuth()
 
     return () => {
+      unsubscribeObservation()
       am.dispose()
     }
   }, [])

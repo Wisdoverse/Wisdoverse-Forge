@@ -110,7 +110,9 @@ describe('AuditLogView', () => {
 
     const quickViews = screen.getByRole('group', { name: /common change views/i })
     expect(screen.queryByRole('group', { name: /common audit views/i })).toBeNull()
-    fireEvent.click(within(quickViews).getByRole('button', { name: /skill decisions/i }))
+    const skillDecisions = within(quickViews).getByRole('button', { name: /skill decisions/i })
+    await waitFor(() => expect(skillDecisions).toBeEnabled())
+    fireEvent.click(skillDecisions)
 
     await waitFor(() => expect(fetchGovernanceAudit).toHaveBeenCalledTimes(2))
     expect(within(quickViews).getByRole('button', { name: /skill decisions/i })).toHaveAttribute(

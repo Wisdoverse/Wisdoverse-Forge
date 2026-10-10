@@ -219,6 +219,7 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and
    [runtime validation](docs/runbooks/runtime-validation.md#maintenance-delivery-local-proof).
+
 6. **Outcome measurement.** Source implements a submission cohort that retains
    awaiting-review, failed and canceled tasks, with the latest report and
    latest verdict represented once per task. Human effort uses six cumulative
@@ -292,6 +293,12 @@ time separately. A faster agent run is not evidence of reduced human effort.
 - Preserve the operational targets: crash-free frontend sessions at least
   99.5%, API 5xx below 0.5%, and more than 85% of started tasks reaching a
   terminal state with persisted results. Report accepted outcomes separately.
+- Inspect observed browser sessions with the organization-scoped
+  [frontend reliability report](docs/runbooks/frontend-reliability.md).
+  Duplicate events count once. Observed crashes and missing ends remain in the
+  denominator. Empty cohorts, orphan sessions, or invalid observations have a
+  null rate. Client reporting does not verify full population coverage or the
+  99.5% production target.
 - Measure started-task outcomes with the authenticated, organization-scoped
   [task-reliability report](docs/runbooks/task-reliability.md). Retries count
   once. Unfinished and deleted tasks remain in the denominator. A null rate

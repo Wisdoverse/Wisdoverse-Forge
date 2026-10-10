@@ -8,7 +8,8 @@ pub(crate) use crate::domain::observability::PricingTable;
 pub(crate) use crate::domain::observability::analytics_data_response;
 use crate::domain::observability::{
     AgentReliabilityItem, AgentReliabilityReport, AgentReliabilityWindow, AgentUsageItem, AgentUsageReport,
-    AnalyticsEventName, AnalyticsListPage, AnalyticsSummary, TaskReliabilityReport,
+    AnalyticsEventName, AnalyticsListPage, AnalyticsSummary, FrontendReliabilityReport, TaskReliabilityReport,
+    validate_frontend_observation,
 };
 use crate::repositories::analytics::AnalyticsRepository;
 
@@ -34,6 +35,7 @@ impl AnalyticsService {
         properties: &serde_json::Value,
     ) -> AppResult<AnalyticsEvent> {
         let event_name = AnalyticsEventName::parse(event_name)?;
+        validate_frontend_observation(event_name.value(), properties)?;
         self.repo.track(scope, event_name.value(), properties).await
     }
 
@@ -99,6 +101,32 @@ impl AnalyticsService {
             deleted_tasks: row.deleted_tasks,
             unplaced_historical_tasks: row.unplaced_historical_tasks,
             terminal_persistence_rate,
+        })
+    }
+
+    /// Count only observed browser documents, with failed or missing ends kept.
+    pub(crate) async fn frontend_reliability(
+        &self,
+        scope: &TenantScope,
+        hours: Option<i64>,
+    ) -> AppResult<FrontendReliabilityReport> {
+        let window = AgentReliabilityWindow::normalize(hours);
+        let row = self.repo.frontend_reliability_row(scope, window.hours()).await?;
+        let observed_crash_free_rate =
+            (row.started_sessions > 0 && row.orphan_sessions == 0 && row.invalid_observations == 0)
+                .then(|| row.ended_without_observed_crash as f64 / row.started_sessions as f64);
+        Ok(FrontendReliabilityReport {
+            window_hours: window.hours(),
+            window_started_at: row.window_started_at,
+            observed_at: row.observed_at,
+            population_coverage_verified: false,
+            started_sessions: row.started_sessions,
+            crashed_sessions: row.crashed_sessions,
+            ended_without_observed_crash: row.ended_without_observed_crash,
+            unfinished_sessions: row.unfinished_sessions,
+            orphan_sessions: row.orphan_sessions,
+            invalid_observations: row.invalid_observations,
+            observed_crash_free_rate,
         })
     }
 

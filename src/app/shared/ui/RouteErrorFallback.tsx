@@ -6,6 +6,7 @@ import {
   reloadPage,
 } from '@app/shared/lib/chunkError'
 import { ErrorFallback } from './ErrorFallback'
+import { recordFrontendCrash } from '@app/shared/lib/frontendReliability'
 
 /**
  * F069: the router's `defaultErrorComponent`. A loader/render throw in any route
@@ -15,6 +16,7 @@ import { ErrorFallback } from './ErrorFallback'
  */
 export function RouteErrorFallback({ error }: ErrorComponentProps) {
   useEffect(() => {
+    recordFrontendCrash()
     recoverFromChunkError(error)
   }, [error])
 
