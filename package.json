@@ -50,6 +50,7 @@
     "test:ui": "vitest --config tests/vitest.config.ts --ui",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
     "test:e2e:orchestration:real-cli": "bash scripts/run-orchestration-real-cli-e2e.sh",
+    "measure:app-shell": "node scripts/measure-app-shell.mjs",
     "migrate": "cargo run --manifest-path rust/Cargo.toml --bin agentforge-server -- --migrate-only",
     "migrate:prod": "cargo run --manifest-path rust/Cargo.toml --bin agentforge-server -- --migrate-only",
     "migrate:down": "node scripts/rust-migrate-unsupported.mjs down",

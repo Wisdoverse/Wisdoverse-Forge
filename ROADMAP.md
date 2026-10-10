@@ -302,9 +302,11 @@ time separately. A faster agent run is not evidence of reduced human effort.
   record. Interrupted work must expose its last known state and recovery path.
 - Preserve one-command startup, beginner-audit, activation E2E, keyboard
   access, useful empty/error states and the runtime validation boundary.
-- Keep metrics/protocol contract checks green. Retain the app-shell p75
-  first-load target below 3.5 seconds on the documented reference connection;
-  report the measurement environment rather than assuming this target is met.
+- Keep metrics/protocol contract checks green. The app-shell first-load p75
+  target is below 3.5 seconds under the fixed reference profile. See the
+  [frontend-quality runbook](docs/runbooks/frontend-quality.md). A pass requires
+  20 valid samples, zero failed attempts, and p75 below 3,500 ms. The repository
+  has no qualifying measurement. The 99.5% crash-free session target is separate.
 - Apply the change-specific checks in [AGENTS.md](AGENTS.md) and
   [CONTRIBUTING.md](CONTRIBUTING.md). Documentation-only changes require
   `git diff --check`; UI, Rust, protocol and deployment changes require their

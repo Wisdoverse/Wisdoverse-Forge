@@ -115,6 +115,21 @@ export function AppLayout({
   const sidebarAsOverlay = isMobile && sidebarExpanded
 
   useLayoutEffect(() => {
+    try {
+      const marker = 'forge:app-shell-commit'
+      if (
+        typeof performance.mark === 'function' &&
+        typeof performance.getEntriesByName === 'function' &&
+        performance.getEntriesByName(marker).length === 0
+      ) {
+        performance.mark(marker)
+      }
+    } catch {
+      // Optional measurement must not interrupt the app shell.
+    }
+  }, [])
+
+  useLayoutEffect(() => {
     const dialog = navigationDialog.current
     if (!dialog) return
     if (sidebarAsOverlay && !dialog.open) dialog.showModal()
