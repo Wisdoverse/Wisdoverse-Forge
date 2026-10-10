@@ -110,3 +110,18 @@ The implementation uses the existing `analytics_events` table. It adds no
 database schema or monitoring SDK. Use the report to inspect observed
 outcomes. Do not use it to claim the 99.5% all-user target is met.
 `populationCoverageVerified` is always false.
+
+## Local runtime validation (2026-10-10)
+
+This check used source commit `238c172f217f4576c5a572c08603117aee53a5e0`.
+It used a production client build, a real Rust HTTP API, and PostgreSQL.
+The API used a synthetic authentication identity. This was not a production deployment.
+
+The browser sent four events: started, crashed, started, and ended. The test
+kept the session UUID property on the allowlist. It rebuilt API state and restarted the owned
+PostgreSQL container on the same volume.
+
+After restart, the report showed two starts, one crash, and one end without an
+observed crash. The example rate was `0.5`. The report kept
+`populationCoverageVerified` false. This result does not prove full population
+coverage or the 99.5% all-user target.

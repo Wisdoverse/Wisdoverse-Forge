@@ -299,6 +299,11 @@ time separately. A faster agent run is not evidence of reduced human effort.
   denominator. Empty cohorts, orphan sessions, or invalid observations have a
   null rate. Client reporting does not verify full population coverage or the
   99.5% production target.
+  A local API and PostgreSQL probe retained four events after API-state rebuild
+  and a same-volume PostgreSQL restart. It returned `0.5` and kept
+  `populationCoverageVerified` false. See the
+  [local reliability proof](docs/runbooks/frontend-reliability.md#local-runtime-validation-2026-10-10).
+  This result does not prove full population coverage or the 99.5% target.
 - Measure started-task outcomes with the authenticated, organization-scoped
   [task-reliability report](docs/runbooks/task-reliability.md). Retries count
   once. Unfinished and deleted tasks remain in the denominator. A null rate
@@ -312,8 +317,13 @@ time separately. A faster agent run is not evidence of reduced human effort.
 - Keep metrics/protocol contract checks green. The app-shell first-load p75
   target is below 3.5 seconds under the fixed reference profile. See the
   [frontend-quality runbook](docs/runbooks/frontend-quality.md). A pass requires
-  20 valid samples, zero failed attempts, and p75 below 3,500 ms. The repository
-  has no qualifying measurement. The 99.5% crash-free session target is separate.
+  20 valid samples, zero failed attempts, and p75 below 3,500 ms. A controlled
+  local measurement passed on 2026-10-10 at p75 2,921 ms from source commit
+  `238c172f217f4576c5a572c08603117aee53a5e0`. See the
+  [measured result](docs/runbooks/frontend-quality.md#local-validation-2026-10-10).
+  It used a production client build, real Rust API and PostgreSQL, and synthetic
+  authentication. It was not a production deployment. The 99.5% crash-free
+  session target remains separate and unproven.
 - Apply the change-specific checks in [AGENTS.md](AGENTS.md) and
   [CONTRIBUTING.md](CONTRIBUTING.md). Documentation-only changes require
   `git diff --check`; UI, Rust, protocol and deployment changes require their

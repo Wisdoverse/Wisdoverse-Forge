@@ -118,3 +118,18 @@ production latency or physical-device performance. It does not measure the
 For `NOT_RUN`, restore a valid auth state for the exact target origin or fix the
 missing prerequisite. For `FAIL`, use the output's fixed `issue` code to find
 the failed stage. Fix that issue. Run the full 20-context cohort again.
+
+## Local validation (2026-10-10)
+
+This result used source commit `238c172f217f4576c5a572c08603117aee53a5e0`.
+It used a production client build, a real Rust HTTP API, and PostgreSQL.
+The API used a synthetic authentication identity. This was not a production deployment.
+
+The host ran Linux x64 on an AMD EPYC 7763 CPU. Chromium was `153.0.8010.12`.
+The run used 20 new browser contexts at 1440 by 900 pixels. It limited
+download to 10 Mbps and upload to 1 Mbps. It set the minimum RTT to 40 ms and
+the CPU slowdown to 4x. It disabled the cache and blocked service workers.
+
+All 20 samples were valid. The run had zero failed attempts. The p75 was
+2,921 ms, below the 3,500 ms limit. This result passes the fixed local profile.
+It does not prove production latency or the all-user crash-free target.
