@@ -285,6 +285,12 @@ time separately. A faster agent run is not evidence of reduced human effort.
 - Preserve the operational targets: crash-free frontend sessions at least
   99.5%, API 5xx below 0.5%, and more than 85% of started tasks reaching a
   terminal state with persisted results. Report accepted outcomes separately.
+- Measure started-task outcomes with the authenticated, organization-scoped
+  [task-reliability report](docs/runbooks/task-reliability.md). Retries count
+  once. Unfinished and deleted tasks remain in the denominator. A null rate
+  means the window is empty or coverage is incomplete. It is not a pass. The
+  target is strictly greater than 85%, and accepted outcomes remain a separate
+  criterion. Current results do not show that this target is met.
 - Completed work retains its verdict and artifacts, or an explicit no-artifact
   record. Interrupted work must expose its last known state and recovery path.
 - Preserve one-command startup, beginner-audit, activation E2E, keyboard

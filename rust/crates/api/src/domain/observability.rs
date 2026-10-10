@@ -72,9 +72,7 @@ pub(crate) struct AnalyticsSummary {
     pub(crate) top_events: Vec<AnalyticsTopEvent>,
 }
 
-/// Per-agent work reliability over a rolling window: finished runs only
-/// (`completed` + `failed`), so the rate is the share of runs an agent
-/// finished successfully.
+/// Per-agent reliability counts completed and failed tasks within the window.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AgentReliabilityItem {
@@ -91,6 +89,24 @@ pub(crate) struct AgentReliabilityItem {
 pub(crate) struct AgentReliabilityReport {
     pub(crate) window_hours: i64,
     pub(crate) agents: Vec<AgentReliabilityItem>,
+}
+
+/// Task settlement counts include unfinished and deleted tasks in the cohort.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskReliabilityReport {
+    pub(crate) window_hours: i64,
+    pub(crate) window_started_at: DateTime<Utc>,
+    pub(crate) observed_at: DateTime<Utc>,
+    pub(crate) coverage_since: DateTime<Utc>,
+    pub(crate) coverage_complete: bool,
+    pub(crate) started_tasks: i64,
+    pub(crate) terminal_with_persisted_results: i64,
+    pub(crate) terminal_without_persisted_results: i64,
+    pub(crate) unfinished_tasks: i64,
+    pub(crate) deleted_tasks: i64,
+    pub(crate) unplaced_historical_tasks: i64,
+    pub(crate) terminal_persistence_rate: Option<f64>,
 }
 
 /// Per-agent LLM usage over a rolling window: assistant replies with token

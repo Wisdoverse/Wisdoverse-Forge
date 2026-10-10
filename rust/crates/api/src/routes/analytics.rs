@@ -4,6 +4,7 @@
 //! - `GET  /analytics/events`  — list events
 //! - `GET  /analytics/summary` — aggregate stats
 //! - `GET  /analytics/context-usage` — governed context usage analytics
+//! - `GET  /analytics/task-reliability` — started-task settlement counts
 
 use axum::extract::{Query, State};
 use axum::routing::{get, post};
@@ -44,7 +45,7 @@ pub struct ContextUsageQueryParams {
     pub negative_rate: Option<f64>,
 }
 
-/// Query parameters for per-agent reliability trends.
+/// Query parameters for reliability reports.
 #[derive(Deserialize)]
 pub struct AgentReliabilityQuery {
     pub hours: Option<i64>,
@@ -109,6 +110,16 @@ async fn agent_reliability(
     Ok(Json(analytics_data_response(report)))
 }
 
+/// `GET /analytics/task-reliability` — started-task settlement counts.
+async fn task_reliability(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(q): Query<AgentReliabilityQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let report = make_service(&state).task_reliability(&auth.scope, q.hours).await?;
+    Ok(Json(analytics_data_response(report)))
+}
+
 /// `GET /analytics/agent-usage` — per-agent LLM token usage and cost trends.
 async fn agent_usage(
     State(state): State<AppState>,
@@ -151,6 +162,7 @@ pub fn analytics_routes() -> Router<AppState> {
         .route("/analytics/summary", get(summary))
         .route("/analytics/context-usage", get(context_usage))
         .route("/analytics/agent-reliability", get(agent_reliability))
+        .route("/analytics/task-reliability", get(task_reliability))
         .route("/analytics/agent-usage", get(agent_usage))
 }
 

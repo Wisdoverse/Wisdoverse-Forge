@@ -2,6 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::AnalyticsEvent;
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -17,6 +18,20 @@ pub(crate) struct AgentUsageRow {
     pub(crate) requests: i64,
     pub(crate) tokens_in: i64,
     pub(crate) tokens_out: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct TaskReliabilityRow {
+    pub(crate) window_started_at: DateTime<Utc>,
+    pub(crate) observed_at: DateTime<Utc>,
+    pub(crate) coverage_since: DateTime<Utc>,
+    pub(crate) coverage_complete: bool,
+    pub(crate) started_tasks: i64,
+    pub(crate) terminal_with_persisted_results: i64,
+    pub(crate) terminal_without_persisted_results: i64,
+    pub(crate) unfinished_tasks: i64,
+    pub(crate) deleted_tasks: i64,
+    pub(crate) unplaced_historical_tasks: i64,
 }
 
 /// Database access layer for analytics.
@@ -109,8 +124,7 @@ impl AnalyticsRepository {
         Ok(AnalyticsSummary { total_events, unique_users, top_events })
     }
 
-    /// Per-agent finished-run counts (`completed` + `failed`) over the rolling
-    /// window. One row per agent, newest-finish last updated, tenant-scoped.
+    /// Count completed and failed tasks by last update, grouped by Agent.
     pub(crate) async fn agent_reliability_rows(
         &self,
         scope: &TenantScope,
@@ -134,6 +148,53 @@ impl AnalyticsRepository {
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
+    }
+
+    /// Count each task by its first start, including missing task rows.
+    pub(crate) async fn task_reliability_row(&self, scope: &TenantScope, hours: i64) -> AppResult<TaskReliabilityRow> {
+        let row = sqlx::query_as::<_, TaskReliabilityRow>(
+            r#"WITH measurement AS (
+                   SELECT NOW() AS observed_at,
+                          NOW() - ($2::int * INTERVAL '1 hour') AS window_started_at,
+                          coverage_since
+                   FROM task_start_measurement
+               ), cohort AS (
+                   SELECT t.id, t.status,
+                          CASE t.status
+                              WHEN 'completed' THEN NULLIF(t.result, 'null'::jsonb) IS NOT NULL
+                              WHEN 'failed' THEN NULLIF(t.error, 'null'::jsonb) IS NOT NULL
+                              WHEN 'canceled' THEN t.canceled_at IS NOT NULL
+                              ELSE FALSE
+                          END AS has_result
+                   FROM task_starts s
+                   CROSS JOIN measurement m
+                   LEFT JOIN orchestration_tasks t ON t.id = s.task_id AND t.organization_id = s.organization_id
+                   WHERE s.organization_id = $1
+                     AND s.first_started_at >= m.window_started_at
+                     AND s.first_started_at <= m.observed_at
+               )
+               SELECT m.*,
+                      m.window_started_at >= m.coverage_since AS coverage_complete,
+                      c.*,
+                      (SELECT COUNT(*) FROM task_starts
+                       WHERE organization_id = $1 AND first_started_at IS NULL) AS unplaced_historical_tasks
+               FROM measurement m
+               CROSS JOIN (
+                   SELECT COUNT(*) AS started_tasks,
+                          COUNT(*) FILTER (WHERE has_result) AS terminal_with_persisted_results,
+                          COUNT(*) FILTER (WHERE status IN ('completed', 'failed', 'canceled') AND NOT has_result)
+                              AS terminal_without_persisted_results,
+                          COUNT(*) FILTER (WHERE id IS NOT NULL AND status NOT IN ('completed', 'failed', 'canceled'))
+                              AS unfinished_tasks,
+                          COUNT(*) FILTER (WHERE id IS NULL) AS deleted_tasks
+                   FROM cohort
+               ) c"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(hours)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
     }
 
     /// Per-agent, per-model assistant-message usage over the rolling window,
