@@ -13,6 +13,7 @@ export function RightPanel({ collapsed, onToggle, onOpenBoard }: RightPanelProps
   return (
     <aside
       data-testid="right-panel"
+      aria-label="Live task updates"
       className="flex min-h-0 w-[280px] flex-shrink-0 flex-col overflow-hidden border-l border-black/[0.08] bg-background-light dark:border-white/[0.1] dark:bg-background-dark"
     >
       <div className="flex items-center justify-between border-b border-black/[0.08] px-4 py-3 dark:border-white/[0.1]">

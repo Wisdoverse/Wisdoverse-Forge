@@ -432,10 +432,10 @@ export class AuthPage {
           </div>
           <div class="auth-password-rules">
             <span class="auth-rule" data-rule="length">12 characters</span>
-            <span class="auth-rule" data-rule="upper">uppercase letter</span>
-            <span class="auth-rule" data-rule="lower">lowercase letter</span>
+            <span class="auth-rule" data-rule="upper">capital letter (A-Z)</span>
+            <span class="auth-rule" data-rule="lower">small letter (a-z)</span>
             <span class="auth-rule" data-rule="number">number</span>
-            <span class="auth-rule" data-rule="special">symbol</span>
+            <span class="auth-rule" data-rule="special">symbol like ! or ?</span>
           </div>
         </div>
         <div class="auth-field">
@@ -1005,10 +1005,10 @@ export class AuthPage {
           </div>
           <div class="auth-password-rules">
             <span class="auth-rule" data-rule="length">12 characters</span>
-            <span class="auth-rule" data-rule="upper">uppercase letter</span>
-            <span class="auth-rule" data-rule="lower">lowercase letter</span>
+            <span class="auth-rule" data-rule="upper">capital letter (A-Z)</span>
+            <span class="auth-rule" data-rule="lower">small letter (a-z)</span>
             <span class="auth-rule" data-rule="number">number</span>
-            <span class="auth-rule" data-rule="special">symbol</span>
+            <span class="auth-rule" data-rule="special">symbol like ! or ?</span>
           </div>
         </div>
         <div class="auth-field">

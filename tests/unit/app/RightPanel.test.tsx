@@ -21,7 +21,7 @@ describe('RightPanel', () => {
     expect(screen.queryByText(/blockers/i)).toBeNull()
     expect(screen.getByLabelText(/hide live task updates/i)).toBeDefined()
     expect(screen.queryByLabelText(/panel/i)).toBeNull()
-    const panel = screen.getByTestId('right-panel')
+    const panel = screen.getByRole('complementary', { name: 'Live task updates' })
     expect(panel).toHaveClass('min-h-0', 'overflow-hidden')
     expect(panel.className).not.toContain('backdrop-blur')
     expect(screen.getByTestId('activity-feed')).toBeDefined()

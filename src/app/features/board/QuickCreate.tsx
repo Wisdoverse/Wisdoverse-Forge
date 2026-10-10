@@ -145,24 +145,26 @@ export function QuickCreate({ columnId, onSubmit }: QuickCreateProps) {
         This saves the idea first. Next: open the card, add where to work and done when, then choose
         who should start it.
       </p>
-      <div className="rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
-        <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
-          Need a starting point?
-        </p>
-        <div role="group" aria-label="Task examples" className="mt-2 flex flex-wrap gap-1.5">
-          {QUICK_TASK_EXAMPLES.map((example) => (
-            <button
-              key={example}
-              type="button"
-              onClick={() => useExample(example)}
-              disabled={submitting}
-              className="rounded-button border border-black/[0.08] bg-white px-2.5 py-1 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.03] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark"
-            >
-              {example}
-            </button>
-          ))}
+      {!trimmedTitle && (
+        <div className="rounded-card bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
+          <p className="text-ui-caption font-medium text-secondary-light dark:text-secondary-dark">
+            Need a starting point?
+          </p>
+          <div role="group" aria-label="Task examples" className="mt-2 flex flex-wrap gap-1.5">
+            {QUICK_TASK_EXAMPLES.map((example) => (
+              <button
+                key={example}
+                type="button"
+                onClick={() => useExample(example)}
+                disabled={submitting}
+                className="rounded-button border border-black/[0.08] bg-white px-2.5 py-1 text-ui-caption font-medium text-secondary-light transition-colors hover:bg-black/[0.03] hover:text-foreground-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-blue-focus disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.08] dark:hover:text-foreground-dark"
+              >
+                {example}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       {error && (
         <p
           id={errorId}

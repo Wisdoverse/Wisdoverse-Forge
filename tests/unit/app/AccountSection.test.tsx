@@ -120,7 +120,7 @@ describe('AccountSection', () => {
 
     expect(
       screen.getByText(
-        'Enter your current password, then choose a new password with at least 12 characters, one uppercase letter, one lowercase letter, one number, and one symbol.'
+        'Enter your current password. Use at least 12 characters for the new password. Include a capital letter, a small letter, a number, and a symbol, like ! or ?.'
       )
     ).toBeDefined()
 
@@ -238,7 +238,7 @@ describe('AccountSection', () => {
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent(
-      'Add at least one uppercase letter to the password, then choose Update password again.'
+      'Add at least one capital letter (A-Z) to the password. Then choose Update password again.'
     )
     expect(alert).not.toHaveTextContent('then try again')
     expect(screen.getByLabelText('New Password')).toHaveFocus()
@@ -272,7 +272,7 @@ describe('AccountSection', () => {
 
     expect(screen.getByText('Done: Use at least 12 characters for the new password.')).toBeDefined()
     expect(
-      screen.getByText('Needed: Add at least one uppercase letter to the password.')
+      screen.getByText('Needed: Add at least one capital letter (A-Z) to the password.')
     ).toBeDefined()
     expect(screen.getByRole('button', { name: /update password/i })).toBeDisabled()
 
@@ -284,10 +284,12 @@ describe('AccountSection', () => {
     })
 
     expect(
-      screen.getByText('Done: Add at least one uppercase letter to the password.')
+      screen.getByText('Done: Add at least one capital letter (A-Z) to the password.')
     ).toBeDefined()
     expect(screen.getByText('Done: Add at least one number to the password.')).toBeDefined()
-    expect(screen.getByText('Done: Add at least one symbol to the password.')).toBeDefined()
+    expect(
+      screen.getByText('Done: Add at least one symbol, like ! or ?, to the password.')
+    ).toBeDefined()
     expect(screen.getByRole('button', { name: /update password/i })).toBeEnabled()
   })
 

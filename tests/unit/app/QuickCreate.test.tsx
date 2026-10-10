@@ -15,6 +15,29 @@ function deferred<T>() {
 }
 
 describe('QuickCreate', () => {
+  test('shows task examples only while the goal is empty', () => {
+    const onSubmit = vi.fn()
+    render(<QuickCreate columnId="backlog" onSubmit={onSubmit} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add task idea/i }))
+    const goal = screen.getByRole('textbox', { name: /task goal/i })
+    expect(screen.getByRole('group', { name: 'Task examples' })).toBeVisible()
+
+    fireEvent.change(goal, { target: { value: 'Fix login' } })
+    expect(screen.queryByRole('group', { name: 'Task examples' })).toBeNull()
+    expect(goal).toHaveValue('Fix login')
+
+    fireEvent.change(goal, { target: { value: '   ' } })
+    expect(screen.getByRole('group', { name: 'Task examples' })).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Summarize the latest result with next actions' })
+    )
+    expect(goal).toHaveValue('Summarize the latest result with next actions')
+    expect(goal).toHaveFocus()
+    expect(screen.queryByRole('group', { name: 'Task examples' })).toBeNull()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   test('opens an explicit save/cancel form', () => {
     render(<QuickCreate columnId="backlog" onSubmit={vi.fn()} />)
 

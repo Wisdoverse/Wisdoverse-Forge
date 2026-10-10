@@ -153,8 +153,8 @@ function PasswordChangeForm() {
         </div>
       )}
       <p className="text-ui-caption text-secondary-light dark:text-secondary-dark">
-        Enter your current password, then choose a new password with at least {PASSWORD_MIN_LENGTH}{' '}
-        characters, one uppercase letter, one lowercase letter, one number, and one symbol.
+        Enter your current password. Use at least {PASSWORD_MIN_LENGTH} characters for the new
+        password. Include a capital letter, a small letter, a number, and a symbol, like ! or ?.
       </p>
       <div className="grid grid-cols-1 gap-3">
         <div>

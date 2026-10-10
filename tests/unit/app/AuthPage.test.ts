@@ -486,7 +486,7 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'Add at least one uppercase letter to the password, then choose Create account and continue again.'
+      'Add at least one capital letter (A-Z) to the password. Then choose Create account and continue again.'
     )
     expect(document.querySelector<HTMLInputElement>('#register-password')).toBe(
       document.activeElement
@@ -617,7 +617,7 @@ describe('AuthPage beginner guidance', () => {
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
     expect(bodyText()).toContain(
-      'Add at least one uppercase letter to the password, then choose Save new password again.'
+      'Add at least one capital letter (A-Z) to the password. Then choose Save new password again.'
     )
     expect(resetPassword).not.toHaveBeenCalled()
   })
