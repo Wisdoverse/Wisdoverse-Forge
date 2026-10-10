@@ -243,6 +243,13 @@ per active workspace, accompanied by total human effort and quality.
 Execution success and task volume are operational signals, not substitutes
 for accepted results.
 
+### API availability
+
+The global API 5xx objective is strictly below `0.005` over 30 days. Confirm
+continuous scrape coverage and nonzero request traffic before evaluation. The
+[API Availability runbook](docs/runbooks/observability-slo.md#api-availability)
+defines the operator path. Current evidence does not prove this objective.
+
 ### Optional product-evaluation targets
 
 Teams may use these targets after establishing a baseline. They are optional

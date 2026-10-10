@@ -54,6 +54,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: npm run lint
+      - name: Prometheus rule checks
+        run: node scripts/check-prometheus-rules.mjs
 
   prettier:
     name: Prettier

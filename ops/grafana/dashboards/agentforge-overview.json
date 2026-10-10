@@ -3,7 +3,7 @@
   "uid": "agentforge-overview",
   "tags": ["agentforge", "ops"],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "timezone": "",
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
@@ -19,7 +19,7 @@
         "name": "path",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "$datasource" },
-        "query": "label_values(http_requests_total, path)",
+        "query": "label_values(http_requests_total{service!=\"orchestrator\"}, path)",
         "refresh": 2,
         "includeAll": true,
         "multi": true
@@ -34,7 +34,7 @@
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "sum by (path) (rate(http_requests_total{path=~\"$path\"}[5m]))",
+          "expr": "sum by (path) (rate(http_requests_total{path=~\"$path\",service!=\"orchestrator\"}[5m]))",
           "legendFormat": "{{ path }}"
         }
       ]
@@ -44,21 +44,26 @@
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "$datasource" },
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0 } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.005 },
+              { "color": "red", "value": 0.01 }
+            ]
+          }
+        }
+      },
       "targets": [
         {
-          "expr": "sum by (path) (rate(http_requests_total{status=~\"5..\",path=~\"$path\"}[5m])) / sum by (path) (rate(http_requests_total{path=~\"$path\"}[5m]))",
+          "expr": "((sum by (path) (rate(http_requests_total{status=~\"5..\",path=~\"$path\",service!=\"orchestrator\"}[5m])) or (0 * sum by (path) (rate(http_requests_total{path=~\"$path\",service!=\"orchestrator\"}[5m])))) / sum by (path) (rate(http_requests_total{path=~\"$path\",service!=\"orchestrator\"}[5m]))) and sum by (path) (rate(http_requests_total{path=~\"$path\",service!=\"orchestrator\"}[5m])) > 0",
           "legendFormat": "{{ path }}"
         }
-      ],
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          { "color": "green", "value": null },
-          { "color": "yellow", "value": 0.005 },
-          { "color": "red", "value": 0.01 }
-        ]
-      }
+      ]
     },
     {
       "title": "Latency p50 / p95 / p99",
@@ -68,15 +73,15 @@
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\",service!=\"orchestrator\"}[5m])))",
           "legendFormat": "p50 {{ path }}"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\",service!=\"orchestrator\"}[5m])))",
           "legendFormat": "p95 {{ path }}"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, path) (rate(http_request_duration_seconds_bucket{path=~\"$path\",service!=\"orchestrator\"}[5m])))",
           "legendFormat": "p99 {{ path }}"
         }
       ]
@@ -130,6 +135,34 @@
             "steps": [
               { "color": "green", "value": null },
               { "color": "red", "value": 3 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Observed API 5xx (30-day lookback)",
+      "description": "This panel covers all API paths and ignores the path filter. A low ratio does not prove complete 30-day coverage. See docs/runbooks/observability-slo.md#api-availability.",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "x": 0, "y": 32, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "((sum(rate(http_requests_total{status=~\"5..\",service!=\"orchestrator\"}[30d])) or vector(0)) / sum(rate(http_requests_total{service!=\"orchestrator\"}[30d]))) and sum(rate(http_requests_total{service!=\"orchestrator\"}[30d])) > 0",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "noValue": "No measurement",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.005 },
+              { "color": "red", "value": 0.01 }
             ]
           }
         }

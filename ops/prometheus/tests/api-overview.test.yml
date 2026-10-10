@@ -1,0 +1,77 @@
+rule_files:
+  - /workspace/ops/prometheus/alerts.yml
+evaluation_interval: 1m
+fuzzy_compare: true
+
+tests:
+  - name: Overview queries use API traffic and preserve healthy paths
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+60x10'
+      - series: 'http_requests_total{method="GET",path="/health",status="500",service="orchestrator"}'
+        values: '0+600x10'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="200"}'
+        values: '0+54x10'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="500"}'
+        values: '0+6x10'
+      - series: 'http_request_duration_seconds_bucket{method="GET",path="/health",le="0.1"}'
+        values: '0+60x10'
+      - series: 'http_request_duration_seconds_bucket{method="GET",path="/health",le="+Inf"}'
+        values: '0+60x10'
+      - series: 'http_request_duration_seconds_bucket{method="GET",path="/health",le="0.1",service="orchestrator"}'
+        values: '0+0x10'
+      - series: 'http_request_duration_seconds_bucket{method="GET",path="/health",le="+Inf",service="orchestrator"}'
+        values: '0+600x10'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 10m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 0
+          - labels: '{path="/api/v1/tasks"}'
+            value: 0.1
+      - expr: __API_REQUEST_RATE__
+        eval_time: 10m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 1
+          - labels: '{path="/api/v1/tasks"}'
+            value: 1
+      - expr: __API_LATENCY_P95__
+        eval_time: 10m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 0.095
+
+  - name: Overview has no ratio for paths with zero traffic
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '1000x10'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 10m
+        exp_samples: []
+
+  - name: Objective alert needs its full pending interval
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+994x61'
+      - series: 'http_requests_total{method="GET",path="/health",status="500"}'
+        values: '0+6x61'
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 59m
+        exp_alerts: []
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 61m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: availability
+            exp_annotations:
+              summary: 'Observed API 5xx at least 0.5% (30-day lookback)'
+              description: 'Observed ratio is 0.6%. Acceptance requires complete scrape coverage.'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
