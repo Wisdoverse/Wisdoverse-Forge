@@ -103,6 +103,7 @@ afterEach(async () => {
     setGettingStartedDismissed: originalSetGettingStartedDismissed,
   })
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
   Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true })
   await i18n.changeLanguage('en')
 })
@@ -139,6 +140,37 @@ function seedProjectNavigation(selectedProjectId: string | null = 'p1') {
 }
 
 describe('AppLayout', () => {
+  test('records only the first shell commit across mounts', () => {
+    const getEntriesByName = vi.fn().mockReturnValue([])
+    const mark = vi.fn(() => {
+      getEntriesByName.mockReturnValue([{ name: 'forge:app-shell-commit' }])
+    })
+    vi.stubGlobal('performance', { now: performance.now.bind(performance), mark, getEntriesByName })
+    render(<MemoryRouter />)
+    cleanup()
+    render(<MemoryRouter />)
+    expect(mark).toHaveBeenCalledExactlyOnceWith('forge:app-shell-commit')
+    expect(screen.getByTestId('main-content')).toBeDefined()
+  })
+
+  test('renders when the Performance mark API is unavailable', () => {
+    vi.stubGlobal('performance', { now: performance.now.bind(performance) })
+    render(<MemoryRouter />)
+    expect(screen.getByTestId('main-content')).toBeDefined()
+  })
+
+  test('renders when optional measurement fails', () => {
+    vi.stubGlobal('performance', {
+      now: performance.now.bind(performance),
+      getEntriesByName: () => [],
+      mark: () => {
+        throw new Error('Measurement unavailable')
+      },
+    })
+    render(<MemoryRouter />)
+    expect(screen.getByTestId('main-content')).toBeDefined()
+  })
+
   test('renders sidebar, top bar, main content area, and right panel toggle', () => {
     render(<MemoryRouter />)
     expect(screen.getByTestId('sidebar')).toBeDefined()
