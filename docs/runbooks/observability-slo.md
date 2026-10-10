@@ -42,13 +42,71 @@ The defaults below assume a single-tenant self-hosted deployment serving
 
 | Surface                   | Window  | Target         |
 | ------------------------- | ------- | -------------- |
-| API availability          | 30 days | 99.5%          |
+| API availability          | 30 days | > 99.5%        |
 | API p95 latency           | 30 days | 350 ms         |
 | Orchestrator success rate | 30 days | 99.0%          |
 | Workflow start p95        | 30 days | 1.5 s          |
 | NATS event delivery       | 7 days  | 99.9%          |
 | DB pool saturation        | 30 days | < 70% average  |
 | WebSocket backlog p99     | 30 days | < 512 messages |
+
+## API Availability
+
+Use this path to measure the global API 5xx objective. Do not treat an alert
+threshold as the objective.
+
+### Before you start
+
+Confirm each prerequisite before you measure the objective:
+
+- Prometheus is available and has a configured Prometheus data source in Grafana.
+- Authenticated scrape jobs collect `/metrics` from the API and orchestrator.
+- The scrape jobs have continuous coverage for the full 30-day window.
+- The window has nonzero API request traffic.
+
+The API scrape uses platform-admin authentication. The orchestrator scrape uses
+the internal operator token. The orchestrator adds `service="orchestrator"` to
+the shared HTTP metrics. API series have no `service` label.
+
+### Measure the 30-day objective
+
+1. In Grafana, select **Dashboards → Import → Upload JSON file**.
+2. Upload `ops/grafana/dashboards/agentforge-overview.json`.
+3. Select the configured Prometheus data source.
+4. Set the dashboard time range to **Last 30 days**.
+5. Open the **Observed API 5xx (30-day lookback)** panel.
+6. Confirm that the panel uses the API scope and excludes the orchestrator.
+7. Confirm continuous scrape coverage across the full window.
+8. Confirm that the window contains API requests.
+9. Compare the observed global API 5xx ratio with `0.005`.
+
+The API scope includes series without a `service` label. It excludes series
+with `service="orchestrator"`. The objective passes only when the observed
+30-day ratio is strictly below `0.005` and all prerequisites hold. This is the
+same as API availability strictly above `99.5%`.
+
+The global panel covers all API paths regardless of the dashboard path filter.
+
+If requests exist but no API 5xx series exists, the panel reports an observed
+ratio of zero. This is normal when the API has no 5xx responses. An empty panel
+or zero request traffic does not prove the objective. Sparse data can produce
+an extrapolated rate. A new deployment or an incomplete window does not prove
+the objective either. Retention length alone does not prove continuous scrape
+coverage.
+
+### Rule validation
+
+Rule validation requires Docker and Node.js.
+From the repository root, run:
+
+```bash
+node scripts/check-prometheus-rules.mjs
+```
+
+The command evaluates both shipped rule files and the overview queries with synthetic samples.
+Successful runs report `SUCCESS`.
+These results do not prove production scrape coverage or the observed objective.
+For query behavior, see the [Prometheus function reference](https://prometheus.io/docs/prometheus/latest/querying/functions/).
 
 ## Error Budget Policy
 
@@ -70,14 +128,18 @@ defaults:
 
 | Condition                                        | Severity | Where it fires                                              |
 | ------------------------------------------------ | -------- | ----------------------------------------------------------- |
-| API 5xx rate > 1% for 5 min                      | Warning  | API availability SLI.                                       |
-| API 5xx rate > 5% for 2 min                      | Critical | Same SLI; the page condition.                               |
+| Per-path API 5xx rate > 1% over 5 min            | Page     | Fires when the condition remains true for 5 min.             |
+| Global API 5xx rate > 1.4% over 1h and 5m        | Page     | Fires when both windows exceed the threshold for 2 min.      |
+| Global API 5xx rate >= 0.5% over 30 days         | Warning  | Fires when the condition remains true for 1 hour.            |
 | API p95 latency > 1 s for 10 min                 | Warning  | API latency SLI.                                            |
 | Orchestrator workflow start p95 > 5 s for 10 min | Warning  | Workflow start SLI.                                         |
 | Task run failure rate > 5% for 15 min            | Warning  | Orchestrator success rate SLI.                              |
 | DB connection pool saturation > 90% for 5 min    | Critical | Pool saturation SLI; usually indicates a stuck transaction. |
 | NATS event delivery < 99% for 5 min              | Warning  | NATS SLI; check Compose health of the NATS service.         |
 | `/health` 200 lost for 60 s                      | Critical | Synthetic liveness check.                                   |
+
+Both error-budget burn windows use a 1.4% threshold. This is 2.8 times the
+global 0.5% error budget.
 
 `/health` is the API liveness probe. `/api/health` is the deep readiness probe
 that asserts PostgreSQL, Redis, and NATS reachability when configured. The
@@ -88,7 +150,7 @@ if it fails to recover within five minutes.
 
 When an alert fires, refer to the matching runbook:
 
-- API 5xx rate: [docs/runbooks/runtime-validation.md](runtime-validation.md)
+- API 5xx rate: [API Availability](observability-slo.md#api-availability)
 - NATS delivery: [docs/runbooks/nats-auth.md](nats-auth.md)
 - Credential failure: [docs/runbooks/credential-sync.md](credential-sync.md)
 - Context governance: [docs/runbooks/context-governance-audit.md](context-governance-audit.md)

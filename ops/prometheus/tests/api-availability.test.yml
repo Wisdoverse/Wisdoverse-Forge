@@ -1,0 +1,135 @@
+rule_files:
+  - /workspace/ops/prometheus/alerts.yml
+evaluation_interval: 1h
+fuzzy_compare: true
+
+tests:
+  - name: API below target with orchestrator errors excluded
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+996x744'
+      - series: 'http_requests_total{method="GET",path="/health",status="500"}'
+        values: '0+4x744'
+      - series: 'http_requests_total{method="GET",path="/health",status="500",service="orchestrator"}'
+        values: '0+9000x744'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples:
+          - labels: '{}'
+            value: 0.004
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 744h
+        exp_alerts: []
+
+  - name: Exact 0.5 percent boundary fails the strict objective
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200",service="api"}'
+        values: '0+995x744'
+      - series: 'http_requests_total{method="GET",path="/health",status="500",service="api"}'
+        values: '0+5x744'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples:
+          - labels: '{}'
+            value: 0.005
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 744h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: availability
+            exp_annotations:
+              summary: 'Observed API 5xx at least 0.5% (30-day lookback)'
+              description: 'Observed ratio is 0.5%. Acceptance requires complete scrape coverage.'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+  - name: Ratio above the objective
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+994x744'
+      - series: 'http_requests_total{method="GET",path="/health",status="500"}'
+        values: '0+6x744'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples:
+          - labels: '{}'
+            value: 0.006
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 744h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: availability
+            exp_annotations:
+              summary: 'Observed API 5xx at least 0.5% (30-day lookback)'
+              description: 'Observed ratio is 0.6%. Acceptance requires complete scrape coverage.'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+  - name: Active API traffic with no 5xx series
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+1000x744'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples:
+          - labels: '{}'
+            value: 0
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 744h
+        exp_alerts: []
+
+  - name: Existing counters with zero traffic
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '1000x744'
+      - series: 'http_requests_total{method="GET",path="/health",status="500"}'
+        values: '10x744'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples: []
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 744h
+        exp_alerts: []
+
+  - name: No API metrics while orchestrator serves traffic
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="500",service="orchestrator"}'
+        values: '0+1000x744'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples: []
+    alert_rule_test:
+      - alertname: API5xxRatioAtOrAboveSLO
+        eval_time: 744h
+        exp_alerts: []
+
+  - name: API counters reset during the observation window
+    interval: 1h
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+995x360 0+995x383'
+      - series: 'http_requests_total{method="GET",path="/health",status="500"}'
+        values: '0+5x360 0+5x383'
+    promql_expr_test:
+      - expr: __API_5XX_30D__
+        eval_time: 744h
+        exp_samples:
+          - labels: '{}'
+            value: 0.005

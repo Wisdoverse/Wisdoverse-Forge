@@ -10,8 +10,9 @@
 #
 # Routes / receivers (PagerDuty, Slack, email) live in your Alertmanager
 # config — this file describes WHAT to alert on, not WHO to page. Adjust
-# severities and thresholds for your error budget; the values here mirror a
-# generic web-API SLO of 99.9% availability + 1s p95 latency.
+# severities and thresholds for your error budget. The API objective requires
+# more than 99.5% request availability over a complete 30-day window.
+# Fast alerts use shorter windows for incident response.
 #
 # Metric names / labels match what the Rust API actually emits (see
 # rust/crates/api/src/observability/http_metrics.rs and the orchestration
@@ -36,6 +37,27 @@
 groups:
   - name: agentforge.api.availability
     rules:
+      - alert: API5xxRatioAtOrAboveSLO
+        expr: |
+          (
+            (
+              sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[30d]))
+              or vector(0)
+            )
+            /
+            sum(rate(http_requests_total{service!="orchestrator"}[30d]))
+          ) >= 0.005
+          and
+          sum(rate(http_requests_total{service!="orchestrator"}[30d])) > 0
+        for: 1h
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: 'Observed API 5xx at least 0.5% (30-day lookback)'
+          description: 'Observed ratio is {{ $value | humanizePercentage }}. Acceptance requires complete scrape coverage.'
+          runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
       - alert: APIHigh5xxRate
         expr: |
           (
@@ -49,11 +71,10 @@ groups:
           slo: availability
         annotations:
           summary: '5xx rate >1% on {{ $labels.path }} for 5m'
-          runbook: 'docs/runbooks/api-5xx.md'
+          runbook: 'docs/runbooks/observability-slo.md#api-availability'
 
       - alert: APIErrorBudgetBurn
-        # Multi-window burn-rate alert: 14.4× burn over 1h consumes a 30d
-        # budget in 5d. See SRE Workbook chapter 5.
+        # A 1.4% error ratio burns the 0.5% error budget at 2.8 times its target rate.
         expr: |
           (
             sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[1h]))
@@ -71,8 +92,8 @@ groups:
           severity: page
           slo: availability
         annotations:
-          summary: 'Error budget burn 14.4× over 1h+5m windows'
-          runbook: 'docs/runbooks/error-budget-burn.md'
+          summary: 'Error budget burn 2.8× over 1h+5m windows'
+          runbook: 'docs/runbooks/observability-slo.md#api-availability'
 
   - name: agentforge.api.latency
     rules:
@@ -121,7 +142,7 @@ groups:
           slo: availability
         annotations:
           summary: 'Orchestrator 5xx rate >1% on {{ $labels.path }} for 5m'
-          runbook: 'docs/runbooks/api-5xx.md'
+          runbook: 'docs/runbooks/runtime-validation.md'
 
       - alert: OrchestratorLatencyHighP95
         expr: |
