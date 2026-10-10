@@ -93,6 +93,25 @@ describe('CommandPalette', () => {
     expect(screen.queryByPlaceholderText(/search what you want to do/i)).toBeNull()
   })
 
+  test('keeps a reopened palette open when an earlier close event arrives', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(<CommandPalette isOpen={true} onClose={onClose} />)
+    const dialog = screen.getByRole('dialog', { name: /find what you need/i })
+
+    rerender(<CommandPalette isOpen={false} onClose={onClose} />)
+    onClose.mockClear()
+    rerender(<CommandPalette isOpen={true} onClose={onClose} />)
+    fireEvent(dialog, new Event('close'))
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(dialog).toHaveAttribute('open')
+    expect(screen.getByLabelText('Search pages and things to do')).toHaveFocus()
+
+    dialog.removeAttribute('open')
+    fireEvent(dialog, new Event('close'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   test('closes on Ctrl+K in search but keeps composing input open', () => {
     const onClose = vi.fn()
     render(<CommandPalette isOpen={true} onClose={onClose} />)

@@ -278,7 +278,10 @@ export function CommandPalette({
       aria-labelledby="command-palette-title"
       aria-describedby="command-palette-help"
       onCancel={onClose}
-      onClose={onClose}
+      onClose={(event) => {
+        // A queued close event can arrive after the dialog reopens.
+        if (!event.currentTarget.open) onClose()
+      }}
       onKeyDownCapture={(e) => {
         if (e.nativeEvent.isComposing) return
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
