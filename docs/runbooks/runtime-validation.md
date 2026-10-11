@@ -890,7 +890,7 @@ The host credential file's hash remained unchanged during this follow-up.
 
 This proof covers a local image replacement and retained task evidence.
 The images used the same CLI version.
-Production rollout, live terminal ownership, CLI version changes, rollback, and workspace permission provisioning remain unqualified.
+This rehearsal does not qualify production rollout, live terminal ownership, CLI version changes, rollback, or workspace permission provisioning.
 
 Cleanup removed eight owned containers, five volumes, and three networks.
 It removed the fixture credentials, OAuth mounts, and workspace directory.
@@ -957,6 +957,60 @@ It retained shared images and caches.
 This proof covers one controlled Linux setup, one shared GID, and one signed Codex image.
 It does not qualify custom UID/GID configurations, GitHub App access, another vendor CLI, or production use.
 It does not measure human acceptance within 900 seconds.
+
+## Live Browser Terminal Ownership Proof (2026-10-11)
+
+### Source And Conditions
+
+The qualification source was `6e051a849f7880b5eaed53dafa12ced1268c0c54`.
+The built browser used the real Rust API and WebSocket path without network mocks.
+The fixture used normal API authentication and organization context.
+It used isolated PostgreSQL, Redis, networks, volumes, and loopback ports.
+
+Normal `make setup` completed before the canonical `make prod-ext` profile started in 17.762 seconds.
+The stack reused published images whose relevant Rust sources matched the qualification source.
+The rehearsal compiled no Rust and built no container image.
+Normal Agent admission verified this published Codex image:
+
+```text
+ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:15752667b19a9164deaacf907aede468f4c576a52ffac7fd52a3cfd0d8184bd1
+```
+
+The container ran the real Codex 0.162.1 interface.
+The fixture uploaded its existing CLI credential through the normal encrypted API.
+The host credential file retained its original hash.
+
+### Browser Input And Update Protection
+
+The first fixture state contained no interactive lease.
+The browser attached the terminal and received real container output.
+Keyboard input sent a unique marker through `terminal_data`.
+The real xterm display rendered the marker from `terminal_output` frames.
+The rehearsal pressed no Enter key and submitted no model task.
+
+Actual browser input produced an active durable interactive lease.
+Normal CLI events could leave the Agent's status mirror at `idle`.
+The first authenticated administrator roll still skipped the interactive Agent.
+It returned `total=1`, `succeeded=0`, `failed=0`, and `skippedBusy=1`.
+
+The controlled fault set only the owned Agent's status mirror to `idle`.
+It neither created nor changed the durable lease.
+The second administrator roll returned the same busy-skip result.
+The container retained its ID, image, start time, and running state through both rolls.
+
+### Cleanup And Limits
+
+Cleanup removed seven fixture containers, five volumes, and three networks.
+It removed fixture credentials, OAuth mounts, the workspace directory, and the built client.
+It stopped the preview server.
+Four protected services retained their container IDs, images, running states, and start times.
+Shared images and Rust caches remained intact.
+
+This proof covers one local signed Codex image and actual unsubmitted terminal input.
+Both roll requests selected the Agent's existing image digest.
+The rehearsal does not qualify a CLI version upgrade, rollback, production rollout, another vendor CLI, or human acceptance.
+It does not establish a provider-selected model or a completed task.
+The [earlier administrator-roll proof](#release-signature-and-administrator-roll-proof-2026-10-11) records idle replacement and retained task results separately.
 
 ## Existing deployment proof
 
