@@ -11,6 +11,7 @@ on:
       - '.github/workflows/release.yml'
       - 'scripts/check-cli-platform.py'
       - 'scripts/package-cli-release.py'
+      - 'scripts/test-cli-release-version.py'
       - 'docs/guides/cli-platform-support.md'
   workflow_call:
     inputs:
@@ -67,6 +68,23 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
+      - name: Resolve CLI release version
+        id: version
+        shell: bash
+        env:
+          CLI_RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import runpy
+          package = runpy.run_path("scripts/package-cli-release.py")
+          version = package["resolve_version"](os.environ["CLI_RELEASE_VERSION"])
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+          PY
+      - name: Test CLI release version checks
+        shell: bash
+        run: python scripts/test-cli-release-version.py
       - name: Test relay hook transport
         run: node --test scripts/__tests__/relay-hook-transport.test.cjs
       - name: Install protobuf compiler (Linux)
@@ -108,13 +126,15 @@ jobs:
       - name: Build operator binaries
         working-directory: rust
         shell: bash
+        env:
+          AGENTFORGE_CLI_VERSION: ${{ steps.version.outputs.version }}
         run: |
           cargo build --locked --release --target ${{ matrix.target }} \
             --bin agentforge --bin agentforge-sidecar
       - name: Package and install operator release archives
         shell: bash
         env:
-          CLI_RELEASE_VERSION: ${{ inputs.version }}
+          CLI_RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python scripts/package-cli-release.py \
             --binary-dir "rust/target/${{ matrix.target }}/release" \
@@ -123,11 +143,13 @@ jobs:
             --version "$CLI_RELEASE_VERSION" --report cli-package-report.json
       - name: Check the installed release archive
         shell: bash
+        env:
+          CLI_RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python scripts/check-cli-platform.py \
             --binary-dir cli-install \
             --target "${{ matrix.target }}" --binary-revision "$(git rev-parse HEAD)" \
-            --report cli-platform-report.json
+            --expected-version "$CLI_RELEASE_VERSION" --report cli-platform-report.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-binaries-${{ matrix.os_label }}-${{ matrix.arch_label }}

@@ -127,6 +127,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary-dir", required=True, type=Path)
     parser.add_argument("--binary-revision", help="source revision for the supplied binaries")
+    parser.add_argument("--expected-version", help="release version to require from the installed Platform CLI")
     parser.add_argument("--target", required=True, choices=sorted(TARGETS))
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
@@ -135,7 +136,7 @@ def main():
     actual_arch = {"AMD64": "x86_64", "arm64": "aarch64", "aarch64": "aarch64"}.get(platform.machine(), platform.machine().lower())
     report = {
         "target": args.target, "runner_os": actual_os, "runner_arch": actual_arch,
-        "binary_revision": args.binary_revision, "checks": [], "status": "FAIL",
+        "binary_revision": args.binary_revision, "expected_version": args.expected_version, "checks": [], "status": "FAIL",
     }
     try:
         if (actual_os, actual_arch) != (expected_os, expected_arch):
@@ -204,6 +205,13 @@ def main():
                 result = run(name, argv, smoke_env, report, clean_home)
                 if name.endswith("version"):
                     report.setdefault("versions", {})[name] = result.stdout.strip()[:120]
+                if name == "agentforge version" and args.expected_version is not None:
+                    if result.stdout.strip() != f"agentforge {args.expected_version}":
+                        raise RuntimeError(
+                            f"Platform CLI version differs from release {args.expected_version}. "
+                            "Rebuild with AGENTFORGE_CLI_VERSION set to this version."
+                        )
+                    report["checks"].append("installed Platform CLI release version")
 
             for mode in ("xdg", "default-home"):
                 home = root / f"home-{mode}"

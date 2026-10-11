@@ -21,6 +21,14 @@ VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?\Z")
 BINARIES = ("agentforge", "agentforge-sidecar")
 
 
+def resolve_version(version=""):
+    if not version:
+        version = json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"]
+    if not isinstance(version, str) or not VERSION.fullmatch(version):
+        raise ValueError("version must match the release format 1.2.3 or 1.2.3-suffix, without a leading v")
+    return version
+
+
 def digest(path):
     h = hashlib.sha256()
     with path.open("rb") as stream:
@@ -77,11 +85,10 @@ def main():
     parser.add_argument("--version", default="")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    version = args.version
-    if not version:
-        version = json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"]
-    if not VERSION.fullmatch(version):
-        parser.error("version must match the release format 1.2.3 or 1.2.3-suffix, without a leading v")
+    try:
+        version = resolve_version(args.version)
+    except ValueError as error:
+        parser.error(str(error))
     if (args.os, args.arch) not in PLATFORMS:
         parser.error("unsupported Tier 1 OS/architecture combination")
     if args.report and (args.report.exists() or args.report.is_symlink()):
