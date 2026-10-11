@@ -215,6 +215,12 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    qualify production operation, Redis, raw artifact-storage policy, or a live
    admin roll. See the [dated runtime proof](docs/runbooks/runtime-validation.md#published-images-and-managed-task-proof-2026-10-10)
    for image digests, migration details, recovery and cleanup evidence.
+   A later isolated Redis rehearsal proved CLI OAuth state writes and single-use
+   consumption. Redis restoration alone left the API unavailable. An API restart
+   restored unexpired retained state and new writes. Production Redis and other
+   Redis consumers remain unqualified. See the
+   [Redis recovery proof](docs/runbooks/runtime-validation.md#redis-state-and-recovery-proof-2026-10-11)
+   and [operator procedure](docs/runbooks/redis-recovery.md).
    Do not promise lossless
    vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and

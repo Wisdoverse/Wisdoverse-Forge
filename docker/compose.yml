@@ -73,6 +73,7 @@ services:
       - CORS_ORIGIN=${CORS_ORIGIN:-${APP_URL:-}}
       # Optional services
       - REDIS_URL=${REDIS_URL:-}
+      - REQUIRE_EXTERNAL_STATE=${REQUIRE_EXTERNAL_STATE:-false}
       # Backend's NATS URL carries the unrestricted `backend` AGENTFORGE-
       # account user. Agents connect via auth callout (issue #38 phase 2) —
       # the Rust API's `build_agent_env` strips any user-info from
