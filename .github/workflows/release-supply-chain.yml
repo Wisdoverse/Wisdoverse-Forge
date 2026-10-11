@@ -1,7 +1,7 @@
 # =============================================================================
 # Release Supply Chain — sign artifacts + generate SBOMs
 #
-# Triggers: GitHub release published, workflow_dispatch (manual re-run).
+# Triggers: GitHub release published, workflow_dispatch (release pipeline or manual re-run).
 # This workflow is purely additive to the main release pipeline. It runs
 # after a release is published — by which point `release.yml`'s
 # `release-binaries` job has already attached the cross-platform

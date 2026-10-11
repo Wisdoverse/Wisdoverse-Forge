@@ -165,8 +165,14 @@ pipeline and has not been tampered with.
 
 1. Install `cosign` (one-time, any platform):
    <https://docs.sigstore.dev/cosign/installation/>
-2. Download the artifact **and** its companion `.sig.bundle` from the same
-   GitHub release page. Both files must match.
+2. Before you download artifacts, wait for the Release Supply Chain (sign +
+   SBOM) workflow for the same tag to succeed.
+3. Download the artifact and its companion `.sig.bundle` from the same GitHub
+   release. Both files must match.
+
+A release uses a new version tag that points to a source commit with accepted CI
+checks. After the binary upload, `release.yml` automatically starts the signing
+workflow with that tag. The signature and SBOM files can arrive after the binaries.
 
 **Verify:**
 
