@@ -1,107 +1,104 @@
 # Break-Glass Merge Runbook
 
-## Purpose
+Use this procedure when no eligible second reviewer is available.
+It waives only the required approval under the repository policy.
+Every required status check must succeed for the reviewed commit.
 
-The `main` branch is protected by a GitHub ruleset that requires:
+## Before You Start
 
-- All 15 status checks green (ESLint, Prettier, Typecheck, Unit/Integration/Rust Tests, Build, Dependency Audit, Dangerous Pattern Scan, Secret Leak Scan, Trivy, CodeQL Analyze ×3, Version Guard)
-- 1 approving pull-request review
-- No force-push, no branch deletion, linear history
+- Install `gh`.
+- Authenticate as a repository admin.
+- Install Node.js 24.15.0 or later with npm.
+- Use Bash on Linux or macOS.
+- On Windows, use PowerShell 7.
+- Use a checkout of the PR's repository.
+- Confirm that the current rules permit an admin bypass through pull requests.
+- Replace the quoted placeholders in the commands below.
+- Choose a private snapshot path outside the repository.
 
-This runbook documents the **only** sanctioned way to merge when the
-1-approval requirement cannot be satisfied through the normal path — for
-example, a solo maintainer with no second reviewer available, or an urgent
-fix during an incident.
+The repository requires review, status checks, and linear history.
+It prohibits force pushes, deletion of `main`, and direct admin pushes to `main`.
+This procedure does not change those rules or repository permissions.
 
-## What break-glass is and is not
+## Permission Boundary
 
-The ruleset grants the **Repository Admin role** a bypass actor with
-`bypass_mode: pull_request`. This means:
+Use the normal approval path when an eligible reviewer is available.
+Use the approval waiver only when no eligible second reviewer is available.
 
-- **Allowed:** an admin may merge a pull request without the 1 approving
-  review, _provided every status check is green_.
-- **Not allowed:** direct pushes to `main`. Even an admin must open a pull
-  request. `bypass_mode` is `pull_request`, not `always`, specifically so that
-  every change to `main` leaves an auditable PR trail.
-- **Not bypassed:** status checks. Break-glass does **not** skip CI. A red
-  check still blocks the merge; `--admin` only waives the human-approval
-  requirement, never the automated gates.
+The `--admin` flag can bypass repository requirements.
+It does not enforce this procedure's restriction to the approval requirement.
+Do not use it to bypass failed, missing, or incomplete required checks.
 
-## When break-glass is justified
+Skipped or neutral advisory contexts do not waive a required check.
+Resolve any latest failed or canceled check before merging.
 
-1. **Solo maintainer, green CI, no available reviewer.** The change has passed
-   every automated gate and waiting for a human reviewer is not possible.
-2. **Incident response.** A fix must land to restore service and the on-call
-   engineer is the only person available.
-3. **Tooling-required follow-up.** A previously-approved change needs a trivial
-   mechanical follow-up (e.g. regenerating a checksum manifest) that cannot
-   itself collect a second review in time.
+## Review One Snapshot
 
-Break-glass is **not** justified for:
-
-- Skipping a red check (the bypass does not do this; do not try to disable the
-  check instead).
-- Avoiding review of a substantive change when a reviewer _is_ available.
-- Routine convenience.
-
-## Procedure
-
-1. Confirm every required status check is green:
-
-   ```bash
-   gh pr checks <PR> | grep -v -E '\bpass\b|skipping'
-   ```
-
-   If anything other than `pass` or `skipping` remains, **stop** — fix the
-   check first. Break-glass never merges a red PR.
-
-2. Confirm the PR body has a complete Beginner UX / First-Time User Path section. The
-   PR template asks for this (advisory `Beginner UX / First-Time User Path` check); it
-   is not one of the 15 required status checks, so confirm it by hand before
-   merging.
-
-3. Merge with the admin bypass:
-
-   ```bash
-   gh pr merge <PR> --squash --admin --delete-branch
-   ```
-
-4. **Record the break-glass event.** Post a comment on the merged PR stating:
-   - Why a second review was not obtained
-   - That all status checks were green at merge time
-   - Link to this runbook
-
-   Example:
-
-   ```bash
-   gh pr comment <PR> --body "Break-glass merge per docs/runbooks/break-glass-merge.md: solo maintainer, no second reviewer available, all 15 status checks green at merge. No checks were skipped."
-   ```
-
-## Audit trail
-
-Every break-glass merge is reconstructable after the fact:
-
-- The squash-merge commit on `main` references the PR number.
-- The PR retains its full check history and the break-glass comment.
-- GitHub's ruleset bypass log records the admin actor and timestamp
-  (Settings → Rules → main → Bypass history).
-
-## Reverting the governance posture
-
-If the project gains a second maintainer and break-glass should no longer be
-routine, no ruleset change is required — simply collect the 1 approving review
-on every PR and never pass `--admin`. The bypass actor remains as a true
-emergency path only.
-
-To remove the bypass entirely (force _all_ merges through review):
+Capture one PR snapshot with the full head SHA and check results.
+Use this command block in Bash:
 
 ```bash
-gh api repos/Wisdoverse/Wisdoverse-Forge/rulesets/16172271 \
-  --method PUT \
-  --input - <<'JSON'
-{ "bypass_actors": [] }
-JSON
+gh pr view '<PR number>' \
+  --json number,state,baseRefName,headRefOid,isDraft,reviewDecision,mergeStateStatus,statusCheckRollup,body \
+  --jq '[.]' > '<private snapshot path>'
+npm run pr:summary -- --input '<private snapshot path>' --json
 ```
 
-To restore direct-push capability for admins (NOT recommended — defeats the
-audit trail), set `bypass_mode` back to `always`.
+On Windows, use this command block in PowerShell 7:
+
+```powershell
+gh pr view '<PR number>' --json number,state,baseRefName,headRefOid,isDraft,reviewDecision,mergeStateStatus,statusCheckRollup,body --jq '[.]' | Set-Content -LiteralPath '<private snapshot path>' -Encoding utf8NoBOM
+npm run pr:summary -- --input '<private snapshot path>' --json
+```
+
+The second command reads the saved snapshot without another provider request.
+Use `headRefOid` from this snapshot as the reviewed full SHA.
+Confirm that the PR is open, ready for review, and targets `main`.
+
+Read the current target rules instead of relying on a fixed check count:
+
+```bash
+gh api 'repos/<owner>/<repo>/rules/branches/main' --jq '.[] | .parameters.required_status_checks[]?.context'
+```
+
+Match every required context to its latest successful result for the snapshot's head.
+Stop if any required context is missing, incomplete, or unsuccessful.
+Resolve any reported check failure before proceeding.
+Confirm that the PR body has a complete **Beginner UX / First-Time User Path** section.
+Confirm that the approval requirement is the only remaining merge gate.
+
+## Merge The Reviewed Head
+
+Use the full SHA from the reviewed snapshot:
+
+```bash
+gh pr merge '<PR number>' --squash --admin --match-head-commit '<reviewed full SHA>'
+```
+
+GitHub refuses this command if the PR head has changed.
+Validate the new head before another merge attempt.
+
+After merge, verify the merged source head and its integration evidence.
+Confirm ownership, a clean worktree, and no open dependent PRs before cleanup.
+Follow the [workflow guide](../agents/workflow.md#pull-requests) when removing the owned source branch or worktree.
+
+## Record The Decision
+
+Prepare an audit comment that records these facts:
+
+- Why no eligible second reviewer was available.
+- The reviewed full source SHA and target branch.
+- Every required check's successful result.
+- Any skipped or neutral advisory contexts.
+- The approval waiver and the absence of any CI waiver.
+- A link to this runbook.
+
+Post the prepared comment after GitHub confirms the merge:
+
+```bash
+gh pr comment '<PR number>' --body-file '<audit comment path>'
+```
+
+The squash commit references the PR number.
+The PR retains its check history and audit comment.
+The ruleset bypass history records the actor and timestamp.
