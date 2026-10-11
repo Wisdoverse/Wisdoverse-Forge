@@ -271,9 +271,15 @@ a release. Open the workflow's per-platform jobs to see the result; a
 successful build alone does not pass the check. Windows runtime qualification
 remains pending until the native Windows job completes successfully.
 
-Each job runs the CLI library tests, creates the documented release archive,
-installs both binaries from it, checks their SHA-256 hashes and `PATH`, and runs help/version,
-configuration, token storage/status/logout, and enrollment shell checks.
+Each native CI job requires a release version in the supported format.
+The job sets `AGENTFORGE_CLI_VERSION` to that value during compilation.
+Each job creates the release archive and installs both binaries from that archive.
+The installed `agentforge --version` output must match the archive version.
+
+Each job runs the CLI library tests.
+Each job requires matching SHA-256 hashes and correct `PATH` resolution.
+The job runs help/version, configuration, token storage/status/logout, and enrollment shell checks.
+
 Configuration and synthetic credentials stay inside temporary directories;
 the token never comes from a real account. The enrollment response comes from
 a loopback HTTP fixture, and the printed launch block runs the real sidecar
@@ -287,16 +293,21 @@ otherwise `HOME/.agentforge`. Native Windows shells without a `HOME` environment
 variable use `USERPROFILE/.agentforge`, so changing the current directory does
 not move or expose the stored token.
 
-To repeat the bounded check on your own computer, prerequisites are Python 3.10+,
-Bash on Linux/macOS or PowerShell 7 on Windows, and both binaries built for your
-native target. Run from the repository root and replace the target below with
-the matching triple from the platform table:
+Prerequisites are Python 3.10+ and Bash on Linux/macOS or PowerShell 7 on Windows.
+Build both binaries for your native target. Run from the repository root.
+Replace the target below with the matching triple from the platform table.
+For a release-version check, build both
+binaries with `AGENTFORGE_CLI_VERSION=1.2.3`. Add the optional
+`--expected-version 1.2.3` argument to require this version from the installed Platform CLI.
+Omit this argument for other source checks.
 
 ```bash
 python scripts/check-cli-platform.py \
   --binary-dir rust/target/x86_64-unknown-linux-gnu/release \
   --target x86_64-unknown-linux-gnu \
-  --binary-revision <source-revision> --report cli-platform-report.json
+  --binary-revision <source-revision> \
+  --expected-version 1.2.3 \
+  --report cli-platform-report.json
 ```
 
 Success is a `PASS` report and exit code `0`. A failure names the failed check;
