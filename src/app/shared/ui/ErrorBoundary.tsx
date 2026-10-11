@@ -5,6 +5,7 @@ import {
   reloadPage,
 } from '@app/shared/lib/chunkError'
 import { ErrorFallback } from './ErrorFallback'
+import { recordFrontendCrash } from '@app/shared/lib/frontendReliability'
 
 type ErrorBoundaryProps = {
   children: ReactNode
@@ -37,11 +38,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   // is re-armed only on an explicit user reload (see `handleReload`).
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    recordFrontendCrash()
     // Stale-hash chunk 404 right after a deploy → reload once to fetch the new
     // index + chunk hashes. recoverFromChunkError is session-guarded so a
     // genuinely-broken chunk falls through to the recovery UI instead of looping.
     if (recoverFromChunkError(error)) return
-    // Error-reporting hook. Kept console-only until a telemetry sink is wired.
     console.error('Unhandled UI error', error, info.componentStack)
   }
 

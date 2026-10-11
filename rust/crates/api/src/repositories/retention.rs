@@ -13,7 +13,7 @@ impl RetentionRepository {
         Self { pool }
     }
 
-    /// Deletes rows older than `days` from `events` and `analytics_events`.
+    /// Purge old telemetry; retain browser history while a matching start remains recent.
     /// Returns `(events_removed, analytics_removed)`; a no-op for 0 days.
     pub async fn purge_telemetry(&self, days: i64) -> AppResult<(u64, u64)> {
         if days <= 0 {
@@ -24,12 +24,28 @@ impl RetentionRepository {
             .execute(&self.pool)
             .await?
             .rows_affected();
-        let analytics =
-            sqlx::query("DELETE FROM analytics_events WHERE created_at < NOW() - ($1 || ' days')::interval")
-                .bind(days)
-                .execute(&self.pool)
-                .await?
-                .rows_affected();
+        let analytics = sqlx::query(
+            r#"WITH retained_sessions AS MATERIALIZED (
+                SELECT DISTINCT organization_id, user_id, properties->>'browserSessionId' AS session_id
+                FROM analytics_events
+                WHERE event_name = 'frontend_session_started'
+                    AND created_at >= NOW() - ($1::bigint * INTERVAL '1 day')
+            )
+            DELETE FROM analytics_events AS observation
+            WHERE observation.created_at < NOW() - ($1::bigint * INTERVAL '1 day')
+                AND (observation.event_name NOT IN (
+                    'frontend_session_started', 'frontend_session_ended', 'frontend_session_crashed'
+                ) OR NOT EXISTS (
+                    SELECT 1 FROM retained_sessions
+                    WHERE organization_id = observation.organization_id
+                        AND user_id = observation.user_id
+                        AND session_id = observation.properties->>'browserSessionId'
+                ))"#,
+        )
+        .bind(days)
+        .execute(&self.pool)
+        .await?
+        .rows_affected();
         Ok((events, analytics))
     }
 

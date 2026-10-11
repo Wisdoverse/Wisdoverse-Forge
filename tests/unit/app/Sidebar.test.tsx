@@ -437,10 +437,9 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /copy project link preview/i }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('proj-x'))
-    expect(screen.getByTestId('project-copy-status')).toHaveTextContent(
-      'Project link preview copied'
-    )
-    expect(screen.getByTestId('project-copy-status')).not.toHaveTextContent(/Menu link preview/i)
+    const status = await screen.findByTestId('project-copy-status')
+    expect(status).toHaveTextContent('Project link preview copied')
+    expect(status).not.toHaveTextContent(/Menu link preview/i)
   })
 
   it('shows manual project help text when browser copy fails', async () => {

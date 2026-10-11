@@ -35,6 +35,19 @@ pub(crate) struct TaskReliabilityRow {
 }
 
 /// Database access layer for analytics.
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct FrontendReliabilityRow {
+    pub(crate) window_started_at: DateTime<Utc>,
+    pub(crate) observed_at: DateTime<Utc>,
+    pub(crate) started_sessions: i64,
+    pub(crate) crashed_sessions: i64,
+    pub(crate) ended_without_observed_crash: i64,
+    pub(crate) unfinished_sessions: i64,
+    pub(crate) orphan_sessions: i64,
+    pub(crate) invalid_observations: i64,
+}
+
+/// Database access layer for analytics.
 pub struct AnalyticsRepository {
     pool: PgPool,
 }
@@ -122,6 +135,49 @@ impl AnalyticsRepository {
             top_events.into_iter().map(|(event_name, count)| AnalyticsTopEvent { event_name, count }).collect();
 
         Ok(AnalyticsSummary { total_events, unique_users, top_events })
+    }
+
+    /// Fold full history before selecting a first-start cohort; late crashes stay failures.
+    pub(crate) async fn frontend_reliability_row(
+        &self,
+        scope: &TenantScope,
+        hours: i64,
+    ) -> AppResult<FrontendReliabilityRow> {
+        sqlx::query_as::<_, FrontendReliabilityRow>(
+            r#"WITH bounds AS (
+                SELECT NOW() AS observed_at, NOW() - ($2::bigint * INTERVAL '1 hour') AS window_started_at
+            ), observations AS (
+                SELECT user_id, event_name, properties, created_at,
+                    COALESCE(user_id IS NOT NULL
+                        AND properties = jsonb_build_object('browserSessionId', properties->>'browserSessionId')
+                        AND properties->>'browserSessionId' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', false) AS valid
+                FROM analytics_events, bounds
+                WHERE organization_id = $1 AND created_at <= observed_at
+                    AND event_name IN ('frontend_session_started', 'frontend_session_ended', 'frontend_session_crashed')
+            ), sessions AS (
+                SELECT user_id, properties->>'browserSessionId' AS session_id,
+                    MIN(created_at) FILTER (WHERE event_name = 'frontend_session_started') AS started_at,
+                    MIN(created_at) AS first_observed_at,
+                    BOOL_OR(event_name = 'frontend_session_crashed') AS crashed,
+                    BOOL_OR(event_name = 'frontend_session_ended') AS ended
+                FROM observations WHERE valid
+                GROUP BY user_id, properties->>'browserSessionId'
+            )
+            SELECT bounds.window_started_at, bounds.observed_at,
+                COUNT(*) FILTER (WHERE started_at >= window_started_at) AS started_sessions,
+                COUNT(*) FILTER (WHERE started_at >= window_started_at AND crashed) AS crashed_sessions,
+                COUNT(*) FILTER (WHERE started_at >= window_started_at AND ended AND NOT crashed) AS ended_without_observed_crash,
+                COUNT(*) FILTER (WHERE started_at >= window_started_at AND NOT ended AND NOT crashed) AS unfinished_sessions,
+                COUNT(*) FILTER (WHERE started_at IS NULL AND first_observed_at >= window_started_at) AS orphan_sessions,
+                (SELECT COUNT(*) FROM observations WHERE NOT valid AND created_at >= bounds.window_started_at) AS invalid_observations
+            FROM bounds LEFT JOIN sessions ON true
+            GROUP BY bounds.window_started_at, bounds.observed_at"#,
+        )
+        .bind(scope.org_id().as_uuid())
+        .bind(hours)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(Into::into)
     }
 
     /// Count completed and failed tasks by last update, grouped by Agent.
