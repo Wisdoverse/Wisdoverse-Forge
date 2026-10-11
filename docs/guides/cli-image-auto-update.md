@@ -208,6 +208,11 @@ rolling claude agents remains manual stop/start from the Agents view).
 
 ## Operator-initiated roll (staging-gated)
 
+The [dated local proof](../runbooks/runtime-validation.md#release-signature-and-administrator-roll-proof-2026-10-11)
+covers idle replacement, a seeded durable lease, and retained task results and file bytes.
+It used two signed image revisions with the same Codex version.
+Production rollout, live terminal ownership, CLI version changes, and rollback remain unqualified.
+
 `POST /api/v1/admin/cli-images/{tool}/roll` (admin-gated) drains + respawns the
 running container agents of one tool onto the freshly re-tagged image — for when
 you want existing agents on the new CLI, not just new ones. Unlike the

@@ -182,7 +182,7 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    `ps`, and matching sidecar hash. No model was invoked. This establishes local
    image installation and process prerequisites only. The current-source
    published image and managed-task gates have since passed. See the current-main
-   proof below. Broader signed-release/admin-roll qualification and production
+   proof below. Broader signed-release qualification, production rollout, and production
    artifact-storage evidence remain pending. The canonical server
    image then built from `d471658` in 1,904.467 seconds (image ID
    `sha256:55b5e355854bb00762b56b50e747a2f67f58ab7bde0eefa40ca9572e40df03ad`,
@@ -221,6 +221,17 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    Redis consumers remain unqualified. See the
    [Redis recovery proof](docs/runbooks/runtime-validation.md#redis-state-and-recovery-proof-2026-10-11)
    and [operator procedure](docs/runbooks/redis-recovery.md).
+   At source `8e963e1`, a local administrator roll replaced an idle Codex Agent
+   and skipped an Agent with a seeded durable lease. A second roll replaced both
+   Agents and retained the task result, completed run, receipt, and 58-byte file.
+   Both image revisions used Codex 0.162.1. The task requested `gpt-6-luna`.
+   The provider-reported model remains unverified. The fixture prepared a writable
+   project directory. Workspace permission provisioning, live terminal ownership,
+   CLI version upgrades, rollback, and production rollout remain unqualified.
+   The `v0.2.0-rc.1` Linux amd64 binary matched its checksum but failed tag-bound
+   signature verification. The workflow now rejects branch dispatch and verifies
+   generated bundles before upload. Existing release assets remain unchanged.
+   See the [dated proof](docs/runbooks/runtime-validation.md#release-signature-and-administrator-roll-proof-2026-10-11).
    Do not promise lossless
    vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and

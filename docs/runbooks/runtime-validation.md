@@ -651,7 +651,7 @@ Before the 2026-10-10 qualification below, a published signed CLI image from
 the canonical base and a managed task using that image remained pending. That
 status is historical. Other gates remain pending: a second successful real
 vendor CLI run, common-report and cross-CLI comparison, broader signed-release
-and admin-roll qualification, artifact-storage policy qualification, real
+qualification, production rollout, artifact-storage policy qualification, real
 GitHub App and protected-repository acceptance, production migration/runtime
 acceptance, and macOS/Windows operator validation. Pilot adoption and measurement
 remain optional. Engineering gates remain required. All fixtures described here
@@ -700,12 +700,12 @@ The source revision was `e35ccae7e4fd3c87a6a0a1c825cba89bdb14b804`.
 The [publishing run](https://github.com/Wisdoverse/Wisdoverse-Forge/actions/runs/38069461001)
 produced these images under `ghcr.io/wisdoverse/wisdoverse-forge`.
 
-| Image | Published digest |
-| --- | --- |
-| `server` | `sha256:78595523fb31aa7d2d9f369dbd61ca32076c2c1959102bdd136e969f5e05cc2a` |
+| Image          | Published digest                                                          |
+| -------------- | ------------------------------------------------------------------------- |
+| `server`       | `sha256:78595523fb31aa7d2d9f369dbd61ca32076c2c1959102bdd136e969f5e05cc2a` |
 | `orchestrator` | `sha256:7207a7d5cc4245f1edfd941d07b1cf784d0418cd606aeef96b34f8d7ba236c51` |
-| `agent-base` | `sha256:4161f56bad3f29ca093792845a56c4c1377015b8c9a6749b59e106818a7b84e8` |
-| `agent-codex` | `sha256:edb6d4b288163c5d5e9032d3144de83da86fa5936457b42cc5e263a6f525974a` |
+| `agent-base`   | `sha256:4161f56bad3f29ca093792845a56c4c1377015b8c9a6749b59e106818a7b84e8` |
+| `agent-codex`  | `sha256:edb6d4b288163c5d5e9032d3144de83da86fa5936457b42cc5e263a6f525974a` |
 
 Cosign verified all four digests against the main-branch publishing workflow identity and GitHub Actions issuer.
 Verification rejected an incorrect branch in the certificate identity.
@@ -760,9 +760,9 @@ The API image source was `b04ca27ce450c64bd96a58f85444063f4149dccc`.
 The orchestrator image source was `d18e915dba5e94b3a3e3ed294e551079c52a952a`.
 Both revisions contain identical orchestrator, core, and infrastructure source paths.
 
-| Service | Immutable published image |
-| --- | --- |
-| API | `ghcr.io/wisdoverse/wisdoverse-forge/server@sha256:dff4bf9a22aa46ced24340c8b03687ca22ad17cdd22ed998fd5031da4cc12fde` |
+| Service      | Immutable published image                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| API          | `ghcr.io/wisdoverse/wisdoverse-forge/server@sha256:dff4bf9a22aa46ced24340c8b03687ca22ad17cdd22ed998fd5031da4cc12fde`       |
 | Orchestrator | `ghcr.io/wisdoverse/wisdoverse-forge/orchestrator@sha256:84412ae136694cc96582564acebd46c595007efa7ee51e905660a39dc07e9dca` |
 
 The canonical `make prod-ext` command passed with isolated external PostgreSQL and Redis services.
@@ -772,18 +772,18 @@ The override did not supply that flag.
 Compose renders forwarded both `true` and `false` values.
 All published fixture ports used loopback bindings.
 
-| Operation | Observed result |
-| --- | --- |
-| Anonymous CLI authorize request | HTTP 401 |
-| Authenticated CLI authorize request | Redis state existed with a 300-second TTL |
-| Wrong-provider manual callback | HTTP 400. `GETDEL` removed the state. |
-| Callback replay | HTTP 400. State remained absent. |
-| Redis stopped | Authorize returned HTTP 500 without a URL. Readiness returned HTTP 503. |
-| Redis restored without API restart | Authorize returned HTTP 500. Readiness returned HTTP 503. Control state remained present. |
-| API restarted | Readiness and new writes recovered. Unexpired control state remained usable once. |
-| Temporal gate | Completed in 0.142 seconds with the expected output |
-| Anonymous workflow creation | HTTP 401 |
-| Workflow status from another organization | HTTP 404 |
+| Operation                                 | Observed result                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Anonymous CLI authorize request           | HTTP 401                                                                                  |
+| Authenticated CLI authorize request       | Redis state existed with a 300-second TTL                                                 |
+| Wrong-provider manual callback            | HTTP 400. `GETDEL` removed the state.                                                     |
+| Callback replay                           | HTTP 400. State remained absent.                                                          |
+| Redis stopped                             | Authorize returned HTTP 500 without a URL. Readiness returned HTTP 503.                   |
+| Redis restored without API restart        | Authorize returned HTTP 500. Readiness returned HTTP 503. Control state remained present. |
+| API restarted                             | Readiness and new writes recovered. Unexpired control state remained usable once.         |
+| Temporal gate                             | Completed in 0.142 seconds with the expected output                                       |
+| Anonymous workflow creation               | HTTP 401                                                                                  |
+| Workflow status from another organization | HTTP 404                                                                                  |
 
 The state assertions used only `EXISTS` and `TTL` metadata.
 The callback used a dummy code and a mismatched provider before the token-exchange path.
@@ -800,6 +800,103 @@ This proof covers CLI OAuth shared-state operations, readiness, and controlled l
 It does not qualify production Redis, power-loss recovery, automatic reconnection, presence state, or multiple API replicas.
 It does not qualify a complete OAuth exchange or provider login.
 Follow the [Redis recovery procedure](redis-recovery.md) for the existing API restart requirement.
+
+## Release Signature And Administrator Roll Proof (2026-10-11)
+
+The source was `8e963e1ae972eea7f48f48477fa4801e77dc2dd7`.
+The isolated stack reused published images without a Rust compilation.
+The API image used source `b04ca27ce450c64bd96a58f85444063f4149dccc`.
+Its Rust source matched the qualification source.
+The canonical `make prod-ext` profile started in 54.09 seconds.
+The fixture used separate PostgreSQL, Redis, networks, volumes, and loopback ports.
+
+### Binary Release
+
+The `v0.2.0-rc.1` Linux amd64 Platform CLI matched the published `SHA256SUMS` entry:
+
+```text
+94a487e0b96115715ac3b5468ef1b1065ae196147e0368458e85f4d54fe93bf0
+```
+
+Signature verification failed in 7.23 seconds.
+The certificate identity ended with `release-supply-chain.yml@refs/heads/main`.
+The verifier required `release-supply-chain.yml@refs/tags/v0.2.0-rc.1`.
+The downloaded binary was not executed.
+SBOM signature verification and tamper cases did not run after this failure.
+This result does not qualify other release binaries.
+Existing release assets remain unchanged.
+
+The workflow now rejects mismatched invocation refs before checkout or signing.
+It verifies each generated bundle against the release tag before upload.
+The regression covers a matching tag and five rejected invocation cases.
+The [artifact policy](../security/dependency-policy.md#operator-installed-artifacts) describes the manual signing path.
+A change on `main` does not update an existing tag's workflow or repair its release assets.
+
+### Administrator Roll
+
+Two Codex Agents started through the normal authenticated API with verified image identities.
+The old image index was:
+
+```text
+ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:165d1c1c249974976a1abebcaacd2108541ce52103598897ea7e62ca20686456
+```
+
+The replacement image index was:
+
+```text
+ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:15752667b19a9164deaacf907aede468f4c576a52ffac7fd52a3cfd0d8184bd1
+```
+
+Both images contained Codex 0.162.1.
+Only the fixture's API image setting changed.
+Global image aliases remained unchanged.
+
+The anonymous roll returned `401`.
+The same fixture user's non-admin roll returned `403`.
+The fixture restored the user's admin flag after that denial.
+Requests for `claude` and an unknown tool returned `422`.
+
+The first roll completed in 9.223 seconds.
+It returned `total=2`, `succeeded=1`, `failed=0`, and `skippedBusy=1`.
+The idle Agent received a new container with the replacement image.
+The service removed its old container.
+The busy Agent retained its container and old image.
+
+The busy fixture used a seeded durable interactive lease with an idle status mirror.
+This proves the durable ownership guard for this fixture.
+It does not prove live browser-terminal ownership.
+
+An initial task reported that the mount root was not writable.
+It created no artifact and does not qualify artifact retention.
+The follow-up uses a fixture project directory prepared for the image's Agent UID.
+This preparation does not qualify workspace permission provisioning.
+
+The follow-up task completed in 15.087 seconds.
+The request selected `gpt-6-luna`.
+The provider-reported model remains unverified.
+The API and database results matched, with one completed run and one result receipt.
+The task created a 58-byte file whose hash matched its retained stdout:
+
+```text
+d274e0c8a185f0317c5ad2227ae4a97b7bb5f44bd02ec54ec931f1cc2af93c60
+```
+
+The fixture cleared the busy lease after the first roll.
+The second roll returned `total=2`, `succeeded=2`, `failed=0`, and `skippedBusy=0`.
+Both Agents received new containers with the same verified replacement image.
+The task's API result, database result, completed run, and receipt remained unchanged.
+The retained file matched its original bytes, including the final newline.
+The host credential file's hash remained unchanged during this follow-up.
+
+This proof covers a local image replacement and retained task evidence.
+The images used the same CLI version.
+Production rollout, live terminal ownership, CLI version changes, rollback, and workspace permission provisioning remain unqualified.
+
+Cleanup removed eight owned containers, five volumes, and three networks.
+It removed the fixture credentials, OAuth mounts, and workspace directory.
+Four existing running services retained their container identities and start times.
+Shared images and caches remained intact.
+This rehearsal created no Rust compilation cache.
 
 ## Existing deployment proof
 
