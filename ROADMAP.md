@@ -276,6 +276,10 @@ time separately. A faster agent run is not evidence of reduced human effort.
 
 - Retain the first reviewed task within 15 minutes as an activation target,
   with prerequisite preparation reported separately.
+  Use the [first-task validation runbook](docs/runbooks/first-task-validation.md)
+  for one local measure. Complete human review within 15 minutes. Record the
+  accepted or rejected quality outcome separately. One local result does not
+  prove cohort adoption or production readiness.
 - Existing skill-draft acceptance (previous target 40%) measures whether a
   draft is saved. Effectiveness requires subsequent task evidence.
 - Existing context-warning prevention (previous target 90%) requires a

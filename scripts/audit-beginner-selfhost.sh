@@ -17,7 +17,9 @@ LOCAL_SMOKE_CLEANUP=0
 LOCAL_SMOKE_PROJECT=""
 LOCAL_SMOKE_ENV_FILE=""
 LOCAL_SMOKE_OAUTH_DIR=""
+LOCAL_SMOKE_WORKSPACE_DIR=""
 LOCAL_SMOKE_AGENT_NETWORK=""
+LOCAL_SMOKE_NETWORK_CONFIG=""
 LOCAL_SMOKE_HTTP_PORT=""
 LOCAL_SMOKE_HTTPS_PORT=""
 LOCAL_SMOKE_AGENTFORGE_HOST_PORT=""
@@ -58,6 +60,12 @@ Optional checks:
   --live         Check the live public URL with scripts/check-selfhost-runtime.sh.
   --local-smoke  Start an isolated localhost self-host stack, verify it, then stop it.
   --provider     Exercise a real provider key and Provider+Prompt agent.
+
+Local smoke network options:
+  BEGINNER_SMOKE_AGENT_SUBNET    Optional unused CIDR for the agent network
+  BEGINNER_SMOKE_NETWORK_SUBNET  Optional unused CIDR for the Compose network
+                                Set both when Docker's default address pools are full.
+                                Choose two subnets that do not overlap existing networks or routes.
 
 Live ingress env:
   ORIGIN_IP / BEGINNER_ORIGIN_IP  Optional VPS origin IP for CDN-bypassing :80/:443 checks
@@ -185,7 +193,9 @@ smoke_env() {
     COMPOSE_PROJECT_NAME="$LOCAL_SMOKE_PROJECT" \
     CONTAINER_NAME_PREFIX="$LOCAL_SMOKE_PROJECT" \
     CONTAINER_NETWORK="$LOCAL_SMOKE_AGENT_NETWORK" \
+    BIND_ADDRESS=127.0.0.1 \
     OAUTH_MOUNT_DIR="$LOCAL_SMOKE_OAUTH_DIR" \
+    AGENTFORGE_WORKSPACE_ROOT="$LOCAL_SMOKE_WORKSPACE_DIR" \
     HTTP_PORT="$LOCAL_SMOKE_HTTP_PORT" \
     HTTPS_PORT="$LOCAL_SMOKE_HTTPS_PORT" \
     AGENTFORGE_HOST_PORT="$LOCAL_SMOKE_AGENTFORGE_HOST_PORT" \
@@ -206,8 +216,21 @@ smoke_make() {
 }
 
 smoke_compose() {
-  (cd "$ROOT_DIR" && smoke_env docker compose --env-file "$LOCAL_SMOKE_ENV_FILE" \
-    -f docker/compose.yml -f docker/compose.prod.yml --profile prod "$@")
+  set -- --profile prod "$@"
+  if [ -n "$LOCAL_SMOKE_NETWORK_CONFIG" ]; then
+    set -- -f "$LOCAL_SMOKE_NETWORK_CONFIG" "$@"
+  fi
+  (cd "$ROOT_DIR" && smoke_env env \
+    HTTP_PORT="127.0.0.1:$LOCAL_SMOKE_HTTP_PORT" \
+    HTTPS_PORT="127.0.0.1:$LOCAL_SMOKE_HTTPS_PORT" \
+    DB_EXPOSED_PORT="127.0.0.1:$LOCAL_SMOKE_DB_PORT" \
+    REDIS_EXPOSED_PORT="127.0.0.1:$LOCAL_SMOKE_REDIS_PORT" \
+    NATS_PORT="127.0.0.1:$LOCAL_SMOKE_NATS_PORT" \
+    NATS_MONITOR_PORT="127.0.0.1:$LOCAL_SMOKE_NATS_MONITOR_PORT" \
+    TEMPORAL_PORT="127.0.0.1:$LOCAL_SMOKE_TEMPORAL_PORT" \
+    TEMPORAL_UI_PORT="127.0.0.1:$LOCAL_SMOKE_TEMPORAL_UI_PORT" \
+    docker compose --env-file "$LOCAL_SMOKE_ENV_FILE" \
+    -f docker/compose.yml -f docker/compose.prod.yml "$@")
 }
 
 check_targets() {
@@ -294,7 +317,19 @@ local_smoke() {
   LOCAL_SMOKE_PROJECT="beginner-audit-$suffix"
   LOCAL_SMOKE_ENV_FILE="$AUDIT_TMP_DIR/local-smoke.env"
   LOCAL_SMOKE_OAUTH_DIR="$AUDIT_TMP_DIR/oauth-mounts"
+  LOCAL_SMOKE_WORKSPACE_DIR="$AUDIT_TMP_DIR/workspaces"
   LOCAL_SMOKE_AGENT_NETWORK="$LOCAL_SMOKE_PROJECT-agents"
+  mkdir -p "$LOCAL_SMOKE_OAUTH_DIR" "$LOCAL_SMOKE_WORKSPACE_DIR"
+  if [ -n "${BEGINNER_SMOKE_NETWORK_SUBNET:-}" ]; then
+    LOCAL_SMOKE_NETWORK_CONFIG="$AUDIT_TMP_DIR/smoke-network.yml"
+    cat >"$LOCAL_SMOKE_NETWORK_CONFIG" <<'YAML'
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${BEGINNER_SMOKE_NETWORK_SUBNET:?Set BEGINNER_SMOKE_NETWORK_SUBNET}
+YAML
+  fi
   LOCAL_SMOKE_HTTP_PORT="${BEGINNER_SMOKE_HTTP_PORT:-18080}"
   LOCAL_SMOKE_HTTPS_PORT="${BEGINNER_SMOKE_HTTPS_PORT:-18443}"
   LOCAL_SMOKE_AGENTFORGE_HOST_PORT="${BEGINNER_SMOKE_AGENTFORGE_PORT:-14003}"
@@ -316,8 +351,14 @@ local_smoke() {
     fail "local smoke bootstrap failed; see $bootstrap_out"
   fi
 
+  set -- "$LOCAL_SMOKE_AGENT_NETWORK"
+  if [ -n "${BEGINNER_SMOKE_AGENT_SUBNET:-}" ]; then
+    set -- --subnet "$BEGINNER_SMOKE_AGENT_SUBNET" "$@"
+  fi
+  if ! docker network create "$@" >/dev/null; then
+    fail "isolated agent network creation failed. Inspect Docker networks. Set BEGINNER_SMOKE_AGENT_SUBNET to an unused CIDR."
+  fi
   LOCAL_SMOKE_CLEANUP=1
-  docker network create "$LOCAL_SMOKE_AGENT_NETWORK" >/dev/null
   if ! smoke_make setup pull-server-images update-agents >"$up_out"; then
     fail "local smoke image pull failed; see $up_out"
   fi
@@ -331,8 +372,12 @@ local_smoke() {
     fail "local smoke runtime health failed; see $health_out"
   fi
 
-  smoke_compose down -v --remove-orphans >>"$up_out" || true
-  docker network rm "$LOCAL_SMOKE_AGENT_NETWORK" >>"$up_out" || true
+  if ! smoke_compose down -v --remove-orphans >>"$up_out" 2>&1; then
+    fail "local smoke cleanup failed. Inspect $up_out. Remove only this run's resources."
+  fi
+  if ! docker network rm "$LOCAL_SMOKE_AGENT_NETWORK" >>"$up_out" 2>&1; then
+    fail "local smoke network cleanup failed. Inspect $up_out. Remove only this run's network."
+  fi
   LOCAL_SMOKE_CLEANUP=0
 
   pass "isolated localhost self-host stack starts, passes public ingress health, and cleans up"
