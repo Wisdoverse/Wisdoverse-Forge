@@ -18,6 +18,9 @@ shared database. Prepare these items before you start the timer:
 - Install Node.js 24.15 or later, Docker Compose v2, Make, and Git.
 - Install Python 3 for the Linux and macOS timer example.
 - Install app dependencies and the required Container CLI image.
+- Prepare `docker/.env` as described in [local setup](../../CONTRIBUTING.md#local-setup).
+- For a custom Container CLI image, set `CLAUDE_GID` to the image's `AGENT_GID`.
+- Before first local Compose use, run `make setup`.
 - Prepare a valid Container CLI account authorization.
 - Prepare the GitHub App and repository access if you will use a maintenance task.
 - Select a small task with clear acceptance criteria and a real result or artifact.

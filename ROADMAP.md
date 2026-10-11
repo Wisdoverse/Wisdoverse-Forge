@@ -225,13 +225,24 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    and skipped an Agent with a seeded durable lease. A second roll replaced both
    Agents and retained the task result, completed run, receipt, and 58-byte file.
    Both image revisions used Codex 0.162.1. The task requested `gpt-6-luna`.
-   The provider-reported model remains unverified. The fixture prepared a writable
-   project directory. Workspace permission provisioning, live terminal ownership,
-   CLI version upgrades, rollback, and production rollout remain unqualified.
+   The provider-reported model remains unverified.
+
+   That rehearsal prepared a writable project directory.
+   It did not qualify workspace permission provisioning.
+   Live terminal ownership, CLI version upgrades, rollback, and production rollout remain unqualified.
+
    The `v0.2.0-rc.1` Linux amd64 binary matched its checksum but failed tag-bound
    signature verification. The workflow now rejects branch dispatch and verifies
    generated bundles before upload. Existing release assets remain unchanged.
    See the [dated proof](docs/runbooks/runtime-validation.md#release-signature-and-administrator-roll-proof-2026-10-11).
+
+   At source `1fb6dec1`, normal `make setup` aligned the workspace and API-created projects roots with Agent GID `1012`.
+   A managed Codex task created its project directory and a 57-byte file without manual directory preparation.
+   A second Agent started from that directory with ownership, mode, file bytes, and task records unchanged.
+   This qualifies the local normal-setup path for the tested image and group.
+   It does not qualify custom Agent identities or production provisioning.
+   See the [normal setup proof](docs/runbooks/runtime-validation.md#normal-workspace-setup-and-project-directory-proof-2026-10-11).
+
    Do not promise lossless
    vendor-session migration. See the
    [Maintenance delivery guide](docs/guides/maintenance-delivery.md) and

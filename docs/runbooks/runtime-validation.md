@@ -898,6 +898,66 @@ Four existing running services retained their container identities and start tim
 Shared images and caches remained intact.
 This rehearsal created no Rust compilation cache.
 
+## Normal Workspace Setup And Project Directory Proof (2026-10-11)
+
+### Source And Runtime
+
+The source was `1fb6dec1704f2e96ac7ac00f8766aa87777ebed9`.
+The isolated stack reused images whose Rust sources matched the current source.
+The API image used source `b04ca27ce450c64bd96a58f85444063f4149dccc`.
+The orchestrator image used source `d18e915dba5e94b3a3e3ed294e551079c52a952a`.
+The rehearsal compiled no Rust.
+
+### Normal Setup
+
+The normal `make setup` command completed successfully.
+It set the workspace root to GID `1012` and mode `2775`.
+The API-created projects root inherited that group and mode.
+The canonical `make prod-ext` profile started in 35.543 seconds.
+
+### Project Directory Write
+
+The project directory did not exist before the task.
+The operator did not create the directory by hand.
+The Agent used this signed published Codex image:
+
+```text
+ghcr.io/wisdoverse/wisdoverse-forge/agent-codex@sha256:15752667b19a9164deaacf907aede468f4c576a52ffac7fd52a3cfd0d8184bd1
+```
+
+It ran as UID `1011` and GID `1012`.
+The Agent used `/workspace` as its working directory.
+The task created the project directory and completed in 21.547 seconds.
+
+The task wrote a 57-byte file.
+Its SHA-256 matched the retained task stdout:
+
+```text
+02e6c0935935a87f1c3ae73ac57acaf1dd7f25d1d678e9544a237a32fc03ca04
+```
+
+The API and database results matched.
+They showed one completed run and one result receipt.
+The task requested `gpt-6-luna`.
+The provider-reported model remains unverified.
+
+### Existing Project Working Directory
+
+A second managed Agent started from the first Agent's project directory in 8.886 seconds.
+The check confirmed unchanged directory ownership, mode, file bytes, and API/database task records.
+The rehearsal submitted no second model task.
+
+### Cleanup And Limits
+
+Cleanup removed eight fixture containers, five volumes, and three networks.
+It preserved four protected services with unchanged container IDs and start times.
+It removed fixture credentials, OAuth mounts, and the workspace directory.
+It retained shared images and caches.
+
+This proof covers one controlled Linux setup, one shared GID, and one signed Codex image.
+It does not qualify custom UID/GID configurations, GitHub App access, another vendor CLI, or production use.
+It does not measure human acceptance within 900 seconds.
+
 ## Existing deployment proof
 
 Last validated on 2026-05-13 from the repository root using `make prod-ext`.
