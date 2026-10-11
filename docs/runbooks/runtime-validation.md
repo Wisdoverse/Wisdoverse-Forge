@@ -752,6 +752,55 @@ Rust compilation cache. Standing API, orchestrator, and browser health remained 
 This local proof does not establish production deployment, power-loss recovery,
 a live admin roll, or raw artifact-storage policy.
 
+## Redis State And Recovery Proof (2026-10-11)
+
+This isolated Linux rehearsal used PostgreSQL 18.6 and Redis 8.10.2.
+Redis used AOF persistence and retained its data volume through a controlled process restart.
+The API image source was `b04ca27ce450c64bd96a58f85444063f4149dccc`.
+The orchestrator image source was `d18e915dba5e94b3a3e3ed294e551079c52a952a`.
+Both revisions contain identical orchestrator, core, and infrastructure source paths.
+
+| Service | Immutable published image |
+| --- | --- |
+| API | `ghcr.io/wisdoverse/wisdoverse-forge/server@sha256:dff4bf9a22aa46ced24340c8b03687ca22ad17cdd22ed998fd5031da4cc12fde` |
+| Orchestrator | `ghcr.io/wisdoverse/wisdoverse-forge/orchestrator@sha256:84412ae136694cc96582564acebd46c595007efa7ee51e905660a39dc07e9dca` |
+
+The canonical `make prod-ext` command passed with isolated external PostgreSQL and Redis services.
+A private image override reused these published images without a Rust build.
+The source Compose file forwarded `REQUIRE_EXTERNAL_STATE`.
+The override did not supply that flag.
+Compose renders forwarded both `true` and `false` values.
+All published fixture ports used loopback bindings.
+
+| Operation | Observed result |
+| --- | --- |
+| Anonymous CLI authorize request | HTTP 401 |
+| Authenticated CLI authorize request | Redis state existed with a 300-second TTL |
+| Wrong-provider manual callback | HTTP 400. `GETDEL` removed the state. |
+| Callback replay | HTTP 400. State remained absent. |
+| Redis stopped | Authorize returned HTTP 500 without a URL. Readiness returned HTTP 503. |
+| Redis restored without API restart | Authorize returned HTTP 500. Readiness returned HTTP 503. Control state remained present. |
+| API restarted | Readiness and new writes recovered. Unexpired control state remained usable once. |
+| Temporal gate | Completed in 0.142 seconds with the expected output |
+| Anonymous workflow creation | HTTP 401 |
+| Workflow status from another organization | HTTP 404 |
+
+The state assertions used only `EXISTS` and `TTL` metadata.
+The callback used a dummy code and a mismatched provider before the token-exchange path.
+No provider login or model execution occurred.
+The database contained zero Container CLI credential rows.
+The receipts excluded authorization URLs, tokens, PKCE state, and Redis values.
+
+Cleanup removed six owned containers, five data volumes, and three networks.
+It removed private fixture credentials and preserved four existing running containers.
+Shared images and caches remained intact.
+This rehearsal created no Rust compilation cache.
+
+This proof covers CLI OAuth shared-state operations, readiness, and controlled local recovery.
+It does not qualify production Redis, power-loss recovery, automatic reconnection, presence state, or multiple API replicas.
+It does not qualify a complete OAuth exchange or provider login.
+Follow the [Redis recovery procedure](redis-recovery.md) for the existing API restart requirement.
+
 ## Existing deployment proof
 
 Last validated on 2026-05-13 from the repository root using `make prod-ext`.
