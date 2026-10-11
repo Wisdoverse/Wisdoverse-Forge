@@ -229,7 +229,7 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
 
    That rehearsal prepared a writable project directory.
    It did not qualify workspace permission provisioning.
-   Live terminal ownership, CLI version upgrades, rollback, and production rollout remain unqualified.
+   The seeded-lease rehearsal above did not qualify real terminal input.
 
    The `v0.2.0-rc.1` Linux amd64 binary matched its checksum but failed tag-bound
    signature verification. The workflow now rejects branch dispatch and verifies
@@ -242,6 +242,20 @@ not be refreshed`; it produced one failed run and receipt, with no checkpoint
    This qualifies the local normal-setup path for the tested image and group.
    It does not qualify custom Agent identities or production provisioning.
    See the [normal setup proof](docs/runbooks/runtime-validation.md#normal-workspace-setup-and-project-directory-proof-2026-10-11).
+
+   At source `6e051a849f7880b5eaed53dafa12ced1268c0c54`, a built browser used the Rust API and a signed Codex 0.162.1 container.
+   WebSocket keyboard input produced an active durable lease.
+
+   The first authenticated administrator roll skipped that Agent.
+   The fixture set only the owned Agent's status mirror to `idle`.
+   It retained the durable lease.
+   The second roll also skipped that Agent.
+   The container retained its ID, image, and start time.
+
+   The fixture submitted no model task and pressed no Enter key.
+   This proves local terminal ownership for one signed Codex image.
+   CLI version upgrades, rollback, production rollout, another vendor CLI, and human acceptance remain unqualified.
+   See the [live browser terminal ownership proof](docs/runbooks/runtime-validation.md#live-browser-terminal-ownership-proof-2026-10-11).
 
    Do not promise lossless
    vendor-session migration. See the
