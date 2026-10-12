@@ -21,6 +21,7 @@ import {
   getSettingsApi,
   getBillingApi,
   getUserApi,
+  getAuthFetch,
 } from '@app/shared/api/legacy'
 import type { AuthManager } from '@app/shared/auth/AuthManager'
 
@@ -387,7 +388,99 @@ describe('Legacy API adapter — auth header injection', () => {
     await getAgentApi().getServerInfo()
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    const headers = init.headers as Record<string, string>
-    expect(headers['Authorization']).toBe('Bearer my-secret-token')
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer my-secret-token')
+  })
+
+  it('retries AgentAPI with the refreshed token instead of its captured header', async () => {
+    const am = makeAuthManager('expired-token')
+    vi.mocked(am.refreshTokens).mockImplementation(async () => {
+      vi.mocked(am.getAuthHeader).mockReturnValue({ Authorization: 'Bearer refreshed-token' })
+      return true
+    })
+    const onAuthExpired = vi.fn()
+    initLegacyApis(am, onAuthExpired)
+    const fetchMock = makeFetchMock()
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 401 })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAgentApi().getServerInfo()
+
+    expect(am.refreshTokens).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const first = fetchMock.mock.calls[0][1] as RequestInit
+    const retry = fetchMock.mock.calls[1][1] as RequestInit
+    expect(new Headers(first.headers).get('Authorization')).toBe('Bearer expired-token')
+    expect(new Headers(retry.headers).get('Authorization')).toBe('Bearer refreshed-token')
+    expect(retry.credentials).toBe('include')
+    expect(onAuthExpired).not.toHaveBeenCalled()
+  })
+
+  it.each<{ kind: string; headers: HeadersInit }>([
+    { kind: 'record', headers: { authorization: 'Bearer expired', 'X-Request-ID': 'request-1' } },
+    {
+      kind: 'Headers',
+      headers: new Headers({ authorization: 'Bearer expired', 'X-Request-ID': 'request-1' }),
+    },
+    {
+      kind: 'tuples',
+      headers: [
+        ['authorization', 'Bearer expired'],
+        ['X-Request-ID', 'request-1'],
+      ],
+    },
+  ])('preserves $kind caller headers through a single refresh', async ({ headers }) => {
+    const am = makeAuthManager('current-token')
+    vi.mocked(am.refreshTokens).mockImplementation(async () => {
+      vi.mocked(am.getAuthHeader).mockReturnValue({ Authorization: 'Bearer refreshed-token' })
+      return true
+    })
+    initLegacyApis(am)
+    const fetchMock = makeFetchMock()
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 401 })
+    vi.stubGlobal('fetch', fetchMock)
+    const signal = new AbortController().signal
+
+    await getAuthFetch()('/api/v1/skills', { method: 'POST', headers, body: '{}', signal })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const [index, [, init]] of fetchMock.mock.calls.entries()) {
+      const sent = init as RequestInit
+      const sentHeaders = new Headers(sent.headers)
+      expect(sentHeaders.get('X-Request-ID')).toBe('request-1')
+      expect(sentHeaders.get('Authorization')).toBe(
+        index === 0 ? 'Bearer current-token' : 'Bearer refreshed-token'
+      )
+      expect(sent).toMatchObject({ credentials: 'include', method: 'POST', body: '{}', signal })
+    }
+    expect(new Headers(headers).get('Authorization')).toBe('Bearer expired')
+  })
+
+  it('returns the original 401 and expires the session when refresh fails', async () => {
+    const am = makeAuthManager()
+    vi.mocked(am.refreshTokens).mockResolvedValue(false)
+    const onAuthExpired = vi.fn()
+    initLegacyApis(am, onAuthExpired)
+    const unauthorized = new Response(null, { status: 401 })
+    const fetchMock = vi.fn().mockResolvedValue(unauthorized)
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await getAuthFetch()('/api/v1/skills')).toBe(unauthorized)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(am.refreshTokens).toHaveBeenCalledTimes(1)
+    expect(onAuthExpired).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns a second 401 without refreshing again', async () => {
+    const am = makeAuthManager()
+    const onAuthExpired = vi.fn()
+    initLegacyApis(am, onAuthExpired)
+    const unauthorized = new Response(null, { status: 401 })
+    const fetchMock = vi.fn().mockResolvedValue(unauthorized)
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await getAuthFetch()('/api/v1/skills')).toBe(unauthorized)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(am.refreshTokens).toHaveBeenCalledTimes(1)
+    expect(onAuthExpired).not.toHaveBeenCalled()
   })
 })
