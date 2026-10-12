@@ -21,10 +21,8 @@ export function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise
     return getAuthFetch()(input, init)
   } catch {
     const token = typeof window !== 'undefined' ? localStorage.getItem('af:auth:access') : null
-    const headers: Record<string, string> = {
-      ...(init?.headers as Record<string, string> | undefined),
-    }
-    if (token) headers.Authorization = `Bearer ${token}`
+    const headers = new Headers(init?.headers)
+    if (token) headers.set('Authorization', `Bearer ${token}`)
     return fetch(input, { credentials: 'include', ...init, headers })
   }
 }

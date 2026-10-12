@@ -41,14 +41,14 @@ export function createAuthFetch({ authManager, onAuthExpired }: AuthFetchOptions
 
   async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     // Inject current auth header and include cookies (refresh token lives in httpOnly cookie)
-    const authHeaders = authManager.getAuthHeader()
+    const headers = new Headers(init?.headers)
+    for (const [name, value] of Object.entries(authManager.getAuthHeader())) {
+      headers.set(name, value)
+    }
     const mergedInit: RequestInit = {
       credentials: 'include',
       ...init,
-      headers: {
-        ...authHeaders,
-        ...(init?.headers as Record<string, string>),
-      },
+      headers,
     }
 
     let response: Response
@@ -78,14 +78,14 @@ export function createAuthFetch({ authManager, onAuthExpired }: AuthFetchOptions
     }
 
     // Retry with new token
-    const newAuthHeaders = authManager.getAuthHeader()
+    const retryHeaders = new Headers(headers)
+    for (const [name, value] of Object.entries(authManager.getAuthHeader())) {
+      retryHeaders.set(name, value)
+    }
     const retryInit: RequestInit = {
       credentials: 'include',
       ...init,
-      headers: {
-        ...newAuthHeaders,
-        ...(init?.headers as Record<string, string>),
-      },
+      headers: retryHeaders,
     }
     return fetch(input, retryInit)
   }

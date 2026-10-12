@@ -259,6 +259,38 @@ describe('maintenance trace', () => {
     expect(screen.queryByText('a'.repeat(40))).not.toBeInTheDocument()
     expect(await screen.findByRole('alert')).toHaveTextContent('Administrator access is required')
   })
+  it('clears the displayed trace when the navigation organization changes', async () => {
+    render(<MaintenanceTracePanel taskId={maintenanceTaskId} />)
+    await screen.findByText('a'.repeat(40))
+    const previousSignal = mocks.get.mock.calls[0][1] as AbortSignal
+    const next = deferred<MaintenanceTrace | null>()
+    mocks.get.mockReturnValueOnce(next.promise)
+
+    act(() => useNavigationStore.setState({ selectedOrgId: 'org-2' }))
+
+    expect(screen.queryByText('a'.repeat(40))).not.toBeInTheDocument()
+    expect(previousSignal.aborted).toBe(true)
+    expect(mocks.auth.user.orgId).toBe('org-1')
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    await act(async () => next.resolve({ ...maintenanceTrace(), startingSha: 'd'.repeat(40) }))
+    expect(await screen.findByText('d'.repeat(40))).toBeInTheDocument()
+  })
+  it('aborts the previous organization read and discards its late response', async () => {
+    const previous = deferred<MaintenanceTrace | null>()
+    mocks.get.mockReturnValueOnce(previous.promise)
+    render(<MaintenanceTracePanel taskId={maintenanceTaskId} />)
+    const previousSignal = mocks.get.mock.calls[0][1] as AbortSignal
+    mocks.get.mockResolvedValueOnce(null)
+
+    act(() => useNavigationStore.setState({ selectedOrgId: 'org-2' }))
+
+    expect(previousSignal.aborted).toBe(true)
+    expect(mocks.auth.user.orgId).toBe('org-1')
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    await act(async () => previous.resolve(maintenanceTrace()))
+    await waitFor(() => expect(screen.queryByTestId('maintenance-trace')).not.toBeInTheDocument())
+    expect(screen.queryByText('a'.repeat(40))).not.toBeInTheDocument()
+  })
   it('aborts on task changes and discards the old task response', async () => {
     const previous = deferred<MaintenanceTrace | null>()
     mocks.get.mockReturnValueOnce(previous.promise)
