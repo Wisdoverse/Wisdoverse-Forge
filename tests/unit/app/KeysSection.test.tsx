@@ -133,7 +133,7 @@ describe('KeysSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /create access key/i }))
 
     await waitFor(() => expect(createApiKeyMock).toHaveBeenCalledWith('Production deploy pipeline'))
-    expect(screen.getByText('Access key created. Save this value now.')).toBeDefined()
+    expect(await screen.findByText('Access key created. Save this value now.')).toBeDefined()
     expect(screen.queryByText(/access key created - save/i)).toBeNull()
     expect(screen.getByText(/full access value is shown only once/i)).toBeDefined()
     expect(screen.queryByText(/full key is shown/i)).toBeNull()

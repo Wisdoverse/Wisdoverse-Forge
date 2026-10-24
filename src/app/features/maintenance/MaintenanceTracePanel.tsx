@@ -1,14 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { MaintenanceObservation, MaintenanceTrace } from '@shared/types/maintenance'
 import { getMaintenanceTrace, MaintenanceError } from '@app/entities/maintenance'
+import { useNavigationStore } from '@app/entities/navigation'
 import { useAuth } from '@app/shared/model/auth.context'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { maintenanceGuidance } from './guidance'
 
 export function MaintenanceTracePanel({ taskId }: { taskId: string }) {
   const { user, isAuthenticated, isLoading } = useAuth()
+  const org = useNavigationStore((s) => s.selectedOrgId)
   if (isLoading || !isAuthenticated || !user?.isAdmin) return null
-  return <TracePanel key={`${user.id}:${user.orgId ?? ''}:${taskId}`} taskId={taskId} />
+  return (
+    <TracePanel key={`${user.id}:${user.orgId ?? ''}:${org ?? ''}:${taskId}`} taskId={taskId} />
+  )
 }
 
 type TraceState =
