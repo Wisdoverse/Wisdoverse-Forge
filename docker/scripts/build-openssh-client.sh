@@ -6,8 +6,9 @@ apt-get update
 apt-get -y dist-upgrade
 apt-get install -y --no-install-recommends build-essential dpkg-dev debhelper dh-exec dh-runit libaudit-dev libcrypt-dev libedit-dev libfido2-dev libpam0g-dev libselinux1-dev libssl-dev libwrap0-dev libwtmpdb-dev pkgconf zlib1g-dev ca-certificates curl gpgv devscripts git procps
 cd /build
+# Keep pinned inputs available after Debian rotates its live package pool.
 for file in openssh_10.5p1-1.dsc openssh_10.5p1.orig.tar.xz openssh_10.5p1-1.debian.tar.xz; do
-    curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 --max-time 120 "https://deb.debian.org/debian/pool/main/o/openssh/$file" -o "$file"
+    curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 --max-time 120 "https://snapshot.debian.org/archive/debian/20261012T000000Z/pool/main/o/openssh/$file" -o "$file"
 done
 sha256sum -c <<'CHECKSUMS'
 15a621f5d4c298127b57740e271ef571760686133f344a4841aa8e96af0ad532  openssh_10.5p1-1.dsc
@@ -15,7 +16,7 @@ sha256sum -c <<'CHECKSUMS'
 4b19dea2fc78e93687d7f9e103542136d863e3d5c95e7d7be6088ac7979fb0cc  openssh_10.5p1-1.debian.tar.xz
 CHECKSUMS
 # Debian tag2upload signs this source. Do not install Sid runtime packages.
-curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 --max-time 120 https://deb.debian.org/debian/pool/main/d/debian-tag2upload-keyring/debian-tag2upload-keyring_1.2_all.deb -o tag2upload-keyring.deb
+curl --fail --location --silent --show-error --retry 2 --connect-timeout 15 --max-time 120 https://snapshot.debian.org/archive/debian/20261012T000000Z/pool/main/d/debian-tag2upload-keyring/debian-tag2upload-keyring_1.2_all.deb -o tag2upload-keyring.deb
 echo '6783d74cb547297c5dc231e89c2f3610d55f7628ba4b955fe33c41bc9556a6f8  tag2upload-keyring.deb' | sha256sum -c -
 dpkg-deb -x tag2upload-keyring.deb tag2upload-keys
 gpgv --status-fd 1 --keyring /build/tag2upload-keys/usr/share/keyrings/debian-tag2upload.pgp openssh_10.5p1-1.dsc | tee source-signature.status

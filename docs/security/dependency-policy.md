@@ -161,6 +161,7 @@ The build script pins all three source SHA256 hashes. It also pins the public
 `debian-tag2upload-keyring` 1.2 data package. It accepts only the specified
 tag2upload signer fingerprint. Before source extraction, the build stops if a
 signature is expired, revoked, missing, or invalid.
+Debian Snapshot retains the pinned source and keyring files after live package pool cleanup.
 
 The build installs only Trixie libraries and headers. The build runs the standard
 Debian unit, compatibility, and key generation tests. The runtime images do not
