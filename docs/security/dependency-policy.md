@@ -219,8 +219,7 @@ make build-agent-all
 ### Policy for base image references
 
 The agent runtime base uses the floating `node:24-trixie-slim` tag. The clone base
-pins `debian:trixie-slim` to
-`sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a`.
+pins `debian:trixie-slim` by digest.
 The Dockerfiles specify these references. The agent tag selects the image
 published under that tag. The clone digest identifies one input. An approved
 pin update is necessary to change that digest.
