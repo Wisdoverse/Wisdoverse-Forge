@@ -79,7 +79,7 @@
     "@grpc/grpc-js": "^1.14.7",
     "@nats-io/transport-node": "^3.4.0",
     "@tanstack/react-router": "^1.170.46",
-    "@tanstack/react-virtual": "^3.14.24",
+    "@tanstack/react-virtual": "^3.14.26",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.1",
@@ -118,7 +118,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.186.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@vitejs/plugin-react": "^6.1.2",
+    "@vitejs/plugin-react": "^6.2.1",
     "@vitest/coverage-v8": "^5.0.3",
     "@vitest/ui": "^5.0.3",
     "es-module-lexer": "3.0.2",
@@ -132,7 +132,7 @@
     "ts-proto": "^2.12.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.71.2",
-    "vite": "^8.3.5",
+    "vite": "^8.3.6",
     "vitest": "^5.1.0",
     "yaml": "^2.9.1"
   }
