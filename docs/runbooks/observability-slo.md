@@ -223,7 +223,7 @@ any increase in a 15-minute window.
 | ------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SelfFixPrPermanentFailure`     | `agentforge_self_fix_pr_total{outcome="permanent_failed"}` | The PR Bridge hit a configuration, policy, or validation error. The job was dropped without retry, so the task has no pull request.                                                           |
 | `SelfFixMergeFailed`            | `agentforge_self_fix_merge_total{outcome="failed"}`        | The merge attempt did not complete cleanly; the merge may already have happened. The server merges before it posts the audit comment, so a failed comment also reports `failed`.              |
-| `SelfFixMergeAttemptsExhausted` | `agentforge_self_fix_merge_total{outcome="exhausted"}`     | An approve call found the task at the merge attempt cap (`SELF_FIX_MAX_MERGE_ATTEMPTS`, default 5). The server set the task to `changes_requested` and refused the merge. Nothing was merged. |
+| `SelfFixMergeAttemptsExhausted` | `agentforge_self_fix_merge_total{outcome="exhausted"}`     | An approve call found the task at the merge attempt cap (`SELF_FIX_MAX_MERGE_ATTEMPTS`, default 5). This call merged nothing and set `changes_requested`. An earlier attempt may have merged. |
 
 CI-red, head-moved, and sensitive-path refusals use other `outcome` labels and
 do not fire these alerts.
@@ -257,9 +257,10 @@ Shortest safe first step:
 3. For `SelfFixMergeAttemptsExhausted`, stop approving. The cap is checked
    before anything else, and the platform has no way to reset it, so
    **Refresh** and **Approve & merge** cannot bypass it. Each further approve
-   is refused and fires this alert again. Finish the change on GitHub instead:
-   a maintainer reviews the PR there and either merges it under the normal
-   branch protection or closes it.
+   is refused and fires this alert again. Finish the change on GitHub instead.
+   First check whether the PR is already merged, because an earlier attempt
+   may have merged it. If the PR is still open, a maintainer reviews it there
+   and either merges it under the normal branch protection or closes it.
 
 Success looks like this: the counter stops increasing and the alert resolves
 after the 15-minute window passes. For PR failures, the next self-fix task opens
