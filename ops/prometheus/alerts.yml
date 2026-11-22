@@ -22,6 +22,9 @@
 #   * `http_request_duration_seconds_bucket{le, method, path}` — latency histogram
 #   * `agentforge_orchestration_outbox_oldest_age_seconds` — orchestrator backlog age
 #   * `agentforge_orchestration_outbox_backlog` — orchestrator publish backlog depth
+#   * `credential_refresh_errors_total{cli_tool, reason}` — CLI auth proxy refresh errors
+#   * `agentforge_self_fix_pr_total{outcome}` — self-fix PR Bridge open outcomes
+#   * `agentforge_self_fix_merge_total{outcome}` — self-fix Merge Executor outcomes
 #   * `process_resident_memory_bytes` — exporter standard (external)
 #
 # Service discrimination (CN-5): the orchestrator emits the SAME HTTP metric
@@ -219,3 +222,62 @@ groups:
           slo: resource
         annotations:
           summary: 'agentforge-server memory >80% for 15m'
+
+  - name: agentforge.credentials
+    rules:
+      - alert: CliAuthProxyInvalidClientFailures
+        expr: |
+          sum by (cli_tool) (
+            increase(credential_refresh_errors_total{reason="invalid_client"}[10m])
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cli-auth-proxy
+        annotations:
+          summary: 'CLI auth proxy OAuth app rejected for {{ $labels.cli_tool }}'
+          description: 'The OAuth provider rejected the configured client_id/client_secret. This is an operator-owned invalid_client failure, not a user credential problem.'
+          runbook: 'docs/runbooks/credential-sync.md#cli-auth-proxy-invalid-client'
+
+  - name: agentforge.self-fix
+    rules:
+      - alert: SelfFixPrPermanentFailure
+        # The PR Bridge drops the job without retry on this outcome, so the
+        # self-fix task never gets a pull request until an operator acts.
+        expr: increase(agentforge_self_fix_pr_total{outcome="permanent_failed"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          slo: self-fix
+        annotations:
+          summary: 'Self-fix PR open failed permanently (no retry)'
+          description: '{{ $value | humanize }} self-fix PR open attempt(s) failed permanently in 15m. The job was dropped; no pull request was opened.'
+          runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
+
+      - alert: SelfFixMergeFailed
+        # `failed` is the Merge Executor's catch-all error outcome (GitHub API
+        # I/O or an unexpected gate error); gate refusals have their own labels.
+        # The executor merges before posting the audit comment, so a comment
+        # error also lands here after a successful merge.
+        expr: increase(agentforge_self_fix_merge_total{outcome="failed"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          slo: self-fix
+        annotations:
+          summary: 'Self-fix merge attempt did not complete cleanly'
+          description: '{{ $value | humanize }} approved self-fix merge attempt(s) did not complete cleanly in 15m. The merge may already have happened; check the PR state on GitHub.'
+          runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
+
+      - alert: SelfFixMergeAttemptsExhausted
+        # Recorded when an approve call finds merge_attempts at the cap; the
+        # task is set to changes_requested and every later approve is refused.
+        expr: increase(agentforge_self_fix_merge_total{outcome="exhausted"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          slo: self-fix
+        annotations:
+          summary: 'Self-fix merge attempt cap reached'
+          description: '{{ $value | humanize }} self-fix approve call(s) hit the merge attempt cap in 15m. In-app merge is refused for the task; finish the change on GitHub.'
+          runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
