@@ -155,6 +155,7 @@ When an alert fires, refer to the matching runbook:
 - Credential failure: [docs/runbooks/credential-sync.md](credential-sync.md)
 - Context governance: [docs/runbooks/context-governance-audit.md](context-governance-audit.md)
 - Orchestration: [docs/runbooks/orchestration.md](orchestration.md)
+- Self-fix PR or merge failure: [Self-Fix Delivery](#self-fix-delivery)
 - Frontend deploy: [docs/runbooks/frontend-deploy.md](frontend-deploy.md)
 - Disaster recovery: [docs/guides/disaster-recovery.md](../guides/disaster-recovery.md)
 
@@ -211,6 +212,41 @@ adjust the `for:` window (latency alerts) or the ratio threshold (success
 alerts) in `ops/prometheus/agents-runtime.yml` and redeploy the Prometheus
 rules. Do not loosen the 28-day success SLO below 99.0% without recording the
 change in your deployment config.
+
+## Self-Fix Delivery
+
+These alerts cover the [self-fix loop](../guides/self-fix-loop.md). Both live
+in `ops/prometheus/alerts.yml` (group `agentforge.self-fix`) and fire on any
+increase in a 15-minute window. Neither failure merges anything.
+
+| Alert                       | Trigger                                                    | Meaning                                                                                                                                     |
+| --------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SelfFixPrPermanentFailure` | `agentforge_self_fix_pr_total{outcome="permanent_failed"}` | The PR Bridge hit a configuration, policy, or validation error. The job was dropped without retry, so the task has no pull request.         |
+| `SelfFixMergeFailed`        | `agentforge_self_fix_merge_total{outcome="failed"}`        | An approved merge failed with a GitHub API or unexpected error. CI-red, head-moved, and sensitive-path refusals use other `outcome` labels. |
+
+Shortest safe first step:
+
+1. For `SelfFixPrPermanentFailure`, search the API logs for the failure reason:
+
+   ```bash
+   docker compose -f docker/compose.yml logs agentforge-server | grep "self-fix PR open failed permanently"
+   ```
+
+   Fix the reported cause, usually the four `GITHUB_APP_*` variables or the
+   GitHub App permissions listed in the
+   [self-fix guide](../guides/self-fix-loop.md#what-you-need-first). Restart
+   the API after changing configuration. The dropped job is not retried
+   automatically.
+
+2. For `SelfFixMergeFailed`, open the task's **Review** tab and read the
+   error. Confirm GitHub is reachable and the GitHub App can still merge pull
+   requests on the repository, then press **Refresh** and approve again. The
+   attempt cap (`SELF_FIX_MAX_MERGE_ATTEMPTS`, default 5) still applies.
+
+Success looks like this: the counter stops increasing, the next self-fix task
+opens a draft pull request (PR failures) or the task's **Review** tab reads
+**Merged** (merge failures), and the alert resolves after the 15-minute window
+passes.
 
 ## Logs
 

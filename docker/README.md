@@ -89,7 +89,6 @@ for the public redistribution boundary.
 | `.env.example`         | Docker configuration template       |
 | `Dockerfile.agent`     | Agent image build                   |
 | `deploy-frontend.sh`   | Static frontend deployment helper   |
-| `prometheus/`          | Prometheus examples and alert rules |
 | `alertmanager/`        | Secretless Alertmanager examples    |
 
 ## Default Services

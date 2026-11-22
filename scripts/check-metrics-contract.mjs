@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const OWNED_PREFIXES = ['agentforge_', 'http_', 'af_', 'agents_']
+const OWNED_PREFIXES = ['agentforge_', 'http_', 'af_', 'agents_', 'credential_']
 const ownedAlt = OWNED_PREFIXES.map((p) => `${p}[a-z0-9_]+`).join('|')
 const METRIC_TOKEN = new RegExp(`\\b(${ownedAlt})\\b`, 'g')
 
