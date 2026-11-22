@@ -1,0 +1,94 @@
+rule_files:
+  - /workspace/ops/prometheus/alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - name: Self-fix alerts fire on an increment and clear after the window
+    interval: 1m
+    input_series:
+      - series: 'agentforge_self_fix_pr_total{outcome="permanent_failed"}'
+        values: '0x10 1x30'
+      - series: 'agentforge_self_fix_merge_total{outcome="failed"}'
+        values: '0x10 1x30'
+      - series: 'agentforge_self_fix_merge_total{outcome="exhausted"}'
+        values: '0x10 1x30'
+    alert_rule_test:
+      - alertname: SelfFixPrPermanentFailure
+        eval_time: 5m
+        exp_alerts: []
+      - alertname: SelfFixMergeFailed
+        eval_time: 5m
+        exp_alerts: []
+      - alertname: SelfFixMergeAttemptsExhausted
+        eval_time: 5m
+        exp_alerts: []
+      - alertname: SelfFixPrPermanentFailure
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: self-fix
+              outcome: permanent_failed
+            exp_annotations:
+              summary: 'Self-fix PR open failed permanently (no retry)'
+              description: '1 self-fix PR open attempt(s) failed permanently in 15m. The job was dropped; no pull request was opened.'
+              runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
+      - alertname: SelfFixMergeFailed
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: self-fix
+              outcome: failed
+            exp_annotations:
+              summary: 'Self-fix merge attempt did not complete cleanly'
+              description: '1 approved self-fix merge attempt(s) did not complete cleanly in 15m. The merge may already have happened; check the PR state on GitHub.'
+              runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
+      - alertname: SelfFixMergeAttemptsExhausted
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: self-fix
+              outcome: exhausted
+            exp_annotations:
+              summary: 'Self-fix merge attempt cap reached'
+              description: '1 self-fix approve call(s) hit the merge attempt cap in 15m. In-app merge is refused for the task; finish the change on GitHub.'
+              runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
+      - alertname: SelfFixPrPermanentFailure
+        eval_time: 40m
+        exp_alerts: []
+      - alertname: SelfFixMergeFailed
+        eval_time: 40m
+        exp_alerts: []
+      - alertname: SelfFixMergeAttemptsExhausted
+        eval_time: 40m
+        exp_alerts: []
+
+  - name: Self-fix alerts ignore other outcomes
+    interval: 1m
+    input_series:
+      - series: 'agentforge_self_fix_pr_total{outcome="opened"}'
+        values: '0+1x40'
+      - series: 'agentforge_self_fix_pr_total{outcome="failed"}'
+        values: '0+1x40'
+      - series: 'agentforge_self_fix_merge_total{outcome="merged"}'
+        values: '0+1x40'
+      - series: 'agentforge_self_fix_merge_total{outcome="already_merged"}'
+        values: '0+1x40'
+      - series: 'agentforge_self_fix_merge_total{outcome="checks_red"}'
+        values: '0+1x40'
+      - series: 'agentforge_self_fix_merge_total{outcome="head_moved"}'
+        values: '0+1x40'
+      - series: 'agentforge_self_fix_merge_total{outcome="sensitive_blocked"}'
+        values: '0+1x40'
+    alert_rule_test:
+      - alertname: SelfFixPrPermanentFailure
+        eval_time: 20m
+        exp_alerts: []
+      - alertname: SelfFixMergeFailed
+        eval_time: 20m
+        exp_alerts: []
+      - alertname: SelfFixMergeAttemptsExhausted
+        eval_time: 20m
+        exp_alerts: []
