@@ -5,6 +5,7 @@ import {
   chatStreamRequestErrorMessage,
   parseSseFrame,
 } from '@app/shared/api/promptStream'
+import { i18n } from '@app/i18n'
 
 function expectBeginnerMessage(actual: string, expected: string): void {
   expect(actual).toBe(expected)
@@ -113,18 +114,33 @@ describe('chatStreamHttpErrorMessage', () => {
     expect(message).not.toContain('model service')
   })
 
-  it('shows the server guidance for provider failures before streaming', () => {
-    const guidance =
-      "Check the provider API key in LLM settings, then resend the message. The provider rejected this organization's credentials."
-    for (const [status, code] of [
-      [422, 'provider_credentials_rejected'],
-      [422, 'provider_request_rejected'],
-      [429, 'provider_rate_limited'],
-    ] as const) {
-      expectBeginnerMessage(
-        chatStreamHttpErrorMessage(status, { ok: false, error: { code, message: guidance } }),
-        guidance
-      )
+  it('localizes provider failures before streaming by their stable code', async () => {
+    const serverText = 'server fallback text'
+    const cases = [
+      [422, 'provider_credentials_rejected', 'errors.provider.credentials_rejected'],
+      [422, 'provider_request_rejected', 'errors.provider.request_rejected'],
+      [429, 'provider_rate_limited', 'errors.provider.rate_limited'],
+    ] as const
+    try {
+      for (const lang of ['en', 'zh'] as const) {
+        await i18n.changeLanguage(lang)
+        for (const [status, code, key] of cases) {
+          const expected = i18n.t(key)
+          expect(expected).not.toBe(key)
+          expectBeginnerMessage(
+            chatStreamHttpErrorMessage(status, { ok: false, error: { code, message: serverText } }),
+            expected
+          )
+        }
+      }
+      expect(
+        chatStreamHttpErrorMessage(422, {
+          ok: false,
+          error: { code: 'provider_credentials_rejected', message: serverText },
+        })
+      ).toContain('API 密钥')
+    } finally {
+      await i18n.changeLanguage('en')
     }
   })
 

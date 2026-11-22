@@ -75,10 +75,10 @@ impl PromptProviderPolicy {
     /// error class, chosen by who can fix it:
     /// - provider 401/403 → 422 `provider_credentials_rejected` (operator fixes the key;
     ///   not 401/403, which the browser treats as Forge's own sign-in/access failure);
-    /// - provider 400/404 → 422 `provider_request_rejected` (model/settings);
     /// - provider 429 → 429 `provider_rate_limited`, with the provider's Retry-After clamped;
-    /// - transport error or provider 5xx → retryable 503, consistent with the start deadline;
-    /// - anything else → internal error.
+    /// - provider 408, provider 5xx or a transport error → retryable 503, like the start deadline;
+    /// - every other provider 4xx → 422 `provider_request_rejected` (model, size, account);
+    /// - anything else (non-HTTP failures) → internal error.
     ///
     /// The provider response body is never part of the message.
     pub(crate) fn stream_construction_failed(err: &agentforge_llm::LlmError) -> ErrorKind {
@@ -90,12 +90,6 @@ impl PromptProviderPolicy {
                           The provider rejected this organization's credentials."
                     .to_string(),
             },
-            LlmError::Api { status: 400 | 404, .. } => ErrorKind::UnprocessableWithCode {
-                code: "provider_request_rejected",
-                message: "Check the agent's model name and provider settings, then resend the message. \
-                          The provider rejected the request."
-                    .to_string(),
-            },
             LlmError::Api { status: 429, retry_after_secs, .. } => ErrorKind::RateLimited {
                 code: "provider_rate_limited",
                 message: "Wait a moment, then resend the message. \
@@ -103,11 +97,17 @@ impl PromptProviderPolicy {
                     .to_string(),
                 retry_after_secs: retry_after_secs.map(|secs| secs.clamp(1, PROVIDER_RETRY_AFTER_MAX_SECS)),
             },
-            // Any provider-side 5xx or transport error is the upstream's transient
+            // A provider-side timeout, 5xx or transport error is the upstream's transient
             // fault, matching the mid-stream `sse_error_for_llm_error` 5xx mapping.
-            LlmError::Http(_) | LlmError::Api { status: 500..=599, .. } => {
+            LlmError::Http(_) | LlmError::Api { status: 408 | 500..=599, .. } => {
                 ErrorKind::Unavailable("provider connection failed — try again".to_string())
             }
+            LlmError::Api { status: 400..=499, .. } => ErrorKind::UnprocessableWithCode {
+                code: "provider_request_rejected",
+                message: "Check the agent's model name, the message size, and the provider account and settings, \
+                          then resend the message. The provider refused the request."
+                    .to_string(),
+            },
             other => ErrorKind::Internal(anyhow::anyhow!("{other}")),
         }
     }
@@ -347,17 +347,21 @@ mod tests {
                 other => panic!("status {status} must be provider_credentials_rejected, got {other:?}"),
             }
         }
-        for status in [400u16, 404] {
-            match construction_error(status, None) {
-                ErrorKind::UnprocessableWithCode { code, message } => {
+        // Every other provider 4xx is a refused request; 408 is a provider timeout (503).
+        for status in [400u16, 402, 404, 408, 409, 413, 418, 422, 451] {
+            match (status, construction_error(status, None)) {
+                (408, ErrorKind::Unavailable(_)) => {}
+                (408, other) => panic!("408 must be Unavailable, got {other:?}"),
+                (_, ErrorKind::UnprocessableWithCode { code, message }) => {
                     assert_eq!(code, "provider_request_rejected", "status {status}");
+                    assert!(message.contains("model name"), "status {status}: {message}");
                     assert!(!message.contains("test-only-provider-body"));
                 }
-                other => panic!("status {status} must be provider_request_rejected, got {other:?}"),
+                (_, other) => panic!("status {status} must be provider_request_rejected, got {other:?}"),
             }
         }
-        // Unknown provider 4xx stays internal.
-        assert!(matches!(construction_error(418, None), ErrorKind::Internal(_)));
+        // A non-HTTP provider status outside 4xx/5xx stays internal.
+        assert!(matches!(construction_error(302, None), ErrorKind::Internal(_)));
     }
 
     #[test]

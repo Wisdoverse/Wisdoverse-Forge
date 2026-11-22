@@ -405,12 +405,13 @@ paths:
             Provider-backed agent only. The model provider rejected the request before
             streaming began. `error.code` is `provider_credentials_rejected` (the
             organization's saved provider API key was refused; fix it in LLM settings)
-            or `provider_request_rejected` (for example an unknown model name). The
-            provider's own response body is never returned.
+            or `provider_request_rejected` (any other provider 4xx except 408 and 429,
+            for example an unknown model name or an oversized request). The provider's
+            own response body is never returned.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ErrorEnvelope'
         '429':
           description: >-
             Provider-backed agent only. The model provider rate limited the request
@@ -425,15 +426,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ErrorEnvelope'
         '503':
           description: >-
-            Provider-backed agent only. The provider could not be reached, returned a
-            5xx, or did not start streaming in time. Retry later.
+            Provider-backed agent only. The provider could not be reached, timed out
+            (including a provider 408), returned a 5xx, or did not start streaming in
+            time. Retry later.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   /api/v1/agents/{id}/interrupt:
     parameters:
@@ -1531,6 +1533,29 @@ components:
         error:
           type: string
           description: Human-readable error message
+
+    ErrorEnvelope:
+      type: object
+      description: >-
+        Error envelope emitted by the Rust API (`AppError` in
+        rust/crates/core/src/error.rs).
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: >-
+                Stable machine-readable code, e.g. `provider_credentials_rejected`,
+                `provider_request_rejected`, `provider_rate_limited`, `SERVICE_UNAVAILABLE`.
+            message:
+              type: string
+              description: Operator guidance in English; never contains provider response bodies.
 
     # -- Auth --------------------------------------------------------------
     UserInfo:

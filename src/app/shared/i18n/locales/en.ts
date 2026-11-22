@@ -906,6 +906,14 @@ export const en = {
       'Wait {{seconds}} seconds, then try again. Too many requests are happening right now.',
     quotaExceeded:
       'Ask an owner to raise the limit or free capacity. {{resource}} quota is used up.',
+    provider: {
+      credentials_rejected:
+        "Check the provider API key in LLM settings, then resend the message. The provider rejected this organization's credentials.",
+      request_rejected:
+        "Check the agent's model name, the message size, and the provider account and settings, then resend the message. The provider refused the request.",
+      rate_limited:
+        "Wait a moment, then resend the message. The provider is rate limiting this organization's requests.",
+    },
     agent: {
       lifecycle: {
         restart_host_cli: {

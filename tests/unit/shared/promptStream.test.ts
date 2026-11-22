@@ -49,6 +49,21 @@ describe('consumePromptStream', () => {
     expect(outcome.error).toContain('Sign in again')
   })
 
+  it('falls back to the server guidance for a provider code when no translation is loaded', async () => {
+    const resp = new Response(
+      JSON.stringify({
+        ok: false,
+        error: {
+          code: 'provider_rate_limited',
+          message: 'Wait a moment, then resend the message.',
+        },
+      }),
+      { status: 429, headers: { 'content-type': 'application/json', 'retry-after': '7' } }
+    )
+    const outcome = await consumePromptStream(resp)
+    expect(outcome).toEqual({ ok: false, error: 'Wait a moment, then resend the message.' })
+  })
+
   it('fails on an in-stream error event', async () => {
     const errorFrame = 'event: error\ndata: {"message":"rate limit exceeded"}\n\n'
     const outcome = await consumePromptStream(sseResponse([START, errorFrame]))
