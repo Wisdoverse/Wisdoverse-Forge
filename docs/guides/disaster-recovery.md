@@ -5,8 +5,13 @@ deployment started with `make prod`, `make prod-pull`, `make prod-backup`, or
 `make prod-storage`.
 
 If your deployment uses `make prod-ext`, PostgreSQL and Redis are external
-services. Restore those systems with your provider's runbook, then use this
-document only for the Forge services, object storage, and health checks.
+services. That includes both databases: the API database (`DATABASE_URL`) and
+the orchestrator database (`ORCHESTRATOR_DATABASE_URL`). The bundled `backup`
+service does not cover external databases; you own their backups. Do not
+enable the `backup` profile there: it has no bundled database to dump, so it
+restarts with a connection error. Back up and restore them with your provider's
+runbook, in the same order as below, then use this document only for the Forge
+services, object storage, and health checks.
 
 Before you start:
 
@@ -18,6 +23,7 @@ Before you start:
 ```bash
 COMPOSE_PROD="docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml --profile prod"
 COMPOSE_PROD_STORAGE="docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml -f docker/compose.storage.yml --profile prod --profile storage"
+COMPOSE_BACKUP="$COMPOSE_PROD --profile backup"
 ```
 
 The examples below use Compose service names from `docker/compose.yml`: `db`,
@@ -30,6 +36,7 @@ are not service names in the current Compose files.
 | Component                          | RPO (Recovery Point Objective) | RTO (Recovery Time Objective) |
 | ---------------------------------- | ------------------------------ | ----------------------------- |
 | PostgreSQL (agents, events, users) | 1 hour                         | 30 minutes                    |
+| Orchestrator DB (workflows, tasks) | 1 hour                         | 30 minutes                    |
 | Redis (cache, pub/sub)             | N/A (ephemeral)                | 5 minutes (restart)           |
 | RustFS (attachments)               | 24 hours                       | 2 hours                       |
 | NATS (event stream)                | N/A (transient)                | 5 minutes (restart)           |
@@ -39,29 +46,63 @@ are not service names in the current Compose files.
 
 ## 1. Backup Procedures
 
-### PostgreSQL
+### PostgreSQL (both databases)
 
-**Automated daily backup (cron):**
+The self-contained stack has two PostgreSQL databases. Back up both, and keep
+each pair together: a restore needs both files from the same run.
+
+| Database     | Compose service   | Holds                                          | Backup file                           |
+| ------------ | ----------------- | ---------------------------------------------- | ------------------------------------- |
+| API          | `db`              | Users, organizations, agents, events, API data | `agentforge_<YYYYMMDD_HHMMSS>.dump`   |
+| Orchestrator | `orchestrator-db` | Workflows, reviews, tasks, audit records       | `orchestrator_<YYYYMMDD_HHMMSS>.dump` |
+
+Prerequisites: the stack runs with `make prod`, `make prod-pull`, or
+`make prod-backup`, and `docker/.env` has `POSTGRES_PASSWORD` and
+`ORCHESTRATOR_DB_PASSWORD`. Temporal's own databases on the `db` server are not
+part of these dumps.
+
+**Automated daily backup (recommended):**
 
 ```bash
-# /etc/cron.d/agentforge-backup
-0 2 * * * root pg_dump -h localhost -U agentforge agentforge \
-  --format=custom --compress=9 \
-  -f /backup/agentforge-$(date +\%Y\%m\%d-\%H\%M).dump 2>&1 | logger -t agentforge-backup
+make prod-backup
 ```
 
-**Manual backup:**
+The `backup` service dumps both databases into `docker/backups/` once a day
+and deletes dumps older than 7 days. Each dump is written as `.dump.partial`
+and renamed to `.dump` only after both databases dumped. If either dump fails,
+the service exits with the `pg_dump` error, restarts, and retries; it does not
+delete older backups after a failure.
+
+Success looks like this: the log shows `backup complete:` and the folder holds a
+pair with the same timestamp.
 
 ```bash
-pg_dump -h localhost -U agentforge agentforge \
-  --format=custom --compress=9 \
-  -f /backup/agentforge-manual-$(date +%Y%m%d-%H%M).dump
+$COMPOSE_BACKUP logs --tail 20 backup
+ls -lt docker/backups | head -5
 ```
+
+If `$COMPOSE_BACKUP ps backup` shows `Restarting`, read the log. It names the
+database that failed. Copy `docker/backups/` to storage off this host; the
+folder is lost with the server.
+
+**Manual backup (both databases, same timestamp):**
+
+```bash
+$COMPOSE_BACKUP run --rm --no-deps --entrypoint sh backup -ec '
+  ts=$(date +%Y%m%d_%H%M%S)
+  PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h db -U agentforge -d agentforge -F c -f "/backups/agentforge_$ts.dump"
+  PGPASSWORD="$ORCHESTRATOR_DB_PASSWORD" pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "/backups/orchestrator_$ts.dump"
+  ls -l "/backups/agentforge_$ts.dump" "/backups/orchestrator_$ts.dump"'
+```
+
+The single quotes keep the passwords inside the container; they come from
+`docker/.env` and never appear in shell history.
 
 **Verify backup integrity:**
 
 ```bash
-pg_restore --list /backup/agentforge-YYYYMMDD-HHMM.dump | head -20
+$COMPOSE_BACKUP run --rm --no-deps --entrypoint pg_restore backup --list /backups/agentforge_YYYYMMDD_HHMMSS.dump | head -20
+$COMPOSE_BACKUP run --rm --no-deps --entrypoint pg_restore backup --list /backups/orchestrator_YYYYMMDD_HHMMSS.dump | head -20
 ```
 
 ### Redis
@@ -105,40 +146,79 @@ cp -r /var/lib/nats/jetstream /backup/nats-jetstream-$(date +%Y%m%d)/
 
 ## 2. Restore Procedures
 
-### PostgreSQL Restore
+### PostgreSQL Restore (both databases)
+
+Prerequisites:
+
+- A backup pair with one timestamp, such as
+  `docker/backups/agentforge_20260101_020000.dump` and
+  `docker/backups/orchestrator_20260101_020000.dump`.
+- `docker/.env` has the passwords of the databases you restore into.
+- About 30 minutes during which the API and orchestrator are offline.
+
+Restore order: **API database first, then the orchestrator database.**
+Orchestrator rows point at API organizations, agents, and users by ID, and the
+orchestrator calls the API when it starts. With the API restored first, those
+IDs exist again when the orchestrator comes back. Use the pair from one run so
+the two databases agree.
 
 ```bash
-# Stop services that write to PostgreSQL
-$COMPOSE_PROD stop agentforge-server orchestrator
+BACKUP_TS=YYYYMMDD_HHMMSS   # timestamp shared by the two files you chose
 
-# Restore from backup
-pg_restore -h localhost -U agentforge -d agentforge \
-  --clean --if-exists --no-owner \
-  /backup/agentforge-YYYYMMDD-HHMM.dump
+# 1. Stop everything that writes to the databases, plus the scheduled backup
+$COMPOSE_BACKUP stop agentforge-server orchestrator backup
 
-# Run pending migrations
-npm run migrate
+# 2. Make sure both databases are running
+$COMPOSE_PROD up -d --wait db orchestrator-db
 
-# Start the application services again
-$COMPOSE_PROD start agentforge-server orchestrator
+# 3. Restore the API database
+$COMPOSE_BACKUP run --rm --no-deps -e BACKUP_TS="$BACKUP_TS" --entrypoint sh backup -ec '
+  PGPASSWORD="$POSTGRES_PASSWORD" pg_restore -h db -U agentforge -d agentforge \
+    --clean --if-exists --no-owner "/backups/agentforge_$BACKUP_TS.dump"'
 
-# Verify
-curl -s http://localhost:4003/health | jq .
-curl -s http://localhost:4010/health | jq .
+# 4. Restore the orchestrator database in one transaction
+$COMPOSE_BACKUP run --rm --no-deps -e BACKUP_TS="$BACKUP_TS" --entrypoint sh backup -ec '
+  pg_restore --clean --if-exists --no-owner -f /tmp/orchestrator.sql "/backups/orchestrator_$BACKUP_TS.dump"
+  sed -i "/^SET transaction_timeout = 0;$/d" /tmp/orchestrator.sql
+  PGPASSWORD="$ORCHESTRATOR_DB_PASSWORD" psql -h orchestrator-db -U orchestrator -d orchestrator \
+    --single-transaction -v ON_ERROR_STOP=1 -q -f /tmp/orchestrator.sql'
 
-# DB-level integrity check (restores exactly the pre-disaster state):
-docker exec agentforge-db psql -U agentforge -d agentforge -c \
-  "select (select count(*) from orchestration_tasks) tasks,
-          (select count(*) from _sqlx_migrations) migrations"
+# 5. Start the application; both services run pending migrations at startup
+$COMPOSE_PROD up -d --wait agentforge-server orchestrator
+
+# 6. If you use the scheduled backup, start it again
+$COMPOSE_BACKUP up -d backup
 ```
 
-> **Drill-tested.** A full backup → wipe → restore drill ran on the local
-> stack with a 1,000-task dataset (custom-format dump ≈ 290 KB in ~1 s,
-> restore in seconds via `pg_restore --clean --if-exists --no-owner`).
-> After restore, task/org/user counts and the `_sqlx_migrations` chain
-> (86 migrations) matched the pre-disaster state exactly. On the same
-> cluster, "schema already exists" notices are harmless; `--clean
---if-exists` keeps the restore idempotent.
+Step 4 differs from step 3 on purpose. The backup tools are PostgreSQL 18 and
+the bundled orchestrator database is PostgreSQL 16. PostgreSQL 18 tools emit a
+`SET transaction_timeout` line that version 16 rejects. The step removes that
+line and stops on any other error. Nothing is changed unless the whole restore
+succeeds.
+
+Success looks like this:
+
+- Steps 3 and 4 finish without `error:` lines, and step 5 returns once both
+  services are healthy.
+- `curl -s http://localhost:4003/api/health` returns `"status":"ready"`.
+- `curl -s http://localhost:4010/health/ready` returns HTTP 200.
+- Row counts match what you expect from the backup time:
+
+```bash
+$COMPOSE_PROD exec db psql -U agentforge -d agentforge -c \
+  "select (select count(*) from orchestration_tasks) tasks,
+          (select count(*) from _sqlx_migrations) migrations"
+$COMPOSE_PROD exec orchestrator-db psql -U orchestrator -d orchestrator -c \
+  "select count(*) as migrations from _sqlx_migrations"
+```
+
+> **Drill status.** An earlier drill covered only the API database. It used a
+> local stack with a 1,000-task dataset, a custom-format dump of about 290 KB,
+> and `pg_restore --clean --if-exists --no-owner`. After restore, task, org,
+> and user counts and the `_sqlx_migrations` chain (86 migrations) matched the
+> pre-disaster state. "Schema already exists" notices are harmless. The
+> two-database procedure above has **not** been rehearsed yet. Record the first
+> rehearsal here, with date, revision, and observed counts.
 
 ### Redis Restore
 
@@ -174,19 +254,13 @@ mc mirror --overwrite --preserve "backup/agentforge-YYYYMMDD" rustfs/agentforge
 ### Full System Rebuild
 
 ```bash
-# 1. Start infrastructure
-$COMPOSE_PROD up -d db redis nats orchestrator-db temporal
-
-# 2. Wait for PostgreSQL
-until pg_isready -h localhost -U agentforge; do sleep 1; done
-
-# 3. Restore database
-pg_restore -h localhost -U agentforge -d agentforge \
-  --clean --if-exists --no-owner /backup/agentforge-latest.dump
-
-# 4. Run migrations
-npm run migrate
+# 1. Start infrastructure and wait until it is healthy
+$COMPOSE_PROD up -d --wait db redis nats orchestrator-db temporal
 ```
+
+2. Copy the backup pair into `docker/backups/`. Then run steps 3 and 4 of
+   [PostgreSQL Restore](#postgresql-restore-both-databases): the API database
+   first, then the orchestrator database.
 
 For managed RustFS storage, start RustFS and restore attachments before starting
 the API:
@@ -290,9 +364,9 @@ nats server check connection
 
 ## 5. Retention Policy
 
-| Backup type            | Retention | Storage                  |
-| ---------------------- | --------- | ------------------------ |
-| PostgreSQL daily       | 30 days   | /backup/postgres/        |
-| PostgreSQL weekly      | 90 days   | /backup/postgres/weekly/ |
-| RustFS weekly          | 90 days   | /backup/rustfs/          |
-| Redis RDB (if enabled) | 7 days    | /backup/redis/           |
+| Backup type                                                 | Retention | Storage                  |
+| ----------------------------------------------------------- | --------- | ------------------------ |
+| PostgreSQL daily (both databases, bundled `backup` service) | 7 days    | docker/backups/          |
+| PostgreSQL weekly                                           | 90 days   | /backup/postgres/weekly/ |
+| RustFS weekly                                               | 90 days   | /backup/rustfs/          |
+| Redis RDB (if enabled)                                      | 7 days    | /backup/redis/           |

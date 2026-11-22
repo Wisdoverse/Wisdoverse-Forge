@@ -30,9 +30,12 @@ the migration needs to be safe to re-run.
 3. **One migration per logical change.** Bundling unrelated schema changes
    makes rollbacks impossible and review noisy. Numbered file names enforce
    ordering.
-4. **Migrations live in `rust/crates/db/migrations/`.** Adopted tables that
-   previously lived outside SQLx tracking carry a schema-contract test so a
-   fresh test database and production never drift into a split-schema state.
+4. **Migrations live in two sets, one per database.** The API database uses
+   `rust/crates/db/migrations/`. The separate orchestrator database uses
+   `rust/crates/orchestrator/migrations/`. Both sets follow this policy.
+   Adopted tables that previously lived outside SQLx tracking carry a
+   schema-contract test so a fresh test database and production never drift
+   into a split-schema state.
 5. **The PostgreSQL job queue (`agentforge-jobs`)** uses `FOR UPDATE SKIP
 LOCKED`. `pg_notify` is a wake-up signal only; a polling fallback must
    exist so notification loss does not stall the queue.
@@ -51,7 +54,8 @@ LOCKED`. `pg_notify` is a wake-up signal only; a polling fallback must
 
 ## References
 
-- `rust/crates/db/migrations/` — current migration set.
+- `rust/crates/db/migrations/` — API database migration set.
+- `rust/crates/orchestrator/migrations/` — orchestrator database migration set.
 - `docs/guides/disaster-recovery.md` — backup and restore procedure.
 - [Backend database and queue rules](../agents/backend.md#database-and-queue).
 - `agentforge-jobs` source — the `pg_notify` + `FOR UPDATE SKIP LOCKED`

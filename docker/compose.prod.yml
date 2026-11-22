@@ -38,10 +38,22 @@ services:
         ]
 
   orchestrator:
+    environment:
+      - ORCHESTRATOR_DATABASE_URL=postgres://orchestrator:${ORCHESTRATOR_DB_PASSWORD:?ORCHESTRATOR_DB_PASSWORD is required in production (existing installs - see docs/runbooks/self-host-ops.md)}@orchestrator-db:5432/orchestrator?sslmode=disable
     depends_on:
       temporal:
         condition: service_healthy
 
+  orchestrator-db:
+    environment:
+      POSTGRES_PASSWORD: ${ORCHESTRATOR_DB_PASSWORD:?ORCHESTRATOR_DB_PASSWORD is required in production (existing installs - see docs/runbooks/self-host-ops.md)}
+
   backup:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}
+      ORCHESTRATOR_DB_PASSWORD: ${ORCHESTRATOR_DB_PASSWORD:?ORCHESTRATOR_DB_PASSWORD is required in production (existing installs - see docs/runbooks/self-host-ops.md)}
+    depends_on:
+      db:
+        condition: service_healthy
+      orchestrator-db:
+        condition: service_healthy

@@ -23,7 +23,7 @@
 #   prod      - Self-contained PostgreSQL + Redis + Caddy
 #   external  - No local DB/Redis (connect to external services via .env)
 #   tools     - Admin UIs (Adminer, Redis Commander)
-#   backup    - Daily pg_dump with 7-day retention
+#   backup    - Daily pg_dump of both bundled databases, 7-day retention
 #   storage   - RustFS S3-compatible object storage
 #   casdoor   - Casdoor OIDC identity provider
 #
@@ -562,7 +562,8 @@ services:
       - default
 
   # ---------------------------------------------------------------------------
-  # Database Backup — Daily pg_dump (profiles: backup)
+  # Database Backup — Daily pg_dump of the bundled API and orchestrator
+  # databases (profiles: backup). External databases are the operator's to back up.
   # ---------------------------------------------------------------------------
   backup:
     image: postgres:18-alpine
@@ -575,17 +576,29 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
       POSTGRES_HOST: db
       POSTGRES_DB: agentforge
+      ORCHESTRATOR_DB_PASSWORD: ${ORCHESTRATOR_DB_PASSWORD:-orchestrator}
 
     volumes:
       - ./backups:/backups
 
+    # A failed dump exits non-zero (container restarts and shows the error in
+    # `ps`/logs); dumps are renamed to .dump and old ones pruned only after
+    # both databases dumped successfully.
     entrypoint: /bin/sh
-    command: >
-      -c "while true; do
-        pg_dump -h $$POSTGRES_HOST -U $$POSTGRES_USER -d $$POSTGRES_DB -F c -f /backups/agentforge_$$(date +%Y%m%d_%H%M%S).dump;
-        find /backups -name '*.dump' -mtime +7 -delete;
-        sleep 86400;
-      done"
+    command:
+      - -ec
+      - |
+        while true; do
+          rm -f /backups/*.dump.partial
+          ts=$$(date +%Y%m%d_%H%M%S)
+          PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -F c -f "/backups/agentforge_$$ts.dump.partial"
+          PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "/backups/orchestrator_$$ts.dump.partial"
+          mv "/backups/agentforge_$$ts.dump.partial" "/backups/agentforge_$$ts.dump"
+          mv "/backups/orchestrator_$$ts.dump.partial" "/backups/orchestrator_$$ts.dump"
+          find /backups -name '*.dump' -mtime +7 -delete
+          echo "backup complete: agentforge_$$ts.dump orchestrator_$$ts.dump"
+          sleep 86400
+        done
 
     networks:
       - default
@@ -957,6 +970,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     networks:
       - default
     labels:

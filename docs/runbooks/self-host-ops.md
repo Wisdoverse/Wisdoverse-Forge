@@ -63,6 +63,56 @@ links to its full guide; this page is the _checklist_.
   signing key; an unsigned checksum file is not authoritative (see
   [offline install](../guides/offline-install.md)).
 
+## Upgrade step: orchestrator database password is now required
+
+Applies to: self-contained installs (`make prod`, `make prod-pull`,
+`make prod-backup`, `make prod-storage`, `make prod-casdoor`, and any
+`docker compose ... -f docker/compose.prod.yml` command). Not affected:
+`make prod-ext` (it uses `ORCHESTRATOR_DATABASE_URL`) and `make dev`.
+
+Symptom after pulling: Compose stops before starting anything with
+`required variable ORCHESTRATOR_DB_PASSWORD is missing a value`, or
+`make bootstrap-selfhost` stops with `ORCHESTRATOR_DB_PASSWORD is missing`.
+
+Shortest safe path (keeps your data and the current password):
+
+1. Add the password the orchestrator database was created with to
+   `docker/.env`. If you never set one, it is the old built-in default:
+
+   ```bash
+   echo 'ORCHESTRATOR_DB_PASSWORD=orchestrator' >> docker/.env
+   ```
+
+2. Start the stack the way you normally do, for example `make prod-pull`.
+
+Success looks like this: `make selfhost-check` passes, and
+`curl -s http://localhost:4010/health/ready` returns HTTP 200. Do not use a new
+random value in step 1. The database keeps the password it was created with, so
+a different value locks the orchestrator out (`password authentication failed
+for user "orchestrator"`).
+
+Then rotate away from the well-known default:
+
+1. Generate a value: `openssl rand -hex 24`. Use hex, because the password is
+   placed inside a connection URL.
+2. Change the database password. `\password` prompts for it, so it stays out of
+   shell history:
+
+   ```bash
+   docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml --profile prod \
+     exec orchestrator-db psql -U orchestrator -d orchestrator -c '\password orchestrator'
+   ```
+
+3. Replace the `ORCHESTRATOR_DB_PASSWORD=` line in `docker/.env` with the new
+   value.
+4. Recreate the services that use it, for example `make prod-pull` (add the
+   `backup` profile if you run it).
+
+Success looks like this: `curl -s http://localhost:4010/health/ready` returns
+HTTP 200 again. If the orchestrator logs show `password authentication failed`,
+steps 2 and 3 used different values. Repeat step 2 with the value from
+`docker/.env`.
+
 ## Rotation & upgrade
 
 - Rotate the bundle signing key: generate a new Ed25519 pair, re-bundle on the
