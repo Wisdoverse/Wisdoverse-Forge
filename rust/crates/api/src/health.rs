@@ -4,7 +4,9 @@
 //! - `GET /api/health` — deep readiness probe (checks DB, Redis, NATS).
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Json;
 use axum::extract::{FromRef, State};
@@ -140,29 +142,52 @@ pub async fn health() -> impl IntoResponse {
     Json(health_response())
 }
 
+/// Deadline for each `/api/health` dependency probe. Probes run concurrently,
+/// so the handler answers within about this long even when a dependency stalls
+/// (Bollard's own default is 120s). Keep it well under the Compose health-check
+/// timeout (`HEALTHCHECK_TIMEOUT`, 5s fallback in docker/compose.yml).
+const READINESS_PROBE_BUDGET: Duration = Duration::from_secs(2);
+
+/// Run one readiness probe with a deadline; a probe that does not answer in
+/// time counts as failed for that dependency.
+async fn within(dependency: &'static str, budget: Duration, probe: impl Future<Output = bool>) -> bool {
+    match tokio::time::timeout(budget, probe).await {
+        Ok(ok) => ok,
+        Err(_) => {
+            tracing::warn!(dependency, ?budget, "readiness probe timed out");
+            false
+        }
+    }
+}
+
 /// `GET /api/health` — deep readiness check.
 ///
 /// Verifies database connectivity. Redis and NATS are optional (graceful degradation
 /// per CLAUDE.md: "Circuit breaker: Redis is optional"). The response contract
-/// is owned by the system domain boundary.
+/// is owned by the system domain boundary. Every probe is bounded by
+/// [`READINESS_PROBE_BUDGET`] and all run concurrently.
 pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
-    let db_ok = agentforge_db::check_health(&state.pool).await;
     // CN-7: when external state is required, readiness must verify Redis can
     // actually WRITE the state store's SET/GETDEL path, not just answer PING — a
     // Redis that goes read-only / loses write ACLs after boot must drop the
     // replica from rotation. Otherwise a PING is the right lightweight check.
-    let redis_ok = if state.config.require_external_state {
-        state.redis.write().await.probe_read_write().await
-    } else {
-        state.redis.write().await.check_health().await
+    let redis_probe = async {
+        let mut redis = state.redis.write().await;
+        if state.config.require_external_state { redis.probe_read_write().await } else { redis.check_health().await }
     };
-    let nats_ok = state.nats.check_health().await;
-
     // Docker is optional — absence is not degraded, but if present, check connectivity.
-    let docker_ok = match &state.docker {
-        Some(docker) => docker.check_health().await,
-        None => true,
+    let docker_probe = async {
+        match &state.docker {
+            Some(docker) => docker.check_health().await,
+            None => true,
+        }
     };
+    let (db_ok, redis_ok, nats_ok, docker_ok) = tokio::join!(
+        within("database", READINESS_PROBE_BUDGET, agentforge_db::check_health(&state.pool)),
+        within("redis", READINESS_PROBE_BUDGET, redis_probe),
+        within("nats", READINESS_PROBE_BUDGET, state.nats.check_health()),
+        within("docker", READINESS_PROBE_BUDGET, docker_probe),
+    );
 
     // DB is always required. NATS is required once configured because
     // orchestration/event delivery depend on it; deployments that do not use
@@ -179,4 +204,21 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     let http_status = if readiness.is_ready() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
 
     (http_status, Json(readiness.response()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn readiness_probe_is_bounded_by_budget() {
+        let start = tokio::time::Instant::now();
+        assert!(!within("stalled", READINESS_PROBE_BUDGET, std::future::pending::<bool>()).await);
+        assert_eq!(start.elapsed(), READINESS_PROBE_BUDGET);
+
+        let start = tokio::time::Instant::now();
+        assert!(within("fast", READINESS_PROBE_BUDGET, async { true }).await);
+        assert!(!within("failing", READINESS_PROBE_BUDGET, async { false }).await);
+        assert_eq!(start.elapsed(), Duration::ZERO);
+    }
 }

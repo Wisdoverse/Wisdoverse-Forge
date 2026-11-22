@@ -58,6 +58,8 @@ async-stream.workspace = true
 test-support = ["agentforge-llm/test-support"]
 
 [dev-dependencies]
+# test-util: paused Tokio time for the readiness probe budget test.
+tokio = { workspace = true, features = ["test-util"] }
 bcrypt = "0.19"
 http = "1"
 httpmock = "0.9"
