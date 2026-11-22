@@ -47,7 +47,7 @@ use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_containe
 use crate::domain::maintenance_delivery::{ensure_merge_not_rejected, merge_blocked_by_verdict};
 pub use crate::domain::self_fix::SelfFixRepositorySetup;
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
-use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
+use crate::domain::self_fix::{SelfFixMergeMetricPolicy, SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository;
 use crate::repositories::orchestration::{
@@ -198,9 +198,8 @@ impl SelfFixService {
 
     /// Guarded server-side merge of an approved self-fix PR.
     ///
-    /// The route layer (milestone 8) sets `review_status == approved` before
-    /// calling this; we accept `approved` and (transitionally, until that route
-    /// lands) `in_review` so the executor can be wired and exercised first. We
+    /// Accepts `in_review` and `approved` (a started, unconfirmed merge). The
+    /// merge decision commits `approved` before any GitHub call. We
     /// also re-derive sensitivity SERVER-SIDE — a task persisted as
     /// `sensitive_blocked` at PR-open time is HARD-refused here regardless of any
     /// later GitHub state, and an already-`merged` task short-circuits as a no-op.
@@ -209,8 +208,8 @@ impl SelfFixService {
     /// allowed review status → require GitHub is configured (visible error
     /// otherwise) → recompute `sensitive` from the persisted review status →
     /// run the git-only [`run_merge_executor`] gate-and-merge → on a confirmed
-    /// merge ONLY, persist `review_status == merged`. On ANY gate failure the
-    /// task keeps its prior status and the error surfaces; nothing merges.
+    /// merge ONLY, persist `review_status == merged`. A definite pre-merge
+    /// refusal restores `in_review`; any other failure keeps `approved`.
     /// Platform-admin gate for the self-fix merge path. Reads the caller's live
     /// `users.is_admin` flag and refuses non-admins with `Forbidden`. Keeps
     /// `is_admin` a server-side DB read (never trusting the JWT role claim),
@@ -264,11 +263,12 @@ impl SelfFixService {
         // 2. Gate on review status + recompute sensitivity SERVER-SIDE.
         //    - `merged`           → idempotent success (already done).
         //    - `sensitive_blocked`→ HARD refuse, no GitHub call.
-        //    - `approved`         → merges (already approved, e.g. a retry).
-        //    - `in_review`        → accepted: the route is the platform-admin's
-        //                           approve action, so an admin-gated approve of an
-        //                           in-review PR merges directly (success → `merged`;
-        //                           failure leaves it `in_review`, no stale write).
+        //    - `in_review`        → the platform-admin's approve action merges
+        //                           directly; step 4 moves it to `approved`.
+        //    - `approved`         → a merge was started but not confirmed (an
+        //                           ambiguous failure or a crash); retrying
+        //                           reconciles it (the executor detects an
+        //                           already-merged pull request).
         match task.review_status.as_deref() {
             Some(MERGED) => {
                 metrics::record_merge_outcome("already_merged");
@@ -295,13 +295,14 @@ impl SelfFixService {
         //    the executor for the head; approver + task are known now).
         let audit_body = merge_audit_body(approver_id, task_id, pr_number);
 
-        // 4. Decide under the task-row lock the verdict writers hold (#1314): a
-        //    rejection committed first is seen here; one arriving later waits,
-        //    then fails its expected-version check because this bump changes
-        //    `row_version`. Count this attempt BEFORE the executor runs so the
-        //    counter is incremented even when the executor gate fails (e.g.
-        //    checks_red, head_moved). The cap is checked at entry, so this
-        //    always runs within the allowed budget.
+        // 4. Decide under the task-row lock the verdict writers hold (#1314). A
+        //    rejection of the current report committed first is seen here and
+        //    refuses the merge. Committing `approved` makes every later verdict
+        //    write wait (it refuses while `approved`) until the merge outcome is
+        //    known. Count this attempt BEFORE the executor runs so the counter
+        //    is incremented even when the executor gate fails (e.g. checks_red,
+        //    head_moved). The cap is checked at entry, so this always runs
+        //    within the allowed budget.
         let source = self.maintenance_requests.find_by_task(scope, task_id).await?;
         let mut tx = self.tasks.pool().begin().await?;
         let current = delivery_write::lock_task(&mut tx, scope, task_id).await?;
@@ -309,16 +310,11 @@ impl SelfFixService {
             return Err(SelfFixPolicy::head_moved());
         }
         if let Some(source) = &source {
-            let verdict = MaintenanceDeliveryRepository::latest_verdict_for_revision(
-                &mut *tx,
-                scope,
-                task_id,
-                delivery::revision(&current, source),
-            )
-            .await?;
+            let verdict = delivery::current_report_verdict_in_tx(&mut tx, scope, &current, source).await?;
             ensure_merge_not_rejected(verdict.as_deref())?;
         }
         OrchestrationTaskRepository::bump_merge_attempts_in_tx(&mut tx, scope, task_id).await?;
+        OrchestrationTaskRepository::set_review_status_in_tx(&mut tx, scope, task_id, APPROVED).await?;
         tx.commit().await?;
 
         // 5. Run the git-only guarded merge. NOTHING merges on a gate failure.
@@ -333,6 +329,17 @@ impl SelfFixService {
             }
             Err(err) => {
                 metrics::record_merge_failure(&err);
+                // A definite pre-merge refusal returns to review; anything else
+                // stays `approved` until a new approve call reconciles it.
+                if let Some(status) = SelfFixMergeMetricPolicy::review_status_after_failure(&err)
+                    && let Err(restore) = self.tasks.transition_review_status(scope, task_id, APPROVED, status).await
+                {
+                    tracing::warn!(
+                        error = ?restore,
+                        task_id = %task_id,
+                        "self-fix: could not restore review status after a refused merge; it stays approved"
+                    );
+                }
                 return Err(err);
             }
         };
@@ -381,16 +388,12 @@ impl SelfFixService {
 
         // Display-only projection of the merge gate; approve re-checks it under the lock.
         let rejected = match self.maintenance_requests.find_by_task(scope, task_id).await? {
-            Some(source) => merge_blocked_by_verdict(
-                MaintenanceDeliveryRepository::latest_verdict_for_revision(
-                    self.tasks.pool(),
-                    scope,
-                    task_id,
-                    delivery::revision(&task, &source),
-                )
-                .await?
-                .as_deref(),
-            ),
+            Some(source) => {
+                let mut tx = self.tasks.pool().begin().await?;
+                let verdict = delivery::current_report_verdict_in_tx(&mut tx, scope, &task, &source).await?;
+                tx.commit().await?;
+                merge_blocked_by_verdict(verdict.as_deref())
+            }
             None => false,
         };
 

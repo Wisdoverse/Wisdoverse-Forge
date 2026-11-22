@@ -169,16 +169,14 @@ impl MaintenanceDeliveryRepository {
             .bind(scope.org_id().as_uuid()).bind(task).fetch_optional(&mut **tx).await?)
     }
 
-    /// Latest verdict on any report bound to `revision`. The merge path reads it
-    /// under the task-row lock so it serializes with `insert_decision_in_tx`.
-    pub(crate) async fn latest_verdict_for_revision<'e>(
-        db: impl sqlx::PgExecutor<'e>,
+    /// Latest verdict recorded on one report, read in the caller's transaction.
+    pub(crate) async fn latest_verdict_for_report_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
-        task: Uuid,
-        revision: &str,
+        report: Uuid,
     ) -> AppResult<Option<String>> {
-        Ok(sqlx::query_scalar("SELECT d.verdict FROM maintenance_review_decisions d JOIN maintenance_verification_reports r ON r.organization_id=d.organization_id AND r.task_id=d.task_id AND r.id=d.report_id WHERE d.organization_id=$1 AND d.task_id=$2 AND r.revision=$3 ORDER BY d.created_at DESC,d.id DESC LIMIT 1")
-            .bind(scope.org_id().as_uuid()).bind(task).bind(revision).fetch_optional(db).await?)
+        Ok(sqlx::query_scalar("SELECT verdict FROM maintenance_review_decisions WHERE organization_id=$1 AND report_id=$2 ORDER BY created_at DESC,id DESC LIMIT 1")
+            .bind(scope.org_id().as_uuid()).bind(report).fetch_optional(&mut **tx).await?)
     }
 
     pub(crate) async fn decision_by_key_in_tx(

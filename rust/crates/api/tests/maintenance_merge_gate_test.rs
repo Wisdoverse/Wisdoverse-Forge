@@ -1,22 +1,143 @@
-//! #1314: a rejected verdict on the current maintenance revision blocks the
-//! Forge merge. Real HTTP/auth/SQL with a local GitHub mock; no remote writes.
-//! Its own test binary because `GITHUB_API_BASE` is process-global.
+//! #1314: a rejected verdict on the task's current maintenance report blocks
+//! the Forge merge, and no verdict can land while a started merge is
+//! unconfirmed (`approved`). Real HTTP/auth/SQL against an in-process fake
+//! GitHub whose merge call can be paused on a oneshot, so every interleaving
+//! below is forced explicitly (no sleeps). Its own test binary because
+//! `GITHUB_API_BASE` is process-global.
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use agentforge_api::create_router;
 use agentforge_api::test_support::{app_state_with_mock_provider, mint_test_jwt, test_app_config};
 use axum::Router;
 use axum::body::Body;
+use axum::extract::{Path, State};
 use axum::http::{Request, StatusCode};
-use httpmock::prelude::*;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post, put};
 use serde_json::{Value, json};
 use sqlx::PgPool;
+use tokio::sync::oneshot;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-const PRS: [i32; 7] = [61, 62, 63, 64, 65, 66, 67];
+fn sha(c: char) -> String {
+    c.to_string().repeat(40)
+}
+
+/// Paused merge: the fake signals `entered` when the merge call arrives and
+/// waits for `release` before merging.
+type Hold = (oneshot::Sender<()>, oneshot::Receiver<()>);
+
+#[derive(Default)]
+struct FakeGithub {
+    heads: Mutex<HashMap<i32, String>>,
+    merged: Mutex<HashSet<i32>>,
+    red_heads: Mutex<HashSet<String>>,
+    failing_comments: Mutex<HashSet<i32>>,
+    holds: Mutex<HashMap<i32, Hold>>,
+    merge_calls: Mutex<HashMap<i32, usize>>,
+    requests: AtomicUsize,
+}
+
+impl FakeGithub {
+    fn requests(&self) -> usize {
+        self.requests.load(Ordering::SeqCst)
+    }
+    fn merges(&self, pr: i32) -> usize {
+        self.merge_calls.lock().unwrap().get(&pr).copied().unwrap_or(0)
+    }
+    fn set_head(&self, pr: i32, head: char) {
+        self.heads.lock().unwrap().insert(pr, sha(head));
+    }
+    /// Pause the next merge of `pr`; returns (entered, release).
+    fn hold(&self, pr: i32) -> (oneshot::Receiver<()>, oneshot::Sender<()>) {
+        let (entered_tx, entered_rx) = oneshot::channel();
+        let (release_tx, release_rx) = oneshot::channel();
+        self.holds.lock().unwrap().insert(pr, (entered_tx, release_rx));
+        (entered_rx, release_tx)
+    }
+}
+
+type Fake = State<Arc<FakeGithub>>;
+
+async fn token(State(f): Fake) -> Response {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    let expires = (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339();
+    (
+        StatusCode::CREATED,
+        axum::Json(json!({"token":"test-installation-token","expires_at":expires,
+        "permissions":{"contents":"write","pull_requests":"write","checks":"read"}})),
+    )
+        .into_response()
+}
+async fn repository(State(f): Fake) -> axum::Json<Value> {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    axum::Json(json!({"default_branch":"develop","archived":false,"disabled":false,"allow_squash_merge":true}))
+}
+async fn default_ref(State(f): Fake) -> axum::Json<Value> {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    axum::Json(json!({"object":{"sha":sha('b')}}))
+}
+async fn pull(State(f): Fake, Path(n): Path<i32>) -> Response {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    let Some(head) = f.heads.lock().unwrap().get(&n).cloned() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let merged = f.merged.lock().unwrap().contains(&n);
+    axum::Json(json!({"number":n,"node_id":format!("PR-{n}"),"state":if merged {"closed"} else {"open"},"merged":merged,"draft":false,
+        "head":{"sha":head},"base":{"ref":"develop","repo":{"full_name":"acme/widgets"}},"html_url":"https://example.com"}))
+    .into_response()
+}
+async fn check_runs(State(f): Fake, Path(head): Path<String>) -> axum::Json<Value> {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    let conclusion = if f.red_heads.lock().unwrap().contains(&head) { "failure" } else { "success" };
+    axum::Json(
+        json!({"total_count":1,"check_runs":[{"name":"CI","head_sha":head,"status":"completed","conclusion":conclusion}]}),
+    )
+}
+async fn statuses(State(f): Fake) -> axum::Json<Value> {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    axum::Json(json!([]))
+}
+async fn merge(State(f): Fake, Path(n): Path<i32>) -> Response {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    let hold = f.holds.lock().unwrap().remove(&n);
+    if let Some((entered, release)) = hold {
+        let _ = entered.send(());
+        let _ = release.await;
+    }
+    *f.merge_calls.lock().unwrap().entry(n).or_default() += 1;
+    f.merged.lock().unwrap().insert(n);
+    axum::Json(json!({"merged":true})).into_response()
+}
+async fn comment(State(f): Fake, Path(n): Path<i32>) -> Response {
+    f.requests.fetch_add(1, Ordering::SeqCst);
+    if f.failing_comments.lock().unwrap().contains(&n) {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    (StatusCode::CREATED, axum::Json(json!({"id":1}))).into_response()
+}
+
+async fn start_fake() -> (Arc<FakeGithub>, String) {
+    let fake = Arc::new(FakeGithub::default());
+    let app = Router::new()
+        .route("/app/installations/{id}/access_tokens", post(token))
+        .route("/repos/acme/widgets", get(repository))
+        .route("/repos/acme/widgets/git/ref/heads/develop", get(default_ref))
+        .route("/repos/acme/widgets/pulls/{n}", get(pull))
+        .route("/repos/acme/widgets/pulls/{n}/merge", put(merge))
+        .route("/repos/acme/widgets/commits/{sha}/check-runs", get(check_runs))
+        .route("/repos/acme/widgets/commits/{sha}/statuses", get(statuses))
+        .route("/repos/acme/widgets/issues/{n}/comments", post(comment))
+        .with_state(fake.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    (fake, base)
+}
 
 async fn destination(pool: &PgPool, user: Uuid) -> (Uuid, Uuid) {
     let (org, team, project, group) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
@@ -74,18 +195,10 @@ async fn call(app: &Router, jwt: &str, method: &str, path: &str, body: Value) ->
     (status, value)
 }
 
-fn sha(c: char) -> String {
-    c.to_string().repeat(40)
-}
-
-fn pr(number: i32, head: char) -> Value {
-    json!({"number":number,"node_id":format!("PR-{number}"),"state":"open","merged":false,"draft":false,"head":{"sha":sha(head)},
-        "base":{"ref":"develop","repo":{"full_name":"acme/widgets"}},"html_url":"https://example.com"})
-}
-
 struct Fixture {
     app: Router,
     pool: PgPool,
+    fake: Arc<FakeGithub>,
     org: Uuid,
     user: Uuid,
     group: Uuid,
@@ -93,40 +206,55 @@ struct Fixture {
 }
 
 impl Fixture {
-    /// Maintenance task with a finished run, PR `number` at head `c…`, and one report.
-    async fn task(&self, reference: &str, number: i32) -> (Uuid, Value, Value) {
+    /// Maintenance task with a finished run and PR `number` at `head`.
+    async fn task(&self, reference: &str, number: i32, head: char) -> Uuid {
         let brief = json!({"groupId":self.group,"title":"Repair dependency","brief":"Update and verify the dependency.",
             "source":{"kind":"request","reference":reference}});
         let (status, body) = call(&self.app, &self.jwt, "POST", "/api/v1/self-fix/requests", brief).await;
         assert_eq!(status, StatusCode::OK, "{body}");
         let task = Uuid::parse_str(body["data"]["taskId"].as_str().unwrap()).unwrap();
+        self.add_run(task, 0).await;
+        sqlx::query("UPDATE orchestration_tasks SET status='completed',base_commit_sha=$2,pr_head_sha=$3,pr_number=$4,review_status='in_review' WHERE id=$1").bind(task).bind(sha('b')).bind(sha(head)).bind(number).execute(&self.pool).await.unwrap();
+        self.fake.set_head(number, head);
+        task
+    }
+
+    /// A finished run `offset_secs` after now; the latest run defines the binding.
+    async fn add_run(&self, task: Uuid, offset_secs: i32) {
         let (agent, run) = (Uuid::new_v4(), Uuid::new_v4());
         sqlx::query("INSERT INTO agents (id,organization_id,workspace_id,user_id,status,runtime_kind,cli_tool) VALUES ($1,$2,$2,$3,'idle','container','codex')").bind(agent).bind(self.org).bind(self.user).execute(&self.pool).await.unwrap();
-        sqlx::query("INSERT INTO task_runs (id,organization_id,workspace_id,orchestration_task_id,agent_id,idempotency_key,status,finished_at) VALUES ($1,$2,$2,$3,$4,$5,'completed',now())").bind(run).bind(self.org).bind(task).bind(agent).bind(run.to_string()).execute(&self.pool).await.unwrap();
-        sqlx::query("UPDATE orchestration_tasks SET status='completed',base_commit_sha=$2,pr_head_sha=$3,pr_number=$4,review_status='in_review' WHERE id=$1").bind(task).bind(sha('b')).bind(sha('c')).bind(number).execute(&self.pool).await.unwrap();
-        let data = self.delivery(task).await;
-        let input = json!({"requestKey":Uuid::new_v4(),"expectedVersion":data["taskVersion"],"expectedRevision":data["currentRevision"],"runId":run,
-            "criteria":"The dependency tests pass.","scope":"Dependency constraints only.","environmentNotes":"Same disposable fixture.","cliVersion":"fixture-1",
-            "changeSummary":"Updated constraints.","checks":[],"unverified":["production deployment"]});
-        let (status, report) =
-            call(&self.app, &self.jwt, "POST", &format!("/api/v1/self-fix/tasks/{task}/reports"), input).await;
-        assert_eq!(status, StatusCode::OK, "{report}");
-        (task, data, report["data"].clone())
+        sqlx::query("INSERT INTO task_runs (id,organization_id,workspace_id,orchestration_task_id,agent_id,idempotency_key,status,started_at,finished_at) VALUES ($1,$2,$2,$3,$4,$5,'completed',now()+make_interval(secs=>$6),now()+make_interval(secs=>$6))").bind(run).bind(self.org).bind(task).bind(agent).bind(run.to_string()).bind(offset_secs as f64).execute(&self.pool).await.unwrap();
     }
 
+    /// A refreshed client: reads the current delivery state, then writes.
     async fn delivery(&self, task: Uuid) -> Value {
-        call(&self.app, &self.jwt, "GET", &format!("/api/v1/self-fix/tasks/{task}/delivery"), json!({})).await.1["data"]
-            .clone()
+        let (status, body) =
+            call(&self.app, &self.jwt, "GET", &format!("/api/v1/self-fix/tasks/{task}/delivery"), json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        body["data"].clone()
     }
 
-    async fn verdict(&self, task: Uuid, data: &Value, report: &Value, verdict: &str) -> (StatusCode, Value) {
-        let input = json!({"requestKey":Uuid::new_v4(),"reportId":report["id"],"expectedVersion":data["taskVersion"],
+    async fn report(&self, task: Uuid) -> Uuid {
+        let data = self.delivery(task).await;
+        let input = json!({"requestKey":Uuid::new_v4(),"expectedVersion":data["taskVersion"],"expectedRevision":data["currentRevision"],
+            "runId":data["latestRunId"],"criteria":"The dependency tests pass.","scope":"Dependency constraints only.",
+            "environmentNotes":"Same disposable fixture.","cliVersion":"fixture-1","changeSummary":"Updated constraints.",
+            "checks":[],"unverified":["production deployment"]});
+        let (status, body) =
+            call(&self.app, &self.jwt, "POST", &format!("/api/v1/self-fix/tasks/{task}/reports"), input).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        Uuid::parse_str(body["data"]["id"].as_str().unwrap()).unwrap()
+    }
+
+    async fn verdict(&self, task: Uuid, report: Uuid, verdict: &str) -> (StatusCode, Value) {
+        let data = self.delivery(task).await;
+        let input = json!({"requestKey":Uuid::new_v4(),"reportId":report,"expectedVersion":data["taskVersion"],
             "expectedRevision":data["currentRevision"],"verdict":verdict,"reason":"Reviewed the exact revision.","humanMinutes":{"review":3}});
         call(&self.app, &self.jwt, "POST", &format!("/api/v1/self-fix/tasks/{task}/decisions"), input).await
     }
 
-    async fn approve(&self, jwt: &str, task: Uuid) -> (StatusCode, Value) {
-        call(&self.app, jwt, "POST", &format!("/api/v1/self-fix/tasks/{task}/approve"), json!({})).await
+    async fn approve(&self, task: Uuid) -> (StatusCode, Value) {
+        approve(self.app.clone(), self.jwt.clone(), task).await
     }
 
     async fn rejected_flag(&self, task: Uuid) -> Value {
@@ -135,7 +263,8 @@ impl Fixture {
             .clone()
     }
 
-    async fn merge_state(&self, task: Uuid) -> (Option<String>, i32) {
+    /// (review_status, merge_attempts)
+    async fn state(&self, task: Uuid) -> (String, i32) {
         sqlx::query_as("SELECT review_status, merge_attempts FROM orchestration_tasks WHERE id=$1")
             .bind(task)
             .fetch_one(&self.pool)
@@ -144,8 +273,19 @@ impl Fixture {
     }
 }
 
+async fn approve(app: Router, jwt: String, task: Uuid) -> (StatusCode, Value) {
+    call(&app, &jwt, "POST", &format!("/api/v1/self-fix/tasks/{task}/approve"), json!({})).await
+}
+
+fn code(body: &Value) -> &str {
+    body["error"]["code"].as_str().unwrap_or_default()
+}
+
+const REJECTED: &str = "errors.maintenance.merge_rejected";
+const IN_PROGRESS: &str = "errors.maintenance.merge_in_progress";
+
 #[sqlx::test(migrations = "../db/migrations")]
-async fn rejected_current_revision_blocks_forge_merge(pool: PgPool) {
+async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_verdicts(pool: PgPool) {
     let user = Uuid::new_v4();
     sqlx::query("INSERT INTO users (id,email,is_admin) VALUES ($1,'dev@example.com',true)")
         .bind(user)
@@ -157,57 +297,8 @@ async fn rejected_current_revision_blocks_forge_merge(pool: PgPool) {
     let jwt = mint_test_jwt(org, user, "owner");
     let other_jwt = mint_test_jwt(other_org, user, "owner");
 
-    let server = MockServer::start_async().await;
-    unsafe { std::env::set_var("GITHUB_API_BASE", server.base_url()) };
-    server.mock_async(|when,then| {when.method(POST).path("/app/installations/1/access_tokens");then.status(201).json_body(json!({"token":"test-installation-token","expires_at":(chrono::Utc::now()+chrono::Duration::hours(1)).to_rfc3339(),"permissions":{"contents":"write","pull_requests":"write","checks":"read"}}));}).await;
-    server
-        .mock_async(|when, then| {
-            when.method(GET).path("/repos/acme/widgets");
-            then.status(200).json_body(
-                json!({"default_branch":"develop","archived":false,"disabled":false,"allow_squash_merge":true}),
-            );
-        })
-        .await;
-    server
-        .mock_async(|when, then| {
-            when.method(GET).path("/repos/acme/widgets/git/ref/heads/develop");
-            then.status(200).json_body(json!({"object":{"sha":sha('b')}}));
-        })
-        .await;
-    for head in ['c', 'd'] {
-        server.mock_async(|when,then| {when.method(GET).path(format!("/repos/acme/widgets/commits/{}/check-runs",sha(head)));then.status(200).json_body(json!({"total_count":1,"check_runs":[{"name":"CI","head_sha":sha(head),"status":"completed","conclusion":"success"}]}));}).await;
-        server
-            .mock_async(|when, then| {
-                when.method(GET).path(format!("/repos/acme/widgets/commits/{}/statuses", sha(head)));
-                then.status(200).json_body(json!([]));
-            })
-            .await;
-    }
-    let mut merges = std::collections::HashMap::new();
-    for number in PRS {
-        // PR 65 is the "rejected an older revision" case: its live head moved to `d…`.
-        let head = if number == 65 { 'd' } else { 'c' };
-        server
-            .mock_async(|when, then| {
-                when.method(GET).path(format!("/repos/acme/widgets/pulls/{number}"));
-                then.status(200).json_body(pr(number, head));
-            })
-            .await;
-        let merge = server
-            .mock_async(|when, then| {
-                when.method(PUT).path(format!("/repos/acme/widgets/pulls/{number}/merge"));
-                then.status(200).json_body(json!({"merged":true}));
-            })
-            .await;
-        merges.insert(number, merge);
-        server
-            .mock_async(|when, then| {
-                when.method(POST).path(format!("/repos/acme/widgets/issues/{number}/comments"));
-                then.status(201).json_body(json!({"id":1}));
-            })
-            .await;
-    }
-
+    let (fake, base) = start_fake().await;
+    unsafe { std::env::set_var("GITHUB_API_BASE", &base) };
     let mut state = app_state_with_mock_provider(pool.clone(), "mock", "ok").await;
     let mut config = test_app_config("postgres://test");
     config.github_app_id = Some("12345".into());
@@ -215,88 +306,159 @@ async fn rejected_current_revision_blocks_forge_merge(pool: PgPool) {
     config.github_app_private_key = Some(include_str!("fixtures/test_rsa_private_key.pem").to_string().into());
     config.github_app_repo = Some("acme/widgets".into());
     state.config = Arc::new(config);
-    let f = Fixture { app: create_router(state), pool: pool.clone(), org, user, group, jwt: jwt.clone() };
+    let f = Fixture { app: create_router(state), pool: pool.clone(), fake: fake.clone(), org, user, group, jwt };
 
-    // 1. No verdict: merge controls stay independent of acceptance.
-    let (none, _, _) = f.task("gate-none", 61).await;
-    assert_eq!(f.rejected_flag(none).await, false);
-    let (status, body) = f.approve(&jwt, none).await;
+    // No verdict: merge controls stay independent of acceptance.
+    let task = f.task("gate-none", 61, 'c').await;
+    f.report(task).await;
+    assert_eq!(f.rejected_flag(task).await, false);
+    let (status, body) = f.approve(task).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(f.merge_state(none).await.0.as_deref(), Some("merged"));
+    assert_eq!(f.state(task).await, ("merged".into(), 1));
 
-    // 2. Accepted current revision merges.
-    let (accepted, data, report) = f.task("gate-accepted", 62).await;
-    assert_eq!(f.verdict(accepted, &data, &report, "accepted").await.0, StatusCode::OK);
-    assert_eq!(f.approve(&jwt, accepted).await.0, StatusCode::OK);
+    // Accepted current report merges.
+    let task = f.task("gate-accepted", 62, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "accepted").await.0, StatusCode::OK);
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
 
-    // 3. Rejected current revision: typed 409, nothing merged, attempt not counted,
-    //    and another tenant cannot even see the task.
-    let (rejected, data, report) = f.task("gate-rejected", 63).await;
-    assert_eq!(f.verdict(rejected, &data, &report, "rejected").await.0, StatusCode::OK);
-    assert_eq!(f.rejected_flag(rejected).await, true);
-    let (status, body) = f.approve(&jwt, rejected).await;
-    assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert_eq!(body["error"]["code"], "errors.maintenance.merge_rejected");
-    assert!(body["error"]["message"].as_str().unwrap().contains("Record a new verdict"), "{body}");
-    assert_eq!(f.approve(&other_jwt, rejected).await.0, StatusCode::NOT_FOUND);
-    assert_eq!(merges[&63].calls_async().await, 0);
-    assert_eq!(f.merge_state(rejected).await, (Some("in_review".into()), 0));
+    // Order 1 — the rejection commits first: typed 409, no provider merge call,
+    // attempt not counted. Another tenant gets 404 without any provider read.
+    let task = f.task("gate-rejected", 63, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+    assert_eq!(f.rejected_flag(task).await, true);
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, REJECTED), "{body}");
+    assert!(body["error"]["message"].as_str().unwrap().contains("Record a new verdict on a newer report"));
+    assert!(!body.to_string().contains("reconcile"), "{body}");
+    assert_eq!(f.fake.merges(63), 0);
+    assert_eq!(f.state(task).await, ("in_review".into(), 0));
+    let reads = fake.requests();
+    assert_eq!(approve(f.app.clone(), other_jwt.clone(), task).await.0, StatusCode::NOT_FOUND);
+    let foreign_review =
+        call(&f.app, &other_jwt, "GET", &format!("/api/v1/self-fix/tasks/{task}/review"), json!({})).await;
+    assert_eq!(foreign_review.0, StatusCode::NOT_FOUND);
+    assert_eq!(fake.requests(), reads, "a cross-tenant request must not reach the provider");
 
-    // 4. A newer verdict on the same revision supersedes the rejection.
-    let (superseded, data, report) = f.task("gate-superseded", 64).await;
-    assert_eq!(f.verdict(superseded, &data, &report, "rejected").await.0, StatusCode::OK);
-    assert_eq!(f.verdict(superseded, &data, &report, "accepted").await.0, StatusCode::OK);
-    assert_eq!(f.rejected_flag(superseded).await, false);
-    assert_eq!(f.approve(&jwt, superseded).await.0, StatusCode::OK);
+    // A newer verdict on the same report supersedes the rejection.
+    let task = f.task("gate-superseded", 64, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+    assert_eq!(f.verdict(task, report, "accepted").await.0, StatusCode::OK);
+    assert_eq!(f.rejected_flag(task).await, false);
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
 
-    // 5. A rejection bound to an older revision does not block the new head.
-    let (old, data, report) = f.task("gate-old-revision", 65).await;
-    assert_eq!(f.verdict(old, &data, &report, "rejected").await.0, StatusCode::OK);
+    // R1 rejected, then R2 for the same head with no verdict: not blocked.
+    let task = f.task("gate-newer-report", 65, 'c').await;
+    let first = f.report(task).await;
+    assert_eq!(f.verdict(task, first, "rejected").await.0, StatusCode::OK);
+    f.report(task).await;
+    assert_eq!(f.rejected_flag(task).await, false);
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
+
+    // A rejected report from an earlier run is not current once the run changed.
+    let task = f.task("gate-earlier-run", 66, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+    f.add_run(task, 5).await;
+    assert_eq!(f.rejected_flag(task).await, false);
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
+
+    // A rejected report whose title/brief binding no longer holds does not block.
+    let task = f.task("gate-changed-brief", 67, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+    sqlx::query("UPDATE orchestration_tasks SET title='Repair dependency, revised scope' WHERE id=$1")
+        .bind(task)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(f.rejected_flag(task).await, false);
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
+
+    // A rejection of an older revision does not block the recorded head.
+    let task = f.task("gate-old-revision", 68, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
     sqlx::query("UPDATE orchestration_tasks SET pr_head_sha=$2 WHERE id=$1")
-        .bind(old)
+        .bind(task)
         .bind(sha('d'))
         .execute(&pool)
         .await
         .unwrap();
-    assert_eq!(f.rejected_flag(old).await, false);
-    let (status, body) = f.approve(&jwt, old).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
+    f.fake.set_head(68, 'd');
+    assert_eq!(f.rejected_flag(task).await, false);
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
 
-    // 6. Plain self-fix task without a maintenance request: unchanged.
+    // Plain self-fix task without a maintenance request: unchanged.
     let plain = Uuid::new_v4();
-    sqlx::query("INSERT INTO orchestration_tasks (id,organization_id,group_id,title,created_by,status,self_fix,pr_number,pr_head_sha,review_status) VALUES ($1,$2,$3,'Plain self-fix',$4,'completed',true,66,$5,'in_review')").bind(plain).bind(org).bind(group).bind(user).bind(sha('c')).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO orchestration_tasks (id,organization_id,group_id,title,created_by,status,self_fix,pr_number,pr_head_sha,review_status) VALUES ($1,$2,$3,'Plain self-fix',$4,'completed',true,69,$5,'in_review')").bind(plain).bind(org).bind(group).bind(user).bind(sha('c')).execute(&pool).await.unwrap();
+    f.fake.set_head(69, 'c');
     assert_eq!(f.rejected_flag(plain).await, false);
-    let (status, body) = f.approve(&jwt, plain).await;
+    let (status, body) = f.approve(plain).await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    // 7. Concurrent reject + merge both queue on the task-row lock; exactly one wins.
-    let (race, data, report) = f.task("gate-race", 67).await;
-    let mut hold = pool.begin().await.unwrap();
-    sqlx::query("SELECT 1 FROM orchestration_tasks WHERE id=$1 FOR UPDATE")
-        .bind(race)
-        .execute(&mut *hold)
+    // Crash between the merge decision and the provider call leaves `approved`:
+    // verdicts wait, and the next approve proceeds normally.
+    let task = f.task("gate-crash", 70, 'c').await;
+    let report = f.report(task).await;
+    sqlx::query("UPDATE orchestration_tasks SET review_status='approved',merge_attempts=1 WHERE id=$1")
+        .bind(task)
+        .execute(&pool)
         .await
         .unwrap();
-    let release = async move {
-        tokio::time::sleep(Duration::from_millis(400)).await;
-        hold.commit().await.unwrap();
-    };
-    let ((reject, _), (merge, merge_body), ()) =
-        tokio::join!(f.verdict(race, &data, &report, "rejected"), f.approve(&jwt, race), release);
-    let rejections: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM maintenance_review_decisions WHERE task_id=$1 AND verdict='rejected'")
-            .bind(race)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    let merged = f.merge_state(race).await.0.as_deref() == Some("merged");
-    match (reject, merge) {
-        (StatusCode::OK, StatusCode::CONFLICT) => {
-            assert_eq!(merge_body["error"]["code"], "errors.maintenance.merge_rejected");
-            assert!(!merged && rejections == 1);
-            assert_eq!(merges[&67].calls_async().await, 0);
-        }
-        (StatusCode::CONFLICT, StatusCode::OK) => assert!(merged && rejections == 0),
-        other => panic!("reject and merge must serialize, got {other:?}"),
-    }
+    let (status, body) = f.verdict(task, report, "rejected").await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    assert_eq!(f.approve(task).await.0, StatusCode::OK);
+    assert_eq!((f.state(task).await, f.fake.merges(70)), (("merged".into(), 2), 1));
+
+    // Order 2 — the merge decision commits first and the provider is paused: a
+    // refreshed client's rejection is refused; after release the task merges
+    // once. A verdict after the merge is accepted (merge and acceptance are
+    // independent records).
+    let task = f.task("gate-paused", 71, 'c').await;
+    let report = f.report(task).await;
+    let (entered, release) = f.fake.hold(71);
+    let merging = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    entered.await.unwrap();
+    assert_eq!(f.state(task).await, ("approved".into(), 1));
+    let (status, body) = f.verdict(task, report, "rejected").await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    release.send(()).unwrap();
+    let (status, body) = merging.await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(71)), (("merged".into(), 1), 1));
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+
+    // Order 3 — the merge decision commits first and the provider refuses before
+    // merging (red CI): back to review, a rejection can be recorded, and the
+    // next approve is refused by the rejection gate.
+    let task = f.task("gate-refused", 72, 'e').await;
+    f.fake.red_heads.lock().unwrap().insert(sha('e'));
+    let report = f.report(task).await;
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::BAD_REQUEST, "errors.self_fix.checks_not_green"), "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(72)), (("in_review".into(), 1), 0));
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, REJECTED), "{body}");
+    assert_eq!(f.state(task).await, ("in_review".into(), 1));
+
+    // Order 4 — the provider merges but the audit comment fails (ambiguous): the
+    // status stays `approved`, verdicts wait, and a second approve finds the
+    // pull request merged and ends `merged` without a second merge call.
+    let task = f.task("gate-ambiguous", 73, 'c').await;
+    let report = f.report(task).await;
+    f.fake.failing_comments.lock().unwrap().insert(73);
+    let (status, body) = f.approve(task).await;
+    assert!(status.is_server_error(), "{status} {body}");
+    assert_eq!((f.state(task).await, f.fake.merges(73)), (("approved".into(), 1), 1));
+    let (status, body) = f.verdict(task, report, "rejected").await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    f.fake.failing_comments.lock().unwrap().clear();
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["alreadyMerged"], true, "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(73)), (("merged".into(), 2), 1));
 }

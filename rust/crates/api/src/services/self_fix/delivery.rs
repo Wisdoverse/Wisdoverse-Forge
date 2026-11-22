@@ -2,12 +2,15 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use agentforge_db::entities::{OrchestrationTask, TaskRun};
+use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use super::SelfFixService;
 use crate::domain::maintenance_delivery::*;
 use crate::domain::orchestration::TaskLifecyclePolicy;
-use crate::repositories::orchestration::maintenance_delivery::{DecisionRow, HandoffRow, ReportRow};
+use crate::repositories::orchestration::maintenance_delivery::{
+    DecisionRow, HandoffRow, MaintenanceDeliveryRepository as Repo, ReportRow,
+};
 use crate::repositories::orchestration::maintenance_request::MaintenanceRequestRow;
 
 pub(super) use crate::domain::maintenance_delivery::{decode_delivery as decode, encode_delivery as json};
@@ -67,6 +70,42 @@ pub(super) fn ensure_current(
         return Err(delivery_conflict());
     }
     Ok(())
+}
+
+/// A report is current while it still describes the task as it stands: same
+/// revision, same latest run, same title and brief. Verdict writers require
+/// this; the merge gate ignores a verdict on a report that is not current.
+pub(super) fn report_is_current(
+    task: &OrchestrationTask,
+    source: &MaintenanceRequestRow,
+    report: &ReportRow,
+    snapshot: &ReportSnapshot,
+    run: Option<&TaskRun>,
+) -> bool {
+    report.revision == revision(task, source)
+        && run.map(|r| r.id) == report.run_id
+        && snapshot.title == task.title
+        && snapshot.brief == task.description
+}
+
+/// Latest verdict on the task's current report, read in the caller's
+/// transaction. `None` when there is no report, it is not current, or it has
+/// no verdict yet.
+pub(super) async fn current_report_verdict_in_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: &TenantScope,
+    task: &OrchestrationTask,
+    source: &MaintenanceRequestRow,
+) -> AppResult<Option<String>> {
+    let Some(report) = Repo::latest_report_in_tx(tx, scope, task.id).await? else {
+        return Ok(None);
+    };
+    let run = Repo::latest_run_in_tx(tx, scope, task.id).await?;
+    let snapshot: ReportSnapshot = decode(report.snapshot.clone())?;
+    if !report_is_current(task, source, &report, &snapshot, run.as_ref()) {
+        return Ok(None);
+    }
+    Repo::latest_verdict_for_report_in_tx(tx, scope, report.id).await
 }
 
 impl SelfFixService {

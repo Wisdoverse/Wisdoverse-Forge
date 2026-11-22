@@ -14,14 +14,18 @@ This guide covers the operator record kept alongside a maintenance task: reporte
 
 ## When Forge refuses to merge a rejected revision
 
-Forge refuses to merge a maintenance task when the latest verdict on its current revision is **rejected**. The **Finish this fix** button in the task’s review panel is disabled and explains that a reviewer rejected this version. If a merge request reaches the server anyway, it returns HTTP `409` with error code `errors.maintenance.merge_rejected`. Nothing is merged, and the merge-attempt count does not change.
+Forge refuses to merge a maintenance task when the latest verdict on its current report is **rejected**. A report is current while its revision, latest run, title, and brief still match the task. The **Finish this fix** button in the task's review panel is then disabled and explains that a reviewer rejected this version. If a merge request reaches the server anyway, it returns HTTP `409` with error code `errors.maintenance.merge_rejected`. Nothing is merged, and the merge-attempt count does not change.
 
 To continue, choose one of these:
 
-- **Accept the current revision.** Save a new verification report if needed, then record a new verdict on the latest report. The newest verdict for a revision replaces the earlier rejection.
-- **Produce a newer revision.** Rework the change so the pull request has a new head, refresh the task’s evidence, and review that revision. A rejection of an older revision does not block a newer one.
+- **Record a new verdict on a newer report.** Save a new verification report for the same revision, then record a verdict on it. The rejection belongs to the older report, so it no longer blocks the merge.
+- **Finish the change on GitHub.** Review and merge or close the pull request there.
 
-After either step, choose **Check fix status** in the review panel. The button is enabled again when the other merge checks also pass. Ordinary self-fix tasks without a maintenance request are not affected.
+Adopting a newer pull-request revision in the app is not available yet. Refreshing evidence does not move the task to a new head.
+
+After a new report and verdict, choose **Check fix status** in the review panel. **Finish this fix** is enabled again when the other merge checks also pass. Ordinary self-fix tasks without a maintenance request are not affected.
+
+While Forge is finishing a fix, the review panel shows **Finishing started, not confirmed**. During that time, recording a verdict returns HTTP `409` with error code `errors.maintenance.merge_in_progress`. Choose **Finish this fix** to complete or confirm the merge, then record the verdict. A verdict recorded after the task reads **Finished** is accepted, because merging and acceptance are separate records.
 
 ## Interpreting records and totals
 

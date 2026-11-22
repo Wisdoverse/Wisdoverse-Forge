@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   CheckCircle2,
   ExternalLink,
@@ -26,7 +26,7 @@ interface ReviewSnapshotPanelProps {
 
 const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
   in_review: 'Waiting for someone to check',
-  approved: 'Ready to finish',
+  approved: 'Finishing started, not confirmed',
   changes_requested: 'Needs changes',
   merged: 'Finished',
   sensitive_blocked: 'Needs owner or admin check',
@@ -46,6 +46,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
+  const rejectedReasonId = useId()
 
   // Load the pull request review on mount AND whenever the task's review status
   // changes. A server-side transition (another operator's approve→merge, and
@@ -217,6 +218,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             <button
               onClick={approve}
               disabled={approveDisabled}
+              aria-describedby={rejected ? rejectedReasonId : undefined}
               data-testid="review-approve"
               className={cn(uiStyles.primaryButton, 'w-full')}
             >
@@ -231,11 +233,24 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             )}
             {rejected && (
               <p
+                id={rejectedReasonId}
+                role="status"
                 className="mt-1.5 text-ui-caption text-apple-red"
                 data-testid="review-rejected-reason"
               >
-                A reviewer rejected this version of the fix, so it cannot finish. Record a new
-                review decision, or wait for a newer version, then choose Check fix status.
+                A reviewer rejected this version of the fix, so it cannot finish here. Record a new
+                review decision on a newer report, or finish the change on GitHub, then choose Check
+                fix status.
+              </p>
+            )}
+            {review.reviewStatus === 'approved' && (
+              <p
+                role="status"
+                className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                data-testid="review-finish-unconfirmed"
+              >
+                Forge started finishing this fix but could not confirm it finished. Choose Finish
+                this fix to check and complete it.
               </p>
             )}
             {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (

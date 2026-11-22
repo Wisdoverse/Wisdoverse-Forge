@@ -7,6 +7,8 @@ export function deliveryGuidance(error: unknown): string {
   if (reason === 'unauthenticated') return 'Sign in again before reviewing evidence.'
   if (reason === 'conflict')
     return 'The task or revision changed. Refresh evidence, review the new version and submit again. Stop active work using task controls before recording a handoff.'
+  if (reason === 'merge-in-progress')
+    return "A merge of this change is in progress or unconfirmed. Choose Finish this fix in the task's fix check status to complete it, then record the verdict."
   if (reason === 'delivery-unavailable')
     return 'The produced revision could not be verified. Refresh after GitHub recovers or the head change has been reviewed before recording acceptance.'
   if (reason === 'invalid-delivery')

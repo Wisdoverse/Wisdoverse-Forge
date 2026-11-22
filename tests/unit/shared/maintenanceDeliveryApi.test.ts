@@ -150,6 +150,18 @@ describe('revision-bound maintenance evidence boundary', () => {
     await expect(recordMaintenanceDecision(maintenanceTaskId, input)).rejects.toMatchObject({
       reason: 'delivery-unavailable',
     })
+    mocks.fetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: false,
+          error: { code: 'errors.maintenance.merge_in_progress', message: 'x' },
+        }),
+        { status: 409 }
+      )
+    )
+    await expect(recordMaintenanceDecision(maintenanceTaskId, input)).rejects.toMatchObject({
+      reason: 'merge-in-progress',
+    })
   })
   it('bounds slow response bodies and cancels scoped reads', async () => {
     vi.useFakeTimers()

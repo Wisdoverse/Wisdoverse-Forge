@@ -146,3 +146,13 @@ fn only_a_current_rejection_blocks_forge_merge() {
             if code == "errors.maintenance.merge_rejected" && message.contains("Record a new verdict")
     ));
 }
+#[test]
+fn verdicts_wait_only_while_a_merge_is_unconfirmed() {
+    for status in [None, Some("in_review"), Some("changes_requested"), Some("merged")] {
+        assert!(ensure_verdict_writable(status).is_ok(), "{status:?} must accept verdicts");
+    }
+    let err = ensure_verdict_writable(Some("approved")).expect_err("approved blocks verdicts");
+    assert!(
+        matches!(err.kind, ErrorKind::ConflictWithCode { code, .. } if code == "errors.maintenance.merge_in_progress")
+    );
+}

@@ -869,6 +869,44 @@ impl OrchestrationTaskRepository {
         Ok(())
     }
 
+    /// Set the review status inside the caller's transaction (tenant-scoped).
+    pub(crate) async fn set_review_status_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: Uuid,
+        status: &str,
+    ) -> AppResult<()> {
+        sqlx::query("UPDATE orchestration_tasks SET review_status = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
+            .bind(status)
+            .bind(id)
+            .bind(scope.org_id().as_uuid())
+            .execute(&mut **tx)
+            .await?;
+        Ok(())
+    }
+
+    /// Move the review status from `from` to `to` only if it still reads `from`,
+    /// so a concurrent transition (for example to `merged`) is never overwritten.
+    pub(crate) async fn transition_review_status(
+        &self,
+        scope: &TenantScope,
+        id: Uuid,
+        from: &str,
+        to: &str,
+    ) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE orchestration_tasks SET review_status = $1, updated_at = NOW() \
+             WHERE id = $2 AND organization_id = $3 AND review_status = $4",
+        )
+        .bind(to)
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(from)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     /// Increment the merge-attempt counter on a self-fix task (tenant-scoped).
     ///
     /// Called immediately before each `run_merge_executor` invocation so every

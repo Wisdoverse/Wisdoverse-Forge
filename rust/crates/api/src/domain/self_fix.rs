@@ -157,8 +157,8 @@ pub(crate) struct SelfFixReview {
     pub sensitive: bool,
     /// Persisted review-status string (see [`review_status`]).
     pub review_status: Option<String>,
-    /// True when the latest human verdict on the current maintenance revision
-    /// is `rejected`; the server then refuses the Forge merge (#1314).
+    /// True when the latest human verdict on the task's current maintenance
+    /// report is `rejected`; the server then refuses the Forge merge (#1314).
     pub current_revision_rejected: bool,
 }
 
@@ -228,6 +228,18 @@ impl SelfFixMergeMetricPolicy {
                 "sensitive_blocked"
             }
             _ => "failed",
+        }
+    }
+
+    /// Review status to restore after a failed merge attempt (#1314). Only a
+    /// definite pre-merge refusal returns the task to `in_review`. `None` keeps
+    /// `approved`: the merge or the audit comment may have failed after GitHub
+    /// merged, so only a new approve call (which detects an already-merged pull
+    /// request) can reconcile it.
+    pub(crate) fn review_status_after_failure(err: &AppError) -> Option<&'static str> {
+        match Self::failure_label(err) {
+            "checks_red" | "head_moved" | "sensitive_blocked" => Some(review_status::IN_REVIEW),
+            _ => None,
         }
     }
 }
@@ -588,6 +600,22 @@ mod tests {
             message: "no PR to merge".into(),
         });
         assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "failed");
+    }
+
+    #[test]
+    fn only_definite_merge_refusals_restore_in_review() {
+        for err in
+            [SelfFixPolicy::checks_not_green(), SelfFixPolicy::head_moved(), SelfFixPolicy::sensitive_path_blocked()]
+        {
+            assert_eq!(SelfFixMergeMetricPolicy::review_status_after_failure(&err), Some(review_status::IN_REVIEW));
+        }
+        // A transport failure or an unexpected error may follow a completed merge.
+        for err in [
+            AppError::from(ErrorKind::Unavailable("github: request failed".into())),
+            AppError::from(anyhow::anyhow!("unexpected error")),
+        ] {
+            assert_eq!(SelfFixMergeMetricPolicy::review_status_after_failure(&err), None);
+        }
     }
 
     #[test]

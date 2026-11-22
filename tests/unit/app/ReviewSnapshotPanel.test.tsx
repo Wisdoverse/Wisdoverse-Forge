@@ -170,11 +170,29 @@ describe('ReviewSnapshotPanel', () => {
 
     const button = await screen.findByTestId('review-approve')
     expect(button).toBeDisabled()
-    expect(screen.getByTestId('review-rejected-reason')).toHaveTextContent(
-      'A reviewer rejected this version of the fix, so it cannot finish.'
+    const reason = screen.getByTestId('review-rejected-reason')
+    expect(reason).toHaveTextContent(
+      'A reviewer rejected this version of the fix, so it cannot finish here.'
     )
+    expect(reason).toHaveAttribute('role', 'status')
+    expect(button).toHaveAttribute('aria-describedby', reason.id)
+    expect(button).toHaveAccessibleDescription(/a reviewer rejected this version/i)
     fireEvent.click(button)
     expect(approveSpy).not.toHaveBeenCalled()
+  })
+
+  it('explains an unconfirmed finish and keeps Finish this fix available to complete it', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ reviewStatus: 'approved' })
+    )
+    render(<ReviewSnapshotPanel task={task({ reviewStatus: 'approved' })} />)
+
+    expect(await screen.findByText('Finishing started, not confirmed')).toBeInTheDocument()
+    expect(screen.getByTestId('review-finish-unconfirmed')).toHaveTextContent(
+      'Choose Finish this fix to check and complete it.'
+    )
+    expect(screen.getByTestId('review-approve')).not.toBeDisabled()
+    expect(screen.getByTestId('review-approve')).not.toHaveAttribute('aria-describedby')
   })
 
   it('explains a server-side rejection refusal without raw API details', async () => {

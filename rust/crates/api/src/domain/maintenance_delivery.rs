@@ -207,14 +207,15 @@ pub(crate) fn delivery_unavailable() -> AppError {
 }
 
 /// Forge merge stays independent of acceptance: only an explicit rejection as
-/// the latest verdict on the revision being merged blocks it. A missing verdict,
-/// a newer verdict, or a rejection of an older revision does not block.
-pub(crate) fn merge_blocked_by_verdict(latest_verdict_for_revision: Option<&str>) -> bool {
-    latest_verdict_for_revision == Some(HumanVerdict::Rejected.as_str())
+/// the latest verdict on the task's current report blocks it. The caller passes
+/// `None` when no report is current (same binding the verdict writers use), so a
+/// missing verdict, a newer report, or a stale report never blocks.
+pub(crate) fn merge_blocked_by_verdict(current_report_verdict: Option<&str>) -> bool {
+    current_report_verdict == Some(HumanVerdict::Rejected.as_str())
 }
 
-pub(crate) fn ensure_merge_not_rejected(latest_verdict_for_revision: Option<&str>) -> AppResult<()> {
-    if merge_blocked_by_verdict(latest_verdict_for_revision) {
+pub(crate) fn ensure_merge_not_rejected(current_report_verdict: Option<&str>) -> AppResult<()> {
+    if merge_blocked_by_verdict(current_report_verdict) {
         return Err(merge_rejected());
     }
     Ok(())
@@ -223,7 +224,25 @@ pub(crate) fn ensure_merge_not_rejected(latest_verdict_for_revision: Option<&str
 pub(crate) fn merge_rejected() -> AppError {
     ErrorKind::ConflictWithCode {
         code: "errors.maintenance.merge_rejected",
-        message: "A reviewer rejected the current revision, so Forge did not merge it. Record a new verdict on the latest report, or reconcile a newer revision, then try again.".into(),
+        message: "A reviewer rejected the current report for this revision, so Forge did not merge it. Record a new verdict on a newer report for the same revision, or finish the change on GitHub.".into(),
+    }
+    .into()
+}
+
+/// Verdicts wait while a Forge merge is started but unconfirmed (`approved`), so
+/// a verdict can never land between the merge decision and the GitHub merge.
+/// A verdict after `merged` stays allowed: merge and acceptance are independent.
+pub(crate) fn ensure_verdict_writable(review_status: Option<&str>) -> AppResult<()> {
+    if review_status == Some(super::self_fix::review_status::APPROVED) {
+        return Err(merge_in_progress());
+    }
+    Ok(())
+}
+
+pub(crate) fn merge_in_progress() -> AppError {
+    ErrorKind::ConflictWithCode {
+        code: "errors.maintenance.merge_in_progress",
+        message: "A merge of this change is in progress or unconfirmed. Select Finish this fix to complete it, then record the verdict.".into(),
     }
     .into()
 }
