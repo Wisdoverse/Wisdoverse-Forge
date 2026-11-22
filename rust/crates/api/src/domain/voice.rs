@@ -19,14 +19,11 @@ pub(crate) fn voice_delete_response() -> Value {
     json!({ "ok": true })
 }
 
-pub(crate) fn voice_transcription_pending_response() -> Value {
-    json!({
-        "ok": true,
-        "data": {
-            "text": "",
-            "message": "Voice transcription not yet implemented"
-        }
-    })
+pub(crate) fn voice_transcription_not_implemented() -> AppError {
+    ErrorKind::NotImplemented(
+        "voice transcription is not available in this release; no audio was processed".to_string(),
+    )
+    .into()
 }
 
 pub(crate) struct VoiceRepositoryPolicy;
@@ -142,6 +139,11 @@ mod tests {
         assert!(VoiceProviderDraft::parse("", "openai").is_err());
         assert!(VoiceProviderDraft::parse("   ", "openai").is_err());
         assert!(VoiceProviderDraft::parse(&"a".repeat(256), "openai").is_err());
+    }
+
+    #[test]
+    fn voice_transcription_reports_not_implemented() {
+        assert!(matches!(voice_transcription_not_implemented().kind, ErrorKind::NotImplemented(_)));
     }
 
     #[test]

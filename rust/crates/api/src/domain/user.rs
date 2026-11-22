@@ -360,6 +360,7 @@ pub(crate) fn auth_error_response_contract(
         ErrorKind::Conflict(message) => AuthErrorResponseContract::new(409, "CONFLICT", message.clone()),
         ErrorKind::NotFound(message) => AuthErrorResponseContract::new(404, "NOT_FOUND", message.clone()),
         ErrorKind::Unavailable(message) => AuthErrorResponseContract::new(503, "SERVICE_UNAVAILABLE", message.clone()),
+        ErrorKind::NotImplemented(message) => AuthErrorResponseContract::new(501, "NOT_IMPLEMENTED", message.clone()),
         ErrorKind::Internal(_) => AuthErrorResponseContract::internal(500, "INTERNAL_ERROR", "Internal server error"),
     }
 }

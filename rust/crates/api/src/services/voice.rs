@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::domain::voice::{VoiceProviderDraft, VoiceProviderType, VoiceStatusProjection};
 pub(crate) use crate::domain::voice::{
-    voice_data_response, voice_delete_response, voice_transcription_pending_response,
+    voice_data_response, voice_delete_response, voice_transcription_not_implemented,
 };
 use crate::repositories::voice::VoiceRepository;
 
