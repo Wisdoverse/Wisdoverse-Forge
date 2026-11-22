@@ -1197,10 +1197,10 @@ that guarantee standing for every CLI on every train.
 These surfaces are intentionally outside the proofed runtime boundary until
 they have implementation and validation evidence:
 
-| Surface                         | Current state                                   | Required next step                                                                          |
-| ------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GET /api/v1/agents/:id/git`    | Returns HTTP 501 with code `NOT_IMPLEMENTED`.   | Implement real git status collection, or deprecate and remove it per `docs/versioning.md`.  |
-| `POST /api/v1/voice/transcribe` | Returns HTTP 501 with code `NOT_IMPLEMENTED`.   | Wire a real provider-backed transcription path and tests, or deprecate and remove it.       |
+| Surface                         | Current state                                             | Required next step                                                                  |
+| ------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `GET /api/v1/agents/:id/git`    | Deprecated. Returns HTTP 501 with code `NOT_IMPLEMENTED`. | Remove after the deprecation window in `docs/versioning.md`, not before 2027-02-21. |
+| `POST /api/v1/voice/transcribe` | Deprecated. Returns HTTP 501 with code `NOT_IMPLEMENTED`. | Remove after the deprecation window in `docs/versioning.md`, not before 2027-02-21. |
 
 Do not broaden README claims until this runbook contains a command that proves
 the capability end to end.

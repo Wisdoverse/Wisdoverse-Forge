@@ -36,3 +36,21 @@ async fn stub_routes_return_not_implemented_behind_auth(pool: PgPool) {
         assert_eq!(body["error"]["code"], "NOT_IMPLEMENTED", "{method} {uri}");
     }
 }
+
+/// The tenant check must run before the 501: an unknown agent and another
+/// organization's agent are both indistinguishable 404s.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn agent_git_checks_tenant_before_not_implemented(pool: PgPool) {
+    let seed = seed_provider_agent(&pool, "openai", "gpt-5.5").await;
+    let other_org = seed_provider_agent(&pool, "openai", "gpt-5.5").await;
+    assert_ne!(seed.org_id, other_org.org_id);
+    let app = test_app_with_mock_provider(pool.clone(), "openai", "unused").await;
+
+    for agent_id in [uuid::Uuid::new_v4().to_string(), other_org.agent_id.to_string()] {
+        let uri = format!("/api/v1/agents/{agent_id}/git");
+        let (status, body) = call(&app, "GET", &uri, Some(&seed.jwt)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{uri}");
+        assert_eq!(body["ok"], false, "{uri}");
+        assert_eq!(body["error"]["code"], "NOT_FOUND", "{uri}");
+    }
+}

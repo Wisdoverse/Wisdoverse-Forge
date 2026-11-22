@@ -39,19 +39,20 @@
 
 groups:
   - name: agentforge.api.availability
+    # status!="501": a deliberate Not Implemented reply is not an outage of implemented service; excluded from both sides.
     rules:
       - alert: API5xxRatioAtOrAboveSLO
         expr: |
           (
             (
-              sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[30d]))
+              sum(rate(http_requests_total{status=~"5..",service!="orchestrator",status!="501"}[30d]))
               or vector(0)
             )
             /
-            sum(rate(http_requests_total{service!="orchestrator"}[30d]))
+            sum(rate(http_requests_total{service!="orchestrator",status!="501"}[30d]))
           ) >= 0.005
           and
-          sum(rate(http_requests_total{service!="orchestrator"}[30d])) > 0
+          sum(rate(http_requests_total{service!="orchestrator",status!="501"}[30d])) > 0
         for: 1h
         labels:
           severity: warning
@@ -64,9 +65,9 @@ groups:
       - alert: APIHigh5xxRate
         expr: |
           (
-            sum by (path) (rate(http_requests_total{status=~"5..",service!="orchestrator"}[5m]))
+            sum by (path) (rate(http_requests_total{status=~"5..",service!="orchestrator",status!="501"}[5m]))
             /
-            sum by (path) (rate(http_requests_total{service!="orchestrator"}[5m]))
+            sum by (path) (rate(http_requests_total{service!="orchestrator",status!="501"}[5m]))
           ) > 0.01
         for: 5m
         labels:
@@ -80,15 +81,15 @@ groups:
         # A 1.4% error ratio burns the 0.5% error budget at 2.8 times its target rate.
         expr: |
           (
-            sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[1h]))
+            sum(rate(http_requests_total{status=~"5..",service!="orchestrator",status!="501"}[1h]))
             /
-            sum(rate(http_requests_total{service!="orchestrator"}[1h]))
+            sum(rate(http_requests_total{service!="orchestrator",status!="501"}[1h]))
           ) > 0.014
           and
           (
-            sum(rate(http_requests_total{status=~"5..",service!="orchestrator"}[5m]))
+            sum(rate(http_requests_total{status=~"5..",service!="orchestrator",status!="501"}[5m]))
             /
-            sum(rate(http_requests_total{service!="orchestrator"}[5m]))
+            sum(rate(http_requests_total{service!="orchestrator",status!="501"}[5m]))
           ) > 0.014
         for: 2m
         labels:

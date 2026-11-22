@@ -75,3 +75,64 @@ tests:
               summary: 'Observed API 5xx at least 0.5% (30-day lookback)'
               description: 'Observed ratio is 0.6%. Acceptance requires complete scrape coverage.'
               runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+  - name: A 501 burst does not page or appear as a per-path error ratio
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+60x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="501"}'
+        values: '0+600x30'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 20m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 0
+    alert_rule_test:
+      - alertname: APIHigh5xxRate
+        eval_time: 20m
+        exp_alerts: []
+      - alertname: APIErrorBudgetBurn
+        eval_time: 20m
+        exp_alerts: []
+
+  - name: Real 500s still page during a 501 burst
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+60x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="200"}'
+        values: '0+54x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="500"}'
+        values: '0+6x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="501"}'
+        values: '0+600x30'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 20m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 0
+          - labels: '{path="/api/v1/tasks"}'
+            value: 0.1
+    alert_rule_test:
+      - alertname: APIHigh5xxRate
+        eval_time: 20m
+        exp_alerts:
+          - exp_labels:
+              path: /api/v1/tasks
+              severity: page
+              slo: availability
+            exp_annotations:
+              summary: '5xx rate >1% on /api/v1/tasks for 5m'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
+      - alertname: APIErrorBudgetBurn
+        eval_time: 20m
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: availability
+            exp_annotations:
+              summary: 'Error budget burn 2.8× over 1h+5m windows'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
