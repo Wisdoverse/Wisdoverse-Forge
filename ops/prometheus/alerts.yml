@@ -257,12 +257,27 @@ groups:
       - alert: SelfFixMergeFailed
         # `failed` is the Merge Executor's catch-all error outcome (GitHub API
         # I/O or an unexpected gate error); gate refusals have their own labels.
+        # The executor merges before posting the audit comment, so a comment
+        # error also lands here after a successful merge.
         expr: increase(agentforge_self_fix_merge_total{outcome="failed"}[15m]) > 0
         for: 0m
         labels:
           severity: warning
           slo: self-fix
         annotations:
-          summary: 'Self-fix approved merge failed'
-          description: '{{ $value | humanize }} approved self-fix merge(s) failed in 15m. Nothing was merged.'
+          summary: 'Self-fix merge attempt did not complete cleanly'
+          description: '{{ $value | humanize }} approved self-fix merge attempt(s) did not complete cleanly in 15m. The merge may already have happened; check the PR state on GitHub.'
+          runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'
+
+      - alert: SelfFixMergeAttemptsExhausted
+        # Recorded when an approve call finds merge_attempts at the cap; the
+        # task is set to changes_requested and every later approve is refused.
+        expr: increase(agentforge_self_fix_merge_total{outcome="exhausted"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          slo: self-fix
+        annotations:
+          summary: 'Self-fix merge attempt cap reached'
+          description: '{{ $value | humanize }} self-fix approve call(s) hit the merge attempt cap in 15m. In-app merge is refused for the task; finish the change on GitHub.'
           runbook: 'docs/runbooks/observability-slo.md#self-fix-delivery'

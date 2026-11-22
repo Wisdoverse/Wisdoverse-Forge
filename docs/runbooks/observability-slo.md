@@ -215,14 +215,18 @@ change in your deployment config.
 
 ## Self-Fix Delivery
 
-These alerts cover the [self-fix loop](../guides/self-fix-loop.md). Both live
-in `ops/prometheus/alerts.yml` (group `agentforge.self-fix`) and fire on any
-increase in a 15-minute window. Neither failure merges anything.
+These alerts cover the [self-fix loop](../guides/self-fix-loop.md). All three
+live in `ops/prometheus/alerts.yml` (group `agentforge.self-fix`) and fire on
+any increase in a 15-minute window.
 
-| Alert                       | Trigger                                                    | Meaning                                                                                                                                     |
-| --------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SelfFixPrPermanentFailure` | `agentforge_self_fix_pr_total{outcome="permanent_failed"}` | The PR Bridge hit a configuration, policy, or validation error. The job was dropped without retry, so the task has no pull request.         |
-| `SelfFixMergeFailed`        | `agentforge_self_fix_merge_total{outcome="failed"}`        | An approved merge failed with a GitHub API or unexpected error. CI-red, head-moved, and sensitive-path refusals use other `outcome` labels. |
+| Alert                           | Trigger                                                    | Meaning                                                                                                                                                                                       |
+| ------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SelfFixPrPermanentFailure`     | `agentforge_self_fix_pr_total{outcome="permanent_failed"}` | The PR Bridge hit a configuration, policy, or validation error. The job was dropped without retry, so the task has no pull request.                                                           |
+| `SelfFixMergeFailed`            | `agentforge_self_fix_merge_total{outcome="failed"}`        | The merge attempt did not complete cleanly; the merge may already have happened. The server merges before it posts the audit comment, so a failed comment also reports `failed`.              |
+| `SelfFixMergeAttemptsExhausted` | `agentforge_self_fix_merge_total{outcome="exhausted"}`     | An approve call found the task at the merge attempt cap (`SELF_FIX_MAX_MERGE_ATTEMPTS`, default 5). The server set the task to `changes_requested` and refused the merge. Nothing was merged. |
+
+CI-red, head-moved, and sensitive-path refusals use other `outcome` labels and
+do not fire these alerts.
 
 Shortest safe first step:
 
@@ -238,15 +242,29 @@ Shortest safe first step:
    the API after changing configuration. The dropped job is not retried
    automatically.
 
-2. For `SelfFixMergeFailed`, open the task's **Review** tab and read the
-   error. Confirm GitHub is reachable and the GitHub App can still merge pull
-   requests on the repository, then press **Refresh** and approve again. The
-   attempt cap (`SELF_FIX_MAX_MERGE_ATTEMPTS`, default 5) still applies.
+2. For `SelfFixMergeFailed`, first check the pull request's actual state on
+   GitHub. Open the PR link from the task's **Review** tab.
+   - If GitHub shows the PR as merged, do not merge again. Confirm the audit
+     comment naming the approver is present, and add it by hand if it is
+     missing. While the task is under the attempt cap, pressing
+     **Approve & merge** again records it as **Merged** without a second merge.
+   - If the PR is still open, read the error in the **Review** tab. Confirm
+     GitHub is reachable and the GitHub App can still merge pull requests on
+     the repository. Then press **Refresh** and approve again.
 
-Success looks like this: the counter stops increasing, the next self-fix task
-opens a draft pull request (PR failures) or the task's **Review** tab reads
-**Merged** (merge failures), and the alert resolves after the 15-minute window
-passes.
+   Every approve counts against the attempt cap.
+
+3. For `SelfFixMergeAttemptsExhausted`, stop approving. The cap is checked
+   before anything else, and the platform has no way to reset it, so
+   **Refresh** and **Approve & merge** cannot bypass it. Each further approve
+   is refused and fires this alert again. Finish the change on GitHub instead:
+   a maintainer reviews the PR there and either merges it under the normal
+   branch protection or closes it.
+
+Success looks like this: the counter stops increasing and the alert resolves
+after the 15-minute window passes. For PR failures, the next self-fix task opens
+a draft pull request. For merge failures, the task's **Review** tab reads
+**Merged**. For an exhausted task, the PR is merged or closed on GitHub.
 
 ## Logs
 
