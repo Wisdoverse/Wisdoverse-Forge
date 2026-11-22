@@ -41,9 +41,15 @@ pub fn timed_client() -> Client {
     client_with_timeouts(PROVIDER_CONNECT_TIMEOUT, PROVIDER_READ_IDLE_TIMEOUT)
 }
 
-pub(crate) fn provider_status_error(status: u16) -> LlmError {
+pub(crate) fn provider_status_error(response: &reqwest::Response) -> LlmError {
     // An upstream error body may contain secrets and has no useful local bound.
-    LlmError::Api { status, message: "provider request failed".into() }
+    // Only the delta-seconds form of Retry-After is kept; HTTP-date or junk is dropped.
+    let retry_after_secs = response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<u64>().ok());
+    LlmError::Api { status: response.status().as_u16(), message: "provider request failed".into(), retry_after_secs }
 }
 
 pub(crate) async fn bounded_response_json(mut response: reqwest::Response) -> Result<serde_json::Value, LlmError> {
@@ -165,8 +171,9 @@ pub enum LlmError {
     #[error("HTTP error: {0}")]
     Http(#[source] reqwest::Error),
 
+    /// `retry_after_secs` is the provider's `Retry-After` delta-seconds, when it sent one.
     #[error("API error: {status} - {message}")]
-    Api { status: u16, message: String },
+    Api { status: u16, message: String, retry_after_secs: Option<u64> },
 
     #[error("Parse error: {0}")]
     Parse(String),

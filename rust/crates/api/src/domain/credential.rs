@@ -1597,6 +1597,7 @@ mod tests {
         let result = LlmProviderTestResult::from_llm_error(&LlmError::Api {
             status: 401,
             message: "invalid key sk-secret-value".to_string(),
+            retry_after_secs: None,
         });
         let payload = llm_provider_test_response(result);
 

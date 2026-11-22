@@ -43,6 +43,9 @@ impl PromptAgentPolicy {
 
 pub(crate) struct PromptProviderPolicy;
 
+/// Upper bound for a provider-supplied `Retry-After` we pass on to callers.
+const PROVIDER_RETRY_AFTER_MAX_SECS: u64 = 300;
+
 impl PromptProviderPolicy {
     pub(crate) fn missing_api_key(provider: &str) -> ErrorKind {
         ErrorKind::Validation(format!("no API key configured for provider '{provider}' — add one in LLM settings"))
@@ -69,13 +72,37 @@ impl PromptProviderPolicy {
     }
 
     /// Map a stream-construction error (`provider.stream(req).await`) to an HTTP
-    /// error class. A network/timeout (`Http`) or upstream 5xx failure is the
-    /// provider's transient fault → retryable 503, consistent with the start
-    /// deadline; everything else is an internal error. This keeps a connect/read
-    /// timeout that fires before the outer app deadline from masquerading as a 500.
+    /// error class, chosen by who can fix it:
+    /// - provider 401/403 → 422 `provider_credentials_rejected` (operator fixes the key;
+    ///   not 401/403, which the browser treats as Forge's own sign-in/access failure);
+    /// - provider 400/404 → 422 `provider_request_rejected` (model/settings);
+    /// - provider 429 → 429 `provider_rate_limited`, with the provider's Retry-After clamped;
+    /// - transport error or provider 5xx → retryable 503, consistent with the start deadline;
+    /// - anything else → internal error.
+    ///
+    /// The provider response body is never part of the message.
     pub(crate) fn stream_construction_failed(err: &agentforge_llm::LlmError) -> ErrorKind {
         use agentforge_llm::LlmError;
         match err {
+            LlmError::Api { status: 401 | 403, .. } => ErrorKind::UnprocessableWithCode {
+                code: "provider_credentials_rejected",
+                message: "Check the provider API key in LLM settings, then resend the message. \
+                          The provider rejected this organization's credentials."
+                    .to_string(),
+            },
+            LlmError::Api { status: 400 | 404, .. } => ErrorKind::UnprocessableWithCode {
+                code: "provider_request_rejected",
+                message: "Check the agent's model name and provider settings, then resend the message. \
+                          The provider rejected the request."
+                    .to_string(),
+            },
+            LlmError::Api { status: 429, retry_after_secs, .. } => ErrorKind::RateLimited {
+                code: "provider_rate_limited",
+                message: "Wait a moment, then resend the message. \
+                          The provider is rate limiting this organization's requests."
+                    .to_string(),
+                retry_after_secs: retry_after_secs.map(|secs| secs.clamp(1, PROVIDER_RETRY_AFTER_MAX_SECS)),
+            },
             // Any provider-side 5xx or transport error is the upstream's transient
             // fault, matching the mid-stream `sse_error_for_llm_error` 5xx mapping.
             LlmError::Http(_) | LlmError::Api { status: 500..=599, .. } => {
@@ -280,17 +307,79 @@ mod tests {
                     PromptProviderPolicy::stream_construction_failed(&agentforge_llm::LlmError::Api {
                         status,
                         message: "upstream down".to_string(),
+                        retry_after_secs: None,
                     }),
                     ErrorKind::Unavailable(_)
                 ),
                 "status {status} must map to Unavailable"
             );
         }
+        // A transport error (here: a request that cannot even be built) is a retryable 503 too.
+        let transport = reqwest::Client::new().get("not a url").build().expect_err("invalid url");
+        assert!(matches!(
+            PromptProviderPolicy::stream_construction_failed(&agentforge_llm::LlmError::from(transport)),
+            ErrorKind::Unavailable(_)
+        ));
         // A non-network failure stays internal.
         assert!(matches!(
             PromptProviderPolicy::stream_construction_failed(&agentforge_llm::LlmError::NotConfigured("x".to_string())),
             ErrorKind::Internal(_)
         ));
+    }
+
+    fn construction_error(status: u16, retry_after_secs: Option<u64>) -> ErrorKind {
+        PromptProviderPolicy::stream_construction_failed(&agentforge_llm::LlmError::Api {
+            status,
+            message: "test-only-provider-body".to_string(),
+            retry_after_secs,
+        })
+    }
+
+    #[test]
+    fn provider_client_errors_before_streaming_are_client_remediable_not_internal() {
+        for status in [401u16, 403] {
+            match construction_error(status, None) {
+                ErrorKind::UnprocessableWithCode { code, message } => {
+                    assert_eq!(code, "provider_credentials_rejected", "status {status}");
+                    assert!(message.contains("API key"), "status {status}: {message}");
+                    assert!(!message.contains("test-only-provider-body"));
+                }
+                other => panic!("status {status} must be provider_credentials_rejected, got {other:?}"),
+            }
+        }
+        for status in [400u16, 404] {
+            match construction_error(status, None) {
+                ErrorKind::UnprocessableWithCode { code, message } => {
+                    assert_eq!(code, "provider_request_rejected", "status {status}");
+                    assert!(!message.contains("test-only-provider-body"));
+                }
+                other => panic!("status {status} must be provider_request_rejected, got {other:?}"),
+            }
+        }
+        // Unknown provider 4xx stays internal.
+        assert!(matches!(construction_error(418, None), ErrorKind::Internal(_)));
+    }
+
+    #[test]
+    fn provider_rate_limit_maps_to_429_with_bounded_retry_after() {
+        // (provider delta-seconds, Retry-After we send). An unparsable header
+        // never reaches here: the llm crate already reduced it to None.
+        for (provided, expected) in [
+            (None, None),
+            (Some(30), Some(30)),
+            (Some(0), Some(1)),
+            (Some(86_400), Some(300)),
+            (Some(u64::MAX), Some(300)),
+        ] {
+            match construction_error(429, provided) {
+                ErrorKind::RateLimited { code, retry_after_secs, message } => {
+                    assert_eq!(code, "provider_rate_limited");
+                    assert_eq!(retry_after_secs, expected, "provided {provided:?}");
+                    assert!(!message.contains("test-only-provider-body"));
+                }
+                other => panic!("429 must be RateLimited, got {other:?}"),
+            }
+        }
     }
 
     #[test]
@@ -412,31 +501,59 @@ mod tests {
         use agentforge_llm::LlmError;
 
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 401, message: "secret model leak".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 401,
+                message: "secret model leak".to_string(),
+                retry_after_secs: None
+            }),
             ("unauthorized", "provider rejected the API key — check LLM settings", false),
         );
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 403, message: "secret org id".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 403,
+                message: "secret org id".to_string(),
+                retry_after_secs: None
+            }),
             ("unauthorized", "provider rejected the API key — check LLM settings", false),
         );
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 429, message: "slow down".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 429,
+                message: "slow down".to_string(),
+                retry_after_secs: None
+            }),
             ("rate_limited", "provider rate limit reached — try again shortly", true),
         );
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 400, message: "bad model".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 400,
+                message: "bad model".to_string(),
+                retry_after_secs: None
+            }),
             ("bad_request", "provider rejected the request — check model name", false),
         );
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 404, message: "no such model".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 404,
+                message: "no such model".to_string(),
+                retry_after_secs: None
+            }),
             ("bad_request", "provider rejected the request — check model name", false),
         );
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 502, message: "upstream down".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 502,
+                message: "upstream down".to_string(),
+                retry_after_secs: None
+            }),
             ("provider_error", "provider server error — try again", true),
         );
         assert_eq!(
-            sse_error_for_llm_error(&LlmError::Api { status: 418, message: "teapot".to_string() }),
+            sse_error_for_llm_error(&LlmError::Api {
+                status: 418,
+                message: "teapot".to_string(),
+                retry_after_secs: None
+            }),
             ("provider_error", "provider returned an unexpected response", true),
         );
         assert_eq!(

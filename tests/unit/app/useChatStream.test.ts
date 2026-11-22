@@ -113,6 +113,29 @@ describe('chatStreamHttpErrorMessage', () => {
     expect(message).not.toContain('model service')
   })
 
+  it('shows the server guidance for provider failures before streaming', () => {
+    const guidance =
+      "Check the provider API key in LLM settings, then resend the message. The provider rejected this organization's credentials."
+    for (const [status, code] of [
+      [422, 'provider_credentials_rejected'],
+      [422, 'provider_request_rejected'],
+      [429, 'provider_rate_limited'],
+    ] as const) {
+      expectBeginnerMessage(
+        chatStreamHttpErrorMessage(status, { ok: false, error: { code, message: guidance } }),
+        guidance
+      )
+    }
+  })
+
+  it('ignores server text for codes it does not know', () => {
+    const message = chatStreamHttpErrorMessage(422, {
+      ok: false,
+      error: { code: 'UNPROCESSABLE_ENTITY', message: 'raw detail' },
+    })
+    expect(message).not.toContain('raw detail')
+  })
+
   it('keeps server failures actionable for first-time users', () => {
     const message = chatStreamHttpErrorMessage(503, { error: 'service unavailable' })
 

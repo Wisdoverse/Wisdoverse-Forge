@@ -400,6 +400,40 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          description: >-
+            Provider-backed agent only. The model provider rejected the request before
+            streaming began. `error.code` is `provider_credentials_rejected` (the
+            organization's saved provider API key was refused; fix it in LLM settings)
+            or `provider_request_rejected` (for example an unknown model name). The
+            provider's own response body is never returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: >-
+            Provider-backed agent only. The model provider rate limited the request
+            (`error.code` is `provider_rate_limited`). `Retry-After` (seconds, 1-300)
+            is set only when the provider sent a delta-seconds value.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+                maximum: 300
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: >-
+            Provider-backed agent only. The provider could not be reached, returned a
+            5xx, or did not start streaming in time. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/agents/{id}/interrupt:
     parameters:

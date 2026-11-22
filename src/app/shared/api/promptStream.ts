@@ -52,10 +52,27 @@ export function isAbortError(error: unknown): boolean {
   )
 }
 
+// Provider failures before streaming carry fixed, operator-facing guidance from
+// the Rust API (never the provider's own response body), so show it as-is.
+const PROVIDER_ERROR_CODES = new Set([
+  'provider_credentials_rejected',
+  'provider_request_rejected',
+  'provider_rate_limited',
+])
+
+function providerErrorGuidance(body: Record<string, unknown>): string | null {
+  const error = asRecord(body.error)
+  if (typeof error.code !== 'string' || !PROVIDER_ERROR_CODES.has(error.code)) return null
+  return typeof error.message === 'string' && error.message.trim() ? error.message.trim() : null
+}
+
 export function chatStreamHttpErrorMessage(
   status: number,
   body: Record<string, unknown> = {}
 ): string {
+  const providerGuidance = providerErrorGuidance(body)
+  if (providerGuidance) return providerGuidance
+
   const detail = messageDetail(body)
 
   if (status === 401) {
