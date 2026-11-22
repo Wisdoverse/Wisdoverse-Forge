@@ -206,6 +206,28 @@ pub(crate) fn delivery_unavailable() -> AppError {
     }.into()
 }
 
+/// Forge merge stays independent of acceptance: only an explicit rejection as
+/// the latest verdict on the revision being merged blocks it. A missing verdict,
+/// a newer verdict, or a rejection of an older revision does not block.
+pub(crate) fn merge_blocked_by_verdict(latest_verdict_for_revision: Option<&str>) -> bool {
+    latest_verdict_for_revision == Some(HumanVerdict::Rejected.as_str())
+}
+
+pub(crate) fn ensure_merge_not_rejected(latest_verdict_for_revision: Option<&str>) -> AppResult<()> {
+    if merge_blocked_by_verdict(latest_verdict_for_revision) {
+        return Err(merge_rejected());
+    }
+    Ok(())
+}
+
+pub(crate) fn merge_rejected() -> AppError {
+    ErrorKind::ConflictWithCode {
+        code: "errors.maintenance.merge_rejected",
+        message: "A reviewer rejected the current revision, so Forge did not merge it. Record a new verdict on the latest report, or reconcile a newer revision, then try again.".into(),
+    }
+    .into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ObservedCheck {

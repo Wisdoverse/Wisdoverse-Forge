@@ -16,6 +16,10 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const code = statusCode(detail)
   const text = detail?.toLowerCase() ?? ''
 
+  if (text.includes('errors.maintenance.merge_rejected')) {
+    return 'A reviewer rejected this version of the fix, so it was not finished. Record a new review decision, or wait for a newer version, then choose Check fix status.'
+  }
+
   if (text.includes('can not approve your own pull request')) {
     return 'Ask another owner or admin to check this fix. This finish step needs someone else to check changes you opened yourself.'
   }

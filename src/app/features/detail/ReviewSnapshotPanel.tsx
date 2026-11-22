@@ -36,7 +36,7 @@ const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
  * Pull request review surface (plan milestone 9). Fetches the server-side
  * review state and lets an operator approve and merge. Approve is enabled ONLY
  * when a pull request exists and `checksGreen && !sensitive &&
- * reviewStatus !== 'merged'`; the merge decision still lives server-side, so
+ * reviewStatus !== 'merged' && !currentRevisionRejected`; the merge decision still lives server-side, so
  * disabling here is defense-in-depth, not the security boundary. Errors are
  * surfaced in a banner — never swallowed.
  */
@@ -106,8 +106,15 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
 
   const merged = review?.reviewStatus === 'merged'
   const hasPullRequest = Boolean(review?.prNumber && review.prUrl)
+  const rejected = Boolean(review?.currentRevisionRejected) && !merged
   const approveDisabled =
-    !review || !hasPullRequest || !review.checksGreen || review.sensitive || merged || approving
+    !review ||
+    !hasPullRequest ||
+    !review.checksGreen ||
+    review.sensitive ||
+    rejected ||
+    merged ||
+    approving
 
   return (
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
@@ -220,6 +227,15 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
               <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
                 You can finish after the agent opens the fix check page. Choose Check fix status
                 after it appears.
+              </p>
+            )}
+            {rejected && (
+              <p
+                className="mt-1.5 text-ui-caption text-apple-red"
+                data-testid="review-rejected-reason"
+              >
+                A reviewer rejected this version of the fix, so it cannot finish. Record a new
+                review decision, or wait for a newer version, then choose Check fix status.
               </p>
             )}
             {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (

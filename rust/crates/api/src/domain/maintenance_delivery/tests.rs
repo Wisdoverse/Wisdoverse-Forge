@@ -133,3 +133,16 @@ fn bounded_periods_and_distinct_report_references_guard_large_or_misleading_quer
     assert!(ComparisonQuery { report_ids: format!("{id},{id}") }.prepare().is_err());
     assert!(ComparisonQuery { report_ids: format!("{id},{}", Uuid::new_v4()) }.prepare().is_ok());
 }
+#[test]
+fn only_a_current_rejection_blocks_forge_merge() {
+    assert!(ensure_merge_not_rejected(None).is_ok(), "a missing verdict never blocks merge");
+    for verdict in [HumanVerdict::Accepted, HumanVerdict::Rework, HumanVerdict::Reopened] {
+        assert!(ensure_merge_not_rejected(Some(verdict.as_str())).is_ok(), "{verdict:?} must not block");
+    }
+    let err = ensure_merge_not_rejected(Some(HumanVerdict::Rejected.as_str())).expect_err("rejection blocks");
+    assert!(matches!(
+        err.kind,
+        ErrorKind::ConflictWithCode { code, ref message }
+            if code == "errors.maintenance.merge_rejected" && message.contains("Record a new verdict")
+    ));
+}

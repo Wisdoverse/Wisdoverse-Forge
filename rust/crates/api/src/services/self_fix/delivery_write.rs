@@ -16,7 +16,12 @@ use crate::repositories::orchestration::maintenance_delivery::{
 use crate::repositories::user::UserRepository;
 use crate::services::orchestration::task_run_summary;
 
-async fn lock_task(tx: &mut Transaction<'_, Postgres>, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
+/// Shared serialization point for verdict writers and the Forge merge decision.
+pub(super) async fn lock_task(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: &TenantScope,
+    id: Uuid,
+) -> AppResult<OrchestrationTask> {
     let admin = UserRepository::find_is_admin_by_id_in_tx(tx, scope.user_id()).await?;
     AdminRolePolicy::require_platform_admin(admin)?;
     OrchestrationTaskRepository::lock_by_id_in_tx(tx, scope, id).await

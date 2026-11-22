@@ -876,6 +876,18 @@ impl OrchestrationTaskRepository {
     /// unconditional (no CAS); the cap check happens BEFORE this call, so this
     /// only runs when the attempt is within the allowed budget.
     pub async fn bump_merge_attempts(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
+        let mut tx = self.pool.begin().await?;
+        Self::bump_merge_attempts_in_tx(&mut tx, scope, id).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// In-transaction variant used by the merge path under the task-row lock.
+    pub(crate) async fn bump_merge_attempts_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<()> {
         sqlx::query(
             "UPDATE orchestration_tasks \
              SET merge_attempts = merge_attempts + 1, updated_at = NOW() \
@@ -883,7 +895,7 @@ impl OrchestrationTaskRepository {
         )
         .bind(id)
         .bind(scope.org_id().as_uuid())
-        .execute(&self.pool)
+        .execute(&mut **tx)
         .await?;
         Ok(())
     }

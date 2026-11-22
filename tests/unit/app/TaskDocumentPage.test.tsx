@@ -83,6 +83,7 @@ beforeEach(() => {
     checksGreen: true,
     sensitive: false,
     reviewStatus: 'in_review',
+    currentRevisionRejected: false,
   })
   listTaskReviewChecks.mockResolvedValue([])
   fetchTaskReviewGates.mockResolvedValue({ requiredKeys: [], satisfied: true, missing: [] })

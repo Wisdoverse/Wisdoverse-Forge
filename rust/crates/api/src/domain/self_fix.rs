@@ -157,6 +157,9 @@ pub(crate) struct SelfFixReview {
     pub sensitive: bool,
     /// Persisted review-status string (see [`review_status`]).
     pub review_status: Option<String>,
+    /// True when the latest human verdict on the current maintenance revision
+    /// is `rejected`; the server then refuses the Forge merge (#1314).
+    pub current_revision_rejected: bool,
 }
 
 impl SelfFixReview {
@@ -175,7 +178,17 @@ impl SelfFixReview {
     ) -> Self {
         let diff_url = pr_url.as_deref().map(|u| format!("{}/files", u.trim_end_matches('/')));
         let sensitive = review_status.as_deref() == Some(review_status::SENSITIVE_BLOCKED);
-        Self { task_id, pr_number, pr_url, diff_url, head_sha, checks_green, sensitive, review_status }
+        Self {
+            task_id,
+            pr_number,
+            pr_url,
+            diff_url,
+            head_sha,
+            checks_green,
+            sensitive,
+            review_status,
+            current_revision_rejected: false,
+        }
     }
 }
 

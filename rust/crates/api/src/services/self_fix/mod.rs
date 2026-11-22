@@ -44,10 +44,12 @@ use uuid::Uuid;
 
 use crate::domain::admin::AdminRolePolicy;
 use crate::domain::agent_workspace::{WorkspaceMountScope, host_path_for_container_cwd};
+use crate::domain::maintenance_delivery::{ensure_merge_not_rejected, merge_blocked_by_verdict};
 pub use crate::domain::self_fix::SelfFixRepositorySetup;
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{SelfFixMergeResult, SelfFixPolicy, SelfFixReview};
 use crate::repositories::agent::AgentRepository;
+use crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository;
 use crate::repositories::orchestration::{
     MaintenanceRequestRepository, OrchestrationTaskRepository, TaskRunRepository,
 };
@@ -68,7 +70,7 @@ use crate::services::self_fix::merge_executor::{MergeRequest, run_merge_executor
 pub(crate) struct SelfFixService {
     tasks: OrchestrationTaskRepository,
     maintenance_requests: MaintenanceRequestRepository,
-    delivery: crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository,
+    delivery: MaintenanceDeliveryRepository,
     runs: TaskRunRepository,
     agents: AgentRepository,
     users: UserRepository,
@@ -92,9 +94,7 @@ impl SelfFixService {
     ) -> Self {
         let maintenance_requests = MaintenanceRequestRepository::new(tasks.pool().clone());
         let runs = TaskRunRepository::new(tasks.pool().clone());
-        let delivery = crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository::new(
-            tasks.pool().clone(),
-        );
+        let delivery = MaintenanceDeliveryRepository::new(tasks.pool().clone());
         Self {
             tasks,
             maintenance_requests,
@@ -227,7 +227,6 @@ impl SelfFixService {
         self.github.as_ref().ok_or_else(SelfFixPolicy::github_not_configured)?.repository_setup().await
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn approve_and_merge(
         &self,
         scope: &TenantScope,
@@ -296,11 +295,31 @@ impl SelfFixService {
         //    the executor for the head; approver + task are known now).
         let audit_body = merge_audit_body(approver_id, task_id, pr_number);
 
-        // 4. Count this attempt BEFORE the executor runs so the counter is
-        //    incremented even when the executor gate fails (e.g. checks_red,
-        //    head_moved). The cap is checked at entry, so this always runs
-        //    within the allowed budget.
-        self.tasks.bump_merge_attempts(scope, task_id).await?;
+        // 4. Decide under the task-row lock the verdict writers hold (#1314): a
+        //    rejection committed first is seen here; one arriving later waits,
+        //    then fails its expected-version check because this bump changes
+        //    `row_version`. Count this attempt BEFORE the executor runs so the
+        //    counter is incremented even when the executor gate fails (e.g.
+        //    checks_red, head_moved). The cap is checked at entry, so this
+        //    always runs within the allowed budget.
+        let source = self.maintenance_requests.find_by_task(scope, task_id).await?;
+        let mut tx = self.tasks.pool().begin().await?;
+        let current = delivery_write::lock_task(&mut tx, scope, task_id).await?;
+        if current.pr_head_sha != task.pr_head_sha {
+            return Err(SelfFixPolicy::head_moved());
+        }
+        if let Some(source) = &source {
+            let verdict = MaintenanceDeliveryRepository::latest_verdict_for_revision(
+                &mut *tx,
+                scope,
+                task_id,
+                delivery::revision(&current, source),
+            )
+            .await?;
+            ensure_merge_not_rejected(verdict.as_deref())?;
+        }
+        OrchestrationTaskRepository::bump_merge_attempts_in_tx(&mut tx, scope, task_id).await?;
+        tx.commit().await?;
 
         // 5. Run the git-only guarded merge. NOTHING merges on a gate failure.
         let req = MergeRequest { pr_number, recorded_head_sha, sensitive };
@@ -337,7 +356,6 @@ impl SelfFixService {
     /// whenever GitHub is unconfigured, no head SHA is recorded, or the check
     /// fetch errors (logged, not propagated) — so a transient GitHub hiccup can
     /// never widen the Approve gate, only narrow it. The reviewer can re-fetch.
-    #[allow(dead_code)]
     pub(crate) async fn review_snapshot(&self, scope: &TenantScope, task_id: Uuid) -> AppResult<SelfFixReview> {
         let task = self.tasks.find_by_id(scope, task_id).await?;
         if !task.self_fix {
@@ -361,14 +379,31 @@ impl SelfFixService {
             _ => false,
         };
 
-        Ok(SelfFixReview::from_columns(
+        // Display-only projection of the merge gate; approve re-checks it under the lock.
+        let rejected = match self.maintenance_requests.find_by_task(scope, task_id).await? {
+            Some(source) => merge_blocked_by_verdict(
+                MaintenanceDeliveryRepository::latest_verdict_for_revision(
+                    self.tasks.pool(),
+                    scope,
+                    task_id,
+                    delivery::revision(&task, &source),
+                )
+                .await?
+                .as_deref(),
+            ),
+            None => false,
+        };
+
+        let mut review = SelfFixReview::from_columns(
             task_id,
             task.pr_number,
             task.pr_url,
             task.pr_head_sha,
             task.review_status,
             checks_green,
-        ))
+        );
+        review.current_revision_rejected = rejected;
+        Ok(review)
     }
 
     /// Map the task's agent to the server-visible host project directory under

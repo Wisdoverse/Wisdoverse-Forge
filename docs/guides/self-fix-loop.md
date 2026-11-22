@@ -286,9 +286,11 @@ make ci
    link, a one-shot CI-check status, and an **Approve & merge** button. Use the
    diff link to read the change in GitHub.
 4. **Approve.** When CI is green and the change is not sensitive, **Approve &
-   merge** is enabled. Clicking it asks the server to merge. The server re-checks
-   — non-sensitive, CI still green, head unmoved — and squash-merges at the exact
-   reviewed commit, then posts an audit comment naming you as the approver.
+   merge** is enabled. For a maintenance task, the latest verdict on the current
+   revision must also not be **rejected**. Clicking it asks the server to merge.
+   The server re-checks — non-sensitive, not rejected, CI still green, head
+   unmoved — and squash-merges at the exact reviewed commit, then posts an audit
+   comment naming you as the approver.
 
 ## What success looks like
 
@@ -298,14 +300,15 @@ safety check was bypassed.
 
 ## Status and troubleshooting
 
-| What you see                                          | What it means                                                                      | What to do                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Review** tab missing                                | The task is not a self-fix task                                                    | Only self-fix tasks expose the Review tab                                                   |
-| "No pull request has been opened yet"                 | The Bridge has not opened a PR                                                     | Confirm the task finished and the GitHub App is configured                                  |
-| **Approve** disabled, "CI checks not confirmed green" | CI has not reported success on the PR head                                         | Wait for checks to finish, then press **Refresh**                                           |
-| **Approve** disabled, "Touches a sensitive path"      | The change edits a protected area (auth, migrations, CI, the self-fix code itself) | A maintainer must review and merge it manually on GitHub; in-platform merge is hard-refused |
-| Approve fails with "GitHub not configured"            | The four `GITHUB_APP_*` variables are not all set                                  | Set them (see above) and restart the API                                                    |
-| Approve fails after CI went red or the head moved     | The server re-verified at merge time and refused                                   | Re-review the PR; nothing was merged                                                        |
+| What you see                                             | What it means                                                                      | What to do                                                                                                                                                                 |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Review** tab missing                                   | The task is not a self-fix task                                                    | Only self-fix tasks expose the Review tab                                                                                                                                  |
+| "No pull request has been opened yet"                    | The Bridge has not opened a PR                                                     | Confirm the task finished and the GitHub App is configured                                                                                                                 |
+| **Approve** disabled, "CI checks not confirmed green"    | CI has not reported success on the PR head                                         | Wait for checks to finish, then press **Refresh**                                                                                                                          |
+| **Approve** disabled, "Touches a sensitive path"         | The change edits a protected area (auth, migrations, CI, the self-fix code itself) | A maintainer must review and merge it manually on GitHub; in-platform merge is hard-refused                                                                                |
+| Approve fails with "GitHub not configured"               | The four `GITHUB_APP_*` variables are not all set                                  | Set them (see above) and restart the API                                                                                                                                   |
+| **Approve** disabled, "A reviewer rejected this version" | The latest verdict on the current maintenance revision is rejected                 | Record a new verdict on the latest report, or review a newer revision; see [maintenance delivery](maintenance-delivery.md#when-forge-refuses-to-merge-a-rejected-revision) |
+| Approve fails after CI went red or the head moved        | The server re-verified at merge time and refused                                   | Re-review the PR; nothing was merged                                                                                                                                       |
 
 ## Safety model
 

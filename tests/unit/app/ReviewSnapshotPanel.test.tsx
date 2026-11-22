@@ -43,6 +43,7 @@ function review(overrides: Partial<SelfFixReview> = {}): SelfFixReview {
     checksGreen: true,
     sensitive: false,
     reviewStatus: 'in_review',
+    currentRevisionRejected: false,
     ...overrides,
   }
 }
@@ -158,6 +159,38 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.queryByText(/project areas/i)).toBeNull()
     expect(screen.queryByText(/maintainer/i)).toBeNull()
     expect(screen.queryByText(/protected files/i)).toBeNull()
+  })
+
+  it('disables finishing and explains why when the current revision was rejected', async () => {
+    const approveSpy = vi.spyOn(orchestrationApi, 'approveSelfFix').mockResolvedValue('merged')
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ checksGreen: true, currentRevisionRejected: true })
+    )
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    const button = await screen.findByTestId('review-approve')
+    expect(button).toBeDisabled()
+    expect(screen.getByTestId('review-rejected-reason')).toHaveTextContent(
+      'A reviewer rejected this version of the fix, so it cannot finish.'
+    )
+    fireEvent.click(button)
+    expect(approveSpy).not.toHaveBeenCalled()
+  })
+
+  it('explains a server-side rejection refusal without raw API details', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
+    vi.spyOn(orchestrationApi, 'approveSelfFix').mockRejectedValue(
+      new Error(
+        'API 409: {"ok":false,"error":{"code":"errors.maintenance.merge_rejected","message":"x"}}'
+      )
+    )
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    fireEvent.click(await screen.findByTestId('review-approve'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('A reviewer rejected this version of the fix')
+    expect(alert).not.toHaveTextContent('API 409')
   })
 
   it('surfaces a beginner-safe fetch error instead of raw API details', async () => {
