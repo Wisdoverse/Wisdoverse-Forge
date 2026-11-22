@@ -63,7 +63,8 @@ status code or error code change qualifies for this exception.
 ### Deprecation Window
 
 A deprecated surface stays callable for **90 days** after its replacement
-lands. During the window:
+lands. When a deprecated surface has no replacement, the window starts on the
+date the deprecation is published in the CHANGELOG. During the window:
 
 - The OpenAPI spec marks the deprecated operation as `deprecated: true`.
 - Responses include a `Deprecation` header per RFC 9745 (or the closest

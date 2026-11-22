@@ -40,6 +40,7 @@
 groups:
   - name: agentforge.api.availability
     # status!="501": a deliberate Not Implemented reply is not an outage of implemented service; excluded from both sides.
+    # APINotImplementedResponses watches those excluded 501s so a route regressing to 501 is not invisible.
     rules:
       - alert: API5xxRatioAtOrAboveSLO
         expr: |
@@ -98,6 +99,25 @@ groups:
         annotations:
           summary: 'Error budget burn 2.8× over 1h+5m windows'
           runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+      - alert: APINotImplementedResponses
+        # The second branch catches a route's first 501: a new counter series has no earlier sample for increase().
+        expr: |
+          sum by (path) (increase(http_requests_total{status="501",service!="orchestrator"}[15m])) > 0
+          or
+          sum by (path) (
+            http_requests_total{status="501",service!="orchestrator"}
+            unless
+            http_requests_total{status="501",service!="orchestrator"} offset 15m
+          )
+        for: 0m
+        labels:
+          severity: ticket
+          slo: availability
+        annotations:
+          summary: 'API answered 501 Not Implemented on {{ $labels.path }} in the last 15m'
+          description: 'A call to a deprecated stub endpoint, or a regression of an implemented route. 501s are excluded from the availability ratio.'
+          runbook: 'docs/runbooks/observability-slo.md#not-implemented-responses'
 
   - name: agentforge.api.latency
     rules:

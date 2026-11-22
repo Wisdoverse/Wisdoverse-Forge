@@ -1197,10 +1197,10 @@ that guarantee standing for every CLI on every train.
 These surfaces are intentionally outside the proofed runtime boundary until
 they have implementation and validation evidence:
 
-| Surface                         | Current state                                             | Required next step                                                                  |
-| ------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `GET /api/v1/agents/:id/git`    | Deprecated. Returns HTTP 501 with code `NOT_IMPLEMENTED`. | Remove after the deprecation window in `docs/versioning.md`, not before 2027-02-21. |
-| `POST /api/v1/voice/transcribe` | Deprecated. Returns HTTP 501 with code `NOT_IMPLEMENTED`. | Remove after the deprecation window in `docs/versioning.md`, not before 2027-02-21. |
+| Surface                         | Current state                                                                            | Required next step                                                                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/v1/agents/:id/git`    | Deprecated on 2026-11-22 (no replacement). Returns HTTP 501 with code `NOT_IMPLEMENTED`. | Stays callable through 2027-02-20 (90-day window in `docs/versioning.md`). Remove in the first release on or after 2027-02-21. |
+| `POST /api/v1/voice/transcribe` | Deprecated on 2026-11-22 (no replacement). Returns HTTP 501 with code `NOT_IMPLEMENTED`. | Stays callable through 2027-02-20 (90-day window in `docs/versioning.md`). Remove in the first release on or after 2027-02-21. |
 
 Do not broaden README claims until this runbook contains a command that proves
 the capability end to end.

@@ -39,6 +39,20 @@ A deliberate `501 Not Implemented` reply marks an endpoint that has no implement
 It does not measure the availability of implemented service, so the availability SLI,
 its alerts and the overview dashboard exclude `status="501"` from both the error count and the request count.
 
+### Not Implemented Responses
+
+The `APINotImplementedResponses` alert (severity `ticket`) fires when any API route answered `501` in the last 15 minutes.
+Its `path` label names the route template, for example `/api/v1/voice/transcribe`.
+Because 501s are excluded from the availability ratio, this alert is the only signal that a route answers 501.
+
+1. Read the `path` label on the alert.
+2. If the path is `/api/v1/voice/transcribe` or `/api/v1/agents/{id}/git`, it is a call to a deprecated stub endpoint.
+   Find the caller from your reverse proxy access log or the API [logs](#logs) for that route.
+   Move the caller off the endpoint before its removal date (see [Preview Boundaries](runtime-validation.md#preview-boundaries)).
+3. For any other path, treat it as a regression of an implemented route: find the change that made the route return 501 and fix or revert it.
+
+Success looks like the alert resolving on its own once no route has answered 501 for 15 minutes.
+
 ## SLO Targets
 
 The defaults below assume a single-tenant self-hosted deployment serving
@@ -135,6 +149,7 @@ defaults:
 | Per-path API 5xx rate > 1% over 5 min            | Page     | Fires when the condition remains true for 5 min.             |
 | Global API 5xx rate > 1.4% over 1h and 5m        | Page     | Fires when both windows exceed the threshold for 2 min.      |
 | Global API 5xx rate >= 0.5% over 30 days         | Warning  | Fires when the condition remains true for 1 hour.            |
+| Any API 501 response in the last 15 min          | Ticket   | Fires per route; see [Not Implemented Responses](#not-implemented-responses). |
 | API p95 latency > 1 s for 10 min                 | Warning  | API latency SLI.                                            |
 | Orchestrator workflow start p95 > 5 s for 10 min | Warning  | Workflow start SLI.                                         |
 | Task run failure rate > 5% for 15 min            | Warning  | Orchestrator success rate SLI.                              |
