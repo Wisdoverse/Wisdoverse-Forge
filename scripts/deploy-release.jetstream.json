@@ -1,0 +1,4 @@
+{
+  "streams": ["EVENTS", "CREDENTIALS", "ORCHESTRATION_ASSIGNMENTS", "ORCHESTRATION_RESULTS"],
+  "resultConsumer": { "stream": "ORCHESTRATION_RESULTS", "name": "orchestration-result-handler" }
+}
