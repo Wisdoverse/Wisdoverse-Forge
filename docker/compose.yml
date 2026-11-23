@@ -562,8 +562,9 @@ services:
       - default
 
   # ---------------------------------------------------------------------------
-  # Database Backup — Daily pg_dump of the bundled API and orchestrator
-  # databases (profiles: backup). External databases are the operator's to back up.
+  # Database Backup — Daily pg_dump of the bundled orchestrator, Temporal and
+  # API databases (profiles: backup). External databases are the operator's to
+  # back up. BACKUP_ONCE=1 runs one pass and exits (manual backups).
   # ---------------------------------------------------------------------------
   backup:
     image: postgres:18-alpine
@@ -583,7 +584,7 @@ services:
 
     # A failed dump exits non-zero (container restarts and shows the error in
     # `ps`/logs); dumps are renamed to .dump and old ones pruned only after
-    # both databases dumped successfully.
+    # every database dumped successfully.
     entrypoint: /bin/sh
     command:
       - -ec
@@ -591,12 +592,17 @@ services:
         while true; do
           rm -f /backups/*.dump.partial
           ts=$$(date +%Y%m%d_%H%M%S)
-          PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -F c -f "/backups/agentforge_$$ts.dump.partial"
+          # Referencing side first, referenced side last: orchestrator rows hold Temporal execution and API ids; everything holds API ids.
           PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "/backups/orchestrator_$$ts.dump.partial"
-          mv "/backups/agentforge_$$ts.dump.partial" "/backups/agentforge_$$ts.dump"
-          mv "/backups/orchestrator_$$ts.dump.partial" "/backups/orchestrator_$$ts.dump"
+          for db in temporal temporal_visibility "$$POSTGRES_DB"; do
+            PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$db" -F c -f "/backups/$${db}_$$ts.dump.partial"
+          done
+          for db in orchestrator temporal temporal_visibility "$$POSTGRES_DB"; do
+            mv "/backups/$${db}_$$ts.dump.partial" "/backups/$${db}_$$ts.dump"
+          done
           find /backups -name '*.dump' -mtime +7 -delete
-          echo "backup complete: agentforge_$$ts.dump orchestrator_$$ts.dump"
+          echo "backup complete: $$ts (orchestrator temporal temporal_visibility $$POSTGRES_DB)"
+          if [ "$${BACKUP_ONCE:-0}" = 1 ]; then exit 0; fi
           sleep 86400
         done
 
