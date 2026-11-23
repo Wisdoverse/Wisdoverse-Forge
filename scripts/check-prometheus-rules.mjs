@@ -16,7 +16,7 @@ const panels = {
   __API_REQUEST_RATE__: ['Request rate (req/s)', 0],
   __API_LATENCY_P95__: ['Latency p50 / p95 / p99', 1],
 }
-const fixtureFiles = ['api-availability.test.yml', 'api-overview.test.yml']
+const fixtureFiles = ['api-availability.test.yml', 'api-overview.test.yml', 'self-fix.test.yml']
 let fixtures = fixtureFiles.map((file) =>
   fs.readFileSync(path.join(root, 'ops/prometheus/tests', file), 'utf8')
 )
