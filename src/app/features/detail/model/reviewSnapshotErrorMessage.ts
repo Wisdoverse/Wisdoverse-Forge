@@ -16,6 +16,22 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const code = statusCode(detail)
   const text = detail?.toLowerCase() ?? ''
 
+  if (text.includes('errors.self_fix.merge_attempts_exhausted_unconfirmed')) {
+    return 'No finish attempts remain, and the last one is not confirmed. Merge or close the pull request on GitHub, then choose Finish this fix to update its status.'
+  }
+
+  if (text.includes('errors.self_fix.merge_unconfirmed')) {
+    return 'The last finish attempt is not confirmed yet. Wait a moment, then choose Finish this fix again.'
+  }
+
+  if (text.includes('errors.self_fix.merge_running')) {
+    return 'Another change to this fix is in progress. Wait a moment, then choose Check fix status.'
+  }
+
+  if (text.includes('errors.maintenance.merge_rejected')) {
+    return 'A reviewer rejected this version of the fix, so it was not finished. Record a new review decision on a newer report, or finish the change on GitHub, then choose Check fix status.'
+  }
+
   if (text.includes('can not approve your own pull request')) {
     return 'Ask another owner or admin to check this fix. This finish step needs someone else to check changes you opened yourself.'
   }

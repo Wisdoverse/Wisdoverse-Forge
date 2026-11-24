@@ -361,7 +361,9 @@ pub(crate) fn auth_error_response_contract(
             AuthErrorResponseContract::new(422, code, message.clone())
         }
         ErrorKind::RateLimited { code, message, .. } => AuthErrorResponseContract::new(429, code, message.clone()),
-        ErrorKind::Conflict(message) => AuthErrorResponseContract::new(409, "CONFLICT", message.clone()),
+        ErrorKind::Conflict(message) | ErrorKind::ConflictWithCode { message, .. } => {
+            AuthErrorResponseContract::new(409, "CONFLICT", message.clone())
+        }
         ErrorKind::NotFound(message) => AuthErrorResponseContract::new(404, "NOT_FOUND", message.clone()),
         ErrorKind::Unavailable(message) => AuthErrorResponseContract::new(503, "SERVICE_UNAVAILABLE", message.clone()),
         ErrorKind::NotImplemented(message) => AuthErrorResponseContract::new(501, "NOT_IMPLEMENTED", message.clone()),

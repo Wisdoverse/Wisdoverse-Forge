@@ -59,6 +59,13 @@ pub enum ErrorKind {
     #[error("conflict: {0}")]
     Conflict(String),
 
+    /// Conflict (409) that carries an i18n code for the client.
+    ///
+    /// Same contract as [`ValidationWithCode`]: `code` is the dotted i18n
+    /// key, `message` is the English fallback.
+    #[error("conflict: {message}")]
+    ConflictWithCode { code: &'static str, message: String },
+
     #[error("service unavailable: {0}")]
     Unavailable(String),
 
@@ -111,6 +118,22 @@ impl From<RuntimeCapabilityError> for AppError {
     }
 }
 
+impl AppError {
+    /// PostgreSQL `lock_not_available` (SQLSTATE 55P03), raised when a lock wait
+    /// exceeds `lock_timeout`. Callers that set a timeout map it to their own
+    /// busy response; every other error keeps its existing handling.
+    pub fn is_lock_timeout(&self) -> bool {
+        match &self.kind {
+            ErrorKind::Internal(err) => err
+                .downcast_ref::<sqlx::Error>()
+                .and_then(sqlx::Error::as_database_error)
+                .and_then(|db| db.code())
+                .is_some_and(|code| code == "55P03"),
+            _ => false,
+        }
+    }
+}
+
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.kind.fmt(f)
@@ -131,7 +154,7 @@ impl IntoResponse for AppError {
             ErrorKind::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
             ErrorKind::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::ForbiddenWithCode { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
-            ErrorKind::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
+            ErrorKind::Conflict(_) | ErrorKind::ConflictWithCode { .. } => (StatusCode::CONFLICT, "CONFLICT"),
             ErrorKind::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
             ErrorKind::NotImplemented(_) => (StatusCode::NOT_IMPLEMENTED, "NOT_IMPLEMENTED"),
             ErrorKind::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
@@ -147,7 +170,7 @@ impl IntoResponse for AppError {
             }
         }
 
-        // Build the response body.  ValidationWithCode / ForbiddenWithCode emit
+        // Build the response body.  The `*WithCode` variants emit
         // the i18n dotted key as `code` so the frontend can look up localised
         // copy.  All other variants keep the existing stable type-level code.
         let body = match &self.kind {
@@ -157,7 +180,8 @@ impl IntoResponse for AppError {
             }),
             ErrorKind::ForbiddenWithCode { code, message }
             | ErrorKind::UnprocessableWithCode { code, message }
-            | ErrorKind::RateLimited { code, message, .. } => json!({
+            | ErrorKind::RateLimited { code, message, .. }
+            | ErrorKind::ConflictWithCode { code, message } => json!({
                 "ok": false,
                 "error": { "code": *code, "message": message }
             }),
@@ -405,5 +429,18 @@ mod tests {
         .into_response();
         assert_eq!(without.status(), StatusCode::TOO_MANY_REQUESTS);
         assert!(without.headers().get(axum::http::header::RETRY_AFTER).is_none());
+    }
+
+    #[tokio::test]
+    async fn conflict_with_code_emits_i18n_code() {
+        let err = AppError::from(ErrorKind::ConflictWithCode {
+            code: "errors.maintenance.merge_rejected",
+            message: "Record a new verdict.".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body["error"]["code"], "errors.maintenance.merge_rejected");
+        assert_eq!(body["error"]["message"], "Record a new verdict.");
     }
 }

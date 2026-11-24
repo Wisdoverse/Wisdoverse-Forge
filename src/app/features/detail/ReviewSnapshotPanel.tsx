@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   CheckCircle2,
   ExternalLink,
@@ -26,7 +26,7 @@ interface ReviewSnapshotPanelProps {
 
 const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
   in_review: 'Waiting for someone to check',
-  approved: 'Ready to finish',
+  approved: 'Finishing started, not confirmed',
   changes_requested: 'Needs changes',
   merged: 'Finished',
   sensitive_blocked: 'Needs owner or admin check',
@@ -36,7 +36,7 @@ const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
  * Pull request review surface (plan milestone 9). Fetches the server-side
  * review state and lets an operator approve and merge. Approve is enabled ONLY
  * when a pull request exists and `checksGreen && !sensitive &&
- * reviewStatus !== 'merged'`; the merge decision still lives server-side, so
+ * reviewStatus !== 'merged' && !currentRevisionRejected`; the merge decision still lives server-side, so
  * disabling here is defense-in-depth, not the security boundary. Errors are
  * surfaced in a banner — never swallowed.
  */
@@ -46,6 +46,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
+  const rejectedReasonId = useId()
 
   // Load the pull request review on mount AND whenever the task's review status
   // changes. A server-side transition (another operator's approve→merge, and
@@ -106,8 +107,18 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
 
   const merged = review?.reviewStatus === 'merged'
   const hasPullRequest = Boolean(review?.prNumber && review.prUrl)
+  const rejected = Boolean(review?.currentRevisionRejected) && !merged
+  // An unconfirmed finish must stay reconcilable even with red or unknown CI;
+  // the server re-checks every gate before a real merge.
+  const unconfirmed = review?.reviewStatus === 'approved'
   const approveDisabled =
-    !review || !hasPullRequest || !review.checksGreen || review.sensitive || merged || approving
+    !review ||
+    !hasPullRequest ||
+    (!review.checksGreen && !unconfirmed) ||
+    review.sensitive ||
+    rejected ||
+    merged ||
+    approving
 
   return (
     <div className="py-3 space-y-3" data-testid="review-snapshot-panel">
@@ -210,6 +221,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
             <button
               onClick={approve}
               disabled={approveDisabled}
+              aria-describedby={rejected ? rejectedReasonId : undefined}
               data-testid="review-approve"
               className={cn(uiStyles.primaryButton, 'w-full')}
             >
@@ -222,12 +234,38 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
                 after it appears.
               </p>
             )}
-            {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
-              <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                You can finish after automated checks pass. Choose Check fix status after they
-                finish.
+            {rejected && (
+              <p
+                id={rejectedReasonId}
+                role="status"
+                className="mt-1.5 text-ui-caption text-apple-red"
+                data-testid="review-rejected-reason"
+              >
+                A reviewer rejected this version of the fix, so it cannot finish here. Record a new
+                review decision on a newer report, or finish the change on GitHub, then choose Check
+                fix status.
               </p>
             )}
+            {unconfirmed && (
+              <p
+                role="status"
+                className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
+                data-testid="review-finish-unconfirmed"
+              >
+                Forge started finishing this fix but could not confirm it finished. Choose Finish
+                this fix to check and complete it.
+              </p>
+            )}
+            {!merged &&
+              !unconfirmed &&
+              hasPullRequest &&
+              !review.checksGreen &&
+              !review.sensitive && (
+                <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  You can finish after automated checks pass. Choose Check fix status after they
+                  finish.
+                </p>
+              )}
           </div>
         </div>
       ) : null}

@@ -85,6 +85,9 @@ pub struct PullRequest {
     /// idempotency check.
     #[serde(default)]
     pub merged: bool,
+    /// `open` or `closed` (a merged pull request is also `closed`).
+    #[serde(default)]
+    pub state: String,
 }
 
 #[derive(Deserialize)]
@@ -425,6 +428,17 @@ impl GithubAppClient {
     #[allow(dead_code)]
     pub async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool> {
         Ok(self.fetch_pull_request(pr_number).await?.merged)
+    }
+
+    /// Live pull-request state: merged, closed without merge, or open.
+    pub async fn pr_state(&self, pr_number: i32) -> AppResult<crate::domain::self_fix::PullRequestState> {
+        use crate::domain::self_fix::PullRequestState;
+        let pr = self.fetch_pull_request(pr_number).await?;
+        Ok(match (pr.merged, pr.state.as_str()) {
+            (true, _) => PullRequestState::Merged,
+            (false, "closed") => PullRequestState::ClosedUnmerged,
+            _ => PullRequestState::Open,
+        })
     }
 
     /// `true` if the PR is currently a draft. Used by the Merge Executor to skip

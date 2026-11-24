@@ -210,6 +210,8 @@ export interface SelfFixReview {
   checksGreen: boolean
   sensitive: boolean
   reviewStatus?: SelfFixReviewStatus
+  /** Latest human verdict on the current maintenance revision is `rejected`; the server refuses merge. */
+  currentRevisionRejected: boolean
 }
 
 export function taskResultArtifacts(result: TaskSummary['result']): TaskResultArtifact[] {

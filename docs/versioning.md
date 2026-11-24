@@ -60,6 +60,23 @@ The CHANGELOG entry for such a correction goes under **Fixed** (the
 `### Bug Fixes` heading in the generated CHANGELOG). No other
 status code or error code change qualifies for this exception.
 
+### Enforcement Corrections
+
+A governed action has a defect if the product executes it although a recorded
+control requires refusal. Recorded controls are authorization checks, recorded
+human rejections, and safety gates. Refusing the action is a defect fix, not a
+breaking change, even when the status code or error code changes. This
+exception applies only when:
+
+- The control and its record existed before the change.
+- The earlier behavior executed the action despite that record.
+- The release notes name the endpoint, the condition, and the new status code
+  and error code.
+
+The CHANGELOG entry goes under **Fixed**. A change that adds a new control, or
+that refuses an action no existing record forbade, does not qualify for this
+exception.
+
 ### Misclassified Internal Errors
 
 HTTP 500 with the generic internal error code reports a failure that the

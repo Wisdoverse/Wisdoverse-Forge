@@ -30,7 +30,7 @@ use agentforge_core::{AgentId, AppResult, TenantScope, UserId};
 use agentforge_db::entities::{OrchestrationTask, Participant};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, PgPool, Postgres, Transaction};
+use sqlx::{FromRow, PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::domain::agent::AgentRepositoryPolicy;
@@ -284,6 +284,15 @@ pub struct UpdateTaskRow {
     pub expected_row_version: Option<i64>,
 }
 
+/// Advisory-lock namespace for the per-task Forge merge mutex. Distinct from
+/// the `maintenance:`, `agent-lifecycle:`, `cli-image-roll:` and `participant:`
+/// keys, which use the same `hashtextextended(<namespace>:..., 0)` convention.
+const SELF_FIX_MERGE_LOCK_NAMESPACE: &str = "self-fix-merge";
+
+fn merge_lock_key(scope: &TenantScope, id: Uuid) -> String {
+    format!("{SELF_FIX_MERGE_LOCK_NAMESPACE}:{}:{id}", scope.org_id().as_uuid())
+}
+
 impl OrchestrationTaskRepository {
     pub(crate) async fn lock_by_id_in_tx(
         tx: &mut Transaction<'_, Postgres>,
@@ -516,12 +525,21 @@ impl OrchestrationTaskRepository {
 
     /// Find a task by ID (tenant-scoped).
     pub async fn find_by_id(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
+        Self::find_by_id_on(&mut *self.pool.acquire().await?, scope, id).await
+    }
+
+    /// [`Self::find_by_id`] on a caller-held connection or transaction.
+    pub(crate) async fn find_by_id_on(
+        conn: &mut PgConnection,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<OrchestrationTask> {
         sqlx::query_as::<_, OrchestrationTask>(
             "SELECT * FROM orchestration_tasks WHERE id = $1 AND organization_id = $2",
         )
         .bind(id)
         .bind(scope.org_id().as_uuid())
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *conn)
         .await?
         .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
@@ -860,12 +878,81 @@ impl OrchestrationTaskRepository {
     /// Update only the review status on a self-fix task (tenant-scoped). Mirrors
     /// the orchestrator `ReviewState` vocabulary but is driven API-side.
     pub async fn set_review_status(&self, scope: &TenantScope, id: Uuid, status: &str) -> AppResult<()> {
+        Self::set_review_status_on(&mut *self.pool.acquire().await?, scope, id, status).await
+    }
+
+    /// Try the per-task Forge merge mutex: a SESSION-level advisory lock on the
+    /// caller's dedicated connection (#1314). Not a transaction.
+    pub(crate) async fn try_lock_merge(conn: &mut PgConnection, scope: &TenantScope, id: Uuid) -> AppResult<bool> {
+        Ok(sqlx::query_scalar("SELECT pg_try_advisory_lock(hashtextextended($1, 0))")
+            .bind(merge_lock_key(scope, id))
+            .fetch_one(&mut *conn)
+            .await?)
+    }
+
+    pub(crate) async fn unlock_merge(conn: &mut PgConnection, scope: &TenantScope, id: Uuid) -> AppResult<()> {
+        sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtextextended($1, 0))")
+            .bind(merge_lock_key(scope, id))
+            .fetch_one(&mut *conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Transaction-local `lock_timeout` for the caller's transaction: every
+    /// later lock wait in it fails with SQLSTATE 55P03 after `timeout_ms`.
+    pub(crate) async fn set_lock_timeout_on(conn: &mut PgConnection, timeout_ms: u64) -> AppResult<()> {
+        sqlx::query("SELECT set_config('lock_timeout', $1, true)")
+            .bind(format!("{timeout_ms}ms"))
+            .execute(&mut *conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Age of the caller's transaction in milliseconds, computed by PostgreSQL
+    /// (`clock_timestamp()` minus the transaction start that `NOW()` returns).
+    pub(crate) async fn transaction_age_ms_on(conn: &mut PgConnection) -> AppResult<i64> {
+        Ok(sqlx::query_scalar(
+            "SELECT (EXTRACT(EPOCH FROM clock_timestamp() - transaction_timestamp()) * 1000)::bigint",
+        )
+        .fetch_one(&mut *conn)
+        .await?)
+    }
+
+    /// Set the review status on a caller-held connection or transaction (tenant-scoped).
+    pub(crate) async fn set_review_status_on(
+        conn: &mut PgConnection,
+        scope: &TenantScope,
+        id: Uuid,
+        status: &str,
+    ) -> AppResult<()> {
         sqlx::query("UPDATE orchestration_tasks SET review_status = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
             .bind(status)
             .bind(id)
             .bind(scope.org_id().as_uuid())
-            .execute(&self.pool)
+            .execute(&mut *conn)
             .await?;
+        Ok(())
+    }
+
+    /// Move the review status from `from` to `to` only if it still reads `from`,
+    /// so a concurrent transition (for example to `merged`) is never overwritten.
+    pub(crate) async fn transition_review_status_on(
+        conn: &mut PgConnection,
+        scope: &TenantScope,
+        id: Uuid,
+        from: &str,
+        to: &str,
+    ) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE orchestration_tasks SET review_status = $1, updated_at = NOW() \
+             WHERE id = $2 AND organization_id = $3 AND review_status = $4",
+        )
+        .bind(to)
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .bind(from)
+        .execute(&mut *conn)
+        .await?;
         Ok(())
     }
 
@@ -876,6 +963,18 @@ impl OrchestrationTaskRepository {
     /// unconditional (no CAS); the cap check happens BEFORE this call, so this
     /// only runs when the attempt is within the allowed budget.
     pub async fn bump_merge_attempts(&self, scope: &TenantScope, id: Uuid) -> AppResult<()> {
+        let mut tx = self.pool.begin().await?;
+        Self::bump_merge_attempts_in_tx(&mut tx, scope, id).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// In-transaction variant used by the merge path under the task-row lock.
+    pub(crate) async fn bump_merge_attempts_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<()> {
         sqlx::query(
             "UPDATE orchestration_tasks \
              SET merge_attempts = merge_attempts + 1, updated_at = NOW() \
@@ -883,7 +982,7 @@ impl OrchestrationTaskRepository {
         )
         .bind(id)
         .bind(scope.org_id().as_uuid())
-        .execute(&self.pool)
+        .execute(&mut **tx)
         .await?;
         Ok(())
     }

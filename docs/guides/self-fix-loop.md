@@ -283,29 +283,42 @@ make ci
    deterministic `agent/<task-id>` branch, and opens a **draft** pull request.
    Nothing is merged.
 3. **Review it.** Open the task and switch to the **Review** tab. You see the PR
-   link, a one-shot CI-check status, and an **Approve & merge** button. Use the
+   link, a one-shot CI-check status, and a **Finish this fix** button. Use the
    diff link to read the change in GitHub.
-4. **Approve.** When CI is green and the change is not sensitive, **Approve &
-   merge** is enabled. Clicking it asks the server to merge. The server re-checks
-   — non-sensitive, CI still green, head unmoved — and squash-merges at the exact
-   reviewed commit, then posts an audit comment naming you as the approver.
+4. **Finish this fix.** When CI is green and the change is not sensitive,
+   **Finish this fix** is enabled. For a maintenance task, the latest verdict on
+   the current report must also not be **rejected**. Choosing it asks the server
+   to merge. The server re-checks — non-sensitive, not rejected, CI still green,
+   head unmoved — and squash-merges at the exact reviewed commit, then posts an
+   audit comment naming you as the approver.
+
+While the server is merging, the task status reads **Finishing started, not
+confirmed**, and Forge does not accept a new human verdict on a maintenance task.
+If GitHub refuses the merge before merging (CI red, head moved, not mergeable),
+the status returns to review. If the outcome is unknown (for example, the merge
+or the audit comment request failed), the status stays **Finishing started, not
+confirmed** until you choose **Finish this fix** again. That retry detects a pull
+request that is already merged and records it as merged. The stuck-review reaper
+does not change this status, so the task waits for an operator.
 
 ## What success looks like
 
-After a successful approve, the PR is merged on GitHub, the task's review status
-reads **Merged**, and the audit comment records who approved it and that no
+After a successful finish, the PR is merged on GitHub, the task's review status
+reads **Finished**, and the audit comment records who approved it and that no
 safety check was bypassed.
 
 ## Status and troubleshooting
 
-| What you see                                          | What it means                                                                      | What to do                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Review** tab missing                                | The task is not a self-fix task                                                    | Only self-fix tasks expose the Review tab                                                   |
-| "No pull request has been opened yet"                 | The Bridge has not opened a PR                                                     | Confirm the task finished and the GitHub App is configured                                  |
-| **Approve** disabled, "CI checks not confirmed green" | CI has not reported success on the PR head                                         | Wait for checks to finish, then press **Refresh**                                           |
-| **Approve** disabled, "Touches a sensitive path"      | The change edits a protected area (auth, migrations, CI, the self-fix code itself) | A maintainer must review and merge it manually on GitHub; in-platform merge is hard-refused |
-| Approve fails with "GitHub not configured"            | The four `GITHUB_APP_*` variables are not all set                                  | Set them (see above) and restart the API                                                    |
-| Approve fails after CI went red or the head moved     | The server re-verified at merge time and refused                                   | Re-review the PR; nothing was merged                                                        |
+| What you see                                                     | What it means                                                                      | What to do                                                                                          |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Review** tab missing                                           | The task is not a self-fix task                                                    | Only self-fix tasks expose the Review tab                                                           |
+| "No pull request has been opened yet"                            | The Bridge has not opened a PR                                                     | Confirm the task finished and the GitHub App is configured                                          |
+| **Finish this fix** disabled, automated checks still running     | CI has not reported success on the PR head                                         | Wait for checks to finish, then choose **Check fix status**                                         |
+| **Finish this fix** disabled, sensitive files or settings        | The change edits a protected area (auth, migrations, CI, the self-fix code itself) | A maintainer must review and merge it manually on GitHub; in-platform merge is hard-refused         |
+| Finishing fails with "GitHub not configured"                     | The four `GITHUB_APP_*` variables are not all set                                  | Set them (see above) and restart the API                                                            |
+| **Finish this fix** disabled, "A reviewer rejected this version" | The latest verdict on the current maintenance report is rejected                   | See [maintenance delivery](maintenance-delivery.md#when-forge-refuses-to-merge-a-rejected-revision) |
+| Status **Finishing started, not confirmed**                      | A merge was started but its outcome is unknown                                     | Choose **Finish this fix** again to check and complete it                                           |
+| Finishing fails after CI went red or the head moved              | The server re-verified at merge time and refused                                   | Re-review the PR; nothing was merged                                                                |
 
 ## Safety model
 

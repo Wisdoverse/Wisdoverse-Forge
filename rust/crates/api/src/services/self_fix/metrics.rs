@@ -53,7 +53,7 @@ use agentforge_core::AppError;
 ///
 /// `outcome` must be one of the closed set defined in this module's doc
 /// (`merged`, `already_merged`, `sensitive_blocked`, `checks_red`,
-/// `head_moved`, `exhausted`, `failed`). Passing any other value will silently
+/// `head_moved`, `exhausted`, `failed`, `running`, `unconfirmed`). Passing any other value will silently
 /// create a new series — DO NOT call with runtime-derived strings.
 pub fn record_merge_outcome(outcome: &'static str) {
     metrics::counter!("agentforge_self_fix_merge_total", "outcome" => outcome).increment(1);
@@ -65,7 +65,7 @@ pub fn record_merge_failure(err: &AppError) {
     record_merge_outcome(SelfFixMergeMetricPolicy::failure_label(err));
 }
 
-/// Register metric descriptions and prime all seven outcome series at 0.
+/// Register metric descriptions and prime every outcome series at 0.
 ///
 /// Called once at server boot (before any traffic) so Prometheus sees all
 /// `{outcome}` series from the first scrape — dashboards and alert rules that
@@ -74,7 +74,7 @@ pub fn record_merge_failure(err: &AppError) {
 pub fn register_metrics() {
     metrics::describe_counter!(
         "agentforge_self_fix_merge_total",
-        "Self-fix guarded-merge outcomes, labeled merged|already_merged|sensitive_blocked|checks_red|head_moved|exhausted|failed"
+        "Self-fix guarded-merge outcomes, labeled merged|already_merged|sensitive_blocked|checks_red|head_moved|exhausted|failed|running|unconfirmed"
     );
     // Prime every label value at 0 so each series exists from t=0.
     for outcome in SelfFixMergeMetricPolicy::OUTCOMES {

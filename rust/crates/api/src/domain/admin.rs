@@ -599,7 +599,7 @@ impl AdminBulkDeletePolicy {
             ErrorKind::Unprocessable(msg) => format!("unprocessable entity: {msg}"),
             ErrorKind::UnprocessableWithCode { message, .. } => format!("unprocessable entity: {message}"),
             ErrorKind::RateLimited { message, .. } => format!("rate limited: {message}"),
-            ErrorKind::Conflict(msg) => format!("conflict: {msg}"),
+            ErrorKind::Conflict(msg) | ErrorKind::ConflictWithCode { message: msg, .. } => format!("conflict: {msg}"),
             ErrorKind::Unauthorized => "unauthorized".to_string(),
             ErrorKind::Forbidden(_) => "forbidden".to_string(),
             ErrorKind::ForbiddenWithCode { .. } => "forbidden".to_string(),

@@ -94,6 +94,18 @@ describe('maintenance evidence operator workflow', () => {
       runId: maintenanceDelivery().latestRunId,
     })
   })
+  it('explains that a verdict waits while a Forge merge is unconfirmed', async () => {
+    mocks.decision.mockRejectedValueOnce(new MaintenanceError('merge-in-progress'))
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    await screen.findByTestId('verification-report')
+    fireEvent.change(screen.getByLabelText('Verdict reason and quality findings'), {
+      target: { value: 'needs more review' },
+    })
+    fireEvent.submit(screen.getByLabelText('Verdict reason and quality findings').closest('form')!)
+    expect(
+      await screen.findByText(/A merge of this change is in progress or unconfirmed/)
+    ).toHaveTextContent('Choose Finish this fix')
+  })
   it('keeps omitted human time unknown and preserves explicit zero in a verdict', async () => {
     render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
     await screen.findByTestId('verification-report')

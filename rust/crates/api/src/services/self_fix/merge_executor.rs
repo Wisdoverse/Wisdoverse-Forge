@@ -71,6 +71,15 @@ pub struct MergeRequest<'a> {
     pub sensitive: bool,
 }
 
+/// The executor's idempotency read, callable on its own to reconcile a merge
+/// whose outcome was not confirmed.
+pub async fn pull_request_state<G: GitProvider + ?Sized>(
+    provider: &G,
+    pr_number: i32,
+) -> AppResult<crate::domain::self_fix::PullRequestState> {
+    provider.pr_state(pr_number).await
+}
+
 /// Run the guarded merge against a [`GitProvider`] with NO database access. The
 /// caller (`SelfFixService::approve_and_merge`) loads the task, derives the
 /// [`MergeRequest`], and persists the resulting status; this core owns ONLY the
@@ -108,7 +117,7 @@ pub async fn run_merge_executor<G: GitProvider + ?Sized>(
     // 1. Idempotency: a retry after a successful merge must succeed, not error
     //    on a no-longer-mergeable PR. (Safe to shortcut here: sensitivity was
     //    already refused above, so `req.sensitive` is false at this point.)
-    if provider.pr_is_merged(req.pr_number).await? {
+    if pull_request_state(provider, req.pr_number).await? == crate::domain::self_fix::PullRequestState::Merged {
         return Ok(MergeOutcome {
             pr_number: req.pr_number,
             merged_head_sha: req.recorded_head_sha.to_string(),

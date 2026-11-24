@@ -6,7 +6,7 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use super::SelfFixService;
-use super::delivery::{decision, decode, ensure_current, handoff, json, report, revision};
+use super::delivery::{decision, decode, ensure_current, handoff, json, report, report_is_current, revision};
 use crate::domain::admin::AdminRolePolicy;
 use crate::domain::maintenance_delivery::*;
 use crate::repositories::orchestration::OrchestrationTaskRepository;
@@ -16,7 +16,12 @@ use crate::repositories::orchestration::maintenance_delivery::{
 use crate::repositories::user::UserRepository;
 use crate::services::orchestration::task_run_summary;
 
-async fn lock_task(tx: &mut Transaction<'_, Postgres>, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
+/// Shared serialization point for verdict writers and the Forge merge decision.
+pub(super) async fn lock_task(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: &TenantScope,
+    id: Uuid,
+) -> AppResult<OrchestrationTask> {
     let admin = UserRepository::find_is_admin_by_id_in_tx(tx, scope.user_id()).await?;
     AdminRolePolicy::require_platform_admin(admin)?;
     OrchestrationTaskRepository::lock_by_id_in_tx(tx, scope, id).await
@@ -154,6 +159,8 @@ impl SelfFixService {
             tx.commit().await?;
             return decision(existing);
         }
+        // Same lock as the merge decision: no verdict while a merge is unconfirmed.
+        ensure_verdict_writable(current.review_status.as_deref())?;
         let run = Repo::latest_run_in_tx(&mut tx, scope, id).await?;
         if current.row_version != task.row_version {
             return Err(delivery_conflict());
@@ -166,14 +173,11 @@ impl SelfFixService {
             run.as_ref(),
             saved_report.run_id,
         )?;
-        let snapshot: ReportSnapshot = decode(saved_report.snapshot)?;
+        let snapshot: ReportSnapshot = decode(saved_report.snapshot.clone())?;
         if Repo::latest_report_in_tx(&mut tx, scope, id).await?.is_none_or(|r| r.id != input.report_id) {
             return Err(delivery_conflict());
         }
-        if saved_report.revision != input.expected_revision
-            || snapshot.title != current.title
-            || snapshot.brief != current.description
-        {
+        if !report_is_current(&current, &source, &saved_report, &snapshot, run.as_ref()) {
             return Err(delivery_conflict());
         }
         if input.verdict == HumanVerdict::Accepted
