@@ -19,6 +19,16 @@ The pipeline is defined by `Jenkinsfile`, `scripts/deploy-release.mjs` and
    images for that commit. The running stack is not touched yet.
 4. The deploy step takes a lock and runs a preflight check. Preflight changes
    nothing. If any check fails, the deploy stops here.
+
+   Among other things, preflight checks that the running containers belong to
+   this deployment. For each named volume of the new release it accepts:
+   - the running container mounts that same volume at that path, or
+   - the running container mounts nothing at that path (the new release adds
+     the volume; Compose creates it in this project at start).
+
+   It refuses when the running container mounts a different volume at that
+   path, or when a container belongs to another Compose project.
+
 5. The runner stops every service of the stack. It snapshots the four
    databases, the JetStream and uploads volumes, and the web root.
 6. It migrates the databases, starts the new release and checks the backend.
