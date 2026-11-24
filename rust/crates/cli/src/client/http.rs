@@ -809,6 +809,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn decoded_api_errors_map_to_documented_exit_codes() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+        let nested = |code: &str| json!({ "ok": false, "error": { "code": code, "message": "m" } }).to_string();
+        let cases = [
+            (400, nested("VALIDATION_ERROR"), "VALIDATION_ERROR", 2),
+            (401, nested("UNAUTHORIZED"), "UNAUTHORIZED", 3),
+            (404, nested("NOT_FOUND"), "NOT_FOUND", 4),
+            (403, nested("FORBIDDEN"), "FORBIDDEN", 5),
+            (422, nested("provider_credentials_rejected"), "provider_credentials_rejected", 1),
+            (422, nested("provider_request_rejected"), "provider_request_rejected", 1),
+            (429, nested("provider_rate_limited"), "provider_rate_limited", 1),
+            (409, nested("SOMETHING_NEW"), "SOMETHING_NEW", 1),
+            (404, json!({ "ok": false, "error": "NOT_FOUND", "message": "m" }).to_string(), "NOT_FOUND", 4),
+            (500, "<html>upstream error</html>".to_string(), "HTTP_ERROR", 1),
+        ];
+        let server = MockServer::start().await;
+        let client = Client::new(ClientOptions {
+            server: server.uri(),
+            token: None,
+            timeout: std::time::Duration::from_secs(5),
+            insecure: false,
+            verbose: false,
+            debug: false,
+            trace: false,
+        })
+        .unwrap();
+        for (status, body, code, exit) in cases {
+            server.reset().await;
+            Mock::given(method("POST"))
+                .and(path("/x"))
+                .respond_with(ResponseTemplate::new(status).set_body_string(body))
+                .expect(1)
+                .mount(&server)
+                .await;
+            // POST: never retried, so each case is a single decoded response.
+            let err = client.do_request(reqwest::Method::POST, "/x", None, ResponseKind::Auto).await.unwrap_err();
+            match &err {
+                crate::error::CliError::Api(api) => assert_eq!(api.code, code, "status {status}"),
+                other => panic!("status {status}: expected ApiError, got {other:?}"),
+            }
+            assert_eq!(err.exit_code(), exit, "status {status} code {code}");
+            server.verify().await;
+        }
+    }
+
+    #[tokio::test]
     async fn does_not_retry_5xx_on_post() {
         use wiremock::matchers::{method, path};
         use wiremock::{Mock, ResponseTemplate};

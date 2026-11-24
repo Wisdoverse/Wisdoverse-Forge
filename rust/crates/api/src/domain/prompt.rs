@@ -360,8 +360,16 @@ mod tests {
                 (_, other) => panic!("status {status} must be provider_request_rejected, got {other:?}"),
             }
         }
-        // A non-HTTP provider status outside 4xx/5xx stays internal.
-        assert!(matches!(construction_error(302, None), ErrorKind::Internal(_)));
+        // Range boundaries: only 4xx/5xx are provider HTTP classes; anything outside stays internal.
+        for (status, expected_http) in [(0u16, 500u16), (302, 500), (399, 500), (499, 422), (599, 503), (600, 500)] {
+            let actual_http = match construction_error(status, None) {
+                ErrorKind::Internal(_) => 500,
+                ErrorKind::UnprocessableWithCode { .. } => 422,
+                ErrorKind::Unavailable(_) => 503,
+                other => panic!("status {status}: unexpected {other:?}"),
+            };
+            assert_eq!(actual_http, expected_http, "provider status {status}");
+        }
     }
 
     #[test]
