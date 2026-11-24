@@ -339,9 +339,39 @@ describe('loadConfig provides every field the modules read', () => {
       const cfg = loadConfig('deploy', ['--revision', REV])
       expect(CONFIG_KEYS.filter((k) => !(k in cfg) || cfg[k] === undefined)).toEqual([])
       expect(cfg.envFile).toBe(p('private/staged/deploy.env'))
+      expect(cfg.ports).toEqual({
+        api: '127.0.0.1:24003',
+        orchestrator: '127.0.0.1:24010',
+        natsMonitor: '127.0.0.1:28222',
+      })
     } finally {
       process.env = saved
     }
+  })
+
+  it('probe ports accept Compose address form; anything else is a refusal (12)', () => {
+    const saved = { ...process.env }
+    Object.assign(process.env, {
+      FORGE_RELEASE_ROOT: p('release'),
+      FORGE_PRIVATE_ROOT: p('private'),
+    })
+    try {
+      stage(
+        envText()
+          .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=127.0.0.2:28222')
+          .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=0.0.0.0:24010')
+      )
+      const cfg = loadConfig('deploy', ['--revision', REV])
+      expect(cfg.ports.natsMonitor).toBe('127.0.0.2:28222')
+      expect(cfg.ports.orchestrator).toBe('127.0.0.1:24010')
+    } finally {
+      process.env = saved
+    }
+    stage(envText().replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=monitor'))
+    const r = cli('deploy', '--revision', REV)
+    expect(r.code).toBe(12)
+    expect(r.out).toContain('NATS_MONITOR_PORT must be a port number or <address>:<port>')
+    expect(stub.calls()).toEqual([])
   })
 })
 

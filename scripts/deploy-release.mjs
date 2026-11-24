@@ -254,10 +254,16 @@ export function loadConfig(command, args) {
     volumes: ['nats-data', 'agentforge-uploads'],
     snapshotDir: path.join(privateRoot, 'snapshots', attemptId),
     host: bind,
+    // `<host>:<port>` for each probe. A port variable may also use Compose's `<address>:<port>`
+    // form (the compose file publishes NATS without BIND_ADDRESS); the probe then uses that address.
     ports: {
-      api: env.AGENTFORGE_HOST_PORT || env.AGENTFORGE_PORT,
-      orchestrator: env.ORCHESTRATOR_PORT,
-      natsMonitor: env.NATS_MONITOR_PORT,
+      api: probeAddress(
+        env,
+        env.AGENTFORGE_HOST_PORT ? 'AGENTFORGE_HOST_PORT' : 'AGENTFORGE_PORT',
+        bind
+      ),
+      orchestrator: probeAddress(env, 'ORCHESTRATOR_PORT', bind),
+      natsMonitor: probeAddress(env, 'NATS_MONITOR_PORT', bind),
     },
     appUrl: env.APP_URL,
     requireRedis: env.REQUIRE_EXTERNAL_STATE === 'true',
@@ -269,6 +275,13 @@ export function loadConfig(command, args) {
       (s) => s.length >= 4
     ),
   }
+}
+
+function probeAddress(env, key, bind) {
+  const m = /^(?:([0-9.]+|\[[0-9a-f:]+\]):)?([0-9]{1,5})$/i.exec(env[key])
+  if (!m) throw new InputsError(`${key} must be a port number or <address>:<port>`)
+  const address = !m[1] || m[1] === '0.0.0.0' ? bind : m[1]
+  return `${address}:${m[2]}`
 }
 
 function underLock(cfg, argv) {

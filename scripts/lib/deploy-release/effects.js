@@ -478,7 +478,7 @@ export function createExecutor(cfg, log) {
   }
 
   async function backendFacts(rev, ledgers = ledgerRows()) {
-    const base = (port) => `http://${cfg.host}:${port}`
+    const base = (address) => `http://${address}`
     const containers = serviceContainers(loadConfig(rev))
     const temporal = containers.find((c) => c.service === 'temporal-ext')
     const probe = words('temporal operator cluster health --address temporal-internal:7233')
