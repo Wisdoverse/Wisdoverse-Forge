@@ -394,14 +394,17 @@ Success looks like this:
     host that had no previous copy. To undo, run only the first rename:
     `ALTER DATABASE $DB RENAME TO ${DB}_restore;`.
 
-  When every database is back to its original name, delete the `*_restore`
-  copies as for phases 2 and 3. Then remove the cause; the block prints it, for
+  When every database is back to its state before the restore, delete the
+  `*_restore` copies as for phases 2 and 3. The listing then shows `<db>` and
+  `<db>_restore` for a database that existed before, and only `<db>_restore`
+  for one that did not. Then remove the cause; the block prints it, for
   example a client that is still connected. Paste the block again, or start the
   services again.
 
 - **Stopped in phase 5:** all four databases are already promoted. They passed
   the phase 3 checks, so they are valid. Your previous databases are kept,
-  untouched, as `<db>_before_restore`. Some services may be running. See which
+  untouched, as `<db>_before_restore`; a database that did not exist before
+  the restore has no such copy. Some services may be running. See which
   ones, and why the one that failed did not start:
 
   ```bash
@@ -410,7 +413,7 @@ Success looks like this:
   ```
 
   Then choose one of the two ways forward. Do not paste the whole block
-  again: phase 1 stops, because the `<db>_before_restore` names exist.
+  again; while `<db>_before_restore` names exist, phase 1 refuses to start.
 
   **Resume phase 5 (usual choice).** Choose this when the cause is outside the
   restored data, for example a missing `docker/.env` value, a port in use, a
@@ -452,10 +455,12 @@ Success looks like this:
      `is being accessed by other users`, that database was left unchanged: a
      session of a stopped service has not closed yet. Wait a few seconds and
      run the undo for that database again.
-  3. Run the phase 4 name listing. Each `<db>` and `<db>_restore` exists, and
-     no `<db>_before_restore` is left.
+  3. Run the phase 4 name listing. No `<db>_before_restore` is left. A
+     database that existed before the restore shows `<db>` and `<db>_restore`.
+     A database that did not exist before shows only `<db>_restore`.
   4. Start the services with the resume lines above. They now run on your
-     previous databases.
+     previous databases, exactly as before the restore; a database that did
+     not exist before is absent again.
   5. When they are healthy, delete the `*_restore` copies with the phase 2 and
      3 cleanup block.
 
@@ -618,6 +623,14 @@ binaries, no Temporal server, and no real data.
   - An undo run before the stand-ins' sessions closed failed with
     `is being accessed by other users` and left that database unchanged; the
     guide now says to wait and run that undo again.
+- Follow-up, same day: a signal can arrive between starting a child and
+  recording its process ID. A stub test in the backup image (`pg_dump`
+  replaced by a stub that blocks; TERM at a random 8 to 20 ms after start,
+  2,000 runs) failed the previous command: 10 surviving children, 2 wrong exit
+  codes, and 2 staging folders left. The current command passed: 0, 0, and 0.
+  The interrupted-dump case then passed again against real PostgreSQL: TERM
+  exit 143 in 0.95 s, `docker stop` exit 130 in 0.73 s, staging gone, lock
+  free, published set byte-identical.
 - Not covered: that the real `docker compose up -d --wait` leaves a running
   service alone (Compose's documented behavior; the stand-in did it), and Ctrl+C
   on a manual run in a terminal.

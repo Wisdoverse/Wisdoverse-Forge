@@ -597,21 +597,32 @@ services:
       - -ec
       - |
         exec 9>>/backups/.backup.lock
-        stage=; child=
-        # Children run in the background with fd 9 closed: only this shell holds
-        # the lock, and a trapped signal interrupts `wait` at once.
-        run() { "$$@" 9>&- & child=$$!; wait "$$child"; child=; }
+        stage=; child=; sig=; forking=
+        # Every child runs here: in the background with fd 9 closed (only this
+        # shell holds the lock), so a trapped signal interrupts `wait` at once.
+        # A signal that lands between the fork and `child=$$!` is only recorded
+        # by on_sig, so the check right after the assignment kills that child.
+        run() {
+          forking=1; "$$@" 9>&- & child=$$!; forking=
+          [ -z "$$sig" ] || kill "$$child" 2>/dev/null || :
+          rc=0; wait "$$child" || rc=$$?
+          if [ -n "$$sig" ]; then trap '' TERM HUP INT; wait "$$child" || :; child=; exit "$$sig"; fi
+          child=; return "$$rc"
+        }
         # ash skips the EXIT trap when a signal kills it, so TERM/HUP/INT stop the
         # active child and exit through the EXIT trap (staging removed, lock freed
         # with fd 9). A deliberate stop (`docker stop` sends this image's
         # STOPSIGNAL, SIGINT) exits 130 = 128+2 (TERM 143, HUP 129), the shell
         # convention for "killed by signal": non-zero because the run was
-        # interrupted, not completed.
-        stop() { trap '' TERM HUP INT; [ -z "$$child" ] || { kill "$$child" 2>/dev/null || :; wait "$$child" || :; }; exit "$$1"; }
+        # interrupted, not completed. Without a child, exit at once.
+        on_sig() {
+          sig=$$1
+          if [ -n "$$child" ]; then kill "$$child" 2>/dev/null || :; elif [ -z "$$forking" ]; then trap '' TERM HUP INT; exit "$$1"; fi
+        }
         trap 'rm -rf "$$stage"' EXIT
-        trap 'stop 143' TERM
-        trap 'stop 129' HUP
-        trap 'stop 130' INT
+        trap 'on_sig 143' TERM
+        trap 'on_sig 129' HUP
+        trap 'on_sig 130' INT
         while true; do
           waited=0
           until flock -n 9; do
