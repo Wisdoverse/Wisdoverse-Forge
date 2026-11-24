@@ -39,6 +39,8 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/repositories/orchestration/maintenance_delivery.rs",
     // The merge mutex, decision lock/budget, review-status, attempt and head writes.
     "rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs",
+    // The in-transaction administrator re-check used by the merge gate and head reconciliation.
+    "rust/crates/api/src/repositories/user/mod.rs",
 ];
 
 #[allow(dead_code)]
@@ -639,6 +641,12 @@ mod tests {
             "the merge-mutex query belongs in self_fix_delivery.rs (a protected path), not the shared mod.rs"
         );
         assert!(read("self_fix_delivery.rs").contains("pg_try_advisory_lock"));
+        // The administrator re-check that `lock_task` relies on is protected too,
+        // and must stay in the file the policy names.
+        assert!(blocked(&["rust/crates/api/src/repositories/user/mod.rs"]));
+        let user_repository =
+            std::fs::read_to_string(format!("{}/src/repositories/user/mod.rs", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        assert!(user_repository.contains("fn find_is_admin_by_id_in_tx"));
     }
 
     #[test]
