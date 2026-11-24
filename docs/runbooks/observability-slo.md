@@ -27,13 +27,31 @@ follow exactly this split. The relevant metric families are:
 
 | SLI                       | Metric                                                                                                                            | Definition                                                                                                                                                   |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| API availability          | `http_requests_total{status=~"5..",service!="orchestrator"}`                                                                      | `1 - (5xx requests / total requests)` over a rolling window.                                                                                                 |
+| API availability          | `http_requests_total{status=~"5..",status!="501",service!="orchestrator"}`                                                        | `1 - (5xx requests / total requests)` over a rolling window, with status `501` excluded from both counts.                                                    |
 | API latency (p95)         | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=~"/api/v1/agents.*", method="POST"}[5m])))` | p95 over the agents-runtime write paths, computed from the histogram `_bucket` series (labels `method`/`path`); excludes WebSocket upgrades and SSE streams. |
 | Orchestrator success rate | `task_runs_completed_total{status="success"} / task_runs_completed_total`                                                         | Fraction of completed task runs that ended without an error status.                                                                                          |
 | Workflow start latency    | `temporal_workflow_start_seconds{quantile="0.95"}`                                                                                | Time from `start_workflow` accepted to the workflow worker picking it up.                                                                                    |
 | NATS event delivery       | `nats_messages_delivered_total / nats_messages_published_total`                                                                   | Fraction of events successfully delivered to a consumer.                                                                                                     |
 | DB pool saturation        | `sqlx_connection_pool_in_use / sqlx_connection_pool_size`                                                                         | Average over the SLO window.                                                                                                                                 |
 | WebSocket fanout backlog  | `ws_outbound_buffer_depth{quantile="0.99"}`                                                                                       | Backlog depth at the 99th percentile per connection.                                                                                                         |
+
+A deliberate `501 Not Implemented` reply marks an endpoint that has no implementation yet.
+It does not measure the availability of implemented service, so the availability SLI,
+its alerts and the overview dashboard exclude `status="501"` from both the error count and the request count.
+
+### Not Implemented Responses
+
+The `APINotImplementedResponses` alert (severity `ticket`) fires when any API route answered `501` in the last 15 minutes.
+Its `path` label names the route template, for example `/api/v1/voice/transcribe`.
+Because 501s are excluded from the availability ratio, this alert is the only signal that a route answers 501.
+
+1. Read the `path` label on the alert.
+2. If the path is `/api/v1/voice/transcribe` or `/api/v1/agents/{id}/git`, it is a call to a deprecated stub endpoint.
+   Find the caller from your reverse proxy access log or the API [logs](#logs) for that route.
+   Move the caller off the endpoint before its removal date (see [Preview Boundaries](runtime-validation.md#preview-boundaries)).
+3. For any other path, treat it as a regression of an implemented route: find the change that made the route return 501 and fix or revert it.
+
+Success looks like the alert resolving on its own once no route has answered 501 for 15 minutes.
 
 ## SLO Targets
 
@@ -131,6 +149,7 @@ defaults:
 | Per-path API 5xx rate > 1% over 5 min            | Page     | Fires when the condition remains true for 5 min.             |
 | Global API 5xx rate > 1.4% over 1h and 5m        | Page     | Fires when both windows exceed the threshold for 2 min.      |
 | Global API 5xx rate >= 0.5% over 30 days         | Warning  | Fires when the condition remains true for 1 hour.            |
+| Any API 501 response in the last 15 min          | Ticket   | Fires per route; see [Not Implemented Responses](#not-implemented-responses). |
 | API p95 latency > 1 s for 10 min                 | Warning  | API latency SLI.                                            |
 | Orchestrator workflow start p95 > 5 s for 10 min | Warning  | Workflow start SLI.                                         |
 | Task run failure rate > 5% for 15 min            | Warning  | Orchestrator success rate SLI.                              |
