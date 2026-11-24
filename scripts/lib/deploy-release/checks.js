@@ -192,10 +192,9 @@ export function identityFindings(project, rendered, containers) {
     for (const v of (svc.volumes ?? []).filter((m) => m.type === 'volume')) {
       const want = rendered.volumes?.[v.source]?.name ?? v.source
       const have = c.mounts.find((m) => m.target === v.target)
-      if (have?.name !== want) {
-        out.push(
-          `${c.name} mounts ${have?.name ?? 'nothing'} at ${v.target}; the release expects ${want}`
-        )
+      // Nothing mounted there yet: the release adds this volume (Compose creates it in this project).
+      if (have && have.name !== want) {
+        out.push(`${c.name} mounts ${have.name} at ${v.target}; the release expects ${want}`)
       }
     }
   }

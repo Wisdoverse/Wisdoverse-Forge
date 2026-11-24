@@ -724,6 +724,9 @@ describe('preflight predicates', () => {
     const wrongVolume = { ...container, mounts: [{ target: '/data', name: 'q_nats-data' }] }
     expect(identityFindings('p', rendered, [wrongVolume])).toHaveLength(1)
     expect(identityFindings('p', rendered, [])).toHaveLength(1)
+    // Rehearsal: a volume the release adds (nothing mounted there yet) is not a refusal.
+    const noVolumeYet = { ...container, mounts: [] }
+    expect(identityFindings('p', rendered, [noVolumeYet])).toEqual([])
   })
 
   it('finding 9: refuses when the rollback target is not complete', () => {
