@@ -23,7 +23,7 @@
 #   prod      - Self-contained PostgreSQL + Redis + Caddy
 #   external  - No local DB/Redis (connect to external services via .env)
 #   tools     - Admin UIs (Adminer, Redis Commander)
-#   backup    - Daily pg_dump with 7-day retention
+#   backup    - Daily pg_dump of both bundled databases, 7-day retention
 #   storage   - RustFS S3-compatible object storage
 #   casdoor   - Casdoor OIDC identity provider
 #
@@ -566,7 +566,9 @@ services:
       - default
 
   # ---------------------------------------------------------------------------
-  # Database Backup — Daily pg_dump (profiles: backup)
+  # Database Backup — Daily pg_dump of the bundled orchestrator, Temporal and
+  # API databases (profiles: backup). External databases are the operator's to
+  # back up. BACKUP_ONCE=1 runs one pass and exits (manual backups).
   # ---------------------------------------------------------------------------
   backup:
     image: postgres:18-alpine
@@ -579,17 +581,81 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
       POSTGRES_HOST: db
       POSTGRES_DB: agentforge
+      ORCHESTRATOR_DB_PASSWORD: ${ORCHESTRATOR_DB_PASSWORD:-orchestrator}
 
     volumes:
       - ./backups:/backups
 
+    # A failed dump exits non-zero (container restarts and shows the error in
+    # `ps`/logs) and removes only its own staging directory; dumps are published
+    # as .dump and old ones pruned only after every database dumped successfully.
+    # One lock file serializes passes. The scheduled loop waits as long as it
+    # takes; a one-shot (BACKUP_ONCE=1) waits up to BACKUP_LOCK_WAIT_SECS
+    # (default 600) and then exits 75 without touching any file.
     entrypoint: /bin/sh
-    command: >
-      -c "while true; do
-        pg_dump -h $$POSTGRES_HOST -U $$POSTGRES_USER -d $$POSTGRES_DB -F c -f /backups/agentforge_$$(date +%Y%m%d_%H%M%S).dump;
-        find /backups -name '*.dump' -mtime +7 -delete;
-        sleep 86400;
-      done"
+    command:
+      - -ec
+      - |
+        exec 9>>/backups/.backup.lock
+        stage=; child=; sig=; forking=
+        # Every child runs here: in the background with fd 9 closed (only this
+        # shell holds the lock), so a trapped signal interrupts `wait` at once.
+        # A signal that lands between the fork and `child=$$!` is only recorded
+        # by on_sig, so the check right after the assignment kills that child.
+        run() {
+          forking=1; "$$@" 9>&- & child=$$!; forking=
+          [ -z "$$sig" ] || kill "$$child" 2>/dev/null || :
+          rc=0; wait "$$child" || rc=$$?
+          if [ -n "$$sig" ]; then trap '' TERM HUP INT; wait "$$child" || :; child=; exit "$$sig"; fi
+          child=; return "$$rc"
+        }
+        # ash skips the EXIT trap when a signal kills it, so TERM/HUP/INT stop the
+        # active child and exit through the EXIT trap (staging removed, lock freed
+        # with fd 9). A deliberate stop (`docker stop` sends this image's
+        # STOPSIGNAL, SIGINT) exits 130 = 128+2 (TERM 143, HUP 129), the shell
+        # convention for "killed by signal": non-zero because the run was
+        # interrupted, not completed. Without a child, exit at once.
+        on_sig() {
+          sig=$$1
+          if [ -n "$$child" ]; then kill "$$child" 2>/dev/null || :; elif [ -z "$$forking" ]; then trap '' TERM HUP INT; exit "$$1"; fi
+        }
+        trap 'rm -rf "$$stage"' EXIT
+        trap 'on_sig 143' TERM
+        trap 'on_sig 129' HUP
+        trap 'on_sig 130' INT
+        while true; do
+          waited=0
+          until flock -n 9; do
+            if [ "$${BACKUP_ONCE:-0}" = 1 ] && [ "$$waited" -ge "$${BACKUP_LOCK_WAIT_SECS:-600}" ]; then
+              echo "backup: another backup run still holds /backups/.backup.lock after $${waited}s; not started" >&2
+              exit 75
+            fi
+            if [ "$$waited" = 0 ]; then echo "backup: another backup run is in progress; waiting for it"; fi
+            run sleep 5
+            waited=$$((waited + 5))
+          done
+          # With the lock held no other pass is running, so a staging dir older than a day is a leftover (e.g. after SIGKILL).
+          find /backups -maxdepth 1 -name '.staging-*' -mmin +1440 -exec rm -rf {} +
+          ts=$$(date +%Y%m%d_%H%M%S)
+          # A pass that finished within the same second already published this timestamp.
+          while ls /backups/*_"$$ts".dump >/dev/null 2>&1; do run sleep 1; ts=$$(date +%Y%m%d_%H%M%S); done
+          stage="/backups/.staging-$$ts-$$(hostname)"
+          mkdir "$$stage"
+          # Referencing side first, referenced side last: orchestrator rows hold Temporal execution and API ids; everything holds API ids.
+          PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" run pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "$$stage/orchestrator.dump"
+          for db in temporal temporal_visibility "$$POSTGRES_DB"; do
+            PGPASSWORD="$$POSTGRES_PASSWORD" run pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$db" -F c -f "$$stage/$$db.dump"
+          done
+          for db in orchestrator temporal temporal_visibility "$$POSTGRES_DB"; do
+            mv "$$stage/$$db.dump" "/backups/$${db}_$$ts.dump"
+          done
+          rmdir "$$stage"
+          find /backups -maxdepth 1 -name '*.dump' -mtime +7 -delete
+          echo "backup complete: $$ts (orchestrator temporal temporal_visibility $$POSTGRES_DB)"
+          if [ "$${BACKUP_ONCE:-0}" = 1 ]; then exit 0; fi
+          flock -u 9
+          run sleep 86400
+        done
 
     networks:
       - default
@@ -961,6 +1027,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     networks:
       - default
     labels:

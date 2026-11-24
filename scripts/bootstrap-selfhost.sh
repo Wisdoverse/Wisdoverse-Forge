@@ -319,6 +319,7 @@ require_prod_env() {
     APP_URL \
     CORS_ORIGIN \
     POSTGRES_PASSWORD \
+    ORCHESTRATOR_DB_PASSWORD \
     REDIS_PASSWORD \
     JWT_SECRET \
     BOOTSTRAP_ADMIN_TOKEN \
@@ -403,6 +404,14 @@ fill_selfhost_env() {
     generate_nats_material
   fi
 
+  # An env file that already has POSTGRES_PASSWORD belongs to an existing
+  # install whose orchestrator volume was created with the old default; a
+  # generated value would lock the orchestrator out, so ask instead of guessing.
+  if [ -z "$(env_value ORCHESTRATOR_DB_PASSWORD)" ] && [ -n "$(env_value POSTGRES_PASSWORD)" ] &&
+    [ "$CREATED_ENV" -eq 0 ] && [ "$CHECK_ONLY" -eq 0 ]; then
+    die "ORCHESTRATOR_DB_PASSWORD is missing from $ENV_FILE. Existing install: add ORCHESTRATOR_DB_PASSWORD=orchestrator (the old default, unless you set your own) and rerun. Fresh host with no orchestrator database yet: add ORCHESTRATOR_DB_PASSWORD=\$(openssl rand -hex 24). See docs/runbooks/self-host-ops.md."
+  fi
+  ensure_generated_env_value ORCHESTRATOR_DB_PASSWORD "$(random_hex 24)"
   ensure_generated_env_value POSTGRES_PASSWORD "$(random_hex 24)"
   ensure_generated_env_value REDIS_PASSWORD "$(random_hex 24)"
   ensure_generated_env_value JWT_SECRET "$(random_base64 64)"
