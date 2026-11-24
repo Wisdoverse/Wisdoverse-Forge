@@ -35,7 +35,14 @@ No active frontend code lives outside `src/app`. When behavior is needed from
 a retired root-level path, move or adapt it under the right FSD layer first.
 
 `npm run fsd:check` is wired into `npm run lint` so CI rejects boundary
-regressions.
+regressions. Besides the layer order, it enforces:
+
+- Code outside an `entities`, `features`, `widgets`, or `pages` slice imports
+  that slice only through its root barrel (`index.ts`).
+- Every file under `shared/api` and `shared/lib` is listed in the checker's
+  shared inventory as `generic` or `frozen-domain`. A new file must be
+  generic; new domain code goes to its `entities` slice. A frozen-domain file
+  moves to its `entities` slice when it next changes, and its entry goes away.
 
 ## Consequences
 

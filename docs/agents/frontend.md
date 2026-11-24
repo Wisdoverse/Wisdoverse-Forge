@@ -25,10 +25,10 @@ Its layer order is `app -> pages -> widgets -> features -> entities -> shared`.
 
 - Import an `entities`, `features`, `widgets`, or `pages` slice from outside it only through its root barrel, such as `@app/entities/navigation`.
 - Inside a slice, import its own files directly, not through its own barrel.
-- `npm run fsd:check` lists every file under `shared/api` and `shared/lib` as generic or frozen domain code.
+- `sharedFileInventory` in `scripts/check-fsd-boundaries.mjs` lists every file under `shared/api` and `shared/lib` as `generic` or `frozen-domain`.
 - Put new domain code in its `entities` slice.
-- Add a new generic file to `genericSharedFiles` in `scripts/check-fsd-boundaries.mjs` with a one-line reason.
-- Move a frozen domain file to its `entities` slice when you next change it, then remove its entry.
+- Add a new generic file to `sharedFileInventory` as `generic`, with a one-line reason.
+- Move a `frozen-domain` file to its `entities` slice when you next change it, then remove its entry.
 - Compose new views through `routes`, `pages`, or `widgets`.
 - Do not restore a root-level view registry.
 - Run `npm run fsd:check` for every frontend change.
