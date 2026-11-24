@@ -19,6 +19,10 @@ export const maintenanceGuidance: Record<MaintenanceFailure, string> = {
   'reconcile-base-changed':
     'The pull request no longer targets the branch this task was opened for. Finish the change on GitHub.',
   'reconcile-merged': 'This change is already merged. There is no newer revision to use.',
+  'reconcile-merge-unconfirmed':
+    'A finish attempt for this change is in progress or not confirmed. Choose Finish this fix to complete it, then use the new revision.',
+  'provider-unavailable':
+    'GitHub or Forge was temporarily unavailable. Retry with the same source in a moment.',
   unauthenticated:
     'Sign in again, then return to this task or retry with the same source reference.',
   forbidden:

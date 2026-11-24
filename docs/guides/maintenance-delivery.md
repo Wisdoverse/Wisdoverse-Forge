@@ -42,7 +42,7 @@ To adopt the newer revision:
 2. The panel shows **The pull request has a newer revision**, with the recorded revision and the newer revision on GitHub (short forms).
 3. Choose **Use the new revision**, check both revisions, then choose **Confirm: use revision …**.
 
-Forge checks GitHub again before it writes anything. The pull request must be open, its base unchanged, and its head equal to the revision you confirmed. Forge also lists the pull request's changed files. If any file is sensitive, or the list is incomplete or cannot be read, the task becomes **Needs owner or admin check** (`sensitive_blocked`) and in-app finishing stays disabled. A reconcile never clears an existing sensitive block.
+Forge checks GitHub again before it writes anything. The pull request must be open, its base unchanged, and its head equal to the revision you confirmed. Forge also lists the pull request's changed files and reads the pull request once more; if its head moved in between, the action is refused. If any file is sensitive, or the list reaches GitHub's limit of 3000 files and may be incomplete, the task becomes **Needs owner or admin check** (`sensitive_blocked`) and in-app finishing stays disabled. A reconcile never clears an existing sensitive block.
 
 Success looks like this: the panel announces that the newer revision is recorded, and **Current recorded revision** shows the new head. An audit record names you and both revisions. Earlier reports and verdicts are kept, but they belong to the old revision and no longer apply. A rejection of the old revision no longer blocks finishing. The merge-attempt count and the review deadline do not change.
 
@@ -50,17 +50,17 @@ What to do next: run or review the change at the new revision, save a new verifi
 
 If the action is refused, the API returns HTTP `409` with one of these codes:
 
-| Code                                              | Meaning                                               | What to do                                                 |
-| ------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
-| `errors.self_fix.reconcile_stale`                 | The recorded revision changed since the page loaded   | Refresh evidence, check both revisions, try again          |
-| `errors.self_fix.reconcile_head_mismatch`         | The pull request moved again                          | Refresh evidence to see the newest revision, try again     |
-| `errors.self_fix.reconcile_pull_request_not_open` | The pull request is closed or merged on GitHub        | Reopen it on GitHub, or finish the change there            |
-| `errors.self_fix.reconcile_base_changed`          | The pull request targets another repository or branch | Finish the change on GitHub                                |
-| `errors.self_fix.reconcile_merged`                | The change is already merged                          | Nothing to adopt                                           |
-| `errors.maintenance.merge_in_progress`            | A finish attempt is in progress or unconfirmed        | Choose **Finish this fix** to complete or confirm it first |
-| `errors.self_fix.merge_running`                   | Another operation on this change is running           | Wait a moment, then try again                              |
+| Code                                              | Meaning                                               | What to do                                                           |
+| ------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------- |
+| `errors.self_fix.reconcile_stale`                 | The recorded revision changed since the page loaded   | Refresh evidence, check both revisions, try again                    |
+| `errors.self_fix.reconcile_head_mismatch`         | The pull request moved again                          | Refresh evidence to see the newest revision, try again               |
+| `errors.self_fix.reconcile_pull_request_not_open` | The pull request is closed or merged on GitHub        | Reopen it on GitHub, or finish the change there                      |
+| `errors.self_fix.reconcile_base_changed`          | The pull request targets another repository or branch | Finish the change on GitHub                                          |
+| `errors.self_fix.reconcile_merged`                | The change is already merged                          | Nothing to adopt                                                     |
+| `errors.self_fix.reconcile_merge_unconfirmed`     | A finish attempt is in progress or not confirmed      | Choose **Finish this fix** to complete it, then use the new revision |
+| `errors.self_fix.merge_running`                   | Another operation on this change is running           | Wait a moment, then try again                                        |
 
-If GitHub cannot be read, the API returns HTTP `503` and nothing is written. Try again when GitHub is reachable. Another organization's task returns `404`, and a caller who is not a platform administrator gets `403`.
+If GitHub cannot be read, including the changed-file list, the API returns HTTP `503` and nothing is written: the revision, status and audit log stay unchanged. Try again when GitHub is reachable. Another organization's task returns `404`, and a caller who is not a platform administrator gets `403`.
 
 ## Interpreting records and totals
 

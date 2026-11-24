@@ -31,6 +31,8 @@ export type MaintenanceFailure =
   | 'reconcile-not-open'
   | 'reconcile-base-changed'
   | 'reconcile-merged'
+  | 'reconcile-merge-unconfirmed'
+  | 'provider-unavailable'
 
 export class MaintenanceError extends Error {
   constructor(public readonly reason: MaintenanceFailure) {
@@ -49,6 +51,7 @@ const CONFLICT_FAILURES = new Map<unknown, MaintenanceFailure>([
   ['errors.self_fix.reconcile_pull_request_not_open', 'reconcile-not-open'],
   ['errors.self_fix.reconcile_base_changed', 'reconcile-base-changed'],
   ['errors.self_fix.reconcile_merged', 'reconcile-merged'],
+  ['errors.self_fix.reconcile_merge_unconfirmed', 'reconcile-merge-unconfirmed'],
 ])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i
@@ -257,6 +260,7 @@ async function exchange<T>(
       const code = (payload as { error?: { code?: unknown } } | null)?.error?.code
       throw new MaintenanceError(CONFLICT_FAILURES.get(code) ?? 'conflict')
     }
+    if (response.status === 503) throw new MaintenanceError('provider-unavailable')
     if (!response.ok) {
       if (response.status !== 400) throw new MaintenanceError('failed')
       const payload: unknown = await Promise.race([response.json().catch(() => null), interrupted])

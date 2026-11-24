@@ -63,7 +63,7 @@ impl SensitivePathPolicy {
 /// Review status vocabulary (mirrors orchestrator ReviewState; driven API-side).
 mod reconcile;
 pub(crate) use reconcile::{
-    RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction, ReconcileHeadInput,
+    FileListing, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction, ReconcileHeadInput,
     ReconcileHeadResult, ReconcileObservation, reconcile_head_action, reconcile_head_audit_details, reconcile_refusal,
 };
 

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { MaintenanceDelivery } from '@shared/types/maintenance-delivery'
+import type { MaintenanceDelivery, ReconcileHeadResult } from '@shared/types/maintenance-delivery'
 import { reconcileMaintenanceHead } from '@app/entities/maintenance'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { Feedback } from './fields'
@@ -18,6 +18,20 @@ export function adoptableHead(data: MaintenanceDelivery): { stored: string; next
   return { stored, next: snapshot.headSha }
 }
 
+/** What the operator can do after the newer revision is recorded. */
+export function reconciledNotice(result: ReconcileHeadResult, data: MaintenanceDelivery): string {
+  const recorded =
+    'The newer revision is now recorded. Earlier reports and verdicts no longer apply.'
+  if (result.reviewStatus === 'sensitive_blocked')
+    return `${recorded} It changes sensitive files or could not be fully checked, so finishing in Forge is disabled. Ask an owner or admin to review it and finish it on GitHub.`
+  if (
+    result.reviewStatus === 'changes_requested' ||
+    data.recovery.mergeAttempts >= data.recovery.mergeLimit
+  )
+    return `${recorded} Forge cannot finish this change any more because changes were requested or no finish attempts remain. Review the new revision and finish it on GitHub.`
+  return `${recorded} Create a new report for the new revision before acceptance.`
+}
+
 /**
  * Adopt the pull request's new head after an outside push. Two steps: the
  * action, then an in-page confirmation showing both revisions.
@@ -27,11 +41,14 @@ export function ReconcileHeadForm({
   onReconciled,
 }: {
   data: MaintenanceDelivery
-  onReconciled: () => void
+  onReconciled: (notice: string) => void
 }) {
   const heads = adoptableHead(data)
   const [confirming, setConfirming] = useState(false)
-  const submission = useSubmission(onReconciled)
+  const result = useRef<ReconcileHeadResult | null>(null)
+  const submission = useSubmission(() => {
+    if (result.current) onReconciled(reconciledNotice(result.current, data))
+  })
   const consequenceId = useId()
   const confirmRef = useRef<HTMLButtonElement>(null)
   // Move focus to the confirmation when it appears.
@@ -42,9 +59,9 @@ export function ReconcileHeadForm({
   function adopt() {
     if (!heads) return
     const input = { expectedStoredHead: heads.stored, expectedNewHead: heads.next }
-    void submission.submit(input, (_key, signal) =>
-      reconcileMaintenanceHead(data.trace.taskId, input, signal)
-    )
+    void submission.submit(input, async (_key, signal) => {
+      result.current = await reconcileMaintenanceHead(data.trace.taskId, input, signal)
+    })
   }
   return (
     <div

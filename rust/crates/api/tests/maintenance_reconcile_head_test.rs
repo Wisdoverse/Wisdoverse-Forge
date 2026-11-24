@@ -15,7 +15,7 @@ use uuid::Uuid;
 use self_fix_harness::*;
 
 const RUNNING: &str = "errors.self_fix.merge_running";
-const IN_PROGRESS: &str = "errors.maintenance.merge_in_progress";
+const MERGE_UNCONFIRMED: &str = "errors.self_fix.reconcile_merge_unconfirmed";
 
 async fn reconcile(app: Router, jwt: String, task: Uuid, stored: char, new: char) -> (StatusCode, Value) {
     let body = json!({"expectedStoredHead": sha(stored), "expectedNewHead": sha(new)});
@@ -196,19 +196,29 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     assert_eq!((status, code(&body)), (StatusCode::FORBIDDEN, "errors.self_fix.sensitive_path_blocked"), "{body}");
     assert_eq!(audits(&pool, task).await[0].1["sensitive"], true);
 
-    // A truncated listing (pages never end) and a failed listing count as sensitive.
-    for (pr, reference, endless) in [(100, "reconcile-truncated", true), (101, "reconcile-listing-failed", false)] {
-        let task = f.task(reference, pr, 'c').await;
-        f.fake.set_head(pr, 'd');
-        if endless {
-            f.fake.endless_files.lock().unwrap().insert(pr);
-        } else {
-            f.fake.failing_files.lock().unwrap().insert(pr);
-        }
-        let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
-        assert_eq!(status, StatusCode::OK, "{reference}: {body}");
-        assert_eq!(row(&pool, task).await.1, "sensitive_blocked", "{reference}");
-    }
+    // A listing that reaches the provider's cap (pages never end) counts as sensitive.
+    let task = f.task("reconcile-truncated", 100, 'c').await;
+    f.fake.set_head(100, 'd');
+    f.fake.endless_files.lock().unwrap().insert(100);
+    let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(row(&pool, task).await.1, "sensitive_blocked");
+
+    // A FAILED listing is a refusal like any other failed provider read: 503,
+    // head and status unchanged, no audit record. A retry with a healthy
+    // provider then adopts normally.
+    let task = f.task("reconcile-listing-failed", 101, 'c').await;
+    f.fake.set_head(101, 'd');
+    f.fake.failing_files.lock().unwrap().insert(101);
+    let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    let unchanged = row(&pool, task).await;
+    assert_eq!((unchanged.0, unchanged.1, audits(&pool, task).await.len()), (sha('c'), "in_review".into(), 0));
+    f.fake.failing_files.lock().unwrap().clear();
+    let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+    assert_eq!((status, body["data"]["sensitive"].clone()), (StatusCode::OK, json!(false)), "{body}");
+    let adopted = row(&pool, task).await;
+    assert_eq!((adopted.0, adopted.1, audits(&pool, task).await.len()), (sha('d'), "in_review".into(), 1));
 
     // An existing `sensitive_blocked` is never cleared by a clean new head.
     let task = f.task("reconcile-keep-blocked", 102, 'c').await;
@@ -231,7 +241,7 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
         .unwrap();
     f.fake.set_head(103, 'd');
     let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
-    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, MERGE_UNCONFIRMED), "{body}");
     assert_eq!(row(&pool, task).await.0, sha('c'));
 
     // A provider read failure fails closed: nothing written.
@@ -244,7 +254,7 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
 
     // Approve paused at the provider merge call: a reconcile is refused by the
     // merge mutex. Fails if the reconcile skips the mutex (it would see
-    // `approved` and answer the in-progress code instead).
+    // `approved` and answer `reconcile_merge_unconfirmed` instead).
     let task = f.task("reconcile-vs-merge", 105, 'c').await;
     f.report(task).await;
     let (entered, release) = f.fake.hold(105);

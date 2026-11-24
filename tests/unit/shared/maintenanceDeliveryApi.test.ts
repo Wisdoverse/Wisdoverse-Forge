@@ -175,6 +175,7 @@ describe('revision-bound maintenance evidence boundary', () => {
       ['errors.self_fix.reconcile_pull_request_not_open', 'reconcile-not-open'],
       ['errors.self_fix.reconcile_base_changed', 'reconcile-base-changed'],
       ['errors.self_fix.reconcile_merged', 'reconcile-merged'],
+      ['errors.self_fix.reconcile_merge_unconfirmed', 'reconcile-merge-unconfirmed'],
       ['constructor', 'conflict'],
     ]) {
       mocks.fetch.mockResolvedValueOnce(
@@ -184,6 +185,14 @@ describe('revision-bound maintenance evidence boundary', () => {
         reason,
       })
     }
+    mocks.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: false, error: { code: 'SERVICE_UNAVAILABLE' } }), {
+        status: 503,
+      })
+    )
+    await expect(reconcileMaintenanceHead(maintenanceTaskId, input)).rejects.toMatchObject({
+      reason: 'provider-unavailable',
+    })
     const result = {
       taskId: maintenanceTaskId,
       previousHead: input.expectedStoredHead,

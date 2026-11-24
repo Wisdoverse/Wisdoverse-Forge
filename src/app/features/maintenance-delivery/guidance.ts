@@ -19,6 +19,10 @@ export function deliveryGuidance(error: unknown): string {
     return 'The pull request no longer targets the branch this task was opened for. Finish the change on GitHub.'
   if (reason === 'reconcile-merged')
     return 'This change is already merged. There is no newer revision to use.'
+  if (reason === 'reconcile-merge-unconfirmed')
+    return 'A finish attempt for this change is in progress or not confirmed. Choose Finish this fix to complete it, then use the new revision.'
+  if (reason === 'provider-unavailable')
+    return 'GitHub could not be read, so nothing was changed. Try again in a moment.'
   if (reason === 'merge-in-progress')
     return "A merge of this change is in progress or unconfirmed. Choose Finish this fix in the task's fix check status to complete it, then record the verdict."
   if (reason === 'delivery-unavailable')

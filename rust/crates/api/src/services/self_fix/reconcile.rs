@@ -14,7 +14,7 @@ use super::delivery_write;
 use super::merge_lock::MergeLock;
 use crate::domain::self_fix::review_status::SENSITIVE_BLOCKED;
 use crate::domain::self_fix::{
-    RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction, ReconcileHeadInput,
+    FileListing, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction, ReconcileHeadInput,
     ReconcileHeadResult, ReconcileObservation, SelfFixPolicy, reconcile_head_action, reconcile_head_audit_details,
     reconcile_refusal,
 };
@@ -85,24 +85,26 @@ impl SelfFixService {
             None => github.repository_setup().await?.default_branch,
         };
 
-        // Live reads. A failed pull-request read fails closed. A failed or
-        // truncated file listing counts as sensitive. The pull request is read
-        // again after the listing so the listing describes the observed head.
+        // Live reads. A failed pull-request read or file listing fails closed
+        // (503, nothing written, safe to retry). A listing at the provider's
+        // cap counts as sensitive. The pull request is read again after the
+        // listing; if its head moved in between, the decision refuses.
         let before = github.maintenance_pull_request(pr_number).await?;
-        let files = match github.pull_request_files(pr_number).await {
-            Ok(listing) if listing.complete => Some(listing.paths),
-            Ok(_) => None,
-            Err(err) => {
-                tracing::warn!(error = ?err, task_id = %task_id, "self-fix reconcile: file listing failed; treating the head as sensitive");
-                None
-            }
-        };
+        let listing = github.pull_request_files(pr_number).await;
+        if let Err(err) = &listing {
+            tracing::warn!(error = ?err, task_id = %task_id, "self-fix reconcile: file listing failed; refusing");
+        }
         let after = github.maintenance_pull_request(pr_number).await?;
         let observation = ReconcileObservation {
             state: &after.state,
             base_unchanged: repository_matches && after.base_branch == expected_base,
             head: &after.head_sha,
-            changed_files: files.as_deref().filter(|_| before.head_sha == after.head_sha),
+            head_before_listing: &before.head_sha,
+            listing: match &listing {
+                Ok(files) if files.complete => FileListing::Complete(&files.paths),
+                Ok(_) => FileListing::Capped,
+                Err(_) => FileListing::Failed,
+            },
         };
         let action = reconcile_head_action(
             task.review_status.as_deref(),

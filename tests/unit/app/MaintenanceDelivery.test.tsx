@@ -164,11 +164,50 @@ describe('maintenance evidence operator workflow', () => {
       expectedStoredHead: stored,
       expectedNewHead: next,
     })
-    const notice = await screen.findByText(/The newer revision is now recorded/)
+    const notice = await screen.findByText(
+      'The newer revision is now recorded. Earlier reports and verdicts no longer apply. Create a new report for the new revision before acceptance.'
+    )
     expect(notice).toHaveAttribute('role', 'status')
     await waitFor(() => expect(notice).toHaveFocus())
     expect(mocks.get).toHaveBeenCalledTimes(2)
   })
+  it.each([
+    [
+      'a task at the attempt limit',
+      'in_review',
+      3,
+      /no finish attempts remain\. Review the new revision and finish it on GitHub\./,
+    ],
+    [
+      'a task with changes requested',
+      'changes_requested',
+      0,
+      /changes were requested or no finish attempts remain/,
+    ],
+    ['a sensitive new revision', 'sensitive_blocked', 0, /finishing in Forge is disabled/],
+  ] as const)(
+    'tells the truth about what happens next for %s',
+    async (_case, status, attempts, expected) => {
+      const data = maintenanceDelivery()
+      data.trace.producedState.headChanged = true
+      data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+      data.recovery.mergeAttempts = attempts
+      data.recovery.reviewStatus = status === 'sensitive_blocked' ? 'in_review' : status
+      mocks.get.mockResolvedValue(data)
+      mocks.reconcile.mockResolvedValue({
+        taskId: maintenanceTaskId,
+        previousHead: data.trace.recordedPrHeadSha,
+        currentHead: 'd'.repeat(40),
+        changed: true,
+        sensitive: status === 'sensitive_blocked',
+        reviewStatus: status,
+      })
+      render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Use the new revision' }))
+      fireEvent.click(screen.getByRole('button', { name: /Confirm: use revision/ }))
+      expect(await screen.findByText(expected)).toHaveAttribute('role', 'status')
+    }
+  )
   it('cancels the confirmation without writing', async () => {
     const data = maintenanceDelivery()
     data.trace.producedState.headChanged = true
@@ -207,6 +246,26 @@ describe('maintenance evidence operator workflow', () => {
     render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
     await screen.findByTestId('verification-report')
     expect(screen.queryByTestId('maintenance-reconcile-head')).toBeNull()
+  })
+  it.each([
+    [
+      'reconcile-merge-unconfirmed',
+      'A finish attempt for this change is in progress or not confirmed. Choose Finish this fix to complete it, then use the new revision.',
+    ],
+    [
+      'provider-unavailable',
+      'GitHub could not be read, so nothing was changed. Try again in a moment.',
+    ],
+  ] as const)('explains the %s refusal of the newer revision', async (reason, message) => {
+    const data = maintenanceDelivery()
+    data.trace.producedState.headChanged = true
+    data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+    mocks.get.mockResolvedValue(data)
+    mocks.reconcile.mockRejectedValueOnce(new MaintenanceError(reason))
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the new revision' }))
+    fireEvent.click(screen.getByRole('button', { name: /Confirm: use revision/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
   })
   it('explains a refused newer revision in plain language', async () => {
     const data = maintenanceDelivery()

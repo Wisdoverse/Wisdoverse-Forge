@@ -58,10 +58,8 @@ function Panel({ taskId }: { taskId: string }) {
     setNotice('Record saved. Refreshing the current evidence and history.')
     refresh()
   }
-  function reconciled() {
-    setNotice(
-      'The newer revision is now recorded. Earlier reports and verdicts no longer apply; create a new report before acceptance.'
-    )
+  function reconciled(message: string) {
+    setNotice(message)
     setFocusNotice((n) => n + 1)
     refresh()
   }
