@@ -48,14 +48,14 @@ Complete every item before the first deploy.
 
 ### Jenkins job settings
 
-| Setting | Value |
-| --- | --- |
-| Job type | Pipeline |
-| Definition | Pipeline script from SCM, Git, this repository |
-| Branch | `main` (not `DEV`). The pipeline deploys `DEV` itself. |
-| Script path | `Jenkinsfile` |
-| Lightweight checkout | Allowed. It is used only to read `Jenkinsfile`. |
-| Build triggers | None until the first supervised deploy has succeeded. Then enable SCM polling. The pipeline checks out `DEV` with polling, so polling watches `DEV`. Do not add a webhook. |
+| Setting              | Value                                                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job type             | Pipeline                                                                                                                                                                   |
+| Definition           | Pipeline script from SCM, Git, this repository                                                                                                                             |
+| Branch               | `main` (not `DEV`). The pipeline deploys `DEV` itself.                                                                                                                     |
+| Script path          | `Jenkinsfile`                                                                                                                                                              |
+| Lightweight checkout | Allowed. It is used only to read `Jenkinsfile`.                                                                                                                            |
+| Build triggers       | None until the first supervised deploy has succeeded. Then enable SCM polling. The pipeline checks out `DEV` with polling, so polling watches `DEV`. Do not add a webhook. |
 
 ### Environment file credential
 
@@ -67,19 +67,29 @@ The file is a Compose environment file, the same as `docker/.env` for
 `make prod-ext`. It must contain everything `docker/compose.yml` and
 `docker/compose.external.yml` need, plus these variables:
 
-| Variable | Required | Meaning |
-| --- | --- | --- |
-| `COMPOSE_PROJECT_NAME` | yes | Compose project of the stack, for example `wisdoverse-forge` |
-| `DATABASE_URL` | yes | API database, `postgres://<api-role>:<password>@<db-host>:5432/<api-db>` |
-| `ORCHESTRATOR_DATABASE_URL` | yes | Orchestrator database, with its own role |
-| `DB_HOST`, `DB_PORT` | yes | Database server for Temporal |
-| `TEMPORAL_DB_USER`, `TEMPORAL_DB_PASSWORD` | yes | Temporal role. The databases are `TEMPORAL_DB_NAME` (default `temporal`) and `<name>_visibility`. |
-| `EXTERNAL_NETWORK` | yes | Docker network where the database host name resolves |
-| `WEBROOT` | yes | Absolute host path the web server serves, for example `/srv/forge-deploy/www` |
-| `APP_URL` | yes | Public URL used to check the served `index.html`, for example `https://forge.example.com` |
-| `DEPLOY_LOCK_DIR` | no | Lock directory. The default is `/var/lock/forge-deploy`. |
-| `DEPLOY_PG_CLIENT_IMAGE` | no | PostgreSQL client image. The default is `postgres:18-alpine`. |
-| `WEBROOT_OWNER_UID`, `WEBROOT_OWNER_GID` | no | Owner of written frontend files. The default is the owner of `WEBROOT`. |
+Every variable that locates state, a network, a lock or a probe target is
+REQUIRED. The tool uses no defaults for them: several Compose defaults are
+the names of an existing deployment, and on a shared host a missing variable
+would point at it. A missing one is a refusal (exit 12) that lists the names.
+
+| Variable                                                                                                                      | Meaning                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `COMPOSE_PROJECT_NAME`, `CONTAINER_NAME_PREFIX`                                                                               | Compose project and container name prefix of this deployment                       |
+| `DATABASE_URL`                                                                                                                | API database, `postgres://<api-role>:<password>@<db-host>:5432/<api-db>`           |
+| `ORCHESTRATOR_DATABASE_URL`                                                                                                   | Orchestrator database, with its own role                                           |
+| `DB_HOST`, `DB_PORT`                                                                                                          | Database server for Temporal                                                       |
+| `TEMPORAL_DB_USER`, `TEMPORAL_DB_PASSWORD`, `TEMPORAL_DB_NAME`                                                                | Temporal role and database; the visibility database is `<name>_visibility`         |
+| `EXTERNAL_NETWORK`                                                                                                            | Docker network where the database host name resolves                               |
+| `CONTAINER_NETWORK`                                                                                                           | Docker network of this deployment's agent containers                               |
+| `WEBROOT`                                                                                                                     | Absolute host path the web server serves, for example `/srv/forge-deploy/www`      |
+| `AGENTFORGE_WORKSPACE_ROOT`, `OAUTH_MOUNT_DIR`                                                                                | Absolute host paths of the agent workspaces and the OAuth staging directory        |
+| `DEPLOY_LOCK_DIR`                                                                                                             | Absolute lock directory, for example `/var/lock/forge-deploy`                      |
+| `APP_URL`                                                                                                                     | URL used to check the served `index.html`, for example `https://forge.example.com` |
+| `BIND_ADDRESS`, `AGENTFORGE_PORT`, `ORCHESTRATOR_PORT`, `NATS_PORT`, `NATS_MONITOR_PORT`, `TEMPORAL_PORT`, `TEMPORAL_UI_PORT` | Published address and ports; the health probes use them                            |
+
+Optional: `DEPLOY_PG_CLIENT_IMAGE` (PostgreSQL client image, default
+`postgres:18-alpine`), `WEBROOT_OWNER_UID`/`WEBROOT_OWNER_GID` (owner of
+written frontend files, default the owner of `WEBROOT`).
 
 Rules for this file:
 
@@ -100,10 +110,10 @@ Rules for this file:
 `DEV` is a deploy pointer. It only moves to commits that are already on `main`.
 In the GitHub repository settings, create two rulesets for `DEV`:
 
-| Ruleset | Rules | Bypass |
-| --- | --- | --- |
-| A | Block force pushes. Block deletion. | Nobody |
-| B | Restrict updates. | Repository administrators |
+| Ruleset | Rules                               | Bypass                    |
+| ------- | ----------------------------------- | ------------------------- |
+| A       | Block force pushes. Block deletion. | Nobody                    |
+| B       | Restrict updates.                   | Repository administrators |
 
 Do not add pull-request or linear-history rules to `DEV`. Commits are reviewed
 when they enter `main`.
@@ -130,7 +140,7 @@ different remedies:
 
 - `permission denied for database "postgres"`: the role lacks the `CONNECT`
   privilege. A database administrator runs `GRANT CONNECT ON DATABASE postgres
-  TO <role>` (or to `PUBLIC`).
+TO <role>` (or to `PUBLIC`).
 - `database "postgres" is not currently accepting connections`: connections to
   `postgres` are disabled for everyone, and `GRANT CONNECT` does not change
   that. Check from the role's own database:
@@ -186,7 +196,10 @@ Run the Jenkins job with `ACTION=stage`. It only prepares:
 
 - it archives the `DEV` commit into `release/releases/<commit>/`
 - it stages the env file and the runner reference in `private/staged/`
-- it builds the runner image `forge-deploy-runner:<commit>`
+- it builds the runner image under a temporary tag, creates
+  `forge-deploy-runner:<commit>` only if that tag does not exist yet (otherwise
+  it adopts the existing image), and records the runner's image id in
+  `private/staged/runner-image`. Every later run starts the runner by that id.
 
 It does not run the deploy script against the stack and changes nothing in the
 running stack.
@@ -248,6 +261,7 @@ is a scratch file in the release root, not repository code.
 
 ```bash
 REV=<release-commit>                               # "Release commit:" line of step 1
+IMG=$(sudo cat "$ROOT/private/staged/runner-image")  # the runner's image id
 WEB=/srv/forge-deploy/www                          # your WEBROOT
 LOCK=/var/lock/forge-deploy                         # your DEPLOY_LOCK_DIR
 
@@ -260,8 +274,8 @@ sudo docker run --rm --network host \
   -e TMPDIR="$ROOT/release/tmp" \
   -e FORGE_RELEASE_ROOT="$ROOT/release" \
   -e FORGE_PRIVATE_ROOT="$ROOT/private" \
-  -e FORGE_RUNNER_IMAGE="forge-deploy-runner:$REV" \
-  "forge-deploy-runner:$REV" \
+  -e FORGE_RUNNER_IMAGE="$IMG" \
+  "$IMG" \
   node "$ROOT/release/releases/$REV/scripts/deploy-release.mjs" baseline
 ```
 
@@ -301,8 +315,8 @@ the `nats` ports are defined in `release/releases/baseline/docker/compose.yml`.
 Change that entry:
 
 ```yaml
-    ports:
-      - '127.0.0.1:${NATS_PORT:-4222}:4222'   # was '${NATS_PORT:-4222}:4222'
+ports:
+  - '127.0.0.1:${NATS_PORT:-4222}:4222' # was '${NATS_PORT:-4222}:4222'
 ```
 
 Then run 2c again, and repeat until it prints `baseline recorded`.
@@ -462,10 +476,10 @@ that carry it, then recover:
 
 1. the env file of the active input generation:
    `private/inputs/<generation>/deploy.env` (`status`: `active inputs:
-   generation <generation>`)
+generation <generation>`)
 2. the saved rendered configuration of the release a rollback starts:
    `private/configs/<previous-release-id>.json` (`status`: `attempt: <attempt>
-   <previous-release-id> -> <target>`; without an unfinished attempt, the
+<previous-release-id> -> <target>`; without an unfinished attempt, the
    `previous release:` line)
 
 Editing only the env file does not help: a rollback starts the previous
@@ -480,7 +494,7 @@ runner only through the environment:
 ROOT=<jenkins-home-host-path>/forge-deploy/<job-name>
 GEN=<generation>
 PREV=<previous-release-id>
-REV=$(sudo sed -n 's/^  "activeRunner": "\([0-9a-f]*\)",\{0,1\}$/\1/p' "$ROOT/private/state.json")
+IMG=$(sudo sed -n 's/^  "activeRunnerImage": "\(sha256:[0-9a-f]*\)",\{0,1\}$/\1/p' "$ROOT/private/state.json")
 sudo tee "$ROOT/private/.replace-credential.js" >/dev/null <<'SCRIPT'
 const fs = require('fs'); const o = process.env.OLD; const n = process.env.NEW
 if (!o || !n) { console.error('OLD and NEW must be set'); process.exit(2) }
@@ -496,7 +510,7 @@ SCRIPT
 read -rs -p 'old value: ' OLD; echo; read -rs -p 'new value: ' NEW; echo
 export OLD NEW
 sudo --preserve-env=OLD,NEW docker run --rm --network none -e OLD -e NEW \
-  --mount "type=bind,src=$ROOT/private,dst=/p" "forge-deploy-runner:$REV" \
+  --mount "type=bind,src=$ROOT/private,dst=/p" "$IMG" \
   node /p/.replace-credential.js "/p/inputs/$GEN/deploy.env" "/p/configs/$PREV.json"
 unset OLD NEW
 sudo rm "$ROOT/private/.replace-credential.js"
@@ -579,8 +593,9 @@ prepared, with no fetch, build or credential change.
 
 ```bash
 ROOT=<jenkins-home-host-path>/forge-deploy/<job-name>
-# The journal names the active runner (and generation) as plain fields:
+# The journal names the active runner (commit and image id) as plain fields:
 REV=$(sudo sed -n 's/^  "activeRunner": "\([0-9a-f]*\)",\{0,1\}$/\1/p' "$ROOT/private/state.json")
+IMG=$(sudo sed -n 's/^  "activeRunnerImage": "\(sha256:[0-9a-f]*\)",\{0,1\}$/\1/p' "$ROOT/private/state.json")
 WEB=/srv/forge-deploy/www                          # your WEBROOT
 LOCK=/var/lock/forge-deploy                         # your DEPLOY_LOCK_DIR
 ACTION=status                                       # or: recover
@@ -594,8 +609,8 @@ sudo docker run --rm --network host \
   -e TMPDIR="$ROOT/release/tmp" \
   -e FORGE_RELEASE_ROOT="$ROOT/release" \
   -e FORGE_PRIVATE_ROOT="$ROOT/private" \
-  -e FORGE_RUNNER_IMAGE="forge-deploy-runner:$REV" \
-  "forge-deploy-runner:$REV" \
+  -e FORGE_RUNNER_IMAGE="$IMG" \
+  "$IMG" \
   node "$ROOT/release/releases/$REV/scripts/deploy-release.mjs" "$ACTION" --revision "$REV"
 ```
 
@@ -606,31 +621,72 @@ env file is not the one the attempt started with, recover exits 11 and says
 so; restore that file. Do not deploy then. Inspect `$ROOT/private/state.json`
 and `state.json.tmp`, repair the file, then run `status` again.
 
+## Preparing from a host shell
+
+This does what the Jenkins `Prepare release` stage does, for a host without
+Jenkins (for example a rehearsal). Prerequisites: a clone of this repository
+with `origin/main` fetched, and the env file for this deployment.
+
+```bash
+ROOT=<deploy-root>                                 # holds release/ and private/
+REPO=<repository-clone>
+REV=$(git -C "$REPO" rev-parse --verify '<commit>^{commit}')
+git -C "$REPO" merge-base --is-ancestor "$REV" origin/main || echo "NOT on main: stop"
+mkdir -p "$ROOT/release/releases" "$ROOT/release/tmp" "$ROOT/private" && chmod 700 "$ROOT/private"
+DEST="$ROOT/release/releases/$REV"
+if [ ! -d "$DEST" ]; then
+  mkdir -p "$DEST.partial" && git -C "$REPO" archive --format=tar "$REV" | tar -x -C "$DEST.partial" \
+    && mv "$DEST.partial" "$DEST"
+fi
+# Runner image: temporary tag; the shared tag only if absent; record the image id.
+SHARED="forge-deploy-runner:$REV"
+WANT=$(docker image inspect --format '{{.Id}}' "$SHARED" 2>/dev/null || true)
+if [ -z "$WANT" ]; then
+  TEMP="$SHARED-build-$(date +%s)-$$"
+  docker build -t "$TEMP" - < "$DEST/docker/Dockerfile.deploy-runner"
+  WANT=$(docker image inspect --format '{{.Id}}' "$SHARED" 2>/dev/null || true)
+  if [ -z "$WANT" ]; then WANT=$(docker image inspect --format '{{.Id}}' "$TEMP"); docker tag "$WANT" "$SHARED"; fi
+  docker image rm "$TEMP" >/dev/null
+fi
+[ "$(docker image inspect --format '{{.Id}}' "$SHARED")" = "$WANT" ] || echo "runner tag changed: stop"
+# Staged inputs: one directory, swapped in with a rename.
+(umask 077 && rm -rf "$ROOT/private/staged.partial" && mkdir "$ROOT/private/staged.partial" \
+  && cp <env-file> "$ROOT/private/staged.partial/deploy.env" \
+  && printf '\nVERSION=%s\n' "$REV" >> "$ROOT/private/staged.partial/deploy.env" \
+  && printf '%s\n' "$REV" > "$ROOT/private/staged.partial/runner" \
+  && printf '%s\n' "$WANT" > "$ROOT/private/staged.partial/runner-image" \
+  && rm -rf "$ROOT/private/staged" && mv "$ROOT/private/staged.partial" "$ROOT/private/staged")
+```
+
+Success: `private/staged/` holds `deploy.env`, `runner` and `runner-image`, and
+nothing printed `stop`. Then run the runner commands of this runbook with
+`IMG=$(cat "$ROOT/private/staged/runner-image")`.
+
 ## Exit codes
 
-| Code | Meaning | What to do next |
-| --- | --- | --- |
-| 0 | Success, already current, or nothing to recover | Nothing |
-| 1 | Usage or unexpected error before any change, or the run finished but its SQL helper container could not be removed | Read the error. For a helper, remove it with `docker rm -f -v <name>` (`status` shows the name prefix) |
-| 10 | Deploy failed and the previous release is restored and verified | Fix the cause on `main`, promote again |
-| 11 | Recovery required (services stopped), or the state file cannot be read | Follow [Recovery required](#recovery-required) |
-| 12 | Preflight refused, nothing changed | Read each `refused:` line and fix it |
-| 13 | Another deploy, recover or baseline holds the lock | Wait for it to finish |
-| 14 | The result was reached (a committed release keeps running) but finishing work failed | Follow [Finalize failed](#finalize-failed-exit-14-or-15) |
-| 15 | The commit write was attempted and may not be durable; nothing was stopped or rolled back | Follow [Finalize failed](#finalize-failed-exit-14-or-15) |
+| Code | Meaning                                                                                                            | What to do next                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| 0    | Success, already current, or nothing to recover                                                                    | Nothing                                                                                                |
+| 1    | Usage or unexpected error before any change, or the run finished but its SQL helper container could not be removed | Read the error. For a helper, remove it with `docker rm -f -v <name>` (`status` shows the name prefix) |
+| 10   | Deploy failed and the previous release is restored and verified                                                    | Fix the cause on `main`, promote again                                                                 |
+| 11   | Recovery required (services stopped), or the state file cannot be read                                             | Follow [Recovery required](#recovery-required)                                                         |
+| 12   | Preflight refused, nothing changed                                                                                 | Read each `refused:` line and fix it                                                                   |
+| 13   | Another deploy, recover or baseline holds the lock                                                                 | Wait for it to finish                                                                                  |
+| 14   | The result was reached (a committed release keeps running) but finishing work failed                               | Follow [Finalize failed](#finalize-failed-exit-14-or-15)                                               |
+| 15   | The commit write was attempted and may not be durable; nothing was stopped or rolled back                          | Follow [Finalize failed](#finalize-failed-exit-14-or-15)                                               |
 
 The Jenkins job maps these codes:
 
-| Exit code | Build result | Message |
-| --- | --- | --- |
-| 0 | SUCCESS | `<action>: success`, or `Release <commit> was already current; nothing was deployed.` |
-| 14 | UNSTABLE | `Release is committed and running; run the recover action to finish housekeeping; do NOT roll back.` |
-| 15 | UNSTABLE | `Commit outcome unknown; services were left running. Run the recover action (it decides from the journal); do NOT roll back.` |
-| 10 | FAILURE | `Deploy failed: the previous release was restored and verified. ...` |
-| 11 | FAILURE | `RECOVERY REQUIRED: read the error above, repair the cause, then run this job with ACTION=recover ...` |
-| 12 | FAILURE | `Preflight refused; nothing was changed. ...` |
-| 13 | FAILURE | `Another deploy, recover or baseline holds the lock. ...` |
-| other | FAILURE | `<action> exited with code <n>; see the output above ...` |
+| Exit code | Build result | Message                                                                                                                       |
+| --------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 0         | SUCCESS      | `<action>: success`, or `Release <commit> was already current; nothing was deployed.`                                         |
+| 14        | UNSTABLE     | `Release is committed and running; run the recover action to finish housekeeping; do NOT roll back.`                          |
+| 15        | UNSTABLE     | `Commit outcome unknown; services were left running. Run the recover action (it decides from the journal); do NOT roll back.` |
+| 10        | FAILURE      | `Deploy failed: the previous release was restored and verified. ...`                                                          |
+| 11        | FAILURE      | `RECOVERY REQUIRED: read the error above, repair the cause, then run this job with ACTION=recover ...`                        |
+| 12        | FAILURE      | `Preflight refused; nothing was changed. ...`                                                                                 |
+| 13        | FAILURE      | `Another deploy, recover or baseline holds the lock. ...`                                                                     |
+| other     | FAILURE      | `<action> exited with code <n>; see the output above ...`                                                                     |
 
 ## Rehearsals
 
@@ -657,7 +713,7 @@ Prerequisites, all different from the live stack:
   must have the live attributes: not superuser, `CREATEDB`, owner of their
   databases. Load it from fresh `pg_dump -Fc` dumps of the four live databases
   (see [step 3](#3-take-extra-database-dumps)), with `pg_restore --no-owner
-  --role=<owning-role> -d <db>`.
+--role=<owning-role> -d <db>`.
 - a scratch Redis on the same network
 
 Bring the rehearsal stack up from the baseline images and config (the

@@ -107,12 +107,41 @@ pipeline {
           '''
         }
         script { readPaths('staged/deploy.env') }
+        // Round 7, T2: image tags are global on the host. The runner is built under a temporary tag;
+        // the shared tag is created only if absent (otherwise the existing image is adopted), and
+        // the runner is recorded and started by image id, never by tag.
         sh '''#!/bin/sh
           set -eu
           LOCAL="$JENKINS_HOME/$FORGE_JOB_DIR"
-          docker build -t "forge-deploy-runner:$FORGE_REV" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
+          SHARED="forge-deploy-runner:$FORGE_REV"
+          id_of() { docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true; }
+          WANT=$(id_of "$SHARED")
+          if [ -n "$WANT" ]; then
+            echo "Adopted the existing runner image for $FORGE_REV"
+          else
+            TEMP="$SHARED-build-$BUILD_NUMBER-$$"
+            docker build -t "$TEMP" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
+            WANT=$(id_of "$SHARED")
+            if [ -z "$WANT" ]; then
+              WANT=$(id_of "$TEMP")
+              docker tag "$WANT" "$SHARED"
+            fi
+            docker image rm "$TEMP" >/dev/null
+          fi
+          if [ "$(id_of "$SHARED")" != "$WANT" ]; then
+            echo "The runner tag changed while it was being published; refusing to continue." >&2
+            exit 1
+          fi
+          printf '%s\n' "$WANT" > "$LOCAL/private/staged/runner-image"
         '''
         script {
+          env.FORGE_RUNNER_ID = sh(returnStdout: true, script: '''#!/bin/sh
+            set -eu
+            cat "$JENKINS_HOME/$FORGE_JOB_DIR/private/staged/runner-image"
+          ''').trim()
+          if (!(env.FORGE_RUNNER_ID ==~ /sha256:[0-9a-f]{64}/)) {
+            error('The runner image id was not recorded; nothing was deployed.')
+          }
           // A recorded revision is never rebuilt: rebuilding could move the tags its record pins.
           def probe = runner('status', " | grep -qx \"revision \$FORGE_REV: recorded\"")
           env.FORGE_RECORDED = sh(returnStatus: true, script: probe) == 0 ? 'true' : 'false'
@@ -136,12 +165,13 @@ pipeline {
           def pointer = { String key ->
             sh(returnStdout: true, script: """#!/bin/sh
               set -eu
-              sed -n 's/^  "${key}": "\\([0-9a-z]*\\)",\\{0,1\\}\$/\\1/p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/state.json"
+              sed -n 's/^  "${key}": "\\([0-9a-z:]*\\)",\\{0,1\\}\$/\\1/p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/state.json"
             """).trim()
           }
           env.FORGE_REV = pointer('activeRunner')
+          env.FORGE_RUNNER_ID = pointer('activeRunnerImage')
           env.FORGE_GENERATION = pointer('activeGeneration')
-          if (!(env.FORGE_REV ==~ /[0-9a-f]{7,40}/) || !(env.FORGE_GENERATION ==~ /[0-9a-z]{6,24}/)) {
+          if (!(env.FORGE_REV ==~ /[0-9a-f]{7,40}/) || !(env.FORGE_GENERATION ==~ /[0-9a-z]{6,24}/) || !(env.FORGE_RUNNER_ID ==~ /sha256:[0-9a-f]{64}/)) {
             error('No active inputs in the journal yet. Run ACTION=status to confirm; if no baseline is recorded, run ACTION=stage, then baseline from a host shell (runbook: First deploy). Never use deploy to repeat preparation.')
           }
           readPaths("inputs/${env.FORGE_GENERATION}/deploy.env")
@@ -228,9 +258,9 @@ def runner(String command, String suffix = '') {
       -e TMPDIR="\$ROOT/release/tmp" \\
       -e FORGE_RELEASE_ROOT="\$ROOT/release" \\
       -e FORGE_PRIVATE_ROOT="\$ROOT/private" \\
-      -e FORGE_RUNNER_IMAGE="forge-deploy-runner:\$FORGE_REV" \\
+      -e FORGE_RUNNER_IMAGE="\$FORGE_RUNNER_ID" \\
       -e SIMULATE_VERIFY_FAILURE="\$SIMULATE" \\
-      "forge-deploy-runner:\$FORGE_REV" \\
+      "\$FORGE_RUNNER_ID" \\
       node "\$ROOT/release/releases/\$FORGE_REV/scripts/deploy-release.mjs" ${command} --revision "\$FORGE_REV"${suffix}
   """
 }

@@ -176,12 +176,22 @@ export function createExecutor(cfg, log) {
     if (!/^[0-9a-f]{7,40}$/.test(runner)) {
       throw new Error('the staged runner reference is not a commit id')
     }
-    return { ...facts, runner }
+    // Round 7, T2: the runner is recorded by image id, so status/recover never depend on a tag.
+    const imageFile = path.join(stagedDir, 'runner-image')
+    const runnerImage = fs.existsSync(imageFile) ? fs.readFileSync(imageFile, 'utf8').trim() : ''
+    if (!/^sha256:[0-9a-f]{64}$/.test(runnerImage)) {
+      throw new Error(
+        'the staged runner image (private/staged/runner-image) is missing or not an image id'
+      )
+    }
+    return { ...facts, runner, runnerImage }
   }
   function activateStaged(generation) {
     const env = path.join(stagedDir, 'deploy.env')
     const staged = readStaged()
-    ;[env, path.join(stagedDir, 'runner'), stagedDir].forEach(fsyncPath)
+    ;[env, path.join(stagedDir, 'runner'), path.join(stagedDir, 'runner-image'), stagedDir].forEach(
+      fsyncPath
+    )
     ensureDir(path.dirname(generationDir(generation)), 0o700)
     fs.renameSync(stagedDir, generationDir(generation))
     fsyncPath(path.dirname(generationDir(generation)))
@@ -352,6 +362,34 @@ export function createExecutor(cfg, log) {
     if (!existing) {
       docker(['tag', id, tag])
     }
+    if (imageId(tag) !== id) {
+      throw new Error(`tag ${tag} changed while it was being created; check who else tags it`)
+    }
+  }
+  // Round 7, T2: an image this pipeline builds goes to a temporary tag that carries the attempt
+  // id; the shared tag is created only if absent (else the existing image is adopted). Only our
+  // own temporary tag is removed. Returns the id the shared tag must point to.
+  const publish = (repo, shared) => {
+    const temp = `${repo}:${shared}-build-${cfg.attemptId}`
+    const built = imageId(temp)
+    if (!built) {
+      throw new Error(`the build did not produce ${temp}`)
+    }
+    const existing = imageId(`${repo}:${shared}`)
+    if (!existing) {
+      docker(['tag', built, `${repo}:${shared}`])
+    }
+    docker(['image', 'rm', temp])
+    const want = existing ?? built
+    if (imageId(`${repo}:${shared}`) !== want) {
+      throw new Error(
+        `tag ${repo}:${shared} changed while it was being published; refusing to continue`
+      )
+    }
+    if (existing) {
+      log(`${repo}:${shared} appeared during the build; adopted the existing image`)
+    }
+    return want
   }
   const loadConfig = (rev) => JSON.parse(fs.readFileSync(record(rev).config, 'utf8'))
   // Running agents refuse a deploy; stopped ones of a discarded release are removed too.
@@ -853,10 +891,12 @@ export function createExecutor(cfg, log) {
         .filter(([, repo]) => !imageId(`${repo}:${rev}`))
         .map(([svc]) => svc)
       if (missing.length > 0) {
+        // Compose tags `<repo>:${VERSION}`; building under a temporary VERSION never moves `<rev>`.
         docker([...composeSource(rev), 'build', ...missing], {
-          env: { VERSION: rev },
+          env: { VERSION: `${rev}-build-${cfg.attemptId}` },
           inherit: true,
         })
+        missing.forEach((svc) => publish(services[svc], rev))
       }
       const tag = `agentforge-frontend:${rev}`
       if (!imageId(tag)) {
@@ -866,9 +906,11 @@ export function createExecutor(cfg, log) {
           '--build-arg',
           `APP_VERSION=${rev}`,
         ]
-        docker([...words('build --target production'), ...args, '-t', tag, releaseDir(rev)], {
+        const temp = `agentforge-frontend:${rev}-build-${cfg.attemptId}`
+        docker([...words('build --target production'), ...args, '-t', temp, releaseDir(rev)], {
           inherit: true,
         })
+        publish('agentforge-frontend', rev)
       }
       const adopted = Object.keys(services).filter((svc) => !missing.includes(svc))
       if (adopted.length > 0) {

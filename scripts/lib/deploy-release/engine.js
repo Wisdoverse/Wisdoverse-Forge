@@ -193,7 +193,7 @@ async function deployLocked(ctx, targetId, staged) {
   // One rename makes the staged inputs the attempt's generation; the intent then points to it.
   // A crash in between leaves an orphan generation that nothing uses.
   const activated = await ctx.exec.activateStaged(plan.attempt.attemptId)
-  if (['envSha256', 'identity', 'runner'].some((k) => activated[k] !== staged[k])) {
+  if (['envSha256', 'identity', 'runner', 'runnerImage'].some((k) => activated[k] !== staged[k])) {
     ctx.log(
       'refused: the staged inputs changed while this deploy prepared (nothing was deployed); stage again'
     )
@@ -402,7 +402,7 @@ export async function baseline(ctx) {
     return EXIT.PREFLIGHT_REFUSED
   }
   const activated = await ctx.exec.activateStaged(ctx.config.attemptId)
-  if (['envSha256', 'identity', 'runner'].some((k) => activated[k] !== staged[k])) {
+  if (['envSha256', 'identity', 'runner', 'runnerImage'].some((k) => activated[k] !== staged[k])) {
     ctx.log('refused: the staged inputs changed while baseline ran; stage again')
     return EXIT.PREFLIGHT_REFUSED
   }

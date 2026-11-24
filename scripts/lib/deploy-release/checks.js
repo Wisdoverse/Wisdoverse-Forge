@@ -34,7 +34,12 @@ export function secretValues(env) {
   for (const value of Object.values(env)) {
     const m = /^[a-z][a-z0-9+.-]*:\/\/[^:/@\s]*:([^@\s]+)@/i.exec(value)
     if (m) {
-      values.push(m[1], decodeURIComponent(m[1]))
+      values.push(m[1])
+      try {
+        values.push(decodeURIComponent(m[1]))
+      } catch {
+        // An invalid %-escape (round 7, T3): the raw form is redacted; there is no decoded form.
+      }
     }
   }
   return [...new Set(values)].sort((a, b) => b.length - a.length)

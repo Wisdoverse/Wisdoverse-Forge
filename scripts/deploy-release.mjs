@@ -83,6 +83,34 @@ export const CONFIG_KEYS = [
   'webRoot',
 ]
 
+// Round 7, T1: every value that locates state, a network, a lock or a probe target is required.
+// No defaults: several Compose defaults are the names of a live deployment on a shared host.
+export const REQUIRED_KEYS = [
+  'COMPOSE_PROJECT_NAME',
+  'CONTAINER_NAME_PREFIX',
+  'DATABASE_URL',
+  'ORCHESTRATOR_DATABASE_URL',
+  'DB_HOST',
+  'DB_PORT',
+  'TEMPORAL_DB_USER',
+  'TEMPORAL_DB_PASSWORD',
+  'TEMPORAL_DB_NAME',
+  'EXTERNAL_NETWORK',
+  'CONTAINER_NETWORK',
+  'DEPLOY_LOCK_DIR',
+  'WEBROOT',
+  'AGENTFORGE_WORKSPACE_ROOT',
+  'OAUTH_MOUNT_DIR',
+  'APP_URL',
+  'BIND_ADDRESS',
+  'AGENTFORGE_PORT',
+  'ORCHESTRATOR_PORT',
+  'NATS_PORT',
+  'NATS_MONITOR_PORT',
+  'TEMPORAL_PORT',
+  'TEMPORAL_UI_PORT',
+]
+
 function required(env, key) {
   const value = env[key]
   if (!value) {
@@ -101,26 +129,26 @@ function absolute(value, what) {
   return value
 }
 
+// Round 7, T3: parsing AND percent-decoding happen inside the sanitized error path, so a bad
+// URL or a bad `%xx` escape is reported by variable name, never by value.
 function fromUrl(env, key) {
-  let url
+  const value = required(env, key)
   try {
-    url = new URL(required(env, key))
-  } catch (err) {
-    throw err instanceof InputsError
-      ? err
-      : new InputsError(`${key} is not a valid postgres:// URL`)
+    const url = new URL(value)
+    const name = decodeURIComponent(url.pathname.slice(1))
+    const role = {
+      host: url.hostname,
+      port: url.port || '5432',
+      user: decodeURIComponent(url.username),
+    }
+    Object.assign(role, {
+      password: decodeURIComponent(url.password),
+      sslmode: url.searchParams.get('sslmode') ?? '',
+    })
+    return { role, name }
+  } catch {
+    throw new InputsError(`${key} is not a valid postgres:// URL (or contains an invalid %-escape)`)
   }
-  const name = decodeURIComponent(url.pathname.slice(1))
-  const role = {
-    host: url.hostname,
-    port: url.port || '5432',
-    user: decodeURIComponent(url.username),
-  }
-  Object.assign(role, {
-    password: decodeURIComponent(url.password),
-    sslmode: url.searchParams.get('sslmode') ?? '',
-  })
-  return { role, name }
 }
 
 // Round 4, C2: deploy/build read the staged generation (`private/staged/`), and so does the first
@@ -165,6 +193,12 @@ export function loadConfig(command, args) {
       `the env file ${path.relative(privateRoot, envFile)} is malformed: ${err.message}`
     )
   }
+  const missing = REQUIRED_KEYS.filter((key) => !env[key])
+  if (missing.length > 0) {
+    throw new InputsError(
+      `required variables missing from the env file (no defaults are used): ${missing.join(', ')}`
+    )
+  }
   const at = args.indexOf('--revision')
   const target = at >= 0 ? args[at + 1] : env.VERSION
   if (target && !/^([0-9a-f]{7,40}|baseline)$/.test(target)) {
@@ -172,13 +206,15 @@ export function loadConfig(command, args) {
   }
   const api = fromUrl(env, 'DATABASE_URL')
   const orchestrator = fromUrl(env, 'ORCHESTRATOR_DATABASE_URL')
-  // Mirrors the Temporal settings and defaults of docker/compose.external.yml.
-  const temporal = { host: env.DB_HOST || 'db', port: env.DB_PORT || '5432', sslmode: '' }
+  // The Temporal settings of docker/compose.external.yml, all required (T1).
+  const temporal = { host: required(env, 'DB_HOST'), port: required(env, 'DB_PORT'), sslmode: '' }
   Object.assign(temporal, {
-    user: env.TEMPORAL_DB_USER || 'temporal',
-    password: env.TEMPORAL_DB_PASSWORD || 'temporal',
+    user: required(env, 'TEMPORAL_DB_USER'),
+    password: required(env, 'TEMPORAL_DB_PASSWORD'),
   })
-  const temporalDb = env.TEMPORAL_DB_NAME || 'temporal'
+  const temporalDb = required(env, 'TEMPORAL_DB_NAME')
+  absolute(env.AGENTFORGE_WORKSPACE_ROOT, 'AGENTFORGE_WORKSPACE_ROOT')
+  absolute(env.OAUTH_MOUNT_DIR, 'OAUTH_MOUNT_DIR')
   const databases = [
     { key: 'api', role: 'api', name: api.name, migrations: 'rust/crates/db/migrations' },
     {
@@ -198,7 +234,7 @@ export function loadConfig(command, args) {
   }
   const attemptId = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}${randomBytes(2).toString('hex')}`
   const roles = { api: api.role, orchestrator: orchestrator.role, temporal }
-  const bind = env.BIND_ADDRESS && env.BIND_ADDRESS !== '0.0.0.0' ? env.BIND_ADDRESS : '127.0.0.1'
+  const bind = env.BIND_ADDRESS === '0.0.0.0' ? '127.0.0.1' : env.BIND_ADDRESS
   return {
     env,
     envFile,
@@ -208,9 +244,9 @@ export function loadConfig(command, args) {
     privateRoot,
     project: required(env, 'COMPOSE_PROJECT_NAME'),
     webRoot: absolute(env.WEBROOT, 'WEBROOT'),
-    lockDir: absolute(env.DEPLOY_LOCK_DIR || '/var/lock/forge-deploy', 'DEPLOY_LOCK_DIR'),
-    externalNetwork: env.EXTERNAL_NETWORK || 'external-network',
-    agentNetwork: env.CONTAINER_NETWORK || 'agentforge-agents',
+    lockDir: absolute(env.DEPLOY_LOCK_DIR, 'DEPLOY_LOCK_DIR'),
+    externalNetwork: required(env, 'EXTERNAL_NETWORK'),
+    agentNetwork: required(env, 'CONTAINER_NETWORK'),
     pgClientImage: env.DEPLOY_PG_CLIENT_IMAGE || 'postgres:18-alpine',
     runnerImage: process.env.FORGE_RUNNER_IMAGE,
     roles,
@@ -219,11 +255,11 @@ export function loadConfig(command, args) {
     snapshotDir: path.join(privateRoot, 'snapshots', attemptId),
     host: bind,
     ports: {
-      api: env.AGENTFORGE_HOST_PORT || env.AGENTFORGE_PORT || '4003',
-      orchestrator: env.ORCHESTRATOR_PORT || '4010',
-      natsMonitor: env.NATS_MONITOR_PORT || '8222',
+      api: env.AGENTFORGE_HOST_PORT || env.AGENTFORGE_PORT,
+      orchestrator: env.ORCHESTRATOR_PORT,
+      natsMonitor: env.NATS_MONITOR_PORT,
     },
-    appUrl: env.APP_URL ?? '',
+    appUrl: env.APP_URL,
     requireRedis: env.REQUIRE_EXTERNAL_STATE === 'true',
     simulateVerifyFailure: ['1', 'true'].includes(process.env.SIMULATE_VERIFY_FAILURE ?? ''),
     contract: JSON.parse(

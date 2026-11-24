@@ -86,6 +86,7 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
       envSha256: 'b'.repeat(64),
       identity: 'c'.repeat(64),
       runner: 'abcdef1',
+      runnerImage: 'sha256:' + '1'.repeat(64),
     },
     startedAt: '2026-11-24T00:00:00.000Z',
     swaps: [],
@@ -122,6 +123,7 @@ const PREV_INPUTS = {
   envSha256: 'a'.repeat(64),
   identity: 'c'.repeat(64),
   runner: 'abcdef0',
+  runnerImage: 'sha256:' + '1'.repeat(64),
 }
 const observeWith = (world: ReturnType<typeof createWorld>) => {
   const exec = fakeExecutor(world)
@@ -336,6 +338,7 @@ describe('engine', () => {
       envSha256: PREV_INPUTS.envSha256,
       identity: PREV_INPUTS.identity,
       runner: 'abcdef1',
+      runnerImage: 'sha256:' + '1'.repeat(64),
     }
     expect(await deploy(ctxFor(noop, { staged: sameEnv }, fakeConfig({ target: 'prev' })))).toBe(
       EXIT.OK
@@ -1139,12 +1142,18 @@ describe('filesystem effects (temporary directory only)', () => {
     fs.mkdirSync(path.join(tmp, 'staged'))
     fs.writeFileSync(path.join(tmp, 'staged/deploy.env'), 'A=staged\n')
     fs.writeFileSync(path.join(tmp, 'staged/runner'), 'abcdef1\n')
+    fs.writeFileSync(path.join(tmp, 'staged/runner-image'), `sha256:${'1'.repeat(64)}\n`)
     fs.mkdirSync(path.join(tmp, 'inputs/a1b2c3d4'), { recursive: true })
     fs.writeFileSync(path.join(tmp, 'inputs/a1b2c3d4/deploy.env'), 'A=attempt\n')
     const exec = createExecutor(cfg, () => null)
     const attempt = {
       ...attemptFixture(false, 'snapshotting'),
-      inputs: { generation: 'a1b2c3d4', ...exec.inputsFacts('a1b2c3d4'), runner: 'abcdef1' },
+      inputs: {
+        generation: 'a1b2c3d4',
+        ...exec.inputsFacts('a1b2c3d4'),
+        runner: 'abcdef1',
+        runnerImage: 'sha256:' + '1'.repeat(64),
+      },
     }
     const unfinished = {
       ...emptyState(),
@@ -1169,11 +1178,17 @@ describe('filesystem effects (temporary directory only)', () => {
       generation: 'b1b2c3d4',
       ...exec.inputsFacts('b1b2c3d4'),
       runner: 'abcdef1',
+      runnerImage: 'sha256:' + '1'.repeat(64),
     })
     fs.mkdirSync(path.join(tmp, 'staged'))
     fs.writeFileSync(path.join(tmp, 'staged/deploy.env'), 'A=x\n')
     fs.writeFileSync(path.join(tmp, 'staged/runner'), 'not a commit\n')
     expect(() => exec.readStaged()).toThrow(/not a commit id/)
+    // Round 7, T2: the runner is recorded by image id; a tag or nothing is refused.
+    fs.writeFileSync(path.join(tmp, 'staged/runner'), 'abcdef1\n')
+    expect(() => exec.readStaged()).toThrow(/runner image .* missing or not an image id/)
+    fs.writeFileSync(path.join(tmp, 'staged/runner-image'), 'forge-deploy-runner:abcdef1\n')
+    expect(() => exec.readStaged()).toThrow(/runner image .* missing or not an image id/)
     fs.rmSync(path.join(tmp, 'staged'), { recursive: true })
     expect(() => exec.activateStaged('c1b2c3d4')).toThrow(/no staged inputs/)
     fs.rmSync(tmp, { recursive: true, force: true })

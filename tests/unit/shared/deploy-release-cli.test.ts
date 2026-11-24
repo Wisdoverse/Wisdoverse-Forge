@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { CONFIG_KEYS, loadConfig } from '../../../scripts/deploy-release.mjs'
+import { CONFIG_KEYS, REQUIRED_KEYS, loadConfig } from '../../../scripts/deploy-release.mjs'
 import { dockerStub } from '../../support/deploy-release/docker-stub.js'
 
 const root = path.resolve(import.meta.dirname, '../../..')
@@ -17,16 +17,34 @@ const SECRETS = ['SECRET-api-1', 'SECRET-orch-2', 'SECRET-temporal-3', 'SECRET-j
 let tmp = ''
 let stub: ReturnType<typeof dockerStub>
 const p = (...parts: string[]) => path.join(tmp, ...parts)
+const RUNNER_IMAGE = `sha256:${'7'.repeat(64)}`
+// Every required identity/locator variable is set explicitly (round 7, T1).
 const envText = () =>
   [
     'COMPOSE_PROJECT_NAME=cli-test',
+    'CONTAINER_NAME_PREFIX=cli-test',
     `DATABASE_URL=postgres://api:${SECRETS[0]}@db.internal:5432/forge`,
     `ORCHESTRATOR_DATABASE_URL=postgres://orch:${SECRETS[1]}@db.internal:5432/forge_orch`,
     'DB_HOST=db.internal',
+    'DB_PORT=5432',
+    'TEMPORAL_DB_USER=temporal_cli',
     `TEMPORAL_DB_PASSWORD=${SECRETS[2]}`,
+    'TEMPORAL_DB_NAME=temporal_cli',
+    'EXTERNAL_NETWORK=cli-test-ext',
+    'CONTAINER_NETWORK=cli-test-agents',
     `JWT_SECRET=${SECRETS[3]}`,
     `WEBROOT=${p('www')}`,
     `DEPLOY_LOCK_DIR=${p('lock')}`,
+    `AGENTFORGE_WORKSPACE_ROOT=${p('workspaces')}`,
+    `OAUTH_MOUNT_DIR=${p('oauth')}`,
+    'APP_URL=http://127.0.0.1:24080',
+    'BIND_ADDRESS=127.0.0.1',
+    'AGENTFORGE_PORT=24003',
+    'ORCHESTRATOR_PORT=24010',
+    'NATS_PORT=24222',
+    'NATS_MONITOR_PORT=28222',
+    'TEMPORAL_PORT=27233',
+    'TEMPORAL_UI_PORT=28233',
     `VERSION=${REV}`,
   ].join('\n') + '\n'
 
@@ -34,6 +52,7 @@ function stage(text = envText(), runner = REV) {
   fs.mkdirSync(p('private/staged'), { recursive: true })
   fs.writeFileSync(p('private/staged/deploy.env'), text, { mode: 0o600 })
   fs.writeFileSync(p('private/staged/runner'), `${runner}\n`)
+  fs.writeFileSync(p('private/staged/runner-image'), `${RUNNER_IMAGE}\n`)
 }
 
 function cli(...args: string[]) {
@@ -50,6 +69,29 @@ function cli(...args: string[]) {
 }
 
 const composeCalls = () => stub.calls().filter((c) => c.argv[0] === 'compose')
+const tags = () =>
+  stub
+    .calls()
+    .filter((c) => c.argv[0] === 'tag')
+    .map((c) => c.argv.slice(1).join(' '))
+const inspectRule = (tag: string) => `^image inspect --format \\{\\{\\.Id\\}\\} ${tag}$`
+// A repository whose shared tag is missing until this build publishes it: missing for the build
+// decision and for the publish check, present afterwards; its temporary tag has a built id.
+const publishRules = (repos: string[], appearsDuringBuild: string[] = []) => [
+  ...repos.flatMap((repo) => [
+    { match: inspectRule(`${repo}:${REV}-build-[0-9a-z]+`), out: `sha256:built-${repo}\n` },
+    { match: inspectRule(`${repo}:${REV}`), code: 1, once: true },
+    ...(appearsDuringBuild.includes(repo)
+      ? []
+      : [{ match: inspectRule(`${repo}:${REV}`), code: 1, once: true }]),
+    {
+      match: inspectRule(`${repo}:${REV}`),
+      out: `sha256:${appearsDuringBuild.includes(repo) ? 'other' : 'built'}-${repo}\n`,
+    },
+  ]),
+  { match: '^create ', out: 'frontend-cid\n' },
+  { match: '^inspect frontend-cid', code: 1 },
+]
 function expectComposeContract(envFile: string) {
   const calls = composeCalls()
   expect(calls.length).toBeGreaterThan(0)
@@ -104,23 +146,32 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
 
   it('build passes --env-file, project, files and profile to compose; no secret in argv', () => {
     stage()
-    stub.rules([
-      { match: '^image inspect', code: 1 },
-      { match: '^create ', out: 'frontend-cid\n' },
-      { match: '^inspect frontend-cid', code: 1 },
-    ])
+    stub.rules(
+      publishRules(['agentforge-server', 'agentforge-orchestrator', 'agentforge-frontend'])
+    )
     const r = cli('build', '--revision', REV)
     expect(r.out).toContain(`built images and frontend for ${REV}`)
     expect(r.code).toBe(0)
     expectComposeContract(p('private/staged/deploy.env'))
     const build = composeCalls().find((c) => c.argv.includes('build'))
     expect(build?.argv.slice(-3)).toEqual(['build', 'agentforge-server', 'orchestrator'])
-    expect(build?.version).toBe(REV)
-    expect(
-      stub
-        .calls()
-        .some((c) => c.argv[0] === 'build' && c.argv.includes(`agentforge-frontend:${REV}`))
-    ).toBe(true)
+    // Round 7, T2: compose builds under a temporary VERSION; the shared tag is created after.
+    expect(build?.version).toMatch(new RegExp(`^${REV}-build-[0-9a-z]+$`))
+    const frontendBuild = stub.calls().find((c) => c.argv[0] === 'build')
+    expect(frontendBuild?.argv.join(' ')).toMatch(
+      new RegExp(`-t agentforge-frontend:${REV}-build-[0-9a-z]+ `)
+    )
+    expect(tags()).toEqual([
+      `sha256:built-agentforge-server agentforge-server:${REV}`,
+      `sha256:built-agentforge-orchestrator agentforge-orchestrator:${REV}`,
+      `sha256:built-agentforge-frontend agentforge-frontend:${REV}`,
+    ])
+    const removed = stub
+      .calls()
+      .filter((c) => c.argv[0] === 'image' && c.argv[1] === 'rm')
+      .map((c) => c.argv[2])
+    expect(removed).toHaveLength(3)
+    removed.forEach((tag) => expect(tag).toMatch(new RegExp(`:${REV}-build-[0-9a-z]+$`)))
     const create = stub.calls().find((c) => c.argv[0] === 'create')
     expect(create?.argv).toEqual(
       expect.arrayContaining(['--label', 'forge.deploy.project=cli-test'])
@@ -146,6 +197,7 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
         envSha256: 'a'.repeat(64),
         identity: 'c'.repeat(64),
         runner: REV,
+        runnerImage: RUNNER_IMAGE,
       },
     }
     const state = {
@@ -213,6 +265,7 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
             envSha256: 'a'.repeat(64),
             identity: 'c'.repeat(64),
             runner: REV,
+            runnerImage: RUNNER_IMAGE,
           },
         },
       },
@@ -239,7 +292,7 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
     [
       'a missing project name',
       (t: string) => t.replace(/COMPOSE_PROJECT_NAME=.*\n/, ''),
-      /COMPOSE_PROJECT_NAME must be set/,
+      /required variables missing from the env file .*COMPOSE_PROJECT_NAME/,
     ],
   ])(
     'a malformed staged env (%s) is a refusal (12) naming the variable, never its value',
@@ -346,11 +399,6 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
       out: 'sha256:live-orch\n',
     },
   ]
-  const tags = () =>
-    stub
-      .calls()
-      .filter((c) => c.argv[0] === 'tag')
-      .map((c) => c.argv.slice(1).join(' '))
   const baselineDir = () => {
     fs.mkdirSync(p('release/releases/baseline/docker'), { recursive: true })
     fs.writeFileSync(p('release/releases/baseline/docker/compose.yml'), 'services: {}\n')
@@ -398,15 +446,10 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
         out: 'sha256:shared-server\n',
       },
       {
-        match: `^image inspect --format \\{\\{\\.Id\\}\\} agentforge-orchestrator:${REV}$`,
-        code: 1,
-      },
-      {
         match: `^image inspect --format \\{\\{\\.Id\\}\\} agentforge-frontend:${REV}$`,
         out: 'sha256:shared-frontend\n',
       },
-      { match: '^create ', out: 'frontend-cid\n' },
-      { match: '^inspect frontend-cid', code: 1 },
+      ...publishRules(['agentforge-orchestrator']),
     ])
     const r = cli('build', '--revision', REV)
     expect(r.code).toBe(0)
@@ -416,6 +459,72 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
       ['build', 'orchestrator'],
     ])
     expect(stub.calls().some((c) => c.argv[0] === 'build')).toBe(false)
-    expect(tags()).toEqual([])
+    // Only the image this build created gets the shared tag; the adopted ones are never tagged.
+    expect(tags()).toEqual([`sha256:built-agentforge-orchestrator agentforge-orchestrator:${REV}`])
+  })
+
+  it('round 7, T2: a shared tag that appears during the build is adopted; only the temporary tag is removed', () => {
+    stage()
+    stub.rules(
+      publishRules(
+        ['agentforge-server', 'agentforge-orchestrator', 'agentforge-frontend'],
+        ['agentforge-server']
+      )
+    )
+    const r = cli('build', '--revision', REV)
+    expect(r.code).toBe(0)
+    expect(r.out).toMatch(
+      new RegExp(`agentforge-server:${REV} appeared during the build; adopted the existing image`)
+    )
+    expect(tags().some((t) => t.endsWith(`agentforge-server:${REV}`))).toBe(false)
+    const removed = stub
+      .calls()
+      .filter((c) => c.argv[0] === 'image' && c.argv[1] === 'rm')
+      .map((c) => c.argv[2])
+    expect(removed.some((t) => /^agentforge-server:.*-build-/.test(t))).toBe(true)
+  })
+})
+
+describe('round 7, T1 and T3: no defaults for identity, sanitized URL decoding', () => {
+  it.each(REQUIRED_KEYS)(
+    'a staged env without %s is a refusal (12) naming it, with no docker call',
+    (key) => {
+      stage(envText().replace(new RegExp(`^${key}=.*\\n`, 'm'), ''))
+      const r = cli('deploy', '--revision', REV)
+      expect(r.code).toBe(12)
+      expect(r.out).toMatch(
+        new RegExp(
+          `required variables missing from the env file \\(no defaults are used\\): .*\\b${key}\\b`
+        )
+      )
+      expect(stub.calls()).toEqual([])
+    }
+  )
+
+  it('lists every missing variable at once', () => {
+    stage(envText().replace(/^(EXTERNAL_NETWORK|CONTAINER_NETWORK|APP_URL)=.*\n/gm, ''))
+    const r = cli('build', '--revision', REV)
+    expect(r.code).toBe(12)
+    expect(r.out).toContain('EXTERNAL_NETWORK, CONTAINER_NETWORK, APP_URL')
+    expect(stub.calls()).toEqual([])
+  })
+
+  it('a password with an invalid %-escape is a refusal (12) naming the variable, never the value', () => {
+    stage(
+      envText().replace(
+        /^DATABASE_URL=.*$/m,
+        'DATABASE_URL=postgres://api:pa%ZZss-SECRET@db.internal:5432/forge'
+      )
+    )
+    for (const command of ['deploy', 'build', 'baseline', 'status']) {
+      const r = cli(command, '--revision', REV)
+      expect(r.code).toBe(12)
+      expect(r.out).toMatch(
+        /DATABASE_URL is not a valid postgres:\/\/ URL \(or contains an invalid %-escape\)/
+      )
+      expect(r.out).not.toContain('pa%ZZss')
+      expect(r.out).not.toMatch(/URI malformed/)
+    }
+    expect(stub.calls()).toEqual([])
   })
 })

@@ -35,9 +35,15 @@ const PREV_INPUTS = {
   envSha256: 'a'.repeat(64),
   identity: IDENTITY,
   runner: 'abcdef0',
+  runnerImage: 'sha256:' + '1'.repeat(64),
 }
 // What Jenkins staged for revision `next`; the release id is (revision, env hash).
-const STAGED = { envSha256: 'b'.repeat(64), identity: IDENTITY, runner: 'abcdef1' }
+const STAGED = {
+  envSha256: 'b'.repeat(64),
+  identity: IDENTITY,
+  runner: 'abcdef1',
+  runnerImage: 'sha256:' + '1'.repeat(64),
+}
 export const NEXT = releaseId('next', STAGED.envSha256)
 export const fakeRecord = (rev, inputs) => ({
   rev,

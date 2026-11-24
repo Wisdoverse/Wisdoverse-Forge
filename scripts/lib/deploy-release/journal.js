@@ -83,7 +83,8 @@ export const inputsProblems = (holder, where) => {
     GENERATION.test(i?.generation ?? '') &&
     /^[0-9a-f]{64}$/.test(i?.envSha256 ?? '') &&
     /^[0-9a-f]{64}$/.test(i?.identity ?? '') &&
-    /^[0-9a-f]{7,40}$/.test(i?.runner ?? '')
+    /^[0-9a-f]{7,40}$/.test(i?.runner ?? '') &&
+    /^sha256:[0-9a-f]{64}$/.test(i?.runnerImage ?? '')
   return ok ? [] : [`${where}.inputs`]
 }
 
@@ -142,6 +143,7 @@ export function withPointers(state) {
     ...state,
     activeGeneration: inputs?.generation ?? null,
     activeRunner: inputs?.runner ?? null,
+    activeRunnerImage: inputs?.runnerImage ?? null,
   }
 }
 
@@ -294,7 +296,7 @@ export function summarize(state) {
     `previous release: ${state.previous ?? '(none)'}`,
     `recorded releases: ${Object.keys(state.records).join(', ') || '(none)'}`,
     `protected snapshots: baseline=${state.protected.baseline ?? '-'} last-good=${state.protected.lastGood ?? '-'}`,
-    `active inputs: generation ${activeInputs(state)?.generation ?? '(none)'}, runner ${activeInputs(state)?.runner ?? '(none)'}`,
+    `active inputs: generation ${activeInputs(state)?.generation ?? '(none)'}, runner ${activeInputs(state)?.runner ?? '(none)'} (image ${activeInputs(state)?.runnerImage ?? '(none)'})`,
   ]
   if (!a) {
     return [...lines, 'last attempt: (none)']

@@ -357,6 +357,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
       'COMPOSE_PROJECT_NAME=rehearsal-1319-forge\n'
     )
     fs.writeFileSync(path.join(tmp, 'staged', 'runner'), 'abcdef1\n')
+    fs.writeFileSync(path.join(tmp, 'staged', 'runner-image'), `sha256:${'1'.repeat(64)}\n`)
     const real = createExecutor(cfg(), () => null)
     real.writeState({
       ...emptyState(),
@@ -367,6 +368,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
           envSha256: 'a'.repeat(64),
           identity: 'c'.repeat(64),
           runner: 'abcdef0',
+          runnerImage: 'sha256:' + '1'.repeat(64),
         }),
       },
     })
