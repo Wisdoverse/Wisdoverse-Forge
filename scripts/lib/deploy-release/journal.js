@@ -49,11 +49,12 @@ export function transition(from, to) {
   return to
 }
 
-export function newAttempt({ attemptId, target, previous, snapshot, helperPrefix, at }) {
+export function newAttempt({ attemptId, target, previous, snapshot, helperPrefix, inputs, at }) {
   return {
     attemptId,
     target,
     previous,
+    inputs,
     phase: 'quiescing',
     step: null,
     snapshot: { complete: false, ...snapshot },
@@ -66,6 +67,75 @@ export function newAttempt({ attemptId, target, previous, snapshot, helperPrefix
 }
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
+
+const isText = (v) => typeof v === 'string' && v.length > 0
+const isOid = (v) => Number.isInteger(v) && v > 0
+const isTime = (v) => isText(v) && !Number.isNaN(Date.parse(v))
+
+function attemptProblems(a) {
+  const s = a.snapshot ?? {}
+  const sealed = s.complete === true
+  const checks = [
+    [/^[0-9a-z]{6,24}$/.test(a.attemptId ?? ''), 'attempt.attemptId'],
+    [isText(a.target) && isText(a.previous), 'attempt.target/previous'],
+    [PHASES.includes(a.phase), 'attempt.phase'],
+    [isTime(a.startedAt), 'attempt.startedAt'],
+    [isText(a.helperPrefix), 'attempt.helperPrefix'],
+    [isText(a.inputs?.envSha256), 'attempt.inputs'],
+    [Array.isArray(a.swaps), 'attempt.swaps'],
+    [typeof s.complete === 'boolean', 'snapshot.complete'],
+    [typeof s.expect === 'object' && s.expect !== null, 'snapshot.expect'],
+    [Array.isArray(s.databases) && s.databases.length > 0, 'snapshot.databases'],
+    [Array.isArray(s.volumes), 'snapshot.volumes'],
+    [isText(s.webroot?.tar) && (!sealed || isText(s.webroot?.sha256)), 'snapshot.webroot'],
+  ]
+  for (const d of Array.isArray(s.databases) ? s.databases : []) {
+    const named = [d.key, d.source, d.snapshot, d.failed].every(isText) && isOid(d.sourceOid)
+    checks.push([named && (sealed ? isOid(d.snapshotOid) : true), `snapshot.databases.${d.key}`])
+  }
+  for (const v of Array.isArray(s.volumes) ? s.volumes : []) {
+    checks.push([
+      isText(v.volume) && isText(v.tar) && (!sealed || isText(v.sha256)),
+      `snapshot.volumes.${v.volume}`,
+    ])
+  }
+  return checks.filter(([ok]) => !ok).map(([, field]) => field)
+}
+
+// Finding 7: a journal missing what its phase needs is treated like an unreadable one.
+export function validateState(state) {
+  const problems = []
+  const nullableText = (v) => v === null || isText(v)
+  if (state?.schema !== STATE_SCHEMA) {
+    problems.push('schema')
+  } else {
+    if (!nullableText(state.current) || !nullableText(state.previous)) {
+      problems.push('current/previous')
+    }
+    if (typeof state.protected !== 'object' || state.protected === null) {
+      problems.push('protected')
+    }
+    const records =
+      state.records && typeof state.records === 'object' ? Object.entries(state.records) : null
+    if (!records || !records.every(([rev, r]) => r?.rev === rev && typeof r.images === 'object')) {
+      problems.push('records')
+    }
+    if (state.current && !state.records?.[state.current]) {
+      problems.push('records.current')
+    }
+    if (state.attempt !== null) {
+      problems.push(
+        ...(typeof state.attempt === 'object' && state.attempt
+          ? attemptProblems(state.attempt)
+          : ['attempt'])
+      )
+    }
+  }
+  if (problems.length > 0) {
+    throw new StateUnreadable(`state.json is structurally invalid (${problems.join(', ')})`)
+  }
+  return state
+}
 
 // Called BEFORE the step runs: the persisted journal names the action about to happen.
 export function announce(state, step, at) {

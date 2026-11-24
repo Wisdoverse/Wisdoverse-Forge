@@ -88,6 +88,12 @@ Rules for this file:
   those values directly.
 - Each database must be owned by the role in its URL. That role needs
   `CREATEDB`, because snapshots are database copies.
+- A database copy does not carry database-level settings, so preflight refuses
+  a database with a non-default ACL (`GRANT CONNECT ...` on the database), a
+  database or role setting (`ALTER DATABASE/ROLE ... SET`), a connection limit,
+  a non-default tablespace, or replication slots, subscriptions or
+  publications. Object-level grants inside the database (schemas, tables) are
+  copied and need nothing.
 
 ### `DEV` branch rules
 
@@ -136,7 +142,12 @@ recorded: run baseline once before the first deploy` (exit code 12, so the
 build shows as failed). Note the commit.
 
 `ACTION=status` and `ACTION=recover` never prepare anything. They only reuse
-what the last deploy prepared.
+the active inputs. A deploy writes the new env file and runner reference to a
+staging place (`private/staged.env`, `release/staged-runner`). The script
+makes them active (`private/deploy.env`, `release/last-runner`) only when it
+starts a new attempt, or, the first time, when `baseline` runs. If an attempt
+is unfinished, a deploy refuses and the active inputs stay exactly the ones
+that attempt started with.
 
 ### 2. Record the baseline
 
@@ -176,7 +187,8 @@ image ids, environment variable names, mounts, networks, published ports and
 health checks.
 
 Success: `baseline recorded: the next deploy can roll back to the running
-release`. If it prints `refused: ...`, the rendering does not describe the
+release`. The first `baseline` also makes the staged env file and runner
+reference active. If it prints `refused: ...`, the rendering does not describe the
 running stack. Fix the baseline commit or the environment file, then run it
 again. `baseline` runs only once.
 
@@ -257,8 +269,8 @@ restores:
 Then it checks the previous release with the same checks as a deploy. Success:
 exit code 10 and `finished in phase rolled_back`.
 
-It also removes the agent containers that the new release created. The
-selection is exact: the product's own container names (`agentforge-agent-<id>`,
+It also removes the agent containers that the new release created, running or
+stopped. The selection is exact: the product's own container names (`agentforge-agent-<id>`,
 `agentforge-devenv-<id>`, `agentforge-clone-<id>`) with the matching label, on
 this deployment's agent network, created after the deploy started.
 
@@ -321,6 +333,15 @@ If the runner, Jenkins or the host died during a deploy, the next deploy
 refuses with `attempt ... is unfinished`. Run `ACTION=recover`. Recovery either
 finishes a committed deploy or rolls it back.
 
+## Finalize failed (exit 14)
+
+Exit 14 means the new release is committed and was left running. Only
+finishing work failed, for example a journal write because the disk is full.
+Nothing was stopped and nothing was rolled back. Repair the cause, then run
+`ACTION=recover`. For a committed attempt, recover makes sure the committed
+release is running (it starts it if needed), checks the backend, and closes
+the attempt. Success: exit 0 and `phase: done`.
+
 ## Emergency path (host shell)
 
 Use this when Jenkins, Git or the registry is unavailable. It runs the same
@@ -349,8 +370,10 @@ sudo docker run --rm --network host \
 ```
 
 Success: the same output and exit code as the Jenkins job. If the state file
-cannot be read, both commands exit 11 with `RECOVERY REQUIRED: the deploy state
-file cannot be read`. Do not deploy then. Inspect `$ROOT/private/state.json`
+cannot be read or is missing a field its phase needs, both commands exit 11
+with `RECOVERY REQUIRED: the deploy state file cannot be read`. If the active
+env file is not the one the attempt started with, recover exits 11 and says
+so; restore that file. Do not deploy then. Inspect `$ROOT/private/state.json`
 and `state.json.tmp`, repair the file, then run `status` again.
 
 ## Exit codes
@@ -363,8 +386,15 @@ and `state.json.tmp`, repair the file, then run `status` again.
 | 11 | Recovery required (services stopped), or the state file cannot be read | Follow [Recovery required](#recovery-required) |
 | 12 | Preflight refused, nothing changed | Read each `refused:` line and fix it |
 | 13 | Another deploy, recover or baseline holds the lock | Wait for it to finish |
+| 14 | The result was reached (a committed release keeps running) but finishing work failed | Follow [Finalize failed](#finalize-failed-exit-14) |
 
 ## Rehearsals
+
+Before the snapshot, preflight records what the running release answers: each
+health endpoint as `healthy`, `answers` or `unsupported` (HTTP 404 from an
+older build), and its streams and consumers. A rollback must reach that state
+again. If an endpoint times out or errors, or the stream listing fails, the
+deploy refuses before anything stops. Fix the running release first.
 
 Run every rehearsal on an isolated second stack before the first live deploy.
 Record each result under [Recorded runs](#recorded-runs).

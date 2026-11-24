@@ -21,8 +21,9 @@ function marked(db, kind, attemptId) {
 export const snapshotName = (db, attemptId) => marked(db, 'snap', attemptId)
 export const failedName = (db, attemptId) => marked(db, 'failed', attemptId)
 
-// The engine has already handled "target is current" and "no current release".
-export function planDeploy(config, state, observed) {
+// The engine has already handled "target is current" and "no current release"; it passes the
+// start time, taken once and written with the intent.
+export function planDeploy(config, state, observed, { at }) {
   const reasons = preflightFindings(config, state, observed)
   if (reasons.length > 0) {
     return { status: 'refused', reasons }
@@ -49,7 +50,8 @@ export function planDeploy(config, state, observed) {
     previous: state.current,
     snapshot: { databases, volumes, webroot, expect: observed.expect },
     helperPrefix: `${config.project}-deploy-${attemptId}-`,
-    at: config.now,
+    inputs: null,
+    at,
   })
   const snap = (op, d) => ({
     op,
@@ -144,7 +146,12 @@ export function planRecovery(attempt, observed) {
     return []
   }
   if (COMMITTED.has(attempt.phase)) {
-    return [{ op: 'close', phase: 'done' }]
+    // Committed: never roll back. Make sure the committed release is running, then close.
+    return [
+      { op: 'start', phase: 'verified', rev: attempt.target },
+      { op: 'verify_backend', phase: 'verified', rev: attempt.target },
+      { op: 'close', phase: 'done' },
+    ]
   }
   const rb = (step) => ({ ...step, phase: 'rolling_back' })
   const { snapshot, previous } = attempt

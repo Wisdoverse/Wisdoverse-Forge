@@ -17,7 +17,7 @@
  *     FORGE_DEPLOY_IT_PGPASSWORD="$PW" npx vitest run --config tests/vitest.config.ts \
  *     --project integration tests/integration/deploy-release-pg.test.ts
  */
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -43,6 +43,9 @@ const DATABASES = [
   { key: 'temporal_visibility', role: 'temporal', name: 'it_temporal_visibility' },
 ]
 const ROLE_NAMES = { api: 'it_api', orchestrator: 'it_orch', temporal: 'it_temporal' }
+// A non-owner role with object-level grants inside the API database.
+const READER = 'it_reader'
+const readerPassword = randomBytes(18).toString('hex')
 const ownerOf = (d: { role: string }) => ROLE_NAMES[d.role as keyof typeof ROLE_NAMES]
 const passwords = Object.fromEntries(
   Object.keys(ROLE_NAMES).map((k) => [k, randomBytes(18).toString('hex')])
@@ -143,9 +146,37 @@ function resetFixture() {
     const extras = d.key === 'api' ? ['CREATE EXTENSION pgcrypto', 'CREATE EXTENSION pg_trgm'] : []
     su(
       d.name,
-      `${extras.join('; ')}${extras.length ? ';' : ''} SET ROLE ${ownerOf(d)}; ${d.key === 'api' ? 'CREATE SCHEMA extra;' : ''} ${ledger.join('; ')}${ledger.length ? ';' : ''} CREATE TABLE marker (v text); INSERT INTO marker VALUES ('original'); CREATE SEQUENCE seq; SELECT setval('seq', 4242)`
+      `${extras.join('; ')}${extras.length ? ';' : ''} SET ROLE ${ownerOf(d)}; ${d.key === 'api' ? 'CREATE SCHEMA extra;' : ''} ${ledger.join('; ')}${ledger.length ? ';' : ''} CREATE TABLE marker (v text); INSERT INTO marker VALUES ('original'); CREATE SEQUENCE seq; SELECT setval('seq', 4242);${d.key === 'api' ? ` GRANT SELECT ON marker TO ${READER};` : ''}`
     )
   }
+}
+
+function asReader(database: string, sql: string) {
+  const env = { PGHOST: HOST, PGUSER: READER, PGPASSWORD: readerPassword, PGDATABASE: database }
+  const args = [
+    'run',
+    '--rm',
+    '--pull',
+    'never',
+    '--network',
+    NET,
+    '--name',
+    'rehearsal-1319-it-reader',
+  ]
+  const r = docker(
+    [
+      ...args,
+      ...Object.keys(env).flatMap((k) => ['-e', k]),
+      'postgres:18-alpine',
+      'psql',
+      '-X',
+      '-At',
+      '-c',
+      sql,
+    ],
+    env
+  )
+  return r.status === 0 ? r.stdout : `ERROR ${r.stderr}`
 }
 
 // Each helper container takes seconds on a loaded host; these limits are deliberately generous.
@@ -179,10 +210,12 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
   interface Options {
     failVerify?: boolean
     crashAfter?: { op: string; nth: number }
+    killHelperDuring?: { op: string; nth: number }
     beforeRollback?: () => void
   }
   function hybrid(real: ReturnType<typeof createExecutor>, opts: Options = {}) {
     let seen = 0
+    let killSeen = 0
     let { beforeRollback } = opts
     return {
       ...real,
@@ -202,7 +235,8 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
         databases: real.databaseFacts(),
         agentContainers: [],
         volumes: [],
-        expect: { checks: [], streams: [], consumers: [], ledgers: {} },
+        expect: { endpoints: {}, streams: [], consumers: [], ledgers: {} },
+        captureProblems: [],
         rollback: {
           configReadable: true,
           releaseDirExists: true,
@@ -216,6 +250,14 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
         if (step.phase === 'rolling_back' && beforeRollback) {
           beforeRollback()
           beforeRollback = undefined
+        }
+        if (opts.killHelperDuring?.op === step.op && ++killSeen === opts.killHelperDuring.nth) {
+          // Kill the SQL helper while this statement is in flight (from another process).
+          const name = `${PROJECT}-deploy-${ATTEMPT}-sql`
+          spawn('sh', ['-c', `sleep 0.3; docker kill ${name} >/dev/null 2>&1`], {
+            detached: true,
+            stdio: 'ignore',
+          }).unref()
         }
         if (DB_OPS.has(step.op)) {
           const result = await real.run(step, st)
@@ -283,12 +325,17 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
   beforeAll(() => {
     const create = (role: string) =>
       `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${role}') THEN CREATE ROLE ${role} LOGIN; END IF; END $$`
-    su('postgres', ...Object.values(ROLE_NAMES).map(create))
+    su(
+      'postgres',
+      ...[...Object.values(ROLE_NAMES), READER].map(create),
+      `ALTER ROLE ${READER} LOGIN NOCREATEDB PASSWORD '${readerPassword}'`
+    )
   }, SLOW)
 
   beforeEach(() => {
     resetFixture()
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-deploy-it-'))
+    fs.writeFileSync(path.join(tmp, 'deploy.env'), 'COMPOSE_PROJECT_NAME=rehearsal-1319-forge\n')
     const real = createExecutor(cfg(), () => null)
     real.writeState({
       ...emptyState(),
@@ -323,7 +370,15 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
         ])
         su('postgres', 'ALTER ROLE it_temporal RESET ALL', 'ALTER ROLE it_orch NOCREATEDB')
         expect(facts()).toEqual(['database it_orch owner role lacks CREATEDB'])
-        su('postgres', 'ALTER ROLE it_orch CREATEDB')
+        su(
+          'postgres',
+          'ALTER ROLE it_orch CREATEDB',
+          'ALTER DATABASE it_temporal CONNECTION LIMIT 5'
+        )
+        expect(facts()).toEqual([
+          'database it_temporal has a non-default connection limit (a template copy does not carry it)',
+        ])
+        su('postgres', 'ALTER DATABASE it_temporal CONNECTION LIMIT -1')
         expect(facts()).toEqual([])
       }),
     SLOW
@@ -377,8 +432,11 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
     'full rollback by rename swap restores every database, with ALLOW_CONNECTIONS on',
     async () => {
       const before = catalog()
+      expect(asReader(API_DB, 'select v from marker')).toBe('original')
       expect(await deploy(ctx({ failVerify: true }))).toBe(EXIT.ROLLED_BACK)
       expectRolledBack(before)
+      // Object-level grants live inside the database, so the restored copy carries them.
+      expect(asReader(API_DB, 'select v from marker')).toBe('original')
     },
     SLOW
   )
@@ -503,6 +561,78 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
       eligible.forEach((n) => expect(left).not.toContain(n))
       foreign.forEach((n) => expect(left).toContain(n))
       DATABASES.forEach((d) => expect(left).toContain(d.name))
+    },
+    SLOW
+  )
+
+  it(
+    'PostgreSQL fact: a template copy does not carry a database-level ACL, so preflight refuses one',
+    () => {
+      su(
+        'postgres',
+        'CREATE DATABASE it_acl_src OWNER it_orch',
+        `GRANT CONNECT ON DATABASE it_acl_src TO ${READER}`,
+        'CREATE DATABASE it_acl_copy TEMPLATE it_acl_src OWNER it_orch'
+      )
+      const acl = su(
+        'postgres',
+        "select datname || '=' || coalesce(datacl::text, 'default') from pg_database where datname like 'it\\_acl\\_%' order by 1"
+      )
+      expect(acl.split('\n')[0]).toBe('it_acl_copy=default')
+      expect(acl.split('\n')[1]).toMatch(/^it_acl_src=\{.*it_reader=c/)
+    },
+    SLOW
+  )
+
+  it(
+    'an error inside a batched read fails the step; no partial result is accepted',
+    () =>
+      session(async (real) => {
+        const copy = 'it_batch_copy'
+        su('postgres', `CREATE DATABASE ${copy} TEMPLATE "${API_DB}" OWNER it_api`)
+        su(copy, 'DROP TABLE _sqlx_migrations')
+        const step = {
+          op: 'verify_snapshot',
+          phase: 'snapshotting',
+          db: 'api',
+          name: API_DB,
+          snapshot: copy,
+        }
+        await expect(real.run(step, { ...emptyState() })).rejects.toThrow(/exited/)
+      }),
+    SLOW
+  )
+
+  it(
+    'the SQL helper killed during an in-flight rename, then recover finishes from the real names/OIDs',
+    async () => {
+      const before = catalog()
+      const code = await deploy(
+        ctx({ failVerify: true, killHelperDuring: { op: 'rename', nth: 1 } })
+      )
+      expect(code).toBe(EXIT.RECOVERY_REQUIRED)
+      expect(state().attempt.phase).toBe('recovery_required')
+      expect(await recover(ctx())).toBe(EXIT.OK)
+      expectRolledBack(before)
+    },
+    SLOW
+  )
+
+  it(
+    'the maintenance database unreachable -> clean refusal before any mutation',
+    async () => {
+      const before = catalog()
+      su('template1', 'ALTER DATABASE postgres WITH ALLOW_CONNECTIONS false')
+      let code
+      try {
+        code = await deploy(ctx())
+      } finally {
+        su('template1', 'ALTER DATABASE postgres WITH ALLOW_CONNECTIONS true')
+      }
+      expect(code).toBe(EXIT.PREFLIGHT_REFUSED)
+      expect(state().attempt).toBeNull()
+      expect(catalog()).toEqual(before)
+      expect(logs.join('\n')).toMatch(/preflight could not run/)
     },
     SLOW
   )

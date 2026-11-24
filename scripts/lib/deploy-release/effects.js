@@ -21,7 +21,7 @@ import {
   sha256,
   tagDriftFindings,
 } from './checks.js'
-import { StateUnreadable, TERMINAL, emptyState } from './journal.js'
+import { StateUnreadable, TERMINAL, emptyState, validateState } from './journal.js'
 import { planFrontendSwitch, selectPrunable } from './plan.js'
 
 const MAX_BUFFER = 256 * 1024 * 1024
@@ -42,6 +42,19 @@ export function fsyncPath(p) {
   }
 }
 
+// Round-3 finding 3: create a directory and fsync the parent of every directory it created, up
+// to an existing ancestor, so the new entries survive a crash before anything inside is trusted.
+export function ensureDir(dir, mode = 0o755) {
+  const created = []
+  for (let d = path.resolve(dir); !fs.existsSync(d); d = path.dirname(d)) {
+    created.unshift(d)
+  }
+  fs.mkdirSync(dir, { recursive: true, mode })
+  for (const d of [...created].reverse()) {
+    fsyncPath(path.dirname(d))
+  }
+}
+
 // A1: write every byte to a temp file, fsync it, rename over the target, fsync the directory.
 export function atomicWrite(file, data) {
   const tmp = `${file}.tmp`
@@ -54,6 +67,18 @@ export function atomicWrite(file, data) {
   }
   fs.renameSync(tmp, file)
   fsyncPath(path.dirname(file))
+}
+
+function fsyncTree(root) {
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const full = path.join(root, entry.name)
+    if (entry.isDirectory()) {
+      fsyncTree(full)
+    } else if (entry.isFile()) {
+      fsyncPath(full)
+    }
+  }
+  fsyncPath(root)
 }
 
 function listFiles(root) {
@@ -121,10 +146,28 @@ export function createExecutor(cfg, log) {
   const releaseDir = (rev) => path.join(cfg.releaseRoot, 'releases', rev)
   const configPath = (rev) => path.join(cfg.privateRoot, 'configs', `${rev}.json`)
   const statePath = path.join(cfg.privateRoot, 'state.json')
+  // Round-3 finding 5: Jenkins stages new inputs; they become active only with a new attempt.
+  const activeEnv = path.join(cfg.privateRoot, 'deploy.env')
+  const stagedEnv = path.join(cfg.privateRoot, 'staged.env')
+  const envFile = () => (fs.existsSync(stagedEnv) ? stagedEnv : activeEnv)
+  const activeInputs = () => ({ envSha256: sha256(fs.readFileSync(activeEnv)) })
+  function promoteInputs() {
+    for (const [from, to] of [
+      [stagedEnv, activeEnv],
+      [path.join(cfg.releaseRoot, 'staged-runner'), path.join(cfg.releaseRoot, 'last-runner')],
+    ]) {
+      if (fs.existsSync(from)) {
+        fsyncPath(from)
+        fs.renameSync(from, to)
+        fsyncPath(path.dirname(to))
+      }
+    }
+    return activeInputs()
+  }
   const project = [...words('compose --profile external --project-name'), cfg.project]
   const composeSource = (rev) => [
     ...project,
-    ...['--env-file', cfg.envFile, '-f', path.join(releaseDir(rev), 'docker/compose.yml')],
+    ...['--env-file', envFile(), '-f', path.join(releaseDir(rev), 'docker/compose.yml')],
     ...['-f', path.join(releaseDir(rev), 'docker/compose.external.yml')],
   ]
   const composeRendered = (file) => [...project, '-f', file]
@@ -148,11 +191,13 @@ export function createExecutor(cfg, log) {
   ]
 
   const stats = { helperStarts: 0, sqlInvocations: 0 }
-  const sqlHelper = () => helperName('sql')
+  // Round-3 finding 6: the helper is addressed by the container ID recorded when it started,
+  // never by a name re-derived later.
+  let sqlHelper = null
   // One long-lived client container per attempt; every SQL invocation is a `docker exec` into it.
   // Connection settings reach psql only through the environment (pass-through `-e NAME`), the
   // SQL text through stdin. Each query of a script prints exactly one line.
-  const psqlLines = (roleKey, database, script) => {
+  const psqlLines = (roleKey, database, script, lines) => {
     const role = cfg.roles[roleKey]
     const env = {
       PGHOST: role.host,
@@ -167,12 +212,17 @@ export function createExecutor(cfg, log) {
       'exec',
       '-i',
       ...passEnv,
-      sqlHelper(),
+      sqlHelper?.id ?? 'no-sql-helper-started',
       ...words('psql -X -q -v ON_ERROR_STOP=1 -At -f -'),
     ]
-    return docker(args, { env, input: script }).stdout.split('\n').filter(Boolean)
+    const out = docker(args, { env, input: script }).stdout.split('\n').filter(Boolean)
+    if (lines !== undefined && out.length !== lines) {
+      throw new Error(`SQL batch returned ${out.length} line(s), expected ${lines}`)
+    }
+    return out
   }
-  const psql = (roleKey, database, sql) => psqlLines(roleKey, database, sql).join('\n')
+  const psql = (roleKey, database, sql) => psqlLines(roleKey, database, sql, 1)[0]
+  const sqlDo = (roleKey, database, sql) => psqlLines(roleKey, database, sql, 0)
   const connect = (database) => `\\c ${q(database)}`
   const names = (list) => `array[${list.map(lit).join(',')}]::text[]`
   const roleOf = (key) => cfg.databases.find((d) => d.key === key).role
@@ -184,7 +234,7 @@ export function createExecutor(cfg, log) {
   const LEDGER_SQL =
     "select coalesce(jsonb_agg(jsonb_build_object('version', version, 'checksum', encode(checksum, 'hex'), 'success', success) order by version), '[]') from _sqlx_migrations;"
   const CATALOG_SQL = (list) =>
-    `select coalesce(jsonb_object_agg(d.datname, jsonb_build_object('oid', d.oid::bigint, 'allowConnections', d.datallowconn, 'ownedByRole', r.rolname = current_user, 'ownerCreatedb', r.rolcreatedb, 'defaultAcl', d.datacl is null, 'defaultTablespace', d.dattablespace = (select oid from pg_tablespace where spcname = 'pg_default'), 'settings', (select count(*) from pg_db_role_setting s where s.setdatabase = d.oid or s.setrole = d.datdba), 'slots', (select count(*) from pg_replication_slots s where s.database = d.datname), 'subscriptions', (select count(s.subdbid) from pg_subscription s where s.subdbid = d.oid))), '{}') from pg_database d join pg_roles r on r.oid = d.datdba where d.datname = any(${names(list)});`
+    `select coalesce(jsonb_object_agg(d.datname, jsonb_build_object('oid', d.oid::bigint, 'allowConnections', d.datallowconn, 'ownedByRole', r.rolname = current_user, 'ownerCreatedb', r.rolcreatedb, 'defaultAcl', d.datacl is null, 'connLimit', d.datconnlimit, 'defaultTablespace', d.dattablespace = (select oid from pg_tablespace where spcname = 'pg_default'), 'settings', (select count(*) from pg_db_role_setting s where s.setdatabase = d.oid or s.setrole = d.datdba), 'slots', (select count(*) from pg_replication_slots s where s.database = d.datname), 'subscriptions', (select count(s.subdbid) from pg_subscription s where s.subdbid = d.oid))), '{}') from pg_database d join pg_roles r on r.oid = d.datdba where d.datname = any(${names(list)});`
   const dbStatus = (roleKey, list) => JSON.parse(psql(roleKey, 'postgres', STATUS_SQL(list)))
   const readLedger = (key, database) => JSON.parse(psql(roleOf(key), database, LEDGER_SQL))
   const ledgerRows = () =>
@@ -200,12 +250,14 @@ export function createExecutor(cfg, log) {
       const dbs = cfg.databases.filter((d) => d.role === role)
       Object.assign(facts, JSON.parse(psql(role, 'postgres', CATALOG_SQL(dbs.map((d) => d.name)))))
       const open = dbs.filter((d) => facts[d.name]?.allowConnections)
-      const script = open.flatMap((d) => [
-        connect(d.name),
+      // PGDATABASE already selects the first database; `\c` only switches to the next ones.
+      const script = open.flatMap((d, i) => [
+        ...(i === 0 ? [] : [connect(d.name)]),
         'select count(*) from pg_publication;',
         ...(d.migrations ? [LEDGER_SQL] : []),
       ])
-      const out = open.length > 0 ? psqlLines(role, open[0].name, script.join('\n')) : []
+      const lines = open.reduce((n, d) => n + (d.migrations ? 2 : 1), 0)
+      const out = open.length > 0 ? psqlLines(role, open[0].name, script.join('\n'), lines) : []
       for (const d of open) {
         facts[d.name].publications = Number(out.shift())
         if (d.migrations) {
@@ -220,7 +272,7 @@ export function createExecutor(cfg, log) {
     const out = docker([...composeSource(rev), 'config', '--format', 'json'], {
       env: { VERSION: rev },
     }).stdout
-    fs.mkdirSync(path.dirname(configPath(rev)), { recursive: true, mode: 0o700 })
+    ensureDir(path.dirname(configPath(rev)), 0o700)
     atomicWrite(configPath(rev), out)
     return JSON.parse(out)
   }
@@ -263,8 +315,9 @@ export function createExecutor(cfg, log) {
       .map((s) => inspect(s.container_name))
       .filter(Boolean)
   const loadConfig = (rev) => JSON.parse(fs.readFileSync(record(rev).config, 'utf8'))
-  const agentInventory = () =>
-    lines(docker(['ps', '-q', '--filter', `network=${cfg.agentNetwork}`]))
+  // Running agents refuse a deploy; stopped ones of a discarded release are removed too.
+  const agentInventory = ({ all = false } = {}) =>
+    lines(docker(['ps', ...(all ? ['-a'] : []), '-q', '--filter', `network=${cfg.agentNetwork}`]))
       .map(inspect)
       .filter((c) => c && isProductAgent(c))
   const removeContainers = (ids, what) => {
@@ -335,7 +388,7 @@ export function createExecutor(cfg, log) {
     for (const rel of plan) {
       const dst = path.join(cfg.webRoot, rel)
       const tmp = `${dst}.forge-tmp-${attemptId()}`
-      fs.mkdirSync(path.dirname(dst), { recursive: true })
+      ensureDir(path.dirname(dst))
       fs.copyFileSync(path.join(sourceDir, rel), tmp)
       fs.chmodSync(tmp, 0o644)
       fs.chownSync(tmp, uid, gid)
@@ -391,7 +444,7 @@ export function createExecutor(cfg, log) {
     }
     const { streams, resultConsumer } = cfg.contract
     const ledgers = releaseMigrations(record(s.rev).releaseDir)
-    return { ...base, checks: null, streams, consumers: [resultConsumer], ledgers }
+    return { ...base, endpoints: null, streams, consumers: [resultConsumer], ledgers }
   }
 
   const ops = {
@@ -413,13 +466,13 @@ export function createExecutor(cfg, log) {
     },
     remove_new_agents: (s) =>
       removeContainers(
-        newAgents(agentInventory(), s.since).map((c) => c.id),
+        newAgents(agentInventory({ all: true }), s.since).map((c) => c.id),
         'agent containers'
       ),
     disable_connections: (s) =>
-      psql(roleOf(s.db), 'postgres', `ALTER DATABASE ${q(s.name)} WITH ALLOW_CONNECTIONS false`),
+      sqlDo(roleOf(s.db), 'postgres', `ALTER DATABASE ${q(s.name)} WITH ALLOW_CONNECTIONS false`),
     enable_connections: (s) =>
-      psql(roleOf(s.db), 'postgres', `ALTER DATABASE ${q(s.name)} WITH ALLOW_CONNECTIONS true`),
+      sqlDo(roleOf(s.db), 'postgres', `ALTER DATABASE ${q(s.name)} WITH ALLOW_CONNECTIONS true`),
     terminate_sessions: (s) =>
       psql(
         roleOf(s.db),
@@ -447,13 +500,13 @@ export function createExecutor(cfg, log) {
       }
     },
     archive_volume: (s) => {
-      fs.mkdirSync(path.dirname(s.tar), { recursive: true, mode: 0o700 })
+      ensureDir(path.dirname(s.tar), 0o700)
       const mounts = ['-v', `${s.volume}:/v:ro`, '-v', `${path.dirname(s.tar)}:/out`]
       volumeHelper('tar', mounts, ...words('tar -C /v -cf'), `/out/${path.basename(s.tar)}`, '.')
       return syncedArchive(s.tar)
     },
     archive_webroot: (s) => {
-      fs.mkdirSync(path.dirname(s.tar), { recursive: true, mode: 0o700 })
+      ensureDir(path.dirname(s.tar), 0o700)
       run('tar', ['-C', cfg.webRoot, '-cf', s.tar, '.'])
       return syncedArchive(s.tar)
     },
@@ -488,9 +541,9 @@ export function createExecutor(cfg, log) {
         const diskSha = sha256(fs.readFileSync(path.join(cfg.webRoot, 'index.html')))
         return frontendFindings({ diskSha, served }, record(s.rev).indexSha256)
       }),
-    drop_database: (s) => psql(roleOf(s.db), 'postgres', `DROP DATABASE IF EXISTS ${q(s.name)}`),
+    drop_database: (s) => sqlDo(roleOf(s.db), 'postgres', `DROP DATABASE IF EXISTS ${q(s.name)}`),
     rename: (s) =>
-      psql(roleOf(s.db), 'postgres', `ALTER DATABASE ${q(s.from)} RENAME TO ${q(s.to)}`),
+      sqlDo(roleOf(s.db), 'postgres', `ALTER DATABASE ${q(s.from)} RENAME TO ${q(s.to)}`),
     restore_volume: (s) => {
       ensureSha(s.tar, s.sha256)
       // `sync` flushes the extracted files before the journal records the restore as done.
@@ -537,7 +590,7 @@ export function createExecutor(cfg, log) {
     const sources = cfg.databases.map((d) => d.name)
     for (const item of selectPrunable(items, current, current.attempt?.attemptId, sources)) {
       if (item.kind === 'database') {
-        psql(item.role, 'postgres', `DROP DATABASE IF EXISTS ${q(item.name)}`)
+        sqlDo(item.role, 'postgres', `DROP DATABASE IF EXISTS ${q(item.name)}`)
       } else {
         fs.rmSync(item.path, { recursive: true, force: true })
       }
@@ -569,6 +622,7 @@ export function createExecutor(cfg, log) {
     const present = (id) => docker(['image', 'inspect', id], { allowFail: true }).status === 0
     const { facts: databases, ledgers } = catalog()
     const facts = await backendFacts(st.current, ledgers)
+    const captured = captureExpectations(facts, cfg.requireRedis)
     const targetMigrations = releaseMigrations(releaseDir(rev))
     const notes = Object.entries(targetMigrations).map(([key, files]) => {
       const applied = new Set(facts.ledgers[key].map((r) => r.version))
@@ -589,7 +643,8 @@ export function createExecutor(cfg, log) {
       databases,
       agentContainers: agentInventory(),
       volumes: cfg.volumes.map((key) => rendered.volumes?.[key]?.name ?? `${cfg.project}_${key}`),
-      expect: captureExpectations(facts, cfg.requireRedis),
+      expect: captured.expect,
+      captureProblems: captured.problems,
       rollback: {
         configReadable: Boolean(prevConfig),
         releaseDirExists: fs.existsSync(prev.releaseDir),
@@ -628,7 +683,13 @@ export function createExecutor(cfg, log) {
       Object.entries(rendered.services).map(([svc, s]) => [svc, s.image])
     )
     const imageIds = Object.fromEntries(Object.values(refs).map((ref) => [ref, imageId(ref)]))
-    const findings = compareBaseline(rendered, containers, imageIds, releaseDir(rev))
+    // Only regular files (daemon-side `test -f`) inside the release directory may be relocated.
+    const releaseFiles = new Set(
+      bindProbes(rendered, releaseDir(rev))
+        .filter((b) => b.ok && b.source.startsWith(`${releaseDir(rev)}/`))
+        .map((b) => b.source)
+    )
+    const findings = compareBaseline(rendered, containers, imageIds, releaseFiles)
     const images = Object.fromEntries(containers.map((c) => [c.service, c.imageId]))
     const indexSha256 = sha256(fs.readFileSync(path.join(cfg.webRoot, 'index.html')))
     const rec = {
@@ -654,12 +715,7 @@ export function createExecutor(cfg, log) {
       // The parser's message can quote file content; say only what is wrong.
       throw new StateUnreadable('state.json is not valid JSON (truncated or edited)')
     }
-    if (current?.schema !== 1) {
-      throw new StateUnreadable(
-        `state.json schema ${current?.schema} is not supported by this script`
-      )
-    }
-    return current
+    return validateState(current)
   }
 
   return {
@@ -704,10 +760,18 @@ export function createExecutor(cfg, log) {
         cfg.externalNetwork,
         ...helperArgs('sql'),
       ]
-      docker([...args, cfg.pgClientImage, 'sleep', 'infinity'])
+      const id = docker([...args, cfg.pgClientImage, 'sleep', 'infinity']).stdout.trim()
+      sqlHelper = { id, name: helperName('sql') }
     },
-    stopSql: () => removeContainers(inspect(sqlHelper()) ? [sqlHelper()] : [], 'SQL helper'),
+    stopSql: () => {
+      if (sqlHelper) {
+        removeContainers([sqlHelper.id], `SQL helper ${sqlHelper.name}`)
+        sqlHelper = null
+      }
+    },
     stats: () => ({ ...stats }),
+    promoteInputs,
+    activeInputs,
     preflight,
     databaseFacts: () => catalog().facts,
     ledgerRows,
@@ -741,13 +805,14 @@ export function createExecutor(cfg, log) {
         inherit: true,
       })
       const out = path.join(cfg.releaseRoot, 'frontend', rev)
-      const id = docker(['create', tag]).stdout.trim()
+      const id = docker(['create', ...helperArgs('frontend'), tag]).stdout.trim()
       try {
         fs.rmSync(out, { recursive: true, force: true })
-        fs.mkdirSync(out, { recursive: true })
+        ensureDir(out)
         docker(['cp', `${id}:/app/dist/.`, out])
+        fsyncTree(out)
       } finally {
-        docker(['rm', id], { allowFail: true })
+        removeContainers([id], 'frontend extraction helper')
       }
       drift()
       log(`built images and frontend for ${rev}`)

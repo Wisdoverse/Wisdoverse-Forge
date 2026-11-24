@@ -11,12 +11,17 @@ const DBS = [
   { key: 'temporal_visibility', role: 'temporal', name: 'temporal_visibility' },
 ]
 const T0 = '2026-11-24T00:00:00.000Z'
-const agent = (uuid, created) => ({
+const agent = (uuid, created, running = true) => ({
   name: `agentforge-agent-${uuid}`,
   labels: { 'agentforge.agent_id': uuid },
   created,
+  running,
 })
-const NEW_AGENT = agent('00000000-0000-4000-8000-000000000002', '2026-11-24T00:05:00.000Z')
+// Created by the new release: one still running, one already stopped. Both are discarded state.
+const NEW_AGENTS = [
+  agent('00000000-0000-4000-8000-000000000002', '2026-11-24T00:05:00.000Z'),
+  agent('00000000-0000-4000-8000-000000000003', '2026-11-24T00:06:00.000Z', false),
+]
 
 export function createWorld() {
   const databases = {}
@@ -47,7 +52,6 @@ export const fakeConfig = (overrides = {}) => ({
   databases: DBS,
   simulateVerifyFailure: false,
   snapshotDir: '/private/snapshots/a1b2c3d4',
-  now: T0,
   ...overrides,
 })
 
@@ -66,7 +70,7 @@ export function goodPreflight(world) {
       settings: 0,
       slots: 0,
     })
-    Object.assign(databases[name], { subscriptions: 0, publications: 0 })
+    Object.assign(databases[name], { subscriptions: 0, publications: 0, connLimit: -1 })
   }
   return {
     envVersion: 'next',
@@ -81,7 +85,8 @@ export function goodPreflight(world) {
     databases,
     agentContainers: world.agents,
     volumes: Object.keys(world.volumes),
-    expect: { checks: [], streams: [], consumers: [], ledgers: {} },
+    expect: { endpoints: {}, streams: [], consumers: [], ledgers: {} },
+    captureProblems: [],
     rollback: { configReadable: true, releaseDirExists: true, bindProbes: [], missingImages: [] },
     tagIds: {},
     record: { rev: 'next', images: {} },
@@ -92,7 +97,12 @@ export function goodPreflight(world) {
 // SIGKILL around an op; crashWrite: index of a journal write after which the process dies.
 export function fakeExecutor(world, opts = {}) {
   const { failAt = new Set(), crash = null, crashWrite = -1, agentAppears = -1 } = opts
-  const { helperDiesAt = -1, stopFails = false } = opts
+  const {
+    helperDiesAt = -1,
+    stopFails = false,
+    failWritesFrom = Infinity,
+    envChanged = false,
+  } = opts
   let { beforeRollback = null } = opts
   let calls = 0
   let writes = 0
@@ -125,7 +135,7 @@ export function fakeExecutor(world, opts = {}) {
       world.running = null
     },
     check_no_agents: () => {
-      if (world.agents.length > 0) {
+      if (world.agents.some((a) => a.running)) {
         throw new Error('agent containers started after preflight')
       }
     },
@@ -175,7 +185,7 @@ export function fakeExecutor(world, opts = {}) {
         Object.keys(world.volumes).forEach((v) => {
           world.volumes[v] = 'next'
         })
-        world.agents = [...world.agents.filter((a) => a !== NEW_AGENT), NEW_AGENT]
+        world.agents = [...world.agents.filter((a) => !NEW_AGENTS.includes(a)), ...NEW_AGENTS]
       }
     },
     verify_backend: (s) => {
@@ -214,6 +224,11 @@ export function fakeExecutor(world, opts = {}) {
   return {
     readState: () => JSON.parse(world.stateJson),
     writeState: (state) => {
+      // A persistent write error (ENOSPC): nothing is stored from this write on.
+      if (writes >= failWritesFrom) {
+        writes += 1
+        throw new Error('ENOSPC: no space left on device')
+      }
       world.stateJson = JSON.stringify(state)
       writes += 1
       if (writes - 1 === crashWrite) {
@@ -223,6 +238,8 @@ export function fakeExecutor(world, opts = {}) {
     removeHelpers: () => {
       world.sqlHelper = null
     },
+    promoteInputs: () => ({ envSha256: 'env-a' }),
+    activeInputs: () => ({ envSha256: envChanged ? 'env-b' : 'env-a' }),
     startSql: () => {
       if (world.sqlHelper) {
         throw new Error('SQL helper name already in use')
@@ -325,7 +342,7 @@ export function outcomeErrors(world, rev) {
   if (world.sqlHelper) {
     errors.push('the SQL helper container was left running')
   }
-  if (rev === 'prev' && world.agents.includes(NEW_AGENT)) {
+  if (rev === 'prev' && world.agents.some((a) => NEW_AGENTS.includes(a))) {
     errors.push('an agent container of the discarded release survived the rollback')
   }
   return errors
@@ -335,6 +352,7 @@ export const ctxFor = (world, opts, config = fakeConfig()) => ({
   config,
   exec: fakeExecutor(world, opts),
   log: () => null,
+  now: () => T0,
 })
 
 async function crashThenRecover(world, opts) {
@@ -440,7 +458,111 @@ export async function faultMatrix() {
   const stickyCode = await deploy(ctxFor(sticky, { stopFails: true }))
   results.push({
     name: 'SQL helper removal fails at the end',
-    errors: stickyCode === EXIT.FAILED ? [] : [`exit ${stickyCode}, expected ${EXIT.FAILED}`],
+    errors:
+      stickyCode === EXIT.FINALIZE_FAILED
+        ? []
+        : [`exit ${stickyCode}, expected ${EXIT.FINALIZE_FAILED}`],
+  })
+  // Round-3 finding 9: crash after EVERY journal write of the rollback and recover paths, in both
+  // regimes. The seeds fail at a snapshot step (regime 1) and at backend verification (regime 2).
+  const seeds = [
+    ['regime 1', { failAt: new Set([4]) }],
+    ['regime 2', { failAt: new Set([27]) }],
+  ]
+  for (const [regime, seed] of seeds) {
+    const probeWorld = createWorld()
+    const probeExec = ctxFor(probeWorld, seed)
+    await deploy(probeExec)
+    for (let w = 0; w < probeExec.exec.writes(); w += 1) {
+      const world = createWorld()
+      try {
+        await deploy(ctxFor(world, { ...seed, crashWrite: w }))
+        continue
+      } catch (err) {
+        if (!(err instanceof Crash)) {
+          throw err
+        }
+      }
+      const rev = committedPhase(world) ? 'next' : 'prev'
+      add(
+        `${regime}: crash after write ${w} of deploy+rollback, then recover`,
+        world,
+        await recover(ctxFor(world, {})),
+        EXIT.OK,
+        rev
+      )
+    }
+    // The recover path itself: crash before op 12, then crash recover after each of its writes.
+    const crashed = () => {
+      const world = createWorld()
+      return deploy(ctxFor(world, { crash: { at: 12, when: 'before' } })).then(
+        () => world,
+        () => world
+      )
+    }
+    const recoverProbe = await crashed()
+    const recoverCtx = ctxFor(recoverProbe, {})
+    await recover(recoverCtx)
+    for (let w = 0; w < recoverCtx.exec.writes(); w += 1) {
+      const world = await crashed()
+      await recover(ctxFor(world, { crashWrite: w })).catch((err) => {
+        if (!(err instanceof Crash)) {
+          throw err
+        }
+      })
+      add(
+        `${regime}: recover interrupted after its write ${w}, then recover`,
+        world,
+        await recover(ctxFor(world, {})),
+        EXIT.OK,
+        'prev'
+      )
+    }
+  }
+  // Round-3 finding 2: a persistent journal write failure from write w on. Before the commit the
+  // deploy fails (rolled back later by recover); from the commit on the committed release keeps
+  // running, nothing is stopped, and recover confirms and closes it.
+  for (let w = 1; w < totalWrites; w += 1) {
+    const world = createWorld()
+    const code = await deploy(ctxFor(world, { failWritesFrom: w }))
+    const onDisk = committedPhase(world)
+    const errors = []
+    if (onDisk && (code !== EXIT.FINALIZE_FAILED || world.running !== 'next')) {
+      errors.push(
+        `after commit: exit ${code} (want ${EXIT.FINALIZE_FAILED}), running ${world.running}`
+      )
+    }
+    if (!onDisk && code === EXIT.OK) {
+      errors.push('a deploy whose commit never reached disk reported success')
+    }
+    const recovered = await recover(ctxFor(world, {}))
+    errors.push(...outcomeErrors(world, onDisk ? 'next' : 'prev'))
+    if (recovered !== EXIT.OK) {
+      errors.push(`recover exit ${recovered}`)
+    }
+    results.push({ name: `journal writes fail from write ${w}`, errors })
+  }
+  // A committed attempt whose stack went down is started again by recover before it closes.
+  const down = createWorld()
+  await deploy(ctxFor(down, { failWritesFrom: totalWrites - 2 }))
+  down.running = null
+  add(
+    'committed attempt with the stack down, then recover',
+    down,
+    await recover(ctxFor(down, {})),
+    EXIT.OK,
+    'next'
+  )
+  // Round-3 finding 5: recover refuses when the active env is not the one the attempt started with.
+  const swapped = createWorld()
+  await deploy(ctxFor(swapped, { crash: { at: 12, when: 'before' } })).catch(() => null)
+  const swappedCode = await recover(ctxFor(swapped, { envChanged: true }))
+  results.push({
+    name: 'recover with a different active env',
+    errors:
+      swappedCode === EXIT.RECOVERY_REQUIRED
+        ? []
+        : [`exit ${swappedCode}, expected ${EXIT.RECOVERY_REQUIRED}`],
   })
   // Finding 8: an agent that appears after preflight aborts before the snapshot, untouched.
   const appeared = createWorld()

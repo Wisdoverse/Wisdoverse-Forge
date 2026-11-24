@@ -25,7 +25,11 @@ import {
   secretValues,
   tagDriftFindings,
 } from '../../../scripts/lib/deploy-release/checks.js'
-import { atomicWrite, createExecutor } from '../../../scripts/lib/deploy-release/effects.js'
+import {
+  atomicWrite,
+  createExecutor,
+  ensureDir,
+} from '../../../scripts/lib/deploy-release/effects.js'
 import { EXIT, deploy, recover } from '../../../scripts/lib/deploy-release/engine.js'
 import {
   PHASES,
@@ -68,6 +72,7 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
     phase,
     step: null,
     helperPrefix: 'forge-deploy-a1b2c3d4-',
+    inputs: { envSha256: 'env-a' },
     startedAt: '2026-11-24T00:00:00.000Z',
     swaps: [],
     snapshot: {
@@ -84,7 +89,7 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
       ],
       volumes: [{ volume: 'v', tar: '/s/v.tar', sha256: 'x', restored: false }],
       webroot: { tar: '/s/webroot.tar', sha256: 'y', restored: false },
-      expect: { checks: [], streams: [], consumers: [], ledgers: {} },
+      expect: { endpoints: {}, streams: [], consumers: [], ledgers: {} },
     },
   }
 }
@@ -189,7 +194,9 @@ describe('planRecovery', () => {
       if (phase === 'done' || phase === 'rolled_back') {
         expect(steps).toEqual([])
       } else if (phase === 'verified') {
-        expect(ops(steps)).toEqual(['close'])
+        // Committed: never a rollback; confirm the committed release runs, then close.
+        expect(ops(steps)).toEqual(['start', 'verify_backend', 'close'])
+        expect(steps[0]).toMatchObject({ rev: 'next', phase: 'verified' })
       } else {
         expect(steps.at(-1)).toEqual({ op: 'close', phase: 'rolled_back' })
         expect(steps.find((s) => s.op === 'verify_backend')).toMatchObject({ against: 'snapshot' })
@@ -303,6 +310,67 @@ describe('engine', () => {
     expect(await deploy(ctxFor(bare, {}))).toBe(EXIT.PREFLIGHT_REFUSED)
   })
 
+  it('round 3 finding 1: the production wiring (no injected clock) journals a real start time', async () => {
+    const world = createWorld()
+    const before = Date.now()
+    // Exactly what scripts/deploy-release.mjs builds: { config, exec, log } and no clock.
+    const ctx = {
+      config: fakeConfig({ simulateVerifyFailure: true }),
+      exec: fakeExecutor(world),
+      log: () => null,
+    }
+    await deploy(ctx)
+    const startedAt = Date.parse(JSON.parse(world.stateJson).attempt.startedAt)
+    expect(startedAt).toBeGreaterThanOrEqual(before - 1000)
+    expect(startedAt).toBeLessThanOrEqual(Date.now())
+    const cli = fs.readFileSync(path.join(root, 'scripts/deploy-release.mjs'), 'utf8')
+    expect(cli).not.toMatch(/\bnow\s*:/)
+  })
+
+  it('round 3 finding 1/7: a journal without a usable start time (or with a bare schema) is refused', async () => {
+    const messages: string[] = []
+    for (const bad of [
+      { schema: 1 },
+      {
+        ...emptyState(),
+        current: 'prev',
+        records: { prev: { rev: 'prev', images: {} } },
+        attempt: { ...attemptFixture(true), startedAt: 'yesterday' },
+      },
+      {
+        ...emptyState(),
+        current: 'prev',
+        records: { prev: { rev: 'prev', images: {} } },
+        attempt: { ...attemptFixture(true), inputs: null },
+      },
+      { ...emptyState(), current: 'gone', records: {} },
+    ]) {
+      const world = createWorld()
+      world.stateJson = JSON.stringify(bad)
+      const log = (m: string) => messages.push(m)
+      expect(await recover({ ...ctxFor(world, {}), log })).toBe(EXIT.RECOVERY_REQUIRED)
+      expect(await deploy({ ...ctxFor(world, {}), log })).toBe(EXIT.RECOVERY_REQUIRED)
+    }
+    expect(messages.join('\n')).toMatch(/structurally invalid/)
+  })
+
+  it('round 3 finding 2: a write failure after the commit leaves the release running and exits 14', async () => {
+    const probe = createWorld()
+    const probeCtx = ctxFor(probe, {})
+    await deploy(probeCtx)
+    const world = createWorld()
+    // The two writes before `close` complete: the commit is on disk, finishing fails.
+    expect(await deploy(ctxFor(world, { failWritesFrom: probeCtx.exec.writes() - 2 }))).toBe(
+      EXIT.FINALIZE_FAILED
+    )
+    expect(world.running).toBe('next')
+    expect(JSON.parse(world.stateJson).attempt.phase).toBe('verified')
+    world.running = null
+    expect(await recover(ctxFor(world, {}))).toBe(EXIT.OK)
+    expect(world.running).toBe('next')
+    expect(JSON.parse(world.stateJson).attempt.phase).toBe('done')
+  })
+
   it('finding 2: an unreadable state file is a recovery-required refusal, never "no journal"', async () => {
     const messages: string[] = []
     const exec = {
@@ -384,13 +452,15 @@ describe('engine', () => {
     const messages: string[] = []
     const world = createWorld()
     const ctx = { ...ctxFor(world, { stopFails: true }), log: (m: string) => messages.push(m) }
-    expect(await deploy(ctx)).toBe(EXIT.FAILED)
+    expect(await deploy(ctx)).toBe(EXIT.FINALIZE_FAILED)
     expect(JSON.parse(world.stateJson).attempt.phase).toBe('done')
     expect(messages.join('\n')).toMatch(/SQL helper container could not be removed/)
   })
 
   it('journals snapshot names with the attempt id, checks agents after stopping, snapshots before migrating', () => {
-    const plan = planDeploy(fakeConfig(), state, goodPreflight(createWorld()))
+    const plan = planDeploy(fakeConfig(), state, goodPreflight(createWorld()), {
+      at: '2026-11-24T00:00:00.000Z',
+    })
     expect(plan.attempt.snapshot.databases.map((d: { snapshot: string }) => d.snapshot)).toContain(
       'forge__snap_a1b2c3d4'
     )
@@ -542,6 +612,7 @@ describe('preflight predicates', () => {
     ownerCreatedb: true,
     defaultAcl: true,
     defaultTablespace: true,
+    connLimit: -1,
     settings: 0,
     slots: 0,
     subscriptions: 0,
@@ -558,6 +629,7 @@ describe('preflight predicates', () => {
     ['subscriptions', 1],
     ['publications', 1],
     ['allowConnections', false],
+    ['connLimit', 5],
   ])('A5 refuses when %s is %s', (key, value) => {
     expect(databaseFindings([{ name: 'forge' }], { forge: good })).toEqual([])
     expect(
@@ -692,7 +764,7 @@ describe('verification predicates', () => {
     ledgers: { api: rows },
   }
   const forward = {
-    checks: null,
+    endpoints: null,
     streams: contract.streams,
     consumers: [contract.resultConsumer],
     ledgers: { api: [{ version: 1, checksum: 'aa' }] },
@@ -707,7 +779,7 @@ describe('verification predicates', () => {
       backendFindings({ ...facts, orchHealth: ok({ workflowRuntime: 'disabled' }) }, forward)
     ).toHaveLength(1)
     expect(backendFindings({ ...facts, natsHealth: { error: 'timeout' } }, forward)[0]).toMatch(
-      /could not run/
+      /NATS \/healthz: unreachable/
     )
     expect(backendFindings({ ...facts, jsz: ok({ account_details: [] }) }, forward)).toHaveLength(5)
     expect(backendFindings({ ...facts, runningImages: {} }, forward)).toHaveLength(1)
@@ -716,7 +788,7 @@ describe('verification predicates', () => {
   })
 
   it('finding 5: rollback is held to what the previous release answered before the deploy', () => {
-    // An older build: no /health/ready on the orchestrator, no workflowRuntime field, one stream.
+    // An older build: no /health/ready (404), no workflowRuntime field, one stream.
     const older = {
       ...facts,
       orchHealth: ok({ status: 'healthy' }),
@@ -724,10 +796,11 @@ describe('verification predicates', () => {
       jsz: ok({ account_details: [{ stream_detail: [{ name: 'EVENTS' }] }] }),
       ledgers: { api: [{ version: 0, checksum: 'zz', success: true }] },
     }
-    const captured = captureExpectations(older, false)
-    expect(captured.checks).toContain('orchestrator /health answers')
-    expect(captured.checks).not.toContain('orchestrator /health healthy')
-    expect(captured.checks).not.toContain('orchestrator /health/ready answers')
+    const { problems, expect: captured } = captureExpectations(older, false)
+    expect(problems).toEqual([])
+    expect(captured.endpoints['orchestrator /health']).toBe('answers')
+    expect(captured.endpoints['orchestrator /health/ready']).toBe('unsupported')
+    expect(captured.endpoints['API /health']).toBe('healthy')
     expect(captured.streams).toEqual(['EVENTS'])
     const expectation = { ...captured, images: { nats: 'sha256:1' }, requireRedis: false }
     expect(backendFindings(older, expectation)).toEqual([])
@@ -738,6 +811,41 @@ describe('verification predicates', () => {
     expect(
       backendFindings({ ...older, ledgers: { api: rows } }, expectation).length
     ).toBeGreaterThan(0)
+  })
+
+  it('round 3 finding 4: a capture that cannot observe refuses; a 404 or an empty listing is a fact', () => {
+    const cases: [string, object, RegExp | null][] = [
+      ['timeout', { orchReady: { error: 'timeout' } }, /unreachable/],
+      ['HTTP 503', { apiReady: { status: 503, body: null } }, /is error/],
+      [
+        'JetStream listing failed',
+        { jsz: { error: 'connection failed' } },
+        /JetStream listing failed/,
+      ],
+      ['JetStream HTTP 500', { jsz: { status: 500, body: null } }, /JetStream listing failed/],
+      ['Temporal not serving', { temporalServing: false }, /Temporal/],
+      ['404', { orchReady: { status: 404, body: null } }, null],
+      ['empty listing', { jsz: ok({ account_details: [] }) }, null],
+    ]
+    for (const [, patch, refusal] of cases) {
+      const { problems, expect: captured } = captureExpectations({ ...facts, ...patch }, false)
+      if (refusal) {
+        expect(problems.join('\n')).toMatch(refusal)
+      } else {
+        expect(problems).toEqual([])
+      }
+      if (patch === cases[6][1]) {
+        expect(captured.streams).toEqual([])
+      }
+    }
+    const observed = {
+      ...goodPreflight(createWorld()),
+      captureProblems: ['running release: x is unreachable'],
+    }
+    const state = { ...emptyState(), current: 'prev', records: { prev: {} } }
+    expect(preflightFindings(fakeConfig(), state, observed)).toEqual([
+      'running release: x is unreachable',
+    ])
   })
 
   it('compares the served and on-disk index.html with the release copy', () => {
@@ -796,13 +904,19 @@ describe('verification predicates', () => {
       healthcheck: ['CMD', 'true'],
     }
     const ids = { 'nats:2': 'sha256:1' }
+    // Daemon-side `test -f` proved this source is a regular file inside the release directory.
+    const files = new Set([`${release}/docker/nats.conf`])
     const withMount = (i: number, patch: object) => ({
       ...container,
       mounts: container.mounts.map((m, j) => (j === i ? { ...m, ...patch } : m)),
     })
 
     it('accepts the running stack, including the release-relocated config file', () => {
-      expect(compareBaseline(rendered, [container], ids, release)).toEqual([])
+      expect(compareBaseline(rendered, [container], ids, files)).toEqual([])
+    })
+
+    it('round 3 finding 7: a release-directory source that is not a proven regular file is not relocated', () => {
+      expect(compareBaseline(rendered, [container], ids, new Set())).toHaveLength(1)
     })
 
     it.each([
@@ -822,7 +936,7 @@ describe('verification predicates', () => {
       ['another network', { ...container, networks: [] }],
       ['another image', { ...container, imageId: 'sha256:2' }],
     ])('refuses %s', (_label, changed) => {
-      expect(compareBaseline(rendered, [changed], ids, release)).toHaveLength(1)
+      expect(compareBaseline(rendered, [changed], ids, files)).toHaveLength(1)
     })
   })
 })
@@ -971,6 +1085,46 @@ describe('filesystem effects (temporary directory only)', () => {
     expect(() => exec.readState()).toThrow(StateUnreadable)
     fs.writeFileSync(path.join(tmp, 'state.json'), '{"schema":7}')
     expect(() => exec.readState()).toThrow(StateUnreadable)
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('round 3 finding 3: ensureDir creates nested directories with the given mode', () => {
+    const tmp = tmpDir()
+    ensureDir(path.join(tmp, 'a/b/c'), 0o700)
+    expect(fs.statSync(path.join(tmp, 'a/b/c')).isDirectory()).toBe(true)
+    expect(fs.statSync(path.join(tmp, 'a/b/c')).mode & 0o777).toBe(0o700)
+    ensureDir(path.join(tmp, 'a/b/c'))
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('round 3 finding 5: staged inputs are promoted with a new attempt and left alone otherwise', async () => {
+    const tmp = tmpDir()
+    const cfg = cfgFor(tmp)
+    fs.writeFileSync(path.join(tmp, 'deploy.env'), 'A=active\n')
+    fs.writeFileSync(path.join(tmp, 'staged.env'), 'A=staged\n')
+    fs.writeFileSync(path.join(tmp, 'staged-runner'), 'abc1234\n')
+    const exec = createExecutor(cfg, () => null)
+    // An unfinished attempt: deploy must refuse before touching either input set.
+    const attempt = { ...attemptFixture(false, 'snapshotting'), inputs: exec.activeInputs() }
+    const unfinished = {
+      ...emptyState(),
+      current: 'prev',
+      records: { prev: { rev: 'prev', images: {} } },
+      attempt,
+    }
+    atomicWrite(path.join(tmp, 'state.json'), JSON.stringify(unfinished))
+    const messages: string[] = []
+    expect(await deploy({ config: fakeConfig(), exec, log: (m: string) => messages.push(m) })).toBe(
+      EXIT.PREFLIGHT_REFUSED
+    )
+    expect(messages.join('\n')).toMatch(/unfinished.*run recover/)
+    expect(fs.readFileSync(path.join(tmp, 'deploy.env'), 'utf8')).toBe('A=active\n')
+    expect(fs.existsSync(path.join(tmp, 'staged.env'))).toBe(true)
+    const promoted = exec.promoteInputs()
+    expect(fs.readFileSync(path.join(tmp, 'deploy.env'), 'utf8')).toBe('A=staged\n')
+    expect(fs.existsSync(path.join(tmp, 'staged.env'))).toBe(false)
+    expect(fs.readFileSync(path.join(tmp, 'last-runner'), 'utf8')).toBe('abc1234\n')
+    expect(promoted).toEqual(exec.activeInputs())
     fs.rmSync(tmp, { recursive: true, force: true })
   })
 

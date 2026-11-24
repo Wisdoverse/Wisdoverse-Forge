@@ -144,6 +144,10 @@ export function databaseFindings(databases, facts) {
       [!f.ownerCreatedb, 'owner role lacks CREATEDB'],
       [!f.defaultAcl, 'has a non-default ACL'],
       [!f.defaultTablespace, 'is not in the default tablespace'],
+      [
+        f.connLimit !== -1,
+        'has a non-default connection limit (a template copy does not carry it)',
+      ],
       [f.settings > 0, 'has database or role settings'],
       [
         f.slots + f.subscriptions + f.publications > 0,
@@ -246,6 +250,7 @@ export function preflightFindings(config, state, o) {
   out.push(...identityFindings(config.project, o.rendered, o.containers))
   out.push(...databaseFindings(config.databases, o.databases))
   out.push(...agentContainerFindings(o.agentContainers))
+  out.push(...o.captureProblems)
   out.push(...rollbackFindings(o.rollback))
   out.push(...tagDriftFindings(state.records, o.tagIds))
   return out
@@ -261,31 +266,28 @@ const ENDPOINTS = [
   ['NATS /healthz', 'natsHealth', (b) => b.status === 'ok'],
 ]
 
-// Each endpoint yields two checks so a rollback can require exactly what the release answered
-// before the deploy (an older build may answer an endpoint without the newer body fields).
-export function endpointChecks(facts, requireRedis) {
-  const checks = ENDPOINTS.flatMap(([label, key, healthy]) => {
-    const res = facts[key]
-    if (!res || res.error) {
-      const problem = `check could not run (${res?.error ?? 'no response'})`
-      return [
-        { label: `${label} answers`, problem },
-        { label: `${label} healthy`, problem },
-      ]
-    }
-    return [
-      { label: `${label} answers`, problem: res.status === 200 ? null : `HTTP ${res.status}` },
-      {
-        label: `${label} healthy`,
-        problem: res.status === 200 && healthy(res.body ?? {}, requireRedis) ? null : 'unhealthy',
-      },
-    ]
-  })
-  return [
-    ...checks,
-    { label: 'Temporal SERVING', problem: facts.temporalServing ? null : 'not SERVING' },
-  ]
+// One state per endpoint. `unsupported` (HTTP 404) is a fact about an older release; an endpoint
+// that cannot be reached or answers with another error is not.
+function endpointState(res, healthy, requireRedis) {
+  if (!res || res.error) {
+    return 'unreachable'
+  }
+  if (res.status === 404) {
+    return 'unsupported'
+  }
+  if (res.status !== 200) {
+    return 'error'
+  }
+  return healthy(res.body ?? {}, requireRedis) ? 'healthy' : 'answers'
 }
+
+export const endpointStates = (facts, requireRedis) =>
+  Object.fromEntries(
+    ENDPOINTS.map(([label, key, healthy]) => [
+      label,
+      endpointState(facts[key], healthy, requireRedis),
+    ])
+  )
 
 export function observedStreams(jsz) {
   if (!jsz || jsz.error || jsz.status !== 200) {
@@ -300,42 +302,61 @@ export function observedStreams(jsz) {
   }
 }
 
-// Finding 5: what "healthy" meant for the release that runs before the deploy.
+// Finding 5 + round-3 finding 4: what "healthy" meant for the running release, recorded before
+// the deploy. Anything that could not be observed refuses the deploy instead of weakening it.
 export function captureExpectations(facts, requireRedis) {
-  const js = observedStreams(facts.jsz) ?? { streams: [], consumers: [] }
+  const endpoints = endpointStates(facts, requireRedis)
+  const problems = Object.entries(endpoints)
+    .filter(([, state]) => state === 'unreachable' || state === 'error')
+    .map(
+      ([label, state]) =>
+        `running release: ${label} is ${state}; its healthy state cannot be recorded`
+    )
+  if (!facts.temporalServing) {
+    problems.push('running release: Temporal is not SERVING; its healthy state cannot be recorded')
+  }
+  const js = observedStreams(facts.jsz)
+  if (!js) {
+    problems.push('running release: the JetStream listing failed; its streams cannot be recorded')
+  }
+  const ledgers = Object.fromEntries(
+    Object.entries(facts.ledgers).map(([k, rows]) => [
+      k,
+      rows.map((r) => ({ version: r.version, checksum: r.checksum })),
+    ])
+  )
   return {
-    checks: endpointChecks(facts, requireRedis)
-      .filter((c) => !c.problem)
-      .map((c) => c.label),
-    streams: js.streams,
-    consumers: js.consumers,
-    ledgers: Object.fromEntries(
-      Object.entries(facts.ledgers).map(([k, rows]) => [
-        k,
-        rows.map((r) => ({ version: r.version, checksum: r.checksum })),
-      ])
-    ),
+    problems,
+    expect: { endpoints, streams: js?.streams ?? [], consumers: js?.consumers ?? [], ledgers },
   }
 }
 
-// expect.checks === null requires every check (forward deploy); otherwise only the listed ones.
+const SATISFIES = {
+  healthy: ['healthy'],
+  answers: ['healthy', 'answers'],
+  unsupported: ['healthy', 'answers', 'unsupported', 'unreachable', 'error'],
+}
+
+// expect.endpoints === null requires every endpoint healthy (forward deploy); otherwise each
+// endpoint must reach the state the running release showed before the deploy.
 export function backendFindings(facts, expect) {
-  const required = (label) => expect.checks === null || expect.checks.includes(label)
-  const out = endpointChecks(facts, expect.requireRedis)
-    .filter((c) => c.problem && required(c.label))
-    .map((c) => `${c.label}: ${c.problem}`)
-  if (expect.streams.length + expect.consumers.length > 0) {
-    const js = observedStreams(facts.jsz)
-    if (!js) {
-      out.push('NATS JetStream: check could not run')
-    } else {
-      expect.streams
-        .filter((s) => !js.streams.includes(s))
-        .forEach((s) => out.push(`NATS stream ${s} missing`))
-      expect.consumers
-        .filter((c) => !js.consumers.some((o) => o.stream === c.stream && o.name === c.name))
-        .forEach((c) => out.push(`NATS consumer ${c.name} on ${c.stream} missing`))
-    }
+  const states = endpointStates(facts, expect.requireRedis)
+  const out = Object.entries(states)
+    .filter(([label, state]) => !SATISFIES[expect.endpoints?.[label] ?? 'healthy'].includes(state))
+    .map(([label, state]) => `${label}: ${state}`)
+  if (!facts.temporalServing) {
+    out.push('Temporal SERVING: not SERVING')
+  }
+  const js = observedStreams(facts.jsz)
+  if (!js) {
+    out.push('NATS JetStream: check could not run')
+  } else {
+    expect.streams
+      .filter((s) => !js.streams.includes(s))
+      .forEach((s) => out.push(`NATS stream ${s} missing`))
+    expect.consumers
+      .filter((c) => !js.consumers.some((o) => o.stream === c.stream && o.name === c.name))
+      .forEach((c) => out.push(`NATS consumer ${c.name} on ${c.stream} missing`))
   }
   for (const [service, id] of Object.entries(expect.images)) {
     if (facts.runningImages[service] !== id) {
@@ -368,15 +389,16 @@ const envNames = (env) =>
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
 export const binding = (ip, port, target) => `${ip || '0.0.0.0'}:${port}->${target}`
 
-function mountKey(rendered, releaseDir, m) {
+function mountKey(rendered, relocatedFiles, m) {
   const mode = m.read_only ? 'ro' : 'rw'
   if (m.type === 'volume') {
     return `volume ${rendered.volumes?.[m.source]?.name ?? m.source} ${m.target} ${mode}`
   }
-  // Files bind-mounted from the release directory are relocated on purpose: the baseline is
-  // re-materialized from `git archive`, so only the file name must match the running source.
-  const inRelease = m.source.startsWith(`${releaseDir}/`)
-  return `bind ${inRelease ? `*/${m.source.split('/').pop()}` : m.source} ${m.target} ${mode}`
+  // Regular files bind-mounted from the release directory are relocated on purpose: the baseline
+  // is re-materialized from `git archive`, so only the file name must match the running source.
+  // The caller proves "regular file" daemon-side; a directory never qualifies.
+  const relocated = relocatedFiles.has(m.source)
+  return `bind ${relocated ? `*/${m.source.split('/').pop()}` : m.source} ${m.target} ${mode}`
 }
 
 function containerMountKey(m, relocatedTargets) {
@@ -389,7 +411,7 @@ function containerMountKey(m, relocatedTargets) {
 }
 
 // A11: the rendered baseline describes the running containers (labels and tags differ by design).
-export function compareBaseline(rendered, containers, imageIds, releaseDir) {
+export function compareBaseline(rendered, containers, imageIds, relocatedFiles) {
   const out = []
   const byName = new Map(containers.map((c) => [c.name, c]))
   for (const [service, svc] of Object.entries(rendered.services)) {
@@ -401,9 +423,7 @@ export function compareBaseline(rendered, containers, imageIds, releaseDir) {
     const diff = (what) => out.push(`${service}: ${what} differs from the running container`)
     const volumes = svc.volumes ?? []
     const relocated = new Set(
-      volumes
-        .filter((v) => v.type === 'bind' && v.source.startsWith(`${releaseDir}/`))
-        .map((v) => v.target)
+      volumes.filter((v) => v.type === 'bind' && relocatedFiles.has(v.source)).map((v) => v.target)
     )
     if (imageIds[svc.image] !== c.imageId) {
       diff('image id')
@@ -411,7 +431,7 @@ export function compareBaseline(rendered, containers, imageIds, releaseDir) {
     if (!envNames(svc.environment).every((k) => envNames(c.env).includes(k))) {
       diff('environment names')
     }
-    const wantMounts = volumes.map((v) => mountKey(rendered, releaseDir, v))
+    const wantMounts = volumes.map((v) => mountKey(rendered, relocatedFiles, v))
     if (
       !sameSet(
         wantMounts,

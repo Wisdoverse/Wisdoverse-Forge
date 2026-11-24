@@ -6,8 +6,9 @@
 // first supervised deploy has succeeded; enable it afterwards.
 //
 // ACTION=status and ACTION=recover never fetch, build or replace the env file: they reuse the
-// runner image, release directory and env file prepared by the last deploy, so a Git or
-// registry outage cannot block a recovery.
+// ACTIVE runner image, release directory and env file (those of the last attempt the script
+// started), so a Git or registry outage cannot block a recovery. A deploy only stages new
+// inputs (staged.env, staged-runner); the script promotes them when it starts a new attempt.
 //
 // Nothing host-specific lives here: host paths are derived at run time from the Jenkins
 // container's own mounts, the web root and lock directory come from the env-file credential.
@@ -92,18 +93,20 @@ pipeline {
               rm -f "$DEST.tar"
               mv "$DEST.partial" "$DEST"
             fi
-            cp "$FORGE_ENV_SRC" "$LOCAL/private/deploy.env.partial"
-            chmod 600 "$LOCAL/private/deploy.env.partial"
-            printf '\\nVERSION=%s\\n' "$FORGE_REV" >> "$LOCAL/private/deploy.env.partial"
-            mv "$LOCAL/private/deploy.env.partial" "$LOCAL/private/deploy.env"
+            # Staged only: the script promotes it to deploy.env when it starts a new attempt, so an
+            # unfinished attempt keeps the inputs it started with.
+            cp "$FORGE_ENV_SRC" "$LOCAL/private/staged.env.partial"
+            chmod 600 "$LOCAL/private/staged.env.partial"
+            printf '\\nVERSION=%s\\n' "$FORGE_REV" >> "$LOCAL/private/staged.env.partial"
+            mv "$LOCAL/private/staged.env.partial" "$LOCAL/private/staged.env"
           '''
         }
-        script { readPaths() }
+        script { readPaths('staged.env') }
         sh '''#!/bin/sh
           set -eu
           LOCAL="$JENKINS_HOME/$FORGE_JOB_DIR"
           docker build -t "forge-deploy-runner:$FORGE_REV" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
-          printf '%s\\n' "$FORGE_REV" > "$LOCAL/release/last-runner"
+          printf '%s\\n' "$FORGE_REV" > "$LOCAL/release/staged-runner"
         '''
         script {
           // A recorded revision is never rebuilt: rebuilding could move the tags its record pins.
@@ -124,7 +127,7 @@ pipeline {
           if (!(env.FORGE_REV ==~ /[0-9a-f]{40}/)) {
             error('No deploy has prepared this job yet; there is nothing to recover or report.')
           }
-          readPaths()
+          readPaths('deploy.env')
         }
       }
     }
@@ -151,12 +154,12 @@ pipeline {
   }
 }
 
-// Paths only (no secret values): read single keys from the private env file, never print it.
-def readPaths() {
+// Paths only (no secret values): read single keys from a private env file, never print it.
+def readPaths(String file) {
   def envValue = { String key ->
     sh(returnStdout: true, script: """#!/bin/sh
       set -eu
-      sed -n 's/^${key}=//p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/deploy.env" | tail -n 1 | sed -e 's/^"\\(.*\\)"\$/\\1/' -e "s/^'\\(.*\\)'\$/\\1/"
+      sed -n 's/^${key}=//p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/${file}" | tail -n 1 | sed -e 's/^"\\(.*\\)"\$/\\1/' -e "s/^'\\(.*\\)'\$/\\1/"
     """).trim()
   }
   env.FORGE_WEB_ROOT = envValue('WEBROOT')

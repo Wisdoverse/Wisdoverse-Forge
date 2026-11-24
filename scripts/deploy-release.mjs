@@ -16,18 +16,20 @@
  *
  * Environment (paths are host paths, mounted at the same path in the runner):
  *   FORGE_RELEASE_ROOT        holds releases/<commit>/ (git archive, no secrets) and frontend/<commit>/
- *   FORGE_PRIVATE_ROOT        mode 700: deploy.env, state.json, configs/, snapshots/
+ *   FORGE_PRIVATE_ROOT        mode 700: deploy.env (active), staged.env (from Jenkins, promoted
+ *                             with a new attempt), state.json, configs/, snapshots/
  *   FORGE_RUNNER_IMAGE        tag of this runner image (volume archives and bind-source probes)
  *   SIMULATE_VERIFY_FAILURE   1 or true forces the rollback path after the backend starts
  *
  * Exit codes:
  *   0   success, already-current no-op, or nothing to recover
- *   1   usage or unexpected error before any state change, or the result above was reached but
- *       the SQL helper container could not be removed afterwards (the message says which)
+ *   1   usage or unexpected error before any state change
  *   10  deploy failed and was rolled back; the previous release was verified
  *   11  recovery required: project services stopped; run status, repair, then recover
  *   12  preflight refused; nothing was changed
  *   13  lock busy: another deploy, recover or baseline is running for this project
+ *   14  finalize failed: the result was reached (a committed release is left running) but finishing
+ *       work failed, for example a journal write or removing the SQL helper; run recover
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -77,10 +79,16 @@ function fromUrl(env, key) {
   return { role, name }
 }
 
-function loadConfig(args) {
+function loadConfig(command, args) {
   const releaseRoot = absolute(process.env.FORGE_RELEASE_ROOT, 'FORGE_RELEASE_ROOT')
   const privateRoot = absolute(process.env.FORGE_PRIVATE_ROOT, 'FORGE_PRIVATE_ROOT')
-  const envFile = path.join(privateRoot, 'deploy.env')
+  // deploy/build read the inputs Jenkins staged; status/recover only the active ones. The very
+  // first baseline has no active inputs yet and promotes the staged ones.
+  const staged = path.join(privateRoot, 'staged.env')
+  const active = path.join(privateRoot, 'deploy.env')
+  const wantsStaged =
+    ['deploy', 'build'].includes(command) || (command === 'baseline' && !fs.existsSync(active))
+  const envFile = wantsStaged && fs.existsSync(staged) ? staged : active
   const env = parseEnvFile(fs.readFileSync(envFile, 'utf8'))
   const at = args.indexOf('--revision')
   const target = at >= 0 ? args[at + 1] : env.VERSION
@@ -116,10 +124,8 @@ function loadConfig(args) {
   const bind = env.BIND_ADDRESS && env.BIND_ADDRESS !== '0.0.0.0' ? env.BIND_ADDRESS : '127.0.0.1'
   return {
     env,
-    envFile,
     target,
     attemptId,
-    now: undefined,
     releaseRoot,
     privateRoot,
     project: required(env, 'COMPOSE_PROJECT_NAME'),
@@ -182,6 +188,7 @@ async function baseline(ctx) {
     findings.forEach((f) => ctx.log(`refused: ${f}`))
     return EXIT.PREFLIGHT_REFUSED
   }
+  ctx.exec.promoteInputs()
   await ctx.exec.writeState({
     ...state,
     current: 'baseline',
@@ -213,7 +220,7 @@ async function main(argv) {
   }
   let secrets = []
   try {
-    const cfg = loadConfig(rest)
+    const cfg = loadConfig(command, rest)
     secrets = cfg.secrets
     if (['build', 'deploy'].includes(command) && !(cfg.target && cfg.runnerImage)) {
       throw new Error(`${command} needs --revision <commit> and FORGE_RUNNER_IMAGE`)

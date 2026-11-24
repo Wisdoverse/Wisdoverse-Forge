@@ -1,12 +1,14 @@
 // Runs plans against an executor. The executor is the only thing that touches the world, so
 // the same engine runs with the real Docker/psql effects and with the fake used by self-test.
 import {
+  COMMITTED,
   StateUnreadable,
   TERMINAL,
   announce,
   complete,
   emptyState,
   markRecoveryRequired,
+  validateState,
 } from './journal.js'
 import { RecoveryError, planDeploy, planRecovery } from './plan.js'
 
@@ -17,6 +19,8 @@ export const EXIT = {
   RECOVERY_REQUIRED: 11,
   PREFLIGHT_REFUSED: 12,
   LOCK_BUSY: 13,
+  // The new release is committed and was left running; only finishing work failed.
+  FINALIZE_FAILED: 14,
 }
 
 // Thrown only by the fake executor to model SIGKILL / host loss: nothing may catch it.
@@ -33,7 +37,7 @@ async function save(ctx, state) {
 // Returns false (after explaining) when the state file exists but cannot be read.
 export async function loadState(ctx) {
   try {
-    ctx.state = (await ctx.exec.readState()) ?? emptyState()
+    ctx.state = validateState((await ctx.exec.readState()) ?? emptyState())
     return true
   } catch (err) {
     if (!(err instanceof StateUnreadable)) {
@@ -82,7 +86,7 @@ async function stopSqlHelper(ctx, code) {
     return code
   } catch (err) {
     ctx.log(`ERROR: the SQL helper container could not be removed: ${err.message}`)
-    return code === EXIT.OK ? EXIT.FAILED : code
+    return code === EXIT.OK ? EXIT.FINALIZE_FAILED : code
   }
 }
 
@@ -123,16 +127,28 @@ export async function deploy(ctx) {
 }
 
 async function deployLocked(ctx) {
-  const plan = planDeploy(ctx.config, ctx.state, await ctx.exec.preflight(ctx.state))
+  let observed
+  try {
+    observed = await ctx.exec.preflight(ctx.state)
+  } catch (err) {
+    if (err instanceof Crash) {
+      throw err
+    }
+    ctx.log(`refused: preflight could not run (nothing was changed): ${err.message}`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  const plan = planDeploy(ctx.config, ctx.state, observed, { at: now(ctx) })
   if (plan.status !== 'plan') {
     plan.reasons.forEach((r) => ctx.log(`refused: ${r}`))
     return EXIT.PREFLIGHT_REFUSED
   }
   plan.notes.forEach((n) => ctx.log(n))
+  // Staged inputs become active together with the intent; an unfinished attempt never gets here.
+  const attempt = { ...plan.attempt, inputs: await ctx.exec.promoteInputs() }
   await save(ctx, {
     ...ctx.state,
     records: { ...ctx.state.records, [ctx.config.target]: plan.record },
-    attempt: plan.attempt,
+    attempt,
   })
   try {
     await runSteps(ctx, plan.steps)
@@ -142,14 +158,53 @@ async function deployLocked(ctx) {
     if (err instanceof Crash) {
       throw err
     }
+    if (await committed(ctx)) {
+      return finalizeFailed(ctx, err)
+    }
     ctx.log(`deploy failed at ${ctx.state.attempt.step?.op ?? 'unknown step'}: ${err.message}`)
     const code = await rollBack(ctx, { restartHelpers: true })
     return code === EXIT.OK ? EXIT.ROLLED_BACK : code
   }
 }
 
+// Round-3 finding 2: once the commit record may be on disk, no path stops services or rolls back.
+async function committed(ctx) {
+  const isCommitted = (phase) => COMMITTED.has(phase) || phase === 'done'
+  if (isCommitted(ctx.state.attempt?.phase)) {
+    return true
+  }
+  try {
+    return isCommitted((await ctx.exec.readState())?.attempt?.phase)
+  } catch {
+    return false
+  }
+}
+
+function finalizeFailed(ctx, err) {
+  ctx.log(`FINALIZE FAILED: ${err.message}`)
+  ctx.log(
+    `The new release ${ctx.state.attempt.target} is committed and was left running; nothing was stopped.`
+  )
+  ctx.log(
+    'Next: repair the cause (for example disk space), then run `recover` to confirm and close.'
+  )
+  return EXIT.FINALIZE_FAILED
+}
+
 async function rollBack(ctx, { restartHelpers }) {
   const attempt = ctx.state.attempt
+  if (COMMITTED.has(attempt.phase)) {
+    try {
+      await runSteps(ctx, planRecovery(attempt, null))
+      ctx.log(`attempt ${attempt.attemptId}: committed release confirmed running; closed`)
+      return EXIT.OK
+    } catch (err) {
+      if (err instanceof Crash) {
+        throw err
+      }
+      return finalizeFailed(ctx, err)
+    }
+  }
   try {
     // A helper that outlived a failed step could still be writing; it must be gone first.
     if (restartHelpers) {
@@ -171,7 +226,11 @@ async function rollBack(ctx, { restartHelpers }) {
     } catch (stopErr) {
       ctx.log(`warning: could not stop project services: ${stopErr.message}`)
     }
-    await save(ctx, markRecoveryRequired(ctx.state, message, now(ctx)))
+    try {
+      await save(ctx, markRecoveryRequired(ctx.state, message, now(ctx)))
+    } catch (writeErr) {
+      ctx.log(`the journal could not record recovery_required either: ${writeErr.message}`)
+    }
     ctx.log(`RECOVERY REQUIRED: ${message}`)
     ctx.log(
       'All project services were asked to stop. Every later deploy refuses until recover succeeds.'
@@ -193,6 +252,12 @@ export async function recover(ctx) {
     await ctx.exec.removeHelpers()
     ctx.log('no unfinished attempt; nothing to recover')
     return EXIT.OK
+  }
+  // Round-3 finding 5: an unfinished attempt is recovered with the inputs it started with.
+  if ((await ctx.exec.activeInputs()).envSha256 !== attempt.inputs.envSha256) {
+    ctx.log('RECOVERY REQUIRED: the active env file is not the one this attempt started with.')
+    ctx.log('Restore that env file (deploy.env in the private root) and run recover again.')
+    return EXIT.RECOVERY_REQUIRED
   }
   ctx.log(`recovering attempt ${attempt.attemptId} from phase ${attempt.phase}`)
   // withSqlHelper removes every leftover helper of this project (and confirms) before planning.
