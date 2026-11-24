@@ -30,7 +30,7 @@ use agentforge_core::{AgentId, AppResult, TenantScope, UserId};
 use agentforge_db::entities::{OrchestrationTask, Participant};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, PgPool, Postgres, Transaction};
+use sqlx::{FromRow, PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::domain::agent::AgentRepositoryPolicy;
@@ -282,6 +282,15 @@ pub struct UpdateTaskRow {
     pub blocked_metadata: Option<Option<serde_json::Value>>,
     pub expected_status: Option<String>,
     pub expected_row_version: Option<i64>,
+}
+
+/// Advisory-lock namespace for the per-task Forge merge mutex. Distinct from
+/// the `maintenance:`, `agent-lifecycle:`, `cli-image-roll:` and `participant:`
+/// keys, which use the same `hashtextextended(<namespace>:..., 0)` convention.
+const SELF_FIX_MERGE_LOCK_NAMESPACE: &str = "self-fix-merge";
+
+fn merge_lock_key(scope: &TenantScope, id: Uuid) -> String {
+    format!("{SELF_FIX_MERGE_LOCK_NAMESPACE}:{}:{id}", scope.org_id().as_uuid())
 }
 
 impl OrchestrationTaskRepository {
@@ -865,6 +874,23 @@ impl OrchestrationTaskRepository {
             .bind(id)
             .bind(scope.org_id().as_uuid())
             .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Try the per-task Forge merge mutex: a SESSION-level advisory lock on the
+    /// caller's dedicated connection (#1314). Not a transaction.
+    pub(crate) async fn try_lock_merge(conn: &mut PgConnection, scope: &TenantScope, id: Uuid) -> AppResult<bool> {
+        Ok(sqlx::query_scalar("SELECT pg_try_advisory_lock(hashtextextended($1, 0))")
+            .bind(merge_lock_key(scope, id))
+            .fetch_one(&mut *conn)
+            .await?)
+    }
+
+    pub(crate) async fn unlock_merge(conn: &mut PgConnection, scope: &TenantScope, id: Uuid) -> AppResult<()> {
+        sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtextextended($1, 0))")
+            .bind(merge_lock_key(scope, id))
+            .fetch_one(&mut *conn)
             .await?;
         Ok(())
     }

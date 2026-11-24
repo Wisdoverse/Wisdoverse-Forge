@@ -108,10 +108,13 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
   const merged = review?.reviewStatus === 'merged'
   const hasPullRequest = Boolean(review?.prNumber && review.prUrl)
   const rejected = Boolean(review?.currentRevisionRejected) && !merged
+  // An unconfirmed finish must stay reconcilable even with red or unknown CI;
+  // the server re-checks every gate before a real merge.
+  const unconfirmed = review?.reviewStatus === 'approved'
   const approveDisabled =
     !review ||
     !hasPullRequest ||
-    !review.checksGreen ||
+    (!review.checksGreen && !unconfirmed) ||
     review.sensitive ||
     rejected ||
     merged ||
@@ -243,7 +246,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
                 fix status.
               </p>
             )}
-            {review.reviewStatus === 'approved' && (
+            {unconfirmed && (
               <p
                 role="status"
                 className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark"
@@ -253,12 +256,16 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
                 this fix to check and complete it.
               </p>
             )}
-            {!merged && hasPullRequest && !review.checksGreen && !review.sensitive && (
-              <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
-                You can finish after automated checks pass. Choose Check fix status after they
-                finish.
-              </p>
-            )}
+            {!merged &&
+              !unconfirmed &&
+              hasPullRequest &&
+              !review.checksGreen &&
+              !review.sensitive && (
+                <p className="mt-1.5 text-ui-caption text-secondary-light dark:text-secondary-dark">
+                  You can finish after automated checks pass. Choose Check fix status after they
+                  finish.
+                </p>
+              )}
           </div>
         </div>
       ) : null}

@@ -181,6 +181,42 @@ describe('ReviewSnapshotPanel', () => {
     expect(approveSpy).not.toHaveBeenCalled()
   })
 
+  it('keeps an unconfirmed finish reconcilable even when automated checks are not green', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ reviewStatus: 'approved', checksGreen: false })
+    )
+    render(<ReviewSnapshotPanel task={task({ reviewStatus: 'approved' })} />)
+
+    expect(await screen.findByTestId('review-approve')).not.toBeDisabled()
+    expect(screen.getByTestId('review-finish-unconfirmed')).toBeInTheDocument()
+    expect(screen.queryByText(/automated checks pass/i)).toBeNull()
+  })
+
+  it('still disables finishing an in-review fix when automated checks are not green', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ reviewStatus: 'in_review', checksGreen: false })
+    )
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    expect(await screen.findByTestId('review-approve')).toBeDisabled()
+  })
+
+  it('explains that another finish attempt is running', async () => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
+    vi.spyOn(orchestrationApi, 'approveSelfFix').mockRejectedValue(
+      new Error(
+        'API 409: {"ok":false,"error":{"code":"errors.self_fix.merge_running","message":"x"}}'
+      )
+    )
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    fireEvent.click(await screen.findByTestId('review-approve'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Another finish attempt for this fix is running.')
+    expect(alert).not.toHaveTextContent('API 409')
+  })
+
   it('explains an unconfirmed finish and keeps Finish this fix available to complete it', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
       review({ reviewStatus: 'approved' })

@@ -283,6 +283,7 @@ fn code(body: &Value) -> &str {
 
 const REJECTED: &str = "errors.maintenance.merge_rejected";
 const IN_PROGRESS: &str = "errors.maintenance.merge_in_progress";
+const RUNNING: &str = "errors.self_fix.merge_running";
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_verdicts(pool: PgPool) {
@@ -460,5 +461,143 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
     let (status, body) = f.approve(task).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["data"]["alreadyMerged"], true, "{body}");
-    assert_eq!((f.state(task).await, f.fake.merges(73)), (("merged".into(), 2), 1));
+    // Reconciliation counts no attempt.
+    assert_eq!((f.state(task).await, f.fake.merges(73)), (("merged".into(), 1), 1));
+
+    // T1 — contention BEFORE the decision commits. The test holds the task row
+    // lock (the `SELECT … FOR UPDATE` that `lock_task` takes), so approve must
+    // wait inside its decision transaction. A rejection committed by the lock
+    // holder is then seen. Fails if the decision stops taking `lock_task`: the
+    // wait below never appears, or approve merges.
+    let task = f.task("gate-row-lock", 74, 'c').await;
+    let report = f.report(task).await;
+    let mut hold = pool.begin().await.unwrap();
+    sqlx::query("SELECT 1 FROM orchestration_tasks WHERE id=$1 FOR UPDATE")
+        .bind(task)
+        .execute(&mut *hold)
+        .await
+        .unwrap();
+    let merging = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    wait_for(
+        &pool,
+        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock')",
+    )
+    .await;
+    assert!(!merging.is_finished());
+    assert_eq!(f.fake.merges(74), 0);
+    sqlx::query("INSERT INTO maintenance_review_decisions (id,organization_id,task_id,report_id,request_key,reviewer_id,verdict,reason,input) VALUES ($1,$2,$3,$4,$5,$6,'rejected','Rejected while the merge waited.',$7)")
+        .bind(Uuid::now_v7()).bind(org).bind(task).bind(report).bind(Uuid::new_v4()).bind(user)
+        .bind(json!({"requestKey":Uuid::new_v4(),"reportId":report,"expectedVersion":0,"expectedRevision":sha('c'),"verdict":"rejected","reason":"Rejected while the merge waited.","humanMinutes":{}}))
+        .execute(&mut *hold).await.unwrap();
+    hold.commit().await.unwrap();
+    let (status, body) = merging.await.unwrap();
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, REJECTED), "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(74)), (("in_review".into(), 0), 0));
+
+    // T2 — overlapping approvals. A is paused at the provider merge endpoint;
+    // B is refused at once by the merge mutex, runs no executor (no provider
+    // request at all) and counts no attempt. Fails if the mutex is removed: B
+    // would enter the decision, bump the attempt and call the provider.
+    let task = f.task("gate-overlap", 75, 'c').await;
+    f.report(task).await;
+    let (entered, release) = f.fake.hold(75);
+    let first = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    entered.await.unwrap();
+    let requests = f.fake.requests();
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, RUNNING), "{body}");
+    assert_eq!(f.fake.requests(), requests, "a refused second approve must not reach the provider");
+    assert_eq!(f.state(task).await, ("approved".into(), 1));
+    release.send(()).unwrap();
+    assert_eq!(first.await.unwrap().0, StatusCode::OK);
+    assert_eq!((f.state(task).await, f.fake.merges(75)), (("merged".into(), 1), 1));
+
+    // T3 — the final allowed attempt is in flight. A second approve is refused
+    // by the mutex and does NOT hit the cap (no `changes_requested`), so
+    // verdicts stay refused until A's merge resolves.
+    let task = f.task("gate-final-attempt", 76, 'c').await;
+    let report = f.report(task).await;
+    set_attempts(&pool, task, CAP - 1).await;
+    let (entered, release) = f.fake.hold(76);
+    let first = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    entered.await.unwrap();
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, RUNNING), "{body}");
+    assert_eq!(f.state(task).await, ("approved".into(), CAP));
+    let (status, body) = f.verdict(task, report, "rejected").await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    release.send(()).unwrap();
+    assert_eq!(first.await.unwrap().0, StatusCode::OK);
+    assert_eq!((f.state(task).await, f.fake.merges(76)), (("merged".into(), CAP), 1));
+
+    // T4 — ambiguous final attempt, then reconcile at the cap. The provider
+    // merges but the audit comment fails; the next approve reconciles BEFORE
+    // the cap check, finds the pull request merged and ends `merged`.
+    let task = f.task("gate-final-ambiguous", 77, 'c').await;
+    f.report(task).await;
+    set_attempts(&pool, task, CAP - 1).await;
+    f.fake.failing_comments.lock().unwrap().insert(77);
+    assert!(f.approve(task).await.0.is_server_error());
+    assert_eq!(f.state(task).await, ("approved".into(), CAP));
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(77)), (("merged".into(), CAP), 1));
+
+    // T5 — `approved` left by a crash at the cap, and the provider says not
+    // merged: the cap applies (`changes_requested`, exhausted error) and a
+    // verdict can be recorded again.
+    let task = f.task("gate-crash-at-cap", 78, 'c').await;
+    let report = f.report(task).await;
+    sqlx::query("UPDATE orchestration_tasks SET review_status='approved',merge_attempts=$2 WHERE id=$1")
+        .bind(task)
+        .bind(CAP)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::BAD_REQUEST, "errors.self_fix.merge_attempts_exhausted"), "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(78)), (("changes_requested".into(), CAP), 0));
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+
+    // T6 — an approve cancelled while paused at the provider (client gone)
+    // leaves `approved` and does not leave the merge mutex held: its connection
+    // is closed instead of pooled, so the lock is released and the next approve
+    // reconciles and finishes instead of getting the running-attempt 409.
+    let task = f.task("gate-cancelled", 79, 'c').await;
+    f.report(task).await;
+    let (entered, _release_kept_open) = f.fake.hold(79);
+    let first = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    entered.await.unwrap();
+    wait_for(&pool, ADVISORY_HELD).await;
+    first.abort();
+    assert!(first.await.unwrap_err().is_cancelled());
+    wait_for(&pool, &format!("SELECT NOT ({ADVISORY_HELD})")).await;
+    assert_eq!(f.state(task).await, ("approved".into(), 1));
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(f.state(task).await.0, "merged");
+}
+
+const CAP: i32 = 5; // test_app_config: self_fix_max_merge_attempts
+const ADVISORY_HELD: &str = "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid=l.database WHERE l.locktype='advisory' AND d.datname=current_database())";
+
+async fn set_attempts(pool: &PgPool, task: Uuid, attempts: i32) {
+    sqlx::query("UPDATE orchestration_tasks SET merge_attempts=$2 WHERE id=$1")
+        .bind(task)
+        .bind(attempts)
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+/// Wait for an observable database condition (bounded; a timeout fails the
+/// test). Polling only observes state; it never decides an outcome.
+async fn wait_for(pool: &PgPool, condition: &str) {
+    for _ in 0..1000 {
+        if sqlx::query_scalar::<_, bool>(condition).fetch_one(pool).await.unwrap() {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    panic!("condition not reached: {condition}");
 }

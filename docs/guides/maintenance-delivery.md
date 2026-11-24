@@ -25,7 +25,7 @@ Adopting a newer pull-request revision in the app is not available yet. Refreshi
 
 After a new report and verdict, choose **Check fix status** in the review panel. **Finish this fix** is enabled again when the other merge checks also pass. Ordinary self-fix tasks without a maintenance request are not affected.
 
-While Forge is finishing a fix, the review panel shows **Finishing started, not confirmed**. During that time, recording a verdict returns HTTP `409` with error code `errors.maintenance.merge_in_progress`. Choose **Finish this fix** to complete or confirm the merge, then record the verdict. A verdict recorded after the task reads **Finished** is accepted, because merging and acceptance are separate records.
+While Forge is finishing a fix, the review panel shows **Finishing started, not confirmed**. During that time, recording a verdict returns HTTP `409` with error code `errors.maintenance.merge_in_progress`. Choose **Finish this fix** to complete or confirm the merge, then record the verdict. A verdict recorded after the task reads **Finished** is accepted, because merging and acceptance are separate records. If GitHub completes a merge request after Forge has stopped waiting for it, the task stays **Finishing started, not confirmed** and does not show as finished until the next **Finish this fix** reconciles it.
 
 ## Interpreting records and totals
 

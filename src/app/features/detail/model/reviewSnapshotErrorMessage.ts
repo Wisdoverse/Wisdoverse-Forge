@@ -16,6 +16,10 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const code = statusCode(detail)
   const text = detail?.toLowerCase() ?? ''
 
+  if (text.includes('errors.self_fix.merge_running')) {
+    return 'Another finish attempt for this fix is running. Wait a moment, then choose Check fix status.'
+  }
+
   if (text.includes('errors.maintenance.merge_rejected')) {
     return 'A reviewer rejected this version of the fix, so it was not finished. Record a new review decision on a newer report, or finish the change on GitHub, then choose Check fix status.'
   }

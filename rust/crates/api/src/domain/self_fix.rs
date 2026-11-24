@@ -360,6 +360,15 @@ impl SelfFixPolicy {
         .into()
     }
 
+    /// Another approve call holds this task's merge mutex (#1314).
+    pub(crate) fn merge_attempt_running() -> AppError {
+        ErrorKind::ConflictWithCode {
+            code: "errors.self_fix.merge_running",
+            message: "Another finish attempt for this change is running. Try again in a moment.".into(),
+        }
+        .into()
+    }
+
     #[allow(dead_code)]
     pub(crate) fn head_moved() -> AppError {
         ErrorKind::Conflict("the PR head moved since review; re-review required".into()).into()
