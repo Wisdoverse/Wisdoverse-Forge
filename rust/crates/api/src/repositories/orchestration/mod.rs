@@ -525,12 +525,21 @@ impl OrchestrationTaskRepository {
 
     /// Find a task by ID (tenant-scoped).
     pub async fn find_by_id(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
+        Self::find_by_id_on(&mut *self.pool.acquire().await?, scope, id).await
+    }
+
+    /// [`Self::find_by_id`] on a caller-held connection or transaction.
+    pub(crate) async fn find_by_id_on(
+        conn: &mut PgConnection,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<OrchestrationTask> {
         sqlx::query_as::<_, OrchestrationTask>(
             "SELECT * FROM orchestration_tasks WHERE id = $1 AND organization_id = $2",
         )
         .bind(id)
         .bind(scope.org_id().as_uuid())
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *conn)
         .await?
         .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
@@ -869,13 +878,7 @@ impl OrchestrationTaskRepository {
     /// Update only the review status on a self-fix task (tenant-scoped). Mirrors
     /// the orchestrator `ReviewState` vocabulary but is driven API-side.
     pub async fn set_review_status(&self, scope: &TenantScope, id: Uuid, status: &str) -> AppResult<()> {
-        sqlx::query("UPDATE orchestration_tasks SET review_status = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
-            .bind(status)
-            .bind(id)
-            .bind(scope.org_id().as_uuid())
-            .execute(&self.pool)
-            .await?;
-        Ok(())
+        Self::set_review_status_on(&mut *self.pool.acquire().await?, scope, id, status).await
     }
 
     /// Try the per-task Forge merge mutex: a SESSION-level advisory lock on the
@@ -895,9 +898,9 @@ impl OrchestrationTaskRepository {
         Ok(())
     }
 
-    /// Set the review status inside the caller's transaction (tenant-scoped).
-    pub(crate) async fn set_review_status_in_tx(
-        tx: &mut Transaction<'_, Postgres>,
+    /// Set the review status on a caller-held connection or transaction (tenant-scoped).
+    pub(crate) async fn set_review_status_on(
+        conn: &mut PgConnection,
         scope: &TenantScope,
         id: Uuid,
         status: &str,
@@ -906,15 +909,15 @@ impl OrchestrationTaskRepository {
             .bind(status)
             .bind(id)
             .bind(scope.org_id().as_uuid())
-            .execute(&mut **tx)
+            .execute(&mut *conn)
             .await?;
         Ok(())
     }
 
     /// Move the review status from `from` to `to` only if it still reads `from`,
     /// so a concurrent transition (for example to `merged`) is never overwritten.
-    pub(crate) async fn transition_review_status(
-        &self,
+    pub(crate) async fn transition_review_status_on(
+        conn: &mut PgConnection,
         scope: &TenantScope,
         id: Uuid,
         from: &str,
@@ -928,7 +931,7 @@ impl OrchestrationTaskRepository {
         .bind(id)
         .bind(scope.org_id().as_uuid())
         .bind(from)
-        .execute(&self.pool)
+        .execute(&mut *conn)
         .await?;
         Ok(())
     }

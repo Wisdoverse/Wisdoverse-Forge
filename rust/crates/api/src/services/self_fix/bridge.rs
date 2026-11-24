@@ -81,6 +81,15 @@ pub trait GitProvider: Send + Sync {
     async fn pr_head_sha(&self, pr_number: i32) -> AppResult<String>;
     /// `true` if the PR is already merged (idempotency check).
     async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool>;
+    /// Live pull-request state. The default cannot tell "closed without merge"
+    /// from "open"; the GitHub client overrides it.
+    async fn pr_state(&self, pr_number: i32) -> AppResult<crate::domain::self_fix::PullRequestState> {
+        Ok(if self.pr_is_merged(pr_number).await? {
+            crate::domain::self_fix::PullRequestState::Merged
+        } else {
+            crate::domain::self_fix::PullRequestState::Open
+        })
+    }
     /// `true` if the PR is currently a draft.
     async fn pr_is_draft(&self, pr_number: i32) -> AppResult<bool>;
     /// Flip a draft PR to ready-for-review.
@@ -124,6 +133,10 @@ impl GitProvider for crate::services::github_app::GithubAppClient {
 
     async fn pr_is_merged(&self, pr_number: i32) -> AppResult<bool> {
         crate::services::github_app::GithubAppClient::pr_is_merged(self, pr_number).await
+    }
+
+    async fn pr_state(&self, pr_number: i32) -> AppResult<crate::domain::self_fix::PullRequestState> {
+        crate::services::github_app::GithubAppClient::pr_state(self, pr_number).await
     }
 
     async fn pr_is_draft(&self, pr_number: i32) -> AppResult<bool> {

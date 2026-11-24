@@ -16,6 +16,14 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   const code = statusCode(detail)
   const text = detail?.toLowerCase() ?? ''
 
+  if (text.includes('errors.self_fix.merge_attempts_exhausted_unconfirmed')) {
+    return 'No finish attempts remain, and the last one is not confirmed. Merge or close the pull request on GitHub, then choose Finish this fix to update its status.'
+  }
+
+  if (text.includes('errors.self_fix.merge_unconfirmed')) {
+    return 'The last finish attempt is not confirmed yet. Wait a moment, then choose Finish this fix again.'
+  }
+
   if (text.includes('errors.self_fix.merge_running')) {
     return 'Another finish attempt for this fix is running. Wait a moment, then choose Check fix status.'
   }

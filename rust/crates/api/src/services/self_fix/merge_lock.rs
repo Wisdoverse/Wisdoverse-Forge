@@ -4,7 +4,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use sqlx::pool::PoolConnection;
-use sqlx::{PgPool, Postgres};
+use sqlx::{PgConnection, PgPool, Postgres};
 use uuid::Uuid;
 
 use crate::repositories::orchestration::OrchestrationTaskRepository;
@@ -27,6 +27,13 @@ impl MergeLock {
             return Ok(None);
         }
         Ok(Some(Self { conn, scope: scope.clone(), task }))
+    }
+
+    /// The locked connection. The whole approve call runs its SQL here (the
+    /// session lock survives transactions on it), so one call needs at most
+    /// one pooled connection.
+    pub(crate) fn conn(&mut self) -> &mut PgConnection {
+        &mut self.conn
     }
 
     /// Explicit unlock on normal exits; closing the connection covers the rest.

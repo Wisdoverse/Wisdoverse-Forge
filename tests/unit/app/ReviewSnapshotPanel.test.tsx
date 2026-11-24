@@ -201,6 +201,31 @@ describe('ReviewSnapshotPanel', () => {
     expect(await screen.findByTestId('review-approve')).toBeDisabled()
   })
 
+  it.each([
+    [
+      'errors.self_fix.merge_unconfirmed',
+      'The last finish attempt is not confirmed yet. Wait a moment, then choose Finish this fix again.',
+    ],
+    [
+      'errors.self_fix.merge_attempts_exhausted_unconfirmed',
+      'No finish attempts remain, and the last one is not confirmed. Merge or close the pull request on GitHub, then choose Finish this fix to update its status.',
+    ],
+  ])('explains the %s refusal in plain language', async (code, message) => {
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
+      review({ reviewStatus: 'approved' })
+    )
+    vi.spyOn(orchestrationApi, 'approveSelfFix').mockRejectedValue(
+      new Error(`API 409: {"ok":false,"error":{"code":"${code}","message":"x"}}`)
+    )
+    render(<ReviewSnapshotPanel task={task({ reviewStatus: 'approved' })} />)
+
+    fireEvent.click(await screen.findByTestId('review-approve'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(message)
+    expect(alert).not.toHaveTextContent('API 409')
+  })
+
   it('explains that another finish attempt is running', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     vi.spyOn(orchestrationApi, 'approveSelfFix').mockRejectedValue(

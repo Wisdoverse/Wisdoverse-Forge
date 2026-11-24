@@ -37,6 +37,10 @@ struct FakeGithub {
     merged: Mutex<HashSet<i32>>,
     red_heads: Mutex<HashSet<String>>,
     failing_comments: Mutex<HashSet<i32>>,
+    /// Closed on GitHub without merging.
+    closed: Mutex<HashSet<i32>>,
+    /// The merge call merges but answers 405 (a refusal that raced a merge).
+    refuse_after_merging: Mutex<HashSet<i32>>,
     holds: Mutex<HashMap<i32, Hold>>,
     merge_calls: Mutex<HashMap<i32, usize>>,
     requests: AtomicUsize,
@@ -87,7 +91,8 @@ async fn pull(State(f): Fake, Path(n): Path<i32>) -> Response {
         return StatusCode::NOT_FOUND.into_response();
     };
     let merged = f.merged.lock().unwrap().contains(&n);
-    axum::Json(json!({"number":n,"node_id":format!("PR-{n}"),"state":if merged {"closed"} else {"open"},"merged":merged,"draft":false,
+    let closed = merged || f.closed.lock().unwrap().contains(&n);
+    axum::Json(json!({"number":n,"node_id":format!("PR-{n}"),"state":if closed {"closed"} else {"open"},"merged":merged,"draft":false,
         "head":{"sha":head},"base":{"ref":"develop","repo":{"full_name":"acme/widgets"}},"html_url":"https://example.com"}))
     .into_response()
 }
@@ -111,6 +116,9 @@ async fn merge(State(f): Fake, Path(n): Path<i32>) -> Response {
     }
     *f.merge_calls.lock().unwrap().entry(n).or_default() += 1;
     f.merged.lock().unwrap().insert(n);
+    if f.refuse_after_merging.lock().unwrap().contains(&n) {
+        return StatusCode::METHOD_NOT_ALLOWED.into_response();
+    }
     axum::Json(json!({"merged":true})).into_response()
 }
 async fn comment(State(f): Fake, Path(n): Path<i32>) -> Response {
@@ -263,6 +271,21 @@ impl Fixture {
             .clone()
     }
 
+    /// Start an approve, wait until it is paused at the provider merge call
+    /// holding this task's merge mutex, cancel it (as when the client goes
+    /// away), and wait until the mutex is released. The provider never answers
+    /// that merge call; the returned sender keeps it pending.
+    async fn cancel_while_merging(&self, task: Uuid, pr: i32) -> oneshot::Sender<()> {
+        let (entered, release) = self.fake.hold(pr);
+        let attempt = tokio::spawn(approve(self.app.clone(), self.jwt.clone(), task));
+        entered.await.unwrap();
+        wait_for(&self.pool, &merge_lock_held(self.org, task)).await;
+        attempt.abort();
+        assert!(attempt.await.unwrap_err().is_cancelled());
+        wait_for(&self.pool, &format!("SELECT NOT ({})", merge_lock_held(self.org, task))).await;
+        release
+    }
+
     /// (review_status, merge_attempts)
     async fn state(&self, task: Uuid) -> (String, i32) {
         sqlx::query_as("SELECT review_status, merge_attempts FROM orchestration_tasks WHERE id=$1")
@@ -284,6 +307,8 @@ fn code(body: &Value) -> &str {
 const REJECTED: &str = "errors.maintenance.merge_rejected";
 const IN_PROGRESS: &str = "errors.maintenance.merge_in_progress";
 const RUNNING: &str = "errors.self_fix.merge_running";
+const UNCONFIRMED: &str = "errors.self_fix.merge_unconfirmed";
+const EXHAUSTED_UNCONFIRMED: &str = "errors.self_fix.merge_attempts_exhausted_unconfirmed";
 
 #[sqlx::test(migrations = "../db/migrations")]
 async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_verdicts(pool: PgPool) {
@@ -300,14 +325,8 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
 
     let (fake, base) = start_fake().await;
     unsafe { std::env::set_var("GITHUB_API_BASE", &base) };
-    let mut state = app_state_with_mock_provider(pool.clone(), "mock", "ok").await;
-    let mut config = test_app_config("postgres://test");
-    config.github_app_id = Some("12345".into());
-    config.github_app_installation_id = Some("1".into());
-    config.github_app_private_key = Some(include_str!("fixtures/test_rsa_private_key.pem").to_string().into());
-    config.github_app_repo = Some("acme/widgets".into());
-    state.config = Arc::new(config);
-    let f = Fixture { app: create_router(state), pool: pool.clone(), fake: fake.clone(), org, user, group, jwt };
+    let f =
+        Fixture { app: forge_app(pool.clone()).await, pool: pool.clone(), fake: fake.clone(), org, user, group, jwt };
 
     // No verdict: merge controls stay independent of acceptance.
     let task = f.task("gate-none", 61, 'c').await;
@@ -411,6 +430,11 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
         .unwrap();
     let (status, body) = f.verdict(task, report, "rejected").await;
     assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    // Inside the settle window the open pull request is not retried yet.
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, UNCONFIRMED), "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(70)), (("approved".into(), 1), 0));
+    backdate(&pool, task).await;
     assert_eq!(f.approve(task).await.0, StatusCode::OK);
     assert_eq!((f.state(task).await, f.fake.merges(70)), (("merged".into(), 2), 1));
 
@@ -472,15 +496,17 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
     let task = f.task("gate-row-lock", 74, 'c').await;
     let report = f.report(task).await;
     let mut hold = pool.begin().await.unwrap();
+    let hold_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *hold).await.unwrap();
     sqlx::query("SELECT 1 FROM orchestration_tasks WHERE id=$1 FOR UPDATE")
         .bind(task)
         .execute(&mut *hold)
         .await
         .unwrap();
     let merging = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    // Exactly: some session is blocked by THIS test transaction.
     wait_for(
         &pool,
-        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock')",
+        &format!("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE {hold_pid} = ANY(pg_blocking_pids(pid)))"),
     )
     .await;
     assert!(!merging.is_finished());
@@ -543,43 +569,167 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!((f.state(task).await, f.fake.merges(77)), (("merged".into(), CAP), 1));
 
-    // T5 — `approved` left by a crash at the cap, and the provider says not
-    // merged: the cap applies (`changes_requested`, exhausted error) and a
-    // verdict can be recorded again.
-    let task = f.task("gate-crash-at-cap", 78, 'c').await;
+    // T5 — rule 1c: the FINAL attempt is cancelled while the provider is still
+    // processing its merge request. Retries inside the settle window are
+    // refused as unconfirmed; after it, with the pull request still open and no
+    // attempts left, the task stays `approved` (verdicts stay refused) instead
+    // of `changes_requested`; once the provider reports the merge, the task ends
+    // `merged`.
+    let task = f.task("gate-cancelled-at-cap", 78, 'c').await;
     let report = f.report(task).await;
-    sqlx::query("UPDATE orchestration_tasks SET review_status='approved',merge_attempts=$2 WHERE id=$1")
-        .bind(task)
-        .bind(CAP)
-        .execute(&pool)
-        .await
-        .unwrap();
+    set_attempts(&pool, task, CAP - 1).await;
+    let _still_processing = f.cancel_while_merging(task, 78).await;
+    assert_eq!(f.state(task).await, ("approved".into(), CAP));
     let (status, body) = f.approve(task).await;
-    assert_eq!((status, code(&body)), (StatusCode::BAD_REQUEST, "errors.self_fix.merge_attempts_exhausted"), "{body}");
-    assert_eq!((f.state(task).await, f.fake.merges(78)), (("changes_requested".into(), CAP), 0));
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, UNCONFIRMED), "{body}");
+    assert_eq!(f.state(task).await, ("approved".into(), CAP));
+    let (status, body) = f.verdict(task, report, "rejected").await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    backdate(&pool, task).await;
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::BAD_REQUEST, EXHAUSTED_UNCONFIRMED), "{body}");
+    assert_eq!(f.state(task).await, ("approved".into(), CAP));
+    let (status, body) = f.verdict(task, report, "rejected").await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, IN_PROGRESS), "{body}");
+    f.fake.merged.lock().unwrap().insert(78);
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(f.state(task).await, ("merged".into(), CAP));
+
+    // T5b — same, but the provider reports the pull request closed without
+    // merging: definite, so `changes_requested`, and a verdict can be recorded.
+    let task = f.task("gate-cancelled-closed", 80, 'c').await;
+    let report = f.report(task).await;
+    set_attempts(&pool, task, CAP - 1).await;
+    let _still_processing = f.cancel_while_merging(task, 80).await;
+    f.fake.closed.lock().unwrap().insert(80);
+    assert_eq!(f.approve(task).await.0, StatusCode::CONFLICT);
+    assert_eq!(f.state(task).await, ("changes_requested".into(), CAP));
     assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
 
     // T6 — an approve cancelled while paused at the provider (client gone)
     // leaves `approved` and does not leave the merge mutex held: its connection
-    // is closed instead of pooled, so the lock is released and the next approve
-    // reconciles and finishes instead of getting the running-attempt 409.
+    // is closed instead of pooled. The next approve takes the mutex (it gets the
+    // settle-window answer, not the running-attempt 409) and, after the window,
+    // finishes.
     let task = f.task("gate-cancelled", 79, 'c').await;
     f.report(task).await;
-    let (entered, _release_kept_open) = f.fake.hold(79);
-    let first = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
-    entered.await.unwrap();
-    wait_for(&pool, ADVISORY_HELD).await;
-    first.abort();
-    assert!(first.await.unwrap_err().is_cancelled());
-    wait_for(&pool, &format!("SELECT NOT ({ADVISORY_HELD})")).await;
+    let _still_processing = f.cancel_while_merging(task, 79).await;
     assert_eq!(f.state(task).await, ("approved".into(), 1));
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, UNCONFIRMED), "{body}");
+    backdate(&pool, task).await;
     let (status, body) = f.approve(task).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(f.state(task).await.0, "merged");
+
+    // Rule 1d — the provider refuses the merge call (405) although it merged:
+    // the fresh pull-request read wins, so the task ends `merged`, not `in_review`.
+    let task = f.task("gate-refused-but-merged", 81, 'c').await;
+    f.report(task).await;
+    f.fake.refuse_after_merging.lock().unwrap().insert(81);
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["alreadyMerged"], true, "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(81)), (("merged".into(), 1), 1));
+
+    // Atomicity — a DEFERRED constraint trigger (test-only) logs the committed
+    // `(merge_attempts, review_status)` of every transaction that touches this
+    // task. The decision commit must be exactly `(n+1, approved)`: no committed
+    // state may count the attempt while the status is still `in_review`. Fails
+    // if `approved` is written outside the decision transaction.
+    let task = f.task("gate-atomic", 82, 'c').await;
+    f.report(task).await;
+    for statement in [
+        "CREATE TABLE merge_commit_log (seq bigserial PRIMARY KEY, attempts int NOT NULL, status text)".to_string(),
+        "CREATE FUNCTION log_merge_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN \
+         INSERT INTO merge_commit_log (attempts, status) SELECT merge_attempts, review_status FROM orchestration_tasks WHERE id = NEW.id; \
+         RETURN NULL; END $$"
+            .to_string(),
+        format!(
+            "CREATE CONSTRAINT TRIGGER log_merge_commit AFTER UPDATE ON orchestration_tasks DEFERRABLE INITIALLY DEFERRED \
+             FOR EACH ROW WHEN (NEW.id = '{task}') EXECUTE FUNCTION log_merge_commit()"
+        ),
+    ] {
+        sqlx::query(&statement).execute(&pool).await.unwrap();
+    }
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let committed: Vec<(i32, Option<String>)> =
+        sqlx::query_as("SELECT attempts, status FROM merge_commit_log ORDER BY seq").fetch_all(&pool).await.unwrap();
+    for statement in [
+        "DROP TRIGGER log_merge_commit ON orchestration_tasks",
+        "DROP FUNCTION log_merge_commit()",
+        "DROP TABLE merge_commit_log",
+    ] {
+        sqlx::query(statement).execute(&pool).await.unwrap();
+    }
+    assert_eq!(committed.first().map(|(a, s)| (*a, s.as_deref())), Some((1, Some("approved"))), "{committed:?}");
+    assert!(
+        committed.iter().all(|(a, s)| *a == 0 || matches!(s.as_deref(), Some("approved" | "merged"))),
+        "no committed state may count the attempt outside `approved`: {committed:?}"
+    );
+
+    // Pool starvation — with a pool of ONE connection, an approve completes end
+    // to end: the mutex, the decision transaction and every status write share
+    // the mutex's connection.
+    let task = f.task("gate-one-connection", 83, 'c').await;
+    f.report(task).await;
+    let single = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(std::time::Duration::from_secs(10))
+        .connect_with((*pool.connect_options()).clone())
+        .await
+        .unwrap();
+    let (status, body) = approve(forge_app(single).await, f.jwt.clone(), task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(83)), (("merged".into(), 1), 1));
 }
 
 const CAP: i32 = 5; // test_app_config: self_fix_max_merge_attempts
-const ADVISORY_HELD: &str = "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid=l.database WHERE l.locktype='advisory' AND d.datname=current_database())";
+
+async fn forge_app(pool: PgPool) -> Router {
+    let mut state = app_state_with_mock_provider(pool, "mock", "ok").await;
+    let mut config = test_app_config("postgres://test");
+    config.github_app_id = Some("12345".into());
+    config.github_app_installation_id = Some("1".into());
+    config.github_app_private_key = Some(include_str!("fixtures/test_rsa_private_key.pem").to_string().into());
+    config.github_app_repo = Some("acme/widgets".into());
+    state.config = Arc::new(config);
+    create_router(state)
+}
+
+/// Whether THIS task's merge mutex is held: the exact advisory key
+/// (`hashtextextended('self-fix-merge:<org>:<task>', 0)`, a single bigint key
+/// split into classid/objid), granted, in this database.
+fn merge_lock_held(org: Uuid, task: Uuid) -> String {
+    let key = format!("hashtextextended('self-fix-merge:{org}:{task}', 0)");
+    format!(
+        "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND granted AND objsubid=1 \
+         AND database=(SELECT oid FROM pg_database WHERE datname=current_database()) \
+         AND classid::bigint=(({key}>>32)&4294967295) AND objid::bigint=({key}&4294967295))"
+    )
+}
+
+/// Move the task row's last write 31 s into the past (past the settle window)
+/// without waiting: the `updated_at` trigger is paused for this one update.
+async fn backdate(pool: &PgPool, task: Uuid) {
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("ALTER TABLE orchestration_tasks DISABLE TRIGGER orchestration_tasks_updated_at")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE orchestration_tasks SET updated_at = now() - interval '31 seconds' WHERE id=$1")
+        .bind(task)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("ALTER TABLE orchestration_tasks ENABLE TRIGGER orchestration_tasks_updated_at")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+}
 
 async fn set_attempts(pool: &PgPool, task: Uuid, attempts: i32) {
     sqlx::query("UPDATE orchestration_tasks SET merge_attempts=$2 WHERE id=$1")
