@@ -50,7 +50,8 @@ use crate::domain::maintenance_delivery::{ensure_merge_not_rejected, merge_block
 pub use crate::domain::self_fix::SelfFixRepositorySetup;
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{
-    MergeEntry, MergeEntryAction, SelfFixMergeMetricPolicy, SelfFixMergeResult, SelfFixPolicy, SelfFixReview,
+    MERGE_DECISION_LOCK_TIMEOUT_MS, MergeEntry, MergeEntryAction, SelfFixMergeMetricPolicy, SelfFixMergeResult,
+    SelfFixPolicy, SelfFixReview,
 };
 use crate::repositories::agent::AgentRepository;
 use crate::repositories::orchestration::maintenance_delivery::MaintenanceDeliveryRepository;
@@ -370,8 +371,16 @@ impl SelfFixService {
         //    head_moved). The cap is checked in step c, so this always runs
         //    within the allowed budget. The transaction runs on the mutex's
         //    connection; the session advisory lock survives it.
+        //    The row-lock wait is bounded: `approved` carries the transaction's
+        //    start time, so a long wait would shorten the settle window.
         let mut tx = conn.begin().await?;
-        let current = delivery_write::lock_task(&mut tx, scope, task_id).await?;
+        let Some(current) =
+            delivery_write::try_lock_task(&mut tx, scope, task_id, MERGE_DECISION_LOCK_TIMEOUT_MS).await?
+        else {
+            tx.rollback().await?;
+            metrics::record_merge_outcome("running");
+            return Err(SelfFixPolicy::merge_attempt_running());
+        };
         if current.pr_head_sha != task.pr_head_sha {
             return Err(SelfFixPolicy::head_moved());
         }

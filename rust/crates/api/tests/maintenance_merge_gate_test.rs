@@ -684,6 +684,26 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
     let (status, body) = approve(forge_app(single).await, f.jwt.clone(), task).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!((f.state(task).await, f.fake.merges(83)), (("merged".into(), 1), 1));
+
+    // Bounded row-lock wait — another transaction holds the task row longer
+    // than the decision's lock timeout (the real 5 s; there is no test seam).
+    // Approve gives up with the busy 409: nothing written, no attempt counted,
+    // no provider merge call. Once the row is free, approve proceeds normally.
+    let task = f.task("gate-lock-timeout", 84, 'c').await;
+    f.report(task).await;
+    let mut hold = pool.begin().await.unwrap();
+    sqlx::query("SELECT 1 FROM orchestration_tasks WHERE id=$1 FOR UPDATE")
+        .bind(task)
+        .execute(&mut *hold)
+        .await
+        .unwrap();
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, RUNNING), "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(84)), (("in_review".into(), 0), 0));
+    hold.rollback().await.unwrap();
+    let (status, body) = f.approve(task).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!((f.state(task).await, f.fake.merges(84)), (("merged".into(), 1), 1));
 }
 
 const CAP: i32 = 5; // test_app_config: self_fix_max_merge_attempts

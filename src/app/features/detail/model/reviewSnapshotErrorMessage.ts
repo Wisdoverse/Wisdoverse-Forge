@@ -25,7 +25,7 @@ export function reviewSnapshotErrorMessage(action: ReviewSnapshotAction, error: 
   }
 
   if (text.includes('errors.self_fix.merge_running')) {
-    return 'Another finish attempt for this fix is running. Wait a moment, then choose Check fix status.'
+    return 'Another change to this fix is in progress. Wait a moment, then choose Check fix status.'
   }
 
   if (text.includes('errors.maintenance.merge_rejected')) {

@@ -16,15 +16,31 @@ use crate::repositories::orchestration::maintenance_delivery::{
 use crate::repositories::user::UserRepository;
 use crate::services::orchestration::task_run_summary;
 
+async fn require_admin_in_tx(tx: &mut Transaction<'_, Postgres>, scope: &TenantScope) -> AppResult<()> {
+    let admin = UserRepository::find_is_admin_by_id_in_tx(tx, scope.user_id()).await?;
+    AdminRolePolicy::require_platform_admin(admin)
+}
+
 /// Shared serialization point for verdict writers and the Forge merge decision.
 pub(super) async fn lock_task(
     tx: &mut Transaction<'_, Postgres>,
     scope: &TenantScope,
     id: Uuid,
 ) -> AppResult<OrchestrationTask> {
-    let admin = UserRepository::find_is_admin_by_id_in_tx(tx, scope.user_id()).await?;
-    AdminRolePolicy::require_platform_admin(admin)?;
+    require_admin_in_tx(tx, scope).await?;
     OrchestrationTaskRepository::lock_by_id_in_tx(tx, scope, id).await
+}
+
+/// [`lock_task`] with a bounded wait for the row lock: `None` when it was not
+/// obtained within `timeout_ms` (the transaction must then be rolled back).
+pub(super) async fn try_lock_task(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: &TenantScope,
+    id: Uuid,
+    timeout_ms: u64,
+) -> AppResult<Option<OrchestrationTask>> {
+    require_admin_in_tx(tx, scope).await?;
+    OrchestrationTaskRepository::try_lock_by_id_in_tx(tx, scope, id, timeout_ms).await
 }
 
 impl SelfFixService {

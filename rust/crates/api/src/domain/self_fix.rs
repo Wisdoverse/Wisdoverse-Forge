@@ -283,7 +283,16 @@ pub(crate) enum MergeEntryAction {
 
 /// How long an unconfirmed attempt is given to finish or be dropped by the
 /// provider, measured from the task row's last write.
+/// Must exceed `MERGE_DECISION_LOCK_TIMEOUT_MS`, which bounds how stale that write's timestamp can be.
 pub(crate) const MERGE_SETTLE_WINDOW_SECS: i64 = 30;
+
+/// Longest wait for the task row lock in the merge decision transaction. The
+/// committed `approved` timestamp is the transaction start, so it is at most
+/// this much older than the commit.
+/// Must stay below `MERGE_SETTLE_WINDOW_SECS`, so the effective window is at least 25 s.
+pub(crate) const MERGE_DECISION_LOCK_TIMEOUT_MS: u64 = 5_000;
+// Compile-time check of the relation above.
+const _: () = assert!(MERGE_DECISION_LOCK_TIMEOUT_MS < MERGE_SETTLE_WINDOW_SECS as u64 * 1_000);
 
 impl SelfFixPolicy {
     /// The single entry decision for an approve call: entry status x live pull
@@ -457,11 +466,12 @@ impl SelfFixPolicy {
         .into()
     }
 
-    /// Another approve call holds this task's merge mutex (#1314).
+    /// Another approve call holds this task's merge mutex, or another operation
+    /// held the task row past `MERGE_DECISION_LOCK_TIMEOUT_MS` (#1314).
     pub(crate) fn merge_attempt_running() -> AppError {
         ErrorKind::ConflictWithCode {
             code: "errors.self_fix.merge_running",
-            message: "Another finish attempt for this change is running. Try again in a moment.".into(),
+            message: "Another operation on this change is in progress. Try again in a moment.".into(),
         }
         .into()
     }

@@ -226,7 +226,7 @@ describe('ReviewSnapshotPanel', () => {
     expect(alert).not.toHaveTextContent('API 409')
   })
 
-  it('explains that another finish attempt is running', async () => {
+  it('explains that another change to this fix is in progress', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review())
     vi.spyOn(orchestrationApi, 'approveSelfFix').mockRejectedValue(
       new Error(
@@ -238,7 +238,7 @@ describe('ReviewSnapshotPanel', () => {
     fireEvent.click(await screen.findByTestId('review-approve'))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Another finish attempt for this fix is running.')
+    expect(alert).toHaveTextContent('Another change to this fix is in progress.')
     expect(alert).not.toHaveTextContent('API 409')
   })
 
