@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 // FSD-5: AST-grade Feature-Sliced Design boundary checker.
 //
-// Import extraction runs es-module-lexer over `ts.transpileModule` output:
-// es-module-lexer lexes JS modules only (JSX/TS syntax is a parse error by
-// design), so each file is first normalized with TypeScript using
-// `verbatimModuleSyntax`, which keeps every import/re-export statement —
-// including type-only ones after the `import type` → `import` prefix rewrite —
-// visible to the lexer. Static imports, re-exports, and dynamic `import()`
-// calls with static string literals are all checked.
+// Imports are read from each file's TypeScript source AST
+// (`ts.createSourceFile`): static imports and re-exports (type-only ones
+// included), `import x = require()`, dynamic `import()` calls, and
+// `import('x').T` type references are all checked. Comments and strings never
+// count as imports.
 //
 // Rule set (ALL rules are errors — the FSD-strict gate closed with FSD-2):
 //     downward-layering    imports may only point down the layer order
@@ -24,17 +22,17 @@
 //                          shared/model/*.store.ts, and every file under
 //                          shared/api or shared/lib must be listed in
 //                          sharedFileInventory as generic or frozen-domain
+//     own-barrel           a file inside a slice must not import that
+//                          slice's own root barrel
 //     computed-import      import() must take a string literal
+//     import-glob          import.meta.glob / globEager are not allowed
 //     (plus the existing alias/unresolved/route-page-entrypoint errors; an
 //     alias import containing a '..' segment is an alias error)
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { init, parse } from 'es-module-lexer/minimal'
 import ts from 'typescript'
-
-await init()
 
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
 // F074: `unknown` (an unrecognised src/app dir) is deliberately NOT in this rank
@@ -174,67 +172,87 @@ function resolveSpecifier(appRoot, sourceFile, specifier) {
   return { kind: 'package' }
 }
 
-// --- import extraction (es-module-lexer over TypeScript-normalized source) ---
+// --- import extraction (TypeScript source AST) ---
 
-const typeImportPrefix = /^(\s*)import\s+type(?=[\s{*])/gm
-const typeReExportPrefix = /^(\s*)export\s+type(?=\s*[{*])/gm
-// Named-specifier brace group of an import/export statement. The `[^'"()=]`
-// head guard keeps this off object/function bodies (`export const x = {`,
-// `export function f() {`), which always contain `=` or `(` first.
-const importExportClauseBraces = /(^|\n)(\s*(?:import|export)\s[^'"()=]*?\{)([^}]*)(\})/g
-// String-literal import() call/type reference, matched against the RAW source.
-const dynamicImportLiteral = /\bimport\s*\(\s*(['"])([^'"]+)\1\s*\)/g
+const scriptKinds = {
+  '.ts': ts.ScriptKind.TS,
+  '.tsx': ts.ScriptKind.TSX,
+  '.js': ts.ScriptKind.JS,
+  '.jsx': ts.ScriptKind.JSX,
+}
 
+// Names an import/export clause pulls from its module (original names, type
+// specifiers included); `*` stands for a namespace import or star re-export.
+function clauseNames(node) {
+  if (ts.isImportDeclaration(node)) {
+    const clause = node.importClause
+    if (!clause) return []
+    const names = clause.name ? [clause.name.text] : []
+    const bindings = clause.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) names.push('*')
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        names.push((element.propertyName ?? element.name).text)
+      }
+    }
+    return names
+  }
+  const clause = node.exportClause
+  if (!clause || ts.isNamespaceExport(clause)) return ['*']
+  return clause.elements.map((element) => (element.propertyName ?? element.name).text)
+}
+
+function isStaticString(node) {
+  return (
+    node !== undefined && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+  )
+}
+
+// Every module reference in the file, read from the source AST so type-only
+// forms survive and comments or strings never count: import/export
+// declarations, `import x = require()`, `import()` calls, `import('x').T` type
+// references, and `import.meta.glob` (which the caller rejects). `specifier`
+// is null for an `import()` whose argument is not a static string.
 function extractImports(sourceFile) {
   const raw = fs.readFileSync(sourceFile, 'utf8')
-  // Rewrite `import type` / `export type ... from` statements AND inline
-  // `type X` specifiers to their value form so `verbatimModuleSyntax` keeps
-  // them: boundary rules (including the route page-entrypoint name gate)
-  // apply to type-only imports too, and transpilation would otherwise drop
-  // inline type specifiers before the statement is sliced (codex P2).
-  const normalized = raw
-    .replace(typeImportPrefix, '$1import')
-    .replace(typeReExportPrefix, '$1export')
-    .replace(
-      importExportClauseBraces,
-      (_match, lead, head, names, close) =>
-        `${lead}${head}${names.replace(/\btype\s+/g, '')}${close}`
-    )
-  const { outputText } = ts.transpileModule(normalized, {
-    // transpileModule refuses to emit declaration files ("Debug Failure").
-    // The content of a .d.ts is valid in a plain .ts module (ambient
-    // `declare` blocks erase cleanly), so emit it under a .ts name instead of
-    // hard-erroring the file (codex round-2 P2).
-    fileName: sourceFile.replace(/\.d\.ts$/, '.ts'),
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ESNext,
-      jsx: ts.JsxEmit.React,
-      verbatimModuleSyntax: true,
-    },
-  })
-  const [imports] = parse(outputText, sourceFile)
-  const entries = imports
-    // -2 = import.meta; a dynamic import() (d > -1) without a static string
-    // keeps specifier null so the caller rejects it as a computed import.
-    .filter((entry) => entry.d !== -2 && (entry.n !== undefined || entry.d > -1))
-    .map((entry) => ({
-      specifier: entry.n ?? null,
-      // Full statement text for static imports/re-exports; dynamic import()
-      // records carry no clause.
-      statement: entry.d === -1 ? outputText.slice(entry.ss, entry.se) : null,
-    }))
-  // Type-position import() references (`type T = import('@app/x').Y`) are
-  // erased by the transpile before the lexer sees them; recover any
-  // string-literal import() specifier from the raw source that the lexer
-  // did not already report (codex round-2 P2).
-  const seen = new Set(entries.map((entry) => entry.specifier))
-  for (const match of raw.matchAll(dynamicImportLiteral)) {
-    if (!seen.has(match[2])) {
-      seen.add(match[2])
-      entries.push({ specifier: match[2], statement: null })
+  const kind = scriptKinds[path.extname(sourceFile)] ?? ts.ScriptKind.TS
+  const ast = ts.createSourceFile(sourceFile, raw, ts.ScriptTarget.Latest, false, kind)
+  const entries = []
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      entries.push({ specifier: node.moduleSpecifier.text, names: clauseNames(node) })
+    } else if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      entries.push({ specifier: node.moduleSpecifier.text, names: clauseNames(node) })
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      entries.push({ specifier: node.moduleReference.expression.text, names: null })
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const [argument] = node.arguments
+      entries.push({ specifier: isStaticString(argument) ? argument.text : null, names: null })
+    } else if (
+      ts.isImportTypeNode(node) &&
+      ts.isLiteralTypeNode(node.argument) &&
+      ts.isStringLiteral(node.argument.literal)
+    ) {
+      entries.push({ specifier: node.argument.literal.text, names: null })
+    } else if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isMetaProperty(node.expression) &&
+      node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
+      (node.name.text === 'glob' || node.name.text === 'globEager')
+    ) {
+      entries.push({ specifier: null, names: null, glob: node.name.text })
     }
+    ts.forEachChild(node, visit)
   }
+  visit(ast)
   return entries
 }
 
@@ -248,32 +266,6 @@ function shouldRouteUsePageEntrypoint(appRoot, sourceFile) {
 function isRouteEntrypointBypass(source, target) {
   if (source.layer !== 'app' || source.slice !== 'routes') return false
   return target.layer === 'features' || target.layer === 'widgets'
-}
-
-function collectNamedImports(importClause) {
-  const namedMatch = importClause.match(/\{([^}]+)\}/)
-  if (!namedMatch) {
-    const defaultImport = importClause.split(',')[0]?.trim()
-    return defaultImport ? [defaultImport] : []
-  }
-
-  return namedMatch[1]
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) =>
-      part
-        .replace(/^type\s+/, '')
-        .split(/\s+as\s+/i)[0]
-        ?.trim()
-    )
-    .filter(Boolean)
-}
-
-function nonPageEntrypointNames(statement) {
-  const clauseMatch = statement.match(/^(?:import|export)\s+([\s\S]*?)\s+from\s+['"]/)
-  if (!clauseMatch) return []
-  return collectNamedImports(clauseMatch[1]).filter((name) => !name.endsWith('Page'))
 }
 
 function isSliceBarrel(appRoot, file) {
@@ -316,7 +308,17 @@ export function checkFsdBoundaries({
       continue
     }
 
-    for (const { specifier, statement } of imports) {
+    for (const { specifier, names, glob } of imports) {
+      if (glob) {
+        addRuleError(
+          relFile,
+          'import-glob',
+          null,
+          `import.meta.${glob} bypasses the boundary rules; import each module explicitly, through the slice barrel when it crosses into a slice`
+        )
+        continue
+      }
+
       if (specifier === null) {
         addRuleError(
           relFile,
@@ -366,9 +368,9 @@ export function checkFsdBoundaries({
           source.layer === 'app' &&
           source.slice === 'routes' &&
           target.layer === 'pages' &&
-          statement
+          names
         ) {
-          const badNames = nonPageEntrypointNames(statement)
+          const badNames = names.filter((name) => !name.endsWith('Page'))
           if (badNames.length > 0) {
             for (const name of badNames) {
               addError(
@@ -434,6 +436,24 @@ export function checkFsdBoundaries({
           'cross-entity',
           specifier,
           `entities/${source.slice} must not import entities/${target.slice}; entity slices stay independent`
+        )
+        continue
+      }
+
+      // own-barrel (ERROR): a slice imports its own files directly; going
+      // through its own barrel invites import cycles.
+      if (
+        sliceOwningLayers.has(source.layer) &&
+        target.layer === source.layer &&
+        target.slice === source.slice &&
+        isSliceBarrel(appRoot, resolved.file) &&
+        resolved.file !== sourceFile
+      ) {
+        addRuleError(
+          relFile,
+          'own-barrel',
+          specifier,
+          `${source.layer}/${source.slice} imports its own barrel; import the file directly`
         )
         continue
       }

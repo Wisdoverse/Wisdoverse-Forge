@@ -23,16 +23,25 @@ Its layer order is `app -> pages -> widgets -> features -> entities -> shared`.
 | `hooks` | WebSocket dispatch |
 | `features/*/model` | Realtime reducers for the owning feature |
 
-- Import an `entities`, `features`, `widgets`, or `pages` slice from outside it only through its root barrel, such as `@app/entities/navigation`.
-- Inside a slice, import its own files directly, not through its own barrel.
-- `sharedFileInventory` in `scripts/check-fsd-boundaries.mjs` lists every file under `shared/api` and `shared/lib` as `generic` or `frozen-domain`.
-- Put new domain code in its `entities` slice.
-- Add a new generic file to `sharedFileInventory` as `generic`, with a one-line reason.
-- Move a `frozen-domain` file to its `entities` slice when you next change it, then remove its entry.
 - Compose new views through `routes`, `pages`, or `widgets`.
 - Do not restore a root-level view registry.
 - Run `npm run fsd:check` for every frontend change.
 - Keep this check in `npm run lint`.
+
+`npm run fsd:check` reads every `.ts`, `.tsx`, `.js`, and `.jsx` file under `src/app`, including tests and declaration files there.
+It enforces these rules:
+
+- Import an `entities`, `features`, `widgets`, or `pages` slice from outside it only through its root barrel, such as `@app/entities/navigation`.
+- Inside a slice, import its own files directly, not through its own barrel.
+- `sharedFileInventory` in `scripts/check-fsd-boundaries.mjs` lists every file under `shared/api` and `shared/lib` as `generic` or `frozen-domain`.
+- List a new generic file in `sharedFileInventory` as `generic`.
+- Pass a string literal to `import()`, and do not use `import.meta.glob`.
+
+Review expectations, which the checker does not enforce:
+
+- Put new domain code in its `entities` slice, not in `shared`.
+- Give each new `generic` entry a one-line reason comment.
+- Move a `frozen-domain` file to its `entities` slice when you next change it, then remove its entry.
 
 ## Contracts And Browser Checks
 
