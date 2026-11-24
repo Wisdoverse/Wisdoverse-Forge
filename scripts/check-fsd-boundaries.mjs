@@ -184,7 +184,7 @@ const scriptKinds = {
 // Names an import/export clause pulls from its module (original names, type
 // specifiers included); `*` stands for a namespace import or star re-export.
 function clauseNames(node) {
-  if (ts.isImportDeclaration(node)) {
+  if (ts.isImportDeclaration(node) || ts.isJSDocImportTag(node)) {
     const clause = node.importClause
     if (!clause) return []
     const names = clause.name ? [clause.name.text] : []
@@ -211,15 +211,37 @@ function isStaticString(node) {
 // Every module reference in the file, read from the source AST so type-only
 // forms survive and comments or strings never count: import/export
 // declarations, `import x = require()`, `import()` calls, `import('x').T` type
-// references, and `import.meta.glob` (which the caller rejects). `specifier`
-// is null for an `import()` whose argument is not a static string.
+// references (JSDoc type expressions and `@import` tags included),
+// `/// <reference path>` and relative `/// <reference types>` directives, and
+// `import.meta.glob` (which the caller rejects). `specifier` is null for an
+// `import()` whose argument is not a static string.
 function extractImports(sourceFile) {
   const raw = fs.readFileSync(sourceFile, 'utf8')
   const kind = scriptKinds[path.extname(sourceFile)] ?? ts.ScriptKind.TS
   const ast = ts.createSourceFile(sourceFile, raw, ts.ScriptTarget.Latest, false, kind)
   const entries = []
+  const relativeTo = (fileName) => {
+    const dir = path.dirname(sourceFile)
+    const rel = toPosix(dir, path.resolve(dir, fileName))
+    return rel.startsWith('.') ? rel : `./${rel}`
+  }
+  for (const reference of ast.referencedFiles) {
+    entries.push({ specifier: relativeTo(reference.fileName), names: null })
+  }
+  // A bare `types` name is a package (`vite/client`); only a relative one can
+  // point into src/app. `reference lib` always names a built-in lib.
+  for (const reference of ast.typeReferenceDirectives) {
+    if (reference.fileName.startsWith('.')) {
+      entries.push({ specifier: relativeTo(reference.fileName), names: null })
+    }
+  }
   const visit = (node) => {
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+    // forEachChild skips attached JSDoc, which can hold import-type nodes.
+    for (const doc of node.jsDoc ?? []) visit(doc)
+    if (
+      (ts.isImportDeclaration(node) || ts.isJSDocImportTag(node)) &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
       entries.push({ specifier: node.moduleSpecifier.text, names: clauseNames(node) })
     } else if (
       ts.isExportDeclaration(node) &&
@@ -446,8 +468,7 @@ export function checkFsdBoundaries({
         sliceOwningLayers.has(source.layer) &&
         target.layer === source.layer &&
         target.slice === source.slice &&
-        isSliceBarrel(appRoot, resolved.file) &&
-        resolved.file !== sourceFile
+        isSliceBarrel(appRoot, resolved.file)
       ) {
         addRuleError(
           relFile,

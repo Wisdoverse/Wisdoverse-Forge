@@ -594,6 +594,70 @@ export const useBoardStore = 1
       ])
     })
 
+    it.each([
+      [
+        'a JSDoc import-type',
+        `/** @param {import('@app/entities/navigation/model/item').Item} item */\nexport function show(item) {\n  return item\n}`,
+        '@app/entities/navigation/model/item',
+      ],
+      [
+        'a JSDoc @import tag',
+        `/** @import { Item } from '@app/entities/navigation/model/item' */\nexport const marker = 1`,
+        '@app/entities/navigation/model/item',
+      ],
+      [
+        'a reference path',
+        `/// <reference path="../../entities/navigation/model/item.ts" />\nexport const marker = 1`,
+        '../../entities/navigation/model/item.ts',
+      ],
+    ])('flags %s into a deep entity file', (_form, source, target) => {
+      const cwd = fixture({
+        'src/app/features/board/doc.ts': `${source}\n`,
+        'src/app/entities/navigation/model/item.ts': 'export interface Item { id: string }\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.errors).toEqual([
+        `[public-api] src/app/features/board/doc.ts -> ${target} (deep import into entities/navigation; import the slice barrel @app/entities/navigation)`,
+      ])
+    })
+
+    it('leaves package type references and JSDoc prose alone', () => {
+      const cwd = fixture({
+        'src/app/features/board/doc.ts': `/// <reference types="vite/client" />
+/// <reference lib="dom" />
+/**
+ * Prose that mentions import('@app/entities/navigation/model/item') outside a type.
+ * @returns the marker
+ */
+export function marker() {
+  return 1
+}
+`,
+        'src/app/entities/navigation/model/item.ts': 'export interface Item { id: string }\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it.each(['entities', 'features', 'widgets', 'pages'])(
+      'flags a %s barrel that imports itself',
+      (layer) => {
+        const cwd = fixture({
+          [`src/app/${layer}/demo/index.ts`]: `import * as slice from './index'\nexport const demoPage = slice\n`,
+        })
+
+        const result = checkFsdBoundaries({ cwd })
+
+        expect(result.errors).toEqual([
+          `[own-barrel] src/app/${layer}/demo/index.ts -> ./index (${layer}/demo imports its own barrel; import the file directly)`,
+        ])
+      }
+    )
+
     it('ignores import() text inside comments and strings', () => {
       const cwd = fixture({
         'src/app/features/board/notes.ts': `
