@@ -1,6 +1,7 @@
 // Pure predicates over observed facts: env parsing, redaction, migration ledgers, preflight
 // (D4.3, A5, A8), verification (D6, A6) and baseline equivalence (A11).
 import { createHash } from 'node:crypto'
+import { URL } from 'node:url'
 
 export const MIN_FREE_BYTES = 1024 ** 3
 
@@ -48,6 +49,58 @@ export function redact(text, secrets = []) {
 }
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
+
+// Round 5, F4b: the env keys this tool uses to LOCATE things. Secrets are not part of it, so a
+// rotated credential keeps the identity; a different project, database or path does not.
+export const IDENTITY_KEYS = [
+  'COMPOSE_PROJECT_NAME',
+  'CONTAINER_NAME_PREFIX',
+  'DB_HOST',
+  'DB_PORT',
+  'TEMPORAL_DB_USER',
+  'TEMPORAL_DB_NAME',
+  'EXTERNAL_NETWORK',
+  'CONTAINER_NETWORK',
+  'WEBROOT',
+  'DEPLOY_LOCK_DIR',
+  'BIND_ADDRESS',
+  'AGENTFORGE_HOST_PORT',
+  'AGENTFORGE_PORT',
+  'ORCHESTRATOR_PORT',
+  'NATS_PORT',
+  'NATS_MONITOR_PORT',
+  'TEMPORAL_PORT',
+  'TEMPORAL_UI_PORT',
+]
+// The Compose file set and profile are fixed by the tool; they are part of the identity too.
+const FILE_SET = 'docker/compose.yml+docker/compose.external.yml;profile=external'
+
+function urlIdentity(value) {
+  try {
+    const u = new URL(value)
+    return `${decodeURIComponent(u.username)}@${u.hostname}:${u.port || '5432'}/${u.pathname.slice(1)}`
+  } catch {
+    return 'unparseable'
+  }
+}
+
+export function identityOf(env) {
+  const fields = { files: FILE_SET }
+  for (const key of IDENTITY_KEYS) {
+    fields[key] = env[key] ?? ''
+  }
+  for (const key of ['DATABASE_URL', 'ORCHESTRATOR_DATABASE_URL']) {
+    fields[key] = env[key] ? urlIdentity(env[key]) : ''
+  }
+  return sha256(JSON.stringify(fields))
+}
+
+// Round 5, F5: never print values taken from containers; a short fingerprint shows that and where
+// two sides differ.
+export const fingerprint = (value) => {
+  const text = JSON.stringify(value ?? null)
+  return `${text.length} chars, sha256 ${sha256(text).slice(0, 12)}`
+}
 
 function noNul(value) {
   if (String(value).includes('\0')) {
@@ -223,7 +276,8 @@ export function rollbackFindings(rollback) {
 
 export function preflightFindings(config, state, o) {
   const out = []
-  if (o.envVersion !== config.target) {
+  // The env file names the git revision; the release id adds the env hash (round 5, F4a).
+  if (o.envVersion !== (config.revision ?? config.target)) {
     out.push('the env file VERSION is not the target revision')
   }
   for (const [service, id] of Object.entries(o.images)) {
@@ -412,8 +466,8 @@ function containerMountKey(m, relocatedTargets) {
 
 // A11: the rendered baseline describes the running containers (labels and tags differ by design).
 // Each difference names the service, the property, what the rendering expects and what the
-// running container has, so an operator can write the matching override (runbook R2). Values
-// shown are image ids, env NAMES, mount keys, network names, port bindings and the probe command.
+// running container has (runbook R2). Shown are image ids, env NAMES, mount keys, network names
+// and port bindings; a command is shown only as a fingerprint, since it can embed credentials.
 export function compareBaseline(rendered, containers, imageIds, relocatedFiles) {
   const out = []
   const byName = new Map(containers.map((c) => [c.name, c]))
@@ -465,10 +519,12 @@ export function compareBaseline(rendered, containers, imageIds, relocatedFiles) 
       ),
       c.portBindings
     )
-    const want = JSON.stringify(svc.healthcheck?.test ?? null)
-    const have = JSON.stringify(c.healthcheck ?? null)
-    if (want !== have) {
-      diff('health check', want, have)
+    if (JSON.stringify(svc.healthcheck?.test ?? null) !== JSON.stringify(c.healthcheck ?? null)) {
+      diff(
+        'health check command',
+        `${fingerprint(svc.healthcheck?.test)} (see services.${service}.healthcheck in the rendered config under private/configs/)`,
+        `${fingerprint(c.healthcheck)} (inspect locally: docker inspect ${c.name} --format '{{json .Config.Healthcheck.Test}}')`
+      )
     }
   }
   return out

@@ -14,6 +14,8 @@ import {
   frontendFindings,
   isProductAgent,
   newAgents,
+  identityOf,
+  parseEnvFile,
   parseMigrations,
   quoteIdent as q,
   quoteLiteral as lit,
@@ -152,21 +154,34 @@ export function createExecutor(cfg, log) {
   const generationDir = (generation) => path.join(cfg.privateRoot, 'inputs', generation)
   let envPath = cfg.envFile
   const envFile = () => envPath
-  const inputsSha = (generation) => {
-    const file = path.join(generationDir(generation), 'deploy.env')
-    return fs.existsSync(file) ? sha256(fs.readFileSync(file)) : null
+  // Facts of an input directory: env hash, deployment identity (round 5, F4b) and runner.
+  const envFacts = (dir) => {
+    const file = path.join(dir, 'deploy.env')
+    if (!fs.existsSync(file)) {
+      return null
+    }
+    const text = fs.readFileSync(file)
+    return { envSha256: sha256(text), identity: identityOf(parseEnvFile(text.toString('utf8'))) }
   }
-  function activateStaged(generation) {
-    const env = path.join(stagedDir, 'deploy.env')
+  const inputsFacts = (generation) => envFacts(generationDir(generation))
+  function readStaged() {
+    const facts = envFacts(stagedDir)
     const runnerFile = path.join(stagedDir, 'runner')
-    if (!fs.existsSync(env) || !fs.existsSync(runnerFile)) {
+    if (!facts || !fs.existsSync(runnerFile)) {
       throw new Error(
-        'no staged inputs (private/staged/deploy.env and runner): run the deploy job to stage them'
+        'no staged inputs (private/staged/deploy.env and runner): run the stage action'
       )
     }
     const runner = fs.readFileSync(runnerFile, 'utf8').trim()
-    const envSha256 = sha256(fs.readFileSync(env))
-    ;[env, runnerFile, stagedDir].forEach(fsyncPath)
+    if (!/^[0-9a-f]{7,40}$/.test(runner)) {
+      throw new Error('the staged runner reference is not a commit id')
+    }
+    return { ...facts, runner }
+  }
+  function activateStaged(generation) {
+    const env = path.join(stagedDir, 'deploy.env')
+    const staged = readStaged()
+    ;[env, path.join(stagedDir, 'runner'), stagedDir].forEach(fsyncPath)
     ensureDir(path.dirname(generationDir(generation)), 0o700)
     fs.renameSync(stagedDir, generationDir(generation))
     fsyncPath(path.dirname(generationDir(generation)))
@@ -174,7 +189,7 @@ export function createExecutor(cfg, log) {
     if (envPath === env) {
       envPath = path.join(generationDir(generation), 'deploy.env')
     }
-    return { generation, envSha256, runner }
+    return { generation, ...staged, ...inputsFacts(generation) }
   }
   const project = [...words('compose --profile external --project-name'), cfg.project]
   const composeSource = (rev) => [
@@ -280,12 +295,14 @@ export function createExecutor(cfg, log) {
     return { facts, ledgers }
   }
 
-  const render = (rev) => {
+  // Renders the revision's Compose files; the result is stored under the release id, because two
+  // releases of one revision differ by their env (round 5, F4a).
+  const render = (rev, id = rev) => {
     const out = docker([...composeSource(rev), 'config', '--format', 'json'], {
       env: { VERSION: rev },
     }).stdout
-    ensureDir(path.dirname(configPath(rev)), 0o700)
-    atomicWrite(configPath(rev), out)
+    ensureDir(path.dirname(configPath(id)), 0o700)
+    atomicWrite(configPath(id), out)
     return JSON.parse(out)
   }
   const imageId = (ref) =>
@@ -611,10 +628,10 @@ export function createExecutor(cfg, log) {
     }
   }
 
-  async function preflight(st) {
+  async function preflight(st, targetId) {
     current = st
     const rev = cfg.target
-    const rendered = render(rev)
+    const rendered = render(rev, targetId)
     const refs = Object.fromEntries(
       Object.entries(rendered.services).map(([svc, s]) => [svc, s.image])
     )
@@ -666,8 +683,9 @@ export function createExecutor(cfg, log) {
       },
       tagIds: tagIdsFor(st.records),
       record: {
-        rev,
-        config: configPath(rev),
+        rev: targetId,
+        revision: rev,
+        config: configPath(targetId),
         refs,
         images,
         indexSha256: frontendIndexSha,
@@ -718,9 +736,15 @@ export function createExecutor(cfg, log) {
   }
 
   function readState() {
-    if (!fs.existsSync(statePath)) {
-      current = null
-      return null
+    // Only "does not exist" means no state; an inaccessible file is unreadable (round 5, F1).
+    try {
+      fs.statSync(statePath)
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        current = null
+        return null
+      }
+      throw new StateUnreadable(`state.json cannot be accessed (${err.code})`)
     }
     try {
       current = JSON.parse(fs.readFileSync(statePath, 'utf8'))
@@ -784,7 +808,8 @@ export function createExecutor(cfg, log) {
     },
     stats: () => ({ ...stats }),
     activateStaged,
-    inputsSha,
+    inputsFacts,
+    readStaged,
     preflight,
     databaseFacts: () => catalog().facts,
     ledgerRows,
@@ -799,7 +824,7 @@ export function createExecutor(cfg, log) {
         }
       }
       drift()
-      if (st.records[rev]) {
+      if (Object.values(st.records).some((r) => r.revision === rev)) {
         log(`${rev} already has a release record; build skipped so its images stay pinned`)
         return
       }

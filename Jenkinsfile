@@ -28,8 +28,8 @@ pipeline {
   parameters {
     string(name: 'ENV_FILE_CREDENTIAL_ID', defaultValue: 'forge-deploy-env',
       description: 'Jenkins "Secret file" credential holding the deployment env file (deploy only)')
-    choice(name: 'ACTION', choices: ['deploy', 'recover', 'status'],
-      description: 'deploy: release DEV; recover: finish or roll back an interrupted attempt; status: print state')
+    choice(name: 'ACTION', choices: ['deploy', 'stage', 'recover', 'status'],
+      description: 'deploy: release DEV; stage: only prepare release, inputs and runner (nothing deployed); recover: finish or roll back an interrupted attempt; status: print state')
     booleanParam(name: 'SIMULATE_VERIFY_FAILURE', defaultValue: false,
       description: 'Rehearsal only: fail verification after the new backend starts, forcing a rollback')
   }
@@ -55,7 +55,7 @@ pipeline {
     }
 
     stage('Prepare release') {
-      when { expression { params.ACTION == 'deploy' } }
+      when { expression { params.ACTION == 'deploy' || params.ACTION == 'stage' } }
       steps {
         script {
           // An explicit checkout registers DEV for polling. Checking out runs nothing from the tree.
@@ -116,14 +116,19 @@ pipeline {
           // A recorded revision is never rebuilt: rebuilding could move the tags its record pins.
           def probe = runner('status', " | grep -qx \"revision \$FORGE_REV: recorded\"")
           env.FORGE_RECORDED = sh(returnStatus: true, script: probe) == 0 ? 'true' : 'false'
-          def current = runner('status', " | grep -q \"^current release: *\$FORGE_REV\$\"")
+          def current = runner('status', " | grep -qx \"release \$FORGE_REV with the staged env: current\"")
           env.FORGE_IS_CURRENT = sh(returnStatus: true, script: current) == 0 ? 'true' : 'false'
         }
       }
     }
 
+    stage('Staged only') {
+      when { expression { params.ACTION == 'stage' } }
+      steps { echo("Staged ${env.FORGE_REV}: release directory, inputs and runner image are ready; nothing was deployed.") }
+    }
+
     stage('Use active inputs') {
-      when { expression { params.ACTION != 'deploy' } }
+      when { expression { params.ACTION == 'recover' || params.ACTION == 'status' } }
       steps {
         script {
           // The journal is the pointer (round 4, C2): state.json names the active generation and its

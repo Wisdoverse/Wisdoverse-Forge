@@ -8,11 +8,11 @@ import {
   deploy,
   recover,
 } from '../../../scripts/lib/deploy-release/engine.js'
-import { emptyState } from '../../../scripts/lib/deploy-release/journal.js'
+import { emptyState, releaseId } from '../../../scripts/lib/deploy-release/journal.js'
 
 const DBS = [
-  { key: 'api', role: 'api', name: 'forge' },
-  { key: 'orchestrator', role: 'orchestrator', name: 'forge_orch' },
+  { key: 'api', role: 'api', name: 'forge', migrations: 'x' },
+  { key: 'orchestrator', role: 'orchestrator', name: 'forge_orch', migrations: 'x' },
   { key: 'temporal', role: 'temporal', name: 'temporal' },
   { key: 'temporal_visibility', role: 'temporal', name: 'temporal_visibility' },
 ]
@@ -29,15 +29,25 @@ const NEW_AGENTS = [
   agent('00000000-0000-4000-8000-000000000003', '2026-11-24T00:06:00.000Z', false),
 ]
 
-const PREV_INPUTS = { generation: 'prevgen1', envSha256: 'a'.repeat(64), runner: 'abcdef0' }
+const IDENTITY = 'c'.repeat(64)
+const PREV_INPUTS = {
+  generation: 'prevgen1',
+  envSha256: 'a'.repeat(64),
+  identity: IDENTITY,
+  runner: 'abcdef0',
+}
+// What Jenkins staged for revision `next`; the release id is (revision, env hash).
+const STAGED = { envSha256: 'b'.repeat(64), identity: IDENTITY, runner: 'abcdef1' }
+export const NEXT = releaseId('next', STAGED.envSha256)
 export const fakeRecord = (rev, inputs) => ({
   rev,
+  revision: rev,
   config: `/private/configs/${rev}.json`,
   releaseDir: `/release/releases/${rev}`,
   indexSha256: `sha-${rev}`,
   frontendDir: rev === 'next' ? '/release/frontend/next' : null,
-  images: {},
-  refs: {},
+  images: { nats: 'sha256:1' },
+  refs: { nats: 'nats:2' },
   ...(inputs ? { inputs } : {}),
 })
 
@@ -108,10 +118,18 @@ export function goodPreflight(world) {
     databases,
     agentContainers: world.agents,
     volumes: Object.keys(world.volumes),
-    expect: { endpoints: {}, streams: [], consumers: [], ledgers: {} },
+    expect: {
+      endpoints: {},
+      streams: [],
+      consumers: [],
+      ledgers: {
+        api: [{ version: 1, checksum: 'aa' }],
+        orchestrator: [{ version: 1, checksum: 'aa' }],
+      },
+    },
     captureProblems: [],
     rollback: { configReadable: true, releaseDirExists: true, bindProbes: [], missingImages: [] },
-    tagIds: {},
+    tagIds: { 'nats:2': 'sha256:1' },
     record: fakeRecord('next'),
   }
 }
@@ -129,6 +147,11 @@ export function fakeExecutor(world, opts = {}) {
     failWrite = null,
     readFails = false,
     crashAfterActivate = false,
+    // Round 5: what the re-read returns after a failed commit write, what Jenkins staged, and a
+    // generation whose identity or secrets changed.
+    rereadAs = null,
+    staged = STAGED,
+    identityChanged = false,
   } = opts
   let readBroken = false
   let { beforeRollback = null } = opts
@@ -206,12 +229,12 @@ export function fakeExecutor(world, opts = {}) {
     },
     start: (s) => {
       world.running = s.rev
-      if (s.rev === 'next') {
+      if (s.rev === NEXT) {
         sources().forEach((name) => {
-          need(name).schema = 'next'
+          need(name).schema = NEXT
         })
         Object.keys(world.volumes).forEach((v) => {
-          world.volumes[v] = 'next'
+          world.volumes[v] = NEXT
         })
         world.agents = [...world.agents.filter((a) => !NEW_AGENTS.includes(a)), ...NEW_AGENTS]
       }
@@ -254,6 +277,14 @@ export function fakeExecutor(world, opts = {}) {
       if (readBroken) {
         throw new Error('EIO: journal could not be re-read')
       }
+      if (rereadAs && failWrite && writes > failWrite.at) {
+        const st = JSON.parse(world.stateJson)
+        return {
+          null: null,
+          invalid: { schema: 1 },
+          foreign: { ...st, attempt: { ...st.attempt, attemptId: 'z9z9z9z9' } },
+        }[rereadAs]
+      }
       return JSON.parse(world.stateJson)
     },
     writeState: (state) => {
@@ -280,18 +311,28 @@ export function fakeExecutor(world, opts = {}) {
     removeHelpers: () => {
       world.sqlHelper = null
     },
+    readStaged: () => {
+      if (!/^[0-9a-f]{7,40}$/.test(staged.runner)) {
+        throw new Error('the staged runner reference is not a commit id')
+      }
+      return { ...staged }
+    },
     activateStaged: (generation) => {
       world.generations.push(generation)
       if (crashAfterActivate) {
         throw new Crash('crash after the staged inputs were renamed')
       }
-      return { generation, envSha256: 'b'.repeat(64), runner: 'abcdef1' }
+      return { generation, ...staged }
     },
-    inputsSha: (generation) => {
-      if (envChanged || !world.generations.includes(generation)) {
+    inputsFacts: (generation) => {
+      if (!world.generations.includes(generation)) {
         return null
       }
-      return generation === 'prevgen1' ? 'a'.repeat(64) : 'b'.repeat(64)
+      const recorded = generation === 'prevgen1' ? PREV_INPUTS : staged
+      return {
+        envSha256: envChanged ? 'f'.repeat(64) : recorded.envSha256,
+        identity: identityChanged ? 'e'.repeat(64) : recorded.identity,
+      }
     },
     baseline: () => ({ findings: [], record: fakeRecord('baseline') }),
     startSql: () => {
@@ -377,10 +418,11 @@ export function invariantErrors(world) {
   return errors
 }
 
-export function outcomeErrors(world, rev) {
+export function outcomeErrors(world, wanted) {
+  const rev = wanted === 'next' ? NEXT : wanted
   const errors = invariantErrors(world)
   const state = JSON.parse(world.stateJson)
-  const want = rev === 'next' ? 'done' : 'rolled_back'
+  const want = rev === NEXT ? 'done' : 'rolled_back'
   if (state.attempt?.phase !== want) {
     errors.push(`phase ${state.attempt?.phase}, expected ${want}`)
   }
@@ -624,7 +666,7 @@ export async function faultMatrix() {
     const world = createWorld()
     const code = await deploy(ctxFor(world, opts))
     const errors = []
-    if (code !== EXIT.COMMIT_UNKNOWN || world.running !== 'next') {
+    if (code !== EXIT.COMMIT_UNKNOWN || world.running !== NEXT) {
       errors.push(
         `exit ${code} (want ${EXIT.COMMIT_UNKNOWN}), running ${world.running} (want next)`
       )
@@ -693,7 +735,7 @@ export async function faultMatrix() {
     const code = await deploy(ctxFor(world, { failWritesFrom: w }))
     const onDisk = committedPhase(world)
     const errors = []
-    if (onDisk && (code !== EXIT.FINALIZE_FAILED || world.running !== 'next')) {
+    if (onDisk && (code !== EXIT.FINALIZE_FAILED || world.running !== NEXT)) {
       errors.push(
         `after commit: exit ${code} (want ${EXIT.FINALIZE_FAILED}), running ${world.running}`
       )
@@ -719,16 +761,80 @@ export async function faultMatrix() {
     EXIT.OK,
     'next'
   )
-  // Round-3 finding 5: recover refuses when the active env is not the one the attempt started with.
-  const swapped = createWorld()
-  await deploy(ctxFor(swapped, { crash: { at: 12, when: 'before' } })).catch(() => null)
-  const swappedCode = await recover(ctxFor(swapped, { envChanged: true }))
+  // Round 5, F4b: a rotated secret in the attempt's env does not block recover; a changed
+  // deployment identity does.
+  const rotated = createWorld()
+  await deploy(ctxFor(rotated, { crash: { at: 12, when: 'before' } })).catch(() => null)
+  add(
+    'recover after a credential in the attempt env was rotated',
+    rotated,
+    await recover(ctxFor(rotated, { envChanged: true })),
+    EXIT.OK,
+    'prev'
+  )
+  const moved = createWorld()
+  await deploy(ctxFor(moved, { crash: { at: 12, when: 'before' } })).catch(() => null)
+  const movedCode = await recover(ctxFor(moved, { identityChanged: true }))
   results.push({
-    name: 'recover with a different active env',
+    name: 'recover when the attempt env names another deployment',
     errors:
-      swappedCode === EXIT.RECOVERY_REQUIRED
+      movedCode === EXIT.RECOVERY_REQUIRED
         ? []
-        : [`exit ${swappedCode}, expected ${EXIT.RECOVERY_REQUIRED}`],
+        : [`exit ${movedCode}, expected ${EXIT.RECOVERY_REQUIRED}`],
+  })
+  // Round 5, F1: after a failed commit write, "not committed" needs a valid journal of the same
+  // attempt that still shows the pre-commit phase. Absent, invalid or foreign is unknown.
+  for (const rereadAs of ['null', 'invalid', 'foreign']) {
+    const world = createWorld()
+    const code = await deploy(
+      ctxFor(world, { failWrite: { at: commitWrite, mode: 'before-rename' }, rereadAs })
+    )
+    const errors =
+      code === EXIT.COMMIT_UNKNOWN && world.running === NEXT
+        ? []
+        : [`exit ${code}, running ${world.running}`]
+    const recovered = await recover(ctxFor(world, {}))
+    errors.push(
+      ...outcomeErrors(world, 'prev'),
+      ...(recovered === EXIT.OK ? [] : [`recover exit ${recovered}`])
+    )
+    results.push({
+      name: `commit write failed, re-read ${rereadAs}: unknown, nothing stopped`,
+      errors,
+    })
+  }
+  // Round 5, F4a: same revision, other env content: a normal deploy of a new release.
+  const sameRev = createWorld()
+  const prevRecord = JSON.parse(sameRev.stateJson)
+  prevRecord.records.prev.revision = 'next'
+  sameRev.stateJson = JSON.stringify(prevRecord)
+  const noop = await deploy(
+    ctxFor(sameRev, { staged: { ...STAGED, envSha256: PREV_INPUTS.envSha256 } })
+  )
+  const rotatedDeploy = await deploy(ctxFor(sameRev, {}, fakeConfig({ attemptId: 'b1b2c3d4' })))
+  const sameRevState = JSON.parse(sameRev.stateJson)
+  results.push({
+    name: 'release identity: same revision and env is a no-op; a changed env deploys',
+    errors:
+      noop === EXIT.OK &&
+      rotatedDeploy === EXIT.OK &&
+      sameRevState.current === NEXT &&
+      sameRevState.previous === 'prev'
+        ? []
+        : [`no-op exit ${noop}, deploy exit ${rotatedDeploy}, current ${sameRevState.current}`],
+  })
+  // Round 5, F3: an invalid staged runner refuses before anything is persisted.
+  const badRunner = createWorld()
+  const before = badRunner.stateJson
+  const badCode = await deploy(ctxFor(badRunner, { staged: { ...STAGED, runner: 'not-a-commit' } }))
+  results.push({
+    name: 'invalid staged runner refuses before anything is persisted',
+    errors:
+      badCode === EXIT.PREFLIGHT_REFUSED &&
+      badRunner.stateJson === before &&
+      badRunner.generations.length === 1
+        ? []
+        : [`exit ${badCode}`],
   })
   // Finding 8: an agent that appears after preflight aborts before the snapshot, untouched.
   const appeared = createWorld()

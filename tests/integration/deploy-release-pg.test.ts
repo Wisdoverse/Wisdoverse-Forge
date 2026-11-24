@@ -237,7 +237,20 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
         databases: real.databaseFacts(),
         agentContainers: [],
         volumes: [],
-        expect: { endpoints: {}, streams: [], consumers: [], ledgers: {} },
+        expect: {
+          endpoints: {},
+          streams: [],
+          consumers: [],
+          ledgers: Object.fromEntries(
+            Object.entries(real.ledgerRows()).map(([k, rows]) => [
+              k,
+              (rows as { version: number; checksum: string }[]).map((r) => ({
+                version: r.version,
+                checksum: r.checksum,
+              })),
+            ])
+          ),
+        },
         captureProblems: [],
         rollback: {
           configReadable: true,
@@ -245,7 +258,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
           bindProbes: [],
           missingImages: [],
         },
-        tagIds: {},
+        tagIds: { 'nats:2': 'sha256:1' },
         record: fakeRecord('next'),
       }),
       run: async (step: { op: string; phase: string; rev?: string }, st: unknown) => {
@@ -268,10 +281,10 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
           }
           return result
         }
-        if (step.op === 'start' && step.rev === 'next') {
+        if (step.op === 'start' && step.rev?.startsWith('next-')) {
           DATABASES.forEach((d) => su(d.name, "UPDATE marker SET v = 'written by next'"))
         }
-        if (step.op === 'verify_backend' && step.rev === 'next' && opts.failVerify) {
+        if (step.op === 'verify_backend' && step.rev?.startsWith('next-') && opts.failVerify) {
           throw new Error('verification of next failed (test)')
         }
         return step.op === 'archive_webroot' ? { sha256: 'webroot' } : {}
@@ -352,6 +365,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
         prev: fakeRecord('prev', {
           generation: 'prevgen1',
           envSha256: 'a'.repeat(64),
+          identity: 'c'.repeat(64),
           runner: 'abcdef0',
         }),
       },
@@ -424,8 +438,10 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
       const before = catalog()
       expect(await deploy(ctx())).toBe(EXIT.OK)
       const after = catalog()
-      const { attempt, current } = state()
-      expect(current).toBe('next')
+      const { attempt, current, records } = state()
+      // Round 5, F4a: the release id is (revision, env hash).
+      expect(current).toMatch(/^next-[0-9a-f]{12}$/)
+      expect(records[current].revision).toBe('next')
       expect(attempt.phase).toBe('done')
       for (const d of attempt.snapshot.databases) {
         expect(d.sourceOid).toBe(before[d.source].oid)

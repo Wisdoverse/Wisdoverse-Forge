@@ -196,6 +196,35 @@ function underLock(cfg, argv) {
   return r.status ?? EXIT.FAILED
 }
 
+// Lines Jenkins greps (recorded / current) and the round-5 integrity note; no secret values.
+function statusNotes(ctx, revision) {
+  const { state, exec } = ctx
+  const notes = []
+  const active = activeInputs(state)
+  const facts = active ? exec.inputsFacts(active.generation) : null
+  if (active && facts?.envSha256 !== active.envSha256) {
+    const same = facts?.identity === active.identity
+    notes.push(
+      `note: the active env file differs from its recorded hash (deployment identity ${same ? 'unchanged' : 'CHANGED'})`
+    )
+  }
+  if (revision) {
+    const recorded = Object.values(state.records).some((r) => r.revision === revision)
+    notes.push(`revision ${revision}: ${recorded ? 'recorded' : 'not recorded'}`)
+    let staged = null
+    try {
+      staged = exec.readStaged()
+    } catch {
+      staged = null
+    }
+    const live = state.records[state.current]
+    const current =
+      staged && live?.revision === revision && live.inputs.envSha256 === staged.envSha256
+    notes.push(`release ${revision} with the staged env: ${current ? 'current' : 'not current'}`)
+  }
+  return notes
+}
+
 async function selfTest() {
   // The fake executor lives with the tests; the release directory is a full `git archive`.
   const simulate = path.join(path.dirname(SCRIPT), '../tests/support/deploy-release/simulate.js')
@@ -243,11 +272,7 @@ async function main(argv) {
           return EXIT.RECOVERY_REQUIRED
         }
         summarize(ctx.state).forEach(log)
-        if (cfg.target) {
-          log(
-            `revision ${cfg.target}: ${ctx.state.records[cfg.target] ? 'recorded' : 'not recorded'}`
-          )
-        }
+        statusNotes(ctx, cfg.target).forEach(log)
         return EXIT.OK
     }
   } catch (err) {

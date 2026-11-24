@@ -82,26 +82,37 @@ export const inputsProblems = (holder, where) => {
   const ok =
     GENERATION.test(i?.generation ?? '') &&
     /^[0-9a-f]{64}$/.test(i?.envSha256 ?? '') &&
+    /^[0-9a-f]{64}$/.test(i?.identity ?? '') &&
     /^[0-9a-f]{7,40}$/.test(i?.runner ?? '')
   return ok ? [] : [`${where}.inputs`]
 }
 
+// Round 5, F4a: a release is (revision, env content); its id keys the record.
+export const releaseId = (revision, envSha256) => `${revision}-${envSha256.slice(0, 12)}`
+
+const nonEmptyMap = (m) =>
+  isObject(m) && Object.keys(m).length > 0 && Object.values(m).every(isText)
+
 function recordProblems(rev, r) {
   const ok =
     r?.rev === rev &&
+    isText(r.revision) &&
     isText(r.config) &&
     isText(r.releaseDir) &&
     isText(r.indexSha256) &&
     (r.frontendDir === null || isText(r.frontendDir)) &&
-    isObject(r.images) &&
-    Object.values(r.images).every(isText) &&
-    isObject(r.refs) &&
-    Object.values(r.refs).every(isText)
+    nonEmptyMap(r.images) &&
+    nonEmptyMap(r.refs) &&
+    Object.keys(r.images).every((svc) => svc in r.refs)
   return [...(ok ? [] : [`records.${rev}`]), ...inputsProblems(r, `records.${rev}`)]
 }
 
-function expectProblems(e) {
+function expectProblems(e, ledgerKeys) {
   const ledgerRow = (row) => Number.isInteger(row?.version) && isText(row.checksum)
+  // Round 5, F3: every database with a migration ledger must have a non-empty expectation.
+  const ledgersComplete =
+    isObject(e?.ledgers) &&
+    ledgerKeys.every((k) => Array.isArray(e.ledgers[k]) && e.ledgers[k].length > 0)
   const ok =
     isObject(e) &&
     isObject(e.endpoints) &&
@@ -111,7 +122,8 @@ function expectProblems(e) {
     Array.isArray(e.consumers) &&
     e.consumers.every((c) => isText(c?.stream) && isText(c?.name)) &&
     isObject(e.ledgers) &&
-    Object.values(e.ledgers).every((rows) => Array.isArray(rows) && rows.every(ledgerRow))
+    Object.values(e.ledgers).every((rows) => Array.isArray(rows) && rows.every(ledgerRow)) &&
+    ledgersComplete
   return ok ? [] : ['snapshot.expect']
 }
 
@@ -133,7 +145,7 @@ export function withPointers(state) {
   }
 }
 
-function attemptProblems(a) {
+function attemptProblems(a, ledgerKeys) {
   const s = a.snapshot ?? {}
   const sealed = s.complete === true
   const checks = [
@@ -145,7 +157,7 @@ function attemptProblems(a) {
     ...inputsProblems(a, 'attempt').map((field) => [false, field]),
     [Array.isArray(a.swaps), 'attempt.swaps'],
     [typeof s.complete === 'boolean', 'snapshot.complete'],
-    ...expectProblems(s.expect).map((field) => [false, field]),
+    ...expectProblems(s.expect, ledgerKeys).map((field) => [false, field]),
     [Array.isArray(s.databases) && s.databases.length > 0, 'snapshot.databases'],
     [Array.isArray(s.volumes), 'snapshot.volumes'],
     [isText(s.webroot?.tar) && (!sealed || isText(s.webroot?.sha256)), 'snapshot.webroot'],
@@ -164,7 +176,7 @@ function attemptProblems(a) {
 }
 
 // Finding 7: a journal missing what its phase needs is treated like an unreadable one.
-export function validateState(state) {
+export function validateState(state, { ledgerKeys = [] } = {}) {
   const problems = []
   const nullableText = (v) => v === null || isText(v)
   if (state?.schema !== STATE_SCHEMA) {
@@ -189,7 +201,7 @@ export function validateState(state) {
     if (state.attempt !== null) {
       problems.push(
         ...(typeof state.attempt === 'object' && state.attempt
-          ? attemptProblems(state.attempt)
+          ? attemptProblems(state.attempt, ledgerKeys)
           : ['attempt'])
       )
     }

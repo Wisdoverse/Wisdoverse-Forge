@@ -8,8 +8,11 @@ import {
   backendFindings,
   captureExpectations,
   compareBaseline,
+  IDENTITY_KEYS,
   compareLedger,
   databaseFindings,
+  fingerprint,
+  identityOf,
   frontendFindings,
   identityFindings,
   isProductAgent,
@@ -39,6 +42,7 @@ import {
   activeInputs,
   emptyState,
   markRecoveryRequired,
+  releaseId,
   summarize,
   transition,
   validateState,
@@ -56,6 +60,7 @@ import {
 import {
   createWorld,
   ctxFor,
+  NEXT,
   fakeConfig,
   fakeExecutor,
   fakeRecord,
@@ -76,7 +81,12 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
     phase,
     step: null,
     helperPrefix: 'forge-deploy-a1b2c3d4-',
-    inputs: { generation: 'a1b2c3d4', envSha256: 'b'.repeat(64), runner: 'abcdef1' },
+    inputs: {
+      generation: 'a1b2c3d4',
+      envSha256: 'b'.repeat(64),
+      identity: 'c'.repeat(64),
+      runner: 'abcdef1',
+    },
     startedAt: '2026-11-24T00:00:00.000Z',
     swaps: [],
     snapshot: {
@@ -93,13 +103,26 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
       ],
       volumes: [{ volume: 'v', tar: '/s/v.tar', sha256: 'x', restored: false }],
       webroot: { tar: '/s/webroot.tar', sha256: 'y', restored: false },
-      expect: { endpoints: {}, streams: [], consumers: [], ledgers: {} },
+      expect: {
+        endpoints: {},
+        streams: [],
+        consumers: [],
+        ledgers: {
+          api: [{ version: 1, checksum: 'aa' }],
+          orchestrator: [{ version: 1, checksum: 'aa' }],
+        },
+      },
     },
   }
 }
 
 const db = (oid: number, allowConnections = true) => ({ oid, allowConnections })
-const PREV_INPUTS = { generation: 'prevgen1', envSha256: 'a'.repeat(64), runner: 'abcdef0' }
+const PREV_INPUTS = {
+  generation: 'prevgen1',
+  envSha256: 'a'.repeat(64),
+  identity: 'c'.repeat(64),
+  runner: 'abcdef0',
+}
 const observeWith = (world: ReturnType<typeof createWorld>) => {
   const exec = fakeExecutor(world)
   exec.startSql()
@@ -308,7 +331,15 @@ describe('engine', () => {
 
   it('is a no-op when the target is current and refuses without a baseline', async () => {
     const noop = createWorld()
-    expect(await deploy(ctxFor(noop, {}, fakeConfig({ target: 'prev' })))).toBe(EXIT.OK)
+    // Round 5, F4a: a no-op needs the same revision AND the same env content.
+    const sameEnv = {
+      envSha256: PREV_INPUTS.envSha256,
+      identity: PREV_INPUTS.identity,
+      runner: 'abcdef1',
+    }
+    expect(await deploy(ctxFor(noop, { staged: sameEnv }, fakeConfig({ target: 'prev' })))).toBe(
+      EXIT.OK
+    )
     expect(JSON.parse(noop.stateJson).attempt).toBeNull()
     const bare = createWorld()
     bare.stateJson = JSON.stringify(emptyState())
@@ -368,11 +399,11 @@ describe('engine', () => {
     expect(await deploy(ctxFor(world, { failWritesFrom: probeCtx.exec.writes() - 2 }))).toBe(
       EXIT.FINALIZE_FAILED
     )
-    expect(world.running).toBe('next')
+    expect(world.running).toBe(NEXT)
     expect(JSON.parse(world.stateJson).attempt.phase).toBe('verified')
     world.running = null
     expect(await recover(ctxFor(world, {}))).toBe(EXIT.OK)
-    expect(world.running).toBe('next')
+    expect(world.running).toBe(NEXT)
     expect(JSON.parse(world.stateJson).attempt.phase).toBe('done')
   })
 
@@ -1113,7 +1144,7 @@ describe('filesystem effects (temporary directory only)', () => {
     const exec = createExecutor(cfg, () => null)
     const attempt = {
       ...attemptFixture(false, 'snapshotting'),
-      inputs: { generation: 'a1b2c3d4', envSha256: exec.inputsSha('a1b2c3d4'), runner: 'abcdef1' },
+      inputs: { generation: 'a1b2c3d4', ...exec.inputsFacts('a1b2c3d4'), runner: 'abcdef1' },
     }
     const unfinished = {
       ...emptyState(),
@@ -1136,9 +1167,14 @@ describe('filesystem effects (temporary directory only)', () => {
     expect(fs.readFileSync(path.join(tmp, 'inputs/b1b2c3d4/deploy.env'), 'utf8')).toBe('A=staged\n')
     expect(activated).toEqual({
       generation: 'b1b2c3d4',
-      envSha256: exec.inputsSha('b1b2c3d4'),
+      ...exec.inputsFacts('b1b2c3d4'),
       runner: 'abcdef1',
     })
+    fs.mkdirSync(path.join(tmp, 'staged'))
+    fs.writeFileSync(path.join(tmp, 'staged/deploy.env'), 'A=x\n')
+    fs.writeFileSync(path.join(tmp, 'staged/runner'), 'not a commit\n')
+    expect(() => exec.readStaged()).toThrow(/not a commit id/)
+    fs.rmSync(path.join(tmp, 'staged'), { recursive: true })
     expect(() => exec.activateStaged('c1b2c3d4')).toThrow(/no staged inputs/)
     fs.rmSync(tmp, { recursive: true, force: true })
   })
@@ -1196,9 +1232,30 @@ describe('filesystem effects (temporary directory only)', () => {
       { ...base, records: { prev: { ...fakeRecord('prev', PREV_INPUTS), config: undefined } } },
       { ...base, records: { prev: { ...fakeRecord('prev', PREV_INPUTS), images: { api: 7 } } } },
       { ...base, records: { prev: fakeRecord('prev') } },
+      // Round 5, F3: empty maps would silently disable the image and ledger checks.
+      { ...base, records: { prev: { ...fakeRecord('prev', PREV_INPUTS), images: {} } } },
+      {
+        ...base,
+        attempt: {
+          ...sealed,
+          snapshot: { ...sealed.snapshot, expect: { ...sealed.snapshot.expect, ledgers: {} } },
+        },
+      },
+      {
+        ...base,
+        attempt: {
+          ...sealed,
+          snapshot: {
+            ...sealed.snapshot,
+            expect: { ...sealed.snapshot.expect, ledgers: { api: [] } },
+          },
+        },
+      },
     ]
     for (const state of bad) {
-      expect(() => validateState(state)).toThrow(StateUnreadable)
+      expect(() => validateState(state, { ledgerKeys: ['api', 'orchestrator'] })).toThrow(
+        StateUnreadable
+      )
       const world = createWorld()
       world.stateJson = JSON.stringify(state)
       expect(await recover(ctxFor(world, {}))).toBe(EXIT.RECOVERY_REQUIRED)
@@ -1216,8 +1273,114 @@ describe('filesystem effects (temporary directory only)', () => {
       records: { abc1234: fakeRecord('abc1234', PREV_INPUTS) },
     }
     atomicWrite(path.join(tmp, 'state.json'), JSON.stringify(state))
-    createExecutor(cfgFor(tmp), (m: string) => messages.push(m)).build('abc1234')
-    expect(messages.join('\n')).toMatch(/already has a release record; build skipped/)
-    fs.rmSync(tmp, { recursive: true, force: true })
+    // A stub `docker` on PATH answers `image inspect` with a fixed id: hermetic, no daemon used.
+    const bin = path.join(tmp, 'bin')
+    fs.mkdirSync(bin)
+    const stub = (id: string) =>
+      fs.writeFileSync(path.join(bin, 'docker'), `#!/bin/sh\necho ${id}\n`, { mode: 0o755 })
+    const savedPath = process.env.PATH
+    process.env.PATH = `${bin}:${savedPath}`
+    try {
+      stub('sha256:1')
+      createExecutor(cfgFor(tmp), (m: string) => messages.push(m)).build('abc1234')
+      expect(messages.join('\n')).toMatch(/already has a release record; build skipped/)
+      // A recorded release whose tag now points elsewhere fails the build (round 2, finding 6).
+      stub('sha256:2')
+      expect(() => createExecutor(cfgFor(tmp), () => null).build('abc1234')).toThrow(
+        /no longer points at the recorded image/
+      )
+    } finally {
+      process.env.PATH = savedPath
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('round 5', () => {
+  it('F3: a bad new intent refuses with 12 and persists nothing; bad persisted state is 11', async () => {
+    const world = createWorld()
+    const before = world.stateJson
+    const exec = fakeExecutor(world)
+    const bad = {
+      ...exec,
+      preflight: () => ({ ...goodPreflight(world), record: { ...fakeRecord('next'), images: {} } }),
+    }
+    expect(
+      await deploy({
+        config: fakeConfig(),
+        exec: bad,
+        log: () => null,
+        now: () => '2026-11-24T00:00:00.000Z',
+      })
+    ).toBe(EXIT.PREFLIGHT_REFUSED)
+    expect(world.stateJson).toBe(before)
+    expect(world.generations).toEqual(['prevgen1'])
+    const broken = createWorld()
+    const st = JSON.parse(broken.stateJson)
+    st.records.prev.images = {}
+    broken.stateJson = JSON.stringify(st)
+    expect(await deploy(ctxFor(broken, {}))).toBe(EXIT.RECOVERY_REQUIRED)
+  })
+
+  it('F4a: a release id is (revision, env content)', () => {
+    expect(releaseId('abc1234', 'f'.repeat(64))).toBe('abc1234-ffffffffffff')
+    expect(releaseId('abc1234', 'a'.repeat(64))).not.toBe(releaseId('abc1234', 'f'.repeat(64)))
+    expect(NEXT).toBe(releaseId('next', 'b'.repeat(64)))
+  })
+
+  it('F4b: the deployment identity ignores secrets and follows locating keys', () => {
+    const env = {
+      COMPOSE_PROJECT_NAME: 'forge',
+      DATABASE_URL: 'postgres://api:old-secret@db.internal:5432/forge',
+      ORCHESTRATOR_DATABASE_URL: 'postgres://orch:x@db.internal:5432/forge_orch',
+      DB_HOST: 'db.internal',
+      TEMPORAL_DB_PASSWORD: 'temporal-old',
+      JWT_SECRET: 'jwt-old',
+      WEBROOT: '/srv/www',
+    }
+    const id = identityOf(env)
+    const rotated = {
+      ...env,
+      DATABASE_URL: 'postgres://api:new-secret@db.internal:5432/forge',
+      TEMPORAL_DB_PASSWORD: 'temporal-new',
+      JWT_SECRET: 'jwt-new',
+    }
+    expect(identityOf(rotated)).toBe(id)
+    for (const change of [
+      { COMPOSE_PROJECT_NAME: 'other' },
+      { DATABASE_URL: 'postgres://api:old-secret@db2.internal:5432/forge' },
+      { DATABASE_URL: 'postgres://api:old-secret@db.internal:5432/forge_copy' },
+      { ORCHESTRATOR_DATABASE_URL: 'postgres://someone:x@db.internal:5432/forge_orch' },
+      { WEBROOT: '/srv/other' },
+      { EXTERNAL_NETWORK: 'other-net' },
+      { NATS_MONITOR_PORT: '18222' },
+    ]) {
+      expect(identityOf({ ...env, ...change })).not.toBe(id)
+    }
+    expect(IDENTITY_KEYS).toContain('COMPOSE_PROJECT_NAME')
+  })
+
+  it('F5: the baseline report shows a health-check command only as a fingerprint', () => {
+    const secretCmd = ['CMD', 'curl', '-sf', 'http://user:s3cret@localhost:4003/health']
+    const rendered = {
+      services: {
+        api: { container_name: 'p-api', image: 'a:1', healthcheck: { test: ['CMD', 'true'] } },
+      },
+    }
+    const container = {
+      name: 'p-api',
+      imageId: 'sha256:1',
+      env: [],
+      mounts: [],
+      networks: [],
+      portBindings: [],
+      healthcheck: secretCmd,
+    }
+    const [line] = compareBaseline(rendered, [container], { 'a:1': 'sha256:1' }, new Set())
+    expect(line).toMatch(/^api: health check command: rendered \d+ chars, sha256 [0-9a-f]{12}/)
+    expect(line).toContain(fingerprint(secretCmd))
+    expect(line).toContain("docker inspect p-api --format '{{json .Config.Healthcheck.Test}}'")
+    expect(line).not.toContain('s3cret')
+    expect(line).not.toContain('curl')
   })
 })

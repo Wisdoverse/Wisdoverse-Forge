@@ -125,9 +125,27 @@ sudo docker run --rm --pull never --network <external-network> --env-file <role.
   postgres:18-alpine psql -X -At -d postgres -c 'select current_user'
 ```
 
-Success: the role name prints. If it prints `permission denied` or `does not
-allow connections`, grant `CONNECT` on `postgres` to that role (or to
-`PUBLIC`) before the first deploy.
+Success: the role name prints. There are two different failures, with two
+different remedies:
+
+- `permission denied for database "postgres"`: the role lacks the `CONNECT`
+  privilege. A database administrator runs `GRANT CONNECT ON DATABASE postgres
+  TO <role>` (or to `PUBLIC`).
+- `database "postgres" is not currently accepting connections`: connections to
+  `postgres` are disabled for everyone, and `GRANT CONNECT` does not change
+  that. Check from the role's own database:
+
+  ```bash
+  sudo docker run --rm --pull never --network <external-network> --env-file <role.env> \
+    postgres:18-alpine psql -X -At -d <own-database> \
+    -c "select datallowconn from pg_database where datname = 'postgres'"
+  ```
+
+  `f` means disabled. A superuser re-enables it from any other database with
+  `ALTER DATABASE postgres WITH ALLOW_CONNECTIONS true`.
+
+Fix either before the first deploy. Without access to `postgres`, preflight
+refuses and nothing is changed.
 
 The health probe runs the Temporal CLI inside the running Temporal container.
 Check that the old container has it:
@@ -164,19 +182,19 @@ The first deploy is supervised. The environment owner must give an explicit go.
 
 Preparation always comes first: `baseline` needs everything this step creates.
 
-Run the Jenkins job once with `ACTION=deploy`. Before a baseline exists, a
-deploy only prepares, then refuses:
+Run the Jenkins job with `ACTION=stage`. It only prepares:
 
 - it archives the `DEV` commit into `release/releases/<commit>/`
 - it stages the env file and the runner reference in `private/staged/`
-- it builds the runner image `forge-deploy-runner:<commit>` and the release images
+- it builds the runner image `forge-deploy-runner:<commit>`
 
-It changes nothing in the running stack.
+It does not run the deploy script against the stack and changes nothing in the
+running stack.
 
-Success: the console shows `Release commit: <commit>` and ends with
-`refused: no current release is recorded: run baseline once before the first
-deploy`. The build is marked failed with `Preflight refused; nothing was
-changed`. Note the commit.
+Success: the console shows `Release commit: <commit>` and ends with `Staged
+<commit>: release directory, inputs and runner image are ready; nothing was
+deployed.` Note the commit. Run `ACTION=stage` again whenever you need to
+prepare again. Never use `deploy` to repeat preparation.
 
 How inputs become active: a deploy stages new inputs only. When the script
 writes a new attempt's intent, one rename turns `private/staged/` into
@@ -269,20 +287,38 @@ service, the property, what the rendering has and what the running container
 has:
 
 ```text
-refused: nats: published ports: rendered has 127.0.0.1:4222->4222/tcp that the container lacks; running has 0.0.0.0:4222->4222/tcp that the rendering lacks
+refused: nats: published ports: rendered has 0.0.0.0:4222->4222/tcp that the container lacks; running has 127.0.0.1:4222->4222/tcp that the rendering lacks
 refused: agentforge-server: environment names: rendered FOO_FLAG; running without them
+refused: nats: health check command: rendered 52 chars, sha256 1a2b3c4d5e6f (...); running 61 chars, sha256 6f5e4d3c2b1a (inspect locally: docker inspect ...)
 ```
 
-For each line, edit the baseline copy of `compose.external.yml` under that
-service so that it renders what is running. In the first example, set the
-`nats` service's `ports` to `0.0.0.0:4222:4222`. Then run 2c again. Repeat
-until it prints `baseline recorded`. The values shown are image ids, variable
-names (never values), mount keys, network names, port bindings and probe
-commands.
+Method: edit the baseline's scratch copy of the file that DEFINES the property,
+directly. Do not add an override file: Compose merges lists such as `ports`, so
+an override keeps the original entry next to the new one. In the first example,
+the `nats` ports are defined in `release/releases/baseline/docker/compose.yml`.
+Change that entry:
 
-If `baseline` was interrupted after it printed nothing (for example the runner
-was killed), run the Jenkins job with `ACTION=deploy` once more. It stages the
-inputs again and refuses. Then run 2c again.
+```yaml
+    ports:
+      - '127.0.0.1:${NATS_PORT:-4222}:4222'   # was '${NATS_PORT:-4222}:4222'
+```
+
+Then run 2c again, and repeat until it prints `baseline recorded`.
+
+The report shows image ids, variable names (never values), mount keys, network
+names and port bindings. A command (the health check) is shown only as its
+length and a short sha256. It can contain credentials, so compare it locally
+with the `docker inspect` command printed in the line.
+
+If `baseline` was interrupted (for example the runner was killed), first find
+out whether it recorded anything. Run `status` from a host shell (see
+[Emergency path](#emergency-path-host-shell)):
+
+- It shows `current release: baseline`: the baseline is recorded. Do not run
+  it again. Continue with step 3.
+- It reports `no active inputs`, or shows no current release: nothing was
+  recorded. Run the Jenkins job with `ACTION=stage` (it stages the inputs
+  again), then run 2c again.
 
 Use the same `docker run` line with `status` instead of `baseline` to read the
 state from a host shell. See also [Emergency path](#emergency-path-host-shell).
@@ -328,7 +364,7 @@ migrates the databases in place. From then on, the only way back is the
 snapshot. The automatic rollback uses it. A manual restore from the dumps is the
 last resort.
 
-Success: the console ends with `deployed <commit>`, and the job exits 0. Then
+Success: the console ends with `deployed <commit>-<env-hash>`, and the job exits 0. Then
 do the post-checks: run one Temporal workflow, start one agent per Container
 CLI, and watch the stack for 30 minutes. Record the result under
 [Recorded runs](#recorded-runs). Enable SCM polling on the job afterwards.
@@ -338,7 +374,7 @@ CLI, and watch the stack for 30 minutes. Record the result under
 1. Make sure the commit is on `main`. Move `DEV` to it.
 2. Run the job with `ACTION=deploy`, or wait for SCM polling.
 
-Success: exit code 0 and `deployed <commit>`. If `DEV` already points at the
+Success: exit code 0 and `deployed <commit>-<env-hash>`. If `DEV` already points at the
 current release, the job prints `already the current release` and exits 0. A
 commit that already has a release record is never rebuilt, so the images that
 were verified for it stay exactly the ones its record names. If a tag of a
@@ -384,6 +420,42 @@ this deployment's agent network, created after the deploy started.
 Migrations are forward-only. An old binary refuses a newer schema, which is
 why the rollback restores the databases instead of starting the old binary on
 the migrated schema.
+
+## Rotating a credential
+
+A release is a revision plus the content of its env file. Changing only the env
+file (for example a rotated password) and running `ACTION=deploy` for the same
+revision deploys a new release. A deploy is a no-op only when the revision and
+the env file are both unchanged.
+
+Rotate with overlap. A rollback starts the previous release from its rendered
+configuration, which contains the previous credentials:
+
+1. Add the new credential where the system allows two at once (a second API
+   token, a second user). Keep the old one valid.
+2. Put the new value into the Jenkins file credential.
+3. Run `ACTION=deploy`. Success: `deployed <commit>-<env-hash>`.
+4. Verify, and wait until a rollback to the previous release is no longer
+   needed.
+5. Only then revoke the old credential.
+
+If the system holds only one value (for example a PostgreSQL role password),
+there is no overlap. A rollback after the change would start the previous
+release with the old value. Change the value immediately before the deploy, and
+keep the old value ready.
+
+If a credential was revoked too early (a rollback or `recover` now fails to
+connect):
+
+- Restore the old credential temporarily. Run `ACTION=recover`, and repeat the
+  rotation from step 1 once the stack is healthy.
+- If an attempt is unfinished and the database password itself had to change,
+  edit only that secret in `private/inputs/<generation>/deploy.env` (`status`
+  shows the generation), then run `ACTION=recover`. Recovery accepts a changed
+  secret. It refuses a changed deployment identity: project name, database
+  hosts, ports, database or role names, networks, web root, lock directory,
+  published ports. `status` notes that the env file differs from its recorded
+  hash.
 
 ## Recovery required
 
@@ -557,16 +629,29 @@ root, private root and lock. A new rehearsal job name gives new roots
 (`<jenkins-home>/forge-deploy/<rehearsal-job-N>/`). Also set a new
 `DEPLOY_LOCK_DIR` (or `COMPOSE_PROJECT_NAME`) in its env file.
 
-Tear a rehearsal down, on the rehearsal stack only:
+Tear a rehearsal down, on the rehearsal stack only. Use the saved rendered
+configuration of its current release: it needs no env interpolation. `status`
+shows the release id after `current release:`. Remove the service containers
+before their networks. Delete the rehearsal roots only after everything else
+succeeded:
 
 ```bash
 REH=<jenkins-home-host-path>/forge-deploy/<rehearsal-job-N>
-docker compose --project-name <rehearsal-project> -f "$REH/release/releases/<commit>/docker/compose.yml" \
-  -f "$REH/release/releases/<commit>/docker/compose.external.yml" --profile external down -v
-docker ps -aq --filter label=forge.deploy.project=<rehearsal-project> | xargs -r docker rm -f -v
-docker rm -f -v <rehearsal-prefix>-pg && docker network rm <rehearsal-external-network>
-sudo rm -rf "$REH" "<rehearsal-lock-dir>/<rehearsal-project>.lock"
+P=<rehearsal-project>
+CFG="$REH/private/configs/<current-release-id>.json"
+docker compose --project-name "$P" -f "$CFG" --profile external down -v \
+  && docker ps -aq --filter label=forge.deploy.project="$P" | xargs -r docker rm -f -v \
+  && docker rm -f -v <rehearsal-prefix>-pg <rehearsal-prefix>-redis \
+  && docker network rm <rehearsal-external-network> <rehearsal-agent-network> \
+  && sudo rm -rf "$REH" "<rehearsal-lock-dir>/$P.lock" \
+  && echo "rehearsal removed"
 ```
+
+Success: `rehearsal removed`. If any command fails, the chain stops and the
+roots stay. They hold the journal and the rendered configurations you need to
+finish. Look at what is left (`docker ps -a --filter
+label=com.docker.compose.project=$P`, `docker network ls`), fix the cause, and
+run the chain again. Never delete the roots first.
 
 Then create the scratch database and the rehearsal stack again, and start at
 [step 1](#1-prepare-release-root-private-root-staged-inputs-runner-image).

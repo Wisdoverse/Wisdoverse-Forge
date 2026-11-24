@@ -186,7 +186,9 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 // exactly `<source>__snap_<attempt>` / `<source>__failed_<attempt>`, or an attempt-id directory.
 export function selectPrunable(items, state, activeAttempt, sources) {
   const attempts = new Set([state.protected.baseline, state.protected.lastGood, activeAttempt])
-  const revs = new Set([state.current, state.previous, 'baseline'])
+  // Configs are named by release id, release and frontend directories by git revision.
+  const kept = [state.current, state.previous].map((id) => state.records[id]?.revision)
+  const revs = new Set([state.current, state.previous, 'baseline', ...kept].filter(Boolean))
   // An input generation stays while any release record or the journal's attempt names it.
   const generations = new Set(
     [

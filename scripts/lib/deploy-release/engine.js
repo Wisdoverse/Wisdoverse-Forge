@@ -8,6 +8,7 @@ import {
   complete,
   emptyState,
   markRecoveryRequired,
+  releaseId,
   validateState,
   withPointers,
 } from './journal.js'
@@ -38,10 +39,14 @@ async function save(ctx, state) {
   return next
 }
 
+const validation = (ctx) => ({
+  ledgerKeys: ctx.config.databases.filter((d) => d.migrations).map((d) => d.key),
+})
+
 // Returns false (after explaining) when the state file exists but cannot be read.
 export async function loadState(ctx) {
   try {
-    ctx.state = validateState((await ctx.exec.readState()) ?? emptyState())
+    ctx.state = validateState((await ctx.exec.readState()) ?? emptyState(), validation(ctx))
     return true
   } catch (err) {
     if (!(err instanceof StateUnreadable)) {
@@ -122,21 +127,33 @@ export async function deploy(ctx) {
     ctx.log(`refused: attempt ${attempt.attemptId} is unfinished (${attempt.phase}); run recover`)
     return EXIT.PREFLIGHT_REFUSED
   }
-  if (current === ctx.config.target) {
-    ctx.log(`${ctx.config.target} is already the current release; nothing to do`)
-    return EXIT.OK
-  }
   if (!current || !ctx.state.records[current]) {
     ctx.log('refused: no current release is recorded: run `baseline` once before the first deploy')
     return EXIT.PREFLIGHT_REFUSED
   }
-  return withSqlHelper(ctx, EXIT.PREFLIGHT_REFUSED, () => deployLocked(ctx))
+  // Round 5, F3: the staged inputs are read and checked before anything is persisted.
+  let staged
+  try {
+    staged = await ctx.exec.readStaged()
+  } catch (err) {
+    ctx.log(`refused: the staged inputs cannot be used (nothing was changed): ${err.message}`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  // Round 5, F4a: a release is (revision, env content). Same both: nothing to do. Same revision
+  // with another env (for example a rotated credential) is a normal deploy of a new release.
+  const live = ctx.state.records[current]
+  if (live.revision === ctx.config.target && live.inputs.envSha256 === staged.envSha256) {
+    ctx.log(`${ctx.config.target} with this env file is already the current release; nothing to do`)
+    return EXIT.OK
+  }
+  const targetId = releaseId(ctx.config.target, staged.envSha256)
+  return withSqlHelper(ctx, EXIT.PREFLIGHT_REFUSED, () => deployLocked(ctx, targetId, staged))
 }
 
-async function deployLocked(ctx) {
+async function deployLocked(ctx, targetId, staged) {
   let observed
   try {
-    observed = await ctx.exec.preflight(ctx.state)
+    observed = await ctx.exec.preflight(ctx.state, targetId)
   } catch (err) {
     if (err instanceof Crash) {
       throw err
@@ -144,32 +161,48 @@ async function deployLocked(ctx) {
     ctx.log(`refused: preflight could not run (nothing was changed): ${err.message}`)
     return EXIT.PREFLIGHT_REFUSED
   }
-  const plan = planDeploy(ctx.config, ctx.state, observed, { at: now(ctx) })
+  const planConfig = { ...ctx.config, target: targetId, revision: ctx.config.target }
+  const plan = planDeploy(planConfig, ctx.state, observed, { at: now(ctx) })
   if (plan.status !== 'plan') {
     plan.reasons.forEach((r) => ctx.log(`refused: ${r}`))
     return EXIT.PREFLIGHT_REFUSED
   }
   plan.notes.forEach((n) => ctx.log(n))
-  const intent = (inputs) => ({
+  const inputs = { generation: plan.attempt.attemptId, ...staged }
+  const record = { ...plan.record, rev: targetId, revision: ctx.config.target, inputs }
+  const intent = {
     ...ctx.state,
-    records: { ...ctx.state.records, [ctx.config.target]: { ...plan.record, inputs } },
+    records: { ...ctx.state.records, [targetId]: record },
     attempt: { ...plan.attempt, inputs },
-  })
-  // Everything later steps consume is validated before the first effect (round 4, C3).
+  }
+  // Persisted state that went bad is a recovery matter (11); a bad new intent changed nothing (12).
   try {
-    validateState(
-      intent({ generation: plan.attempt.attemptId, envSha256: '0'.repeat(64), runner: '0000000' })
-    )
+    validateState(ctx.state, validation(ctx))
   } catch (err) {
-    ctx.log(`refused: the intent would be invalid (${err.message})`)
+    ctx.log(
+      `RECOVERY REQUIRED: the persisted deploy state is invalid (${err.message}); nothing was changed.`
+    )
+    return EXIT.RECOVERY_REQUIRED
+  }
+  try {
+    validateState(intent, validation(ctx))
+  } catch (err) {
+    ctx.log(`refused: the new attempt would be invalid (nothing was changed): ${err.message}`)
     return EXIT.PREFLIGHT_REFUSED
   }
   // One rename makes the staged inputs the attempt's generation; the intent then points to it.
   // A crash in between leaves an orphan generation that nothing uses.
-  await save(ctx, intent(await ctx.exec.activateStaged(plan.attempt.attemptId)))
+  const activated = await ctx.exec.activateStaged(plan.attempt.attemptId)
+  if (['envSha256', 'identity', 'runner'].some((k) => activated[k] !== staged[k])) {
+    ctx.log(
+      'refused: the staged inputs changed while this deploy prepared (nothing was deployed); stage again'
+    )
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  await save(ctx, intent)
   try {
     await runSteps(ctx, plan.steps)
-    ctx.log(`deployed ${ctx.config.target}`)
+    ctx.log(`deployed ${targetId}`)
     return EXIT.OK
   } catch (err) {
     if (err instanceof Crash) {
@@ -199,11 +232,18 @@ async function commitOutcome(ctx) {
   if (isCommitted(ctx.state.attempt?.phase)) {
     return 'committed'
   }
+  // Round 5, F1: "not committed" only from a successfully read, VALID journal of the SAME attempt
+  // that still shows a pre-commit phase. Absent, unreadable, invalid or foreign: unknown.
+  let disk
   try {
-    return isCommitted((await ctx.exec.readState())?.attempt?.phase) ? 'unknown' : 'none'
+    disk = validateState(await ctx.exec.readState(), validation(ctx))
   } catch {
     return 'unknown'
   }
+  if (disk.attempt?.attemptId !== ctx.state.attempt.attemptId || isCommitted(disk.attempt.phase)) {
+    return 'unknown'
+  }
+  return 'none'
 }
 
 function commitUnknown(ctx, err) {
@@ -290,13 +330,22 @@ export async function recover(ctx) {
     ctx.log('no unfinished attempt; nothing to recover')
     return EXIT.OK
   }
-  // An unfinished attempt is recovered with exactly the inputs its journal points to.
-  if ((await ctx.exec.inputsSha(attempt.inputs.generation)) !== attempt.inputs.envSha256) {
+  // An unfinished attempt is recovered with the inputs its journal points to. Round 5, F4b: a
+  // changed secret is allowed (credential rotation); a changed deployment identity is not.
+  const facts = await ctx.exec.inputsFacts(attempt.inputs.generation)
+  if (!facts || facts.identity !== attempt.inputs.identity) {
     ctx.log(
-      `RECOVERY REQUIRED: input generation ${attempt.inputs.generation} is missing or was changed.`
+      `RECOVERY REQUIRED: input generation ${attempt.inputs.generation} is missing or now names another deployment.`
     )
-    ctx.log('Restore inputs/<generation>/deploy.env in the private root and run recover again.')
+    ctx.log(
+      'Restore the identity fields of inputs/<generation>/deploy.env (runbook: Rotating a credential).'
+    )
     return EXIT.RECOVERY_REQUIRED
+  }
+  if (facts.envSha256 !== attempt.inputs.envSha256) {
+    ctx.log(
+      'note: the env file differs from the recorded one; the deployment identity is unchanged'
+    )
   }
   ctx.log(`recovering attempt ${attempt.attemptId} from phase ${attempt.phase}`)
   // withSqlHelper removes every leftover helper of this project (and confirms) before planning.
@@ -320,12 +369,36 @@ export async function baseline(ctx) {
     findings.forEach((f) => ctx.log(`refused: ${f}`))
     return EXIT.PREFLIGHT_REFUSED
   }
-  const inputs = await ctx.exec.activateStaged(ctx.config.attemptId)
-  await save(ctx, {
+  let staged
+  try {
+    staged = await ctx.exec.readStaged()
+  } catch (err) {
+    ctx.log(`refused: the staged inputs cannot be used (nothing was changed): ${err.message}`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  const rec = {
+    ...record,
+    rev: 'baseline',
+    revision: 'baseline',
+    inputs: { generation: ctx.config.attemptId, ...staged },
+  }
+  const next = {
     ...ctx.state,
     current: 'baseline',
-    records: { ...ctx.state.records, baseline: { ...record, inputs } },
-  })
+    records: { ...ctx.state.records, baseline: rec },
+  }
+  try {
+    validateState(next, validation(ctx))
+  } catch (err) {
+    ctx.log(`refused: the baseline record would be invalid (nothing was changed): ${err.message}`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  const activated = await ctx.exec.activateStaged(ctx.config.attemptId)
+  if (['envSha256', 'identity', 'runner'].some((k) => activated[k] !== staged[k])) {
+    ctx.log('refused: the staged inputs changed while baseline ran; stage again')
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  await save(ctx, next)
   ctx.log('baseline recorded: the next deploy can roll back to the running release')
   return EXIT.OK
 }
