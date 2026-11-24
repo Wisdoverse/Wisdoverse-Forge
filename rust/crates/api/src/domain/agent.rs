@@ -127,17 +127,11 @@ impl AgentContainerStartStatus {
     }
 }
 
-pub(crate) fn agent_git_status_response() -> Value {
-    json!({
-        "ok": true,
-        "data": {
-            "branch": null,
-            "ahead": 0,
-            "behind": 0,
-            "modified": [],
-            "untracked": []
-        }
-    })
+pub(crate) fn agent_git_status_not_implemented() -> AppError {
+    ErrorKind::NotImplemented(
+        "agent git status is not available in this release; open the agent terminal and run `git status`".to_string(),
+    )
+    .into()
 }
 
 pub(crate) fn agent_permission_response(projection: AgentPermissionProjection) -> Value {
@@ -1628,6 +1622,11 @@ impl AgentOwnerPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn agent_git_status_reports_not_implemented() {
+        assert!(matches!(agent_git_status_not_implemented().kind, ErrorKind::NotImplemented(_)));
+    }
 
     #[test]
     fn status_transition_plans_noops_and_changes() {

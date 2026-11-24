@@ -602,6 +602,7 @@ impl AdminBulkDeletePolicy {
             ErrorKind::Forbidden(_) => "forbidden".to_string(),
             ErrorKind::ForbiddenWithCode { .. } => "forbidden".to_string(),
             ErrorKind::Unavailable(msg) => format!("service unavailable: {msg}"),
+            ErrorKind::NotImplemented(msg) => format!("not implemented: {msg}"),
             ErrorKind::Internal(_) => "delete failed".to_string(),
         }
     }

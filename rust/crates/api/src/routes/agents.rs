@@ -26,7 +26,7 @@ use crate::health::AppState;
 use crate::middleware::IdempotencyKey;
 use crate::services::agent::{
     AgentService, CreateAgentParams, agent_data_response, agent_delete_response, agent_enrollment_response,
-    agent_git_status_response, agent_list_response, agent_messages_deleted_response, agent_messages_response,
+    agent_git_status_not_implemented, agent_list_response, agent_messages_deleted_response, agent_messages_response,
     agent_permission_response, agent_prompt_sent_response, agent_response, agent_status_response,
 };
 use crate::services::agent_enrollment::{HostAgentEnrollmentInput, HostAgentEnrollmentService};
@@ -481,7 +481,7 @@ async fn remove_collaborator(
     Ok(Json(agent_delete_response()))
 }
 
-/// `GET /api/v1/agents/:id/git` — get git status (stub).
+/// `GET /api/v1/agents/:id/git` — not implemented; returns 501 instead of a fake empty status.
 async fn get_git_status(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -491,8 +491,7 @@ async fn get_git_status(
     // Verify agent exists and belongs to tenant
     let _agent = service.get(&auth.scope, AgentId::from(id)).await?;
 
-    // Stub: return empty git status
-    Ok(Json(agent_git_status_response()))
+    Err(agent_git_status_not_implemented())
 }
 
 /// `POST /api/v1/agents/:id/permission` — check/grant permission.

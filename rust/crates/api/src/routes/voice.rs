@@ -6,7 +6,7 @@
 //! - `PUT    /voice/providers/{id}`      — update provider
 //! - `DELETE /voice/providers/{id}`      — remove provider
 //! - `POST   /voice/providers/{id}/default` — set as default
-//! - `POST   /voice/transcribe`          — transcribe audio (stub)
+//! - `POST   /voice/transcribe`          — not implemented (501)
 
 use axum::extract::{Path, State};
 use axum::routing::{get, post, put};
@@ -19,7 +19,7 @@ use agentforge_core::AppResult;
 
 use crate::health::AppState;
 use crate::services::voice::{
-    VoiceService, voice_data_response, voice_delete_response, voice_transcription_pending_response,
+    VoiceService, voice_data_response, voice_delete_response, voice_transcription_not_implemented,
 };
 
 /// Request body for creating a voice provider.
@@ -110,9 +110,9 @@ async fn set_default_provider(
     Ok(Json(voice_data_response(provider)))
 }
 
-/// `POST /voice/transcribe` — transcribe audio (stub).
+/// `POST /voice/transcribe` — not implemented; returns 501 instead of a fake success.
 async fn transcribe(_state: State<AppState>, _auth: AuthUser) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(voice_transcription_pending_response()))
+    Err(voice_transcription_not_implemented())
 }
 
 /// Build voice routes sub-router.

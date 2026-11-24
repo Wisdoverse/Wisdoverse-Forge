@@ -52,6 +52,9 @@ pub enum ErrorKind {
     #[error("service unavailable: {0}")]
     Unavailable(String),
 
+    #[error("not implemented: {0}")]
+    NotImplemented(String),
+
     #[error("internal error: {0}")]
     Internal(#[from] anyhow::Error),
 }
@@ -118,6 +121,7 @@ impl IntoResponse for AppError {
             ErrorKind::ForbiddenWithCode { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
             ErrorKind::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
+            ErrorKind::NotImplemented(_) => (StatusCode::NOT_IMPLEMENTED, "NOT_IMPLEMENTED"),
             ErrorKind::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };
 
@@ -228,6 +232,16 @@ mod tests {
 
         assert_eq!(status, StatusCode::CONFLICT);
         assert_eq!(body["error"]["code"], "CONFLICT");
+    }
+
+    #[tokio::test]
+    async fn not_implemented_error_response() {
+        let err = AppError::from(ErrorKind::NotImplemented("feature is not available".to_string()));
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+        assert_eq!(body["ok"], false);
+        assert_eq!(body["error"]["code"], "NOT_IMPLEMENTED");
     }
 
     #[tokio::test]
