@@ -12,11 +12,12 @@ use uuid::Uuid;
 use super::SelfFixService;
 use super::delivery_write;
 use super::merge_lock::MergeLock;
+use crate::domain::maintenance::MaintenancePullRequest;
 use crate::domain::self_fix::review_status::SENSITIVE_BLOCKED;
 use crate::domain::self_fix::{
-    FileListing, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction, ReconcileHeadInput,
-    ReconcileHeadResult, ReconcileObservation, SelfFixPolicy, reconcile_head_action, reconcile_head_audit_details,
-    reconcile_refusal,
+    Comparison, PullRequestRead, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction,
+    ReconcileHeadInput, ReconcileHeadResult, ReconcileObservation, SelfFixPolicy, reconcile_head_action,
+    reconcile_head_audit_details, reconcile_refusal,
 };
 use crate::repositories::audit::AuditRepository;
 use crate::repositories::orchestration::{MaintenanceRequestRepository, OrchestrationTaskRepository};
@@ -85,33 +86,49 @@ impl SelfFixService {
             None => github.repository_setup().await?.default_branch,
         };
 
-        // Live reads. A failed pull-request read or file listing fails closed
-        // (503, nothing written, safe to retry). A listing at the provider's
-        // cap counts as sensitive. The pull request is read again after the
-        // listing; if its head moved in between, the decision refuses.
-        let before = github.maintenance_pull_request(pr_number).await?;
-        let listing = github.pull_request_files(pr_number).await;
-        if let Err(err) = &listing {
-            tracing::warn!(error = ?err, task_id = %task_id, "self-fix reconcile: file listing failed; refusing");
+        // Live reads, at most three: a failed read fails closed (503, nothing
+        // written, safe to retry).
+        // 1. The first read: refused here if it is not open, targets another
+        //    base or repository, or has another head, before any comparison.
+        let status = task.review_status.as_deref();
+        let stored = task.pr_head_sha.as_deref();
+        let first = github.maintenance_pull_request(pr_number).await?;
+        let read = |pr: &MaintenancePullRequest| -> bool { repository_matches && pr.base_branch == expected_base };
+        let first_read = PullRequestRead { state: &first.state, base_unchanged: read(&first), head: &first.head_sha };
+        let pending = ReconcileObservation { first: first_read, comparison: Comparison::Pending, last: None };
+        match reconcile_head_action(status, stored, input, Some(&pending)) {
+            ReconcileAction::Compare => {}
+            refusal => return Err(reconcile_refusal(refusal)),
         }
-        let after = github.maintenance_pull_request(pr_number).await?;
-        let observation = ReconcileObservation {
-            state: &after.state,
-            base_unchanged: repository_matches && after.base_branch == expected_base,
-            head: &after.head_sha,
-            head_before_listing: &before.head_sha,
-            listing: match &listing {
-                Ok(files) if files.complete => FileListing::Complete(&files.paths),
-                Ok(_) => FileListing::Capped,
-                Err(_) => FileListing::Failed,
-            },
+        // 2. Sensitivity from two IMMUTABLE commits: the validated base commit
+        //    and the confirmed new head (not the pull request's mutable diff).
+        let compared = match first.base_sha.as_deref() {
+            Some(base_sha) => github.compare_files(base_sha, &input.expected_new_head).await,
+            None => Err(reconcile_refusal(ReconcileAction::RefuseComparisonUnavailable)),
         };
-        let action = reconcile_head_action(
-            task.review_status.as_deref(),
-            task.pr_head_sha.as_deref(),
-            input,
-            Some(&observation),
-        );
+        if let Err(err) = &compared {
+            tracing::warn!(error = ?err, task_id = %task_id, "self-fix reconcile: comparison failed; refusing");
+        }
+        let comparison = match &compared {
+            Ok(files) if files.complete => Comparison::Complete(&files.paths),
+            Ok(_) => Comparison::Capped,
+            Err(_) => Comparison::Failed,
+        };
+        // 3. Consistency re-read after the comparison (skipped when it failed).
+        let last = match &compared {
+            Ok(_) => Some(github.maintenance_pull_request(pr_number).await?),
+            Err(_) => None,
+        };
+        let observation = ReconcileObservation {
+            first: first_read,
+            comparison,
+            last: last.as_ref().map(|pr| PullRequestRead {
+                state: &pr.state,
+                base_unchanged: read(pr),
+                head: &pr.head_sha,
+            }),
+        };
+        let action = reconcile_head_action(status, stored, input, Some(&observation));
         if !matches!(action, ReconcileAction::Adopt { .. }) {
             return Err(reconcile_refusal(action));
         }

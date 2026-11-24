@@ -68,8 +68,8 @@ struct InstallTokenResp {
     permissions: std::collections::HashMap<String, String>,
 }
 
-/// A pull request's changed paths; `complete` is false when the listing may be truncated.
-pub(crate) struct PullRequestFiles {
+/// Changed paths of a comparison; `complete` is false when the list may be truncated.
+pub(crate) struct ChangedFiles {
     pub paths: Vec<String>,
     pub complete: bool,
 }
@@ -299,38 +299,48 @@ impl GithubAppClient {
             .snapshot(&self.cfg.repo, number)
     }
 
-    /// Changed paths of a pull request (both sides of a rename), following
-    /// pagination. `complete` is false when the provider's listing cap may
-    /// have been reached or pages remain after the page limit.
-    pub(crate) async fn pull_request_files(&self, number: i32) -> AppResult<PullRequestFiles> {
-        // The provider stops listing at 3000 files; 30 pages of 100 reach it.
-        const PROVIDER_FILE_CAP: usize = 3000;
-        const MAX_PAGES: usize = 30;
+    /// Changed paths between two immutable commits, `base...head` (changes on
+    /// `head` since its merge base with `base`), including both sides of a
+    /// rename. GitHub's REST documentation ("Compare two commits") states the
+    /// comparison "includes up to 300 changed files for the entire comparison"
+    /// and lists them "only on the first page", with no truncation flag. So a
+    /// result with 300 or more files, or without a file list, is reported as
+    /// possibly incomplete (`complete == false`).
+    pub(crate) async fn compare_files(&self, base: &str, head: &str) -> AppResult<ChangedFiles> {
+        const COMPARE_FILE_CAP: usize = 300;
         #[derive(Deserialize)]
         struct ChangedFile {
             filename: String,
             #[serde(default)]
             previous_filename: Option<String>,
         }
-        let endpoint = "GET /repos/{repo}/pulls/{number}/files";
-        let mut next = Some(format!("{}/repos/{}/pulls/{number}/files?per_page=100", Self::api_base(), self.cfg.repo));
-        let mut listed = 0;
-        let mut paths = Vec::new();
-        for _ in 0..MAX_PAGES {
-            let Some(url) = next.take() else { break };
-            let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
-            if !resp.status().is_success() {
-                return Err(unavailable_status(resp.status(), endpoint));
-            }
-            next = resp.headers().get(reqwest::header::LINK).and_then(|v| v.to_str().ok()).and_then(parse_link_next);
-            let page: Vec<ChangedFile> = resp.json().await.map_err(|_| unavailable(endpoint))?;
-            listed += page.len();
-            for file in page {
-                paths.extend(file.previous_filename);
-                paths.push(file.filename);
-            }
+        #[derive(Deserialize)]
+        struct Compared {
+            #[serde(default)]
+            files: Option<Vec<ChangedFile>>,
         }
-        Ok(PullRequestFiles { paths, complete: next.is_none() && listed < PROVIDER_FILE_CAP })
+        let endpoint = "GET /repos/{repo}/compare/{base}...{head}";
+        let full_sha = |sha: &str| matches!(sha.len(), 40 | 64) && sha.bytes().all(|c| c.is_ascii_hexdigit());
+        if !full_sha(base) || !full_sha(head) {
+            return Err(unavailable(endpoint));
+        }
+        // Files are listed only on the first page; one commit per page keeps it small.
+        let url = format!("{}/repos/{}/compare/{base}...{head}?per_page=1", Self::api_base(), self.cfg.repo);
+        let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
+        if !resp.status().is_success() {
+            return Err(unavailable_status(resp.status(), endpoint));
+        }
+        let compared: Compared = resp.json().await.map_err(|_| unavailable(endpoint))?;
+        let Some(files) = compared.files else {
+            return Ok(ChangedFiles { paths: vec![], complete: false });
+        };
+        let complete = files.len() < COMPARE_FILE_CAP;
+        let mut paths = Vec::with_capacity(files.len());
+        for file in files {
+            paths.extend(file.previous_filename);
+            paths.push(file.filename);
+        }
+        Ok(ChangedFiles { paths, complete })
     }
 
     /// Open a draft PR for a self-fix branch.

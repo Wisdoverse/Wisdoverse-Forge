@@ -45,16 +45,17 @@ pub struct FakeGithub {
     pub bases: Mutex<HashMap<i32, String>>,
     /// The pull-request read answers 500.
     pub failing_pulls: Mutex<HashSet<i32>>,
-    /// Changed files per pull request (default `src/lib.rs`).
-    pub files: Mutex<HashMap<i32, Vec<String>>>,
-    /// The file listing never ends (a `next` link on every page).
-    pub endless_files: Mutex<HashSet<i32>>,
-    /// The file listing answers 500.
-    pub failing_files: Mutex<HashSet<i32>>,
-    /// Paused file listings, as `holds` for merges.
-    pub file_holds: Mutex<HashMap<i32, Hold>>,
-    /// The fake's own origin, for pagination links.
-    pub base_url: Mutex<String>,
+    /// Base commit per pull request (default `b…`).
+    pub base_shas: Mutex<HashMap<i32, String>>,
+    /// Compared files per `base...head` (default one `src/lib.rs` entry), as
+    /// GitHub's file objects (`filename`, optional `previous_filename`).
+    pub comparisons: Mutex<HashMap<String, Vec<Value>>>,
+    /// Every `base...head` that was compared, in order.
+    pub compared: Mutex<Vec<String>>,
+    /// Comparisons that answer 500.
+    pub failing_comparisons: Mutex<HashSet<String>>,
+    /// Paused comparisons, as `holds` for merges.
+    pub compare_holds: Mutex<HashMap<String, Hold>>,
 }
 
 impl FakeGithub {
@@ -74,12 +75,16 @@ impl FakeGithub {
         self.holds.lock().unwrap().insert(pr, (entered_tx, release_rx));
         (entered_rx, release_tx)
     }
-    /// Pause the next file listing of `pr`; returns (entered, release).
-    pub fn hold_files(&self, pr: i32) -> (oneshot::Receiver<()>, oneshot::Sender<()>) {
+    /// Pause the next comparison of `base...head`; returns (entered, release).
+    pub fn hold_comparison(&self, basehead: &str) -> (oneshot::Receiver<()>, oneshot::Sender<()>) {
         let (entered_tx, entered_rx) = oneshot::channel();
         let (release_tx, release_rx) = oneshot::channel();
-        self.file_holds.lock().unwrap().insert(pr, (entered_tx, release_rx));
+        self.compare_holds.lock().unwrap().insert(basehead.to_string(), (entered_tx, release_rx));
         (entered_rx, release_tx)
+    }
+    /// How often `base...head` was compared.
+    pub fn comparisons_of(&self, basehead: &str) -> usize {
+        self.compared.lock().unwrap().iter().filter(|c| c.as_str() == basehead).count()
     }
 }
 
@@ -114,38 +119,25 @@ pub async fn pull(State(f): Fake, Path(n): Path<i32>) -> Response {
     let merged = f.merged.lock().unwrap().contains(&n);
     let closed = merged || f.closed.lock().unwrap().contains(&n);
     let base = f.bases.lock().unwrap().get(&n).cloned().unwrap_or_else(|| "develop".into());
+    let base_sha = f.base_shas.lock().unwrap().get(&n).cloned().unwrap_or_else(|| sha('b'));
     axum::Json(json!({"number":n,"node_id":format!("PR-{n}"),"state":if closed {"closed"} else {"open"},"merged":merged,"draft":false,
-        "head":{"sha":head},"base":{"ref":base,"repo":{"full_name":"acme/widgets"}},"html_url":"https://example.com"}))
+        "head":{"sha":head},"base":{"ref":base,"sha":base_sha,"repo":{"full_name":"acme/widgets"}},"html_url":"https://example.com"}))
     .into_response()
 }
-pub async fn pull_files(
-    State(f): Fake,
-    Path(n): Path<i32>,
-    axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>,
-) -> Response {
+pub async fn compare(State(f): Fake, Path(basehead): Path<String>) -> Response {
     f.requests.fetch_add(1, Ordering::SeqCst);
-    let hold = f.file_holds.lock().unwrap().remove(&n);
+    f.compared.lock().unwrap().push(basehead.clone());
+    let hold = f.compare_holds.lock().unwrap().remove(&basehead);
     if let Some((entered, release)) = hold {
         let _ = entered.send(());
         let _ = release.await;
     }
-    if f.failing_files.lock().unwrap().contains(&n) {
+    if f.failing_comparisons.lock().unwrap().contains(&basehead) {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
-    let page: usize = query.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
-    let files = f.files.lock().unwrap().get(&n).cloned().unwrap_or_else(|| vec!["src/lib.rs".into()]);
-    let body: Vec<Value> = if page == 1 {
-        files.iter().map(|name| json!({"filename": name})).collect()
-    } else {
-        vec![json!({"filename": format!("src/generated_{page}.rs")})]
-    };
-    let mut response = axum::Json(body).into_response();
-    if f.endless_files.lock().unwrap().contains(&n) {
-        let base = f.base_url.lock().unwrap().clone();
-        let next = format!("<{base}/repos/acme/widgets/pulls/{n}/files?per_page=100&page={}>; rel=\"next\"", page + 1);
-        response.headers_mut().insert(axum::http::header::LINK, next.parse().unwrap());
-    }
-    response
+    let files =
+        f.comparisons.lock().unwrap().get(&basehead).cloned().unwrap_or_else(|| vec![json!({"filename":"src/lib.rs"})]);
+    axum::Json(json!({"status":"ahead","ahead_by":1,"total_commits":1,"files":files})).into_response()
 }
 pub async fn check_runs(State(f): Fake, Path(head): Path<String>) -> axum::Json<Value> {
     f.requests.fetch_add(1, Ordering::SeqCst);
@@ -187,7 +179,7 @@ pub async fn start_fake() -> (Arc<FakeGithub>, String) {
         .route("/repos/acme/widgets", get(repository))
         .route("/repos/acme/widgets/git/ref/heads/develop", get(default_ref))
         .route("/repos/acme/widgets/pulls/{n}", get(pull))
-        .route("/repos/acme/widgets/pulls/{n}/files", get(pull_files))
+        .route("/repos/acme/widgets/compare/{basehead}", get(compare))
         .route("/repos/acme/widgets/pulls/{n}/merge", put(merge))
         .route("/repos/acme/widgets/commits/{sha}/check-runs", get(check_runs))
         .route("/repos/acme/widgets/commits/{sha}/statuses", get(statuses))
@@ -195,7 +187,6 @@ pub async fn start_fake() -> (Arc<FakeGithub>, String) {
         .with_state(fake.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
-    *fake.base_url.lock().unwrap() = base.clone();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     (fake, base)
 }

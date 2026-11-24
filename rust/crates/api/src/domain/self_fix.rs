@@ -15,6 +15,8 @@ const SENSITIVE_DIR_PREFIXES: &[&str] = &[
     "rust/crates/api/src/services/github_app/",
     "rust/crates/api/src/domain/maintenance_delivery/",
     "rust/crates/api/src/repositories/orchestration/maintenance_delivery/",
+    // Self-fix safety decisions beside `domain/self_fix.rs` (head reconciliation).
+    "rust/crates/api/src/domain/self_fix/",
 ];
 
 /// Basenames sensitive wherever they appear.
@@ -63,8 +65,9 @@ impl SensitivePathPolicy {
 /// Review status vocabulary (mirrors orchestrator ReviewState; driven API-side).
 mod reconcile;
 pub(crate) use reconcile::{
-    FileListing, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction, ReconcileHeadInput,
-    ReconcileHeadResult, ReconcileObservation, reconcile_head_action, reconcile_head_audit_details, reconcile_refusal,
+    Comparison, PullRequestRead, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction,
+    ReconcileHeadInput, ReconcileHeadResult, ReconcileObservation, reconcile_head_action, reconcile_head_audit_details,
+    reconcile_refusal,
 };
 
 pub(crate) mod review_status {
@@ -600,6 +603,9 @@ mod tests {
         assert!(blocked(&[".github/CODEOWNERS"]));
         assert!(blocked(&["rust/crates/api/src/services/self_fix/bridge.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/self_fix/merge_executor.rs"]));
+        assert!(blocked(&["rust/crates/api/src/domain/self_fix/reconcile.rs"]));
+        assert!(blocked(&["rust/crates/api/src/domain/self_fix/any_future_module.rs"]));
+        assert!(blocked(&["rust/crates/api/src/services/self_fix/reconcile.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/mod.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/verification.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/nested/client.rs"]));

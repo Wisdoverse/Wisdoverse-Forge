@@ -42,6 +42,16 @@ async fn audits(pool: &PgPool, task: Uuid) -> Vec<(Option<Uuid>, Value)> {
         .unwrap()
 }
 
+/// The comparison path segment `base...head` for two fake SHAs.
+fn bh(base: char, head: char) -> String {
+    format!("{}...{}", sha(base), sha(head))
+}
+
+/// GitHub comparison file objects for plain paths.
+fn files(paths: &[&str]) -> Vec<Value> {
+    paths.iter().map(|path| json!({"filename": path})).collect()
+}
+
 fn blocked_by(pid: i32) -> String {
     format!("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE {pid} = ANY(pg_blocking_pids(pid)))")
 }
@@ -183,42 +193,176 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     assert_eq!(row(&pool, task).await.0, sha('c'));
 
     // A sensitive new head sets `sensitive_blocked`; the merge is then refused.
+    // The comparison is requested with exactly the validated base commit and
+    // the confirmed new head.
     let task = f.task("reconcile-sensitive", 99, 'c').await;
     f.fake.set_head(99, 'd');
-    f.fake.files.lock().unwrap().insert(99, vec!["rust/crates/db/migrations/999_backdoor.sql".into()]);
+    f.fake.base_shas.lock().unwrap().insert(99, sha('9'));
+    f.fake.comparisons.lock().unwrap().insert(bh('9', 'd'), files(&["rust/crates/db/migrations/999_backdoor.sql"]));
     let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         (body["data"]["sensitive"].clone(), body["data"]["reviewStatus"].clone()),
         (json!(true), json!("sensitive_blocked"))
     );
+    assert_eq!(fake.comparisons_of(&bh('9', 'd')), 1, "compared exactly base commit ... expected new head");
     let (status, body) = f.approve(task).await;
     assert_eq!((status, code(&body)), (StatusCode::FORBIDDEN, "errors.self_fix.sensitive_path_blocked"), "{body}");
     assert_eq!(audits(&pool, task).await[0].1["sensitive"], true);
 
-    // A listing that reaches the provider's cap (pages never end) counts as sensitive.
-    let task = f.task("reconcile-truncated", 100, 'c').await;
-    f.fake.set_head(100, 'd');
-    f.fake.endless_files.lock().unwrap().insert(100);
-    let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(row(&pool, task).await.1, "sensitive_blocked");
+    // GitHub documents at most 300 files per comparison: 300 counts as
+    // possibly incomplete (sensitive); 299 clean files adopt normally.
+    for (pr, reference, base, count, expected) in
+        [(100, "reconcile-cap", '1', 300, "sensitive_blocked"), (111, "reconcile-under-cap", '0', 299, "in_review")]
+    {
+        let task = f.task(reference, pr, 'c').await;
+        f.fake.set_head(pr, 'd');
+        f.fake.base_shas.lock().unwrap().insert(pr, sha(base));
+        let many: Vec<String> = (0..count).map(|n| format!("src/generated/file_{n}.rs")).collect();
+        f.fake
+            .comparisons
+            .lock()
+            .unwrap()
+            .insert(bh(base, 'd'), files(&many.iter().map(String::as_str).collect::<Vec<_>>()));
+        let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+        assert_eq!(status, StatusCode::OK, "{reference}: {body}");
+        assert_eq!(row(&pool, task).await.1, expected, "{reference}");
+    }
 
-    // A FAILED listing is a refusal like any other failed provider read: 503,
-    // head and status unchanged, no audit record. A retry with a healthy
+    // A sensitive file late in a long (under-cap) list, and renames where only
+    // the old or only the new path is sensitive, are all detected.
+    let mut late: Vec<Value> = (0..250).map(|n| json!({"filename": format!("src/generated/late_{n}.rs")})).collect();
+    late.push(json!({"filename": "rust/crates/auth/src/jwt.rs"}));
+    for (pr, reference, base, entries) in [
+        (112, "reconcile-late-sensitive", '2', late),
+        (
+            113,
+            "reconcile-rename-from-sensitive",
+            '3',
+            vec![
+                json!({"filename": "src/renamed.rs", "previous_filename": "rust/crates/auth/src/jwt.rs", "status": "renamed"}),
+            ],
+        ),
+        (
+            114,
+            "reconcile-rename-to-sensitive",
+            '4',
+            vec![
+                json!({"filename": "rust/crates/auth/src/moved.rs", "previous_filename": "src/old.rs", "status": "renamed"}),
+            ],
+        ),
+    ] {
+        let task = f.task(reference, pr, 'c').await;
+        f.fake.set_head(pr, 'd');
+        f.fake.base_shas.lock().unwrap().insert(pr, sha(base));
+        f.fake.comparisons.lock().unwrap().insert(bh(base, 'd'), entries);
+        let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+        assert_eq!((status, body["data"]["sensitive"].clone()), (StatusCode::OK, json!(true)), "{reference}: {body}");
+        assert_eq!(row(&pool, task).await.1, "sensitive_blocked", "{reference}");
+    }
+
+    // A FAILED comparison is a refusal like any other failed provider read:
+    // 503, head and status unchanged, no audit record. A retry with a healthy
     // provider then adopts normally.
-    let task = f.task("reconcile-listing-failed", 101, 'c').await;
+    let task = f.task("reconcile-compare-failed", 101, 'c').await;
     f.fake.set_head(101, 'd');
-    f.fake.failing_files.lock().unwrap().insert(101);
+    f.fake.base_shas.lock().unwrap().insert(101, sha('5'));
+    f.fake.failing_comparisons.lock().unwrap().insert(bh('5', 'd'));
     let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
     let unchanged = row(&pool, task).await;
     assert_eq!((unchanged.0, unchanged.1, audits(&pool, task).await.len()), (sha('c'), "in_review".into(), 0));
-    f.fake.failing_files.lock().unwrap().clear();
+    f.fake.failing_comparisons.lock().unwrap().clear();
     let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
     assert_eq!((status, body["data"]["sensitive"].clone()), (StatusCode::OK, json!(false)), "{body}");
     let adopted = row(&pool, task).await;
     assert_eq!((adopted.0, adopted.1, audits(&pool, task).await.len()), (sha('d'), "in_review".into(), 1));
+
+    // The pull request was retargeted before the first read: refused before
+    // any comparison is requested.
+    let task = f.task("reconcile-retargeted-first", 115, 'c').await;
+    f.fake.set_head(115, 'd');
+    f.fake.bases.lock().unwrap().insert(115, "release".into());
+    let compared = fake.compared.lock().unwrap().len();
+    let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, "errors.self_fix.reconcile_base_changed"), "{body}");
+    assert_eq!(fake.compared.lock().unwrap().len(), compared, "no comparison for an unexpected base");
+
+    // The base or the head changes between the first read and the final
+    // re-read (while the comparison runs): refused, nothing written.
+    for (pr, reference, base, change, expected) in [
+        (116, "reconcile-base-moved-during", '6', "base", "errors.self_fix.reconcile_base_changed"),
+        (117, "reconcile-head-moved-during", '7', "head", "errors.self_fix.reconcile_head_mismatch"),
+    ] {
+        let task = f.task(reference, pr, 'c').await;
+        f.fake.set_head(pr, 'd');
+        f.fake.base_shas.lock().unwrap().insert(pr, sha(base));
+        let (entered, release) = f.fake.hold_comparison(&bh(base, 'd'));
+        let reconciling = tokio::spawn(reconcile(app.clone(), jwt.clone(), task, 'c', 'd'));
+        entered.await.unwrap();
+        if change == "base" {
+            f.fake.bases.lock().unwrap().insert(pr, "release".into());
+        } else {
+            f.fake.set_head(pr, 'e');
+        }
+        release.send(()).unwrap();
+        let (status, body) = reconciling.await.unwrap();
+        assert_eq!((status, code(&body)), (StatusCode::CONFLICT, expected), "{reference}: {body}");
+        assert_eq!((row(&pool, task).await.0, audits(&pool, task).await.len()), (sha('c'), 0), "{reference}");
+    }
+
+    // A sensitive file present only relative to the REAL base is detected even
+    // though the pull request was pointed at another base in between: the
+    // comparison uses the immutable base commit from the first read.
+    let task = f.task("reconcile-retarget-round-trip", 118, 'c').await;
+    f.fake.set_head(118, 'd');
+    f.fake.base_shas.lock().unwrap().insert(118, sha('8'));
+    f.fake.comparisons.lock().unwrap().insert(bh('8', 'd'), files(&["rust/crates/auth/src/jwt.rs"]));
+    f.fake.comparisons.lock().unwrap().insert(bh('a', 'd'), files(&["src/lib.rs"]));
+    let (entered, release) = f.fake.hold_comparison(&bh('8', 'd'));
+    let reconciling = tokio::spawn(reconcile(app.clone(), jwt.clone(), task, 'c', 'd'));
+    entered.await.unwrap();
+    f.fake.bases.lock().unwrap().insert(118, "release".into());
+    f.fake.base_shas.lock().unwrap().insert(118, sha('a'));
+    f.fake.bases.lock().unwrap().insert(118, "develop".into());
+    release.send(()).unwrap();
+    let (status, body) = reconciling.await.unwrap();
+    assert_eq!((status, body["data"]["sensitive"].clone()), (StatusCode::OK, json!(true)), "{body}");
+    assert_eq!(row(&pool, task).await.1, "sensitive_blocked");
+    assert_eq!(fake.comparisons_of(&bh('a', 'd')), 0, "never compared against the other base");
+
+    // Administrator authority lost while the provider is read: the decision
+    // transaction re-checks it and refuses. Fails if the reconcile takes a
+    // plain row lock instead of `lock_task`.
+    let task = f.task("reconcile-authority-lost", 119, 'c').await;
+    f.fake.set_head(119, 'd');
+    f.fake.base_shas.lock().unwrap().insert(119, sha('e'));
+    let (entered, release) = f.fake.hold_comparison(&bh('e', 'd'));
+    let reconciling = tokio::spawn(reconcile(app.clone(), jwt.clone(), task, 'c', 'd'));
+    entered.await.unwrap();
+    sqlx::query("UPDATE users SET is_admin=false WHERE id=$1").bind(user).execute(&pool).await.unwrap();
+    release.send(()).unwrap();
+    let (status, body) = reconciling.await.unwrap();
+    sqlx::query("UPDATE users SET is_admin=true WHERE id=$1").bind(user).execute(&pool).await.unwrap();
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    let unchanged = row(&pool, task).await;
+    assert_eq!((unchanged.0, unchanged.1, audits(&pool, task).await.len()), (sha('c'), "in_review".into(), 0));
+
+    // A task at the attempt limit with changes requested may still record the
+    // newer revision; attempts are not reset and the status stays, so the
+    // response tells the operator that Forge will not finish it.
+    let task = f.task("reconcile-at-limit", 120, 'c').await;
+    f.fake.set_head(120, 'd');
+    sqlx::query("UPDATE orchestration_tasks SET review_status='changes_requested', merge_attempts=$2 WHERE id=$1")
+        .bind(task)
+        .bind(CAP)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
+    assert_eq!((status, body["data"]["reviewStatus"].clone()), (StatusCode::OK, json!("changes_requested")), "{body}");
+    let after = row(&pool, task).await;
+    assert_eq!((after.0, after.1, after.2), (sha('d'), "changes_requested".into(), CAP));
 
     // An existing `sensitive_blocked` is never cleared by a clean new head.
     let task = f.task("reconcile-keep-blocked", 102, 'c').await;
@@ -266,10 +410,11 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     assert_eq!(merging.await.unwrap().0, StatusCode::OK);
     assert_eq!(row(&pool, task).await.0, sha('c'));
 
-    // Reconcile paused at the provider file listing: an approve is refused by the mutex.
+    // Reconcile paused at the provider comparison: an approve is refused by the mutex.
     let task = f.task("merge-vs-reconcile", 106, 'c').await;
     f.fake.set_head(106, 'd');
-    let (entered, release) = f.fake.hold_files(106);
+    f.fake.base_shas.lock().unwrap().insert(106, sha('f'));
+    let (entered, release) = f.fake.hold_comparison(&bh('f', 'd'));
     let reconciling = tokio::spawn(reconcile(app.clone(), jwt.clone(), task, 'c', 'd'));
     entered.await.unwrap();
     let (status, body) = f.approve(task).await;

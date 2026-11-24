@@ -32,24 +32,33 @@ impl ReconcileHeadInput {
     }
 }
 
-/// Live provider facts for the decision, read after the pre-checks pass.
-pub(crate) struct ReconcileObservation<'a> {
+/// One validated read of the pull request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PullRequestRead<'a> {
     /// `open`, `closed` or `merged`.
     pub state: &'a str,
-    /// The pull request still targets the repository and base branch the task was opened for.
+    /// It still targets the repository and base branch the task was opened for.
     pub base_unchanged: bool,
-    /// Head read after the file listing.
     pub head: &'a str,
-    /// Head read before the file listing; it must equal `head`.
-    pub head_before_listing: &'a str,
-    pub listing: FileListing<'a>,
 }
 
-/// The provider's changed-file listing for the pull request.
+/// Live provider facts for the decision, gathered after the pre-checks pass.
+pub(crate) struct ReconcileObservation<'a> {
+    /// The read whose base commit the comparison uses.
+    pub first: PullRequestRead<'a>,
+    /// Changed files between that base commit and the expected new head.
+    pub comparison: Comparison<'a>,
+    /// The re-read after the comparison; `None` until it was made.
+    pub last: Option<PullRequestRead<'a>>,
+}
+
+/// The provider's comparison of two immutable commits (base commit ... new head).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FileListing<'a> {
+pub(crate) enum Comparison<'a> {
+    /// Not requested yet: the first read must pass before it is.
+    Pending,
     Complete(&'a [String]),
-    /// Listed to the provider's cap (3000 files): may be truncated, so sensitive.
+    /// The listing may be incomplete (at the provider's file cap): sensitive.
     Capped,
     /// The provider read failed: refuse, nothing written, safe to retry.
     Failed,
@@ -64,13 +73,16 @@ pub(crate) enum ReconcileAction {
     RefuseStale,
     /// The new head is already stored: idempotent success, nothing written.
     NoOp,
-    /// Pre-checks passed; read the provider, then decide again.
+    /// Pre-checks passed; read the pull request, then decide again.
     Observe,
+    /// The first read passed; compare its base commit with the new head and
+    /// read the pull request again, then decide again.
+    Compare,
     RefusePullRequestNotOpen,
     RefuseBaseChanged,
     RefuseHeadMismatch,
-    /// The changed files could not be read: nothing written, safe to retry.
-    RefuseListingUnavailable,
+    /// The comparison could not be read: nothing written, safe to retry.
+    RefuseComparisonUnavailable,
     /// Store the new head. `block` additionally sets `sensitive_blocked`.
     Adopt {
         sensitive: bool,
@@ -101,26 +113,38 @@ pub(crate) fn reconcile_head_action(
     let Some(observed) = observation else {
         return ReconcileAction::Observe;
     };
-    if observed.state != "open" {
-        return ReconcileAction::RefusePullRequestNotOpen;
+    // The base is checked before any comparison is requested.
+    if let Some(refusal) = refuse_read(&observed.first, input) {
+        return refusal;
     }
-    if !observed.base_unchanged {
-        return ReconcileAction::RefuseBaseChanged;
-    }
-    // The listing must describe the head the caller confirmed: unchanged
-    // across the two reads and equal to the expected new head.
-    if !observed.head.eq_ignore_ascii_case(&input.expected_new_head)
-        || !observed.head_before_listing.eq_ignore_ascii_case(observed.head)
-    {
-        return ReconcileAction::RefuseHeadMismatch;
-    }
-    let sensitive = match observed.listing {
-        FileListing::Complete(files) => SensitivePathPolicy::touches_sensitive(files),
-        FileListing::Capped => true,
-        FileListing::Failed => return ReconcileAction::RefuseListingUnavailable,
+    let sensitive = match observed.comparison {
+        Comparison::Pending => return ReconcileAction::Compare,
+        Comparison::Failed => return ReconcileAction::RefuseComparisonUnavailable,
+        Comparison::Complete(files) => SensitivePathPolicy::touches_sensitive(files),
+        Comparison::Capped => true,
     };
+    // The re-read after the comparison must still show the confirmed state.
+    let Some(last) = &observed.last else {
+        return ReconcileAction::Compare;
+    };
+    if let Some(refusal) = refuse_read(last, input) {
+        return refusal;
+    }
     // An existing `sensitive_blocked` is never cleared, and needs no write.
     ReconcileAction::Adopt { sensitive, block: sensitive && review_status != Some(SENSITIVE_BLOCKED) }
+}
+
+fn refuse_read(read: &PullRequestRead<'_>, input: &ReconcileHeadInput) -> Option<ReconcileAction> {
+    if read.state != "open" {
+        return Some(ReconcileAction::RefusePullRequestNotOpen);
+    }
+    if !read.base_unchanged {
+        return Some(ReconcileAction::RefuseBaseChanged);
+    }
+    if !read.head.eq_ignore_ascii_case(&input.expected_new_head) {
+        return Some(ReconcileAction::RefuseHeadMismatch);
+    }
+    None
 }
 
 /// The typed error for a refusing action. A non-refusing action seen where a
@@ -132,8 +156,9 @@ pub(crate) fn reconcile_refusal(action: ReconcileAction) -> AppError {
             "A finish attempt for this change is in progress or not confirmed. Select Finish this fix to complete it, then use the new revision.",
         ),
         // The same 503-class response as the other failed provider reads.
-        ReconcileAction::RefuseListingUnavailable => ErrorKind::Unavailable(
-            "GitHub could not list the pull request's changed files. Nothing was changed; try again.".into(),
+        ReconcileAction::RefuseComparisonUnavailable => ErrorKind::Unavailable(
+            "GitHub could not compare the pull request's base with the new revision. Nothing was changed; try again."
+                .into(),
         )
         .into(),
         ReconcileAction::RefuseMerged => conflict(
@@ -155,6 +180,7 @@ pub(crate) fn reconcile_refusal(action: ReconcileAction) -> AppError {
         ReconcileAction::RefuseStale
         | ReconcileAction::NoOp
         | ReconcileAction::Observe
+        | ReconcileAction::Compare
         | ReconcileAction::Adopt { .. } => conflict(
             "errors.self_fix.reconcile_stale",
             "The recorded revision changed since this page loaded. Refresh, check both revisions, then try again.",
@@ -224,15 +250,15 @@ mod tests {
     fn reconcile_head_action_covers_every_combination() {
         let clean = vec!["src/lib.rs".to_string()];
         let sensitive = vec!["rust/crates/db/migrations/999_x.sql".to_string()];
-        let (clean, sensitive) = (FileListing::Complete(&clean), FileListing::Complete(&sensitive));
-        // (state, base unchanged, head after listing, head before listing, listing)
-        let obs = |state, base_unchanged, head, before, listing| (state, base_unchanged, head, before, listing);
-        // (status, stored head, observation) -> action
+        let (clean, sensitive) = (Comparison::Complete(&clean), Comparison::Complete(&sensitive));
+        let read = |state, base_unchanged, head| PullRequestRead { state, base_unchanged, head };
+        let ok = read("open", true, NEW);
+        // (status, stored head, (first read, comparison, last read)) -> action
         #[allow(clippy::type_complexity)]
         let table: Vec<(
             Option<&str>,
             Option<&str>,
-            Option<(&str, bool, &str, &str, FileListing<'_>)>,
+            Option<(PullRequestRead<'_>, Comparison<'_>, Option<PullRequestRead<'_>>)>,
             ReconcileAction,
         )> = vec![
             // Status gates come first, whatever the heads.
@@ -242,87 +268,106 @@ mod tests {
             (Some("merged"), Some(NEW), None, RefuseMerged),
             // Stored head equal to the new head: idempotent no-op, before the stale check.
             (Some("in_review"), Some(NEW), None, NoOp),
-            (Some("sensitive_blocked"), Some(NEW), Some(obs("open", true, NEW, NEW, clean)), NoOp),
+            (Some("sensitive_blocked"), Some(NEW), Some((ok, clean, Some(ok))), NoOp),
             // Stored head is neither: stale.
             (Some("in_review"), Some(OTHER), None, RefuseStale),
             (Some("in_review"), None, None, RefuseStale),
-            (Some("changes_requested"), Some(OTHER), Some(obs("open", true, NEW, NEW, clean)), RefuseStale),
-            // Pre-checks pass without an observation: read the provider.
+            (Some("changes_requested"), Some(OTHER), Some((ok, clean, Some(ok))), RefuseStale),
+            // Pre-checks pass without an observation: read the pull request.
             (Some("in_review"), Some(OLD), None, Observe),
             (Some("changes_requested"), Some(OLD), None, Observe),
             (Some("sensitive_blocked"), Some(OLD), None, Observe),
             (None, Some(OLD), None, Observe),
-            // Live checks.
-            (Some("in_review"), Some(OLD), Some(obs("closed", true, NEW, NEW, clean)), RefusePullRequestNotOpen),
-            (Some("in_review"), Some(OLD), Some(obs("merged", true, NEW, NEW, clean)), RefusePullRequestNotOpen),
-            (Some("in_review"), Some(OLD), Some(obs("open", false, NEW, NEW, clean)), RefuseBaseChanged),
-            (Some("in_review"), Some(OLD), Some(obs("open", true, OTHER, OTHER, clean)), RefuseHeadMismatch),
-            (Some("in_review"), Some(OLD), Some(obs("open", true, OLD, OLD, clean)), RefuseHeadMismatch),
-            // The head moved between the two reads: the listing may describe another head.
-            (Some("in_review"), Some(OLD), Some(obs("open", true, NEW, OTHER, clean)), RefuseHeadMismatch),
-            // A failed listing is a refusal, never a block.
+            // First read: refused before any comparison.
             (
                 Some("in_review"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, FileListing::Failed)),
-                RefuseListingUnavailable,
+                Some((read("closed", true, NEW), Comparison::Pending, None)),
+                RefusePullRequestNotOpen,
             ),
+            (
+                Some("in_review"),
+                Some(OLD),
+                Some((read("merged", true, NEW), Comparison::Pending, None)),
+                RefusePullRequestNotOpen,
+            ),
+            (
+                Some("in_review"),
+                Some(OLD),
+                Some((read("open", false, NEW), Comparison::Pending, None)),
+                RefuseBaseChanged,
+            ),
+            (
+                Some("in_review"),
+                Some(OLD),
+                Some((read("open", true, OTHER), Comparison::Pending, None)),
+                RefuseHeadMismatch,
+            ),
+            (
+                Some("in_review"),
+                Some(OLD),
+                Some((read("open", true, OLD), Comparison::Pending, None)),
+                RefuseHeadMismatch,
+            ),
+            // First read passed: compare next.
+            (Some("in_review"), Some(OLD), Some((ok, Comparison::Pending, None)), Compare),
+            (Some("in_review"), Some(OLD), Some((ok, clean, None)), Compare),
+            // A failed comparison is a refusal, never a block.
+            (Some("in_review"), Some(OLD), Some((ok, Comparison::Failed, None)), RefuseComparisonUnavailable),
             (
                 Some("sensitive_blocked"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, FileListing::Failed)),
-                RefuseListingUnavailable,
+                Some((ok, Comparison::Failed, Some(ok))),
+                RefuseComparisonUnavailable,
             ),
-            // Adoption and sensitivity.
+            // Last read after the comparison: the confirmed state must still hold.
             (
                 Some("in_review"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, clean)),
-                Adopt { sensitive: false, block: false },
+                Some((ok, clean, Some(read("closed", true, NEW)))),
+                RefusePullRequestNotOpen,
             ),
+            (Some("in_review"), Some(OLD), Some((ok, clean, Some(read("open", false, NEW)))), RefuseBaseChanged),
+            (Some("in_review"), Some(OLD), Some((ok, clean, Some(read("open", true, OTHER)))), RefuseHeadMismatch),
+            // Adoption and sensitivity.
+            (Some("in_review"), Some(OLD), Some((ok, clean, Some(ok))), Adopt { sensitive: false, block: false }),
             (
                 Some("changes_requested"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, clean)),
+                Some((ok, clean, Some(ok))),
                 Adopt { sensitive: false, block: false },
             ),
+            (Some("in_review"), Some(OLD), Some((ok, sensitive, Some(ok))), Adopt { sensitive: true, block: true }),
             (
                 Some("in_review"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, sensitive)),
-                Adopt { sensitive: true, block: true },
-            ),
-            (
-                Some("in_review"),
-                Some(OLD),
-                Some(obs("open", true, NEW, NEW, FileListing::Capped)),
+                Some((ok, Comparison::Capped, Some(ok))),
                 Adopt { sensitive: true, block: true },
             ),
             // `sensitive_blocked` is never cleared and needs no second write.
             (
                 Some("sensitive_blocked"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, clean)),
+                Some((ok, clean, Some(ok))),
                 Adopt { sensitive: false, block: false },
             ),
             (
                 Some("sensitive_blocked"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, sensitive)),
+                Some((ok, sensitive, Some(ok))),
                 Adopt { sensitive: true, block: false },
             ),
             (
                 Some("sensitive_blocked"),
                 Some(OLD),
-                Some(obs("open", true, NEW, NEW, FileListing::Capped)),
+                Some((ok, Comparison::Capped, Some(ok))),
                 Adopt { sensitive: true, block: false },
             ),
         ];
         let input = input();
         for (status, stored, observed, expected) in table {
-            let observation = observed.map(|(state, base_unchanged, head, head_before_listing, listing)| {
-                ReconcileObservation { state, base_unchanged, head, head_before_listing, listing }
-            });
+            let observation =
+                observed.map(|(first, comparison, last)| ReconcileObservation { first, comparison, last });
             assert_eq!(
                 reconcile_head_action(status, stored, &input, observation.as_ref()),
                 expected,
@@ -349,7 +394,7 @@ mod tests {
             ErrorKind::ConflictWithCode { code, ref message }
                 if code == "errors.self_fix.reconcile_merge_unconfirmed" && message.ends_with("then use the new revision.")
         ));
-        // A failed listing answers like the other failed provider reads (503).
-        assert!(matches!(reconcile_refusal(RefuseListingUnavailable).kind, ErrorKind::Unavailable(_)));
+        // A failed comparison answers like the other failed provider reads (503).
+        assert!(matches!(reconcile_refusal(RefuseComparisonUnavailable).kind, ErrorKind::Unavailable(_)));
     }
 }
