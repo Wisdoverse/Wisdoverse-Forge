@@ -16,6 +16,7 @@ use self_fix_harness::*;
 
 const RUNNING: &str = "errors.self_fix.merge_running";
 const MERGE_UNCONFIRMED: &str = "errors.self_fix.reconcile_merge_unconfirmed";
+const PROVIDER_UNAVAILABLE: &str = "errors.self_fix.reconcile_provider_unavailable";
 
 async fn reconcile(app: Router, jwt: String, task: Uuid, stored: char, new: char) -> (StatusCode, Value) {
     let body = json!({"expectedStoredHead": sha(stored), "expectedNewHead": sha(new)});
@@ -269,7 +270,7 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     f.fake.base_shas.lock().unwrap().insert(101, sha('5'));
     f.fake.failing_comparisons.lock().unwrap().insert(bh('5', 'd'));
     let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    assert_eq!((status, code(&body)), (StatusCode::SERVICE_UNAVAILABLE, PROVIDER_UNAVAILABLE), "{body}");
     let unchanged = row(&pool, task).await;
     assert_eq!((unchanged.0, unchanged.1, audits(&pool, task).await.len()), (sha('c'), "in_review".into(), 0));
     f.fake.failing_comparisons.lock().unwrap().clear();
@@ -324,7 +325,9 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     entered.await.unwrap();
     f.fake.bases.lock().unwrap().insert(118, "release".into());
     f.fake.base_shas.lock().unwrap().insert(118, sha('a'));
+    // Back on the real base, whose commit did not move.
     f.fake.bases.lock().unwrap().insert(118, "develop".into());
+    f.fake.base_shas.lock().unwrap().insert(118, sha('8'));
     release.send(()).unwrap();
     let (status, body) = reconciling.await.unwrap();
     assert_eq!((status, body["data"]["sensitive"].clone()), (StatusCode::OK, json!(true)), "{body}");
@@ -364,6 +367,89 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     let after = row(&pool, task).await;
     assert_eq!((after.0, after.1, after.2), (sha('d'), "changes_requested".into(), CAP));
 
+    // Same base BRANCH, but its commit is rewritten while the comparison runs:
+    // the merge base, and so the checked diff, may differ. Refused as
+    // "changed during the check"; nothing written, no audit.
+    let task = f.task("reconcile-base-commit-rewritten", 121, 'c').await;
+    f.fake.set_head(121, 'a');
+    f.fake.base_shas.lock().unwrap().insert(121, sha('1'));
+    let (entered, release) = f.fake.hold_comparison(&bh('1', 'a'));
+    let reconciling = tokio::spawn(reconcile(app.clone(), jwt.clone(), task, 'c', 'a'));
+    entered.await.unwrap();
+    f.fake.base_shas.lock().unwrap().insert(121, sha('2'));
+    release.send(()).unwrap();
+    let (status, body) = reconciling.await.unwrap();
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, "errors.self_fix.reconcile_head_mismatch"), "{body}");
+    assert_eq!((row(&pool, task).await.0, audits(&pool, task).await.len()), (sha('c'), 0));
+
+    // Every provider-read failure is the same coded 503 with nothing written:
+    // an undecodable pull request, a 404 on the pull request, a pull request
+    // without a base commit (refused before any comparison), and a failure of
+    // the final re-read.
+    for (pr, reference, fault) in [
+        (122, "reconcile-malformed-read", "malformed"),
+        (123, "reconcile-pull-request-404", "missing"),
+        (124, "reconcile-without-base-commit", "no base commit"),
+    ] {
+        let task = f.task(reference, pr, 'c').await;
+        f.fake.set_head(pr, 'a');
+        match fault {
+            "malformed" => _ = f.fake.malformed_pulls.lock().unwrap().insert(pr),
+            "missing" => _ = f.fake.heads.lock().unwrap().remove(&pr),
+            _ => _ = f.fake.pulls_without_base_sha.lock().unwrap().insert(pr),
+        }
+        let compared = fake.compared.lock().unwrap().len();
+        let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'a').await;
+        assert_eq!(
+            (status, code(&body)),
+            (StatusCode::SERVICE_UNAVAILABLE, PROVIDER_UNAVAILABLE),
+            "{reference}: {body}"
+        );
+        assert_eq!((row(&pool, task).await.0, audits(&pool, task).await.len()), (sha('c'), 0), "{reference}");
+        assert_eq!(fake.compared.lock().unwrap().len(), compared, "{reference}: no comparison");
+    }
+    let task = f.task("reconcile-final-read-fails", 125, 'c').await;
+    f.fake.set_head(125, 'a');
+    f.fake.base_shas.lock().unwrap().insert(125, sha('2'));
+    let (entered, release) = f.fake.hold_comparison(&bh('2', 'a'));
+    let reconciling = tokio::spawn(reconcile(app.clone(), jwt.clone(), task, 'c', 'a'));
+    entered.await.unwrap();
+    f.fake.failing_pulls.lock().unwrap().insert(125);
+    release.send(()).unwrap();
+    let (status, body) = reconciling.await.unwrap();
+    assert_eq!((status, code(&body)), (StatusCode::SERVICE_UNAVAILABLE, PROVIDER_UNAVAILABLE), "{body}");
+    assert_eq!((row(&pool, task).await.0, audits(&pool, task).await.len()), (sha('c'), 0));
+
+    // A -> B -> A: a verdict is a statement about one revision. Moving to B
+    // makes A's rejection not current (it does not block B); returning to A
+    // makes it current again (it blocks the merge again). A verdict for one
+    // revision is never applied to another.
+    let task = f.task("reconcile-walk-rejected", 126, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "rejected").await.0, StatusCode::OK);
+    f.fake.set_head(126, 'd');
+    assert_eq!(reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await.0, StatusCode::OK);
+    assert_eq!(f.rejected_flag(task).await, false, "A's rejection does not block B");
+    f.fake.set_head(126, 'c');
+    assert_eq!(reconcile(app.clone(), jwt.clone(), task, 'd', 'c').await.0, StatusCode::OK);
+    assert_eq!(f.rejected_flag(task).await, true, "A's rejection is current again on A");
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, code(&body)), (StatusCode::CONFLICT, "errors.maintenance.merge_rejected"), "{body}");
+    assert_eq!(f.fake.merges(126), 0);
+    // An accepted A does not merge anything by itself: after A -> B -> A the
+    // task is still in review, nothing was merged, and only an explicit
+    // administrator approval merges it.
+    let task = f.task("reconcile-walk-accepted", 127, 'c').await;
+    let report = f.report(task).await;
+    assert_eq!(f.verdict(task, report, "accepted").await.0, StatusCode::OK);
+    f.fake.set_head(127, 'd');
+    assert_eq!(reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await.0, StatusCode::OK);
+    f.fake.set_head(127, 'c');
+    assert_eq!(reconcile(app.clone(), jwt.clone(), task, 'd', 'c').await.0, StatusCode::OK);
+    assert_eq!((row(&pool, task).await.1, row(&pool, task).await.2, f.fake.merges(127)), ("in_review".into(), 0, 0));
+    let (status, body) = f.approve(task).await;
+    assert_eq!((status, body["data"]["mergedHeadSha"].clone()), (StatusCode::OK, json!(sha('c'))), "{body}");
+
     // An existing `sensitive_blocked` is never cleared by a clean new head.
     let task = f.task("reconcile-keep-blocked", 102, 'c').await;
     sqlx::query("UPDATE orchestration_tasks SET review_status='sensitive_blocked' WHERE id=$1")
@@ -393,7 +479,7 @@ async fn administrator_adopts_a_changed_head_with_live_checks_and_an_audit_recor
     f.fake.set_head(104, 'd');
     f.fake.failing_pulls.lock().unwrap().insert(104);
     let (status, body) = reconcile(app.clone(), jwt.clone(), task, 'c', 'd').await;
-    assert!(status.is_server_error(), "{status} {body}");
+    assert_eq!((status, code(&body)), (StatusCode::SERVICE_UNAVAILABLE, PROVIDER_UNAVAILABLE), "{body}");
     assert_eq!((row(&pool, task).await.0, audits(&pool, task).await.len()), (sha('c'), 0));
 
     // Approve paused at the provider merge call: a reconcile is refused by the

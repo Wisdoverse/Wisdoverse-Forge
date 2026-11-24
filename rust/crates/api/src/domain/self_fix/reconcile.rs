@@ -40,6 +40,8 @@ pub(crate) struct PullRequestRead<'a> {
     /// It still targets the repository and base branch the task was opened for.
     pub base_unchanged: bool,
     pub head: &'a str,
+    /// The base commit; required, and identical in the first and last read.
+    pub base_sha: Option<&'a str>,
 }
 
 /// Live provider facts for the decision, gathered after the pre-checks pass.
@@ -60,8 +62,6 @@ pub(crate) enum Comparison<'a> {
     Complete(&'a [String]),
     /// The listing may be incomplete (at the provider's file cap): sensitive.
     Capped,
-    /// The provider read failed: refuse, nothing written, safe to retry.
-    Failed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,8 +81,8 @@ pub(crate) enum ReconcileAction {
     RefusePullRequestNotOpen,
     RefuseBaseChanged,
     RefuseHeadMismatch,
-    /// The comparison could not be read: nothing written, safe to retry.
-    RefuseComparisonUnavailable,
+    /// A provider read failed or returned unusable data: nothing written, safe to retry.
+    RefuseProviderUnavailable,
     /// Store the new head. `block` additionally sets `sensitive_blocked`.
     Adopt {
         sensitive: bool,
@@ -117,9 +117,11 @@ pub(crate) fn reconcile_head_action(
     if let Some(refusal) = refuse_read(&observed.first, input) {
         return refusal;
     }
+    let Some(base_sha) = observed.first.base_sha else {
+        return ReconcileAction::RefuseProviderUnavailable;
+    };
     let sensitive = match observed.comparison {
         Comparison::Pending => return ReconcileAction::Compare,
-        Comparison::Failed => return ReconcileAction::RefuseComparisonUnavailable,
         Comparison::Complete(files) => SensitivePathPolicy::touches_sensitive(files),
         Comparison::Capped => true,
     };
@@ -129,6 +131,13 @@ pub(crate) fn reconcile_head_action(
     };
     if let Some(refusal) = refuse_read(last, input) {
         return refusal;
+    }
+    // The compared base commit must still be the pull request's base: a
+    // rewritten base branch changes the merge base and so the checked diff.
+    match last.base_sha {
+        None => return ReconcileAction::RefuseProviderUnavailable,
+        Some(last_base) if !last_base.eq_ignore_ascii_case(base_sha) => return ReconcileAction::RefuseHeadMismatch,
+        Some(_) => {}
     }
     // An existing `sensitive_blocked` is never cleared, and needs no write.
     ReconcileAction::Adopt { sensitive, block: sensitive && review_status != Some(SENSITIVE_BLOCKED) }
@@ -155,11 +164,11 @@ pub(crate) fn reconcile_refusal(action: ReconcileAction) -> AppError {
             "errors.self_fix.reconcile_merge_unconfirmed",
             "A finish attempt for this change is in progress or not confirmed. Select Finish this fix to complete it, then use the new revision.",
         ),
-        // The same 503-class response as the other failed provider reads.
-        ReconcileAction::RefuseComparisonUnavailable => ErrorKind::Unavailable(
-            "GitHub could not compare the pull request's base with the new revision. Nothing was changed; try again."
-                .into(),
-        )
+        // One coded 503 for every failed provider read during a reconcile.
+        ReconcileAction::RefuseProviderUnavailable => ErrorKind::UnavailableWithCode {
+            code: "errors.self_fix.reconcile_provider_unavailable",
+            message: "GitHub could not be read, so nothing was changed. Try again. If it keeps failing, check that the pull request still exists and that the GitHub App can access the repository.".into(),
+        }
         .into(),
         ReconcileAction::RefuseMerged => conflict(
             "errors.self_fix.reconcile_merged",
@@ -175,7 +184,7 @@ pub(crate) fn reconcile_refusal(action: ReconcileAction) -> AppError {
         ),
         ReconcileAction::RefuseHeadMismatch => conflict(
             "errors.self_fix.reconcile_head_mismatch",
-            "The pull request moved to another revision. Refresh, check the new revision, then try again.",
+            "The pull request changed while Forge checked it (its revision or its base moved). Refresh, check the new revision, then try again.",
         ),
         ReconcileAction::RefuseStale
         | ReconcileAction::NoOp
@@ -251,8 +260,12 @@ mod tests {
         let clean = vec!["src/lib.rs".to_string()];
         let sensitive = vec!["rust/crates/db/migrations/999_x.sql".to_string()];
         let (clean, sensitive) = (Comparison::Complete(&clean), Comparison::Complete(&sensitive));
-        let read = |state, base_unchanged, head| PullRequestRead { state, base_unchanged, head };
+        const BASE: &str = "dddddddddddddddddddddddddddddddddddddddd";
+        const REWRITTEN: &str = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+        let read = |state, base_unchanged, head| PullRequestRead { state, base_unchanged, head, base_sha: Some(BASE) };
         let ok = read("open", true, NEW);
+        let no_base = PullRequestRead { base_sha: None, ..ok };
+        let rewritten = PullRequestRead { base_sha: Some(REWRITTEN), ..ok };
         // (status, stored head, (first read, comparison, last read)) -> action
         #[allow(clippy::type_complexity)]
         let table: Vec<(
@@ -312,14 +325,8 @@ mod tests {
             // First read passed: compare next.
             (Some("in_review"), Some(OLD), Some((ok, Comparison::Pending, None)), Compare),
             (Some("in_review"), Some(OLD), Some((ok, clean, None)), Compare),
-            // A failed comparison is a refusal, never a block.
-            (Some("in_review"), Some(OLD), Some((ok, Comparison::Failed, None)), RefuseComparisonUnavailable),
-            (
-                Some("sensitive_blocked"),
-                Some(OLD),
-                Some((ok, Comparison::Failed, Some(ok))),
-                RefuseComparisonUnavailable,
-            ),
+            // The first read must carry the base commit used for the comparison.
+            (Some("in_review"), Some(OLD), Some((no_base, Comparison::Pending, None)), RefuseProviderUnavailable),
             // Last read after the comparison: the confirmed state must still hold.
             (
                 Some("in_review"),
@@ -329,6 +336,10 @@ mod tests {
             ),
             (Some("in_review"), Some(OLD), Some((ok, clean, Some(read("open", false, NEW)))), RefuseBaseChanged),
             (Some("in_review"), Some(OLD), Some((ok, clean, Some(read("open", true, OTHER)))), RefuseHeadMismatch),
+            // The base commit must be present and unchanged in the last read.
+            (Some("in_review"), Some(OLD), Some((ok, clean, Some(no_base))), RefuseProviderUnavailable),
+            (Some("in_review"), Some(OLD), Some((ok, clean, Some(rewritten))), RefuseHeadMismatch),
+            (Some("sensitive_blocked"), Some(OLD), Some((ok, sensitive, Some(rewritten))), RefuseHeadMismatch),
             // Adoption and sensitivity.
             (Some("in_review"), Some(OLD), Some((ok, clean, Some(ok))), Adopt { sensitive: false, block: false }),
             (
@@ -394,7 +405,10 @@ mod tests {
             ErrorKind::ConflictWithCode { code, ref message }
                 if code == "errors.self_fix.reconcile_merge_unconfirmed" && message.ends_with("then use the new revision.")
         ));
-        // A failed comparison answers like the other failed provider reads (503).
-        assert!(matches!(reconcile_refusal(RefuseComparisonUnavailable).kind, ErrorKind::Unavailable(_)));
+        // Every failed provider read answers with one coded 503.
+        assert!(matches!(
+            reconcile_refusal(RefuseProviderUnavailable).kind,
+            ErrorKind::UnavailableWithCode { code, .. } if code == "errors.self_fix.reconcile_provider_unavailable"
+        ));
     }
 }

@@ -5,7 +5,7 @@
 //! decision transaction. Tenant ownership is checked before any lock or
 //! provider call; any provider read failure fails closed with nothing written.
 
-use agentforge_core::{AppResult, TenantScope};
+use agentforge_core::{AppError, AppResult, TenantScope};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -81,51 +81,59 @@ impl SelfFixService {
         let source = MaintenanceRequestRepository::find_by_task_on(conn, scope, task_id).await?;
         let repository_matches =
             source.as_ref().is_none_or(|src| src.repository.eq_ignore_ascii_case(github.repository_slug()));
+        // Every provider read below fails closed the same way: one coded 503
+        // refusal, nothing written, safe to retry (the cause is logged only).
+        let unavailable = |what: &str, err: AppError| {
+            tracing::warn!(error = ?err, task_id = %task_id, read = what, "self-fix reconcile: provider read failed; refusing");
+            reconcile_refusal(ReconcileAction::RefuseProviderUnavailable)
+        };
         let expected_base = match &source {
             Some(src) => src.default_branch.clone(),
-            None => github.repository_setup().await?.default_branch,
+            None => github.repository_setup().await.map_err(|err| unavailable("repository", err))?.default_branch,
         };
 
-        // Live reads, at most three: a failed read fails closed (503, nothing
-        // written, safe to retry).
+        // Live reads, at most three, plus the repository read for a plain task.
         // 1. The first read: refused here if it is not open, targets another
-        //    base or repository, or has another head, before any comparison.
+        //    base or repository, has another head, or lacks a base commit,
+        //    before any comparison.
         let status = task.review_status.as_deref();
         let stored = task.pr_head_sha.as_deref();
-        let first = github.maintenance_pull_request(pr_number).await?;
+        let first =
+            github.maintenance_pull_request(pr_number).await.map_err(|err| unavailable("first pull request", err))?;
         let read = |pr: &MaintenancePullRequest| -> bool { repository_matches && pr.base_branch == expected_base };
-        let first_read = PullRequestRead { state: &first.state, base_unchanged: read(&first), head: &first.head_sha };
+        let first_read = PullRequestRead {
+            state: &first.state,
+            base_unchanged: read(&first),
+            head: &first.head_sha,
+            base_sha: first.base_sha.as_deref(),
+        };
         let pending = ReconcileObservation { first: first_read, comparison: Comparison::Pending, last: None };
-        match reconcile_head_action(status, stored, input, Some(&pending)) {
-            ReconcileAction::Compare => {}
-            refusal => return Err(reconcile_refusal(refusal)),
-        }
+        let base_sha = match (reconcile_head_action(status, stored, input, Some(&pending)), first_read.base_sha) {
+            (ReconcileAction::Compare, Some(base_sha)) => base_sha,
+            (ReconcileAction::Compare, None) => {
+                return Err(reconcile_refusal(ReconcileAction::RefuseProviderUnavailable));
+            }
+            (refusal, _) => return Err(reconcile_refusal(refusal)),
+        };
         // 2. Sensitivity from two IMMUTABLE commits: the validated base commit
         //    and the confirmed new head (not the pull request's mutable diff).
-        let compared = match first.base_sha.as_deref() {
-            Some(base_sha) => github.compare_files(base_sha, &input.expected_new_head).await,
-            None => Err(reconcile_refusal(ReconcileAction::RefuseComparisonUnavailable)),
-        };
-        if let Err(err) = &compared {
-            tracing::warn!(error = ?err, task_id = %task_id, "self-fix reconcile: comparison failed; refusing");
-        }
-        let comparison = match &compared {
-            Ok(files) if files.complete => Comparison::Complete(&files.paths),
-            Ok(_) => Comparison::Capped,
-            Err(_) => Comparison::Failed,
-        };
-        // 3. Consistency re-read after the comparison (skipped when it failed).
-        let last = match &compared {
-            Ok(_) => Some(github.maintenance_pull_request(pr_number).await?),
-            Err(_) => None,
-        };
+        let compared = github
+            .compare_files(base_sha, &input.expected_new_head)
+            .await
+            .map_err(|err| unavailable("comparison", err))?;
+        let comparison = if compared.complete { Comparison::Complete(&compared.paths) } else { Comparison::Capped };
+        // 3. Consistency re-read after the comparison: still open, same base
+        //    branch AND base commit, head still the confirmed one.
+        let last =
+            github.maintenance_pull_request(pr_number).await.map_err(|err| unavailable("final pull request", err))?;
         let observation = ReconcileObservation {
             first: first_read,
             comparison,
-            last: last.as_ref().map(|pr| PullRequestRead {
-                state: &pr.state,
-                base_unchanged: read(pr),
-                head: &pr.head_sha,
+            last: Some(PullRequestRead {
+                state: &last.state,
+                base_unchanged: read(&last),
+                head: &last.head_sha,
+                base_sha: last.base_sha.as_deref(),
             }),
         };
         let action = reconcile_head_action(status, stored, input, Some(&observation));

@@ -254,7 +254,7 @@ describe('maintenance evidence operator workflow', () => {
     ],
     [
       'provider-unavailable',
-      'GitHub could not be read, so nothing was changed. Try again in a moment.',
+      'GitHub could not be read, so nothing was changed. Try again. If it keeps failing, check that the pull request still exists and that the GitHub App can access the repository.',
     ],
   ] as const)('explains the %s refusal of the newer revision', async (reason, message) => {
     const data = maintenanceDelivery()

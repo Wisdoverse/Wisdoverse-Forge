@@ -37,6 +37,8 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/domain/maintenance_delivery.rs",
     "rust/crates/api/src/repositories/orchestration/maintenance_request.rs",
     "rust/crates/api/src/repositories/orchestration/maintenance_delivery.rs",
+    // The merge mutex, decision lock/budget, review-status, attempt and head writes.
+    "rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs",
 ];
 
 #[allow(dead_code)]
@@ -621,6 +623,22 @@ mod tests {
         assert!(!blocked(&["src/app/features/board/TaskCard.tsx"]));
         assert!(!blocked(&["rust/crates/api/src/routes/licenses.rs"]));
         assert!(!blocked(&["docs/guides/configuration.md"]));
+    }
+
+    #[test]
+    fn merge_gate_queries_stay_on_the_protected_path() {
+        assert!(blocked(&["rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs"]));
+        // The shared repository file is not protected, so the merge-gate
+        // queries must not move back into it.
+        let read = |file: &str| {
+            std::fs::read_to_string(format!("{}/src/repositories/orchestration/{file}", env!("CARGO_MANIFEST_DIR")))
+                .unwrap()
+        };
+        assert!(
+            !read("mod.rs").contains("pg_try_advisory_lock"),
+            "the merge-mutex query belongs in self_fix_delivery.rs (a protected path), not the shared mod.rs"
+        );
+        assert!(read("self_fix_delivery.rs").contains("pg_try_advisory_lock"));
     }
 
     #[test]

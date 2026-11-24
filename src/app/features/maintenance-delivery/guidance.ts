@@ -22,7 +22,7 @@ export function deliveryGuidance(error: unknown): string {
   if (reason === 'reconcile-merge-unconfirmed')
     return 'A finish attempt for this change is in progress or not confirmed. Choose Finish this fix to complete it, then use the new revision.'
   if (reason === 'provider-unavailable')
-    return 'GitHub could not be read, so nothing was changed. Try again in a moment.'
+    return 'GitHub could not be read, so nothing was changed. Try again. If it keeps failing, check that the pull request still exists and that the GitHub App can access the repository.'
   if (reason === 'merge-in-progress')
     return "A merge of this change is in progress or unconfirmed. Choose Finish this fix in the task's fix check status to complete it, then record the verdict."
   if (reason === 'delivery-unavailable')

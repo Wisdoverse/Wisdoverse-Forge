@@ -45,6 +45,10 @@ pub struct FakeGithub {
     pub bases: Mutex<HashMap<i32, String>>,
     /// The pull-request read answers 500.
     pub failing_pulls: Mutex<HashSet<i32>>,
+    /// The pull-request read answers 200 with an undecodable body.
+    pub malformed_pulls: Mutex<HashSet<i32>>,
+    /// The pull-request read omits the base commit.
+    pub pulls_without_base_sha: Mutex<HashSet<i32>>,
     /// Base commit per pull request (default `b…`).
     pub base_shas: Mutex<HashMap<i32, String>>,
     /// Compared files per `base...head` (default one `src/lib.rs` entry), as
@@ -116,10 +120,14 @@ pub async fn pull(State(f): Fake, Path(n): Path<i32>) -> Response {
     if f.failing_pulls.lock().unwrap().contains(&n) {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
+    if f.malformed_pulls.lock().unwrap().contains(&n) {
+        return axum::Json(json!({"number": "not-a-number", "head": null})).into_response();
+    }
     let merged = f.merged.lock().unwrap().contains(&n);
     let closed = merged || f.closed.lock().unwrap().contains(&n);
     let base = f.bases.lock().unwrap().get(&n).cloned().unwrap_or_else(|| "develop".into());
     let base_sha = f.base_shas.lock().unwrap().get(&n).cloned().unwrap_or_else(|| sha('b'));
+    let base_sha = if f.pulls_without_base_sha.lock().unwrap().contains(&n) { Value::Null } else { json!(base_sha) };
     axum::Json(json!({"number":n,"node_id":format!("PR-{n}"),"state":if closed {"closed"} else {"open"},"merged":merged,"draft":false,
         "head":{"sha":head},"base":{"ref":base,"sha":base_sha,"repo":{"full_name":"acme/widgets"}},"html_url":"https://example.com"}))
     .into_response()
