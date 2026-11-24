@@ -27,7 +27,15 @@ import { StateUnreadable, TERMINAL, emptyState, validateState } from './journal.
 import { planFrontendSwitch, selectPrunable } from './plan.js'
 
 const MAX_BUFFER = 256 * 1024 * 1024
-const PASS_THROUGH = ['PATH', 'HOME', 'TMPDIR', 'DOCKER_HOST', 'DOCKER_CONFIG']
+// COMPOSE_PARALLEL_LIMIT=1 builds one image at a time on a loaded, shared host.
+const PASS_THROUGH = [
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'DOCKER_HOST',
+  'DOCKER_CONFIG',
+  'COMPOSE_PARALLEL_LIMIT',
+]
 const JOURNAL_ONLY = new Set(['seal', 'commit', 'close'])
 const HELPER_LABEL = 'forge.deploy.project'
 // Static argument lists are written as one string; dynamic values stay separate array items.

@@ -12,7 +12,7 @@ const path = require('path')
 const here = path.dirname(fs.realpathSync(process.argv[1]))
 const argv = process.argv.slice(2)
 const pg = Object.keys(process.env).filter((k) => k.startsWith('PG')).sort()
-fs.appendFileSync(path.join(here, 'calls.log'), JSON.stringify({ argv, pg, version: process.env.VERSION ?? null }) + '\\n')
+fs.appendFileSync(path.join(here, 'calls.log'), JSON.stringify({ argv, pg, version: process.env.VERSION ?? null, parallel: process.env.COMPOSE_PARALLEL_LIMIT ?? null }) + '\\n')
 const rules = JSON.parse(fs.readFileSync(path.join(here, 'rules.json'), 'utf8'))
 const usedFile = path.join(here, 'used.json')
 const used = fs.existsSync(usedFile) ? JSON.parse(fs.readFileSync(usedFile, 'utf8')) : []

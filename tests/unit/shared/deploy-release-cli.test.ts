@@ -63,6 +63,7 @@ function cli(...args: string[]) {
     FORGE_RELEASE_ROOT: p('release'),
     FORGE_PRIVATE_ROOT: p('private'),
     FORGE_RUNNER_IMAGE: 'forge-deploy-runner:test',
+    COMPOSE_PARALLEL_LIMIT: '1',
   }
   const r = spawnSync(process.execPath, [CLI, ...args], { env, encoding: 'utf8' })
   return { code: r.status, out: `${r.stdout}${r.stderr}` }
@@ -157,6 +158,7 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
     expect(build?.argv.slice(-3)).toEqual(['build', 'agentforge-server', 'orchestrator'])
     // Round 7, T2: compose builds under a temporary VERSION; the shared tag is created after.
     expect(build?.version).toMatch(new RegExp(`^${REV}-build-[0-9a-z]+$`))
+    expect(build?.parallel).toBe('1') // passed through to compose
     const frontendBuild = stub.calls().find((c) => c.argv[0] === 'build')
     expect(frontendBuild?.argv.join(' ')).toMatch(
       new RegExp(`-t agentforge-frontend:${REV}-build-[0-9a-z]+ `)

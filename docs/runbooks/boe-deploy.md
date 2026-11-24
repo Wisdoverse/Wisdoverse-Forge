@@ -275,6 +275,7 @@ sudo docker run --rm --network host \
   -e FORGE_RELEASE_ROOT="$ROOT/release" \
   -e FORGE_PRIVATE_ROOT="$ROOT/private" \
   -e FORGE_RUNNER_IMAGE="$IMG" \
+  -e COMPOSE_PARALLEL_LIMIT=1 \
   "$IMG" \
   node "$ROOT/release/releases/$REV/scripts/deploy-release.mjs" baseline
 ```
@@ -332,7 +333,8 @@ out whether it recorded anything. Run `status` from a host shell (see
 
 - It shows `current release: baseline`: the baseline is recorded. Do not run
   it again. Continue with step 3.
-- It reports `no active inputs`, or shows no current release: nothing was
+- It refuses with `no staged or active inputs` (exit 12), or shows
+  `current release:  (none - run baseline first)`: nothing was
   recorded. Run the Jenkins job with `ACTION=stage` (it stages the inputs
   again), then run 2c again.
 

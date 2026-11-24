@@ -260,6 +260,7 @@ def runner(String command, String suffix = '') {
       -e FORGE_PRIVATE_ROOT="\$ROOT/private" \\
       -e FORGE_RUNNER_IMAGE="\$FORGE_RUNNER_ID" \\
       -e SIMULATE_VERIFY_FAILURE="\$SIMULATE" \\
+      -e COMPOSE_PARALLEL_LIMIT=1 \\
       "\$FORGE_RUNNER_ID" \\
       node "\$ROOT/release/releases/\$FORGE_REV/scripts/deploy-release.mjs" ${command} --revision "\$FORGE_REV"${suffix}
   """
