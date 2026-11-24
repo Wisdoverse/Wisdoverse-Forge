@@ -8,6 +8,8 @@ import {
   backendFindings,
   captureExpectations,
   compareBaseline,
+  createdVolumes,
+  INPUTS_LABEL,
   IDENTITY_KEYS,
   compareLedger,
   databaseFindings,
@@ -21,13 +23,20 @@ import {
   parseEnvFile,
   parseMigrations,
   preflightFindings,
+  provenanceLabels,
+  provenanceProblem,
+  REVISION_LABEL,
   quoteIdent,
   quoteLiteral,
   redact,
   rollbackFindings,
   secretValues,
+  snapshotVolumes,
   tagDriftFindings,
+  volumeCleanup,
+  volumeFindings,
 } from '../../../scripts/lib/deploy-release/checks.js'
+import { loadVolumeClasses } from '../../../scripts/deploy-release.mjs'
 import {
   atomicWrite,
   createExecutor,
@@ -58,6 +67,7 @@ import {
   snapshotName,
 } from '../../../scripts/lib/deploy-release/plan.js'
 import {
+  CREATED_VOLUME,
   createWorld,
   ctxFor,
   NEXT,
@@ -90,6 +100,7 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
     },
     startedAt: '2026-11-24T00:00:00.000Z',
     swaps: [],
+    createdVolumes: [],
     snapshot: {
       complete,
       databases: [
@@ -721,12 +732,10 @@ describe('preflight predicates', () => {
     }
     expect(identityFindings('p', rendered, [container])).toEqual([])
     expect(identityFindings('other', rendered, [container])).toHaveLength(1)
-    const wrongVolume = { ...container, mounts: [{ target: '/data', name: 'q_nats-data' }] }
-    expect(identityFindings('p', rendered, [wrongVolume])).toHaveLength(1)
     expect(identityFindings('p', rendered, [])).toHaveLength(1)
-    // Rehearsal: a volume the release adds (nothing mounted there yet) is not a refusal.
-    const noVolumeYet = { ...container, mounts: [] }
-    expect(identityFindings('p', rendered, [noVolumeYet])).toEqual([])
+    // A service the running release does not have yet needs no container (R3 covers its mounts).
+    const prevRendered = { services: {}, volumes: {} }
+    expect(identityFindings('p', rendered, [], prevRendered)).toEqual([])
   })
 
   it('finding 9: refuses when the rollback target is not complete', () => {
@@ -1282,7 +1291,7 @@ describe('filesystem effects (temporary directory only)', () => {
     }
   })
 
-  it('finding 6: build is a no-op for a revision that already has a release record', () => {
+  it('finding 6: build is a no-op for a revision that already has a release record', async () => {
     const tmp = tmpDir()
     const messages: string[] = []
     const state = {
@@ -1300,11 +1309,11 @@ describe('filesystem effects (temporary directory only)', () => {
     process.env.PATH = `${bin}:${savedPath}`
     try {
       stub('sha256:1')
-      createExecutor(cfgFor(tmp), (m: string) => messages.push(m)).build('abc1234')
+      await createExecutor(cfgFor(tmp), (m: string) => messages.push(m)).build('abc1234')
       expect(messages.join('\n')).toMatch(/already has a release record; build skipped/)
       // A recorded release whose tag now points elsewhere fails the build (round 2, finding 6).
       stub('sha256:2')
-      expect(() => createExecutor(cfgFor(tmp), () => null).build('abc1234')).toThrow(
+      await expect(createExecutor(cfgFor(tmp), () => null).build('abc1234')).rejects.toThrow(
         /no longer points at the recorded image/
       )
     } finally {
@@ -1425,5 +1434,285 @@ describe('runner image', () => {
     const text = fs.readFileSync(path.join(root, 'docker/Dockerfile.deploy-runner'), 'utf8')
     const final = text.slice(text.lastIndexOf('\nFROM '))
     expect(final).toMatch(/apt-get install -y --no-install-recommends[^\n]*\bca-certificates\b/)
+  })
+})
+
+describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
+  const CLASSES = {
+    'nats-data': { class: 'snapshot' },
+    uploads: { class: 'snapshot' },
+    compliance: { class: 'excluded', reason: 'derived exports' },
+  }
+  const vol = (source: string, target: string) => ({ type: 'volume', source, target })
+  const bind = (source: string, target: string) => ({ type: 'bind', source, target })
+  const decl = (extra: Record<string, unknown> = {}) => ({
+    'nats-data': { name: 'p_nats-data' },
+    uploads: { name: 'p_uploads' },
+    ...extra,
+  })
+  // The running release: nats mounts p_nats-data at /data, api mounts p_uploads and a bind.
+  const prevRendered = {
+    services: {
+      nats: { container_name: 'p-nats', volumes: [vol('nats-data', '/data')] },
+      api: {
+        container_name: 'p-api',
+        volumes: [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws')],
+      },
+    },
+    volumes: decl(),
+  }
+  const prevContainers = [
+    {
+      name: 'p-nats',
+      project: 'p',
+      mounts: [{ type: 'volume', name: 'p_nats-data', target: '/data' }],
+    },
+    {
+      name: 'p-api',
+      project: 'p',
+      mounts: [
+        { type: 'volume', name: 'p_uploads', target: '/var/lib/up' },
+        { type: 'bind', name: '', target: '/srv/ws' },
+      ],
+    },
+  ]
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    'p_nats-data': { exists: true, driver: 'local' },
+    p_uploads: { exists: true, driver: 'local' },
+    ...extra,
+  })
+  const target = (
+    api: Record<string, unknown>[] = [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws')],
+    volumes = decl(),
+    nats: Record<string, unknown>[] = [vol('nats-data', '/data')],
+    extraServices: Record<string, unknown> = {}
+  ) => ({
+    services: {
+      nats: { container_name: 'p-nats', volumes: nats },
+      api: { container_name: 'p-api', volumes: api },
+      ...extraServices,
+    },
+    volumes,
+  })
+  const check = (rendered: unknown, volumeFacts = facts(), classes = CLASSES) =>
+    volumeFindings(classes, { rendered, prevRendered, prevContainers, volumeFacts })
+
+  it('R2: the same target with another resolved volume is refused', () => {
+    const t = target(undefined, decl({ 'nats-data': { name: 'q_nats-data' } }))
+    expect(check(t).join('\n')).toMatch(
+      /p-nats mounts volume p_nats-data at \/data; the target release mounts q_nats-data there instead/
+    )
+  })
+  it('R2: a moved target is refused (the old mount is gone)', () => {
+    const t = target(undefined, decl(), [vol('nats-data', '/data2')])
+    expect(check(t).join('\n')).toMatch(
+      /p-nats mounts volume p_nats-data at \/data; the target release does not/
+    )
+  })
+  it('R3(a): an added volume that shadows an existing mount is refused, in both directions', () => {
+    const inside = target(undefined, decl({ compliance: { name: 'p_compliance' } }), [
+      vol('nats-data', '/data'),
+      vol('compliance', '/data/jetstream'),
+    ])
+    expect(check(inside).join('\n')).toMatch(
+      /added volume p_compliance at \/data\/jetstream overlaps the existing volume mount at \/data/
+    )
+    const parent = target(
+      [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('compliance', '/srv')],
+      decl({ compliance: { name: 'p_compliance' } })
+    )
+    expect(check(parent).join('\n')).toMatch(
+      /added volume p_compliance at \/srv overlaps the existing bind mount at \/srv\/ws/
+    )
+  })
+  it('R3(b): an existing volume no container of the running release uses is refused', () => {
+    const t = target(
+      [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('compliance', '/var/lib/c')],
+      decl({ compliance: { name: 'p_compliance' } })
+    )
+    const leftover = facts({ p_compliance: { exists: true, driver: 'local' } })
+    expect(check(t, leftover).join('\n')).toMatch(
+      /volume p_compliance already exists but no container of the running release uses it.*docker volume inspect p_compliance/
+    )
+  })
+  it('R2: a changed driver is refused', () => {
+    const t = target(undefined, decl({ uploads: { name: 'p_uploads', driver: 'nfs' } }))
+    expect(check(t).join('\n')).toMatch(
+      /p_uploads at \/var\/lib\/up with driver local; the target release declares nfs/
+    )
+  })
+  it('R2: a changed external flag is refused', () => {
+    const t = target(undefined, decl({ uploads: { name: 'p_uploads', external: true } }))
+    expect(check(t).join('\n')).toMatch(/external=false; the target release declares external=true/)
+  })
+  it('R1: an unclassified volume is refused by name', () => {
+    const t = target(
+      [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('mystery', '/var/lib/m')],
+      decl({ mystery: { name: 'p_mystery' } })
+    )
+    expect(check(t).join('\n')).toMatch(
+      /volume mystery \(p_mystery, service api\) is not classified in scripts\/deploy-release.volumes.json/
+    )
+  })
+  it('a brand-new classified volume passes, and it is the one the rollback removes', () => {
+    const t = target(
+      [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('compliance', '/var/lib/c')],
+      decl({ compliance: { name: 'p_compliance' } })
+    )
+    expect(check(t)).toEqual([])
+    expect(createdVolumes(t, facts())).toEqual(['p_compliance'])
+    expect(snapshotVolumes(CLASSES, t, facts())).toEqual(['p_nats-data', 'p_uploads'])
+  })
+  it('a new service sharing an existing project volume passes', () => {
+    const t = target(undefined, decl(), undefined, {
+      worker: { container_name: 'p-worker', volumes: [vol('uploads', '/var/lib/up')] },
+    })
+    expect(check(t)).toEqual([])
+    expect(createdVolumes(t, facts())).toEqual([])
+  })
+  it('the manifest in the repository classifies every volume the deployed Compose files mount', () => {
+    const classes = loadVolumeClasses()
+    expect(Object.keys(classes).sort()).toEqual([
+      'agentforge-compliance',
+      'agentforge-uploads',
+      'nats-data',
+    ])
+    expect(classes['agentforge-compliance'].reason.length).toBeGreaterThan(20)
+  })
+  it('R4: cleanup removes stopped leftovers of this project, then the volume; anything else keeps it', () => {
+    const stopped = { id: 'c1', name: 'p-worker', project: 'p', running: false }
+    expect(volumeCleanup('p', [stopped])).toEqual({
+      removeContainers: ['c1'],
+      removeVolume: true,
+      blockers: [],
+    })
+    const running = { id: 'c2', name: 'p-api', project: 'p', running: true }
+    const foreign = { id: 'c3', name: 'x', project: 'other', running: false }
+    const kept = volumeCleanup('p', [stopped, running, foreign])
+    expect(kept.removeVolume).toBe(false)
+    expect(kept.blockers.map((c: { name: string }) => c.name)).toEqual(['p-api', 'x'])
+  })
+  it('R4: the recovery plan removes exactly the created volumes, after the previous release started', () => {
+    const attempt = { ...attemptFixture(true), createdVolumes: ['p_compliance'] }
+    const observed = {
+      databases: {
+        forge: { oid: 1, allowConnections: true },
+        forge__snap_a1b2c3d4: { oid: 2, allowConnections: true },
+      },
+    }
+    const ops = planRecovery(attempt, observed).map((s: { op: string }) => s.op)
+    const at = ops.indexOf('remove_created_volumes')
+    expect(at).toBeGreaterThan(ops.lastIndexOf('start'))
+    const step = planRecovery(attempt, observed)[at]
+    expect(step).toMatchObject({ volumes: ['p_compliance'], bestEffort: true })
+    expect(
+      planRecovery(attemptFixture(true), observed).map((s: { op: string }) => s.op)
+    ).not.toContain('remove_created_volumes')
+  })
+})
+
+describe('round 7 review, P1-B: provenance of release tags', () => {
+  it('a tag is adoptable only with this revision (and build-input hash)', () => {
+    const want = provenanceLabels('abc1234')
+    expect(provenanceProblem('r:abc1234', { [REVISION_LABEL]: 'abc1234' }, want)).toBeNull()
+    expect(provenanceProblem('r:abc1234', { [REVISION_LABEL]: 'fff0000' }, want)).toMatch(
+      /immutable/
+    )
+    expect(provenanceProblem('r:abc1234', {}, want)).toMatch(/\(none\)/)
+    const withInputs = provenanceLabels('abc1234', 'h1')
+    expect(
+      provenanceProblem('r', { [REVISION_LABEL]: 'abc1234', [INPUTS_LABEL]: 'h2' }, withInputs)
+    ).toMatch(/forge.deploy.build-inputs=h2/)
+  })
+})
+
+describe('round 7 review, P1-A R4: a rollback restores the pre-attempt volume set', () => {
+  // Op order of a deploy that fails its backend check, from a probe run.
+  async function opsOfFailedDeploy() {
+    const world = createWorld()
+    const ctx = ctxFor(world, {}, fakeConfig({ simulateVerifyFailure: true }))
+    const seen: string[] = []
+    const run = ctx.exec.run
+    ctx.exec.run = (step: { op: string }, st: unknown) => {
+      seen.push(step.op)
+      return run(step, st)
+    }
+    expect(await deploy(ctx)).toBe(EXIT.ROLLED_BACK)
+    return { world, seen }
+  }
+
+  it('the rollback removes exactly the volume the attempt created; a redeploy then passes', async () => {
+    const { world, seen } = await opsOfFailedDeploy()
+    expect(seen).toContain('remove_created_volumes')
+    expect([...world.dockerVolumes].sort()).toEqual(['forge_agentforge-uploads', 'forge_nats-data'])
+    const state = JSON.parse(world.stateJson)
+    expect(state.attempt.createdVolumes).toEqual([CREATED_VOLUME])
+    expect(state.attempt.volumeCleanup).toEqual({ removed: [CREATED_VOLUME], kept: [] })
+    expect(await deploy(ctxFor(world, {}))).toBe(EXIT.OK)
+    expect(world.dockerVolumes.has(CREATED_VOLUME)).toBe(true)
+  })
+
+  it('a volume the rollback could not remove is reported, and the retry is refused by R3(b)', async () => {
+    const world = createWorld()
+    world.volumeRemovalFails = true
+    const messages: string[] = []
+    const ctx = {
+      ...ctxFor(world, {}, fakeConfig({ simulateVerifyFailure: true })),
+      log: (m: string) => messages.push(m),
+    }
+    expect(await deploy(ctx)).toBe(EXIT.ROLLED_BACK)
+    expect(JSON.parse(world.stateJson).attempt.volumeCleanup.kept).toEqual([
+      { name: CREATED_VOLUME, reason: 'in use' },
+    ])
+    world.volumeRemovalFails = false
+    const retry: string[] = []
+    expect(await deploy({ ...ctxFor(world, {}), log: (m: string) => retry.push(m) })).toBe(
+      EXIT.PREFLIGHT_REFUSED
+    )
+    expect(retry.join('\n')).toMatch(
+      new RegExp(
+        `volume ${CREATED_VOLUME} already exists but no container of the running release uses it`
+      )
+    )
+  })
+
+  it('recover after a runner kill between the journal entry and the removal finishes the removal', async () => {
+    const { seen } = await opsOfFailedDeploy()
+    // The fake counts effect ops only; journal-only steps (seal, commit, close) have none.
+    const k = seen
+      .filter((op) => !['seal', 'commit', 'close'].includes(op))
+      .indexOf('remove_created_volumes')
+    for (const when of ['before', 'after']) {
+      const world = createWorld()
+      const crashed = ctxFor(
+        world,
+        { crash: { at: k, when } },
+        fakeConfig({ simulateVerifyFailure: true })
+      )
+      await expect(deploy(crashed)).rejects.toThrow(/crash/)
+      const st = JSON.parse(world.stateJson)
+      expect(st.attempt.step?.op).toBe('remove_created_volumes')
+      expect(await recover(ctxFor(world, {}))).toBe(EXIT.OK)
+      expect(world.dockerVolumes.has(CREATED_VOLUME)).toBe(false)
+      expect(JSON.parse(world.stateJson).attempt.phase).toBe('rolled_back')
+    }
+  })
+})
+
+describe('round 7 review: preflight wiring of the volume and provenance findings', () => {
+  it('a leftover volume and a tag without this revision label both refuse the plan', () => {
+    const world = createWorld()
+    world.dockerVolumes.add(CREATED_VOLUME)
+    const observed = {
+      ...goodPreflight(world),
+      provenanceProblems: ['image agentforge-server:next is not labeled with revision next'],
+    }
+    const state = JSON.parse(world.stateJson)
+    const plan = planDeploy(fakeConfig(), state, observed, { at: '2026-11-24T00:00:00.000Z' })
+    expect(plan.status).toBe('refused')
+    expect(plan.reasons.join('\n')).toMatch(
+      /already exists but no container of the running release uses it/
+    )
+    expect(plan.reasons.join('\n')).toMatch(/not labeled with revision next/)
   })
 })

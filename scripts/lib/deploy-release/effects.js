@@ -2,7 +2,7 @@
 // external network) and the filesystem. Decisions live in plan.js / checks.js.
 /* global fetch, AbortSignal */
 import { Buffer } from 'node:buffer'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -11,7 +11,13 @@ import {
   binding,
   captureExpectations,
   compareBaseline,
+  createdVolumes,
   frontendFindings,
+  provenanceLabels,
+  provenanceProblem,
+  REVISION_LABEL as REVISION,
+  snapshotVolumes,
+  volumeCleanup,
   isProductAgent,
   newAgents,
   identityOf,
@@ -27,6 +33,14 @@ import { StateUnreadable, TERMINAL, emptyState, validateState } from './journal.
 import { planFrontendSwitch, selectPrunable } from './plan.js'
 
 const MAX_BUFFER = 256 * 1024 * 1024
+// Repositories this pipeline builds; their tags carry provenance labels (round 7 review, P1-B).
+const BUILT = {
+  'agentforge-server': 'agentforge-server',
+  orchestrator: 'agentforge-orchestrator',
+}
+
+// A tag that exists with other provenance, or an unusable publication lock: exit 12.
+export class ImageRefused extends Error {}
 // COMPOSE_PARALLEL_LIMIT=1 builds one image at a time on a loaded, shared host.
 const PASS_THROUGH = [
   'PATH',
@@ -326,6 +340,23 @@ export function createExecutor(cfg, log) {
   const imageId = (ref) =>
     docker(['image', 'inspect', '--format', '{{.Id}}', ref], { allowFail: true }).stdout.trim() ||
     null
+  const volumeFact = (name) => {
+    const r = docker(['volume', 'inspect', '--format', '{{json .}}', name], { allowFail: true })
+    if (r.status !== 0) {
+      return { exists: false, driver: null, project: null }
+    }
+    let v = {}
+    try {
+      v = JSON.parse(r.stdout.trim() || '{}')
+    } catch {
+      v = {}
+    }
+    return {
+      exists: true,
+      driver: v.Driver ?? null,
+      project: v.Labels?.['com.docker.compose.project'] ?? null,
+    }
+  }
   const inspect = (nameOrId) => {
     const r = docker(['inspect', nameOrId], { allowFail: true })
     if (r.status !== 0) {
@@ -361,43 +392,99 @@ export function createExecutor(cfg, log) {
     Object.values(rendered.services)
       .map((s) => inspect(s.container_name))
       .filter(Boolean)
-  // Round 6, S2b: image tags are global to the daemon. A tag is created or confirmed, never moved.
-  const tagImage = (id, tag) => {
-    const existing = imageId(tag)
-    if (existing && existing !== id) {
-      throw new Error(`tag ${tag} already points at another image; refusing to move it`)
+  const labelsOf = (ref) => {
+    const r = docker(['image', 'inspect', '--format', '{{json .Config.Labels}}', ref], {
+      allowFail: true,
+    })
+    if (r.status !== 0) {
+      return null
     }
-    if (!existing) {
-      docker(['tag', id, tag])
-    }
-    if (imageId(tag) !== id) {
-      throw new Error(`tag ${tag} changed while it was being created; check who else tags it`)
+    try {
+      return JSON.parse(r.stdout.trim() || 'null') ?? {}
+    } catch {
+      return {}
     }
   }
-  // Round 7, T2: an image this pipeline builds goes to a temporary tag that carries the attempt
-  // id; the shared tag is created only if absent (else the existing image is adopted). Only our
-  // own temporary tag is removed. Returns the id the shared tag must point to.
-  const publish = (repo, shared) => {
-    const temp = `${repo}:${shared}-build-${cfg.attemptId}`
+  // Round 7 review, P1-B: one host-wide lock around every creation of a shared tag. The lock file
+  // lives in DEPLOY_LOCK_DIR, which all deployments on a host share (runbook); flock is the same
+  // primitive as the deploy lock, held by a child that exits when this process does.
+  const imageLockFile = () => path.join(cfg.lockDir, 'images.lock')
+  async function withImageLock(fn) {
+    ensureDir(cfg.lockDir)
+    const file = imageLockFile()
+    const child = spawn('flock', ['-x', '-w', '900', file, 'sh', '-c', 'echo locked; exec cat'], {
+      stdio: ['pipe', 'pipe', 'inherit'],
+    })
+    const exited = new Promise((resolve) => child.on('close', resolve))
+    await new Promise((resolve, reject) => {
+      let out = ''
+      child.stdout.on('data', (chunk) => {
+        out += chunk
+        if (out.includes('locked')) {
+          resolve()
+        }
+      })
+      child.on('error', (err) => reject(new ImageRefused(`flock could not start: ${err.message}`)))
+      exited.then((code) =>
+        reject(new ImageRefused(`the image publication lock ${file} was not taken (flock ${code})`))
+      )
+    })
+    try {
+      return await fn()
+    } finally {
+      child.stdin.end()
+      await exited
+    }
+  }
+  // An existing tag is adopted only with this release's provenance; otherwise it is immutable.
+  const adoptable = (ref, want) => {
+    const problem = provenanceProblem(ref, labelsOf(ref), want)
+    if (problem) {
+      throw new ImageRefused(problem)
+    }
+    return imageId(ref)
+  }
+  // Round 6, S2b: a tag is created or confirmed, never moved (baseline tags carry no labels).
+  const tagImage = (id, tag) =>
+    withImageLock(() => {
+      const existing = imageId(tag)
+      if (existing && existing !== id) {
+        throw new ImageRefused(`tag ${tag} already points at another image; refusing to move it`)
+      }
+      if (!existing) {
+        docker(['tag', id, tag])
+      }
+      if (imageId(tag) !== id) {
+        throw new Error(`tag ${tag} changed while it was being created; check who else tags it`)
+      }
+    })
+  // First writer wins. The image just built sits under a temporary tag with the attempt id; under
+  // the lock the shared tag is created if absent and read back, or, if present, adopted when its
+  // provenance matches (and our build is discarded). Returns the id read back under the lock.
+  async function publish(repo, rev, want) {
+    const shared = `${repo}:${rev}`
+    const temp = `${shared}-build-${cfg.attemptId}`
     const built = imageId(temp)
     if (!built) {
       throw new Error(`the build did not produce ${temp}`)
     }
-    const existing = imageId(`${repo}:${shared}`)
-    if (!existing) {
-      docker(['tag', built, `${repo}:${shared}`])
-    }
+    const id = await withImageLock(() => {
+      if (imageId(shared)) {
+        const adopted = adoptable(shared, want)
+        log(
+          `${shared} was published by another build first; adopted ${adopted}, discarded ${built}`
+        )
+        return adopted
+      }
+      docker(['tag', built, shared])
+      const back = imageId(shared)
+      if (back !== built) {
+        throw new Error(`tag ${shared} does not point at the image just tagged`)
+      }
+      return back
+    })
     docker(['image', 'rm', temp])
-    const want = existing ?? built
-    if (imageId(`${repo}:${shared}`) !== want) {
-      throw new Error(
-        `tag ${repo}:${shared} changed while it was being published; refusing to continue`
-      )
-    }
-    if (existing) {
-      log(`${repo}:${shared} appeared during the build; adopted the existing image`)
-    }
-    return want
+    return id
   }
   const loadConfig = (rev) => JSON.parse(fs.readFileSync(record(rev).config, 'utf8'))
   // Running agents refuse a deploy; stopped ones of a discarded release are removed too.
@@ -651,6 +738,44 @@ export function createExecutor(cfg, log) {
       }
     },
     prune: () => prune(),
+    // R4: remove exactly the volumes this attempt created, after the previous release replaced the
+    // target's containers. Never throws: what is kept is journaled and reported.
+    remove_created_volumes: (s) => {
+      const removed = []
+      const kept = []
+      for (const name of s.volumes) {
+        try {
+          const fact = volumeFact(name)
+          if (!fact.exists) {
+            continue
+          }
+          if (fact.project !== cfg.project) {
+            kept.push({ name, reason: `not created by Compose project ${cfg.project}` })
+            continue
+          }
+          const refs = lines(docker(['ps', '-aq', '--filter', `volume=${name}`]))
+            .map(inspect)
+            .filter(Boolean)
+          const plan = volumeCleanup(cfg.project, refs)
+          removeContainers(plan.removeContainers, `stopped containers using ${name}`)
+          if (!plan.removeVolume) {
+            kept.push({ name, reason: `in use by ${plan.blockers.map((c) => c.name).join(', ')}` })
+            continue
+          }
+          docker(['volume', 'rm', name])
+          removed.push(name)
+          log(`removed volume ${name}: this attempt created it`)
+        } catch (err) {
+          kept.push({ name, reason: redact(err.message, cfg.secrets) })
+        }
+      }
+      kept.forEach((k) =>
+        log(
+          `WARNING: volume ${k.name}, created by this attempt, was kept (${k.reason}); the next deploy refuses until it is removed (runbook: Named volumes)`
+        )
+      )
+      return { removed, kept }
+    },
   }
 
   function prune() {
@@ -708,6 +833,25 @@ export function createExecutor(cfg, log) {
       prevConfig = null
     }
     const present = (id) => docker(['image', 'inspect', id], { allowFail: true }).status === 0
+    // R1-R4 facts: the running release's containers and every named volume either side mounts.
+    const prevContainers = prevConfig ? serviceContainers(prevConfig) : []
+    const volumeNames = new Set([
+      ...Object.keys(rendered.volumes ?? {}).map((k) => rendered.volumes[k].name ?? k),
+      ...prevContainers.flatMap((c) =>
+        c.mounts.filter((m) => m.type === 'volume').map((m) => m.name)
+      ),
+    ])
+    const volumeFacts = Object.fromEntries([...volumeNames].map((name) => [name, volumeFact(name)]))
+    // P1-B: a tag of a repository this pipeline builds is recorded only with this revision's label.
+    const provenanceProblems = Object.entries(rendered.services)
+      .filter(([svc]) => BUILT[svc])
+      .map(([, s]) => {
+        const labels = labelsOf(s.image)
+        return labels && labels[REVISION] !== rev
+          ? `image ${s.image} is not labeled with revision ${rev} (${REVISION}=${labels[REVISION] ?? '(none)'}); rebuild under a new revision, never retag`
+          : null
+      })
+      .filter(Boolean)
     const { facts: databases, ledgers } = catalog()
     const facts = await backendFacts(st.current, ledgers)
     const captured = captureExpectations(facts, cfg.requireRedis)
@@ -728,9 +872,14 @@ export function createExecutor(cfg, log) {
       targetMigrations,
       notes,
       containers: serviceContainers(rendered),
+      prevRendered: prevConfig,
+      prevContainers,
+      volumeFacts,
+      createdVolumes: createdVolumes(rendered, volumeFacts),
+      provenanceProblems,
       databases,
       agentContainers: agentInventory(),
-      volumes: cfg.volumes.map((key) => rendered.volumes?.[key]?.name ?? `${cfg.project}_${key}`),
+      volumes: snapshotVolumes(cfg.volumeClasses, rendered, volumeFacts),
       expect: captured.expect,
       captureProblems: captured.problems,
       rollback: {
@@ -754,7 +903,7 @@ export function createExecutor(cfg, log) {
   }
 
   // D5 + A11: record the hand-deployed release so the first deploy can roll back to it.
-  function baseline() {
+  async function baseline() {
     const rev = 'baseline'
     // Round 6, S2a: the baseline tag is scoped by project, so a rehearsal on the same host can
     // never replace the images the live stack's baseline record points at.
@@ -769,7 +918,7 @@ export function createExecutor(cfg, log) {
       if (!c) {
         return { findings: [`no running container for ${svc}`] }
       }
-      tagImage(c.imageId, `${repo}:${version}`)
+      await tagImage(c.imageId, `${repo}:${version}`)
     }
     const refs = Object.fromEntries(
       Object.entries(rendered.services).map(([svc, s]) => [svc, s.image])
@@ -876,7 +1025,7 @@ export function createExecutor(cfg, log) {
     ledgerRows,
     baseline,
     // Finding 6: a recorded release keeps its images; a moved tag is an error, not a rebuild.
-    build: (rev) => {
+    build: async (rev) => {
       const st = readState() ?? emptyState()
       const drift = () => {
         const findings = tagDriftFindings(st.records, tagIdsFor(st.records))
@@ -889,45 +1038,72 @@ export function createExecutor(cfg, log) {
         log(`${rev} already has a release record; build skipped so its images stay pinned`)
         return
       }
-      // Round 6, S2c: revision tags are shared by every deployment on this host by design. An
-      // existing tag is adopted as it is (preflight records its id); only missing ones are built.
-      const services = {
-        'agentforge-server': 'agentforge-server',
-        orchestrator: 'agentforge-orchestrator',
+      // The build specs come from the rendered Compose files. Arguments in them are the only build
+      // inputs outside the revision; today there are none, and the labels carry the revision only.
+      const spec = JSON.parse(
+        docker([...composeSource(rev), 'config', '--format', 'json'], { env: { VERSION: rev } })
+          .stdout
+      )
+      const ids = {}
+      for (const [svc, repo] of Object.entries(BUILT)) {
+        const b = spec.services?.[svc]?.build
+        if (!b?.context) {
+          throw new Error(`service ${svc} has no build section in the rendered Compose files`)
+        }
+        const args = Object.fromEntries(Object.entries(b.args ?? {}).sort())
+        const inputs = Object.keys(args).length > 0 ? sha256(JSON.stringify(args)) : null
+        const want = provenanceLabels(rev, inputs)
+        // Check before building, so a re-run adopts a valid tag instead of rebuilding.
+        if (imageId(`${repo}:${rev}`)) {
+          ids[svc] = adoptable(`${repo}:${rev}`, want)
+          log(`adopted the existing ${repo}:${rev} (${ids[svc]}); provenance matches`)
+          continue
+        }
+        const dockerfile = path.isAbsolute(b.dockerfile ?? '')
+          ? b.dockerfile
+          : path.join(b.context, b.dockerfile ?? 'Dockerfile')
+        const labels = Object.entries(want).flatMap(([k, v]) => ['--label', `${k}=${v}`])
+        // Argument values come from the environment (`--build-arg NAME`), never from argv.
+        const argFlags = Object.keys(args).flatMap((k) => ['--build-arg', k])
+        docker(
+          [
+            'build',
+            '-f',
+            dockerfile,
+            ...(b.target ? ['--target', b.target] : []),
+            ...argFlags,
+            ...labels,
+            '-t',
+            `${repo}:${rev}-build-${cfg.attemptId}`,
+            b.context,
+          ],
+          { env: args, inherit: true }
+        )
+        ids[svc] = await publish(repo, rev, want)
       }
-      const missing = Object.entries(services)
-        .filter(([, repo]) => !imageId(`${repo}:${rev}`))
-        .map(([svc]) => svc)
-      if (missing.length > 0) {
-        // Compose tags `<repo>:${VERSION}`; building under a temporary VERSION never moves `<rev>`.
-        docker([...composeSource(rev), 'build', ...missing], {
-          env: { VERSION: `${rev}-build-${cfg.attemptId}` },
-          inherit: true,
-        })
-        missing.forEach((svc) => publish(services[svc], rev))
-      }
-      const tag = `agentforge-frontend:${rev}`
-      if (!imageId(tag)) {
+      const front = `agentforge-frontend:${rev}`
+      const frontWant = provenanceLabels(rev)
+      if (imageId(front)) {
+        ids.frontend = adoptable(front, frontWant)
+        log(`adopted the existing ${front} (${ids.frontend}); provenance matches`)
+      } else {
+        const labels = Object.entries(frontWant).flatMap(([k, v]) => ['--label', `${k}=${v}`])
         const args = [
           '-f',
           path.join(releaseDir(rev), 'docker/Dockerfile'),
           '--build-arg',
           `APP_VERSION=${rev}`,
+          ...labels,
         ]
-        const temp = `agentforge-frontend:${rev}-build-${cfg.attemptId}`
+        const temp = `${front}-build-${cfg.attemptId}`
         docker([...words('build --target production'), ...args, '-t', temp, releaseDir(rev)], {
           inherit: true,
         })
-        publish('agentforge-frontend', rev)
+        ids.frontend = await publish('agentforge-frontend', rev, frontWant)
       }
-      const adopted = Object.keys(services).filter((svc) => !missing.includes(svc))
-      if (adopted.length > 0) {
-        log(
-          `adopted existing images for ${adopted.join(', ')} at ${rev} (tags are shared on this host)`
-        )
-      }
+      // Everything downstream uses the ids read back under the lock, never the local build's.
       const out = path.join(cfg.releaseRoot, 'frontend', rev)
-      const id = docker(['create', ...helperArgs('frontend'), tag]).stdout.trim()
+      const id = docker(['create', ...helperArgs('frontend'), ids.frontend]).stdout.trim()
       try {
         fs.rmSync(out, { recursive: true, force: true })
         ensureDir(out)
@@ -937,7 +1113,11 @@ export function createExecutor(cfg, log) {
         removeContainers([id], 'frontend extraction helper')
       }
       drift()
-      log(`built images and frontend for ${rev}`)
+      log(
+        `built images and frontend for ${rev}: ${Object.entries(ids)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' ')}`
+      )
     },
   }
 }

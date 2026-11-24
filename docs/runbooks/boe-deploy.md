@@ -21,13 +21,8 @@ The pipeline is defined by `Jenkinsfile`, `scripts/deploy-release.mjs` and
    nothing. If any check fails, the deploy stops here.
 
    Among other things, preflight checks that the running containers belong to
-   this deployment. For each named volume of the new release it accepts:
-   - the running container mounts that same volume at that path, or
-   - the running container mounts nothing at that path (the new release adds
-     the volume; Compose creates it in this project at start).
-
-   It refuses when the running container mounts a different volume at that
-   path, or when a container belongs to another Compose project.
+   this deployment and that named volumes follow the four rules in
+   [Named volumes](#named-volumes).
 
 5. The runner stops every service of the stack. It snapshots the four
    databases, the JetStream and uploads volumes, and the web root.
@@ -97,9 +92,16 @@ would point at it. A missing one is a refusal (exit 12) that lists the names.
 | `APP_URL`                                                                                                                     | URL used to check the served `index.html`, for example `https://forge.example.com`                                                                                                                                        |
 | `BIND_ADDRESS`, `AGENTFORGE_PORT`, `ORCHESTRATOR_PORT`, `NATS_PORT`, `NATS_MONITOR_PORT`, `TEMPORAL_PORT`, `TEMPORAL_UI_PORT` | Published address and ports; the health probes use them. The compose file publishes NATS and Temporal on every interface; to keep one on loopback, give the port as `127.0.0.1:<port>` (the probes then use that address) |
 
-Optional: `DEPLOY_PG_CLIENT_IMAGE` (PostgreSQL client image, default
-`postgres:18-alpine`), `WEBROOT_OWNER_UID`/`WEBROOT_OWNER_GID` (owner of
-written frontend files, default the owner of `WEBROOT`).
+Deliberate defaults: these values have a default because none of them selects
+another deployment's state.
+
+| Variable or value                                                 | Default                | Why it is safe                                                  |
+| ----------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------- |
+| Port in `DATABASE_URL` and `ORCHESTRATOR_DATABASE_URL`            | `5432`                 | The host and database name, which locate the data, are required |
+| `AGENTFORGE_HOST_PORT`                                            | `AGENTFORGE_PORT`      | The same fallback Compose uses for the published API port       |
+| `STORAGE_PROVIDER`, `STORAGE_LOCAL_PATH`, `COMPLIANCE_EXPORT_DIR` | The Compose defaults   | Paths inside this project's own named volumes                   |
+| `DEPLOY_PG_CLIENT_IMAGE`                                          | `postgres:18-alpine`   | A client image; it holds no state                               |
+| `WEBROOT_OWNER_UID`, `WEBROOT_OWNER_GID`                          | The owner of `WEBROOT` | Only file ownership inside the required `WEBROOT`               |
 
 Rules for this file:
 
@@ -193,6 +195,48 @@ docker image inspect postgres:18-alpine nats:2.12.7-alpine temporalio/auto-setup
 Replace `/srv/forge-deploy/www` with your `WEBROOT`. The runner never pulls
 images. Every image must already be present locally. Success: the three
 image tags print and the web root exists.
+
+## Named volumes
+
+Preflight applies four rules to named volumes. A broken rule is a refusal
+(exit 12) that names the volume; nothing was changed.
+
+1. **Every volume is classified.** Each named volume the release mounts is
+   listed in `scripts/deploy-release.volumes.json` as `snapshot` (archived
+   while stopped on every deploy and restored on rollback) or `excluded` (not
+   archived, with a one-line reason). A release that adds a volume must add it
+   there too.
+2. **A volume in use keeps its place.** Every named volume that a running
+   container mounts must be mounted by the new release at the same path, under
+   the same name, with the same driver and the same `external` setting. A
+   deploy never removes or moves a mount; such a release is refused and has
+   to be handled by hand.
+3. **An added volume is new or shared, and does not overlap.** A mount the
+   running container does not have yet must not sit on, inside or above any of
+   its existing mounts. Its volume must either not exist yet (the deploy
+   creates it) or already be used by a container of the running release. A
+   volume that exists but nothing running uses is refused: it is a leftover
+   of an earlier attempt or belongs to another deployment. Inspect it with
+   `docker volume inspect <name>`, and remove it only if it is a leftover.
+4. **A rollback removes what the attempt created.** The volumes that did not
+   exist at preflight are written to the journal before anything starts. A
+   rollback (and `recover`, when it rolls back) removes them once the previous
+   release runs again, and never removes a volume that existed before. If one
+   cannot be removed, the rollback still finishes, `status` shows it as
+   `KEPT`, and the next deploy refuses it by rule 3 until you remove it.
+
+## Release image tags
+
+Release tags (`agentforge-server:<commit>`, `agentforge-orchestrator:<commit>`,
+`agentforge-frontend:<commit>`, `forge-deploy-runner:<commit>`) are shared by
+every deployment on the host and are immutable: the first build that publishes
+a tag wins. Every image the pipeline builds carries the label
+`org.opencontainers.image.revision=<commit>`. A tag is created only under the
+host-wide lock `<DEPLOY_LOCK_DIR>/images.lock`, so give every deployment on one
+host the same `DEPLOY_LOCK_DIR`. An existing tag is adopted, without a build,
+only when its label is this commit; a tag with another label is refused as
+`a release tag is immutable` (exit 12). Investigate who created it; never
+retag it.
 
 ## First deploy
 
@@ -639,40 +683,61 @@ This does what the Jenkins `Prepare release` stage does, for a host without
 Jenkins (for example a rehearsal). Prerequisites: a clone of this repository
 with `origin/main` fetched, and the env file for this deployment.
 
+Paste the whole block. It runs in a fail-fast subshell: the first failed command or
+guard prints `REFUSED: <reason>` and stops with a non-zero status, and nothing after
+it runs. Fill in the four placeholders first.
+
 ```bash
-ROOT=<deploy-root>                                 # holds release/ and private/
-REPO=<repository-clone>
-REV=$(git -C "$REPO" rev-parse --verify '<commit>^{commit}')
-git -C "$REPO" merge-base --is-ancestor "$REV" origin/main || echo "NOT on main: stop"
-mkdir -p "$ROOT/release/releases" "$ROOT/release/tmp" "$ROOT/private" && chmod 700 "$ROOT/private"
-DEST="$ROOT/release/releases/$REV"
-if [ ! -d "$DEST" ]; then
-  mkdir -p "$DEST.partial" && git -C "$REPO" archive --format=tar "$REV" | tar -x -C "$DEST.partial" \
-    && mv "$DEST.partial" "$DEST"
-fi
-# Runner image: temporary tag; the shared tag only if absent; record the image id.
-SHARED="forge-deploy-runner:$REV"
-WANT=$(docker image inspect --format '{{.Id}}' "$SHARED" 2>/dev/null || true)
-if [ -z "$WANT" ]; then
-  TEMP="$SHARED-build-$(date +%s)-$$"
-  docker build -t "$TEMP" - < "$DEST/docker/Dockerfile.deploy-runner"
-  WANT=$(docker image inspect --format '{{.Id}}' "$SHARED" 2>/dev/null || true)
-  if [ -z "$WANT" ]; then WANT=$(docker image inspect --format '{{.Id}}' "$TEMP"); docker tag "$WANT" "$SHARED"; fi
-  docker image rm "$TEMP" >/dev/null
-fi
-[ "$(docker image inspect --format '{{.Id}}' "$SHARED")" = "$WANT" ] || echo "runner tag changed: stop"
-# Staged inputs: one directory, swapped in with a rename.
-(umask 077 && rm -rf "$ROOT/private/staged.partial" && mkdir "$ROOT/private/staged.partial" \
-  && cp <env-file> "$ROOT/private/staged.partial/deploy.env" \
-  && printf '\nVERSION=%s\n' "$REV" >> "$ROOT/private/staged.partial/deploy.env" \
-  && printf '%s\n' "$REV" > "$ROOT/private/staged.partial/runner" \
-  && printf '%s\n' "$WANT" > "$ROOT/private/staged.partial/runner-image" \
-  && rm -rf "$ROOT/private/staged" && mv "$ROOT/private/staged.partial" "$ROOT/private/staged")
+( set -euo pipefail
+  ROOT=<deploy-root>                         # holds release/ and private/
+  REPO=<repository-clone>
+  LOCK=<DEPLOY_LOCK_DIR-from-the-env-file>   # the same directory for every deployment on this host
+  ENV_FILE=<env-file>
+  refuse() { echo "REFUSED: $*" >&2; exit 12; }
+  REV=$(git -C "$REPO" rev-parse --verify '<commit>^{commit}')
+  git -C "$REPO" merge-base --is-ancestor "$REV" origin/main || refuse "$REV is not on main"
+  mkdir -p "$ROOT/release/releases" "$ROOT/release/tmp" "$ROOT/private" "$LOCK"
+  chmod 700 "$ROOT/private"
+  DEST="$ROOT/release/releases/$REV"
+  if [ ! -d "$DEST" ]; then
+    rm -rf "$DEST.partial" && mkdir -p "$DEST.partial"
+    git -C "$REPO" archive --format=tar "$REV" | tar -x -C "$DEST.partial"
+    mv "$DEST.partial" "$DEST"
+  fi
+  # Runner image: tags are immutable, first writer wins. Adopt an existing tag only with this
+  # revision's label; otherwise build under a temporary tag and publish under the image lock.
+  SHARED="forge-deploy-runner:$REV"
+  LABEL=org.opencontainers.image.revision
+  rev_of() { docker image inspect --format "{{index .Config.Labels \"$LABEL\"}}" "$1" 2>/dev/null || true; }
+  if docker image inspect "$SHARED" >/dev/null 2>&1; then
+    [ "$(rev_of "$SHARED")" = "$REV" ] || refuse "$SHARED has another revision label; investigate, never retag"
+  else
+    TEMP="$SHARED-build-$(date +%s)-$$"
+    docker build --label "$LABEL=$REV" -t "$TEMP" - < "$DEST/docker/Dockerfile.deploy-runner"
+    BUILT=$(docker image inspect --format '{{.Id}}' "$TEMP")
+    flock -x -w 900 "$LOCK/images.lock" sh -c \
+      'docker image inspect "$1" >/dev/null 2>&1 || docker tag "$2" "$1"' sh "$SHARED" "$BUILT"
+    docker image rm "$TEMP" >/dev/null
+    [ "$(rev_of "$SHARED")" = "$REV" ] || refuse "$SHARED was published with another revision label"
+  fi
+  IMG=$(docker image inspect --format '{{.Id}}' "$SHARED")
+  # Staged inputs: one directory, swapped in with a rename.
+  umask 077
+  rm -rf "$ROOT/private/staged.partial" && mkdir "$ROOT/private/staged.partial"
+  cp "$ENV_FILE" "$ROOT/private/staged.partial/deploy.env"
+  printf '\nVERSION=%s\n' "$REV" >> "$ROOT/private/staged.partial/deploy.env"
+  printf '%s\n' "$REV" > "$ROOT/private/staged.partial/runner"
+  printf '%s\n' "$IMG" > "$ROOT/private/staged.partial/runner-image"
+  rm -rf "$ROOT/private/staged" && mv "$ROOT/private/staged.partial" "$ROOT/private/staged"
+  echo "Staged $REV with runner $IMG"
+)
 ```
 
-Success: `private/staged/` holds `deploy.env`, `runner` and `runner-image`, and
-nothing printed `stop`. Then run the runner commands of this runbook with
-`IMG=$(cat "$ROOT/private/staged/runner-image")`.
+Success: the last line is `Staged <commit> with runner sha256:...`, and
+`private/staged/` holds `deploy.env`, `runner` and `runner-image`. A refusal
+ends with `REFUSED: <reason>` and a non-zero status; fix the reason and paste
+the block again (it is safe to repeat). Then run the runner commands of this
+runbook with `IMG=$(cat "$ROOT/private/staged/runner-image")`.
 
 ## Exit codes
 
@@ -751,9 +816,11 @@ Run `status` from a host shell while a rehearsal runs. Use the
 
 Reloading the dumps does not reset the deploy state: `state.json` still names
 a current release, so `baseline` refuses. Give every rehearsal its own release
-root, private root and lock. A new rehearsal job name gives new roots
+root, private root and Compose project. A new rehearsal job name gives new roots
 (`<jenkins-home>/forge-deploy/<rehearsal-job-N>/`). Also set a new
-`DEPLOY_LOCK_DIR` (or `COMPOSE_PROJECT_NAME`) in its env file.
+`COMPOSE_PROJECT_NAME` in its env file: the deploy lock is per project. Keep
+`DEPLOY_LOCK_DIR` the same as the live deployment's, so the image lock
+(`images.lock`) is shared and two builds can never publish one tag twice.
 
 Tear a rehearsal down, on the rehearsal stack only. Use the saved rendered
 configuration of its current release: it needs no env interpolation. `status`

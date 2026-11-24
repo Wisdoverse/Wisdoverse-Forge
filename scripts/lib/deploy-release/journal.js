@@ -49,7 +49,16 @@ export function transition(from, to) {
   return to
 }
 
-export function newAttempt({ attemptId, target, previous, snapshot, helperPrefix, inputs, at }) {
+export function newAttempt({
+  attemptId,
+  target,
+  previous,
+  snapshot,
+  helperPrefix,
+  inputs,
+  at,
+  createdVolumes = [],
+}) {
   return {
     attemptId,
     target,
@@ -59,6 +68,9 @@ export function newAttempt({ attemptId, target, previous, snapshot, helperPrefix
     step: null,
     snapshot: { complete: false, ...snapshot },
     swaps: [],
+    // R4: named volumes absent at preflight; written with the intent, before anything starts.
+    createdVolumes,
+    volumeCleanup: null,
     helperPrefix,
     startedAt: at,
     updatedAt: at,
@@ -158,6 +170,7 @@ function attemptProblems(a, ledgerKeys) {
     [isText(a.helperPrefix), 'attempt.helperPrefix'],
     ...inputsProblems(a, 'attempt').map((field) => [false, field]),
     [Array.isArray(a.swaps), 'attempt.swaps'],
+    [Array.isArray(a.createdVolumes) && a.createdVolumes.every(isText), 'attempt.createdVolumes'],
     [typeof s.complete === 'boolean', 'snapshot.complete'],
     ...expectProblems(s.expect, ledgerKeys).map((field) => [false, field]),
     [Array.isArray(s.databases) && s.databases.length > 0, 'snapshot.databases'],
@@ -253,6 +266,9 @@ export function complete(state, step, result = {}, at) {
     case 'rename':
       a.swaps.push({ db: step.db, from: step.from, to: step.to })
       break
+    case 'remove_created_volumes':
+      a.volumeCleanup = { removed: result.removed ?? [], kept: result.kept ?? [] }
+      break
     case 'seal':
       a.snapshot.complete = true
       break
@@ -313,6 +329,13 @@ export function summarize(state) {
         `  ${d.key}: ${d.source} (oid ${d.sourceOid}) snapshot ${d.snapshot} (oid ${d.snapshotOid ?? 'pending'}) failed-name ${d.failed}`
     ),
     ...volumes.map((v) => `  volume ${v.volume}: ${v.tar}${v.restored ? ' (restored)' : ''}`),
+    `  volumes this attempt creates: ${(a.createdVolumes ?? []).join(', ') || '(none)'}`,
+    ...(a.volumeCleanup
+      ? [
+          `  removed on rollback: ${a.volumeCleanup.removed.join(', ') || '(none)'}`,
+          ...a.volumeCleanup.kept.map((k) => `  KEPT ${k.name}: ${k.reason}`),
+        ]
+      : []),
     `  web root: ${webroot.tar}${webroot.restored ? ' (restored)' : ''}`,
     `started ${a.startedAt}, updated ${a.updatedAt}`,
     ...(a.error ? [`error: ${a.error}`] : []),

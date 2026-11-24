@@ -176,29 +176,166 @@ export function ledgerFindings(key, cmp, { strict }) {
   return out
 }
 
-// D4.3 identity: the containers and named volumes we are about to replace belong to this project.
-export function identityFindings(project, rendered, containers) {
+// D4.3 identity: the containers we are about to replace belong to this project. A service the
+// running release has must have its container; a service the target adds has none yet (a
+// leftover container of that name must still belong to this project).
+export function identityFindings(project, rendered, containers, prevRendered = null) {
   const out = []
   const byName = new Map(containers.map((c) => [c.name, c]))
+  const before = new Set(Object.values(prevRendered?.services ?? {}).map((s) => s.container_name))
   for (const [service, svc] of Object.entries(rendered.services)) {
     const c = byName.get(svc.container_name)
     if (!c) {
-      out.push(`no running container ${svc.container_name} for service ${service}`)
+      if (!prevRendered || before.has(svc.container_name)) {
+        out.push(`no running container ${svc.container_name} for service ${service}`)
+      }
       continue
     }
     if (c.project !== project) {
       out.push(`container ${c.name} belongs to compose project ${c.project}, not ${project}`)
     }
-    for (const v of (svc.volumes ?? []).filter((m) => m.type === 'volume')) {
-      const want = rendered.volumes?.[v.source]?.name ?? v.source
-      const have = c.mounts.find((m) => m.target === v.target)
-      // Nothing mounted there yet: the release adds this volume (Compose creates it in this project).
-      if (have && have.name !== want) {
-        out.push(`${c.name} mounts ${have.name} at ${v.target}; the release expects ${want}`)
+  }
+  return out
+}
+
+// Round 7 review, P1-A: named volumes. R1 classification, R2 existing mounts keep their identity,
+// R3 added mounts neither overlap an existing mount nor adopt a volume the running release does
+// not use. `o.prevContainers` are the running release's containers, `o.volumeFacts[name]` is
+// `{ exists, driver }` from `docker volume inspect` at preflight.
+const posixInside = (child, parent) =>
+  child !== parent && child.startsWith(parent.endsWith('/') ? parent : `${parent}/`)
+const overlaps = (a, b) => a === b || posixInside(a, b) || posixInside(b, a)
+const volumeSpec = (rendered, key) => {
+  const v = rendered?.volumes?.[key] ?? {}
+  return { name: v.name ?? key, driver: v.driver ?? 'local', external: Boolean(v.external) }
+}
+const specByName = (rendered, name) =>
+  Object.keys(rendered?.volumes ?? {})
+    .map((key) => volumeSpec(rendered, key))
+    .find((v) => v.name === name) ?? null
+const MANIFEST = 'scripts/deploy-release.volumes.json'
+
+export function volumeFindings(classes, o) {
+  const out = []
+  const target = o.rendered
+  const prev = o.prevRendered
+  const prevByName = new Map((o.prevContainers ?? []).map((c) => [c.name, c]))
+  const named = (m) => m.type === 'volume' && Boolean(specByName(prev, m.name))
+  const usedBefore = new Set(
+    (o.prevContainers ?? []).flatMap((c) => c.mounts.filter(named).map((m) => m.name))
+  )
+  const facts = (name) => o.volumeFacts?.[name] ?? { exists: false, driver: null }
+  // R2: every named-volume mount of the running release, by container and target.
+  for (const c of o.prevContainers ?? []) {
+    const svc = Object.values(target.services).find((s) => s.container_name === c.name)
+    for (const m of c.mounts.filter(named)) {
+      const where = `${c.name} mounts volume ${m.name} at ${m.target}`
+      const tm = (svc?.volumes ?? []).find((v) => v.target === m.target)
+      if (!svc || !tm || tm.type !== 'volume') {
+        out.push(
+          `${where}; the target release does not (a mount is never removed or replaced by a deploy)`
+        )
+        continue
+      }
+      const want = volumeSpec(target, tm.source)
+      const was = specByName(prev, m.name)
+      if (want.name !== m.name) {
+        out.push(`${where}; the target release mounts ${want.name} there instead`)
+      } else if (facts(m.name).driver && want.driver !== facts(m.name).driver) {
+        out.push(
+          `${where} with driver ${facts(m.name).driver}; the target release declares ${want.driver}`
+        )
+      } else if (want.external !== was.external) {
+        out.push(
+          `${where} with external=${was.external}; the target release declares external=${want.external}`
+        )
+      }
+    }
+  }
+  for (const [service, svc] of Object.entries(target.services)) {
+    const c = prevByName.get(svc.container_name)
+    const existing = c?.mounts.filter((m) => m.type === 'volume' || m.type === 'bind') ?? []
+    for (const tm of (svc.volumes ?? []).filter((v) => v.type === 'volume')) {
+      const want = volumeSpec(target, tm.source)
+      // R1: classified in the manifest.
+      const cls = classes[tm.source]?.class
+      if (!['snapshot', 'excluded'].includes(cls)) {
+        out.push(
+          `volume ${tm.source} (${want.name}, service ${service}) is not classified in ${MANIFEST}`
+        )
+      }
+      if (existing.some((m) => m.target === tm.target && m.type === 'volume' && named(m))) {
+        continue // an existing mount: R2 above
+      }
+      // R3 (a): an added mount never equals, shadows or contains an existing mount of the container.
+      const clash = existing.find((m) => overlaps(tm.target, m.target))
+      if (clash) {
+        out.push(
+          `${svc.container_name}: the added volume ${want.name} at ${tm.target} overlaps the existing ${clash.type} mount at ${clash.target}`
+        )
+        continue
+      }
+      // R3 (b): the volume is new (this deploy creates it) or already used by the running release.
+      const f = facts(want.name)
+      if (f.exists && !usedBefore.has(want.name)) {
+        out.push(
+          `volume ${want.name} already exists but no container of the running release uses it (a leftover of an earlier attempt, or another deployment's); inspect it with \`docker volume inspect ${want.name}\` and remove it only if it is a leftover`
+        )
+      } else if (f.exists && f.driver && want.driver !== f.driver) {
+        out.push(
+          `volume ${want.name} has driver ${f.driver}; the target release declares ${want.driver}`
+        )
       }
     }
   }
   return out
+}
+
+// R4: the volumes the target mounts that do not exist at preflight; a rollback removes exactly these.
+export function createdVolumes(rendered, volumeFacts) {
+  const names = Object.values(rendered.services).flatMap((s) =>
+    (s.volumes ?? [])
+      .filter((v) => v.type === 'volume')
+      .map((v) => volumeSpec(rendered, v.source).name)
+  )
+  return [...new Set(names)].filter((name) => !volumeFacts?.[name]?.exists).sort()
+}
+
+// The archive list: snapshot-class volumes of the target that exist at preflight.
+export function snapshotVolumes(classes, rendered, volumeFacts) {
+  return Object.entries(classes)
+    .filter(([key, v]) => v.class === 'snapshot' && rendered.volumes?.[key])
+    .map(([key]) => volumeSpec(rendered, key).name)
+    .filter((name) => volumeFacts?.[name]?.exists)
+}
+
+// R4 cleanup decision for one created volume: remove the failed release's stopped leftovers that
+// still reference it, then the volume itself; anything running or foreign keeps it.
+export function volumeCleanup(project, refs) {
+  const leftovers = refs.filter((c) => c.project === project && !c.running)
+  const blockers = refs.filter((c) => !leftovers.includes(c))
+  return {
+    removeContainers: leftovers.map((c) => c.id),
+    removeVolume: blockers.length === 0,
+    blockers,
+  }
+}
+
+// Round 7 review, P1-B: an image this pipeline builds carries its revision (and, when the build
+// takes configuration-derived arguments, their hash). A shared tag is adopted only when it does.
+export const REVISION_LABEL = 'org.opencontainers.image.revision'
+export const INPUTS_LABEL = 'forge.deploy.build-inputs'
+export const provenanceLabels = (revision, inputsHash = null) => ({
+  [REVISION_LABEL]: revision,
+  ...(inputsHash ? { [INPUTS_LABEL]: inputsHash } : {}),
+})
+export function provenanceProblem(ref, labels, want) {
+  const have = labels ?? {}
+  const keys = [REVISION_LABEL, INPUTS_LABEL]
+  const bad = keys.filter((k) => (have[k] ?? null) !== (want[k] ?? null))
+  return bad.length === 0
+    ? null
+    : `tag ${ref} exists with other provenance (${bad.map((k) => `${k}=${have[k] ?? '(none)'}`).join(', ')}, expected ${bad.map((k) => want[k] ?? '(none)').join(', ')}); a release tag is immutable: investigate who created it, do not retag it`
 }
 
 // A5: refuse what a template copy would not carry.
@@ -319,7 +456,9 @@ export function preflightFindings(config, state, o) {
       ...ledgerFindings(key, compareLedger(rows, o.targetMigrations[key]), { strict: false })
     )
   }
-  out.push(...identityFindings(config.project, o.rendered, o.containers))
+  out.push(...identityFindings(config.project, o.rendered, o.containers, o.prevRendered))
+  out.push(...volumeFindings(config.volumeClasses ?? {}, o))
+  out.push(...(o.provenanceProblems ?? []))
   out.push(...databaseFindings(config.databases, o.databases))
   out.push(...agentContainerFindings(o.agentContainers))
   out.push(...o.captureProblems)

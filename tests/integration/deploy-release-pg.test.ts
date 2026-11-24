@@ -206,7 +206,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
     releaseRoot: tmp,
     webRoot: path.join(tmp, 'www'),
     envFile: path.join(tmp, 'staged', 'deploy.env'),
-    volumes: [],
+    volumeClasses: {},
   })
 
   interface Options {

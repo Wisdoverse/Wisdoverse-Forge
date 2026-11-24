@@ -107,32 +107,49 @@ pipeline {
           '''
         }
         script { readPaths('staged/deploy.env') }
-        // Round 7, T2: image tags are global on the host. The runner is built under a temporary tag;
-        // the shared tag is created only if absent (otherwise the existing image is adopted), and
-        // the runner is recorded and started by image id, never by tag.
+        // Round 7 review, P1-B: tags are global on the host and immutable: first writer wins, with
+        // provenance. A tag that exists is adopted only with this revision's label. A new runner is
+        // built under a temporary tag; the shared tag is created, or adopted, under the host-wide
+        // image lock (DEPLOY_LOCK_DIR/images.lock, the lock the script takes for every tag it
+        // creates). The lock is taken inside the just-built runner (it has flock and docker), with
+        // the lock directory mounted at its host path. The runner is recorded by the id read back.
         sh '''#!/bin/sh
           set -eu
           LOCAL="$JENKINS_HOME/$FORGE_JOB_DIR"
           SHARED="forge-deploy-runner:$FORGE_REV"
+          LABEL="org.opencontainers.image.revision"
           id_of() { docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true; }
+          rev_of() { docker image inspect --format "{{index .Config.Labels \\"$LABEL\\"}}" "$1" 2>/dev/null || true; }
           WANT=$(id_of "$SHARED")
           if [ -n "$WANT" ]; then
-            echo "Adopted the existing runner image for $FORGE_REV"
+            if [ "$(rev_of "$SHARED")" != "$FORGE_REV" ]; then
+              echo "$SHARED exists with another revision label; a release tag is immutable. Investigate who created it; do not retag it." >&2
+              exit 12
+            fi
+            echo "Adopted the existing runner image $WANT for $FORGE_REV (provenance matches)"
           else
             TEMP="$SHARED-build-$BUILD_NUMBER-$$"
-            docker build -t "$TEMP" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
-            WANT=$(id_of "$SHARED")
-            if [ -z "$WANT" ]; then
-              WANT=$(id_of "$TEMP")
-              docker tag "$WANT" "$SHARED"
-            fi
+            docker build --label "$LABEL=$FORGE_REV" -t "$TEMP" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
+            BUILT=$(id_of "$TEMP")
+            WANT=$(docker run --rm --network none \\
+              --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \\
+              --mount "type=bind,src=$FORGE_LOCK_DIR,dst=$FORGE_LOCK_DIR" \\
+              -e SHARED="$SHARED" -e BUILT="$BUILT" -e REV="$FORGE_REV" -e LABEL="$LABEL" \\
+              "$BUILT" flock -x -w 900 "$FORGE_LOCK_DIR/images.lock" sh -ec '
+                if ! docker image inspect "$SHARED" >/dev/null 2>&1; then docker tag "$BUILT" "$SHARED"; fi
+                [ "$(docker image inspect --format "{{index .Config.Labels \\"$LABEL\\"}}" "$SHARED")" = "$REV" ] || exit 12
+                docker image inspect --format "{{.Id}}" "$SHARED"
+              ') || {
+              docker image rm "$TEMP" >/dev/null 2>&1 || true
+              echo "$SHARED could not be published (another revision label under the lock, or the lock timed out); nothing was deployed." >&2
+              exit 12
+            }
             docker image rm "$TEMP" >/dev/null
+            if [ "$WANT" != "$BUILT" ]; then
+              echo "Another build published $SHARED first; adopted $WANT"
+            fi
           fi
-          if [ "$(id_of "$SHARED")" != "$WANT" ]; then
-            echo "The runner tag changed while it was being published; refusing to continue." >&2
-            exit 1
-          fi
-          printf '%s\n' "$WANT" > "$LOCAL/private/staged/runner-image"
+          printf '%s\\n' "$WANT" > "$LOCAL/private/staged/runner-image"
         '''
         script {
           env.FORGE_RUNNER_ID = sh(returnStdout: true, script: '''#!/bin/sh
@@ -210,7 +227,11 @@ def readPaths(String file) {
     """).trim()
   }
   env.FORGE_WEB_ROOT = envValue('WEBROOT')
-  env.FORGE_LOCK_DIR = envValue('DEPLOY_LOCK_DIR') ?: '/var/lock/forge-deploy'
+  // A locator: required, never defaulted (round 7, T1; review: the Jenkins fallback was a default).
+  env.FORGE_LOCK_DIR = envValue('DEPLOY_LOCK_DIR') ?: ''
+  if (!env.FORGE_LOCK_DIR) {
+    error('DEPLOY_LOCK_DIR must be set in the env file; nothing was deployed.')
+  }
   [env.FORGE_WEB_ROOT, env.FORGE_LOCK_DIR].each { p ->
     if (!(p ==~ /\/[A-Za-z0-9._\/-]+/)) {
       error('WEBROOT and DEPLOY_LOCK_DIR must be absolute paths without spaces or commas.')

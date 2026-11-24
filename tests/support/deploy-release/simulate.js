@@ -8,6 +8,7 @@ import {
   deploy,
   recover,
 } from '../../../scripts/lib/deploy-release/engine.js'
+import { createdVolumes } from '../../../scripts/lib/deploy-release/checks.js'
 import { emptyState, releaseId } from '../../../scripts/lib/deploy-release/journal.js'
 
 const DBS = [
@@ -75,6 +76,8 @@ export function createWorld() {
     running: 'prev',
     agents: [],
     volumes: { 'forge_nats-data': 'prev', 'forge_agentforge-uploads': 'prev' },
+    // Named volumes that exist in Docker. The target adds forge_agentforge-compliance (R4).
+    dockerVolumes: new Set(['forge_nats-data', 'forge_agentforge-uploads']),
     tars: {},
     webroot: 'prev',
     sqlHelper: null,
@@ -84,6 +87,54 @@ export function createWorld() {
   }
 }
 
+const VOLUME_CLASSES = {
+  'nats-data': { class: 'snapshot' },
+  'agentforge-uploads': { class: 'snapshot' },
+  'agentforge-compliance': { class: 'excluded', reason: 'derived exports' },
+}
+export const CREATED_VOLUME = 'forge_agentforge-compliance'
+const vol = (source, target) => ({ type: 'volume', source, target })
+const DECLARED = {
+  'nats-data': { name: 'forge_nats-data' },
+  'agentforge-uploads': { name: 'forge_agentforge-uploads' },
+  'agentforge-compliance': { name: CREATED_VOLUME },
+}
+// The running release mounts two volumes; the target adds the compliance volume to the API.
+const PREV_RENDERED = {
+  services: {
+    nats: { container_name: 'forge-nats', volumes: [vol('nats-data', '/data')] },
+    api: { container_name: 'forge-api', volumes: [vol('agentforge-uploads', '/var/lib/up')] },
+  },
+  volumes: {
+    'nats-data': DECLARED['nats-data'],
+    'agentforge-uploads': DECLARED['agentforge-uploads'],
+  },
+}
+const TARGET_RENDERED = {
+  services: {
+    nats: PREV_RENDERED.services.nats,
+    api: {
+      container_name: 'forge-api',
+      volumes: [
+        vol('agentforge-uploads', '/var/lib/up'),
+        vol('agentforge-compliance', '/var/lib/c'),
+      ],
+    },
+  },
+  volumes: DECLARED,
+}
+const PREV_CONTAINERS = [
+  {
+    name: 'forge-nats',
+    project: 'forge',
+    mounts: [{ type: 'volume', name: 'forge_nats-data', target: '/data' }],
+  },
+  {
+    name: 'forge-api',
+    project: 'forge',
+    mounts: [{ type: 'volume', name: 'forge_agentforge-uploads', target: '/var/lib/up' }],
+  },
+]
 export const fakeConfig = (overrides = {}) => ({
   target: 'next',
   attemptId: 'a1b2c3d4',
@@ -91,6 +142,7 @@ export const fakeConfig = (overrides = {}) => ({
   databases: DBS,
   simulateVerifyFailure: false,
   snapshotDir: '/private/snapshots/a1b2c3d4',
+  volumeClasses: VOLUME_CLASSES,
   ...overrides,
 })
 
@@ -111,16 +163,26 @@ export function goodPreflight(world) {
     })
     Object.assign(databases[name], { subscriptions: 0, publications: 0, connLimit: -1 })
   }
+  const volumeFacts = Object.fromEntries(
+    Object.values(DECLARED).map(({ name }) => [
+      name,
+      { exists: world.dockerVolumes.has(name), driver: 'local' },
+    ])
+  )
   return {
     envVersion: 'next',
-    rendered: { services: {} },
+    rendered: TARGET_RENDERED,
+    prevRendered: PREV_RENDERED,
+    prevContainers: PREV_CONTAINERS,
+    volumeFacts,
+    createdVolumes: createdVolumes(TARGET_RENDERED, volumeFacts),
     images: {},
     bindProbes: [],
     freeBytes: { private: 2 ** 40 },
     frontendIndexSha: 'sha-next',
     ledgers: {},
     targetMigrations: {},
-    containers: [],
+    containers: PREV_CONTAINERS,
     databases,
     agentContainers: world.agents,
     volumes: Object.keys(world.volumes),
@@ -229,6 +291,8 @@ export function fakeExecutor(world, opts = {}) {
       return { sha256: `sha-${world.webroot}` }
     },
     migrate: (s) => {
+      // `compose run` of the target creates the volumes its service mounts.
+      world.dockerVolumes.add(CREATED_VOLUME)
       ;['forge', 'forge_orch'].forEach((name) => {
         need(name).schema = s.rev
       })
@@ -275,6 +339,13 @@ export function fakeExecutor(world, opts = {}) {
     },
     restore_webroot: () => {
       world.webroot = world.tars.webroot
+    },
+    remove_created_volumes: (s) => {
+      if (world.volumeRemovalFails) {
+        return { removed: [], kept: s.volumes.map((name) => ({ name, reason: 'in use' })) }
+      }
+      const removed = s.volumes.filter((name) => world.dockerVolumes.delete(name))
+      return { removed, kept: [] }
     },
     prune: () => null,
   }
@@ -443,6 +514,16 @@ export function outcomeErrors(world, wanted) {
   }
   if (world.sqlHelper) {
     errors.push('the SQL helper container was left running')
+  }
+  // R4: a rollback leaves no volume the attempt created; a pre-existing volume is never removed.
+  if (rev === 'prev' && world.dockerVolumes.has(CREATED_VOLUME)) {
+    errors.push(`volume ${CREATED_VOLUME}, created by the attempt, survived the rollback`)
+  }
+  if (rev !== 'prev' && !world.dockerVolumes.has(CREATED_VOLUME)) {
+    errors.push(`volume ${CREATED_VOLUME} of the new release is missing`)
+  }
+  if (!['forge_nats-data', 'forge_agentforge-uploads'].every((v) => world.dockerVolumes.has(v))) {
+    errors.push('a volume that existed before the attempt was removed')
   }
   if (rev === 'prev' && world.agents.some((a) => NEW_AGENTS.includes(a))) {
     errors.push('an agent container of the discarded release survived the rollback')

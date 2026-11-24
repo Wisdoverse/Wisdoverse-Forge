@@ -76,23 +76,67 @@ const tags = () =>
     .filter((c) => c.argv[0] === 'tag')
     .map((c) => c.argv.slice(1).join(' '))
 const inspectRule = (tag: string) => `^image inspect --format \\{\\{\\.Id\\}\\} ${tag}$`
-// A repository whose shared tag is missing until this build publishes it: missing for the build
-// decision and for the publish check, present afterwards; its temporary tag has a built id.
-const publishRules = (repos: string[], appearsDuringBuild: string[] = []) => [
-  ...repos.flatMap((repo) => [
-    { match: inspectRule(`${repo}:${REV}-build-[0-9a-z]+`), out: `sha256:built-${repo}\n` },
-    { match: inspectRule(`${repo}:${REV}`), code: 1, once: true },
-    ...(appearsDuringBuild.includes(repo)
-      ? []
-      : [{ match: inspectRule(`${repo}:${REV}`), code: 1, once: true }]),
-    {
-      match: inspectRule(`${repo}:${REV}`),
-      out: `sha256:${appearsDuringBuild.includes(repo) ? 'other' : 'built'}-${repo}\n`,
+const labelsRule = (tag: string) =>
+  `^image inspect --format \\{\\{json \\.Config\\.Labels\\}\\} ${tag}$`
+const provenance = (rev: string) =>
+  `${JSON.stringify({ 'org.opencontainers.image.revision': rev })}\n`
+// The rendered Compose files give the build specs of the two Rust services.
+const specRule = () => ({
+  match: '^compose .* config --format json$',
+  out: JSON.stringify({
+    name: 'cli-test',
+    services: {
+      'agentforge-server': {
+        build: { context: p('release/releases', REV, 'rust'), dockerfile: 'Dockerfile' },
+      },
+      orchestrator: {
+        build: {
+          context: p('release/releases', REV, 'rust'),
+          dockerfile: 'Dockerfile.orchestrator',
+        },
+      },
     },
-  ]),
+  }),
+})
+// Per repository: `absent` (built and published by this run), `race` (absent before the build,
+// published by another builder before this one takes the lock: first writer wins), `valid`
+// (present with this revision's label) or `foreign` (present with another revision's label).
+type Fate = 'absent' | 'race' | 'valid' | 'foreign'
+const publishRules = (fates: Record<string, Fate>) => [
+  specRule(),
+  ...Object.entries(fates).flatMap(([repo, fate]) => {
+    const shared = inspectRule(`${repo}:${REV}`)
+    const temp = {
+      match: inspectRule(`${repo}:${REV}-build-[0-9a-z]+`),
+      out: `sha256:built-${repo}\n`,
+    }
+    if (fate === 'valid' || fate === 'foreign') {
+      return [
+        { match: shared, out: `sha256:existing-${repo}\n` },
+        {
+          match: labelsRule(`${repo}:${REV}`),
+          out: provenance(fate === 'valid' ? REV : 'f00dbad'),
+        },
+      ]
+    }
+    return [
+      temp,
+      { match: shared, code: 1, once: true },
+      ...(fate === 'race' ? [] : [{ match: shared, code: 1, once: true }]),
+      { match: shared, out: `sha256:${fate === 'race' ? 'first' : 'built'}-${repo}\n` },
+      { match: labelsRule(`${repo}:${REV}`), out: provenance(REV) },
+    ]
+  }),
   { match: '^create ', out: 'frontend-cid\n' },
   { match: '^inspect frontend-cid', code: 1 },
 ]
+const ALL = ['agentforge-server', 'agentforge-orchestrator', 'agentforge-frontend']
+const builds = () => stub.calls().filter((c) => c.argv[0] === 'build')
+const removedTags = () =>
+  stub
+    .calls()
+    .filter((c) => c.argv[0] === 'image' && c.argv[1] === 'rm')
+    .map((c) => c.argv[2])
 function expectComposeContract(envFile: string) {
   const calls = composeCalls()
   expect(calls.length).toBeGreaterThan(0)
@@ -145,39 +189,29 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
     expect(r.out).toMatch(/no staged or active inputs/)
   })
 
-  it('build passes --env-file, project, files and profile to compose; no secret in argv', () => {
+  it('build renders the Compose files with the staged env, labels every image with its revision, publishes under the lock; no secret in argv', () => {
     stage()
-    stub.rules(
-      publishRules(['agentforge-server', 'agentforge-orchestrator', 'agentforge-frontend'])
-    )
+    stub.rules(publishRules(Object.fromEntries(ALL.map((r) => [r, 'absent' as Fate]))))
     const r = cli('build', '--revision', REV)
     expect(r.out).toContain(`built images and frontend for ${REV}`)
     expect(r.code).toBe(0)
     expectComposeContract(p('private/staged/deploy.env'))
-    const build = composeCalls().find((c) => c.argv.includes('build'))
-    expect(build?.argv.slice(-3)).toEqual(['build', 'agentforge-server', 'orchestrator'])
-    // Round 7, T2: compose builds under a temporary VERSION; the shared tag is created after.
-    expect(build?.version).toMatch(new RegExp(`^${REV}-build-[0-9a-z]+$`))
-    expect(build?.parallel).toBe('1') // passed through to compose
-    const frontendBuild = stub.calls().find((c) => c.argv[0] === 'build')
-    expect(frontendBuild?.argv.join(' ')).toMatch(
-      new RegExp(`-t agentforge-frontend:${REV}-build-[0-9a-z]+ `)
-    )
-    expect(tags()).toEqual([
-      `sha256:built-agentforge-server agentforge-server:${REV}`,
-      `sha256:built-agentforge-orchestrator agentforge-orchestrator:${REV}`,
-      `sha256:built-agentforge-frontend agentforge-frontend:${REV}`,
-    ])
-    const removed = stub
-      .calls()
-      .filter((c) => c.argv[0] === 'image' && c.argv[1] === 'rm')
-      .map((c) => c.argv[2])
-    expect(removed).toHaveLength(3)
-    removed.forEach((tag) => expect(tag).toMatch(new RegExp(`:${REV}-build-[0-9a-z]+$`)))
+    expect(composeCalls().find((c) => c.argv.includes('config'))?.parallel).toBe('1')
+    expect(builds()).toHaveLength(3)
+    for (const b of builds()) {
+      expect(b.argv.join(' ')).toContain(`--label org.opencontainers.image.revision=${REV}`)
+      expect(b.argv.join(' ')).toMatch(new RegExp(`-t agentforge-[a-z]+:${REV}-build-[0-9a-z]+ `))
+    }
+    expect(tags()).toEqual(ALL.map((repo) => `sha256:built-${repo} ${repo}:${REV}`))
+    expect(removedTags()).toHaveLength(3)
+    removedTags().forEach((tag) => expect(tag).toMatch(new RegExp(`:${REV}-build-[0-9a-z]+$`)))
+    // The frontend is extracted from the id read back under the lock, not from a tag lookup.
     const create = stub.calls().find((c) => c.argv[0] === 'create')
     expect(create?.argv).toEqual(
       expect.arrayContaining(['--label', 'forge.deploy.project=cli-test'])
     )
+    expect(create?.argv.at(-1)).toBe('sha256:built-agentforge-frontend')
+    expect(fs.existsSync(p('lock/images.lock'))).toBe(true)
     expectNoSecretInArgv()
   })
 
@@ -372,9 +406,74 @@ describe('loadConfig provides every field the modules read', () => {
     stage(envText().replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=monitor'))
     const r = cli('deploy', '--revision', REV)
     expect(r.code).toBe(12)
-    expect(r.out).toContain('NATS_MONITOR_PORT must be a port number or <address>:<port>')
+    expect(r.out).toContain(
+      'NATS_MONITOR_PORT must be a port 1-65535 or <address>:<port> (IPv4, [IPv6] or hostname)'
+    )
     expect(stub.calls()).toEqual([])
   })
+
+  it.each([
+    ['port 0', 'NATS_MONITOR_PORT=0', 'NATS_MONITOR_PORT'],
+    ['port 65536', 'NATS_MONITOR_PORT=65536', 'NATS_MONITOR_PORT'],
+    ['a malformed dotted address', 'ORCHESTRATOR_PORT=127.0.0.256:24010', 'ORCHESTRATOR_PORT'],
+    ['a dotted address with too few parts', 'ORCHESTRATOR_PORT=10.1.1:24010', 'ORCHESTRATOR_PORT'],
+    ['an unbracketed IPv6 address', 'NATS_MONITOR_PORT=::1:28222', 'NATS_MONITOR_PORT'],
+    ['a malformed bind address', 'BIND_ADDRESS=300.1.1.1', 'BIND_ADDRESS'],
+  ])('P3: %s is a refusal (12) naming the variable', (_label, line, key) => {
+    const [name] = line.split('=')
+    stage(envText().replace(new RegExp(`^${name}=.*$`, 'm'), line))
+    const r = cli('deploy', '--revision', REV)
+    expect(r.code).toBe(12)
+    expect(r.out).toContain(`refused: ${key} must be`)
+    expect(stub.calls()).toEqual([])
+  })
+
+  it('P3: IPv4, bracketed IPv6 and hostname addresses with ports 1 and 65535 are accepted', () => {
+    const saved = { ...process.env }
+    Object.assign(process.env, {
+      FORGE_RELEASE_ROOT: p('release'),
+      FORGE_PRIVATE_ROOT: p('private'),
+    })
+    try {
+      stage(
+        envText()
+          .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=[::1]:65535')
+          .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=probe.example.com:1')
+          .replace(/^AGENTFORGE_PORT=.*$/m, 'AGENTFORGE_PORT=10.0.0.1:24003')
+      )
+      const cfg = loadConfig('deploy', ['--revision', REV])
+      expect(cfg.ports).toEqual({
+        api: '10.0.0.1:24003',
+        orchestrator: 'probe.example.com:1',
+        natsMonitor: '[::1]:65535',
+      })
+    } finally {
+      process.env = saved
+    }
+  })
+
+  it.each(['0', '-1', '1.5', 'many', '9007199254740993'])(
+    'P3: COMPOSE_PARALLEL_LIMIT=%s is a refusal (12) naming the variable',
+    (value) => {
+      stage()
+      const r = spawnSync(process.execPath, [CLI, 'build', '--revision', REV], {
+        env: {
+          PATH: `${stub.dir}:${process.env.PATH}`,
+          HOME: tmp,
+          FORGE_RELEASE_ROOT: p('release'),
+          FORGE_PRIVATE_ROOT: p('private'),
+          FORGE_RUNNER_IMAGE: 'forge-deploy-runner:test',
+          COMPOSE_PARALLEL_LIMIT: value,
+        },
+        encoding: 'utf8',
+      })
+      expect(r.status).toBe(12)
+      expect(`${r.stdout}${r.stderr}`).toContain(
+        'COMPOSE_PARALLEL_LIMIT must be a positive integer'
+      )
+      expect(stub.calls()).toEqual([])
+    }
+  )
 })
 
 describe('round 6, S2: image tags are global, so none is ever moved', () => {
@@ -470,50 +569,63 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
     expect(fs.existsSync(p('private/staged/deploy.env'))).toBe(true)
   })
 
-  it('c: build adopts an existing revision tag and builds only what is missing; it never tags', () => {
-    stage()
-    stub.rules([
-      {
-        match: `^image inspect --format \\{\\{\\.Id\\}\\} agentforge-server:${REV}$`,
-        out: 'sha256:shared-server\n',
-      },
-      {
-        match: `^image inspect --format \\{\\{\\.Id\\}\\} agentforge-frontend:${REV}$`,
-        out: 'sha256:shared-frontend\n',
-      },
-      ...publishRules(['agentforge-orchestrator']),
-    ])
-    const r = cli('build', '--revision', REV)
-    expect(r.code).toBe(0)
-    expect(r.out).toMatch(/adopted existing images for agentforge-server/)
-    const builds = composeCalls().filter((c) => c.argv.includes('build'))
-    expect(builds.map((c) => c.argv.slice(c.argv.indexOf('build')))).toEqual([
-      ['build', 'orchestrator'],
-    ])
-    expect(stub.calls().some((c) => c.argv[0] === 'build')).toBe(false)
-    // Only the image this build created gets the shared tag; the adopted ones are never tagged.
-    expect(tags()).toEqual([`sha256:built-agentforge-orchestrator agentforge-orchestrator:${REV}`])
-  })
-
-  it('round 7, T2: a shared tag that appears during the build is adopted; only the temporary tag is removed', () => {
+  it('P1-B: two builders both saw the tag absent; the first tag stays and the second adopts it', () => {
     stage()
     stub.rules(
-      publishRules(
-        ['agentforge-server', 'agentforge-orchestrator', 'agentforge-frontend'],
-        ['agentforge-server']
-      )
+      publishRules({
+        'agentforge-server': 'race',
+        'agentforge-orchestrator': 'absent',
+        'agentforge-frontend': 'absent',
+      })
     )
     const r = cli('build', '--revision', REV)
     expect(r.code).toBe(0)
+    // This run built its own server image too, then found the first writer's tag under the lock.
+    expect(builds().filter((b) => b.argv.join(' ').includes('agentforge-server:'))).toHaveLength(1)
     expect(r.out).toMatch(
-      new RegExp(`agentforge-server:${REV} appeared during the build; adopted the existing image`)
+      new RegExp(
+        `agentforge-server:${REV} was published by another build first; adopted sha256:first-agentforge-server, discarded sha256:built-agentforge-server`
+      )
     )
-    expect(tags().some((t) => t.endsWith(`agentforge-server:${REV}`))).toBe(false)
-    const removed = stub
-      .calls()
-      .filter((c) => c.argv[0] === 'image' && c.argv[1] === 'rm')
-      .map((c) => c.argv[2])
-    expect(removed.some((t) => /^agentforge-server:.*-build-/.test(t))).toBe(true)
+    expect(r.out).toContain('agentforge-server=sha256:first-agentforge-server')
+    expect(tags().some((t) => t.endsWith(` agentforge-server:${REV}`))).toBe(false)
+    expect(removedTags().some((t) => /^agentforge-server:.*-build-/.test(t))).toBe(true)
+  })
+
+  it('P1-B: a shared tag with another revision label is immutable: refusal (12), nothing built or tagged', () => {
+    stage()
+    stub.rules(publishRules({ 'agentforge-server': 'foreign' }))
+    const r = cli('build', '--revision', REV)
+    expect(r.code).toBe(12)
+    expect(r.out).toMatch(
+      /tag agentforge-server:.* exists with other provenance .*f00dbad.*immutable/
+    )
+    expect(builds()).toEqual([])
+    expect(tags()).toEqual([])
+  })
+
+  it('P1-B: a shared tag with this revision label is adopted without a build', () => {
+    stage()
+    stub.rules(
+      publishRules({
+        'agentforge-server': 'valid',
+        'agentforge-orchestrator': 'valid',
+        'agentforge-frontend': 'valid',
+      })
+    )
+    const r = cli('build', '--revision', REV)
+    expect(r.code).toBe(0)
+    expect(builds()).toEqual([])
+    expect(tags()).toEqual([])
+    expect(r.out).toContain(
+      `adopted the existing agentforge-server:${REV} (sha256:existing-agentforge-server)`
+    )
+    expect(
+      stub
+        .calls()
+        .find((c) => c.argv[0] === 'create')
+        ?.argv.at(-1)
+    ).toBe('sha256:existing-agentforge-frontend')
   })
 })
 

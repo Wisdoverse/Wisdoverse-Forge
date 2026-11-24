@@ -40,7 +40,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { URL, fileURLToPath } from 'node:url'
 import { parseEnvFile, redact, secretValues } from './lib/deploy-release/checks.js'
-import { createExecutor } from './lib/deploy-release/effects.js'
+import { ImageRefused, createExecutor } from './lib/deploy-release/effects.js'
 import { EXIT, baseline, deploy, loadState, recover } from './lib/deploy-release/engine.js'
 import { StateUnreadable, activeInputs, summarize } from './lib/deploy-release/journal.js'
 
@@ -79,7 +79,7 @@ export const CONFIG_KEYS = [
   'simulateVerifyFailure',
   'snapshotDir',
   'target',
-  'volumes',
+  'volumeClasses',
   'webRoot',
 ]
 
@@ -182,6 +182,7 @@ function resolveEnvFile(privateRoot, command) {
 }
 
 export function loadConfig(command, args) {
+  parallelLimit()
   const releaseRoot = absolute(process.env.FORGE_RELEASE_ROOT, 'FORGE_RELEASE_ROOT')
   const privateRoot = absolute(process.env.FORGE_PRIVATE_ROOT, 'FORGE_PRIVATE_ROOT')
   const envFile = resolveEnvFile(privateRoot, command)
@@ -234,6 +235,11 @@ export function loadConfig(command, args) {
   }
   const attemptId = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}${randomBytes(2).toString('hex')}`
   const roles = { api: api.role, orchestrator: orchestrator.role, temporal }
+  if (!validAddress(env.BIND_ADDRESS)) {
+    throw new InputsError(
+      'BIND_ADDRESS must be an IPv4 address, a [bracketed] IPv6 address or a hostname'
+    )
+  }
   const bind = env.BIND_ADDRESS === '0.0.0.0' ? '127.0.0.1' : env.BIND_ADDRESS
   return {
     env,
@@ -251,7 +257,7 @@ export function loadConfig(command, args) {
     runnerImage: process.env.FORGE_RUNNER_IMAGE,
     roles,
     databases,
-    volumes: ['nats-data', 'agentforge-uploads'],
+    volumeClasses: loadVolumeClasses(),
     snapshotDir: path.join(privateRoot, 'snapshots', attemptId),
     host: bind,
     // `<host>:<port>` for each probe. A port variable may also use Compose's `<address>:<port>`
@@ -277,11 +283,65 @@ export function loadConfig(command, args) {
   }
 }
 
+// Round 7 review, P1-A R1: the checked-in classification of every named volume.
+export function loadVolumeClasses(
+  file = path.join(path.dirname(SCRIPT), 'deploy-release.volumes.json')
+) {
+  const { volumes } = JSON.parse(fs.readFileSync(file, 'utf8'))
+  for (const [key, v] of Object.entries(volumes ?? {})) {
+    const ok =
+      v?.class === 'snapshot' ||
+      (v?.class === 'excluded' && typeof v.reason === 'string' && v.reason.trim().length > 0)
+    if (!ok) {
+      throw new Error(
+        `${path.basename(file)}: volume ${key} needs class snapshot, or excluded with a reason`
+      )
+    }
+  }
+  return volumes ?? {}
+}
+
+// Round 7 review, P3: an IPv4 address, a bracketed IPv6 address or a hostname, and a port 1-65535.
+const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
+const HOSTNAME =
+  /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i
+const isIpv6 = (s) => {
+  try {
+    return new URL(`http://${s}/`).hostname === s.toLowerCase()
+  } catch {
+    return false
+  }
+}
+export function validAddress(a) {
+  if (a.startsWith('[')) {
+    return a.endsWith(']') && isIpv6(a)
+  }
+  // A name made only of digits and dots is an IPv4 attempt, never a hostname.
+  return /^[0-9.]+$/.test(a) ? IPV4.test(a) : HOSTNAME.test(a)
+}
+const validPort = (p) => /^[0-9]{1,5}$/.test(p) && Number(p) >= 1 && Number(p) <= 65535
+
 function probeAddress(env, key, bind) {
-  const m = /^(?:([0-9.]+|\[[0-9a-f:]+\]):)?([0-9]{1,5})$/i.exec(env[key])
-  if (!m) throw new InputsError(`${key} must be a port number or <address>:<port>`)
+  const value = env[key]
+  const m = /^(?:(.+):)?([^:\]]+)$/.exec(value)
+  const bad = () =>
+    new InputsError(`${key} must be a port 1-65535 or <address>:<port> (IPv4, [IPv6] or hostname)`)
+  if (!m || !validPort(m[2]) || (m[1] !== undefined && !validAddress(m[1]))) {
+    throw bad()
+  }
   const address = !m[1] || m[1] === '0.0.0.0' ? bind : m[1]
   return `${address}:${m[2]}`
+}
+
+// P3: forwarded to Compose only as a positive safe integer.
+function parallelLimit() {
+  const v = process.env.COMPOSE_PARALLEL_LIMIT
+  if (
+    v !== undefined &&
+    !(/^[0-9]+$/.test(v) && Number.isSafeInteger(Number(v)) && Number(v) > 0)
+  ) {
+    throw new InputsError('COMPOSE_PARALLEL_LIMIT must be a positive integer')
+  }
 }
 
 function underLock(cfg, argv) {
@@ -364,7 +424,7 @@ async function main(argv) {
     const ctx = { config: cfg, exec: createExecutor(cfg, log), log }
     switch (command) {
       case 'build':
-        ctx.exec.build(cfg.target)
+        await ctx.exec.build(cfg.target)
         return EXIT.OK
       case 'deploy':
         return await deploy(ctx)
@@ -387,6 +447,10 @@ async function main(argv) {
         `${staged ? 'refused' : 'RECOVERY REQUIRED'}: ${redact(err.message, secrets)} (nothing was changed)`
       )
       return staged ? EXIT.PREFLIGHT_REFUSED : EXIT.RECOVERY_REQUIRED
+    }
+    if (err instanceof ImageRefused) {
+      console.error(`refused: ${redact(err.message, secrets)}`)
+      return EXIT.PREFLIGHT_REFUSED
     }
     if (err instanceof StateUnreadable) {
       console.error(
