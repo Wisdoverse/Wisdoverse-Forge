@@ -25,7 +25,8 @@
 #   * `credential_refresh_errors_total{cli_tool, reason}` — CLI auth proxy refresh errors
 #   * `agentforge_self_fix_pr_total{outcome}` — self-fix PR Bridge open outcomes
 #   * `agentforge_self_fix_merge_total{outcome}` — self-fix Merge Executor outcomes
-#   * `process_resident_memory_bytes` — exporter standard (external)
+#   * `process_resident_memory_bytes` — external; the Forge services do not emit it,
+#     so APIMemoryHigh needs a process exporter (see EXTERNAL_METRICS in the check)
 #
 # Service discrimination (CN-5): the orchestrator emits the SAME HTTP metric
 # names as the API, tagged `service="orchestrator"`; the API emits no `service`
