@@ -348,7 +348,16 @@ npm run migrate
 
 In containerized deployments, `make migrate` runs the migration command inside the Rust server container.
 
-Upgrade note: on a database first created by the legacy backend, the old `team_invites` table is moved to the `legacy_pre_089` schema before migration 089 creates the current one. Its rows are kept there; the server logs one `moved legacy table out of public before its migration` line when this happens. If `legacy_pre_089.team_invites` already exists, the server refuses to start and changes nothing: check whether that table still holds data you need, back it up, rename or drop it, and start again.
+Upgrade note: on a database first created by the legacy backend, the old `team_invites` table is moved to the `legacy_pre_089` schema before migration 089 creates the current one. Its rows are kept there; the server logs one `moved legacy table out of public before its migration` line when this happens. Startup is refused, with nothing changed, only when a legacy-shaped `public.team_invites` is still waiting to be moved and `legacy_pre_089.team_invites` already exists. In that case, check whether `legacy_pre_089.team_invites` still holds data you need, back it up, rename or drop it, and start again.
+
+The archived invitations are kept for inspection only. They are not imported into the current invitation system, so anyone who still needs access must be invited again through the current invite flow. Once you no longer need the archive, remove it with:
+
+```sql
+DROP TABLE legacy_pre_089.team_invites;
+DROP SCHEMA legacy_pre_089;
+```
+
+`DROP TABLE` without `CASCADE` stops with an error if another table still has a foreign key to the archive, so nothing else is removed by accident.
 
 ## When to Update This Document
 

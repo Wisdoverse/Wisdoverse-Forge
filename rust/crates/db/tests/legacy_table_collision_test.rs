@@ -253,3 +253,59 @@ async fn hand_created_current_shape_without_ledger_entry_is_not_moved(pool: PgPo
     assert!(reconciled_tables(&pool).await.is_empty());
     assert!(ledger_has(&pool, 89).await);
 }
+
+async fn tokens(pool: &PgPool, table: &str) -> Vec<String> {
+    sqlx::query_scalar(&format!("SELECT token::text FROM {table} ORDER BY id")).fetch_all(pool).await.unwrap()
+}
+
+/// Crash after the move committed but before migration 089: the next start
+/// finds nothing in `public` to move and 089 applies; the archive is intact.
+#[sqlx::test(migrations = false)]
+async fn restart_after_crash_between_move_and_089_completes(pool: PgPool) {
+    migrate_up_to(&pool, 88).await;
+    sqlx::raw_sql("CREATE SCHEMA legacy_pre_089").execute(&pool).await.unwrap();
+    create_legacy_table(&pool, "legacy_pre_089", 2).await;
+    let archived = tokens(&pool, "legacy_pre_089.team_invites").await;
+
+    agentforge_db::run_migrations(&pool).await.unwrap();
+
+    assert!(has_column(&pool, "public", "token_hash").await, "089 created the current shape");
+    assert!(ledger_has(&pool, 89).await);
+    assert_eq!(tokens(&pool, "legacy_pre_089.team_invites").await, archived, "archived rows unchanged");
+    assert_eq!(reconciled_tables(&pool).await, ["legacy_pre_089.team_invites"]);
+}
+
+/// The ledger guard, not the shape check, keeps a recorded migration's table
+/// in place: with a dirty 089 row SQLx refuses to start and nothing moves.
+#[sqlx::test(migrations = false)]
+async fn ledger_entry_for_089_blocks_the_move(pool: PgPool) {
+    migrate_up_to(&pool, 88).await;
+    create_legacy_table(&pool, "public", 2).await;
+    sqlx::raw_sql(
+        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time)
+         VALUES (89, 'team invites', false, '\\x00', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let err = agentforge_db::run_migrations(&pool).await.unwrap_err();
+
+    assert!(matches!(err, agentforge_db::RunMigrationsError::Migrate(sqlx::migrate::MigrateError::Dirty(89))), "{err}");
+    assert!(reconciled_tables(&pool).await.is_empty(), "public table must not be moved");
+    assert!(has_column(&pool, "public", "token").await);
+    assert_eq!(count(&pool, "public.team_invites").await, 2);
+}
+
+/// Rehearsal database version: 85..88 are still pending when the step runs.
+#[sqlx::test(migrations = false)]
+async fn legacy_table_at_ledger_84_is_moved_and_migrations_apply(pool: PgPool) {
+    migrate_up_to(&pool, 84).await;
+    create_legacy_table(&pool, "public", 2).await;
+
+    agentforge_db::run_migrations(&pool).await.unwrap();
+
+    assert_eq!(count(&pool, "legacy_pre_089.team_invites").await, 2);
+    assert!(has_column(&pool, "public", "token_hash").await);
+    assert!(ledger_has(&pool, latest_version()).await);
+}
