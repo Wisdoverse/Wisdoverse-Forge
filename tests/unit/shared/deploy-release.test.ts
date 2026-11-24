@@ -1416,3 +1416,11 @@ describe('round 5', () => {
     expect(line).not.toContain('curl')
   })
 })
+
+describe('runner image', () => {
+  it('installs the system trust store in the final stage (buildx fetches registry tokens with it)', () => {
+    const text = fs.readFileSync(path.join(root, 'docker/Dockerfile.deploy-runner'), 'utf8')
+    const final = text.slice(text.lastIndexOf('\nFROM '))
+    expect(final).toMatch(/apt-get install -y --no-install-recommends[^\n]*\bca-certificates\b/)
+  })
+})

@@ -52,9 +52,11 @@ LABEL org.opencontainers.image.title="Wisdoverse Forge deploy runner" \
       org.opencontainers.image.source="https://github.com/Wisdoverse/Wisdoverse-Forge" \
       org.opencontainers.image.licenses="LicenseRef-Wisdoverse-Forge-BSL-1.1"
 # dist-upgrade keeps the slim base's Debian packages current between Node releases.
+# ca-certificates: the Go-based docker CLI and buildx fetch registry tokens with the system trust
+# store, which the slim base lacks (Node bundles its own, so only builds fail without it).
 RUN apt-get update \
     && apt-get -y dist-upgrade \
-    && apt-get install -y --no-install-recommends util-linux \
+    && apt-get install -y --no-install-recommends util-linux ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 COPY --from=fetch /out/docker /usr/local/bin/docker
