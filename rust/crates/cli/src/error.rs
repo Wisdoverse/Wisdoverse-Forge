@@ -130,7 +130,9 @@ mod tests {
         assert!(help.contains("Exit codes:"), "root --help must show the exit-code table");
 
         // Only the guide's own exit-code section (other tables there have numeric first cells too).
-        let guide_section = GUIDE.split("\n## Exit Codes\n").nth(1).expect("guide has an Exit Codes section");
+        // A Windows checkout can give the guide CRLF line endings.
+        let guide = GUIDE.replace("\r\n", "\n");
+        let guide_section = guide.split("\n## Exit Codes\n").nth(1).expect("guide has an Exit Codes section");
         let guide_section = guide_section.split("\n## ").next().unwrap_or(guide_section);
         for (source, text) in [("--help", EXIT_CODES_HELP), ("cli-platform-support.md", guide_section)] {
             let rows = exit_code_rows(text);
