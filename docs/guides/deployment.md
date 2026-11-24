@@ -300,9 +300,32 @@ Publish `dist/` through your web tier. The repository also includes deployment h
 After deployment, verify:
 
 ```bash
-curl http://localhost:4003/health
+curl http://localhost:4003/api/health
 curl http://localhost:4010/health
 ```
+
+The API has two health URLs:
+
+| URL           | Name      | Answers                         | Fails when                                                                                                          |
+| ------------- | --------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `/health`     | Liveness  | Is the process running?         | Only when the process is down or hung                                                                               |
+| `/api/health` | Readiness | Can the API serve requests now? | PostgreSQL is unreachable, NATS is configured but disconnected, or Redis is down with `REQUIRE_EXTERNAL_STATE=true` |
+
+Success looks like this: `/api/health` returns HTTP 200 with
+`"status":"ready"`. HTTP 503 with `"status":"degraded"` means a required
+dependency is down; the `checks` field names it.
+
+Compose marks `agentforge-server` healthy only when readiness passes, so
+`depends_on: service_healthy` and `docker compose up --wait` wait for a usable
+API. Readiness checks all dependencies at the same time and gives each one at
+most 2 seconds, so it answers within the Compose probe timeout even when a
+dependency hangs. A dependency that does not answer in time counts as down. If
+that dependency is optional, such as Docker, the API reports it in `checks` but
+stays ready. It becomes `unhealthy` after three failed probes in a row, so a short NATS
+or Redis restart does not change it. The image's own `HEALTHCHECK` uses
+liveness because an image cannot assume its dependencies. On platforms with
+separate probes, such as Kubernetes, use `/health` for liveness and
+`/api/health` for readiness.
 
 In environments that expose Temporal UI, also confirm `http://localhost:8233` is reachable.
 

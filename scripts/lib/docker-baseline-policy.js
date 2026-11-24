@@ -1,6 +1,6 @@
 const CORE_SERVICES = ['agentforge-server', 'orchestrator']
 const HEALTH_ENDPOINTS = {
-  'agentforge-server': '/health',
+  'agentforge-server': '/api/health',
   orchestrator: '/health',
 }
 

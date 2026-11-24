@@ -69,6 +69,7 @@ COPY --from=builder /app/crates/db/migrations /opt/agentforge/migrations
 USER agentforge
 EXPOSE 4003
 
+# Image probe stays on liveness (/health): an image must not assume its dependencies; Compose overrides it with readiness (/api/health).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -sf http://localhost:4003/health || exit 1
 

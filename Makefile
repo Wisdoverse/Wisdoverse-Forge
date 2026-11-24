@@ -539,7 +539,7 @@ restart: ## Restart agentforge container
 .PHONY: health
 health: ## Check container health
 	@docker inspect agentforge --format='{{.State.Health.Status}}' 2>/dev/null || echo "Container not running"
-	@curl -sf http://localhost:4003/health && echo " - API healthy" || echo "API not responding"
+	@curl -sf http://localhost:4003/api/health && echo " - API ready" || echo "API not ready (see docs/guides/deployment.md#health-verification)"
 
 # =============================================================================
 # Cleanup
