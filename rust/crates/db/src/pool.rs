@@ -200,12 +200,12 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
 /// check fails the process should not proceed — the caller receives a
 /// [`ManifestError`] wrapped in a [`MigrateError`]-compatible error path.
 /// Before migrating, legacy-shaped tables that would collide with a pending
-/// migration are moved out of `public` (see `LEGACY_TABLE_COLLISIONS`).
+/// migration are moved out of `public` to `legacy_pre_<version>` (see `LEGACY_TABLE_COLLISIONS`).
 ///
 /// This is safe to call on every startup — already-applied migrations are skipped.
 pub async fn run_migrations(pool: &PgPool) -> Result<(), RunMigrationsError> {
     verify_manifest(MIGRATION_MANIFEST, MIGRATION_SOURCES)?;
-    reconcile_legacy_collisions(pool).await.map_err(RunMigrationsError::LegacyReconcile)?;
+    reconcile_legacy_collisions(pool).await?;
     sqlx::migrate!("./migrations").run(pool).await?;
     Ok(())
 }
@@ -229,62 +229,59 @@ const LEGACY_TABLE_COLLISIONS: &[LegacyCollision] =
 /// Serializes reconciliation between servers that start at the same time.
 const LEGACY_RECONCILE_LOCK_KEY: i64 = 0x0af0_1e9a_c011_1de5;
 
-/// Migration 027 runs `DROP SCHEMA IF EXISTS legacy CASCADE`. A table moved to
-/// `legacy` before 027 has run would be dropped with it.
-const LEGACY_SCHEMA_DROP_VERSION: i64 = 27;
+/// Schema a collision's legacy table is moved to, e.g. `legacy_pre_089`.
+/// Not `legacy`: migration 027 drops that schema with CASCADE.
+fn legacy_target_schema(collision: &LegacyCollision) -> String {
+    format!("legacy_pre_{:03}", collision.migration_version)
+}
 
-/// Move each legacy-shaped table in [`LEGACY_TABLE_COLLISIONS`] out of
-/// `public` before the migrator runs, so its migration creates the current
-/// table. Rows, indexes, constraints and owned sequences move with the table;
-/// foreign keys that point at it keep pointing at it. Nothing is dropped.
-///
-/// The target is `legacy` when the ledger already contains migration 027 and
-/// `legacy.<table>` does not exist; otherwise it is `legacy_pre_<version>`
-/// (for example `legacy_pre_089`). If the target table is taken as well, the
-/// move fails and the transaction rolls back, so startup stops with no data
-/// changed.
-async fn reconcile_legacy_collisions(pool: &PgPool) -> Result<(), sqlx::Error> {
+/// Move each legacy-shaped table in [`LEGACY_TABLE_COLLISIONS`] from `public`
+/// to `legacy_pre_<version>` before the migrator runs, so its migration
+/// creates the current table. Rows, indexes, constraints and owned sequences
+/// move with the table; foreign keys that point at it keep pointing at it.
+/// Nothing is dropped. If the target schema already holds a table of that
+/// name, it refuses with [`RunMigrationsError::LegacyTargetExists`] before
+/// changing anything.
+async fn reconcile_legacy_collisions(pool: &PgPool) -> Result<(), RunMigrationsError> {
     for collision in LEGACY_TABLE_COLLISIONS {
         let mut tx = pool.begin().await?;
         sqlx::query("SELECT pg_advisory_xact_lock($1)").bind(LEGACY_RECONCILE_LOCK_KEY).execute(&mut *tx).await?;
 
         let table = collision.table;
-        let (has_ledger, public_exists, legacy_exists, has_current_column): (bool, bool, bool, bool) = sqlx::query_as(
+        let target_schema = legacy_target_schema(collision);
+        let (has_ledger, public_exists, target_exists, has_current_column): (bool, bool, bool, bool) = sqlx::query_as(
             "SELECT to_regclass('_sqlx_migrations') IS NOT NULL,
-                    to_regclass(format('public.%I', $1::text)) IS NOT NULL,
-                    to_regclass(format('legacy.%I', $1::text)) IS NOT NULL,
-                    EXISTS (SELECT 1 FROM information_schema.columns
-                            WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2)",
+                        to_regclass(format('public.%I', $1::text)) IS NOT NULL,
+                        to_regclass(format('%I.%I', $3::text, $1::text)) IS NOT NULL,
+                        EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2)",
         )
         .bind(table)
         .bind(collision.current_shape_column)
+        .bind(&target_schema)
         .fetch_one(&mut *tx)
         .await?;
         if !public_exists || has_current_column {
             continue;
         }
         // Separate query: `_sqlx_migrations` cannot be named before it exists.
-        let (applied, legacy_schema_dropped) = if has_ledger {
-            sqlx::query_as(
-                "SELECT COALESCE(bool_or(version = $1), false), COALESCE(bool_or(version = $2), false)
-                   FROM _sqlx_migrations",
-            )
-            .bind(collision.migration_version)
-            .bind(LEGACY_SCHEMA_DROP_VERSION)
-            .fetch_one(&mut *tx)
-            .await?
-        } else {
-            (false, false)
-        };
-        if applied {
-            continue;
+        if has_ledger {
+            let applied: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM _sqlx_migrations WHERE version = $1)")
+                .bind(collision.migration_version)
+                .fetch_one(&mut *tx)
+                .await?;
+            if applied {
+                continue;
+            }
+        }
+        if target_exists {
+            return Err(RunMigrationsError::LegacyTargetExists {
+                schema: target_schema,
+                table,
+                migration_version: collision.migration_version,
+            });
         }
 
-        let target_schema = if legacy_schema_dropped && !legacy_exists {
-            "legacy".to_owned()
-        } else {
-            format!("legacy_pre_{:03}", collision.migration_version)
-        };
         let (schema, ident) = (quote_ident(&target_schema), quote_ident(table));
         sqlx::raw_sql(&format!("CREATE SCHEMA IF NOT EXISTS {schema}; ALTER TABLE public.{ident} SET SCHEMA {schema}"))
             .execute(&mut *tx)
@@ -319,7 +316,17 @@ pub enum RunMigrationsError {
 
     /// Moving a legacy-shaped table out of the way of its migration failed.
     #[error("legacy table reconciliation failed: {0}")]
-    LegacyReconcile(#[source] sqlx::Error),
+    LegacyReconcile(#[from] sqlx::Error),
+
+    /// The schema a legacy-shaped table must move to already holds a table of
+    /// that name. Nothing was changed.
+    #[error(
+        "legacy table reconciliation refused: public.{table} has the legacy shape and must move to \
+         {schema}.{table} before migration {migration_version:03}, but {schema}.{table} already exists. \
+         Nothing was changed. Check whether {schema}.{table} still holds data you need, back it up, \
+         rename or drop it, then start the server again"
+    )]
+    LegacyTargetExists { schema: String, table: &'static str, migration_version: i64 },
 
     /// SQLx migration execution failed.
     #[error("migration failed: {0}")]

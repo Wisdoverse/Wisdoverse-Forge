@@ -42,14 +42,15 @@ the migration needs to be safe to re-run.
    `LEGACY_TABLE_COLLISIONS` (migration version, table, a column only the
    current shape has). When the ledger lacks that version and `public.<table>`
    exists without that column, it moves the table, with its rows, indexes,
-   constraints and owned sequences, to the `legacy` schema. It uses
-   `legacy_pre_<version>` instead when `legacy.<table>` already exists, or
-   when migration 027 (which drops the `legacy` schema) has not run yet.
-   Foreign keys that point at it keep pointing at the moved table. Nothing is
-   dropped. A fresh database, a database already past that version, and a
-   table that already has the current shape are left alone. Add an entry only for a
-   collision observed on a real legacy database, one line each. The
-   migrations themselves stay immutable (rule 1).
+   constraints and owned sequences, to the schema `legacy_pre_<version>`
+   (for example `legacy_pre_089`). It never uses `legacy`, because migration
+   027 drops that schema with CASCADE. Foreign keys that point at it keep
+   pointing at the moved table. Nothing is dropped. If the target schema
+   already holds a table of that name, startup refuses with an error naming
+   it and nothing is changed. A fresh database, a database already past that
+   version, and a table that already has the current shape are left alone.
+   Add an entry only for a collision observed on a real legacy database, one
+   line each. The migrations themselves stay immutable (rule 1).
 6. **The PostgreSQL job queue (`agentforge-jobs`)** uses `FOR UPDATE SKIP
 LOCKED`. `pg_notify` is a wake-up signal only; a polling fallback must
    exist so notification loss does not stall the queue.

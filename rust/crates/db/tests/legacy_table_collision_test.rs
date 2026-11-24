@@ -93,8 +93,8 @@ async fn legacy_table_at_ledger_88_is_moved_and_migrations_apply(pool: PgPool) {
 
     agentforge_db::run_migrations(&pool).await.unwrap();
 
-    assert_eq!(count(&pool, "legacy.team_invites").await, 2, "legacy rows are preserved");
-    assert!(has_column(&pool, "legacy", "token").await);
+    assert_eq!(count(&pool, "legacy_pre_089.team_invites").await, 2, "legacy rows are preserved");
+    assert!(has_column(&pool, "legacy_pre_089", "token").await);
     assert!(has_column(&pool, "public", "token_hash").await, "089 created the current shape");
     assert_eq!(count(&pool, "public.team_invites").await, 0);
     assert!(ledger_has(&pool, 89).await);
@@ -109,7 +109,7 @@ async fn legacy_table_at_ledger_88_is_moved_and_migrations_apply(pool: PgPool) {
     assert_eq!(
         owners,
         [
-            ("team_invites_pkey".to_owned(), "legacy.team_invites".to_owned()),
+            ("team_invites_pkey".to_owned(), "legacy_pre_089.team_invites".to_owned()),
             ("team_invites_pkey".to_owned(), "team_invites".to_owned()),
             ("team_invites_team_id_email_key".to_owned(), "team_invites".to_owned()),
         ],
@@ -122,18 +122,18 @@ async fn legacy_table_at_ledger_88_is_moved_and_migrations_apply(pool: PgPool) {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(fk_target, "legacy.team_invites", "foreign keys follow the moved table");
+    assert_eq!(fk_target, "legacy_pre_089.team_invites", "foreign keys follow the moved table");
     assert_eq!(count(&pool, "public.legacy_invite_notes").await, 1);
 
     // Second run is a no-op.
     agentforge_db::run_migrations(&pool).await.unwrap();
-    assert_eq!(reconciled_tables(&pool).await, ["legacy.team_invites"]);
-    assert_eq!(count(&pool, "legacy.team_invites").await, 2);
+    assert_eq!(reconciled_tables(&pool).await, ["legacy_pre_089.team_invites"]);
+    assert_eq!(count(&pool, "legacy_pre_089.team_invites").await, 2);
     assert_eq!(count(&pool, "public.team_invites").await, 0);
 }
 
 #[sqlx::test(migrations = false)]
-async fn existing_legacy_copy_is_kept_and_second_copy_goes_to_legacy_pre_089(pool: PgPool) {
+async fn unrelated_legacy_schema_copy_is_left_alone(pool: PgPool) {
     migrate_up_to(&pool, 88).await;
     // Migration 027 dropped `legacy`; an operator may have recreated it.
     sqlx::raw_sql("CREATE SCHEMA legacy").execute(&pool).await.unwrap();
@@ -149,8 +149,25 @@ async fn existing_legacy_copy_is_kept_and_second_copy_goes_to_legacy_pre_089(poo
     assert!(ledger_has(&pool, latest_version()).await);
 }
 
-/// No ledger yet: reconciliation runs before 000..027, and 027 drops the
-/// `legacy` schema, so the table must not be parked there.
+#[sqlx::test(migrations = false)]
+async fn taken_target_is_refused_without_changes(pool: PgPool) {
+    migrate_up_to(&pool, 88).await;
+    sqlx::raw_sql("CREATE SCHEMA legacy_pre_089").execute(&pool).await.unwrap();
+    create_legacy_table(&pool, "legacy_pre_089", 1).await;
+    create_legacy_table(&pool, "public", 2).await;
+
+    let err = agentforge_db::run_migrations(&pool).await.unwrap_err();
+
+    assert!(matches!(err, agentforge_db::RunMigrationsError::LegacyTargetExists { .. }), "{err}");
+    assert!(err.to_string().contains("legacy_pre_089.team_invites already exists"), "{err}");
+    assert_eq!(count(&pool, "legacy_pre_089.team_invites").await, 1);
+    assert_eq!(count(&pool, "public.team_invites").await, 2);
+    assert!(has_column(&pool, "public", "token").await, "public table untouched");
+    assert!(!ledger_has(&pool, 89).await, "migrator did not run");
+}
+
+/// No ledger yet: reconciliation runs before 000..027; 027 drops `legacy`
+/// with CASCADE but never touches `legacy_pre_089`.
 #[sqlx::test(migrations = false)]
 async fn legacy_table_without_ledger_survives_migration_027(pool: PgPool) {
     create_legacy_table(&pool, "public", 2).await;

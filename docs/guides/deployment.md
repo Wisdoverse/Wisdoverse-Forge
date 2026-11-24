@@ -348,7 +348,7 @@ npm run migrate
 
 In containerized deployments, `make migrate` runs the migration command inside the Rust server container.
 
-Upgrade note: on a database first created by the legacy backend, the old `team_invites` table is moved to the `legacy` schema (or `legacy_pre_089` if that name is taken or the database predates migration 027) before migration 089 creates the current one. Its rows are kept there; the server logs one `moved legacy table out of public before its migration` line when this happens.
+Upgrade note: on a database first created by the legacy backend, the old `team_invites` table is moved to the `legacy_pre_089` schema before migration 089 creates the current one. Its rows are kept there; the server logs one `moved legacy table out of public before its migration` line when this happens. If `legacy_pre_089.team_invites` already exists, the server refuses to start and changes nothing: check whether that table still holds data you need, back it up, rename or drop it, and start again.
 
 ## When to Update This Document
 
