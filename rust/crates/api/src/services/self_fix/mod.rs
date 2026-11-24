@@ -50,7 +50,7 @@ use crate::domain::maintenance_delivery::{ensure_merge_not_rejected, merge_block
 pub use crate::domain::self_fix::SelfFixRepositorySetup;
 use crate::domain::self_fix::review_status::{APPROVED, CHANGES_REQUESTED, IN_REVIEW, MERGED, SENSITIVE_BLOCKED};
 use crate::domain::self_fix::{
-    MERGE_DECISION_LOCK_TIMEOUT_MS, MergeEntry, MergeEntryAction, SelfFixMergeMetricPolicy, SelfFixMergeResult,
+    MERGE_DECISION_BUDGET_MS, MergeEntry, MergeEntryAction, SelfFixMergeMetricPolicy, SelfFixMergeResult,
     SelfFixPolicy, SelfFixReview,
 };
 use crate::repositories::agent::AgentRepository;
@@ -371,26 +371,17 @@ impl SelfFixService {
         //    head_moved). The cap is checked in step c, so this always runs
         //    within the allowed budget. The transaction runs on the mutex's
         //    connection; the session advisory lock survives it.
-        //    The row-lock wait is bounded: `approved` carries the transaction's
-        //    start time, so a long wait would shorten the settle window.
+        //    `approved` carries the transaction's START time, so the whole
+        //    transaction is held to `MERGE_DECISION_BUDGET_MS`: every lock wait
+        //    fails fast, and a transaction that still ended up older than the
+        //    budget is refused instead of committed.
         let mut tx = conn.begin().await?;
-        let Some(current) =
-            delivery_write::try_lock_task(&mut tx, scope, task_id, MERGE_DECISION_LOCK_TIMEOUT_MS).await?
-        else {
-            tx.rollback().await?;
-            metrics::record_merge_outcome("running");
-            return Err(SelfFixPolicy::merge_attempt_running());
-        };
-        if current.pr_head_sha != task.pr_head_sha {
-            return Err(SelfFixPolicy::head_moved());
+        match Self::decide_in_tx(&mut tx, scope, task_id, task.pr_head_sha.as_deref()).await {
+            Ok(true) => tx.commit().await?,
+            Ok(false) => return Self::refuse_busy_decision(tx).await,
+            Err(err) if err.is_lock_timeout() => return Self::refuse_busy_decision(tx).await,
+            Err(err) => return Err(err),
         }
-        if let Some(source) = MaintenanceRequestRepository::find_by_task_on(&mut tx, scope, task_id).await? {
-            let verdict = delivery::current_report_verdict_in_tx(&mut tx, scope, &current, &source).await?;
-            ensure_merge_not_rejected(verdict.as_deref())?;
-        }
-        OrchestrationTaskRepository::bump_merge_attempts_in_tx(&mut tx, scope, task_id).await?;
-        OrchestrationTaskRepository::set_review_status_on(&mut tx, scope, task_id, APPROVED).await?;
-        tx.commit().await?;
 
         // Run the git-only guarded merge. NOTHING merges on a gate failure.
         let req = MergeRequest { pr_number, recorded_head_sha, sensitive };
@@ -447,6 +438,39 @@ impl SelfFixService {
             merged_head_sha: outcome.merged_head_sha,
             already_merged: outcome.already_merged,
         })
+    }
+
+    /// The merge decision transaction (step d). Its first statement sets the
+    /// transaction-local `lock_timeout` to the budget; its last measures the
+    /// transaction's age in PostgreSQL. The caller commits on `Ok(true)`;
+    /// `Ok(false)` (over budget) and every error are rolled back.
+    async fn decide_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: &TenantScope,
+        task_id: Uuid,
+        expected_head: Option<&str>,
+    ) -> AppResult<bool> {
+        OrchestrationTaskRepository::set_lock_timeout_on(tx, MERGE_DECISION_BUDGET_MS).await?;
+        let current = delivery_write::lock_task(tx, scope, task_id).await?;
+        if current.pr_head_sha.as_deref() != expected_head {
+            return Err(SelfFixPolicy::head_moved());
+        }
+        if let Some(source) = MaintenanceRequestRepository::find_by_task_on(tx, scope, task_id).await? {
+            let verdict = delivery::current_report_verdict_in_tx(tx, scope, &current, &source).await?;
+            ensure_merge_not_rejected(verdict.as_deref())?;
+        }
+        OrchestrationTaskRepository::bump_merge_attempts_in_tx(tx, scope, task_id).await?;
+        OrchestrationTaskRepository::set_review_status_on(tx, scope, task_id, APPROVED).await?;
+        let age_ms = OrchestrationTaskRepository::transaction_age_ms_on(tx).await?;
+        Ok(!SelfFixPolicy::decision_over_budget(age_ms))
+    }
+
+    /// Roll back a decision that ran out of budget: nothing written, no
+    /// attempt counted, no provider call.
+    async fn refuse_busy_decision<T>(tx: sqlx::Transaction<'_, sqlx::Postgres>) -> AppResult<T> {
+        tx.rollback().await?;
+        metrics::record_merge_outcome("running");
+        Err(SelfFixPolicy::merge_attempt_running())
     }
 
     /// Read-side review snapshot for the in-platform review surface (milestone 8).

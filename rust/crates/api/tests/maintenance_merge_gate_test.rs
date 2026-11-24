@@ -685,25 +685,71 @@ async fn rejected_current_report_blocks_forge_merge_and_merges_serialize_with_ve
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!((f.state(task).await, f.fake.merges(83)), (("merged".into(), 1), 1));
 
-    // Bounded row-lock wait — another transaction holds the task row longer
-    // than the decision's lock timeout (the real 5 s; there is no test seam).
-    // Approve gives up with the busy 409: nothing written, no attempt counted,
-    // no provider merge call. Once the row is free, approve proceeds normally.
-    let task = f.task("gate-lock-timeout", 84, 'c').await;
+    // Decision budget (5 s): the decision transaction's `approved` timestamp is
+    // its START time, so the whole transaction is bounded. Each case below holds
+    // a row the decision needs for longer than the budget (the real 5 s; there
+    // is no test seam): approve returns the busy 409 with status, attempts and
+    // merge calls unchanged, and succeeds once the row is free.
+    for (case, pr, row) in [
+        ("task row", 84, "SELECT 1 FROM orchestration_tasks WHERE id=$1 FOR UPDATE"),
+        (
+            "user row (authority check)",
+            85,
+            "SELECT 1 FROM users WHERE id=(SELECT created_by FROM orchestration_tasks WHERE id=$1) FOR UPDATE",
+        ),
+        ("latest-run row", 86, "SELECT 1 FROM task_runs WHERE orchestration_task_id=$1 FOR UPDATE"),
+    ] {
+        let task = f.task(&format!("gate-budget-{pr}"), pr, 'c').await;
+        f.report(task).await;
+        let mut hold = pool.begin().await.unwrap();
+        sqlx::query(row).bind(task).execute(&mut *hold).await.unwrap();
+        // Bounded so that a lock wait outside the decision fails instead of hanging.
+        let (status, body) = tokio::time::timeout(std::time::Duration::from_secs(60), f.approve(task))
+            .await
+            .unwrap_or_else(|_| panic!("{case}: approve did not finish"));
+        assert_eq!((status, code(&body)), (StatusCode::CONFLICT, RUNNING), "{case}: {body}");
+        assert_eq!((f.state(task).await, f.fake.merges(pr)), (("in_review".into(), 0), 0), "{case}");
+        hold.rollback().await.unwrap();
+        let (status, body) = f.approve(task).await;
+        assert_eq!(status, StatusCode::OK, "{case}: {body}");
+        assert_eq!((f.state(task).await, f.fake.merges(pr)), (("merged".into(), 1), 1), "{case}");
+    }
+
+    // Age check — every single lock wait succeeds inside the lock timeout, but
+    // the transaction as a whole outlives the budget: the task row is released
+    // after ~3 s, then the latest-run row after ~3 s more. The final age check
+    // refuses the commit; nothing is written. (No production seam exists to age
+    // the transaction directly, so this uses held locks released in time.)
+    let task = f.task("gate-budget-age", 87, 'c').await;
     f.report(task).await;
-    let mut hold = pool.begin().await.unwrap();
+    let mut task_hold = pool.begin().await.unwrap();
+    let task_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *task_hold).await.unwrap();
     sqlx::query("SELECT 1 FROM orchestration_tasks WHERE id=$1 FOR UPDATE")
         .bind(task)
-        .execute(&mut *hold)
+        .execute(&mut *task_hold)
         .await
         .unwrap();
-    let (status, body) = f.approve(task).await;
+    let mut run_hold = pool.begin().await.unwrap();
+    let run_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *run_hold).await.unwrap();
+    sqlx::query("SELECT 1 FROM task_runs WHERE orchestration_task_id=$1 FOR UPDATE")
+        .bind(task)
+        .execute(&mut *run_hold)
+        .await
+        .unwrap();
+    let blocked_by =
+        |pid: i32| format!("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE {pid} = ANY(pg_blocking_pids(pid)))");
+    let deciding = tokio::spawn(approve(f.app.clone(), f.jwt.clone(), task));
+    wait_for(&pool, &blocked_by(task_pid)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    task_hold.rollback().await.unwrap();
+    wait_for(&pool, &blocked_by(run_pid)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    run_hold.rollback().await.unwrap();
+    let (status, body) = deciding.await.unwrap();
     assert_eq!((status, code(&body)), (StatusCode::CONFLICT, RUNNING), "{body}");
-    assert_eq!((f.state(task).await, f.fake.merges(84)), (("in_review".into(), 0), 0));
-    hold.rollback().await.unwrap();
+    assert_eq!((f.state(task).await, f.fake.merges(87)), (("in_review".into(), 0), 0));
     let (status, body) = f.approve(task).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!((f.state(task).await, f.fake.merges(84)), (("merged".into(), 1), 1));
 }
 
 const CAP: i32 = 5; // test_app_config: self_fix_max_merge_attempts

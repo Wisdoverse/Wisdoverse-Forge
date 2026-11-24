@@ -118,6 +118,22 @@ impl From<RuntimeCapabilityError> for AppError {
     }
 }
 
+impl AppError {
+    /// PostgreSQL `lock_not_available` (SQLSTATE 55P03), raised when a lock wait
+    /// exceeds `lock_timeout`. Callers that set a timeout map it to their own
+    /// busy response; every other error keeps its existing handling.
+    pub fn is_lock_timeout(&self) -> bool {
+        match &self.kind {
+            ErrorKind::Internal(err) => err
+                .downcast_ref::<sqlx::Error>()
+                .and_then(sqlx::Error::as_database_error)
+                .and_then(|db| db.code())
+                .is_some_and(|code| code == "55P03"),
+            _ => false,
+        }
+    }
+}
+
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.kind.fmt(f)

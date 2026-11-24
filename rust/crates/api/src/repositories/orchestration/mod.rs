@@ -294,50 +294,19 @@ fn merge_lock_key(scope: &TenantScope, id: Uuid) -> String {
 }
 
 impl OrchestrationTaskRepository {
-    async fn select_for_update(
+    pub(crate) async fn lock_by_id_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,
         id: Uuid,
-    ) -> Result<Option<OrchestrationTask>, sqlx::Error> {
+    ) -> AppResult<OrchestrationTask> {
         sqlx::query_as::<_, OrchestrationTask>(
             "SELECT * FROM orchestration_tasks WHERE organization_id = $1 AND id = $2 FOR UPDATE",
         )
         .bind(scope.org_id().as_uuid())
         .bind(id)
         .fetch_optional(&mut **tx)
-        .await
-    }
-
-    pub(crate) async fn lock_by_id_in_tx(
-        tx: &mut Transaction<'_, Postgres>,
-        scope: &TenantScope,
-        id: Uuid,
-    ) -> AppResult<OrchestrationTask> {
-        Self::select_for_update(tx, scope, id).await?.ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
-    }
-
-    /// [`Self::lock_by_id_in_tx`], but waits at most `timeout_ms` for the row
-    /// lock: `Ok(None)` when PostgreSQL reports a lock timeout (SQLSTATE
-    /// 55P03). The transaction is aborted then and must be rolled back. Any
-    /// other error keeps its existing handling.
-    pub(crate) async fn try_lock_by_id_in_tx(
-        tx: &mut Transaction<'_, Postgres>,
-        scope: &TenantScope,
-        id: Uuid,
-        timeout_ms: u64,
-    ) -> AppResult<Option<OrchestrationTask>> {
-        sqlx::query("SELECT set_config('lock_timeout', $1, true)")
-            .bind(format!("{timeout_ms}ms"))
-            .execute(&mut **tx)
-            .await?;
-        let task = match Self::select_for_update(tx, scope, id).await {
-            Ok(task) => task.ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))?,
-            Err(sqlx::Error::Database(db)) if db.code().as_deref() == Some("55P03") => return Ok(None),
-            Err(err) => return Err(err.into()),
-        };
-        // The bound applies to the row lock only; later statements keep the default.
-        sqlx::query("SET LOCAL lock_timeout TO DEFAULT").execute(&mut **tx).await?;
-        Ok(Some(task))
+        .await?
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
     }
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -927,6 +896,26 @@ impl OrchestrationTaskRepository {
             .fetch_one(&mut *conn)
             .await?;
         Ok(())
+    }
+
+    /// Transaction-local `lock_timeout` for the caller's transaction: every
+    /// later lock wait in it fails with SQLSTATE 55P03 after `timeout_ms`.
+    pub(crate) async fn set_lock_timeout_on(conn: &mut PgConnection, timeout_ms: u64) -> AppResult<()> {
+        sqlx::query("SELECT set_config('lock_timeout', $1, true)")
+            .bind(format!("{timeout_ms}ms"))
+            .execute(&mut *conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Age of the caller's transaction in milliseconds, computed by PostgreSQL
+    /// (`clock_timestamp()` minus the transaction start that `NOW()` returns).
+    pub(crate) async fn transaction_age_ms_on(conn: &mut PgConnection) -> AppResult<i64> {
+        Ok(sqlx::query_scalar(
+            "SELECT (EXTRACT(EPOCH FROM clock_timestamp() - transaction_timestamp()) * 1000)::bigint",
+        )
+        .fetch_one(&mut *conn)
+        .await?)
     }
 
     /// Set the review status on a caller-held connection or transaction (tenant-scoped).
