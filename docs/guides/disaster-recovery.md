@@ -79,6 +79,14 @@ the run removes its own staging folder, exits with the `pg_dump` error, and the
 service restarts and retries. It does not publish a partial set and does not
 delete older backups after a failure.
 
+Stopping the service (`$COMPOSE_BACKUP stop backup`) or interrupting a run with
+TERM, HUP, or INT ends it within a second or two, also in the middle of a dump.
+The run stops its `pg_dump`, removes its own staging folder, releases the lock,
+publishes nothing, and exits non-zero: 130 for a stop (Docker stops this image
+with INT), 143 for TERM, 129 for HUP. A run killed without a chance to clean up (for example `docker kill`)
+can leave its staging folder behind; the next run deletes staging folders older
+than a day.
+
 Only one run works at a time. Each run takes the lock file
 `docker/backups/.backup.lock` first. The scheduled service waits as long as
 another run holds the lock. A manual run waits up to 10 minutes, then stops
@@ -391,22 +399,90 @@ Success looks like this:
   example a client that is still connected. Paste the block again, or start the
   services again.
 
+- **Stopped in phase 5:** all four databases are already promoted. They passed
+  the phase 3 checks, so they are valid. Your previous databases are kept,
+  untouched, as `<db>_before_restore`. Some services may be running. See which
+  ones, and why the one that failed did not start:
+
+  ```bash
+  $COMPOSE_PROD ps agentforge-server temporal orchestrator
+  $COMPOSE_PROD logs --tail 50 agentforge-server temporal orchestrator
+  ```
+
+  Then choose one of the two ways forward. Do not paste the whole block
+  again: phase 1 stops, because the `<db>_before_restore` names exist.
+
+  **Resume phase 5 (usual choice).** Choose this when the cause is outside the
+  restored data, for example a missing `docker/.env` value, a port in use, a
+  missing image, or a health check that timed out on a slow host. Fix the
+  cause, then run these lines. They are safe to repeat: services that already
+  run are left as they are.
+
+  ```bash
+  $COMPOSE_PROD up -d --wait agentforge-server
+  $COMPOSE_PROD up -d --wait temporal
+  $COMPOSE_PROD up -d --wait orchestrator
+  curl -fsS http://localhost:4003/api/health; echo
+  curl -fsS -o /dev/null -w '  orchestrator readiness: HTTP %{http_code}\n' http://localhost:4010/health/ready
+  ```
+
+  Success looks the same as for the whole block. Then run the
+  [checks for skew](#after-the-restore-check-for-skew).
+
+  **Go back to the databases from before the restore.** Choose this when the
+  restored data is the cause and you cannot fix it, for example startup stops
+  with `migration <N> was previously applied but is missing` and you cannot
+  run the release the backup came from, or you decide not to restore after
+  all. Anything the started services wrote since phase 5 began is dropped
+  with the restored copies.
+
+  1. Stop every service that writes to the databases first. A rename fails
+     with `is being accessed by other users` while one is still connected:
+
+     ```bash
+     $COMPOSE_BACKUP stop agentforge-server orchestrator temporal backup
+     ```
+
+  2. Run the undo block from phase 4 once for each of the four databases,
+     with `DB=agentforge`, `DB=temporal`, `DB=temporal_visibility` (all with
+     `SERVICE=db ROLE=agentforge`), and
+     `DB=orchestrator SERVICE=orchestrator-db ROLE=orchestrator`. A database
+     without a `<db>_before_restore` copy had none before the restore; for it,
+     run only the first rename, as described there. If a rename reports
+     `is being accessed by other users`, that database was left unchanged: a
+     session of a stopped service has not closed yet. Wait a few seconds and
+     run the undo for that database again.
+  3. Run the phase 4 name listing. Each `<db>` and `<db>_restore` exists, and
+     no `<db>_before_restore` is left.
+  4. Start the services with the resume lines above. They now run on your
+     previous databases.
+  5. When they are healthy, delete the `*_restore` copies with the phase 2 and
+     3 cleanup block.
+
+Remove the `*_before_restore` copies only when you will not go back: the
+services run healthy on the restored databases, the skew checks are done, and a
+few days of normal operation have passed. The command is under
+[After the restore](#after-the-restore-check-for-skew). After you went back,
+there are no `*_before_restore` copies; delete the `*_restore` copies instead.
+
 #### After the restore: check for skew
 
-These checks are read-only. They find the skew described in
+These checks change no data; the first one creates only a temporary table
+that disappears when it ends. They find the skew described in
 [What a restore recovers](#what-a-restore-recovers). The first check compares
 every workflow row that is not finished with Temporal's record of the same
 workflow, which is the latest run in Temporal's visibility database. It lists
-each row whose status or run ID disagrees with it:
+each row whose status or run ID disagrees with it. The rows stream from one
+database server to the other through a pipe into a temporary table that exists
+only for this check, so any number of workflows fits:
 
 ```bash
-WF_ROWS=$($COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -At -c \
-  "select coalesce(string_agg(id::text || '|' || status || '|' || coalesce(temporal_run_id, ''), ';'), '') from workflows where status in ('draft', 'running', 'paused')")
-$COMPOSE_PROD exec -T db psql -U agentforge -d temporal_visibility -v rows="$WF_ROWS" <<'SQL'
-WITH r AS (
-  SELECT split_part(x, '|', 1) AS id, split_part(x, '|', 2) AS row_status, nullif(split_part(x, '|', 3), '') AS row_run_id
-  FROM unnest(string_to_array(:'rows', ';')) AS x),
-e AS (
+( set -o pipefail
+$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -v ON_ERROR_STOP=1 -c \
+  "copy (select id, status, temporal_run_id from workflows where status in ('draft', 'running', 'paused')) to stdout" |
+$COMPOSE_PROD exec -T db psql -U agentforge -d temporal_visibility -v ON_ERROR_STOP=1 \
+  -c 'create temp table r (id text, row_status text, row_run_id text)' -c '\copy r from pstdin' -c "
+WITH e AS (
   SELECT DISTINCT ON (workflow_id) workflow_id, trim(run_id) AS run_id, status
   FROM executions_visibility ORDER BY workflow_id, start_time DESC)
 SELECT r.id AS workflow, r.row_status, r.row_run_id, e.run_id AS temporal_run_id,
@@ -417,12 +493,13 @@ WHERE (e.workflow_id IS NULL AND r.row_status <> 'draft')
    OR (e.status IS NOT NULL AND e.status <> 1)
    OR (r.row_status = 'draft' AND e.workflow_id IS NOT NULL)
    OR (r.row_run_id IS NOT NULL AND e.run_id IS NOT NULL AND r.row_run_id <> e.run_id)
-ORDER BY 1;
-SQL
+ORDER BY 1" ) || echo "the skew check did not finish; fix the error above and run it again" >&2
 ```
 
 How to read the result:
 
+- `COPY <n>` is the number of unfinished workflow rows that were compared.
+  Then the mismatches follow; `(0 rows)` means none.
 - `no execution` on a `running` row: the workflow is stranded.
 - `Completed`, `Failed`, `Canceled`, `Terminated`, or `TimedOut` on a
   `running` or `draft` row: the workflow finished between the two dumps.
@@ -485,6 +562,65 @@ database.
   same Temporal server version, which means the same image tag.
 
 ### Restore rehearsal record
+
+**2026-11-24, second round — mechanics rehearsal of interrupted backups, the
+streamed skew check, and phase 5 recovery.** This is **not** an
+application-level restore proof; that rehearsal is still open. It used no Forge
+binaries, no Temporal server, and no real data.
+
+- Revision: branch `fix/1325-1326-compose-backup-readiness` at the commit that
+  adds this entry. The backup command was run as Compose renders it (rendered
+  with a dummy env file made from `docker/.env.example`, entrypoint
+  `/bin/sh -ec`, the same image). The restore block, the skew check, the
+  organization check, and the phase 5 recovery blocks were run byte-identical
+  from this guide; only the `BACKUP_SET=` and `DB=` lines were edited, as the
+  guide says.
+- Images: `postgres:18-alpine` (PostgreSQL 18.7, `sha256:0115267ab5a5…`) and
+  `postgres:16-alpine` (PostgreSQL 16.16, `sha256:1758b8743084…`).
+- Setup: plain `docker run` containers on one private internal network, no
+  published ports, no Compose project. `$COMPOSE_PROD` and `$COMPOSE_BACKUP`
+  were mapped to `docker exec` and `docker run`. The three services were
+  stand-ins that hold one open database connection each, and the API stand-in
+  writes one row when it starts. `curl` and the Temporal CLI printed `SKIPPED`.
+  All four databases used small synthetic schemas, including the Temporal
+  ones (unlike the first round).
+- Results by case:
+  - **Interrupted dump** (the `agentforge` dump held on a table lock, three
+    dumps already in the staging folder): TERM, HUP, INT, and `docker stop`
+    each ended the container in 0.6 to 1.5 s with exit code 143, 129, 130,
+    and 130. Every time the staging folder was gone, the lock was free, no
+    file was published, and the four published files were byte-identical
+    (SHA-256) to before. The previous command, for comparison: `docker stop`
+    took 10.6 s, ended with 137 (killed), and left its staging folder.
+  - **Stop during the daily wait:** `docker stop` and TERM ended the container
+    in 1.0 s (exit 130) and 0.8 s (exit 143); the previous command took 11.3 s
+    (exit 137).
+  - **Skew check with 5,200 unfinished workflow rows:** it printed `COPY 5200`
+    and listed exactly the eight planted mismatches (two finished between the
+    dumps, two stranded, two `draft` rows with a running execution, two older
+    run IDs). The previous check failed on the same data with
+    `Argument list too long`. With the orchestrator side failing, the check
+    printed `the skew check did not finish`. The organization check listed the
+    one planted orphan ID.
+  - **Phase 5 failure** (the Temporal start replaced by a stub that fails):
+    the block exited 1 after phase 4, with the API stand-in running. Resume:
+    after removing the stub, the resume lines started Temporal and the
+    orchestrator; a second run changed nothing. The databases kept the
+    restored data and the `*_before_restore` copies. Go back: after a second
+    restore that failed the same way, the stop line, the undo block once per
+    database, and the name listing left `<db>` and `<db>_restore` for all
+    four databases. All four were identical in data to before that restore
+    (`pg_dump --data-only`, SHA-256); the row the API stand-in wrote went with
+    the `*_restore` copies. The resume lines and the cleanup block then left
+    the four original names and three running stand-ins.
+- Guide fixes found by this round:
+  - Docker stops this image with INT, not TERM, so a stop exits 130.
+  - An undo run before the stand-ins' sessions closed failed with
+    `is being accessed by other users` and left that database unchanged; the
+    guide now says to wait and run that undo again.
+- Not covered: that the real `docker compose up -d --wait` leaves a running
+  service alone (Compose's documented behavior; the stand-in did it), and Ctrl+C
+  on a manual run in a terminal.
 
 **2026-11-24 — mechanics rehearsal with a synthetic schema, current
 procedure.** This is **not** an application-level restore proof; that

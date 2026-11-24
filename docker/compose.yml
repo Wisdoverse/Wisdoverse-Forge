@@ -597,7 +597,21 @@ services:
       - -ec
       - |
         exec 9>>/backups/.backup.lock
+        stage=; child=
+        # Children run in the background with fd 9 closed: only this shell holds
+        # the lock, and a trapped signal interrupts `wait` at once.
+        run() { "$$@" 9>&- & child=$$!; wait "$$child"; child=; }
+        # ash skips the EXIT trap when a signal kills it, so TERM/HUP/INT stop the
+        # active child and exit through the EXIT trap (staging removed, lock freed
+        # with fd 9). A deliberate stop (`docker stop` sends this image's
+        # STOPSIGNAL, SIGINT) exits 130 = 128+2 (TERM 143, HUP 129), the shell
+        # convention for "killed by signal": non-zero because the run was
+        # interrupted, not completed.
+        stop() { trap '' TERM HUP INT; [ -z "$$child" ] || { kill "$$child" 2>/dev/null || :; wait "$$child" || :; }; exit "$$1"; }
         trap 'rm -rf "$$stage"' EXIT
+        trap 'stop 143' TERM
+        trap 'stop 129' HUP
+        trap 'stop 130' INT
         while true; do
           waited=0
           until flock -n 9; do
@@ -606,20 +620,20 @@ services:
               exit 75
             fi
             if [ "$$waited" = 0 ]; then echo "backup: another backup run is in progress; waiting for it"; fi
-            sleep 5
+            run sleep 5
             waited=$$((waited + 5))
           done
-          # With the lock held no other pass is running, so a staging dir older than a day is a leftover.
+          # With the lock held no other pass is running, so a staging dir older than a day is a leftover (e.g. after SIGKILL).
           find /backups -maxdepth 1 -name '.staging-*' -mmin +1440 -exec rm -rf {} +
           ts=$$(date +%Y%m%d_%H%M%S)
           # A pass that finished within the same second already published this timestamp.
-          while ls /backups/*_"$$ts".dump >/dev/null 2>&1; do sleep 1; ts=$$(date +%Y%m%d_%H%M%S); done
+          while ls /backups/*_"$$ts".dump >/dev/null 2>&1; do run sleep 1; ts=$$(date +%Y%m%d_%H%M%S); done
           stage="/backups/.staging-$$ts-$$(hostname)"
           mkdir "$$stage"
           # Referencing side first, referenced side last: orchestrator rows hold Temporal execution and API ids; everything holds API ids.
-          PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "$$stage/orchestrator.dump"
+          PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" run pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "$$stage/orchestrator.dump"
           for db in temporal temporal_visibility "$$POSTGRES_DB"; do
-            PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$db" -F c -f "$$stage/$$db.dump"
+            PGPASSWORD="$$POSTGRES_PASSWORD" run pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$db" -F c -f "$$stage/$$db.dump"
           done
           for db in orchestrator temporal temporal_visibility "$$POSTGRES_DB"; do
             mv "$$stage/$$db.dump" "/backups/$${db}_$$ts.dump"
@@ -629,7 +643,7 @@ services:
           echo "backup complete: $$ts (orchestrator temporal temporal_visibility $$POSTGRES_DB)"
           if [ "$${BACKUP_ONCE:-0}" = 1 ]; then exit 0; fi
           flock -u 9
-          sleep 86400
+          run sleep 86400
         done
 
     networks:
