@@ -142,7 +142,7 @@ pipeline {
           env.FORGE_REV = pointer('activeRunner')
           env.FORGE_GENERATION = pointer('activeGeneration')
           if (!(env.FORGE_REV ==~ /[0-9a-f]{7,40}/) || !(env.FORGE_GENERATION ==~ /[0-9a-z]{6,24}/)) {
-            error('No active inputs in the journal yet: run ACTION=deploy once, then baseline (see the runbook).')
+            error('No active inputs in the journal yet. Run ACTION=status to confirm; if no baseline is recorded, run ACTION=stage, then baseline from a host shell (runbook: First deploy). Never use deploy to repeat preparation.')
           }
           readPaths("inputs/${env.FORGE_GENERATION}/deploy.env")
         }

@@ -267,7 +267,9 @@ sudo docker run --rm --network host \
 
 What `baseline` does:
 
-1. It tags the running server and orchestrator images as `:baseline`.
+1. It tags the running server and orchestrator images as
+   `:baseline-<compose-project>`. It never moves a tag that already points at
+   another image; it refuses instead.
 2. It renders the baseline Compose files with the staged env file.
 3. It compares that rendering with the running containers: image ids,
    environment variable names, mounts (named-volume identity, bind source,
@@ -275,7 +277,7 @@ What `baseline` does:
 
 Success: `baseline recorded: the next deploy can roll back to the running
 release`. `status` then shows `current release: baseline` and an active
-generation. A refused baseline changes nothing except the `:baseline` image
+generation. A refused baseline changes nothing except the `:baseline-<compose-project>` image
 tags, so you can run it as often as you need. Once a baseline is recorded it
 refuses to run again.
 
@@ -374,6 +376,13 @@ CLI, and watch the stack for 30 minutes. Record the result under
 1. Make sure the commit is on `main`. Move `DEV` to it.
 2. Run the job with `ACTION=deploy`, or wait for SCM polling.
 
+Image tags are global to the Docker host. Two deployments on one host (for
+example a rehearsal next to the live stack) share revision images
+(`agentforge-server:<commit>` and so on) by design. `build` adopts a
+revision tag that already exists instead of rebuilding it, and no command
+ever moves an existing tag to another image. Baseline images are scoped per
+deployment: `agentforge-server:baseline-<compose-project>`.
+
 Success: exit code 0 and `deployed <commit>-<env-hash>`. If `DEV` already points at the
 current release, the job prints `already the current release` and exits 0. A
 commit that already has a release record is never rebuilt, so the images that
@@ -444,18 +453,66 @@ there is no overlap. A rollback after the change would start the previous
 release with the old value. Change the value immediately before the deploy, and
 keep the old value ready.
 
-If a credential was revoked too early (a rollback or `recover` now fails to
-connect):
+If a credential was revoked too early, a rollback or `recover` now fails to
+connect. The preferred fix is to restore the old credential temporarily, run
+`ACTION=recover`, and repeat the rotation from step 1.
 
-- Restore the old credential temporarily. Run `ACTION=recover`, and repeat the
-  rotation from step 1 once the stack is healthy.
-- If an attempt is unfinished and the database password itself had to change,
-  edit only that secret in `private/inputs/<generation>/deploy.env` (`status`
-  shows the generation), then run `ACTION=recover`. Recovery accepts a changed
-  secret. It refuses a changed deployment identity: project name, database
-  hosts, ports, database or role names, networks, web root, lock directory,
-  published ports. `status` notes that the env file differs from its recorded
-  hash.
+If the old credential cannot be restored, put the new value into the two files
+that carry it, then recover:
+
+1. the env file of the active input generation:
+   `private/inputs/<generation>/deploy.env` (`status`: `active inputs:
+   generation <generation>`)
+2. the saved rendered configuration of the release a rollback starts:
+   `private/configs/<previous-release-id>.json` (`status`: `attempt: <attempt>
+   <previous-release-id> -> <target>`; without an unfinished attempt, the
+   `previous release:` line)
+
+Editing only the env file does not help: a rollback starts the previous
+release from its saved rendered configuration, which embeds the previous
+credential.
+
+Replace the value without printing it, without putting it in argv or in the
+shell history (bash). The values are read with echo disabled and reach the
+runner only through the environment:
+
+```bash
+ROOT=<jenkins-home-host-path>/forge-deploy/<job-name>
+GEN=<generation>
+PREV=<previous-release-id>
+REV=$(sudo sed -n 's/^  "activeRunner": "\([0-9a-f]*\)",\{0,1\}$/\1/p' "$ROOT/private/state.json")
+sudo tee "$ROOT/private/.replace-credential.js" >/dev/null <<'SCRIPT'
+const fs = require('fs'); const o = process.env.OLD; const n = process.env.NEW
+if (!o || !n) { console.error('OLD and NEW must be set'); process.exit(2) }
+for (const f of process.argv.slice(2)) {
+  const text = fs.readFileSync(f, 'utf8'); let count = 0
+  const swap = (v) => { const parts = v.split(o); count += parts.length - 1; return parts.join(n) }
+  const walk = (v) => typeof v === 'string' ? swap(v) : Array.isArray(v) ? v.map(walk) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)])) : v
+  const out = f.endsWith('.json') ? JSON.stringify(walk(JSON.parse(text)), null, 2) : swap(text)
+  fs.writeFileSync(f + '.tmp', out, { mode: 0o600 }); fs.renameSync(f + '.tmp', f)
+  console.log(`${f.split('/').pop()}: replaced ${count} occurrence(s)`)
+}
+SCRIPT
+read -rs -p 'old value: ' OLD; echo; read -rs -p 'new value: ' NEW; echo
+export OLD NEW
+sudo --preserve-env=OLD,NEW docker run --rm --network none -e OLD -e NEW \
+  --mount "type=bind,src=$ROOT/private,dst=/p" "forge-deploy-runner:$REV" \
+  node /p/.replace-credential.js "/p/inputs/$GEN/deploy.env" "/p/configs/$PREV.json"
+unset OLD NEW
+sudo rm "$ROOT/private/.replace-credential.js"
+```
+
+Success: each file reports at least one replacement. If a file reports `0
+occurrence(s)`, stop. The value appears there in another form, for example a
+`$` written as `$$` in the rendered configuration. Restore the old credential
+instead.
+
+Then run `status`. It shows `note: the active env file differs from its
+recorded hash (deployment identity unchanged)`. Then run `ACTION=recover`.
+Recovery accepts a changed secret. It refuses a changed deployment identity:
+the project name, anything that locates state (database hosts, ports, database
+or role names, networks, web root, workspace and OAuth roots, storage
+provider, path, endpoint, bucket, region), lock directory or published ports.
 
 ## Recovery required
 

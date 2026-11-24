@@ -297,9 +297,9 @@ export function createExecutor(cfg, log) {
 
   // Renders the revision's Compose files; the result is stored under the release id, because two
   // releases of one revision differ by their env (round 5, F4a).
-  const render = (rev, id = rev) => {
+  const render = (rev, id = rev, version = rev) => {
     const out = docker([...composeSource(rev), 'config', '--format', 'json'], {
-      env: { VERSION: rev },
+      env: { VERSION: version },
     }).stdout
     ensureDir(path.dirname(configPath(id)), 0o700)
     atomicWrite(configPath(id), out)
@@ -343,6 +343,16 @@ export function createExecutor(cfg, log) {
     Object.values(rendered.services)
       .map((s) => inspect(s.container_name))
       .filter(Boolean)
+  // Round 6, S2b: image tags are global to the daemon. A tag is created or confirmed, never moved.
+  const tagImage = (id, tag) => {
+    const existing = imageId(tag)
+    if (existing && existing !== id) {
+      throw new Error(`tag ${tag} already points at another image; refusing to move it`)
+    }
+    if (!existing) {
+      docker(['tag', id, tag])
+    }
+  }
   const loadConfig = (rev) => JSON.parse(fs.readFileSync(record(rev).config, 'utf8'))
   // Running agents refuse a deploy; stopped ones of a discarded release are removed too.
   const agentInventory = ({ all = false } = {}) =>
@@ -466,6 +476,8 @@ export function createExecutor(cfg, log) {
   }
 
   // Forward deploys are held to the target's sources; rollbacks to what the snapshot recorded.
+  // Round 6, S2d: the image ids come from the release record (taken at preflight, or from the
+  // running containers for the baseline), never from a fresh tag lookup: a tag is global.
   const expectations = (s) => {
     const base = { images: record(s.rev).images, requireRedis: cfg.requireRedis }
     if (s.against === 'snapshot') {
@@ -698,7 +710,10 @@ export function createExecutor(cfg, log) {
   // D5 + A11: record the hand-deployed release so the first deploy can roll back to it.
   function baseline() {
     const rev = 'baseline'
-    const rendered = render(rev)
+    // Round 6, S2a: the baseline tag is scoped by project, so a rehearsal on the same host can
+    // never replace the images the live stack's baseline record points at.
+    const version = `baseline-${cfg.project}`
+    const rendered = render(rev, rev, version)
     const containers = serviceContainers(rendered)
     for (const [svc, repo] of Object.entries({
       'agentforge-server': 'agentforge-server',
@@ -708,7 +723,7 @@ export function createExecutor(cfg, log) {
       if (!c) {
         return { findings: [`no running container for ${svc}`] }
       }
-      docker(['tag', c.imageId, `${repo}:baseline`])
+      tagImage(c.imageId, `${repo}:${version}`)
     }
     const refs = Object.fromEntries(
       Object.entries(rendered.services).map(([svc, s]) => [svc, s.image])
@@ -828,20 +843,39 @@ export function createExecutor(cfg, log) {
         log(`${rev} already has a release record; build skipped so its images stay pinned`)
         return
       }
-      docker([...composeSource(rev), 'build', 'agentforge-server', 'orchestrator'], {
-        env: { VERSION: rev },
-        inherit: true,
-      })
+      // Round 6, S2c: revision tags are shared by every deployment on this host by design. An
+      // existing tag is adopted as it is (preflight records its id); only missing ones are built.
+      const services = {
+        'agentforge-server': 'agentforge-server',
+        orchestrator: 'agentforge-orchestrator',
+      }
+      const missing = Object.entries(services)
+        .filter(([, repo]) => !imageId(`${repo}:${rev}`))
+        .map(([svc]) => svc)
+      if (missing.length > 0) {
+        docker([...composeSource(rev), 'build', ...missing], {
+          env: { VERSION: rev },
+          inherit: true,
+        })
+      }
       const tag = `agentforge-frontend:${rev}`
-      const args = [
-        '-f',
-        path.join(releaseDir(rev), 'docker/Dockerfile'),
-        '--build-arg',
-        `APP_VERSION=${rev}`,
-      ]
-      docker([...words('build --target production'), ...args, '-t', tag, releaseDir(rev)], {
-        inherit: true,
-      })
+      if (!imageId(tag)) {
+        const args = [
+          '-f',
+          path.join(releaseDir(rev), 'docker/Dockerfile'),
+          '--build-arg',
+          `APP_VERSION=${rev}`,
+        ]
+        docker([...words('build --target production'), ...args, '-t', tag, releaseDir(rev)], {
+          inherit: true,
+        })
+      }
+      const adopted = Object.keys(services).filter((svc) => !missing.includes(svc))
+      if (adopted.length > 0) {
+        log(
+          `adopted existing images for ${adopted.join(', ')} at ${rev} (tags are shared on this host)`
+        )
+      }
       const out = path.join(cfg.releaseRoot, 'frontend', rev)
       const id = docker(['create', ...helperArgs('frontend'), tag]).stdout.trim()
       try {

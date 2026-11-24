@@ -9,7 +9,7 @@ export const MIN_FREE_BYTES = 1024 ** 3
 // the last assignment wins, which is how the appended VERSION=<rev> takes effect.
 export function parseEnvFile(text) {
   const env = {}
-  for (const raw of text.split(/\r?\n/)) {
+  for (const [index, raw] of text.split(/\r?\n/).entries()) {
     const line = raw.trim().replace(/^export\s+/, '')
     if (line === '' || line.startsWith('#')) {
       continue
@@ -17,7 +17,7 @@ export function parseEnvFile(text) {
     const eq = line.indexOf('=')
     const key = eq > 0 ? line.slice(0, eq).trim() : ''
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-      throw new Error('env file has a line that is not KEY=VALUE (line content not shown)')
+      throw new Error(`line ${index + 1} is not KEY=VALUE (content not shown)`)
     }
     const value = line.slice(eq + 1)
     env[key] = /^(".*"|'.*')$/.test(value) ? value.slice(1, -1) : value
@@ -50,8 +50,9 @@ export function redact(text, secrets = []) {
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
 
-// Round 5, F4b: the env keys this tool uses to LOCATE things. Secrets are not part of it, so a
-// rotated credential keeps the identity; a different project, database or path does not.
+// Round 5, F4b / round 6, S4. The rule: every variable that selects WHERE state lives (project,
+// databases, networks, paths, published ports, object storage) is identity; credentials (access
+// keys, secrets, passwords, tokens) are not. A rotated credential keeps the identity.
 export const IDENTITY_KEYS = [
   'COMPOSE_PROJECT_NAME',
   'CONTAINER_NAME_PREFIX',
@@ -71,6 +72,19 @@ export const IDENTITY_KEYS = [
   'NATS_MONITOR_PORT',
   'TEMPORAL_PORT',
   'TEMPORAL_UI_PORT',
+  // Workspace and OAuth staging roots, and the compliance export directory (docker/compose.yml).
+  'AGENTFORGE_WORKSPACE_ROOT',
+  'OAUTH_MOUNT_DIR',
+  'COMPLIANCE_EXPORT_DIR',
+  // Object storage selectors, current and legacy names; never the access or secret keys.
+  'STORAGE_PROVIDER',
+  'STORAGE_LOCAL_PATH',
+  'S3_ENDPOINT',
+  'S3_BUCKET',
+  'S3_REGION',
+  'MINIO_ENDPOINT',
+  'MINIO_BUCKET',
+  'MINIO_REGION',
 ]
 // The Compose file set and profile are fixed by the tool; they are part of the identity too.
 const FILE_SET = 'docker/compose.yml+docker/compose.external.yml;profile=external'

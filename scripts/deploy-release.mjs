@@ -49,26 +49,67 @@ const LOCKED = new Set(['deploy', 'recover', 'baseline'])
 const SCRIPT = fileURLToPath(import.meta.url)
 const IDENT = /^[A-Za-z0-9_]{1,40}$/
 
+// Round 6, S3: a problem with the inputs (env file, its variables) is reported by variable name,
+// never by value. With staged inputs it is a preflight refusal (12): nothing was changed.
+export class InputsError extends Error {}
+
+// Every config field some module reads (round 6, S1). The entrypoint test derives the fields from
+// the code and fails when one is missing here or from what loadConfig returns. `revision` is
+// derived by the engine at plan time and is not part of the loaded config.
+export const CONFIG_KEYS = [
+  'agentNetwork',
+  'appUrl',
+  'attemptId',
+  'contract',
+  'databases',
+  'env',
+  'envFile',
+  'externalNetwork',
+  'host',
+  'lockDir',
+  'pgClientImage',
+  'ports',
+  'privateRoot',
+  'project',
+  'releaseRoot',
+  'requireRedis',
+  'roles',
+  'runnerImage',
+  'secrets',
+  'simulateVerifyFailure',
+  'snapshotDir',
+  'target',
+  'volumes',
+  'webRoot',
+]
+
 function required(env, key) {
   const value = env[key]
   if (!value) {
-    throw new Error(`${key} must be set in the env file`)
+    throw new InputsError(`${key} must be set in the env file`)
   }
   if (value.includes('${')) {
-    throw new Error(`${key} uses \${...} interpolation, which this script does not evaluate`)
+    throw new InputsError(`${key} uses \${...} interpolation, which this script does not evaluate`)
   }
   return value
 }
 
 function absolute(value, what) {
   if (!value || !path.isAbsolute(value)) {
-    throw new Error(`${what} must be an absolute path`)
+    throw new InputsError(`${what} must be an absolute path`)
   }
   return value
 }
 
 function fromUrl(env, key) {
-  const url = new URL(required(env, key))
+  let url
+  try {
+    url = new URL(required(env, key))
+  } catch (err) {
+    throw err instanceof InputsError
+      ? err
+      : new InputsError(`${key} is not a valid postgres:// URL`)
+  }
   const name = decodeURIComponent(url.pathname.slice(1))
   const role = {
     host: url.hostname,
@@ -95,23 +136,35 @@ function resolveEnvFile(privateRoot, command) {
       throw new StateUnreadable('state.json is not valid JSON (truncated or edited)')
     }
   }
+  // status (read-only) may show a staged-only setup before any baseline exists.
   const useStaged =
-    ['deploy', 'build'].includes(command) || (command === 'baseline' && !state?.current)
+    ['deploy', 'build'].includes(command) ||
+    (command === 'baseline' && !state?.current) ||
+    (command === 'status' && !activeInputs(state))
   if (useStaged && fs.existsSync(staged)) {
     return staged
   }
   const active = activeInputs(state)
   if (!active) {
-    throw new Error('no active inputs: run the deploy job once (it stages inputs), then baseline')
+    throw new InputsError(
+      'no staged or active inputs: run the stage action, then baseline (see the runbook)'
+    )
   }
   return path.join(privateRoot, 'inputs', active.generation, 'deploy.env')
 }
 
-function loadConfig(command, args) {
+export function loadConfig(command, args) {
   const releaseRoot = absolute(process.env.FORGE_RELEASE_ROOT, 'FORGE_RELEASE_ROOT')
   const privateRoot = absolute(process.env.FORGE_PRIVATE_ROOT, 'FORGE_PRIVATE_ROOT')
   const envFile = resolveEnvFile(privateRoot, command)
-  const env = parseEnvFile(fs.readFileSync(envFile, 'utf8'))
+  let env
+  try {
+    env = parseEnvFile(fs.readFileSync(envFile, 'utf8'))
+  } catch (err) {
+    throw new InputsError(
+      `the env file ${path.relative(privateRoot, envFile)} is malformed: ${err.message}`
+    )
+  }
   const at = args.indexOf('--revision')
   const target = at >= 0 ? args[at + 1] : env.VERSION
   if (target && !/^([0-9a-f]{7,40}|baseline)$/.test(target)) {
@@ -139,13 +192,16 @@ function loadConfig(command, args) {
   ]
   const names = databases.map((d) => d.name)
   if (!names.every((n) => IDENT.test(n)) || new Set(names).size !== names.length) {
-    throw new Error('database names must be distinct and use only letters, digits and _ (max 40)')
+    throw new InputsError(
+      'database names must be distinct and use only letters, digits and _ (max 40)'
+    )
   }
   const attemptId = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}${randomBytes(2).toString('hex')}`
   const roles = { api: api.role, orchestrator: orchestrator.role, temporal }
   const bind = env.BIND_ADDRESS && env.BIND_ADDRESS !== '0.0.0.0' ? env.BIND_ADDRESS : '127.0.0.1'
   return {
     env,
+    envFile,
     target,
     attemptId,
     releaseRoot,
@@ -167,7 +223,7 @@ function loadConfig(command, args) {
       orchestrator: env.ORCHESTRATOR_PORT || '4010',
       natsMonitor: env.NATS_MONITOR_PORT || '8222',
     },
-    appUrl: env.APP_URL,
+    appUrl: env.APP_URL ?? '',
     requireRedis: env.REQUIRE_EXTERNAL_STATE === 'true',
     simulateVerifyFailure: ['1', 'true'].includes(process.env.SIMULATE_VERIFY_FAILURE ?? ''),
     contract: JSON.parse(
@@ -276,6 +332,13 @@ async function main(argv) {
         return EXIT.OK
     }
   } catch (err) {
+    if (err instanceof InputsError) {
+      const staged = command !== 'recover'
+      console.error(
+        `${staged ? 'refused' : 'RECOVERY REQUIRED'}: ${redact(err.message, secrets)} (nothing was changed)`
+      )
+      return staged ? EXIT.PREFLIGHT_REFUSED : EXIT.RECOVERY_REQUIRED
+    }
     if (err instanceof StateUnreadable) {
       console.error(
         `RECOVERY REQUIRED: ${redact(err.message, secrets)}; inspect state.json before any deploy`
@@ -287,4 +350,7 @@ async function main(argv) {
   }
 }
 
-process.exitCode = await main(process.argv.slice(2))
+// Runs only as the entrypoint, so tests can import loadConfig and CONFIG_KEYS.
+if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT) {
+  process.exitCode = await main(process.argv.slice(2))
+}

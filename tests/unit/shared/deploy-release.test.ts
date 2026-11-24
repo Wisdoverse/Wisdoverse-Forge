@@ -1346,6 +1346,14 @@ describe('round 5', () => {
       JWT_SECRET: 'jwt-new',
     }
     expect(identityOf(rotated)).toBe(id)
+    // Object-storage credentials are not identity either.
+    const keys = {
+      S3_ACCESS_KEY: 'a1',
+      S3_SECRET_KEY: 's1',
+      MINIO_ACCESS_KEY: 'a2',
+      MINIO_SECRET_KEY: 's2',
+    }
+    expect(identityOf({ ...env, ...keys })).toBe(id)
     for (const change of [
       { COMPOSE_PROJECT_NAME: 'other' },
       { DATABASE_URL: 'postgres://api:old-secret@db2.internal:5432/forge' },
@@ -1354,6 +1362,15 @@ describe('round 5', () => {
       { WEBROOT: '/srv/other' },
       { EXTERNAL_NETWORK: 'other-net' },
       { NATS_MONITOR_PORT: '18222' },
+      // Round 6, S4: everything that selects where state lives.
+      { AGENTFORGE_WORKSPACE_ROOT: '/srv/other-workspaces' },
+      { OAUTH_MOUNT_DIR: '/srv/other-oauth' },
+      { STORAGE_PROVIDER: 's3' },
+      { STORAGE_LOCAL_PATH: '/var/lib/other-uploads' },
+      { S3_ENDPOINT: 'https://s3.example.com' },
+      { S3_BUCKET: 'other-bucket' },
+      { MINIO_ENDPOINT: 'minio.example.com:9000' },
+      { MINIO_BUCKET: 'other-bucket' },
     ]) {
       expect(identityOf({ ...env, ...change })).not.toBe(id)
     }

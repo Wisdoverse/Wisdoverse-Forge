@@ -364,16 +364,24 @@ export async function baseline(ctx) {
     )
     return EXIT.PREFLIGHT_REFUSED
   }
-  const { findings, record } = await ctx.exec.baseline()
-  if (findings.length > 0) {
-    findings.forEach((f) => ctx.log(`refused: ${f}`))
-    return EXIT.PREFLIGHT_REFUSED
-  }
+  // Round 6, S3: staged inputs first, before anything renders or tags.
   let staged
   try {
     staged = await ctx.exec.readStaged()
   } catch (err) {
     ctx.log(`refused: the staged inputs cannot be used (nothing was changed): ${err.message}`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  let findings
+  let record
+  try {
+    ;({ findings, record } = await ctx.exec.baseline())
+  } catch (err) {
+    ctx.log(`refused: ${err.message} (no baseline was recorded)`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  if (findings.length > 0) {
+    findings.forEach((f) => ctx.log(`refused: ${f}`))
     return EXIT.PREFLIGHT_REFUSED
   }
   const rec = {
