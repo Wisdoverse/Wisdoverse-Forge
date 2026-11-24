@@ -49,6 +49,15 @@ export function redact(text, secrets = []) {
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
 
+function noNul(value) {
+  if (String(value).includes('\0')) {
+    throw new Error('identifier or literal contains a NUL byte')
+  }
+  return String(value)
+}
+export const quoteIdent = (name) => `"${noNul(name).replaceAll('"', '""')}"`
+export const quoteLiteral = (value) => `'${noNul(value).replaceAll("'", "''")}'`
+
 // sqlx-core 0.8.6 `resolve_blocking`: `<VERSION>_<DESCRIPTION>.sql`, VERSION parsed as an integer,
 // checksum = SHA-384 of the file contents. `.down.sql` files are never applied.
 export function parseMigrations(files) {
@@ -121,7 +130,7 @@ export function identityFindings(project, rendered, containers) {
   return out
 }
 
-// A5: refuse what a template copy would not carry. A8: refuse while agent containers run.
+// A5: refuse what a template copy would not carry.
 export function databaseFindings(databases, facts) {
   const out = []
   for (const { name } of databases) {
@@ -147,25 +156,69 @@ export function databaseFindings(databases, facts) {
   return out
 }
 
-const AGENT_LABELS = [
-  'agentforge.agent_id',
-  'agentforge.dev_environment_id',
-  'agentforge.project_clone',
+// The names and labels the API gives the containers it creates (agent_container_control.rs,
+// dev_environment.rs, clone_runtime.rs). Selection is exact: name pattern AND matching label.
+const PRODUCT_CONTAINERS = [
+  ['agent', 'agentforge.agent_id'],
+  ['devenv', 'agentforge.dev_environment_id'],
+  ['clone', 'agentforge.project_clone'],
 ]
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
-export function agentContainerFindings(containers) {
-  return containers
-    .filter((c) => AGENT_LABELS.some((label) => label in c.labels))
+export function isProductAgent(c) {
+  return PRODUCT_CONTAINERS.some(([kind, label]) => {
+    const m = new RegExp(`^agentforge-${kind}-(${UUID})$`).exec(c.name)
+    return Boolean(m) && c.labels[label] === m[1]
+  })
+}
+
+// A8: the inventory is already scoped to the deployment's agent network by the caller.
+export const agentContainerFindings = (containers) =>
+  containers
+    .filter(isProductAgent)
     .map(
       (c) => `agent container ${c.name} is running on the deployment's agent network; stop it first`
     )
+
+// Containers the new release created belong to the discarded state of a rolled-back attempt.
+export const newAgents = (containers, since) =>
+  containers.filter((c) => isProductAgent(c) && Date.parse(c.created) > Date.parse(since))
+
+// A recorded release must start the exact images it was verified with (finding 6).
+export function tagDriftFindings(records, tagIds) {
+  const out = []
+  for (const rec of Object.values(records)) {
+    for (const [service, ref] of Object.entries(rec.refs ?? {})) {
+      if (tagIds[ref] !== rec.images[service]) {
+        out.push(
+          `release ${rec.rev}: tag ${ref} no longer points at the recorded image of ${service}`
+        )
+      }
+    }
+  }
+  return out
+}
+
+// D4/A9: everything a rollback to the current release needs must exist before we quiesce.
+export function rollbackFindings(rollback) {
+  const out = []
+  if (!rollback.configReadable) {
+    out.push('the rendered config of the current release is missing or unreadable')
+  }
+  if (!rollback.releaseDirExists) {
+    out.push('the release directory of the current release is missing')
+  }
+  rollback.bindProbes
+    .filter((b) => !b.ok)
+    .forEach((b) => out.push(`rollback bind source unusable for the daemon: ${b.source}`))
+  rollback.missingImages.forEach((id) =>
+    out.push(`image ${id} of the current release is not present`)
+  )
+  return out
 }
 
 export function preflightFindings(config, state, o) {
   const out = []
-  if (!state.current || !state.records[state.current]) {
-    out.push('no current release is recorded: run `baseline` once before the first deploy')
-  }
   if (o.envVersion !== config.target) {
     out.push('the env file VERSION is not the target revision')
   }
@@ -185,67 +238,114 @@ export function preflightFindings(config, state, o) {
   if (!o.frontendIndexSha) {
     out.push('frontend bytes for the target are missing (run build)')
   }
-  for (const [key, cmp] of Object.entries(o.ledgers)) {
-    out.push(...ledgerFindings(key, cmp, { strict: false }))
+  for (const [key, rows] of Object.entries(o.ledgers)) {
+    out.push(
+      ...ledgerFindings(key, compareLedger(rows, o.targetMigrations[key]), { strict: false })
+    )
   }
   out.push(...identityFindings(config.project, o.rendered, o.containers))
   out.push(...databaseFindings(config.databases, o.databases))
   out.push(...agentContainerFindings(o.agentContainers))
+  out.push(...rollbackFindings(o.rollback))
+  out.push(...tagDriftFindings(state.records, o.tagIds))
   return out
 }
 
-function httpFinding(label, res, ok) {
-  if (!res || res.error) {
-    return [`${label}: check could not run (${res?.error ?? 'no response'})`]
-  }
-  return res.status === 200 && ok(res.body ?? {})
-    ? []
-    : [`${label}: unhealthy (HTTP ${res.status})`]
+const deps = (b, requireRedis) =>
+  b.checks?.database && b.checks?.nats && b.checks?.docker && (!requireRedis || b.checks?.redis)
+const ENDPOINTS = [
+  ['API /health', 'apiHealth', (b) => b.ok === true],
+  ['API /api/health', 'apiReady', (b, r) => b.ok === true && b.status === 'ready' && deps(b, r)],
+  ['orchestrator /health', 'orchHealth', (b) => b.workflowRuntime === 'up'],
+  ['orchestrator /health/ready', 'orchReady', (b) => b.ok === true],
+  ['NATS /healthz', 'natsHealth', (b) => b.status === 'ok'],
+]
+
+// Each endpoint yields two checks so a rollback can require exactly what the release answered
+// before the deploy (an older build may answer an endpoint without the newer body fields).
+export function endpointChecks(facts, requireRedis) {
+  const checks = ENDPOINTS.flatMap(([label, key, healthy]) => {
+    const res = facts[key]
+    if (!res || res.error) {
+      const problem = `check could not run (${res?.error ?? 'no response'})`
+      return [
+        { label: `${label} answers`, problem },
+        { label: `${label} healthy`, problem },
+      ]
+    }
+    return [
+      { label: `${label} answers`, problem: res.status === 200 ? null : `HTTP ${res.status}` },
+      {
+        label: `${label} healthy`,
+        problem: res.status === 200 && healthy(res.body ?? {}, requireRedis) ? null : 'unhealthy',
+      },
+    ]
+  })
+  return [
+    ...checks,
+    { label: 'Temporal SERVING', problem: facts.temporalServing ? null : 'not SERVING' },
+  ]
 }
 
-export function streamFindings(jsz, contract) {
-  if (!jsz || jsz.error) {
-    return [`NATS JetStream: check could not run (${jsz?.error ?? 'no response'})`]
+export function observedStreams(jsz) {
+  if (!jsz || jsz.error || jsz.status !== 200) {
+    return null
   }
   const streams = (jsz.body?.account_details ?? []).flatMap((a) => a.stream_detail ?? [])
-  const names = new Set(streams.map((s) => s.name))
-  const out = contract.streams.filter((s) => !names.has(s)).map((s) => `NATS stream ${s} missing`)
-  const { stream, name } = contract.resultConsumer
-  const consumers = streams.find((s) => s.name === stream)?.consumer_detail ?? []
-  if (!consumers.some((c) => c.name === name)) {
-    out.push(`NATS consumer ${name} on ${stream} missing`)
+  return {
+    streams: streams.map((s) => s.name),
+    consumers: streams.flatMap((s) =>
+      (s.consumer_detail ?? []).map((c) => ({ stream: s.name, name: c.name }))
+    ),
   }
-  return out
 }
 
-export function backendFindings(facts, expect) {
-  const deps = (b) =>
-    b.checks?.database &&
-    b.checks?.nats &&
-    b.checks?.docker &&
-    (!expect.requireRedis || b.checks?.redis)
-  const out = [
-    ...httpFinding('API /health', facts.apiHealth, (b) => b.ok === true),
-    ...httpFinding(
-      'API /api/health',
-      facts.apiReady,
-      (b) => b.ok === true && b.status === 'ready' && deps(b)
+// Finding 5: what "healthy" meant for the release that runs before the deploy.
+export function captureExpectations(facts, requireRedis) {
+  const js = observedStreams(facts.jsz) ?? { streams: [], consumers: [] }
+  return {
+    checks: endpointChecks(facts, requireRedis)
+      .filter((c) => !c.problem)
+      .map((c) => c.label),
+    streams: js.streams,
+    consumers: js.consumers,
+    ledgers: Object.fromEntries(
+      Object.entries(facts.ledgers).map(([k, rows]) => [
+        k,
+        rows.map((r) => ({ version: r.version, checksum: r.checksum })),
+      ])
     ),
-    ...httpFinding('orchestrator /health', facts.orchHealth, (b) => b.workflowRuntime === 'up'),
-    ...httpFinding('orchestrator /health/ready', facts.orchReady, (b) => b.ok === true),
-    ...httpFinding('NATS /healthz', facts.natsHealth, (b) => b.status === 'ok'),
-    ...streamFindings(facts.jsz, expect.contract),
-  ]
-  if (!facts.temporalServing) {
-    out.push('Temporal cluster health is not SERVING')
+  }
+}
+
+// expect.checks === null requires every check (forward deploy); otherwise only the listed ones.
+export function backendFindings(facts, expect) {
+  const required = (label) => expect.checks === null || expect.checks.includes(label)
+  const out = endpointChecks(facts, expect.requireRedis)
+    .filter((c) => c.problem && required(c.label))
+    .map((c) => `${c.label}: ${c.problem}`)
+  if (expect.streams.length + expect.consumers.length > 0) {
+    const js = observedStreams(facts.jsz)
+    if (!js) {
+      out.push('NATS JetStream: check could not run')
+    } else {
+      expect.streams
+        .filter((s) => !js.streams.includes(s))
+        .forEach((s) => out.push(`NATS stream ${s} missing`))
+      expect.consumers
+        .filter((c) => !js.consumers.some((o) => o.stream === c.stream && o.name === c.name))
+        .forEach((c) => out.push(`NATS consumer ${c.name} on ${c.stream} missing`))
+    }
   }
   for (const [service, id] of Object.entries(expect.images)) {
     if (facts.runningImages[service] !== id) {
       out.push(`service ${service} is not running the release image`)
     }
   }
-  for (const [key, cmp] of Object.entries(facts.ledgers)) {
-    out.push(...ledgerFindings(key, cmp, { strict: true }))
+  for (const [key, want] of Object.entries(expect.ledgers)) {
+    out.push(
+      ...ledgerFindings(key, compareLedger(facts.ledgers[key] ?? [], want), { strict: true })
+    )
   }
   return out
 }
@@ -266,9 +366,30 @@ export function frontendFindings(facts, expectedSha) {
 const envNames = (env) =>
   Array.isArray(env) ? env.map((e) => e.split('=')[0]) : Object.keys(env ?? {})
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
+export const binding = (ip, port, target) => `${ip || '0.0.0.0'}:${port}->${target}`
+
+function mountKey(rendered, releaseDir, m) {
+  const mode = m.read_only ? 'ro' : 'rw'
+  if (m.type === 'volume') {
+    return `volume ${rendered.volumes?.[m.source]?.name ?? m.source} ${m.target} ${mode}`
+  }
+  // Files bind-mounted from the release directory are relocated on purpose: the baseline is
+  // re-materialized from `git archive`, so only the file name must match the running source.
+  const inRelease = m.source.startsWith(`${releaseDir}/`)
+  return `bind ${inRelease ? `*/${m.source.split('/').pop()}` : m.source} ${m.target} ${mode}`
+}
+
+function containerMountKey(m, relocatedTargets) {
+  const mode = m.rw ? 'rw' : 'ro'
+  if (m.type === 'volume') {
+    return `volume ${m.name} ${m.target} ${mode}`
+  }
+  const source = relocatedTargets.has(m.target) ? `*/${m.source.split('/').pop()}` : m.source
+  return `${m.type} ${source} ${m.target} ${mode}`
+}
 
 // A11: the rendered baseline describes the running containers (labels and tags differ by design).
-export function compareBaseline(rendered, containers, imageIds) {
+export function compareBaseline(rendered, containers, imageIds, releaseDir) {
   const out = []
   const byName = new Map(containers.map((c) => [c.name, c]))
   for (const [service, svc] of Object.entries(rendered.services)) {
@@ -278,31 +399,36 @@ export function compareBaseline(rendered, containers, imageIds) {
       continue
     }
     const diff = (what) => out.push(`${service}: ${what} differs from the running container`)
+    const volumes = svc.volumes ?? []
+    const relocated = new Set(
+      volumes
+        .filter((v) => v.type === 'bind' && v.source.startsWith(`${releaseDir}/`))
+        .map((v) => v.target)
+    )
     if (imageIds[svc.image] !== c.imageId) {
       diff('image id')
     }
     if (!envNames(svc.environment).every((k) => envNames(c.env).includes(k))) {
       diff('environment names')
     }
+    const wantMounts = volumes.map((v) => mountKey(rendered, releaseDir, v))
     if (
       !sameSet(
-        (svc.volumes ?? []).map((v) => v.target),
-        c.mounts.map((m) => m.target)
+        wantMounts,
+        c.mounts.map((m) => containerMountKey(m, relocated))
       )
     ) {
-      diff('mounts')
+      diff('mounts (identity, source or read-only flag)')
     }
     const nets = Object.keys(svc.networks ?? {}).map((k) => rendered.networks?.[k]?.name ?? k)
     if (!sameSet(nets, c.networks)) {
       diff('networks')
     }
-    if (
-      !sameSet(
-        (svc.ports ?? []).map((p) => `${p.target}/${p.protocol ?? 'tcp'}`),
-        c.ports
-      )
-    ) {
-      diff('published ports')
+    const ports = (svc.ports ?? []).map((p) =>
+      binding(p.host_ip, p.published, `${p.target}/${p.protocol ?? 'tcp'}`)
+    )
+    if (!sameSet(ports, c.portBindings)) {
+      diff('published port bindings')
     }
     if (JSON.stringify(svc.healthcheck?.test ?? null) !== JSON.stringify(c.healthcheck ?? null)) {
       diff('health check')

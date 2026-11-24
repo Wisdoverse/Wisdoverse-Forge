@@ -10,8 +10,9 @@
  *              any failure after quiesce rolls back to the previous release
  *   recover    finish or roll back an interrupted attempt, driven by the journal and observed state
  *   baseline   record the hand-deployed release once, so the first deploy can roll back to it
- *   status     print the journal summary and current/previous release (no secrets)
- *   self-test  run the planner against built-in fault scenarios with a fake executor
+ *   status     print the journal summary and current/previous release (no secrets); with
+ *              --revision, also `revision <commit>: recorded|not recorded`
+ *   self-test  run the planner against the fault scenarios in tests/support (fake executor)
  *
  * Environment (paths are host paths, mounted at the same path in the runner):
  *   FORGE_RELEASE_ROOT        holds releases/<commit>/ (git archive, no secrets) and frontend/<commit>/
@@ -21,7 +22,8 @@
  *
  * Exit codes:
  *   0   success, already-current no-op, or nothing to recover
- *   1   usage or unexpected error before any state change
+ *   1   usage or unexpected error before any state change, or the result above was reached but
+ *       the SQL helper container could not be removed afterwards (the message says which)
  *   10  deploy failed and was rolled back; the previous release was verified
  *   11  recovery required: project services stopped; run status, repair, then recover
  *   12  preflight refused; nothing was changed
@@ -34,9 +36,8 @@ import path from 'node:path'
 import { URL, fileURLToPath } from 'node:url'
 import { parseEnvFile, redact, secretValues } from './lib/deploy-release/checks.js'
 import { createExecutor } from './lib/deploy-release/effects.js'
-import { EXIT, deploy, recover } from './lib/deploy-release/engine.js'
-import { emptyState, summarize } from './lib/deploy-release/journal.js'
-import { faultMatrix } from './lib/deploy-release/simulate.js'
+import { EXIT, deploy, loadState, recover } from './lib/deploy-release/engine.js'
+import { StateUnreadable, summarize } from './lib/deploy-release/journal.js'
 
 const COMMANDS = ['build', 'deploy', 'recover', 'baseline', 'status', 'self-test']
 const LOCKED = new Set(['deploy', 'recover', 'baseline'])
@@ -168,7 +169,10 @@ function underLock(cfg, argv) {
 }
 
 async function baseline(ctx) {
-  const state = (await ctx.exec.readState()) ?? emptyState()
+  if (!(await loadState(ctx))) {
+    return EXIT.RECOVERY_REQUIRED
+  }
+  const { state } = ctx
   if (state.current) {
     ctx.log(`refused: a current release (${state.current}) is already recorded; baseline runs once`)
     return EXIT.PREFLIGHT_REFUSED
@@ -188,6 +192,9 @@ async function baseline(ctx) {
 }
 
 async function selfTest() {
+  // The fake executor lives with the tests; the release directory is a full `git archive`.
+  const simulate = path.join(path.dirname(SCRIPT), '../tests/support/deploy-release/simulate.js')
+  const { faultMatrix } = await import(simulate)
   const results = await faultMatrix()
   const failed = results.filter((r) => r.errors.length > 0)
   failed.forEach((r) => console.error(`FAIL ${r.name}: ${r.errors.join('; ')}`))
@@ -219,7 +226,6 @@ async function main(argv) {
     switch (command) {
       case 'build':
         ctx.exec.build(cfg.target)
-        log(`built images and frontend for ${cfg.target}`)
         return EXIT.OK
       case 'deploy':
         return await deploy(ctx)
@@ -228,10 +234,24 @@ async function main(argv) {
       case 'baseline':
         return await baseline(ctx)
       default:
-        summarize(ctx.exec.readState() ?? emptyState()).forEach(log)
+        if (!(await loadState(ctx))) {
+          return EXIT.RECOVERY_REQUIRED
+        }
+        summarize(ctx.state).forEach(log)
+        if (cfg.target) {
+          log(
+            `revision ${cfg.target}: ${ctx.state.records[cfg.target] ? 'recorded' : 'not recorded'}`
+          )
+        }
         return EXIT.OK
     }
   } catch (err) {
+    if (err instanceof StateUnreadable) {
+      console.error(
+        `RECOVERY REQUIRED: ${redact(err.message, secrets)}; inspect state.json before any deploy`
+      )
+      return EXIT.RECOVERY_REQUIRED
+    }
     console.error(`error: ${redact(err.message, secrets)}`)
     return EXIT.FAILED
   }

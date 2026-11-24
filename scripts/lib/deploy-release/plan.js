@@ -1,17 +1,18 @@
 // Pure planners: every decision of deploy, recovery, retention and the frontend switch.
+import { Buffer } from 'node:buffer'
 import { preflightFindings } from './checks.js'
 import { COMMITTED, TERMINAL, newAttempt } from './journal.js'
 
 const IDENT = /^[A-Za-z0-9_]{1,63}$/
 const ATTEMPT = /^[0-9a-z]{6,24}$/
-const MARKED = /__(snap|failed)_([0-9a-z]{6,24})$/
+const MAX_IDENT_BYTES = 63
 
 function marked(db, kind, attemptId) {
   if (!IDENT.test(db) || !ATTEMPT.test(attemptId)) {
     throw new Error(`invalid database name or attempt id: ${db} / ${attemptId}`)
   }
   const name = `${db}__${kind}_${attemptId}`
-  if (name.length > 63) {
+  if (Buffer.byteLength(name) > MAX_IDENT_BYTES) {
     throw new Error(`database name exceeds the PostgreSQL limit of 63 bytes: ${name}`)
   }
   return name
@@ -20,10 +21,8 @@ function marked(db, kind, attemptId) {
 export const snapshotName = (db, attemptId) => marked(db, 'snap', attemptId)
 export const failedName = (db, attemptId) => marked(db, 'failed', attemptId)
 
+// The engine has already handled "target is current" and "no current release".
 export function planDeploy(config, state, observed) {
-  if (state.current === config.target) {
-    return { status: 'noop', reasons: [`${config.target} is already the current release`] }
-  }
   const reasons = preflightFindings(config, state, observed)
   if (reasons.length > 0) {
     return { status: 'refused', reasons }
@@ -48,8 +47,8 @@ export function planDeploy(config, state, observed) {
     attemptId,
     target,
     previous: state.current,
-    snapshot: { databases, volumes, webroot },
-    migrationContainer: `forge-migrate-${attemptId}`,
+    snapshot: { databases, volumes, webroot, expect: observed.expect },
+    helperPrefix: `${config.project}-deploy-${attemptId}-`,
     at: config.now,
   })
   const snap = (op, d) => ({
@@ -61,6 +60,7 @@ export function planDeploy(config, state, observed) {
   })
   const steps = [
     { op: 'stop_project', phase: 'quiescing' },
+    { op: 'check_no_agents', phase: 'quiescing' },
     ...databases.flatMap((d) =>
       [
         'disable_connections',
@@ -78,7 +78,7 @@ export function planDeploy(config, state, observed) {
     })),
     { op: 'archive_webroot', phase: 'snapshotting', tar: webroot.tar },
     { op: 'seal', phase: 'snapshotted' },
-    { op: 'migrate', phase: 'migrating', rev: target, name: attempt.migrationContainer },
+    { op: 'migrate', phase: 'migrating', rev: target },
     { op: 'start', phase: 'starting', rev: target },
     {
       op: 'verify_backend',
@@ -88,6 +88,7 @@ export function planDeploy(config, state, observed) {
     },
     { op: 'switch_frontend', phase: 'switching_frontend', rev: target },
     { op: 'verify_frontend', phase: 'verifying_frontend', rev: target },
+    // Announcing this step IS the commit: one durable write moves phase and release pointers.
     { op: 'commit', phase: 'verified' },
     { op: 'prune', phase: 'verified', bestEffort: true },
     { op: 'close', phase: 'done' },
@@ -147,12 +148,10 @@ export function planRecovery(attempt, observed) {
   }
   const rb = (step) => ({ ...step, phase: 'rolling_back' })
   const { snapshot, previous } = attempt
-  const steps = []
-  if (observed.migrationContainer) {
-    steps.push(rb({ op: 'remove_container', name: attempt.migrationContainer }))
-  }
-  steps.push(rb({ op: 'stop_project' }))
+  const steps = [rb({ op: 'stop_project' })]
   if (snapshot.complete) {
+    // Only the new release can have started agents: the API was stopped before the snapshot.
+    steps.push(rb({ op: 'remove_new_agents', since: attempt.startedAt }))
     snapshot.databases.forEach((d) => steps.push(...swapSteps(d, observed.databases)))
     snapshot.volumes
       .filter((v) => !v.restored)
@@ -168,23 +167,26 @@ export function planRecovery(attempt, observed) {
       rb({ op: 'restore_webroot', tar: snapshot.webroot.tar, sha256: snapshot.webroot.sha256 })
     )
   }
-  steps.push(
-    rb({ op: 'verify_backend', rev: previous }),
-    rb({ op: 'verify_frontend', rev: previous })
-  )
+  steps.push(rb({ op: 'verify_backend', rev: previous, against: 'snapshot' }))
+  steps.push(rb({ op: 'verify_frontend', rev: previous }))
   steps.push({ op: 'close', phase: 'rolled_back' })
   return steps
 }
 
-// Items: { kind: 'database' | 'snapshotDir' | 'releaseDir', name, role? }. Only names that carry
-// our snapshot/failed marker (databases) or an attempt id (snapshot dirs) are ever eligible.
-export function selectPrunable(items, state, activeAttempt) {
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Only names this tool generates for the configured source databases are ever eligible:
+// exactly `<source>__snap_<attempt>` / `<source>__failed_<attempt>`, or an attempt-id directory.
+export function selectPrunable(items, state, activeAttempt, sources) {
   const attempts = new Set([state.protected.baseline, state.protected.lastGood, activeAttempt])
   const revs = new Set([state.current, state.previous, 'baseline'])
+  const generated = new RegExp(
+    `^(?:${sources.map(escape).join('|')})__(?:snap|failed)_([0-9a-z]{6,24})$`
+  )
   return items.filter((item) => {
     if (item.kind === 'database') {
-      const m = MARKED.exec(item.name)
-      return Boolean(m) && !attempts.has(m[2])
+      const m = sources.length > 0 ? generated.exec(item.name) : null
+      return Boolean(m) && !attempts.has(m[1])
     }
     if (item.kind === 'snapshotDir') {
       return ATTEMPT.test(item.name) && !attempts.has(item.name)

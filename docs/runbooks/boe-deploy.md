@@ -27,7 +27,9 @@ The pipeline is defined by `Jenkinsfile`, `scripts/deploy-release.mjs` and
    the services stopped fails, the runner restores the previous release from
    the snapshot and checks it again.
 
-Each step is written to a journal before it runs. If the runner, Jenkins or the
+All SQL runs in one short-lived PostgreSQL client container per run, named
+`<project>-deploy-<attempt>-sql`. It is removed when the run ends, on every
+path. Each step is written to a journal before it runs. If the runner, Jenkins or the
 host dies halfway, `recover` reads the journal and finishes the job safely.
 
 ## Prerequisites
@@ -53,7 +55,7 @@ Complete every item before the first deploy.
 | Branch | `main` (not `DEV`). The pipeline deploys `DEV` itself. |
 | Script path | `Jenkinsfile` |
 | Lightweight checkout | Allowed. It is used only to read `Jenkinsfile`. |
-| Build triggers | None until the first supervised deploy has succeeded. Then enable SCM polling. Do not add a webhook. |
+| Build triggers | None until the first supervised deploy has succeeded. Then enable SCM polling. The pipeline checks out `DEV` with polling, so polling watches `DEV`. Do not add a webhook. |
 
 ### Environment file credential
 
@@ -125,10 +127,16 @@ The first deploy is supervised. The environment owner must give an explicit go.
 
 ### 1. Prepare the release directories
 
-Run the Jenkins job once with `ACTION=status`. This places the environment
-file, archives the `DEV` commit and builds the runner image. It changes nothing
-in the running stack. Success: the console shows `Release commit: <commit>` and
-ends with `current release: (none - run baseline first)`. Note the commit.
+Run the Jenkins job once with `ACTION=deploy`. Before the baseline exists, a
+deploy only prepares: it archives the `DEV` commit, places the environment
+file, builds the runner image and the release images, and then refuses. It
+changes nothing in the running stack. Success: the console shows
+`Release commit: <commit>` and ends with `refused: no current release is
+recorded: run baseline once before the first deploy` (exit code 12, so the
+build shows as failed). Note the commit.
+
+`ACTION=status` and `ACTION=recover` never prepare anything. They only reuse
+what the last deploy prepared.
 
 ### 2. Record the baseline
 
@@ -173,7 +181,7 @@ running stack. Fix the baseline commit or the environment file, then run it
 again. `baseline` runs only once.
 
 Use the same `docker run` line with `status` instead of `baseline` to read the
-state from a host shell.
+state from a host shell. See also [Emergency path](#emergency-path-host-shell).
 
 ### 3. Take extra database dumps
 
@@ -227,7 +235,12 @@ CLI, and watch the stack for 30 minutes. Record the result under
 2. Run the job with `ACTION=deploy`, or wait for SCM polling.
 
 Success: exit code 0 and `deployed <commit>`. If `DEV` already points at the
-current release, the job prints `already the current release` and exits 0.
+current release, the job prints `already the current release` and exits 0. A
+commit that already has a release record is never rebuilt, so the images that
+were verified for it stay exactly the ones its record names. If a tag of a
+recorded release points at another image, `build` fails with `tag ... no longer
+points at the recorded image`. Re-tag the recorded image id, or investigate who
+moved the tag.
 
 ## What a rollback restores
 
@@ -243,6 +256,11 @@ restores:
 
 Then it checks the previous release with the same checks as a deploy. Success:
 exit code 10 and `finished in phase rolled_back`.
+
+It also removes the agent containers that the new release created. The
+selection is exact: the product's own container names (`agentforge-agent-<id>`,
+`agentforge-devenv-<id>`, `agentforge-clone-<id>`) with the matching label, on
+this deployment's agent network, created after the deploy started.
 
 ### What a rollback does not restore
 
@@ -270,12 +288,25 @@ service of the stack on purpose. It is safer to stay down than to run on a
 half-restored state. Every later deploy refuses until `recover` succeeds.
 
 1. Do not start services by hand.
-2. Run the job with `ACTION=status`. Read the `error:` line. It names the step
-   that failed.
+2. Run the job with `ACTION=status`. If Jenkins itself cannot load the
+   pipeline, use the [Emergency path](#emergency-path-host-shell). `status`
+   prints:
+   - `attempt:` the attempt id and the two releases involved
+   - `phase:` and the step it was interrupted at
+   - one line per database with the original name and OID, the snapshot name
+     and OID, and the name the failed copy gets (`<db>__failed_<attempt>`)
+   - the volume and web-root archive paths under `snapshots/<attempt>/`
+   - `helper containers: names start with ...`
+   - `error:` the step that failed and why
 3. Repair the cause. Common causes: the database server is unreachable, a
-   snapshot database was renamed or dropped, the disk is full, or an image is
-   missing locally.
-4. Run the job with `ACTION=recover`.
+   session of another role keeps a database open (a rename then fails with
+   `is being accessed by other users`), a snapshot database was renamed or
+   dropped, the disk is full, or an image is missing locally.
+4. Run the job with `ACTION=recover`. Recovery first removes every helper
+   container of this project (label `forge.deploy.project=<project>`) and
+   confirms that they are gone. If that removal fails, recovery stops. To see
+   the helpers yourself, run
+   `docker ps -a --filter label=forge.deploy.project=<project>`.
 
 Success: exit code 0, and `status` shows `phase: rolled_back`. Recovery
 decides each database rename from the actual database names and ids. Running
@@ -290,22 +321,176 @@ If the runner, Jenkins or the host died during a deploy, the next deploy
 refuses with `attempt ... is unfinished`. Run `ACTION=recover`. Recovery either
 finishes a committed deploy or rolls it back.
 
+## Emergency path (host shell)
+
+Use this when Jenkins, Git or the registry is unavailable. It runs the same
+runner image, release directory and environment file that the last deploy
+prepared, with no fetch, build or credential change.
+
+```bash
+ROOT=<jenkins-home-host-path>/forge-deploy/<job-name>
+REV=$(cat "$ROOT/release/last-runner")
+WEB=/srv/forge-deploy/www                          # your WEBROOT
+LOCK=/var/lock/forge-deploy                         # your DEPLOY_LOCK_DIR
+ACTION=status                                       # or: recover
+
+sudo docker run --rm --network host \
+  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
+  --mount "type=bind,src=$ROOT/release,dst=$ROOT/release" \
+  --mount "type=bind,src=$ROOT/private,dst=$ROOT/private" \
+  --mount "type=bind,src=$WEB,dst=$WEB" \
+  --mount "type=bind,src=$LOCK,dst=$LOCK" \
+  -e TMPDIR="$ROOT/release/tmp" \
+  -e FORGE_RELEASE_ROOT="$ROOT/release" \
+  -e FORGE_PRIVATE_ROOT="$ROOT/private" \
+  -e FORGE_RUNNER_IMAGE="forge-deploy-runner:$REV" \
+  "forge-deploy-runner:$REV" \
+  node "$ROOT/release/releases/$REV/scripts/deploy-release.mjs" "$ACTION" --revision "$REV"
+```
+
+Success: the same output and exit code as the Jenkins job. If the state file
+cannot be read, both commands exit 11 with `RECOVERY REQUIRED: the deploy state
+file cannot be read`. Do not deploy then. Inspect `$ROOT/private/state.json`
+and `state.json.tmp`, repair the file, then run `status` again.
+
 ## Exit codes
 
 | Code | Meaning | What to do next |
 | --- | --- | --- |
 | 0 | Success, already current, or nothing to recover | Nothing |
-| 1 | Usage or unexpected error before any change | Read the error and fix the input |
+| 1 | Usage or unexpected error before any change, or the run finished but its SQL helper container could not be removed | Read the error. For a helper, remove it with `docker rm -f -v <name>` (`status` shows the name prefix) |
 | 10 | Deploy failed and the previous release is restored and verified | Fix the cause on `main`, promote again |
-| 11 | Recovery required, services stopped | Follow [Recovery required](#recovery-required) |
+| 11 | Recovery required (services stopped), or the state file cannot be read | Follow [Recovery required](#recovery-required) |
 | 12 | Preflight refused, nothing changed | Read each `refused:` line and fix it |
 | 13 | Another deploy, recover or baseline holds the lock | Wait for it to finish |
 
-## Rehearsal flag
+## Rehearsals
 
-`SIMULATE_VERIFY_FAILURE=true` makes verification fail right after the new
-backend starts. Use it only on the rehearsal stack, to prove the rollback path.
-Success: exit code 10, and the previous release is verified.
+Run every rehearsal on an isolated second stack before the first live deploy.
+Record each result under [Recorded runs](#recorded-runs).
+
+### Rehearsal stack
+
+Prerequisites, all different from the live stack:
+
+- a second Jenkins job, `<rehearsal-job>`, with its own file credential
+- in that env file: `COMPOSE_PROJECT_NAME`, `CONTAINER_NAME_PREFIX`, every host
+  port, `EXTERNAL_NETWORK`, `CONTAINER_NETWORK`, `WEBROOT`, `DEPLOY_LOCK_DIR`,
+  `AGENTFORGE_WORKSPACE_ROOT`, `OAUTH_MOUNT_DIR`, `LLM_ENCRYPTION_KEY` and
+  `JWT_SECRET`, plus `STORAGE_PROVIDER=local`, mail off,
+  `CLI_IMAGE_AUTO_UPDATE_ENABLED=false`
+- a scratch PostgreSQL 18 on the rehearsal `EXTERNAL_NETWORK`. Its three roles
+  must have the live attributes: not superuser, `CREATEDB`, owner of their
+  databases. Load it from fresh `pg_dump -Fc` dumps of the four live databases
+  (see [step 3](#3-take-extra-database-dumps)), with `pg_restore --no-owner
+  --role=<owning-role> -d <db>`.
+- a scratch Redis on the same network
+
+Bring the rehearsal stack up from the baseline images and config (the
+live-stack steps 1 and 2 with the rehearsal job). Then seed state that must
+survive a rollback, and keep the values:
+
+```bash
+export P=<rehearsal-project>
+# a running Temporal workflow, an unacknowledged JetStream message and sequence values
+curl -fsS "http://127.0.0.1:<rehearsal-nats-monitor-port>/jsz?streams=true" > before-jsz.json
+docker run --rm --network <rehearsal-external-network> --env-file <rehearsal-pg.env> postgres:18-alpine \
+  psql -At -c "select sequencename, last_value from pg_sequences order by 1" > before-seq.txt
+```
+
+`<rehearsal-pg.env>` is a mode-600 file with `PGHOST`, `PGUSER`, `PGPASSWORD`
+and `PGDATABASE` for the scratch server.
+
+Run `status` from a host shell while a rehearsal runs. Use the
+[Emergency path](#emergency-path-host-shell) line with the rehearsal `ROOT`.
+
+### A: baseline to main, success
+
+Run `<rehearsal-job>` with `ACTION=deploy`. Success: exit 0, `deployed
+<commit>`, `status` shows `phase: done`. Record the build and migration times
+from the console.
+
+### B: forced verification failure
+
+Reset the rehearsal stack to the baseline (reload the dumps, run `baseline`).
+Run with `ACTION=deploy` and `SIMULATE_VERIFY_FAILURE=true`. Success: exit 10,
+`status` shows `phase: rolled_back` and `current release: baseline`. The
+ledgers are back at their baseline length:
+
+```bash
+docker run --rm --network <rehearsal-external-network> --env-file <rehearsal-pg.env> postgres:18-alpine \
+  psql -At -c "select count(*), max(version) from _sqlx_migrations"
+```
+
+The sequence values and the JetStream message from the seed step are unchanged.
+
+### C: failure during the migration
+
+Reset to the baseline. Start the deploy. When `status` shows
+`phase: migrating`, kill the migration container:
+
+```bash
+docker kill "$(docker ps -q --filter label=forge.deploy.project=$P --filter name=-migrate)"
+```
+
+Success: the same result as B.
+
+### D: failure during the rollback, then recover
+
+Reset to the baseline. Run with `SIMULATE_VERIFY_FAILURE=true`. When `status`
+shows `phase: snapshotted`, hold a superuser session open on the API database
+so that its rename fails:
+
+```bash
+docker run -d --name <rehearsal-prefix>-blocker --network <rehearsal-external-network> \
+  --env-file <rehearsal-superuser.env> -e PGDATABASE=<api-db> -e PGAPPNAME=blocker \
+  postgres:18-alpine psql -c 'select pg_sleep(3600)'
+```
+
+Success: exit 11, `status` shows `phase: recovery_required` and the `error:`
+line names the rename. A new `ACTION=deploy` refuses with
+`attempt ... is unfinished`. End the session:
+
+```bash
+docker run --rm --network <rehearsal-external-network> --env-file <rehearsal-superuser.env> postgres:18-alpine \
+  psql -c "select pg_terminate_backend(pid) from pg_stat_activity where application_name = 'blocker'"
+docker rm -f <rehearsal-prefix>-blocker
+```
+
+Then run `ACTION=recover`. Success: exit 0 and `phase: rolled_back`.
+
+Also kill the runner itself, once at each snapshot step and once between the
+two renames. Use `docker kill <runner-container>` when `status` shows the step.
+Then run `ACTION=recover`. Success every time: exit 0, `phase: rolled_back`,
+and every database is either the original or its snapshot under its own name.
+
+### E: a second release without migrations, then pruning
+
+From the release of A, promote `main` plus one commit without migrations and
+deploy. Success: exit 0. Then list the snapshot databases:
+
+```bash
+docker run --rm --network <rehearsal-external-network> --env-file <rehearsal-pg.env> postgres:18-alpine \
+  psql -At -c "select datname from pg_database where datname like '%\\_\\_snap\\_%' or datname like '%\\_\\_failed\\_%'"
+```
+
+Success: only the snapshots of the last good attempt and of the baseline
+attempt remain (`status` shows both ids under `protected snapshots`).
+
+### F: once through the real Jenkins job
+
+Run B through `<rehearsal-job>` with its own credential. This proves path
+discovery, the mounts and the credential handling. Then search the console log
+for every secret value of the rehearsal env file:
+
+```bash
+curl -fsS -u <jenkins-user>:<api-token> "https://jenkins.example.com/job/<rehearsal-job>/lastBuild/consoleText" > console.txt
+grep -c -F -f <file-with-one-secret-per-line> console.txt   # must print 0
+```
+
+Not covered by the rehearsals, checked after the live deploy: external S3, the
+external proxy serving the web root, and starting a real agent with image
+signature verification.
 
 ## Recorded runs
 

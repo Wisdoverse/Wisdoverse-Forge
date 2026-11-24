@@ -1,9 +1,13 @@
 // Wisdoverse Forge deploy pipeline (issue #1319). Runbook: docs/runbooks/boe-deploy.md
 //
 // Job configuration (required, design A7): "Pipeline script from SCM" reading this Jenkinsfile
-// from `main`. The pipeline then deploys the head of `DEV`, and only after proving that this
-// commit is already on `main`. Keep SCM polling disabled until the first supervised deploy has
-// succeeded; enable it afterwards.
+// from `main`. The pipeline checks out `DEV` itself (registered for SCM polling) and deploys it
+// only after proving that the commit is already on `main`. Keep SCM polling disabled until the
+// first supervised deploy has succeeded; enable it afterwards.
+//
+// ACTION=status and ACTION=recover never fetch, build or replace the env file: they reuse the
+// runner image, release directory and env file prepared by the last deploy, so a Git or
+// registry outage cannot block a recovery.
 //
 // Nothing host-specific lives here: host paths are derived at run time from the Jenkins
 // container's own mounts, the web root and lock directory come from the env-file credential.
@@ -22,7 +26,7 @@ pipeline {
 
   parameters {
     string(name: 'ENV_FILE_CREDENTIAL_ID', defaultValue: 'forge-deploy-env',
-      description: 'Jenkins "Secret file" credential holding the deployment env file')
+      description: 'Jenkins "Secret file" credential holding the deployment env file (deploy only)')
     choice(name: 'ACTION', choices: ['deploy', 'recover', 'status'],
       description: 'deploy: release DEV; recover: finish or roll back an interrupted attempt; status: print state')
     booleanParam(name: 'SIMULATE_VERIFY_FAILURE', defaultValue: false,
@@ -30,39 +34,48 @@ pipeline {
   }
 
   stages {
-    stage('Prepare') {
+    stage('Locate') {
       steps {
-        checkout scm
-        sh '''#!/bin/sh
-          set -eu
-          if [ -f "$(git rev-parse --git-dir)/shallow" ]; then git fetch --no-tags --unshallow origin; fi
-          git fetch --no-tags origin \
-            +refs/heads/main:refs/remotes/origin/main \
-            +refs/heads/DEV:refs/remotes/origin/DEV
-          REV="$(git rev-parse --verify 'refs/remotes/origin/DEV^{commit}')"
-          # Refuse before any file from the DEV tree is used (A7).
-          if ! git merge-base --is-ancestor "$REV" refs/remotes/origin/main; then
-            echo "DEV ($REV) is not on main; promote only commits that are already on main." >&2
-            exit 1
-          fi
-          printf '%s' "$REV" > .forge-rev
-          echo "Release commit: $REV"
-        '''
         script {
-          env.FORGE_REV = readFile('.forge-rev').trim()
-          env.FORGE_JOB_DIR = "forge-deploy/${env.JOB_BASE_NAME}"
           if (!(env.JOB_BASE_NAME ==~ /[A-Za-z0-9._-]+/)) {
             error('The job name may only contain letters, digits, dot, underscore and dash.')
           }
+          env.FORGE_JOB_DIR = "forge-deploy/${env.JOB_BASE_NAME}"
           // The runner mounts directories at their HOST paths, so find where JENKINS_HOME lives on the host.
           env.FORGE_HOST_HOME = sh(returnStdout: true, script: '''#!/bin/sh
             set -eu
             docker inspect --format '{{range .Mounts}}{{if eq .Destination "'"$JENKINS_HOME"'"}}{{.Source}}{{end}}{{end}}' "$(hostname)"
           ''').trim()
-          if (!env.FORGE_HOST_HOME.startsWith('/')) {
-            error('Could not find the host path of JENKINS_HOME from this container\'s mounts.')
+          if (!(env.FORGE_HOST_HOME ==~ /\/[A-Za-z0-9._\/-]+/)) {
+            error('Could not find the host path of JENKINS_HOME (absolute, no spaces or commas) from this container\'s mounts.')
           }
         }
+      }
+    }
+
+    stage('Prepare release') {
+      when { expression { params.ACTION == 'deploy' } }
+      steps {
+        script {
+          // An explicit checkout registers DEV for polling. Checking out runs nothing from the tree.
+          def dev = checkout(poll: true, changelog: true, scm: [
+            $class: 'GitSCM',
+            branches: [[name: 'refs/heads/DEV']],
+            userRemoteConfigs: scm.userRemoteConfigs,
+            extensions: [[$class: 'CloneOption', shallow: false, noTags: true]],
+          ])
+          env.FORGE_REV = dev.GIT_COMMIT
+        }
+        sh '''#!/bin/sh
+          set -eu
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          # Refuse before any file from the DEV tree is used (A7).
+          if ! git merge-base --is-ancestor "$FORGE_REV" refs/remotes/origin/main; then
+            echo "DEV ($FORGE_REV) is not on main; promote only commits that are already on main." >&2
+            exit 1
+          fi
+          echo "Release commit: $FORGE_REV"
+        '''
         withCredentials([file(credentialsId: params.ENV_FILE_CREDENTIAL_ID, variable: 'FORGE_ENV_SRC')]) {
           sh '''#!/bin/sh
             set -eu
@@ -85,32 +98,39 @@ pipeline {
             mv "$LOCAL/private/deploy.env.partial" "$LOCAL/private/deploy.env"
           '''
         }
-        script {
-          // Paths only (no secret values): read single keys, never print the file.
-          def envValue = { String key ->
-            sh(returnStdout: true, script: """#!/bin/sh
-              set -eu
-              sed -n 's/^${key}=//p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/deploy.env" | tail -n 1 | sed -e 's/^"\\(.*\\)"\$/\\1/' -e "s/^'\\(.*\\)'\$/\\1/"
-            """).trim()
-          }
-          env.FORGE_WEB_ROOT = envValue('WEBROOT')
-          env.FORGE_LOCK_DIR = envValue('DEPLOY_LOCK_DIR') ?: '/var/lock/forge-deploy'
-          [env.FORGE_WEB_ROOT, env.FORGE_LOCK_DIR, env.FORGE_HOST_HOME].each { p ->
-            if (!(p ==~ /\/[A-Za-z0-9._\/-]+/)) {
-              error('WEBROOT, DEPLOY_LOCK_DIR and the Jenkins home must be absolute paths without spaces or commas.')
-            }
-          }
-        }
+        script { readPaths() }
         sh '''#!/bin/sh
           set -eu
-          DOCKERFILE="$JENKINS_HOME/$FORGE_JOB_DIR/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
-          docker build -t "forge-deploy-runner:$FORGE_REV" - < "$DOCKERFILE"
+          LOCAL="$JENKINS_HOME/$FORGE_JOB_DIR"
+          docker build -t "forge-deploy-runner:$FORGE_REV" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
+          printf '%s\\n' "$FORGE_REV" > "$LOCAL/release/last-runner"
         '''
+        script {
+          // A recorded revision is never rebuilt: rebuilding could move the tags its record pins.
+          def probe = runner('status', " | grep -qx \"revision \$FORGE_REV: recorded\"")
+          env.FORGE_RECORDED = sh(returnStatus: true, script: probe) == 0 ? 'true' : 'false'
+        }
+      }
+    }
+
+    stage('Use recorded runner') {
+      when { expression { params.ACTION != 'deploy' } }
+      steps {
+        script {
+          env.FORGE_REV = sh(returnStdout: true, script: '''#!/bin/sh
+            set -eu
+            cat "$JENKINS_HOME/$FORGE_JOB_DIR/release/last-runner"
+          ''').trim()
+          if (!(env.FORGE_REV ==~ /[0-9a-f]{40}/)) {
+            error('No deploy has prepared this job yet; there is nothing to recover or report.')
+          }
+          readPaths()
+        }
       }
     }
 
     stage('Build') {
-      when { expression { params.ACTION == 'deploy' } }
+      when { expression { params.ACTION == 'deploy' && env.FORGE_RECORDED != 'true' } }
       steps { sh(runner('build')) }
     }
 
@@ -131,8 +151,25 @@ pipeline {
   }
 }
 
+// Paths only (no secret values): read single keys from the private env file, never print it.
+def readPaths() {
+  def envValue = { String key ->
+    sh(returnStdout: true, script: """#!/bin/sh
+      set -eu
+      sed -n 's/^${key}=//p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/deploy.env" | tail -n 1 | sed -e 's/^"\\(.*\\)"\$/\\1/' -e "s/^'\\(.*\\)'\$/\\1/"
+    """).trim()
+  }
+  env.FORGE_WEB_ROOT = envValue('WEBROOT')
+  env.FORGE_LOCK_DIR = envValue('DEPLOY_LOCK_DIR') ?: '/var/lock/forge-deploy'
+  [env.FORGE_WEB_ROOT, env.FORGE_LOCK_DIR].each { p ->
+    if (!(p ==~ /\/[A-Za-z0-9._\/-]+/)) {
+      error('WEBROOT and DEPLOY_LOCK_DIR must be absolute paths without spaces or commas.')
+    }
+  }
+}
+
 // One runner invocation; every directory is mounted at its host path (design D2).
-def runner(String command) {
+def runner(String command, String suffix = '') {
   return """#!/bin/sh
     set -eu
     ROOT="\$FORGE_HOST_HOME/\$FORGE_JOB_DIR"
@@ -150,6 +187,6 @@ def runner(String command) {
       -e FORGE_RUNNER_IMAGE="forge-deploy-runner:\$FORGE_REV" \\
       -e SIMULATE_VERIFY_FAILURE="\$SIMULATE" \\
       "forge-deploy-runner:\$FORGE_REV" \\
-      node "\$ROOT/release/releases/\$FORGE_REV/scripts/deploy-release.mjs" ${command} --revision "\$FORGE_REV"
+      node "\$ROOT/release/releases/\$FORGE_REV/scripts/deploy-release.mjs" ${command} --revision "\$FORGE_REV"${suffix}
   """
 }

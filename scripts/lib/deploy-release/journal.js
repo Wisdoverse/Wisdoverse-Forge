@@ -25,6 +25,9 @@ const TRANSITIONS = {
 
 export const PHASES = Object.keys(TRANSITIONS)
 
+// A state file that exists but cannot be parsed must stop everything (finding 2).
+export class StateUnreadable extends Error {}
+
 export function emptyState() {
   return {
     schema: STATE_SCHEMA,
@@ -46,7 +49,7 @@ export function transition(from, to) {
   return to
 }
 
-export function newAttempt({ attemptId, target, previous, snapshot, migrationContainer, at }) {
+export function newAttempt({ attemptId, target, previous, snapshot, helperPrefix, at }) {
   return {
     attemptId,
     target,
@@ -55,7 +58,7 @@ export function newAttempt({ attemptId, target, previous, snapshot, migrationCon
     step: null,
     snapshot: { complete: false, ...snapshot },
     swaps: [],
-    migrationContainer,
+    helperPrefix,
     startedAt: at,
     updatedAt: at,
     error: null,
@@ -68,9 +71,13 @@ const clone = (value) => JSON.parse(JSON.stringify(value))
 export function announce(state, step, at) {
   const next = clone(state)
   const a = next.attempt
+  const committing = step.phase === 'verified' && a.phase !== 'verified'
   a.phase = transition(a.phase, step.phase)
   a.step = step
   a.updatedAt = at
+  if (committing) {
+    commitRelease(next)
+  }
   return next
 }
 
@@ -101,9 +108,6 @@ export function complete(state, step, result = {}, at) {
       break
     case 'seal':
       a.snapshot.complete = true
-      break
-    case 'commit':
-      commitRelease(next)
       break
     default:
       break
@@ -143,17 +147,25 @@ export function summarize(state) {
   const lines = [
     `current release:  ${state.current ?? '(none - run baseline first)'}`,
     `previous release: ${state.previous ?? '(none)'}`,
+    `recorded releases: ${Object.keys(state.records).join(', ') || '(none)'}`,
     `protected snapshots: baseline=${state.protected.baseline ?? '-'} last-good=${state.protected.lastGood ?? '-'}`,
   ]
   if (!a) {
     return [...lines, 'last attempt: (none)']
   }
-  const dbs = a.snapshot.databases.map((d) => `${d.key}${d.snapshotOid ? '' : '(pending)'}`)
+  const { databases, volumes, webroot } = a.snapshot
   return [
     ...lines,
-    `last attempt: ${a.attemptId} ${a.previous} -> ${a.target}`,
+    `attempt: ${a.attemptId} ${a.previous} -> ${a.target}`,
     `phase: ${a.phase}${a.step ? ` (interrupted at ${a.step.op})` : ''}`,
-    `snapshot: ${a.snapshot.complete ? 'complete' : 'incomplete'} [${dbs.join(', ')}]`,
+    `helper containers: names start with ${a.helperPrefix}`,
+    `snapshot: ${a.snapshot.complete ? 'complete' : 'incomplete'}`,
+    ...databases.map(
+      (d) =>
+        `  ${d.key}: ${d.source} (oid ${d.sourceOid}) snapshot ${d.snapshot} (oid ${d.snapshotOid ?? 'pending'}) failed-name ${d.failed}`
+    ),
+    ...volumes.map((v) => `  volume ${v.volume}: ${v.tar}${v.restored ? ' (restored)' : ''}`),
+    `  web root: ${webroot.tar}${webroot.restored ? ' (restored)' : ''}`,
     `started ${a.startedAt}, updated ${a.updatedAt}`,
     ...(a.error ? [`error: ${a.error}`] : []),
   ]

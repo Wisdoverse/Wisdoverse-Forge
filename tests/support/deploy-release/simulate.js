@@ -1,7 +1,8 @@
-// Fake world + executor for `self-test` and the unit tests. Models what matters for safety:
-// databases by name -> OID, connection flags, schema versions, volumes, web root and services.
-import { Crash, EXIT, deploy, recover } from './engine.js'
-import { emptyState } from './journal.js'
+// Fake world + executor for `deploy-release.mjs self-test` and the unit tests. Models what
+// matters for safety: databases by name -> OID, connection flags, schema versions, volumes,
+// web root, services and agent containers. Loaded only by self-test and tests.
+import { Crash, EXIT, deploy, recover } from '../../../scripts/lib/deploy-release/engine.js'
+import { emptyState } from '../../../scripts/lib/deploy-release/journal.js'
 
 const DBS = [
   { key: 'api', role: 'api', name: 'forge' },
@@ -9,23 +10,32 @@ const DBS = [
   { key: 'temporal', role: 'temporal', name: 'temporal' },
   { key: 'temporal_visibility', role: 'temporal', name: 'temporal_visibility' },
 ]
+const T0 = '2026-11-24T00:00:00.000Z'
+const agent = (uuid, created) => ({
+  name: `agentforge-agent-${uuid}`,
+  labels: { 'agentforge.agent_id': uuid },
+  created,
+})
+const NEW_AGENT = agent('00000000-0000-4000-8000-000000000002', '2026-11-24T00:05:00.000Z')
 
 export function createWorld() {
   const databases = {}
   DBS.forEach((d, i) => {
     databases[d.name] = { oid: 100 + i, allowConnections: true, schema: 'prev' }
   })
-  const state = { ...emptyState(), current: 'prev', records: { prev: { rev: 'prev' } } }
+  const state = { ...emptyState(), current: 'prev', records: { prev: { rev: 'prev', images: {} } } }
   return {
     databases,
     originals: Object.fromEntries(DBS.map((d) => [d.name, databases[d.name].oid])),
     snapshots: {},
     nextOid: 200,
     running: 'prev',
+    agents: [],
     volumes: { 'forge_nats-data': 'prev', 'forge_agentforge-uploads': 'prev' },
     tars: {},
     webroot: 'prev',
-    migrationContainer: false,
+    sqlHelper: null,
+    sqlStarts: 0,
     stateJson: JSON.stringify(state),
   }
 }
@@ -37,11 +47,11 @@ export const fakeConfig = (overrides = {}) => ({
   databases: DBS,
   simulateVerifyFailure: false,
   snapshotDir: '/private/snapshots/a1b2c3d4',
-  now: 't0',
+  now: T0,
   ...overrides,
 })
 
-function goodPreflight(world) {
+export function goodPreflight(world) {
   const databases = {}
   for (const [name, d] of Object.entries(world.databases)) {
     databases[name] = {
@@ -66,20 +76,26 @@ function goodPreflight(world) {
     freeBytes: { private: 2 ** 40 },
     frontendIndexSha: 'sha-next',
     ledgers: {},
+    targetMigrations: {},
     containers: [],
     databases,
-    agentContainers: [],
+    agentContainers: world.agents,
     volumes: Object.keys(world.volumes),
-    record: { rev: 'next' },
+    expect: { checks: [], streams: [], consumers: [], ledgers: {} },
+    rollback: { configReadable: true, releaseDirExists: true, bindProbes: [], missingImages: [] },
+    tagIds: {},
+    record: { rev: 'next', images: {} },
   }
 }
 
-// failAt: op indices that throw before acting. crash: { at, when: 'before' | 'after' } models SIGKILL.
-export function fakeExecutor(
-  world,
-  { failAt = new Set(), crash = null, beforeRollback = null } = {}
-) {
+// failAt: op indices that throw before acting. crash: { at, when: 'before' | 'after' } models
+// SIGKILL around an op; crashWrite: index of a journal write after which the process dies.
+export function fakeExecutor(world, opts = {}) {
+  const { failAt = new Set(), crash = null, crashWrite = -1, agentAppears = -1 } = opts
+  const { helperDiesAt = -1, stopFails = false } = opts
+  let { beforeRollback = null } = opts
   let calls = 0
+  let writes = 0
   const dbs = world.databases
   const need = (name) => {
     if (!dbs[name]) {
@@ -88,9 +104,33 @@ export function fakeExecutor(
     return dbs[name]
   }
   const sources = () => DBS.map((d) => d.name)
+  // Every SQL statement runs inside the one long-lived client helper (`docker exec`).
+  const sql = () => {
+    if (world.sqlHelper !== 'running') {
+      throw new Error('SQL helper container is not running (No such container)')
+    }
+  }
+  const SQL_OPS = new Set([
+    'disable_connections',
+    'enable_connections',
+    'terminate_sessions',
+    'create_snapshot',
+    'verify_snapshot',
+    'drop_database',
+    'rename',
+    'prune',
+  ])
   const ops = {
     stop_project: () => {
       world.running = null
+    },
+    check_no_agents: () => {
+      if (world.agents.length > 0) {
+        throw new Error('agent containers started after preflight')
+      }
+    },
+    remove_new_agents: (s) => {
+      world.agents = world.agents.filter((a) => Date.parse(a.created) <= Date.parse(s.since))
     },
     disable_connections: (s) => {
       need(s.name).allowConnections = false
@@ -135,6 +175,7 @@ export function fakeExecutor(
         Object.keys(world.volumes).forEach((v) => {
           world.volumes[v] = 'next'
         })
+        world.agents = [...world.agents.filter((a) => a !== NEW_AGENT), NEW_AGENT]
       }
     },
     verify_backend: (s) => {
@@ -151,9 +192,6 @@ export function fakeExecutor(
       if (world.webroot !== s.rev) {
         throw new Error('frontend mismatch')
       }
-    },
-    remove_container: () => {
-      world.migrationContainer = false
     },
     drop_database: (s) => {
       delete dbs[s.name]
@@ -177,17 +215,35 @@ export function fakeExecutor(
     readState: () => JSON.parse(world.stateJson),
     writeState: (state) => {
       world.stateJson = JSON.stringify(state)
+      writes += 1
+      if (writes - 1 === crashWrite) {
+        throw new Crash(`crash after journal write ${crashWrite}`)
+      }
     },
-    preflight: () => goodPreflight(world),
-    observe: () => ({
-      databases: Object.fromEntries(
-        Object.entries(dbs).map(([n, d]) => [
-          n,
-          { oid: d.oid, allowConnections: d.allowConnections },
-        ])
-      ),
-      migrationContainer: world.migrationContainer,
-    }),
+    removeHelpers: () => {
+      world.sqlHelper = null
+    },
+    startSql: () => {
+      if (world.sqlHelper) {
+        throw new Error('SQL helper name already in use')
+      }
+      world.sqlHelper = 'running'
+      world.sqlStarts += 1
+    },
+    stopSql: () => {
+      if (stopFails) {
+        throw new Error('SQL helper still present after removal')
+      }
+      world.sqlHelper = null
+    },
+    preflight: () => {
+      sql()
+      return goodPreflight(world)
+    },
+    observe: () => {
+      sql()
+      return observed()
+    },
     run: (step) => {
       const op = ops[step.op]
       if (!op) {
@@ -195,6 +251,12 @@ export function fakeExecutor(
       }
       const k = calls
       calls += 1
+      if (k === agentAppears) {
+        world.agents.push(agent('00000000-0000-4000-8000-000000000001', '2026-11-23T23:59:00.000Z'))
+      }
+      if (k === helperDiesAt) {
+        world.sqlHelper = null
+      }
       if (step.phase === 'rolling_back' && beforeRollback) {
         beforeRollback(world)
         beforeRollback = null
@@ -203,8 +265,10 @@ export function fakeExecutor(
         throw new Error(`injected failure at ${step.op}`)
       }
       if (crash?.at === k && crash.when === 'before') {
-        world.migrationContainer = step.op === 'migrate'
         throw new Crash(`crash before ${step.op}`)
+      }
+      if (SQL_OPS.has(step.op)) {
+        sql()
       }
       const result = op(step) ?? {}
       if (crash?.at === k) {
@@ -213,6 +277,17 @@ export function fakeExecutor(
       return result
     },
     calls: () => calls,
+    writes: () => writes,
+  }
+  function observed() {
+    return {
+      databases: Object.fromEntries(
+        Object.entries(dbs).map(([n, d]) => [
+          n,
+          { oid: d.oid, allowConnections: d.allowConnections },
+        ])
+      ),
+    }
   }
 }
 
@@ -231,7 +306,7 @@ export function invariantErrors(world) {
   return errors
 }
 
-function outcomeErrors(world, rev) {
+export function outcomeErrors(world, rev) {
   const errors = invariantErrors(world)
   const state = JSON.parse(world.stateJson)
   const want = rev === 'next' ? 'done' : 'rolled_back'
@@ -247,10 +322,16 @@ function outcomeErrors(world, rev) {
   if (state.current !== rev) {
     errors.push(`current release is ${state.current}, expected ${rev}`)
   }
+  if (world.sqlHelper) {
+    errors.push('the SQL helper container was left running')
+  }
+  if (rev === 'prev' && world.agents.includes(NEW_AGENT)) {
+    errors.push('an agent container of the discarded release survived the rollback')
+  }
   return errors
 }
 
-const ctxFor = (world, opts, config = fakeConfig()) => ({
+export const ctxFor = (world, opts, config = fakeConfig()) => ({
   config,
   exec: fakeExecutor(world, opts),
   log: () => null,
@@ -268,11 +349,14 @@ async function crashThenRecover(world, opts) {
   return recover(ctxFor(world, {}))
 }
 
+const committedPhase = (world) =>
+  ['verified', 'done'].includes(JSON.parse(world.stateJson).attempt?.phase)
+
 export async function faultMatrix() {
   const probe = createWorld()
   const probeCtx = ctxFor(probe, {})
   await deploy(probeCtx)
-  const total = probeCtx.exec.calls()
+  const [total, totalWrites] = [probeCtx.exec.calls(), probeCtx.exec.writes()]
   const results = [{ name: 'happy path', errors: outcomeErrors(probe, 'next') }]
   const add = (name, world, code, wantCode, rev) => {
     const errors = outcomeErrors(world, rev)
@@ -288,13 +372,8 @@ export async function faultMatrix() {
     const committed = k === total - 1
     const rev = committed ? 'next' : 'prev'
     const failed = createWorld()
-    add(
-      `fail at op ${k}`,
-      failed,
-      await deploy(ctxFor(failed, { failAt: new Set([k]) })),
-      committed ? EXIT.OK : EXIT.ROLLED_BACK,
-      rev
-    )
+    const failCode = await deploy(ctxFor(failed, { failAt: new Set([k]) }))
+    add(`fail at op ${k}`, failed, failCode, committed ? EXIT.OK : EXIT.ROLLED_BACK, rev)
     for (const when of ['before', 'after']) {
       const crashed = createWorld()
       add(
@@ -323,5 +402,57 @@ export async function faultMatrix() {
       )
     }
   }
+  // Finding 1: whatever journal write the process dies after, recovery must agree with it.
+  for (let w = 0; w < totalWrites; w += 1) {
+    const world = createWorld()
+    let code = null
+    try {
+      await deploy(ctxFor(world, { crashWrite: w }))
+    } catch (err) {
+      if (!(err instanceof Crash)) {
+        throw err
+      }
+      const rev = committedPhase(world) ? 'next' : 'prev'
+      code = await recover(ctxFor(world, {}))
+      add(`crash after journal write ${w}, then recover`, world, code, EXIT.OK, rev)
+    }
+    if (code === null) {
+      results.push({
+        name: `crash after journal write ${w}`,
+        errors: ['the crash was not injected'],
+      })
+    }
+  }
+  // The SQL helper disappears before op k: the step fails cleanly, rollback starts a new helper.
+  for (let k = 0; k < total; k += 1) {
+    const world = createWorld()
+    const code = await deploy(ctxFor(world, { helperDiesAt: k }))
+    const rev = code === EXIT.OK ? 'next' : 'prev'
+    const errors = outcomeErrors(world, rev)
+    if (![EXIT.OK, EXIT.ROLLED_BACK].includes(code)) {
+      errors.push(`exit ${code}, expected 0 or 10`)
+    }
+    results.push({ name: `SQL helper gone before op ${k}`, errors })
+  }
+  // A crash leaves the helper running; recover must remove it before it plans (checked above via
+  // outcomeErrors). A helper that cannot be removed at the end is reported, not ignored.
+  const sticky = createWorld()
+  const stickyCode = await deploy(ctxFor(sticky, { stopFails: true }))
+  results.push({
+    name: 'SQL helper removal fails at the end',
+    errors: stickyCode === EXIT.FAILED ? [] : [`exit ${stickyCode}, expected ${EXIT.FAILED}`],
+  })
+  // Finding 8: an agent that appears after preflight aborts before the snapshot, untouched.
+  const appeared = createWorld()
+  const appearedCode = await deploy(ctxFor(appeared, { agentAppears: 0 }))
+  const appearedErrors = outcomeErrors(appeared, 'prev')
+  if (
+    appearedCode !== EXIT.ROLLED_BACK ||
+    appeared.agents.length !== 1 ||
+    Object.keys(appeared.snapshots).length
+  ) {
+    appearedErrors.push('expected a rollback before any snapshot, keeping the pre-existing agent')
+  }
+  results.push({ name: 'agent appears after preflight', errors: appearedErrors })
   return results
 }

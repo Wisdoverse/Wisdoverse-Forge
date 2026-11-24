@@ -6,26 +6,35 @@ import { describe, expect, it } from 'vitest'
 import {
   agentContainerFindings,
   backendFindings,
+  captureExpectations,
   compareBaseline,
   compareLedger,
   databaseFindings,
   frontendFindings,
   identityFindings,
+  isProductAgent,
   ledgerFindings,
+  newAgents,
   parseEnvFile,
   parseMigrations,
   preflightFindings,
+  quoteIdent,
+  quoteLiteral,
   redact,
+  rollbackFindings,
   secretValues,
+  tagDriftFindings,
 } from '../../../scripts/lib/deploy-release/checks.js'
 import { atomicWrite, createExecutor } from '../../../scripts/lib/deploy-release/effects.js'
-import { Crash, EXIT, deploy, recover } from '../../../scripts/lib/deploy-release/engine.js'
+import { EXIT, deploy, recover } from '../../../scripts/lib/deploy-release/engine.js'
 import {
   PHASES,
+  StateUnreadable,
   announce,
   complete,
   emptyState,
   markRecoveryRequired,
+  summarize,
   transition,
 } from '../../../scripts/lib/deploy-release/journal.js'
 import {
@@ -39,14 +48,17 @@ import {
 } from '../../../scripts/lib/deploy-release/plan.js'
 import {
   createWorld,
+  ctxFor,
   fakeConfig,
   fakeExecutor,
   faultMatrix,
+  goodPreflight,
   invariantErrors,
-} from '../../../scripts/lib/deploy-release/simulate.js'
+} from '../../support/deploy-release/simulate.js'
 
 const root = path.resolve(import.meta.dirname, '../../..')
 const ops = (steps: { op: string }[]) => steps.map((s) => s.op)
+const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'forge-deploy-test-'))
 
 function attemptFixture(complete: boolean, phase = 'rolling_back') {
   return {
@@ -55,7 +67,8 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
     previous: 'prev',
     phase,
     step: null,
-    migrationContainer: 'forge-migrate-a1b2c3d4',
+    helperPrefix: 'forge-deploy-a1b2c3d4-',
+    startedAt: '2026-11-24T00:00:00.000Z',
     swaps: [],
     snapshot: {
       complete,
@@ -71,11 +84,19 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
       ],
       volumes: [{ volume: 'v', tar: '/s/v.tar', sha256: 'x', restored: false }],
       webroot: { tar: '/s/webroot.tar', sha256: 'y', restored: false },
+      expect: { checks: [], streams: [], consumers: [], ledgers: {} },
     },
   }
 }
 
 const db = (oid: number, allowConnections = true) => ({ oid, allowConnections })
+const observeWith = (world: ReturnType<typeof createWorld>) => {
+  const exec = fakeExecutor(world)
+  exec.startSql()
+  const observed = exec.observe()
+  exec.stopSql()
+  return observed
+}
 
 describe('journal', () => {
   it('allows the forward chain and the rollback branch, rejects skips', () => {
@@ -114,19 +135,21 @@ describe('journal', () => {
     expect(done.attempt.snapshot.databases[0].snapshotOid).toBe(42)
   })
 
-  it('commit moves current/previous, protects the baseline snapshot and drops stale records', () => {
+  it('finding 1: the single write that enters `verified` also moves the release pointers', () => {
     const state = {
       ...emptyState(),
       current: 'baseline',
       records: { baseline: {}, old: {}, next: {} },
       attempt: { ...attemptFixture(true, 'verifying_frontend'), previous: 'baseline' },
     }
-    const step = { op: 'commit', phase: 'verified' }
-    const done = complete(announce(state, step, 't'), step, {}, 't')
-    expect(done.current).toBe('next')
-    expect(done.previous).toBe('baseline')
-    expect(done.protected).toEqual({ baseline: 'a1b2c3d4', lastGood: 'a1b2c3d4' })
-    expect(Object.keys(done.records).sort()).toEqual(['baseline', 'next'])
+    const announced = announce(state, { op: 'commit', phase: 'verified' }, 't')
+    expect(announced.attempt.phase).toBe('verified')
+    expect(announced.current).toBe('next')
+    expect(announced.previous).toBe('baseline')
+    expect(announced.protected).toEqual({ baseline: 'a1b2c3d4', lastGood: 'a1b2c3d4' })
+    expect(Object.keys(announced.records).sort()).toEqual(['baseline', 'next'])
+    const prune = announce(announced, { op: 'prune', phase: 'verified' }, 't')
+    expect(prune.protected).toEqual(announced.protected)
   })
 
   it('marks recovery_required from any in-flight phase', () => {
@@ -135,14 +158,30 @@ describe('journal', () => {
       expect(markRecoveryRequired(state, 'boom', 't').attempt.phase).toBe('recovery_required')
     }
   })
+
+  it('status names what the recovery section asks the operator to look at', () => {
+    const text = summarize({
+      ...emptyState(),
+      current: 'prev',
+      attempt: attemptFixture(true, 'recovery_required'),
+    }).join('\n')
+    for (const want of [
+      'a1b2c3d4',
+      'recovery_required',
+      'forge__snap_a1b2c3d4',
+      'forge__failed_a1b2c3d4',
+      '/s/v.tar',
+      '/s/webroot.tar',
+      'forge-deploy-a1b2c3d4-',
+    ]) {
+      expect(text).toContain(want)
+    }
+  })
 })
 
 describe('planRecovery', () => {
-  const sourceOnly = { databases: { forge: db(1) }, migrationContainer: false }
-  const swapped = {
-    databases: { forge: db(2), forge__failed_a1b2c3d4: db(1, false) },
-    migrationContainer: false,
-  }
+  const sourceOnly = { databases: { forge: db(1) } }
+  const swapped = { databases: { forge: db(2), forge__failed_a1b2c3d4: db(1, false) } }
 
   it.each(PHASES)('plans a defined outcome for phase %s', (phase) => {
     for (const sealed of [false, true]) {
@@ -153,8 +192,9 @@ describe('planRecovery', () => {
         expect(ops(steps)).toEqual(['close'])
       } else {
         expect(steps.at(-1)).toEqual({ op: 'close', phase: 'rolled_back' })
-        expect(ops(steps)).toContain('verify_backend')
+        expect(steps.find((s) => s.op === 'verify_backend')).toMatchObject({ against: 'snapshot' })
         expect(ops(steps).includes('restore_volume')).toBe(sealed)
+        expect(ops(steps).includes('remove_new_agents')).toBe(sealed)
       }
     }
   })
@@ -176,7 +216,7 @@ describe('planRecovery', () => {
   ])(
     'partial snapshot, interrupted %s: drops copies, never renames',
     (_label, databases, expected) => {
-      const steps = planRecovery(attemptFixture(false), { databases, migrationContainer: false })
+      const steps = planRecovery(attemptFixture(false), { databases })
       expect(ops(steps).filter((op) => !op.startsWith('verify') && op !== 'close')).toEqual(
         expected
       )
@@ -190,39 +230,25 @@ describe('planRecovery', () => {
   it('never drops a database whose OID is the original', () => {
     const steps = planRecovery(attemptFixture(false), {
       databases: { forge: db(1), forge__snap_a1b2c3d4: db(1) },
-      migrationContainer: false,
     })
     expect(ops(steps)).not.toContain('drop_database')
   })
 
   const swapOps = (databases: Record<string, { oid: number; allowConnections: boolean }>) =>
-    planRecovery(attemptFixture(true), { databases, migrationContainer: false })
+    planRecovery(attemptFixture(true), { databases })
       .filter((s) => 'db' in s)
       .map((s) => `${s.op}${'from' in s ? ` ${s.from}->${s.to}` : ''}`)
+  const fullSwap = [
+    'disable_connections',
+    'terminate_sessions',
+    'rename forge->forge__failed_a1b2c3d4',
+    'rename forge__snap_a1b2c3d4->forge',
+    'enable_connections',
+  ]
 
   it.each([
-    [
-      'before the swap',
-      { forge: db(1), forge__snap_a1b2c3d4: db(2) },
-      [
-        'disable_connections',
-        'terminate_sessions',
-        'rename forge->forge__failed_a1b2c3d4',
-        'rename forge__snap_a1b2c3d4->forge',
-        'enable_connections',
-      ],
-    ],
-    [
-      'after disable/terminate',
-      { forge: db(1, false), forge__snap_a1b2c3d4: db(2) },
-      [
-        'disable_connections',
-        'terminate_sessions',
-        'rename forge->forge__failed_a1b2c3d4',
-        'rename forge__snap_a1b2c3d4->forge',
-        'enable_connections',
-      ],
-    ],
+    ['before the swap', { forge: db(1), forge__snap_a1b2c3d4: db(2) }, fullSwap],
+    ['after disable/terminate', { forge: db(1, false), forge__snap_a1b2c3d4: db(2) }, fullSwap],
     [
       'between the two renames',
       { forge__failed_a1b2c3d4: db(1, false), forge__snap_a1b2c3d4: db(2) },
@@ -243,52 +269,134 @@ describe('planRecovery', () => {
     expect(() => swapOps({ forge: db(3), forge__snap_a1b2c3d4: db(2) })).toThrow(RecoveryError)
   })
 
-  it('removes a leftover migration container and skips completed restores', () => {
+  it('skips completed restores', () => {
     const attempt = attemptFixture(true)
     attempt.snapshot.volumes[0].restored = true
     attempt.snapshot.webroot.restored = true
-    const steps = planRecovery(attempt, { ...swapped, migrationContainer: true })
-    expect(ops(steps)[0]).toBe('remove_container')
+    const steps = planRecovery(attempt, swapped)
     expect(ops(steps)).not.toContain('restore_volume')
     expect(ops(steps)).not.toContain('restore_webroot')
   })
 
   it('is idempotent: re-planning after an executed recovery yields no database or restore steps', async () => {
     const world = createWorld()
-    const failing = {
-      config: fakeConfig(),
-      exec: fakeExecutor(world, { failAt: new Set([28]) }),
-      log: () => {},
-    }
-    expect(await deploy(failing)).toBe(EXIT.ROLLED_BACK)
+    // op 29 = verify_frontend: stop, agent check, 4 x 5 snapshot ops, 3 archives, migrate, start, verify, switch
+    expect(await deploy(ctxFor(world, { failAt: new Set([29]) }))).toBe(EXIT.ROLLED_BACK)
     const attempt = JSON.parse(world.stateJson).attempt
-    expect(planRecovery(attempt, fakeExecutor(world).observe())).toEqual([])
-    const reopened = { ...attempt, phase: 'rolling_back' }
-    const again = ops(planRecovery(reopened, fakeExecutor(world).observe()))
+    expect(planRecovery(attempt, observeWith(world))).toEqual([])
+    const again = ops(planRecovery({ ...attempt, phase: 'rolling_back' }, observeWith(world)))
     expect(again).not.toContain('rename')
     expect(again).not.toContain('restore_volume')
     expect(again).not.toContain('drop_database')
   })
 })
 
-describe('planDeploy', () => {
+describe('engine', () => {
   const state = { ...emptyState(), current: 'prev', records: { prev: {} } }
 
-  it('is a no-op when the target is current and refuses on any preflight finding', () => {
-    const world = createWorld()
-    const observed = fakeExecutor(world).preflight()
-    expect(planDeploy(fakeConfig({ target: 'prev' }), state, observed).status).toBe('noop')
-    const refused = planDeploy(fakeConfig(), state, { ...observed, envVersion: 'other' })
-    expect(refused.status).toBe('refused')
+  it('is a no-op when the target is current and refuses without a baseline', async () => {
+    const noop = createWorld()
+    expect(await deploy(ctxFor(noop, {}, fakeConfig({ target: 'prev' })))).toBe(EXIT.OK)
+    expect(JSON.parse(noop.stateJson).attempt).toBeNull()
+    const bare = createWorld()
+    bare.stateJson = JSON.stringify(emptyState())
+    expect(await deploy(ctxFor(bare, {}))).toBe(EXIT.PREFLIGHT_REFUSED)
   })
 
-  it('journals snapshot names with the attempt id and snapshots before migrating', () => {
+  it('finding 2: an unreadable state file is a recovery-required refusal, never "no journal"', async () => {
+    const messages: string[] = []
+    const exec = {
+      ...fakeExecutor(createWorld()),
+      readState: () => {
+        throw new StateUnreadable('state.json is not valid JSON')
+      },
+    }
+    for (const run of [deploy, recover]) {
+      expect(await run({ config: fakeConfig(), exec, log: (m: string) => messages.push(m) })).toBe(
+        EXIT.RECOVERY_REQUIRED
+      )
+    }
+    expect(messages.join('\n')).toMatch(/cannot be read.*\n.*Do not deploy/)
+  })
+
+  it('finding 4: removes leftover helpers before planning a recovery', async () => {
     const world = createWorld()
-    const plan = planDeploy(fakeConfig(), state, fakeExecutor(world).preflight())
+    const calls: string[] = []
+    const base = fakeExecutor(world, { crash: { at: 25, when: 'before' } })
+    await expect(deploy({ config: fakeConfig(), exec: base, log: () => null })).rejects.toThrow(
+      /crash/
+    )
+    const exec = fakeExecutor(world)
+    const spied = {
+      ...exec,
+      removeHelpers: () => {
+        calls.push('removeHelpers')
+        exec.removeHelpers()
+      },
+      observe: () => {
+        calls.push('observe')
+        return exec.observe()
+      },
+    }
+    expect(await recover({ config: fakeConfig(), exec: spied, log: () => null })).toBe(EXIT.OK)
+    expect(calls.slice(0, 2)).toEqual(['removeHelpers', 'observe'])
+    const failing = {
+      ...exec,
+      removeHelpers: () => Promise.reject(new Error('helper containers still present')),
+    }
+    const stuck = createWorld()
+    await expect(deploy(ctxFor(stuck, { crash: { at: 25, when: 'before' } }))).rejects.toThrow(
+      /crash/
+    )
+    expect(
+      await recover({
+        config: fakeConfig(),
+        exec: { ...fakeExecutor(stuck), removeHelpers: failing.removeHelpers },
+        log: () => null,
+      })
+    ).toBe(EXIT.RECOVERY_REQUIRED)
+  })
+
+  it('SQL helper: a leftover is removed at recover start, then a single helper serves the run', async () => {
+    const world = createWorld()
+    await expect(deploy(ctxFor(world, { crash: { at: 12, when: 'after' } }))).rejects.toThrow(
+      /crash/
+    )
+    expect(world.sqlHelper).toBe('running')
+    expect(await recover(ctxFor(world, {}))).toBe(EXIT.OK)
+    expect(world.sqlHelper).toBeNull()
+    expect(world.sqlStarts).toBe(2)
+  })
+
+  it('SQL helper missing mid-run: the step fails cleanly, the journal stays consistent', async () => {
+    const world = createWorld()
+    // op 4 = create_snapshot of the first database
+    expect(await deploy(ctxFor(world, { helperDiesAt: 4 }))).toBe(EXIT.ROLLED_BACK)
+    const state = JSON.parse(world.stateJson)
+    expect(state.attempt.phase).toBe('rolled_back')
+    expect(state.attempt.error).toBeNull()
+    expect(invariantErrors(world)).toEqual([])
+    expect(world.sqlHelper).toBeNull()
+    expect(world.sqlStarts).toBe(2)
+  })
+
+  it('SQL helper that cannot be removed is reported, not ignored', async () => {
+    const messages: string[] = []
+    const world = createWorld()
+    const ctx = { ...ctxFor(world, { stopFails: true }), log: (m: string) => messages.push(m) }
+    expect(await deploy(ctx)).toBe(EXIT.FAILED)
+    expect(JSON.parse(world.stateJson).attempt.phase).toBe('done')
+    expect(messages.join('\n')).toMatch(/SQL helper container could not be removed/)
+  })
+
+  it('journals snapshot names with the attempt id, checks agents after stopping, snapshots before migrating', () => {
+    const plan = planDeploy(fakeConfig(), state, goodPreflight(createWorld()))
     expect(plan.attempt.snapshot.databases.map((d: { snapshot: string }) => d.snapshot)).toContain(
       'forge__snap_a1b2c3d4'
     )
+    expect(plan.attempt.helperPrefix).toBe('forge-deploy-a1b2c3d4-')
     const order = ops(plan.steps)
+    expect(order.slice(0, 2)).toEqual(['stop_project', 'check_no_agents'])
     expect(order.lastIndexOf('create_snapshot')).toBeLessThan(order.indexOf('seal'))
     expect(order.indexOf('seal')).toBeLessThan(order.indexOf('migrate'))
     expect(order.indexOf('verify_backend')).toBeLessThan(order.indexOf('switch_frontend'))
@@ -298,7 +406,8 @@ describe('planDeploy', () => {
   it('names never collide across attempts and respect the 63-byte limit', () => {
     expect(snapshotName('forge', 'a1b2c3d4')).not.toBe(snapshotName('forge', 'a1b2c3d5'))
     expect(failedName('forge', 'a1b2c3d4')).toBe('forge__failed_a1b2c3d4')
-    expect(() => snapshotName('x'.repeat(50), '202611221015300a1b')).toThrow(/63/)
+    expect(failedName('f'.repeat(36), '20261124000000abcd')).toHaveLength(63)
+    expect(() => failedName('f'.repeat(37), '20261124000000abcd')).toThrow(/63/)
     expect(() => snapshotName('bad"name', 'a1b2c3d4')).toThrow(/invalid/)
   })
 })
@@ -349,7 +458,7 @@ describe('migration ledger', () => {
   })
 })
 
-describe('retention', () => {
+describe('retention (finding 10)', () => {
   const state = {
     ...emptyState(),
     current: 'c0ffee1',
@@ -363,6 +472,13 @@ describe('retention', () => {
     { kind: 'database', name: 'forge__snap_old00001' },
     { kind: 'database', name: 'forge__failed_old00001' },
     { kind: 'database', name: 'forge' },
+    { kind: 'database', name: 'forgex__snap_old00001' },
+    { kind: 'database', name: 'xforge__snap_old00001' },
+    { kind: 'database', name: 'forge__snap_old00001_copy' },
+    { kind: 'database', name: 'forge__snapshot_old00001' },
+    { kind: 'database', name: 'other__failed_old00001' },
+    { kind: 'database', name: 'forge__snap_old"0001' },
+    { kind: 'database', name: 'forge__snap_OLD00001' },
     { kind: 'snapshotDir', name: 'base0001' },
     { kind: 'snapshotDir', name: 'old00001' },
     { kind: 'releaseDir', name: 'c0ffee1' },
@@ -371,14 +487,28 @@ describe('retention', () => {
     { kind: 'releaseDir', name: 'dead001' },
   ]
 
-  it('never selects current, previous, last-good, baseline, the active attempt or unmarked databases', () => {
-    const names = selectPrunable(items, state, 'live0001').map((i: { name: string }) => i.name)
+  it('selects only generated names of configured sources, never protected or foreign ones', () => {
+    const names = selectPrunable(items, state, 'live0001', ['forge', 'forge_orch']).map(
+      (i: { name: string }) => i.name
+    )
     expect(names.sort()).toEqual([
       'dead001',
       'forge__failed_old00001',
       'forge__snap_old00001',
       'old00001',
     ])
+    expect(
+      selectPrunable(items, state, 'live0001', []).filter(
+        (i: { kind: string }) => i.kind === 'database'
+      )
+    ).toEqual([])
+  })
+
+  it('quotes identifiers and literals and rejects NUL', () => {
+    expect(quoteIdent('a"b')).toBe('"a""b"')
+    expect(quoteLiteral("o'brien")).toBe("'o''brien'")
+    expect(() => quoteIdent('a\0b')).toThrow(/NUL/)
+    expect(() => quoteLiteral('a\0b')).toThrow(/NUL/)
   })
 })
 
@@ -435,11 +565,32 @@ describe('preflight predicates', () => {
     ).toHaveLength(1)
   })
 
-  it('refuses a missing database and running agent containers (A8)', () => {
-    expect(databaseFindings([{ name: 'forge' }], {})).toHaveLength(1)
-    const agent = { name: 'agent-1', labels: { 'agentforge.agent_id': 'x' } }
-    const compose = { name: 'agentforge-nats', labels: { 'com.docker.compose.service': 'nats' } }
-    expect(agentContainerFindings([agent, compose])).toHaveLength(1)
+  const uuid = '0a1b2c3d-0000-4000-8000-000000000001'
+  it('finding 8: selects product agent containers strictly by name pattern and matching label', () => {
+    const agent = {
+      name: `agentforge-agent-${uuid}`,
+      labels: { 'agentforge.agent_id': uuid },
+      created: '2026-11-24T01:00:00Z',
+    }
+    const devenv = {
+      name: `agentforge-devenv-${uuid}`,
+      labels: { 'agentforge.dev_environment_id': uuid },
+    }
+    const impostors = [
+      { name: `agentforge-agent-${uuid}`, labels: {} },
+      { name: 'agentforge-agent-x', labels: { 'agentforge.agent_id': 'x' } },
+      { name: `my-agentforge-agent-${uuid}`, labels: { 'agentforge.agent_id': uuid } },
+      {
+        name: `agentforge-agent-${uuid}`,
+        labels: { 'agentforge.agent_id': '0a1b2c3d-0000-4000-8000-000000000009' },
+      },
+      { name: 'agentforge-nats', labels: { 'com.docker.compose.service': 'nats' } },
+    ]
+    expect([agent, devenv].every(isProductAgent)).toBe(true)
+    expect(impostors.some(isProductAgent)).toBe(false)
+    expect(agentContainerFindings([agent, ...impostors])).toHaveLength(1)
+    expect(newAgents([agent], '2026-11-24T00:00:00Z')).toEqual([agent])
+    expect(newAgents([agent], '2026-11-24T02:00:00Z')).toEqual([])
   })
 
   it('checks project identity and mounted volumes', () => {
@@ -464,18 +615,47 @@ describe('preflight predicates', () => {
     expect(identityFindings('p', rendered, [])).toHaveLength(1)
   })
 
-  it('aggregates findings, including a missing baseline and low disk', () => {
-    const observed = fakeExecutor(createWorld()).preflight()
+  it('finding 9: refuses when the rollback target is not complete', () => {
+    const ok = {
+      configReadable: true,
+      releaseDirExists: true,
+      bindProbes: [{ source: '/a', ok: true }],
+      missingImages: [],
+    }
+    expect(rollbackFindings(ok)).toEqual([])
+    expect(rollbackFindings({ ...ok, configReadable: false })).toHaveLength(1)
+    expect(rollbackFindings({ ...ok, releaseDirExists: false })).toHaveLength(1)
+    expect(rollbackFindings({ ...ok, bindProbes: [{ source: '/a', ok: false }] })).toHaveLength(1)
+    expect(rollbackFindings({ ...ok, missingImages: ['sha256:1'] })).toHaveLength(1)
+  })
+
+  it('finding 6: a moved tag of a recorded release is reported', () => {
+    const records = {
+      prev: { rev: 'prev', refs: { nats: 'nats:2' }, images: { nats: 'sha256:1' } },
+    }
+    expect(tagDriftFindings(records, { 'nats:2': 'sha256:1' })).toEqual([])
+    expect(tagDriftFindings(records, { 'nats:2': 'sha256:2' })).toHaveLength(1)
+    expect(tagDriftFindings(records, {})).toHaveLength(1)
+  })
+
+  it('aggregates findings, including low disk, missing images, rollback and drift', () => {
+    const observed = goodPreflight(createWorld())
     const config = fakeConfig()
     const state = { ...emptyState(), current: 'prev', records: { prev: {} } }
     expect(preflightFindings(config, state, observed)).toEqual([])
-    expect(preflightFindings(config, emptyState(), observed)).toHaveLength(1)
     expect(
       preflightFindings(config, state, { ...observed, freeBytes: { private: 10 } })
     ).toHaveLength(1)
     expect(preflightFindings(config, state, { ...observed, images: { nats: null } })).toHaveLength(
       1
     )
+    const noRollback = { ...observed, rollback: { ...observed.rollback, configReadable: false } }
+    expect(preflightFindings(config, state, noRollback)).toHaveLength(1)
+    const drifted = {
+      ...emptyState(),
+      records: { prev: { rev: 'prev', refs: { a: 'a:1' }, images: { a: 'x' } } },
+    }
+    expect(preflightFindings(config, drifted, observed)).toHaveLength(1)
   })
 })
 
@@ -495,6 +675,7 @@ describe('verification predicates', () => {
       },
     ],
   })
+  const rows = [{ version: 1, checksum: 'aa', success: true }]
   const facts = {
     apiHealth: ok({ ok: true }),
     apiReady: ok({
@@ -508,24 +689,55 @@ describe('verification predicates', () => {
     jsz,
     temporalServing: true,
     runningImages: { nats: 'sha256:1' },
-    ledgers: {},
+    ledgers: { api: rows },
   }
-  const expectations = { images: { nats: 'sha256:1' }, requireRedis: false, contract }
+  const forward = {
+    checks: null,
+    streams: contract.streams,
+    consumers: [contract.resultConsumer],
+    ledgers: { api: [{ version: 1, checksum: 'aa' }] },
+    images: { nats: 'sha256:1' },
+    requireRedis: false,
+  }
 
-  it('passes only when every check passes; a check that cannot run is a failure', () => {
-    expect(backendFindings(facts, expectations)).toEqual([])
-    expect(backendFindings(facts, { ...expectations, requireRedis: true })).toHaveLength(1)
+  it('forward: passes only when every check passes; a check that cannot run is a failure', () => {
+    expect(backendFindings(facts, forward)).toEqual([])
+    expect(backendFindings(facts, { ...forward, requireRedis: true })).toHaveLength(1)
     expect(
-      backendFindings({ ...facts, orchHealth: ok({ workflowRuntime: 'disabled' }) }, expectations)
+      backendFindings({ ...facts, orchHealth: ok({ workflowRuntime: 'disabled' }) }, forward)
+    ).toHaveLength(1)
+    expect(backendFindings({ ...facts, natsHealth: { error: 'timeout' } }, forward)[0]).toMatch(
+      /could not run/
+    )
+    expect(backendFindings({ ...facts, jsz: ok({ account_details: [] }) }, forward)).toHaveLength(5)
+    expect(backendFindings({ ...facts, runningImages: {} }, forward)).toHaveLength(1)
+    expect(backendFindings({ ...facts, temporalServing: false }, forward)).toHaveLength(1)
+    expect(backendFindings({ ...facts, ledgers: { api: [] } }, forward)).toHaveLength(1)
+  })
+
+  it('finding 5: rollback is held to what the previous release answered before the deploy', () => {
+    // An older build: no /health/ready on the orchestrator, no workflowRuntime field, one stream.
+    const older = {
+      ...facts,
+      orchHealth: ok({ status: 'healthy' }),
+      orchReady: { status: 404, body: null },
+      jsz: ok({ account_details: [{ stream_detail: [{ name: 'EVENTS' }] }] }),
+      ledgers: { api: [{ version: 0, checksum: 'zz', success: true }] },
+    }
+    const captured = captureExpectations(older, false)
+    expect(captured.checks).toContain('orchestrator /health answers')
+    expect(captured.checks).not.toContain('orchestrator /health healthy')
+    expect(captured.checks).not.toContain('orchestrator /health/ready answers')
+    expect(captured.streams).toEqual(['EVENTS'])
+    const expectation = { ...captured, images: { nats: 'sha256:1' }, requireRedis: false }
+    expect(backendFindings(older, expectation)).toEqual([])
+    expect(backendFindings(older, forward).length).toBeGreaterThan(0)
+    expect(
+      backendFindings({ ...older, orchHealth: { error: 'timeout' } }, expectation)
     ).toHaveLength(1)
     expect(
-      backendFindings({ ...facts, natsHealth: { error: 'timeout' } }, expectations)[0]
-    ).toMatch(/could not run/)
-    expect(
-      backendFindings({ ...facts, jsz: ok({ account_details: [] }) }, expectations)
-    ).toHaveLength(5)
-    expect(backendFindings({ ...facts, runningImages: {} }, expectations)).toHaveLength(1)
-    expect(backendFindings({ ...facts, temporalServing: false }, expectations)).toHaveLength(1)
+      backendFindings({ ...older, ledgers: { api: rows } }, expectation).length
+    ).toBeGreaterThan(0)
   })
 
   it('compares the served and on-disk index.html with the release copy', () => {
@@ -534,35 +746,84 @@ describe('verification predicates', () => {
     expect(frontendFindings({ diskSha: 'b', served: { sha: 'c' } }, 'a')).toHaveLength(2)
   })
 
-  it('compares the rendered baseline with the inspected running containers', () => {
+  describe('finding 7: baseline equivalence', () => {
+    const release = '/srv/r/releases/baseline'
     const rendered = {
       services: {
         nats: {
           container_name: 'p-nats',
           image: 'nats:2',
           environment: { A: '1' },
-          volumes: [{ target: '/data' }],
+          volumes: [
+            { type: 'volume', source: 'nats-data', target: '/data' },
+            {
+              type: 'bind',
+              source: `${release}/docker/nats.conf`,
+              target: '/etc/nats/nats.conf',
+              read_only: true,
+            },
+            {
+              type: 'bind',
+              source: '/var/run/docker.sock',
+              target: '/var/run/docker.sock',
+              read_only: true,
+            },
+          ],
           networks: { default: {} },
-          ports: [{ target: 4222, protocol: 'tcp' }],
+          ports: [{ target: 4222, published: '4222', host_ip: '127.0.0.1', protocol: 'tcp' }],
           healthcheck: { test: ['CMD', 'true'] },
         },
       },
       networks: { default: { name: 'p_default' } },
+      volumes: { 'nats-data': { name: 'p_nats-data' } },
     }
     const container = {
       name: 'p-nats',
       imageId: 'sha256:1',
       env: ['A=1', 'PATH=/bin'],
-      mounts: [{ target: '/data' }],
+      mounts: [
+        { type: 'volume', name: 'p_nats-data', target: '/data', rw: true },
+        {
+          type: 'bind',
+          source: '/opt/hand/docker/nats.conf',
+          target: '/etc/nats/nats.conf',
+          rw: false,
+        },
+        { type: 'bind', source: '/var/run/docker.sock', target: '/var/run/docker.sock', rw: false },
+      ],
       networks: ['p_default'],
-      ports: ['4222/tcp'],
+      portBindings: ['127.0.0.1:4222->4222/tcp'],
       healthcheck: ['CMD', 'true'],
     }
-    expect(compareBaseline(rendered, [container], { 'nats:2': 'sha256:1' })).toEqual([])
-    expect(
-      compareBaseline(rendered, [{ ...container, networks: [] }], { 'nats:2': 'sha256:1' })
-    ).toHaveLength(1)
-    expect(compareBaseline(rendered, [container], { 'nats:2': 'sha256:2' })).toHaveLength(1)
+    const ids = { 'nats:2': 'sha256:1' }
+    const withMount = (i: number, patch: object) => ({
+      ...container,
+      mounts: container.mounts.map((m, j) => (j === i ? { ...m, ...patch } : m)),
+    })
+
+    it('accepts the running stack, including the release-relocated config file', () => {
+      expect(compareBaseline(rendered, [container], ids, release)).toEqual([])
+    })
+
+    it.each([
+      ['another named volume', withMount(0, { name: 'q_nats-data' })],
+      ['a writable mount that should be read-only', withMount(2, { rw: true })],
+      [
+        'a different bind source outside the release directory',
+        withMount(2, { source: '/run/other.sock' }),
+      ],
+      [
+        'a relocated file with another name',
+        withMount(1, { source: '/opt/hand/docker/other.conf' }),
+      ],
+      ['another host address', { ...container, portBindings: ['0.0.0.0:4222->4222/tcp'] }],
+      ['another host port', { ...container, portBindings: ['127.0.0.1:14222->4222/tcp'] }],
+      ['another protocol', { ...container, portBindings: ['127.0.0.1:4222->4222/udp'] }],
+      ['another network', { ...container, networks: [] }],
+      ['another image', { ...container, imageId: 'sha256:2' }],
+    ])('refuses %s', (_label, changed) => {
+      expect(compareBaseline(rendered, [changed], ids, release)).toHaveLength(1)
+    })
   })
 })
 
@@ -623,28 +884,10 @@ describe('JetStream contract', () => {
 })
 
 describe('state machine end to end (fake executor)', () => {
-  it('every injected failure and crash ends original-or-snapshot under each name, nothing lost', async () => {
+  it('every injected failure and crash (op or journal write) ends consistent, nothing lost', async () => {
     const results = await faultMatrix()
-    expect(results.length).toBeGreaterThan(100)
+    expect(results.length).toBeGreaterThan(200)
     expect(results.filter((r) => r.errors.length > 0)).toEqual([])
-  })
-
-  it('a crash during the migration leaves a container that recovery removes', async () => {
-    const world = createWorld()
-    // stop_project, 4 databases x 5 snapshot steps, 2 volume archives, the web root archive
-    const migrateAt = 1 + 4 * 5 + 2 + 1
-    const crashing = {
-      config: fakeConfig(),
-      exec: fakeExecutor(world, { crash: { at: migrateAt, when: 'before' } }),
-      log: () => {},
-    }
-    await expect(deploy(crashing)).rejects.toBeInstanceOf(Crash)
-    expect(world.migrationContainer).toBe(true)
-    expect(await recover({ config: fakeConfig(), exec: fakeExecutor(world), log: () => {} })).toBe(
-      EXIT.OK
-    )
-    expect(world.migrationContainer).toBe(false)
-    expect(invariantErrors(world)).toEqual([])
   })
 
   it('rehearsal D: snapshot unavailable during rollback -> recovery_required, deploy refuses, recover after repair', async () => {
@@ -654,25 +897,19 @@ describe('state machine end to end (fake executor)', () => {
       hidden = w.databases['forge__snap_a1b2c3d4']
       delete w.databases['forge__snap_a1b2c3d4']
     }
-    const failing = {
-      config: fakeConfig({ simulateVerifyFailure: true }),
-      exec: fakeExecutor(world, { beforeRollback: hide }),
-      log: () => {},
-    }
+    const failing = ctxFor(
+      world,
+      { beforeRollback: hide },
+      fakeConfig({ simulateVerifyFailure: true })
+    )
     expect(await deploy(failing)).toBe(EXIT.RECOVERY_REQUIRED)
     expect(JSON.parse(world.stateJson).attempt.phase).toBe('recovery_required')
     expect(world.running).toBeNull()
-    expect(
-      await deploy({
-        config: fakeConfig({ attemptId: 'b1b2c3d4' }),
-        exec: fakeExecutor(world),
-        log: () => {},
-      })
-    ).toBe(EXIT.PREFLIGHT_REFUSED)
-    world.databases['forge__snap_a1b2c3d4'] = hidden as (typeof world.databases)[string]
-    expect(await recover({ config: fakeConfig(), exec: fakeExecutor(world), log: () => {} })).toBe(
-      EXIT.OK
+    expect(await deploy(ctxFor(world, {}, fakeConfig({ attemptId: 'b1b2c3d4' })))).toBe(
+      EXIT.PREFLIGHT_REFUSED
     )
+    world.databases['forge__snap_a1b2c3d4'] = hidden as (typeof world.databases)[string]
+    expect(await recover(ctxFor(world, {}))).toBe(EXIT.OK)
     const state = JSON.parse(world.stateJson)
     expect(state.attempt.phase).toBe('rolled_back')
     expect(state.current).toBe('prev')
@@ -681,44 +918,73 @@ describe('state machine end to end (fake executor)', () => {
 })
 
 describe('filesystem effects (temporary directory only)', () => {
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, text)
+  }
+  const cfgFor = (tmp: string) => ({
+    webRoot: path.join(tmp, 'www'),
+    env: {},
+    attemptId: 'a1b2c3d4',
+    secrets: [],
+    databases: [],
+    project: 'forge',
+    releaseRoot: tmp,
+    privateRoot: tmp,
+  })
+
   it('switches the web root with index.html last, archives it and restores it', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-deploy-test-'))
-    const write = (file: string, text: string) => {
-      fs.mkdirSync(path.dirname(file), { recursive: true })
-      fs.writeFileSync(file, text)
-    }
-    const webRoot = path.join(tmp, 'www')
+    const tmp = tmpDir()
+    const cfg = cfgFor(tmp)
     const next = path.join(tmp, 'frontend/next')
-    write(path.join(webRoot, 'index.html'), 'old index')
-    write(path.join(webRoot, 'assets/old.js'), 'old asset')
+    write(path.join(cfg.webRoot, 'index.html'), 'old index')
+    write(path.join(cfg.webRoot, 'assets/old.js'), 'old asset')
     write(path.join(next, 'index.html'), 'new index')
     write(path.join(next, 'assets/new.js'), 'new asset')
-    const cfg = {
-      webRoot,
-      env: {},
-      attemptId: 'a1b2c3d4',
-      secrets: [],
-      databases: [],
-      releaseRoot: tmp,
-      privateRoot: tmp,
-    }
     const exec = createExecutor(cfg, () => null)
     const state = { ...emptyState(), records: { next: { frontendDir: next } } }
     const tar = path.join(tmp, 'webroot.tar')
     const { sha256: archived } = await exec.run({ op: 'archive_webroot', tar }, state)
     await exec.run({ op: 'switch_frontend', rev: 'next' }, state)
-    expect(fs.readFileSync(path.join(webRoot, 'index.html'), 'utf8')).toBe('new index')
-    expect(fs.readFileSync(path.join(webRoot, 'assets/new.js'), 'utf8')).toBe('new asset')
-    expect(fs.existsSync(path.join(webRoot, 'assets/old.js'))).toBe(true)
+    expect(fs.readFileSync(path.join(cfg.webRoot, 'index.html'), 'utf8')).toBe('new index')
+    expect(fs.readFileSync(path.join(cfg.webRoot, 'assets/new.js'), 'utf8')).toBe('new asset')
+    expect(fs.existsSync(path.join(cfg.webRoot, 'assets/old.js'))).toBe(true)
     await exec.run({ op: 'restore_webroot', tar, sha256: archived }, state)
-    expect(fs.readFileSync(path.join(webRoot, 'index.html'), 'utf8')).toBe('old index')
+    expect(fs.readFileSync(path.join(cfg.webRoot, 'index.html'), 'utf8')).toBe('old index')
     await expect(exec.run({ op: 'restore_webroot', tar, sha256: 'wrong' }, state)).rejects.toThrow(
       /sha256/
     )
-    expect(fs.readdirSync(webRoot).some((f) => f.includes('.forge-tmp-'))).toBe(false)
-    atomicWrite(path.join(tmp, 'state.json'), '{"schema":1}')
+    expect(fs.readdirSync(cfg.webRoot).some((f) => f.includes('.forge-tmp-'))).toBe(false)
+    await expect(exec.run({ op: 'no_such_step' }, state)).rejects.toThrow(/unknown step/)
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('finding 2: writes every byte atomically with mode 600 and refuses a corrupt state file', () => {
+    const tmp = tmpDir()
+    const big = JSON.stringify({ schema: 1, pad: 'x'.repeat(8 * 1024 * 1024) })
+    atomicWrite(path.join(tmp, 'state.json'), big)
+    expect(fs.readFileSync(path.join(tmp, 'state.json'), 'utf8')).toBe(big)
     expect(fs.statSync(path.join(tmp, 'state.json')).mode & 0o777).toBe(0o600)
     expect(fs.existsSync(path.join(tmp, 'state.json.tmp'))).toBe(false)
+    const exec = createExecutor(cfgFor(tmp), () => null)
+    fs.writeFileSync(path.join(tmp, 'state.json'), '{"schema":1,"attempt":{"pha')
+    expect(() => exec.readState()).toThrow(StateUnreadable)
+    fs.writeFileSync(path.join(tmp, 'state.json'), '{"schema":7}')
+    expect(() => exec.readState()).toThrow(StateUnreadable)
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('finding 6: build is a no-op for a revision that already has a release record', () => {
+    const tmp = tmpDir()
+    const messages: string[] = []
+    const state = {
+      ...emptyState(),
+      current: 'abc1234',
+      records: { abc1234: { rev: 'abc1234', images: {} } },
+    }
+    atomicWrite(path.join(tmp, 'state.json'), JSON.stringify(state))
+    createExecutor(cfgFor(tmp), (m: string) => messages.push(m)).build('abc1234')
+    expect(messages.join('\n')).toMatch(/already has a release record; build skipped/)
     fs.rmSync(tmp, { recursive: true, force: true })
   })
 })
