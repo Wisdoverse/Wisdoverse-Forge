@@ -62,6 +62,14 @@ Supported overrides:
 - `AGENTFORGE_SIDECAR_CONTAINER_IMAGE=agentforge-agent:codex`
 - `ORCHESTRATION_REAL_CLI_SOURCE_HOME=/secure/operator/home`
 - `ORCHESTRATION_REAL_CLI_E2E_TIMEOUT=300s`
+- Container mode joins the agent network (`CONTAINER_NETWORK`, default
+  `agentforge-agents`) and connects to `nats:4222`, the same path real agent
+  containers use. It works with the default loopback-only NATS port. Override
+  with `AGENTFORGE_SIDECAR_CONTAINER_NETWORK`,
+  `AGENTFORGE_SIDECAR_CONTAINER_NATS_HOST` and
+  `AGENTFORGE_SIDECAR_CONTAINER_NATS_PORT`. Setting only the NATS host keeps
+  the older host-gateway path, which needs `NATS_BIND_ADDRESS` set to an
+  address the container can reach.
 - `E2E_EMAIL=dev@example.com`
 - `E2E_PASSWORD` must be provided explicitly for the selected test account.
 
