@@ -686,19 +686,20 @@ nothing printed `stop`. Then run the runner commands of this runbook with
 | 13   | Another deploy, recover or baseline holds the lock                                                                 | Wait for it to finish                                                                                  |
 | 14   | The result was reached (a committed release keeps running) but finishing work failed                               | Follow [Finalize failed](#finalize-failed-exit-14-or-15)                                               |
 | 15   | The commit write was attempted and may not be durable; nothing was stopped or rolled back                          | Follow [Finalize failed](#finalize-failed-exit-14-or-15)                                               |
+| 137  | The runner was killed (host, Docker or Jenkins stopped it); the journal knows how far it got                       | Run `status`. If it shows an unfinished attempt, run `recover`. Never roll back by hand                |
 
 The Jenkins job maps these codes:
 
-| Exit code | Build result | Message                                                                                                                       |
-| --------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| 0         | SUCCESS      | `<action>: success`, or `Release <commit> was already current; nothing was deployed.`                                         |
-| 14        | UNSTABLE     | `Release is committed and running; run the recover action to finish housekeeping; do NOT roll back.`                          |
-| 15        | UNSTABLE     | `Commit outcome unknown; services were left running. Run the recover action (it decides from the journal); do NOT roll back.` |
-| 10        | FAILURE      | `Deploy failed: the previous release was restored and verified. ...`                                                          |
-| 11        | FAILURE      | `RECOVERY REQUIRED: read the error above, repair the cause, then run this job with ACTION=recover ...`                        |
-| 12        | FAILURE      | `Preflight refused; nothing was changed. ...`                                                                                 |
-| 13        | FAILURE      | `Another deploy, recover or baseline holds the lock. ...`                                                                     |
-| other     | FAILURE      | `<action> exited with code <n>; see the output above ...`                                                                     |
+| Exit code | Build result | Message                                                                                                                                                                 |
+| --------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0         | SUCCESS      | `<action>: success`, or `Release <commit> was already current; nothing was deployed.`                                                                                   |
+| 14        | UNSTABLE     | `Release is committed and running; run the recover action to finish housekeeping; do NOT roll back.`                                                                    |
+| 15        | UNSTABLE     | `Commit outcome unknown; services were left running. Run the recover action (it decides from the journal); do NOT roll back.`                                           |
+| 10        | FAILURE      | `Deploy failed: the previous release was restored and verified. ...`                                                                                                    |
+| 11        | FAILURE      | `RECOVERY REQUIRED: read the error above, repair the cause, then run this job with ACTION=recover ...`                                                                  |
+| 12        | FAILURE      | `Preflight refused; nothing was changed. ...`                                                                                                                           |
+| 13        | FAILURE      | `Another deploy, recover or baseline holds the lock. ...`                                                                                                               |
+| other     | FAILURE      | `<action> exited with code <n> (137: the runner was killed); ... Run ACTION=status: if it shows an unfinished attempt, run ACTION=recover. Never roll back by hand ...` |
 
 ## Rehearsals
 

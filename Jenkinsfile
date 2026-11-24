@@ -238,7 +238,7 @@ def runStep(String command) {
   } else if (code == 13) {
     error('Another deploy, recover or baseline holds the lock. Wait for it to finish, then run again.')
   } else {
-    error("${command} exited with code ${code}; see the output above (runbook: Exit codes).")
+    error("${command} exited with code ${code} (137: the runner was killed); see the output above. Run ACTION=status: if it shows an unfinished attempt, run ACTION=recover. Never roll back by hand (runbook: Exit codes).")
   }
 }
 
