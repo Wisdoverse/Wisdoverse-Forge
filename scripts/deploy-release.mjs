@@ -16,8 +16,9 @@
  *
  * Environment (paths are host paths, mounted at the same path in the runner):
  *   FORGE_RELEASE_ROOT        holds releases/<commit>/ (git archive, no secrets) and frontend/<commit>/
- *   FORGE_PRIVATE_ROOT        mode 700: deploy.env (active), staged.env (from Jenkins, promoted
- *                             with a new attempt), state.json, configs/, snapshots/
+ *   FORGE_PRIVATE_ROOT        mode 700: staged/ (inputs Jenkins prepared), inputs/<generation>/
+ *                             (deploy.env + runner; the journal names the active one),
+ *                             state.json, configs/, snapshots/
  *   FORGE_RUNNER_IMAGE        tag of this runner image (volume archives and bind-source probes)
  *   SIMULATE_VERIFY_FAILURE   1 or true forces the rollback path after the backend starts
  *
@@ -30,6 +31,8 @@
  *   13  lock busy: another deploy, recover or baseline is running for this project
  *   14  finalize failed: the result was reached (a committed release is left running) but finishing
  *       work failed, for example a journal write or removing the SQL helper; run recover
+ *   15  commit outcome unknown: the commit write was attempted and may not be durable; nothing
+ *       was stopped or rolled back; run recover (it decides from the journal on disk)
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -38,8 +41,8 @@ import path from 'node:path'
 import { URL, fileURLToPath } from 'node:url'
 import { parseEnvFile, redact, secretValues } from './lib/deploy-release/checks.js'
 import { createExecutor } from './lib/deploy-release/effects.js'
-import { EXIT, deploy, loadState, recover } from './lib/deploy-release/engine.js'
-import { StateUnreadable, summarize } from './lib/deploy-release/journal.js'
+import { EXIT, baseline, deploy, loadState, recover } from './lib/deploy-release/engine.js'
+import { StateUnreadable, activeInputs, summarize } from './lib/deploy-release/journal.js'
 
 const COMMANDS = ['build', 'deploy', 'recover', 'baseline', 'status', 'self-test']
 const LOCKED = new Set(['deploy', 'recover', 'baseline'])
@@ -79,16 +82,35 @@ function fromUrl(env, key) {
   return { role, name }
 }
 
+// Round 4, C2: deploy/build read the staged generation (`private/staged/`), and so does the first
+// baseline; everything else resolves the active generation only through the journal pointer.
+function resolveEnvFile(privateRoot, command) {
+  const staged = path.join(privateRoot, 'staged', 'deploy.env')
+  const statePath = path.join(privateRoot, 'state.json')
+  let state = null
+  if (fs.existsSync(statePath)) {
+    try {
+      state = JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    } catch {
+      throw new StateUnreadable('state.json is not valid JSON (truncated or edited)')
+    }
+  }
+  const useStaged =
+    ['deploy', 'build'].includes(command) || (command === 'baseline' && !state?.current)
+  if (useStaged && fs.existsSync(staged)) {
+    return staged
+  }
+  const active = activeInputs(state)
+  if (!active) {
+    throw new Error('no active inputs: run the deploy job once (it stages inputs), then baseline')
+  }
+  return path.join(privateRoot, 'inputs', active.generation, 'deploy.env')
+}
+
 function loadConfig(command, args) {
   const releaseRoot = absolute(process.env.FORGE_RELEASE_ROOT, 'FORGE_RELEASE_ROOT')
   const privateRoot = absolute(process.env.FORGE_PRIVATE_ROOT, 'FORGE_PRIVATE_ROOT')
-  // deploy/build read the inputs Jenkins staged; status/recover only the active ones. The very
-  // first baseline has no active inputs yet and promotes the staged ones.
-  const staged = path.join(privateRoot, 'staged.env')
-  const active = path.join(privateRoot, 'deploy.env')
-  const wantsStaged =
-    ['deploy', 'build'].includes(command) || (command === 'baseline' && !fs.existsSync(active))
-  const envFile = wantsStaged && fs.existsSync(staged) ? staged : active
+  const envFile = resolveEnvFile(privateRoot, command)
   const env = parseEnvFile(fs.readFileSync(envFile, 'utf8'))
   const at = args.indexOf('--revision')
   const target = at >= 0 ? args[at + 1] : env.VERSION
@@ -172,30 +194,6 @@ function underLock(cfg, argv) {
     console.error(`lock busy: another deploy, recover or baseline holds ${lock}`)
   }
   return r.status ?? EXIT.FAILED
-}
-
-async function baseline(ctx) {
-  if (!(await loadState(ctx))) {
-    return EXIT.RECOVERY_REQUIRED
-  }
-  const { state } = ctx
-  if (state.current) {
-    ctx.log(`refused: a current release (${state.current}) is already recorded; baseline runs once`)
-    return EXIT.PREFLIGHT_REFUSED
-  }
-  const { findings, record } = ctx.exec.baseline()
-  if (findings.length > 0) {
-    findings.forEach((f) => ctx.log(`refused: ${f}`))
-    return EXIT.PREFLIGHT_REFUSED
-  }
-  ctx.exec.promoteInputs()
-  await ctx.exec.writeState({
-    ...state,
-    current: 'baseline',
-    records: { ...state.records, baseline: record },
-  })
-  ctx.log('baseline recorded: the next deploy can roll back to the running release')
-  return EXIT.OK
 }
 
 async function selfTest() {

@@ -36,10 +36,13 @@ import {
   StateUnreadable,
   announce,
   complete,
+  activeInputs,
   emptyState,
   markRecoveryRequired,
   summarize,
   transition,
+  validateState,
+  withPointers,
 } from '../../../scripts/lib/deploy-release/journal.js'
 import {
   RecoveryError,
@@ -55,6 +58,7 @@ import {
   ctxFor,
   fakeConfig,
   fakeExecutor,
+  fakeRecord,
   faultMatrix,
   goodPreflight,
   invariantErrors,
@@ -72,7 +76,7 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
     phase,
     step: null,
     helperPrefix: 'forge-deploy-a1b2c3d4-',
-    inputs: { envSha256: 'env-a' },
+    inputs: { generation: 'a1b2c3d4', envSha256: 'b'.repeat(64), runner: 'abcdef1' },
     startedAt: '2026-11-24T00:00:00.000Z',
     swaps: [],
     snapshot: {
@@ -95,6 +99,7 @@ function attemptFixture(complete: boolean, phase = 'rolling_back') {
 }
 
 const db = (oid: number, allowConnections = true) => ({ oid, allowConnections })
+const PREV_INPUTS = { generation: 'prevgen1', envSha256: 'a'.repeat(64), runner: 'abcdef0' }
 const observeWith = (world: ReturnType<typeof createWorld>) => {
   const exec = fakeExecutor(world)
   exec.startSql()
@@ -334,13 +339,13 @@ describe('engine', () => {
       {
         ...emptyState(),
         current: 'prev',
-        records: { prev: { rev: 'prev', images: {} } },
+        records: { prev: fakeRecord('prev', PREV_INPUTS) },
         attempt: { ...attemptFixture(true), startedAt: 'yesterday' },
       },
       {
         ...emptyState(),
         current: 'prev',
-        records: { prev: { rev: 'prev', images: {} } },
+        records: { prev: fakeRecord('prev', PREV_INPUTS) },
         attempt: { ...attemptFixture(true), inputs: null },
       },
       { ...emptyState(), current: 'gone', records: {} },
@@ -1097,19 +1102,23 @@ describe('filesystem effects (temporary directory only)', () => {
     fs.rmSync(tmp, { recursive: true, force: true })
   })
 
-  it('round 3 finding 5: staged inputs are promoted with a new attempt and left alone otherwise', async () => {
+  it('round 4 C2: one rename turns the staged directory into a generation; an unfinished attempt leaves both alone', async () => {
     const tmp = tmpDir()
-    const cfg = cfgFor(tmp)
-    fs.writeFileSync(path.join(tmp, 'deploy.env'), 'A=active\n')
-    fs.writeFileSync(path.join(tmp, 'staged.env'), 'A=staged\n')
-    fs.writeFileSync(path.join(tmp, 'staged-runner'), 'abc1234\n')
+    const cfg = { ...cfgFor(tmp), envFile: path.join(tmp, 'staged/deploy.env') }
+    fs.mkdirSync(path.join(tmp, 'staged'))
+    fs.writeFileSync(path.join(tmp, 'staged/deploy.env'), 'A=staged\n')
+    fs.writeFileSync(path.join(tmp, 'staged/runner'), 'abcdef1\n')
+    fs.mkdirSync(path.join(tmp, 'inputs/a1b2c3d4'), { recursive: true })
+    fs.writeFileSync(path.join(tmp, 'inputs/a1b2c3d4/deploy.env'), 'A=attempt\n')
     const exec = createExecutor(cfg, () => null)
-    // An unfinished attempt: deploy must refuse before touching either input set.
-    const attempt = { ...attemptFixture(false, 'snapshotting'), inputs: exec.activeInputs() }
+    const attempt = {
+      ...attemptFixture(false, 'snapshotting'),
+      inputs: { generation: 'a1b2c3d4', envSha256: exec.inputsSha('a1b2c3d4'), runner: 'abcdef1' },
+    }
     const unfinished = {
       ...emptyState(),
       current: 'prev',
-      records: { prev: { rev: 'prev', images: {} } },
+      records: { prev: fakeRecord('prev', PREV_INPUTS) },
       attempt,
     }
     atomicWrite(path.join(tmp, 'state.json'), JSON.stringify(unfinished))
@@ -1118,14 +1127,84 @@ describe('filesystem effects (temporary directory only)', () => {
       EXIT.PREFLIGHT_REFUSED
     )
     expect(messages.join('\n')).toMatch(/unfinished.*run recover/)
-    expect(fs.readFileSync(path.join(tmp, 'deploy.env'), 'utf8')).toBe('A=active\n')
-    expect(fs.existsSync(path.join(tmp, 'staged.env'))).toBe(true)
-    const promoted = exec.promoteInputs()
-    expect(fs.readFileSync(path.join(tmp, 'deploy.env'), 'utf8')).toBe('A=staged\n')
-    expect(fs.existsSync(path.join(tmp, 'staged.env'))).toBe(false)
-    expect(fs.readFileSync(path.join(tmp, 'last-runner'), 'utf8')).toBe('abc1234\n')
-    expect(promoted).toEqual(exec.activeInputs())
+    expect(fs.readFileSync(path.join(tmp, 'staged/deploy.env'), 'utf8')).toBe('A=staged\n')
+    expect(fs.readFileSync(path.join(tmp, 'inputs/a1b2c3d4/deploy.env'), 'utf8')).toBe(
+      'A=attempt\n'
+    )
+    const activated = exec.activateStaged('b1b2c3d4')
+    expect(fs.existsSync(path.join(tmp, 'staged'))).toBe(false)
+    expect(fs.readFileSync(path.join(tmp, 'inputs/b1b2c3d4/deploy.env'), 'utf8')).toBe('A=staged\n')
+    expect(activated).toEqual({
+      generation: 'b1b2c3d4',
+      envSha256: exec.inputsSha('b1b2c3d4'),
+      runner: 'abcdef1',
+    })
+    expect(() => exec.activateStaged('c1b2c3d4')).toThrow(/no staged inputs/)
     fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('round 4 C2: the journal is the pointer; an orphan generation is never active and may be pruned', () => {
+    const committed = {
+      ...emptyState(),
+      current: 'prev',
+      records: { prev: fakeRecord('prev', PREV_INPUTS) },
+    }
+    expect(activeInputs(committed)).toEqual(PREV_INPUTS)
+    const unfinished = { ...committed, attempt: attemptFixture(true, 'migrating') }
+    expect(activeInputs(unfinished)?.generation).toBe('a1b2c3d4')
+    expect(
+      activeInputs({ ...unfinished, attempt: { ...unfinished.attempt, phase: 'rolled_back' } })
+    ).toEqual(PREV_INPUTS)
+    expect(withPointers(unfinished)).toMatchObject({
+      activeGeneration: 'a1b2c3d4',
+      activeRunner: 'abcdef1',
+    })
+    const items = ['prevgen1', 'a1b2c3d4', 'orphan001'].map((name) => ({ kind: 'inputs', name }))
+    const names = selectPrunable(items, unfinished, 'a1b2c3d4', ['forge']).map(
+      (i: { name: string }) => i.name
+    )
+    expect(names).toEqual(['orphan001'])
+  })
+
+  it('round 4 C3: an expectation or release record a later step needs is validated first', async () => {
+    const base = {
+      ...emptyState(),
+      current: 'prev',
+      records: { prev: fakeRecord('prev', PREV_INPUTS) },
+    }
+    expect(() => validateState(base)).not.toThrow()
+    const sealed = attemptFixture(true, 'migrating')
+    const bad = [
+      { ...base, attempt: { ...sealed, snapshot: { ...sealed.snapshot, expect: {} } } },
+      {
+        ...base,
+        attempt: {
+          ...sealed,
+          snapshot: { ...sealed.snapshot, expect: { ...sealed.snapshot.expect, streams: [1] } },
+        },
+      },
+      {
+        ...base,
+        attempt: {
+          ...sealed,
+          snapshot: {
+            ...sealed.snapshot,
+            expect: { ...sealed.snapshot.expect, endpoints: { 'API /health': 'maybe' } },
+          },
+        },
+      },
+      { ...base, records: { prev: { ...fakeRecord('prev', PREV_INPUTS), config: undefined } } },
+      { ...base, records: { prev: { ...fakeRecord('prev', PREV_INPUTS), images: { api: 7 } } } },
+      { ...base, records: { prev: fakeRecord('prev') } },
+    ]
+    for (const state of bad) {
+      expect(() => validateState(state)).toThrow(StateUnreadable)
+      const world = createWorld()
+      world.stateJson = JSON.stringify(state)
+      expect(await recover(ctxFor(world, {}))).toBe(EXIT.RECOVERY_REQUIRED)
+      expect(await deploy(ctxFor(world, {}))).toBe(EXIT.RECOVERY_REQUIRED)
+      expect(world.running).toBe('prev')
+    }
   })
 
   it('finding 6: build is a no-op for a revision that already has a release record', () => {
@@ -1134,7 +1213,7 @@ describe('filesystem effects (temporary directory only)', () => {
     const state = {
       ...emptyState(),
       current: 'abc1234',
-      records: { abc1234: { rev: 'abc1234', images: {} } },
+      records: { abc1234: fakeRecord('abc1234', PREV_INPUTS) },
     }
     atomicWrite(path.join(tmp, 'state.json'), JSON.stringify(state))
     createExecutor(cfgFor(tmp), (m: string) => messages.push(m)).build('abc1234')

@@ -187,6 +187,13 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 export function selectPrunable(items, state, activeAttempt, sources) {
   const attempts = new Set([state.protected.baseline, state.protected.lastGood, activeAttempt])
   const revs = new Set([state.current, state.previous, 'baseline'])
+  // An input generation stays while any release record or the journal's attempt names it.
+  const generations = new Set(
+    [
+      ...Object.values(state.records).map((r) => r.inputs?.generation),
+      state.attempt?.inputs?.generation,
+    ].filter(Boolean)
+  )
   const generated = new RegExp(
     `^(?:${sources.map(escape).join('|')})__(?:snap|failed)_([0-9a-z]{6,24})$`
   )
@@ -197,6 +204,9 @@ export function selectPrunable(items, state, activeAttempt, sources) {
     }
     if (item.kind === 'snapshotDir') {
       return ATTEMPT.test(item.name) && !attempts.has(item.name)
+    }
+    if (item.kind === 'inputs') {
+      return ATTEMPT.test(item.name) && !generations.has(item.name)
     }
     return item.kind === 'releaseDir' && Boolean(item.name) && !revs.has(item.name)
   })

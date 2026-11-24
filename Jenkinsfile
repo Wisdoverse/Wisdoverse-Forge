@@ -5,10 +5,10 @@
 // only after proving that the commit is already on `main`. Keep SCM polling disabled until the
 // first supervised deploy has succeeded; enable it afterwards.
 //
-// ACTION=status and ACTION=recover never fetch, build or replace the env file: they reuse the
-// ACTIVE runner image, release directory and env file (those of the last attempt the script
-// started), so a Git or registry outage cannot block a recovery. A deploy only stages new
-// inputs (staged.env, staged-runner); the script promotes them when it starts a new attempt.
+// ACTION=status and ACTION=recover never fetch, build or replace the env file: they use the
+// ACTIVE inputs, which the journal names (state.json: activeGeneration, activeRunner), so a Git
+// or registry outage cannot block a recovery. A deploy only stages new inputs in private/staged;
+// the script turns them into an attempt's generation when it writes the intent.
 //
 // Nothing host-specific lives here: host paths are derived at run time from the Jenkins
 // container's own mounts, the web root and lock directory come from the env-file credential.
@@ -93,63 +93,75 @@ pipeline {
               rm -f "$DEST.tar"
               mv "$DEST.partial" "$DEST"
             fi
-            # Staged only: the script promotes it to deploy.env when it starts a new attempt, so an
+            # Staged only: one directory with the env file and the runner reference. The script turns
+            # it into an attempt's generation with one rename when it writes the intent, so an
             # unfinished attempt keeps the inputs it started with.
-            cp "$FORGE_ENV_SRC" "$LOCAL/private/staged.env.partial"
-            chmod 600 "$LOCAL/private/staged.env.partial"
-            printf '\\nVERSION=%s\\n' "$FORGE_REV" >> "$LOCAL/private/staged.env.partial"
-            mv "$LOCAL/private/staged.env.partial" "$LOCAL/private/staged.env"
+            rm -rf "$LOCAL/private/staged.partial"
+            mkdir -m 700 "$LOCAL/private/staged.partial"
+            cp "$FORGE_ENV_SRC" "$LOCAL/private/staged.partial/deploy.env"
+            chmod 600 "$LOCAL/private/staged.partial/deploy.env"
+            printf '\\nVERSION=%s\\n' "$FORGE_REV" >> "$LOCAL/private/staged.partial/deploy.env"
+            printf '%s\\n' "$FORGE_REV" > "$LOCAL/private/staged.partial/runner"
+            rm -rf "$LOCAL/private/staged"
+            mv "$LOCAL/private/staged.partial" "$LOCAL/private/staged"
           '''
         }
-        script { readPaths('staged.env') }
+        script { readPaths('staged/deploy.env') }
         sh '''#!/bin/sh
           set -eu
           LOCAL="$JENKINS_HOME/$FORGE_JOB_DIR"
           docker build -t "forge-deploy-runner:$FORGE_REV" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
-          printf '%s\\n' "$FORGE_REV" > "$LOCAL/release/staged-runner"
         '''
         script {
           // A recorded revision is never rebuilt: rebuilding could move the tags its record pins.
           def probe = runner('status', " | grep -qx \"revision \$FORGE_REV: recorded\"")
           env.FORGE_RECORDED = sh(returnStatus: true, script: probe) == 0 ? 'true' : 'false'
+          def current = runner('status', " | grep -q \"^current release: *\$FORGE_REV\$\"")
+          env.FORGE_IS_CURRENT = sh(returnStatus: true, script: current) == 0 ? 'true' : 'false'
         }
       }
     }
 
-    stage('Use recorded runner') {
+    stage('Use active inputs') {
       when { expression { params.ACTION != 'deploy' } }
       steps {
         script {
-          env.FORGE_REV = sh(returnStdout: true, script: '''#!/bin/sh
-            set -eu
-            cat "$JENKINS_HOME/$FORGE_JOB_DIR/release/last-runner"
-          ''').trim()
-          if (!(env.FORGE_REV ==~ /[0-9a-f]{40}/)) {
-            error('No deploy has prepared this job yet; there is nothing to recover or report.')
+          // The journal is the pointer (round 4, C2): state.json names the active generation and its
+          // runner as plain top-level fields, written in the same atomic write as the journal.
+          def pointer = { String key ->
+            sh(returnStdout: true, script: """#!/bin/sh
+              set -eu
+              sed -n 's/^  "${key}": "\\([0-9a-z]*\\)",\\{0,1\\}\$/\\1/p' "\$JENKINS_HOME/\$FORGE_JOB_DIR/private/state.json"
+            """).trim()
           }
-          readPaths('deploy.env')
+          env.FORGE_REV = pointer('activeRunner')
+          env.FORGE_GENERATION = pointer('activeGeneration')
+          if (!(env.FORGE_REV ==~ /[0-9a-f]{7,40}/) || !(env.FORGE_GENERATION ==~ /[0-9a-z]{6,24}/)) {
+            error('No active inputs in the journal yet: run ACTION=deploy once, then baseline (see the runbook).')
+          }
+          readPaths("inputs/${env.FORGE_GENERATION}/deploy.env")
         }
       }
     }
 
     stage('Build') {
       when { expression { params.ACTION == 'deploy' && env.FORGE_RECORDED != 'true' } }
-      steps { sh(runner('build')) }
+      steps { script { runStep('build') } }
     }
 
     stage('Deploy') {
       when { expression { params.ACTION == 'deploy' } }
-      steps { sh(runner('deploy')) }
+      steps { script { runStep('deploy') } }
     }
 
     stage('Recover') {
       when { expression { params.ACTION == 'recover' } }
-      steps { sh(runner('recover')) }
+      steps { script { runStep('recover') } }
     }
 
     stage('Status') {
       when { expression { params.ACTION == 'status' } }
-      steps { sh(runner('status')) }
+      steps { script { runStep('status') } }
     }
   }
 }
@@ -168,6 +180,30 @@ def readPaths(String file) {
     if (!(p ==~ /\/[A-Za-z0-9._\/-]+/)) {
       error('WEBROOT and DEPLOY_LOCK_DIR must be absolute paths without spaces or commas.')
     }
+  }
+}
+
+// Round 4, C4: map the script's exit code to a build result and a clear next action. A committed
+// release is never presented as a failure that invites a rollback.
+def runStep(String command) {
+  int code = sh(returnStatus: true, script: runner(command))
+  if (code == 0) {
+    boolean noop = command == 'deploy' && env.FORGE_IS_CURRENT == 'true'
+    echo(noop ? "Release ${env.FORGE_REV} was already current; nothing was deployed." : "${command}: success")
+  } else if (code == 14) {
+    unstable('Release is committed and running; run the recover action to finish housekeeping; do NOT roll back.')
+  } else if (code == 15) {
+    unstable('Commit outcome unknown; services were left running. Run the recover action (it decides from the journal); do NOT roll back.')
+  } else if (code == 10) {
+    error('Deploy failed: the previous release was restored and verified. Fix the cause on main, then promote again.')
+  } else if (code == 11) {
+    error('RECOVERY REQUIRED: read the error above, repair the cause, then run this job with ACTION=recover (runbook: Recovery required).')
+  } else if (code == 12) {
+    error('Preflight refused; nothing was changed. Fix each "refused:" line above, then run again.')
+  } else if (code == 13) {
+    error('Another deploy, recover or baseline holds the lock. Wait for it to finish, then run again.')
+  } else {
+    error("${command} exited with code ${code}; see the output above (runbook: Exit codes).")
   }
 }
 

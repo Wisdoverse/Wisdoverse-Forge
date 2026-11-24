@@ -146,23 +146,35 @@ export function createExecutor(cfg, log) {
   const releaseDir = (rev) => path.join(cfg.releaseRoot, 'releases', rev)
   const configPath = (rev) => path.join(cfg.privateRoot, 'configs', `${rev}.json`)
   const statePath = path.join(cfg.privateRoot, 'state.json')
-  // Round-3 finding 5: Jenkins stages new inputs; they become active only with a new attempt.
-  const activeEnv = path.join(cfg.privateRoot, 'deploy.env')
-  const stagedEnv = path.join(cfg.privateRoot, 'staged.env')
-  const envFile = () => (fs.existsSync(stagedEnv) ? stagedEnv : activeEnv)
-  const activeInputs = () => ({ envSha256: sha256(fs.readFileSync(activeEnv)) })
-  function promoteInputs() {
-    for (const [from, to] of [
-      [stagedEnv, activeEnv],
-      [path.join(cfg.releaseRoot, 'staged-runner'), path.join(cfg.releaseRoot, 'last-runner')],
-    ]) {
-      if (fs.existsSync(from)) {
-        fsyncPath(from)
-        fs.renameSync(from, to)
-        fsyncPath(path.dirname(to))
-      }
+  // Round 4, C2: Jenkins stages one directory (deploy.env + runner). One rename turns it into the
+  // attempt's generation `inputs/<generation>/`; the journal names it. Nothing else is "active".
+  const stagedDir = path.join(cfg.privateRoot, 'staged')
+  const generationDir = (generation) => path.join(cfg.privateRoot, 'inputs', generation)
+  let envPath = cfg.envFile
+  const envFile = () => envPath
+  const inputsSha = (generation) => {
+    const file = path.join(generationDir(generation), 'deploy.env')
+    return fs.existsSync(file) ? sha256(fs.readFileSync(file)) : null
+  }
+  function activateStaged(generation) {
+    const env = path.join(stagedDir, 'deploy.env')
+    const runnerFile = path.join(stagedDir, 'runner')
+    if (!fs.existsSync(env) || !fs.existsSync(runnerFile)) {
+      throw new Error(
+        'no staged inputs (private/staged/deploy.env and runner): run the deploy job to stage them'
+      )
     }
-    return activeInputs()
+    const runner = fs.readFileSync(runnerFile, 'utf8').trim()
+    const envSha256 = sha256(fs.readFileSync(env))
+    ;[env, runnerFile, stagedDir].forEach(fsyncPath)
+    ensureDir(path.dirname(generationDir(generation)), 0o700)
+    fs.renameSync(stagedDir, generationDir(generation))
+    fsyncPath(path.dirname(generationDir(generation)))
+    fsyncPath(cfg.privateRoot)
+    if (envPath === env) {
+      envPath = path.join(generationDir(generation), 'deploy.env')
+    }
+    return { generation, envSha256, runner }
   }
   const project = [...words('compose --profile external --project-name'), cfg.project]
   const composeSource = (rev) => [
@@ -580,6 +592,7 @@ export function createExecutor(cfg, log) {
         ? fs.readdirSync(root).map((name) => ({ kind, name, path: path.join(root, name) }))
         : []
     items.push(...dirs(path.join(cfg.privateRoot, 'snapshots'), 'snapshotDir'))
+    items.push(...dirs(path.join(cfg.privateRoot, 'inputs'), 'inputs'))
     for (const sub of ['releases', 'frontend']) {
       items.push(...dirs(path.join(cfg.releaseRoot, sub), 'releaseDir'))
     }
@@ -770,8 +783,8 @@ export function createExecutor(cfg, log) {
       }
     },
     stats: () => ({ ...stats }),
-    promoteInputs,
-    activeInputs,
+    activateStaged,
+    inputsSha,
     preflight,
     databaseFacts: () => catalog().facts,
     ledgerRows,

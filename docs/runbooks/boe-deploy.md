@@ -113,6 +113,35 @@ every merged line has host privileges. Review on `main` and the human
 promotion to `DEV` are the boundary. The rulesets keep bots and accidents out.
 They do not protect against a compromised administrator.
 
+### Database and Temporal checks (read-only)
+
+Every owning role must be able to connect to the maintenance database
+`postgres`. The snapshot, the fence and every rename run there. For each of
+the three roles, put `PGHOST`, `PGPORT`, `PGUSER` and `PGPASSWORD` in a
+mode-600 file, then run:
+
+```bash
+sudo docker run --rm --pull never --network <external-network> --env-file <role.env> \
+  postgres:18-alpine psql -X -At -d postgres -c 'select current_user'
+```
+
+Success: the role name prints. If it prints `permission denied` or `does not
+allow connections`, grant `CONNECT` on `postgres` to that role (or to
+`PUBLIC`) before the first deploy.
+
+The health probe runs the Temporal CLI inside the running Temporal container.
+Check that the old container has it:
+
+```bash
+docker exec <container-prefix>-temporal temporal --version
+```
+
+Success: a version prints. If the command is not found, the deploy refuses
+before anything stops (`Temporal is not SERVING; its healthy state cannot be
+recorded`). Before the first deploy, as a supervised step, recreate only the
+Temporal container from the image the release pins
+(`temporalio/auto-setup:1.26`). Rehearse that step on the rehearsal stack first.
+
 ### Host directories and images
 
 Run on the host as an administrator:
@@ -131,40 +160,78 @@ image tags print and the web root exists.
 
 The first deploy is supervised. The environment owner must give an explicit go.
 
-### 1. Prepare the release directories
+### 1. Prepare: release root, private root, staged inputs, runner image
 
-Run the Jenkins job once with `ACTION=deploy`. Before the baseline exists, a
-deploy only prepares: it archives the `DEV` commit, places the environment
-file, builds the runner image and the release images, and then refuses. It
-changes nothing in the running stack. Success: the console shows
-`Release commit: <commit>` and ends with `refused: no current release is
-recorded: run baseline once before the first deploy` (exit code 12, so the
-build shows as failed). Note the commit.
+Preparation always comes first: `baseline` needs everything this step creates.
 
-`ACTION=status` and `ACTION=recover` never prepare anything. They only reuse
-the active inputs. A deploy writes the new env file and runner reference to a
-staging place (`private/staged.env`, `release/staged-runner`). The script
-makes them active (`private/deploy.env`, `release/last-runner`) only when it
-starts a new attempt, or, the first time, when `baseline` runs. If an attempt
-is unfinished, a deploy refuses and the active inputs stay exactly the ones
-that attempt started with.
+Run the Jenkins job once with `ACTION=deploy`. Before a baseline exists, a
+deploy only prepares, then refuses:
+
+- it archives the `DEV` commit into `release/releases/<commit>/`
+- it stages the env file and the runner reference in `private/staged/`
+- it builds the runner image `forge-deploy-runner:<commit>` and the release images
+
+It changes nothing in the running stack.
+
+Success: the console shows `Release commit: <commit>` and ends with
+`refused: no current release is recorded: run baseline once before the first
+deploy`. The build is marked failed with `Preflight refused; nothing was
+changed`. Note the commit.
+
+How inputs become active: a deploy stages new inputs only. When the script
+writes a new attempt's intent, one rename turns `private/staged/` into
+`private/inputs/<attempt>/`, and the journal names that generation. The first
+`baseline` does the same for its own inputs. "Active inputs" are always the
+generation that the journal points to: the unfinished attempt's, otherwise the
+current release's. `state.json` also carries them as `activeGeneration` and
+`activeRunner`. `ACTION=status` and `ACTION=recover` use only those. A
+generation that nothing points to (for example after a crash right after the
+rename) is never used, and retention removes it later.
 
 ### 2. Record the baseline
 
 The baseline is the release that is running now, deployed by hand. Recording it
 lets the first deploy roll back to it.
 
-Prerequisite: you know `<baseline-commit>`, the commit the running stack was
-built from, and you have a clone of this repository on the host.
+#### 2a. Find the Compose files the running stack was built from
+
+A version tag does not identify that source. It may even be a commit that was
+never pushed. Ask Docker instead (read-only):
+
+```bash
+docker inspect <container-prefix>-server --format \
+  '{{index .Config.Labels "com.docker.compose.project.working_dir"}} {{index .Config.Labels "com.docker.compose.project.config_files"}}'
+```
+
+The first value is the directory Compose ran in. The second lists the exact
+files it used, for example `<dir>/compose.yml,<dir>/compose.external.yml`.
+
+#### 2b. Hand that directory to `baseline`
+
+`baseline` reads `release/releases/baseline/docker/compose.yml` and
+`release/releases/baseline/docker/compose.external.yml`, and the files they
+bind-mount next to them, such as `nats.conf`. Copy the directory from 2a into
+that place:
 
 ```bash
 ROOT=<jenkins-home-host-path>/forge-deploy/<job-name>
+sudo mkdir -p "$ROOT/release/releases/baseline/docker"
+sudo cp -a <working-dir-from-2a>/. "$ROOT/release/releases/baseline/docker/"
+```
+
+If the source is a commit you still have, `git archive <commit> | sudo tar -x
+-C "$ROOT/release/releases/baseline"` gives the same layout.
+
+If 2a lists more files than those two (an extra override file), merge what
+they add into the baseline copy of `compose.external.yml` (see 2d). That copy
+is a scratch file in the release root, not repository code.
+
+#### 2c. Run `baseline`
+
+```bash
 REV=<release-commit>                               # "Release commit:" line of step 1
 WEB=/srv/forge-deploy/www                          # your WEBROOT
 LOCK=/var/lock/forge-deploy                         # your DEPLOY_LOCK_DIR
-
-sudo mkdir -p "$ROOT/release/releases/baseline"
-git -C <repository-clone> archive <baseline-commit> | sudo tar -x -C "$ROOT/release/releases/baseline"
 
 sudo docker run --rm --network host \
   --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
@@ -180,17 +247,42 @@ sudo docker run --rm --network host \
   node "$ROOT/release/releases/$REV/scripts/deploy-release.mjs" baseline
 ```
 
-What `baseline` does: it tags the running server and orchestrator images as
-`:baseline`. It renders the baseline commit's Compose files with the live
-environment file. Then it compares that rendering with the running containers:
-image ids, environment variable names, mounts, networks, published ports and
-health checks.
+What `baseline` does:
+
+1. It tags the running server and orchestrator images as `:baseline`.
+2. It renders the baseline Compose files with the staged env file.
+3. It compares that rendering with the running containers: image ids,
+   environment variable names, mounts (named-volume identity, bind source,
+   read-only flag), networks, full port bindings and health checks.
 
 Success: `baseline recorded: the next deploy can roll back to the running
-release`. The first `baseline` also makes the staged env file and runner
-reference active. If it prints `refused: ...`, the rendering does not describe the
-running stack. Fix the baseline commit or the environment file, then run it
-again. `baseline` runs only once.
+release`. `status` then shows `current release: baseline` and an active
+generation. A refused baseline changes nothing except the `:baseline` image
+tags, so you can run it as often as you need. Once a baseline is recorded it
+refuses to run again.
+
+#### 2d. Reconcile hand edits
+
+The running containers may differ from the historical source, for example
+because of an override file that no longer exists. Every refusal line names the
+service, the property, what the rendering has and what the running container
+has:
+
+```text
+refused: nats: published ports: rendered has 127.0.0.1:4222->4222/tcp that the container lacks; running has 0.0.0.0:4222->4222/tcp that the rendering lacks
+refused: agentforge-server: environment names: rendered FOO_FLAG; running without them
+```
+
+For each line, edit the baseline copy of `compose.external.yml` under that
+service so that it renders what is running. In the first example, set the
+`nats` service's `ports` to `0.0.0.0:4222:4222`. Then run 2c again. Repeat
+until it prints `baseline recorded`. The values shown are image ids, variable
+names (never values), mount keys, network names, port bindings and probe
+commands.
+
+If `baseline` was interrupted after it printed nothing (for example the runner
+was killed), run the Jenkins job with `ACTION=deploy` once more. It stages the
+inputs again and refuses. Then run 2c again.
 
 Use the same `docker run` line with `status` instead of `baseline` to read the
 state from a host shell. See also [Emergency path](#emergency-path-host-shell).
@@ -333,7 +425,15 @@ If the runner, Jenkins or the host died during a deploy, the next deploy
 refuses with `attempt ... is unfinished`. Run `ACTION=recover`. Recovery either
 finishes a committed deploy or rolls it back.
 
-## Finalize failed (exit 14)
+## Finalize failed (exit 14 or 15)
+
+Do not roll back by hand in either case.
+
+Exit 15 means the commit write was attempted, but it is not known whether it
+became durable. Nothing was stopped and nothing was rolled back. Repair the
+cause, then run `ACTION=recover`. Recovery reads the journal on disk. If the
+commit is there, recovery treats the release as committed. If it is not,
+recovery rolls back.
 
 Exit 14 means the new release is committed and was left running. Only
 finishing work failed, for example a journal write because the disk is full.
@@ -350,7 +450,8 @@ prepared, with no fetch, build or credential change.
 
 ```bash
 ROOT=<jenkins-home-host-path>/forge-deploy/<job-name>
-REV=$(cat "$ROOT/release/last-runner")
+# The journal names the active runner (and generation) as plain fields:
+REV=$(sudo sed -n 's/^  "activeRunner": "\([0-9a-f]*\)",\{0,1\}$/\1/p' "$ROOT/private/state.json")
 WEB=/srv/forge-deploy/www                          # your WEBROOT
 LOCK=/var/lock/forge-deploy                         # your DEPLOY_LOCK_DIR
 ACTION=status                                       # or: recover
@@ -386,7 +487,21 @@ and `state.json.tmp`, repair the file, then run `status` again.
 | 11 | Recovery required (services stopped), or the state file cannot be read | Follow [Recovery required](#recovery-required) |
 | 12 | Preflight refused, nothing changed | Read each `refused:` line and fix it |
 | 13 | Another deploy, recover or baseline holds the lock | Wait for it to finish |
-| 14 | The result was reached (a committed release keeps running) but finishing work failed | Follow [Finalize failed](#finalize-failed-exit-14) |
+| 14 | The result was reached (a committed release keeps running) but finishing work failed | Follow [Finalize failed](#finalize-failed-exit-14-or-15) |
+| 15 | The commit write was attempted and may not be durable; nothing was stopped or rolled back | Follow [Finalize failed](#finalize-failed-exit-14-or-15) |
+
+The Jenkins job maps these codes:
+
+| Exit code | Build result | Message |
+| --- | --- | --- |
+| 0 | SUCCESS | `<action>: success`, or `Release <commit> was already current; nothing was deployed.` |
+| 14 | UNSTABLE | `Release is committed and running; run the recover action to finish housekeeping; do NOT roll back.` |
+| 15 | UNSTABLE | `Commit outcome unknown; services were left running. Run the recover action (it decides from the journal); do NOT roll back.` |
+| 10 | FAILURE | `Deploy failed: the previous release was restored and verified. ...` |
+| 11 | FAILURE | `RECOVERY REQUIRED: read the error above, repair the cause, then run this job with ACTION=recover ...` |
+| 12 | FAILURE | `Preflight refused; nothing was changed. ...` |
+| 13 | FAILURE | `Another deploy, recover or baseline holds the lock. ...` |
+| other | FAILURE | `<action> exited with code <n>; see the output above ...` |
 
 ## Rehearsals
 
@@ -433,6 +548,28 @@ and `PGDATABASE` for the scratch server.
 
 Run `status` from a host shell while a rehearsal runs. Use the
 [Emergency path](#emergency-path-host-shell) line with the rehearsal `ROOT`.
+
+### Fresh roots for every rehearsal, and teardown
+
+Reloading the dumps does not reset the deploy state: `state.json` still names
+a current release, so `baseline` refuses. Give every rehearsal its own release
+root, private root and lock. A new rehearsal job name gives new roots
+(`<jenkins-home>/forge-deploy/<rehearsal-job-N>/`). Also set a new
+`DEPLOY_LOCK_DIR` (or `COMPOSE_PROJECT_NAME`) in its env file.
+
+Tear a rehearsal down, on the rehearsal stack only:
+
+```bash
+REH=<jenkins-home-host-path>/forge-deploy/<rehearsal-job-N>
+docker compose --project-name <rehearsal-project> -f "$REH/release/releases/<commit>/docker/compose.yml" \
+  -f "$REH/release/releases/<commit>/docker/compose.external.yml" --profile external down -v
+docker ps -aq --filter label=forge.deploy.project=<rehearsal-project> | xargs -r docker rm -f -v
+docker rm -f -v <rehearsal-prefix>-pg && docker network rm <rehearsal-external-network>
+sudo rm -rf "$REH" "<rehearsal-lock-dir>/<rehearsal-project>.lock"
+```
+
+Then create the scratch database and the rehearsal stack again, and start at
+[step 1](#1-prepare-release-root-private-root-staged-inputs-runner-image).
 
 ### A: baseline to main, success
 

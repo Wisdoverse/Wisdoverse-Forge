@@ -411,47 +411,64 @@ function containerMountKey(m, relocatedTargets) {
 }
 
 // A11: the rendered baseline describes the running containers (labels and tags differ by design).
+// Each difference names the service, the property, what the rendering expects and what the
+// running container has, so an operator can write the matching override (runbook R2). Values
+// shown are image ids, env NAMES, mount keys, network names, port bindings and the probe command.
 export function compareBaseline(rendered, containers, imageIds, relocatedFiles) {
   const out = []
   const byName = new Map(containers.map((c) => [c.name, c]))
+  const list = (items) => (items.length > 0 ? items.join(', ') : '(none)')
   for (const [service, svc] of Object.entries(rendered.services)) {
     const c = byName.get(svc.container_name)
     if (!c) {
-      out.push(`${service}: no running container ${svc.container_name}`)
+      out.push(`${service}: no running container named ${svc.container_name}`)
       continue
     }
-    const diff = (what) => out.push(`${service}: ${what} differs from the running container`)
+    const diff = (property, expected, running) =>
+      out.push(`${service}: ${property}: rendered ${expected}; running ${running}`)
+    const setDiff = (property, want, have) => {
+      if (!sameSet(want, have)) {
+        const missing = want.filter((x) => !have.includes(x))
+        const extra = have.filter((x) => !want.includes(x))
+        diff(
+          property,
+          `has ${list(missing)} that the container lacks`,
+          `has ${list(extra)} that the rendering lacks`
+        )
+      }
+    }
     const volumes = svc.volumes ?? []
     const relocated = new Set(
       volumes.filter((v) => v.type === 'bind' && relocatedFiles.has(v.source)).map((v) => v.target)
     )
     if (imageIds[svc.image] !== c.imageId) {
-      diff('image id')
+      diff('image', `${svc.image} = ${imageIds[svc.image] ?? 'not present'}`, c.imageId)
     }
-    if (!envNames(svc.environment).every((k) => envNames(c.env).includes(k))) {
-      diff('environment names')
+    const missingEnv = envNames(svc.environment).filter((k) => !envNames(c.env).includes(k))
+    if (missingEnv.length > 0) {
+      diff('environment names', list(missingEnv), 'without them')
     }
-    const wantMounts = volumes.map((v) => mountKey(rendered, relocatedFiles, v))
-    if (
-      !sameSet(
-        wantMounts,
-        c.mounts.map((m) => containerMountKey(m, relocated))
-      )
-    ) {
-      diff('mounts (identity, source or read-only flag)')
-    }
-    const nets = Object.keys(svc.networks ?? {}).map((k) => rendered.networks?.[k]?.name ?? k)
-    if (!sameSet(nets, c.networks)) {
-      diff('networks')
-    }
-    const ports = (svc.ports ?? []).map((p) =>
-      binding(p.host_ip, p.published, `${p.target}/${p.protocol ?? 'tcp'}`)
+    setDiff(
+      'mounts',
+      volumes.map((v) => mountKey(rendered, relocatedFiles, v)),
+      c.mounts.map((m) => containerMountKey(m, relocated))
     )
-    if (!sameSet(ports, c.portBindings)) {
-      diff('published port bindings')
-    }
-    if (JSON.stringify(svc.healthcheck?.test ?? null) !== JSON.stringify(c.healthcheck ?? null)) {
-      diff('health check')
+    setDiff(
+      'networks',
+      Object.keys(svc.networks ?? {}).map((k) => rendered.networks?.[k]?.name ?? k),
+      c.networks
+    )
+    setDiff(
+      'published ports',
+      (svc.ports ?? []).map((p) =>
+        binding(p.host_ip, p.published, `${p.target}/${p.protocol ?? 'tcp'}`)
+      ),
+      c.portBindings
+    )
+    const want = JSON.stringify(svc.healthcheck?.test ?? null)
+    const have = JSON.stringify(c.healthcheck ?? null)
+    if (want !== have) {
+      diff('health check', want, have)
     }
   }
   return out

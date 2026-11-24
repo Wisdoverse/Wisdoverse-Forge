@@ -1,7 +1,13 @@
 // Fake world + executor for `deploy-release.mjs self-test` and the unit tests. Models what
 // matters for safety: databases by name -> OID, connection flags, schema versions, volumes,
 // web root, services and agent containers. Loaded only by self-test and tests.
-import { Crash, EXIT, deploy, recover } from '../../../scripts/lib/deploy-release/engine.js'
+import {
+  Crash,
+  EXIT,
+  baseline,
+  deploy,
+  recover,
+} from '../../../scripts/lib/deploy-release/engine.js'
 import { emptyState } from '../../../scripts/lib/deploy-release/journal.js'
 
 const DBS = [
@@ -23,12 +29,28 @@ const NEW_AGENTS = [
   agent('00000000-0000-4000-8000-000000000003', '2026-11-24T00:06:00.000Z', false),
 ]
 
+const PREV_INPUTS = { generation: 'prevgen1', envSha256: 'a'.repeat(64), runner: 'abcdef0' }
+export const fakeRecord = (rev, inputs) => ({
+  rev,
+  config: `/private/configs/${rev}.json`,
+  releaseDir: `/release/releases/${rev}`,
+  indexSha256: `sha-${rev}`,
+  frontendDir: rev === 'next' ? '/release/frontend/next' : null,
+  images: {},
+  refs: {},
+  ...(inputs ? { inputs } : {}),
+})
+
 export function createWorld() {
   const databases = {}
   DBS.forEach((d, i) => {
     databases[d.name] = { oid: 100 + i, allowConnections: true, schema: 'prev' }
   })
-  const state = { ...emptyState(), current: 'prev', records: { prev: { rev: 'prev', images: {} } } }
+  const state = {
+    ...emptyState(),
+    current: 'prev',
+    records: { prev: fakeRecord('prev', PREV_INPUTS) },
+  }
   return {
     databases,
     originals: Object.fromEntries(DBS.map((d) => [d.name, databases[d.name].oid])),
@@ -40,6 +62,7 @@ export function createWorld() {
     tars: {},
     webroot: 'prev',
     sqlHelper: null,
+    generations: ['prevgen1'],
     sqlStarts: 0,
     stateJson: JSON.stringify(state),
   }
@@ -89,7 +112,7 @@ export function goodPreflight(world) {
     captureProblems: [],
     rollback: { configReadable: true, releaseDirExists: true, bindProbes: [], missingImages: [] },
     tagIds: {},
-    record: { rev: 'next', images: {} },
+    record: fakeRecord('next'),
   }
 }
 
@@ -102,7 +125,12 @@ export function fakeExecutor(world, opts = {}) {
     stopFails = false,
     failWritesFrom = Infinity,
     envChanged = false,
+    // Round 4: one failing write, before or after its rename, and a re-read that fails after it.
+    failWrite = null,
+    readFails = false,
+    crashAfterActivate = false,
   } = opts
+  let readBroken = false
   let { beforeRollback = null } = opts
   let calls = 0
   let writes = 0
@@ -222,8 +250,22 @@ export function fakeExecutor(world, opts = {}) {
     prune: () => null,
   }
   return {
-    readState: () => JSON.parse(world.stateJson),
+    readState: () => {
+      if (readBroken) {
+        throw new Error('EIO: journal could not be re-read')
+      }
+      return JSON.parse(world.stateJson)
+    },
     writeState: (state) => {
+      if (failWrite?.at === writes) {
+        writes += 1
+        readBroken = readFails
+        if (failWrite.mode === 'after-rename') {
+          world.stateJson = JSON.stringify(state)
+          throw new Error('EIO: fsync of the state directory failed after the rename')
+        }
+        throw new Error('EIO: writing the temporary journal failed')
+      }
       // A persistent write error (ENOSPC): nothing is stored from this write on.
       if (writes >= failWritesFrom) {
         writes += 1
@@ -238,8 +280,20 @@ export function fakeExecutor(world, opts = {}) {
     removeHelpers: () => {
       world.sqlHelper = null
     },
-    promoteInputs: () => ({ envSha256: 'env-a' }),
-    activeInputs: () => ({ envSha256: envChanged ? 'env-b' : 'env-a' }),
+    activateStaged: (generation) => {
+      world.generations.push(generation)
+      if (crashAfterActivate) {
+        throw new Crash('crash after the staged inputs were renamed')
+      }
+      return { generation, envSha256: 'b'.repeat(64), runner: 'abcdef1' }
+    },
+    inputsSha: (generation) => {
+      if (envChanged || !world.generations.includes(generation)) {
+        return null
+      }
+      return generation === 'prevgen1' ? 'a'.repeat(64) : 'b'.repeat(64)
+    },
+    baseline: () => ({ findings: [], record: fakeRecord('baseline') }),
     startSql: () => {
       if (world.sqlHelper) {
         throw new Error('SQL helper name already in use')
@@ -367,10 +421,46 @@ async function crashThenRecover(world, opts) {
   return recover(ctxFor(world, {}))
 }
 
+// Crash the run that `seed` describes, then interrupt `recover` after each of its journal writes
+// and check that one more `recover` ends at `rev`.
+async function recoverSweep(label, seed, rev) {
+  const crashed = async () => {
+    const world = createWorld()
+    await deploy(ctxFor(world, seed)).catch((err) => {
+      if (!(err instanceof Crash)) {
+        throw err
+      }
+    })
+    return world
+  }
+  const probeWorld = await crashed()
+  const probeCtx = ctxFor(probeWorld, {})
+  await recover(probeCtx)
+  for (let w = 0; w < probeCtx.exec.writes(); w += 1) {
+    const world = await crashed()
+    await recover(ctxFor(world, { crashWrite: w })).catch((err) => {
+      if (!(err instanceof Crash)) {
+        throw err
+      }
+    })
+    const code = await recover(ctxFor(world, {}))
+    const errors = outcomeErrors(world, rev)
+    if (code !== EXIT.OK) {
+      errors.push(`exit ${code}, expected 0`)
+    }
+    sweepResults.push({
+      name: `${label}: recover interrupted after its write ${w}, then recover`,
+      errors,
+    })
+  }
+}
+let sweepResults = []
+
 const committedPhase = (world) =>
   ['verified', 'done'].includes(JSON.parse(world.stateJson).attempt?.phase)
 
 export async function faultMatrix() {
+  sweepResults = []
   const probe = createWorld()
   const probeCtx = ctxFor(probe, {})
   await deploy(probeCtx)
@@ -492,33 +582,109 @@ export async function faultMatrix() {
         rev
       )
     }
-    // The recover path itself: crash before op 12, then crash recover after each of its writes.
-    const crashed = () => {
-      const world = createWorld()
-      return deploy(ctxFor(world, { crash: { at: 12, when: 'before' } })).then(
-        () => world,
-        () => world
-      )
-    }
-    const recoverProbe = await crashed()
-    const recoverCtx = ctxFor(recoverProbe, {})
-    await recover(recoverCtx)
-    for (let w = 0; w < recoverCtx.exec.writes(); w += 1) {
-      const world = await crashed()
-      await recover(ctxFor(world, { crashWrite: w })).catch((err) => {
-        if (!(err instanceof Crash)) {
-          throw err
-        }
-      })
-      add(
-        `${regime}: recover interrupted after its write ${w}, then recover`,
-        world,
-        await recover(ctxFor(world, {})),
-        EXIT.OK,
-        'prev'
-      )
-    }
+    await recoverSweep(
+      `${regime} (snapshot incomplete)`,
+      { crash: { at: 12, when: 'before' } },
+      'prev'
+    )
   }
+  // Round 4: interrupted recovery of a COMPLETE snapshot (full rollback) and of a COMMITTED attempt.
+  await recoverSweep('complete snapshot', { crash: { at: 27, when: 'before' } }, 'prev')
+  const phases = []
+  const phaseProbe = createWorld()
+  const phaseCtx = ctxFor(phaseProbe, {})
+  const write = phaseCtx.exec.writeState
+  phaseCtx.exec.writeState = (st) => {
+    phases.push(st.attempt?.phase)
+    return write(st)
+  }
+  await deploy(phaseCtx)
+  const commitWrite = phases.indexOf('verified')
+  await recoverSweep('committed attempt', { crashWrite: commitWrite }, 'next')
+
+  // Round 4, C1: the commit write fails. Rename done but not durable, re-read failing, or both:
+  // the outcome is unknown, nothing is stopped; recover decides from the journal on disk.
+  for (const [name, opts, recoveredTo] of [
+    [
+      'directory fsync fails after the rename',
+      { failWrite: { at: commitWrite, mode: 'after-rename' } },
+      'next',
+    ],
+    [
+      'write fails before the rename, re-read fails',
+      { failWrite: { at: commitWrite, mode: 'before-rename' }, readFails: true },
+      'prev',
+    ],
+    [
+      'both: rename done, fsync and re-read fail',
+      { failWrite: { at: commitWrite, mode: 'after-rename' }, readFails: true },
+      'next',
+    ],
+  ]) {
+    const world = createWorld()
+    const code = await deploy(ctxFor(world, opts))
+    const errors = []
+    if (code !== EXIT.COMMIT_UNKNOWN || world.running !== 'next') {
+      errors.push(
+        `exit ${code} (want ${EXIT.COMMIT_UNKNOWN}), running ${world.running} (want next)`
+      )
+    }
+    const recovered = await recover(ctxFor(world, {}))
+    errors.push(
+      ...outcomeErrors(world, recoveredTo),
+      ...(recovered === EXIT.OK ? [] : [`recover exit ${recovered}`])
+    )
+    results.push({ name: `commit outcome unknown: ${name}`, errors })
+  }
+  const provable = createWorld()
+  const provableCode = await deploy(
+    ctxFor(provable, { failWrite: { at: commitWrite, mode: 'before-rename' } })
+  )
+  add(
+    'commit write failed before the rename, journal re-read shows pre-commit',
+    provable,
+    provableCode,
+    EXIT.ROLLED_BACK,
+    'prev'
+  )
+
+  // Round 4, C2: a crash right after the staged inputs became a generation, before the intent.
+  const orphan = createWorld()
+  await deploy(ctxFor(orphan, { crashAfterActivate: true })).catch((err) => {
+    if (!(err instanceof Crash)) {
+      throw err
+    }
+  })
+  const orphanState = JSON.parse(orphan.stateJson)
+  const orphanErrors = []
+  if (orphanState.attempt !== null || orphanState.records.prev.inputs.generation !== 'prevgen1') {
+    orphanErrors.push('the journal moved although the intent was never written')
+  }
+  if ((await recover(ctxFor(orphan, {}))) !== EXIT.OK || orphan.running !== 'prev') {
+    orphanErrors.push('recover did not leave the previous release running')
+  }
+  if ((await deploy(ctxFor(orphan, {}, fakeConfig({ attemptId: 'b1b2c3d4' })))) !== EXIT.OK) {
+    orphanErrors.push('a re-staged deploy after the crash did not succeed')
+  }
+  results.push({ name: 'crash after activating inputs, before the intent', errors: orphanErrors })
+  // First-ever baseline: a crash after the rename leaves no release; re-staging lets it run again.
+  const fresh = createWorld()
+  fresh.stateJson = JSON.stringify(emptyState())
+  await baseline(
+    ctxFor(fresh, { crashAfterActivate: true }, fakeConfig({ attemptId: 'base0001' }))
+  ).catch(() => null)
+  const freshErrors = JSON.parse(fresh.stateJson).current
+    ? ['a crashed baseline recorded a release']
+    : []
+  if ((await baseline(ctxFor(fresh, {}, fakeConfig({ attemptId: 'base0002' })))) !== EXIT.OK) {
+    freshErrors.push('baseline did not run again after re-staging')
+  }
+  const based = JSON.parse(fresh.stateJson)
+  if (based.activeGeneration !== 'base0002' || based.activeRunner !== 'abcdef1') {
+    freshErrors.push('the journal pointer does not name the baseline generation and runner')
+  }
+  results.push({ name: 'first baseline interrupted after activating inputs', errors: freshErrors })
+
   // Round-3 finding 2: a persistent journal write failure from write w on. Before the commit the
   // deploy fails (rolled back later by recover); from the commit on the committed release keeps
   // running, nothing is stopped, and recover confirms and closes it.
@@ -576,5 +742,5 @@ export async function faultMatrix() {
     appearedErrors.push('expected a rollback before any snapshot, keeping the pre-existing agent')
   }
   results.push({ name: 'agent appears after preflight', errors: appearedErrors })
-  return results
+  return [...results, ...sweepResults]
 }

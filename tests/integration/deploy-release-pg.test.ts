@@ -27,6 +27,7 @@ import { compareLedger, databaseFindings } from '../../scripts/lib/deploy-releas
 import { createExecutor } from '../../scripts/lib/deploy-release/effects.js'
 import { Crash, EXIT, deploy, recover } from '../../scripts/lib/deploy-release/engine.js'
 import { emptyState } from '../../scripts/lib/deploy-release/journal.js'
+import { fakeRecord } from '../support/deploy-release/simulate.js'
 
 const NET = process.env.FORGE_DEPLOY_IT_NETWORK ?? ''
 const HOST = process.env.FORGE_DEPLOY_IT_PGHOST ?? ''
@@ -204,6 +205,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
     privateRoot: tmp,
     releaseRoot: tmp,
     webRoot: path.join(tmp, 'www'),
+    envFile: path.join(tmp, 'staged', 'deploy.env'),
     volumes: [],
   })
 
@@ -244,7 +246,7 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
           missingImages: [],
         },
         tagIds: {},
-        record: { rev: 'next', images: {} },
+        record: fakeRecord('next'),
       }),
       run: async (step: { op: string; phase: string; rev?: string }, st: unknown) => {
         if (step.phase === 'rolling_back' && beforeRollback) {
@@ -335,12 +337,24 @@ describe.skipIf(!enabled)('deploy-release against a real PostgreSQL', () => {
   beforeEach(() => {
     resetFixture()
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-deploy-it-'))
-    fs.writeFileSync(path.join(tmp, 'deploy.env'), 'COMPOSE_PROJECT_NAME=rehearsal-1319-forge\n')
+    // Staged inputs, as Jenkins leaves them; the deploy turns them into a generation.
+    fs.mkdirSync(path.join(tmp, 'staged'))
+    fs.writeFileSync(
+      path.join(tmp, 'staged', 'deploy.env'),
+      'COMPOSE_PROJECT_NAME=rehearsal-1319-forge\n'
+    )
+    fs.writeFileSync(path.join(tmp, 'staged', 'runner'), 'abcdef1\n')
     const real = createExecutor(cfg(), () => null)
     real.writeState({
       ...emptyState(),
       current: 'prev',
-      records: { prev: { rev: 'prev', images: {} } },
+      records: {
+        prev: fakeRecord('prev', {
+          generation: 'prevgen1',
+          envSha256: 'a'.repeat(64),
+          runner: 'abcdef0',
+        }),
+      },
     })
   }, SLOW)
 

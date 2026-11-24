@@ -9,6 +9,7 @@ import {
   emptyState,
   markRecoveryRequired,
   validateState,
+  withPointers,
 } from './journal.js'
 import { RecoveryError, planDeploy, planRecovery } from './plan.js'
 
@@ -21,6 +22,8 @@ export const EXIT = {
   LOCK_BUSY: 13,
   // The new release is committed and was left running; only finishing work failed.
   FINALIZE_FAILED: 14,
+  // The commit write was attempted and its durability is unknown; nothing was stopped.
+  COMMIT_UNKNOWN: 15,
 }
 
 // Thrown only by the fake executor to model SIGKILL / host loss: nothing may catch it.
@@ -29,9 +32,10 @@ export class Crash extends Error {}
 const now = (ctx) => (ctx.now ? ctx.now() : new Date().toISOString())
 
 async function save(ctx, state) {
-  await ctx.exec.writeState(state)
-  ctx.state = state
-  return state
+  const next = withPointers(state)
+  await ctx.exec.writeState(next)
+  ctx.state = next
+  return next
 }
 
 // Returns false (after explaining) when the state file exists but cannot be read.
@@ -92,6 +96,9 @@ async function stopSqlHelper(ctx, code) {
 
 async function runSteps(ctx, steps) {
   for (const step of steps) {
+    if (step.phase === 'verified' && ctx.state.attempt.phase !== 'verified') {
+      ctx.commitAttempted = true
+    }
     await save(ctx, announce(ctx.state, step, now(ctx)))
     let result = {}
     try {
@@ -143,13 +150,23 @@ async function deployLocked(ctx) {
     return EXIT.PREFLIGHT_REFUSED
   }
   plan.notes.forEach((n) => ctx.log(n))
-  // Staged inputs become active together with the intent; an unfinished attempt never gets here.
-  const attempt = { ...plan.attempt, inputs: await ctx.exec.promoteInputs() }
-  await save(ctx, {
+  const intent = (inputs) => ({
     ...ctx.state,
-    records: { ...ctx.state.records, [ctx.config.target]: plan.record },
-    attempt,
+    records: { ...ctx.state.records, [ctx.config.target]: { ...plan.record, inputs } },
+    attempt: { ...plan.attempt, inputs },
   })
+  // Everything later steps consume is validated before the first effect (round 4, C3).
+  try {
+    validateState(
+      intent({ generation: plan.attempt.attemptId, envSha256: '0'.repeat(64), runner: '0000000' })
+    )
+  } catch (err) {
+    ctx.log(`refused: the intent would be invalid (${err.message})`)
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  // One rename makes the staged inputs the attempt's generation; the intent then points to it.
+  // A crash in between leaves an orphan generation that nothing uses.
+  await save(ctx, intent(await ctx.exec.activateStaged(plan.attempt.attemptId)))
   try {
     await runSteps(ctx, plan.steps)
     ctx.log(`deployed ${ctx.config.target}`)
@@ -158,8 +175,12 @@ async function deployLocked(ctx) {
     if (err instanceof Crash) {
       throw err
     }
-    if (await committed(ctx)) {
+    const outcome = await commitOutcome(ctx)
+    if (outcome === 'committed') {
       return finalizeFailed(ctx, err)
+    }
+    if (outcome === 'unknown') {
+      return commitUnknown(ctx, err)
     }
     ctx.log(`deploy failed at ${ctx.state.attempt.step?.op ?? 'unknown step'}: ${err.message}`)
     const code = await rollBack(ctx, { restartHelpers: true })
@@ -167,17 +188,33 @@ async function deployLocked(ctx) {
   }
 }
 
-// Round-3 finding 2: once the commit record may be on disk, no path stops services or rolls back.
-async function committed(ctx) {
+// Round 4, C1: once the commit write was attempted, the outcome is committed, not committed or
+// unknown. Only "the disk still shows the pre-commit journal" proves not committed; a rename
+// that happened but could not be made durable, or a journal that cannot be re-read, is unknown.
+async function commitOutcome(ctx) {
   const isCommitted = (phase) => COMMITTED.has(phase) || phase === 'done'
+  if (!ctx.commitAttempted) {
+    return 'none'
+  }
   if (isCommitted(ctx.state.attempt?.phase)) {
-    return true
+    return 'committed'
   }
   try {
-    return isCommitted((await ctx.exec.readState())?.attempt?.phase)
+    return isCommitted((await ctx.exec.readState())?.attempt?.phase) ? 'unknown' : 'none'
   } catch {
-    return false
+    return 'unknown'
   }
+}
+
+function commitUnknown(ctx, err) {
+  ctx.log(`COMMIT OUTCOME UNKNOWN: ${err.message}`)
+  ctx.log(
+    'The commit record may or may not be durable. Nothing was stopped and nothing was rolled back.'
+  )
+  ctx.log(
+    'Next: repair the cause, then run `recover`; it decides from the journal on disk and the running stack.'
+  )
+  return EXIT.COMMIT_UNKNOWN
 }
 
 function finalizeFailed(ctx, err) {
@@ -253,13 +290,42 @@ export async function recover(ctx) {
     ctx.log('no unfinished attempt; nothing to recover')
     return EXIT.OK
   }
-  // Round-3 finding 5: an unfinished attempt is recovered with the inputs it started with.
-  if ((await ctx.exec.activeInputs()).envSha256 !== attempt.inputs.envSha256) {
-    ctx.log('RECOVERY REQUIRED: the active env file is not the one this attempt started with.')
-    ctx.log('Restore that env file (deploy.env in the private root) and run recover again.')
+  // An unfinished attempt is recovered with exactly the inputs its journal points to.
+  if ((await ctx.exec.inputsSha(attempt.inputs.generation)) !== attempt.inputs.envSha256) {
+    ctx.log(
+      `RECOVERY REQUIRED: input generation ${attempt.inputs.generation} is missing or was changed.`
+    )
+    ctx.log('Restore inputs/<generation>/deploy.env in the private root and run recover again.')
     return EXIT.RECOVERY_REQUIRED
   }
   ctx.log(`recovering attempt ${attempt.attemptId} from phase ${attempt.phase}`)
   // withSqlHelper removes every leftover helper of this project (and confirms) before planning.
   return withSqlHelper(ctx, EXIT.RECOVERY_REQUIRED, () => rollBack(ctx, { restartHelpers: false }))
+}
+
+// D5: record the hand-deployed release once. Its inputs become the first generation with one
+// rename; a crash before the state write leaves an orphan, and re-staging lets it run again.
+export async function baseline(ctx) {
+  if (!(await loadState(ctx))) {
+    return EXIT.RECOVERY_REQUIRED
+  }
+  if (ctx.state.current) {
+    ctx.log(
+      `refused: a current release (${ctx.state.current}) is already recorded; baseline runs once`
+    )
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  const { findings, record } = await ctx.exec.baseline()
+  if (findings.length > 0) {
+    findings.forEach((f) => ctx.log(`refused: ${f}`))
+    return EXIT.PREFLIGHT_REFUSED
+  }
+  const inputs = await ctx.exec.activateStaged(ctx.config.attemptId)
+  await save(ctx, {
+    ...ctx.state,
+    current: 'baseline',
+    records: { ...ctx.state.records, baseline: { ...record, inputs } },
+  })
+  ctx.log('baseline recorded: the next deploy can roll back to the running release')
+  return EXIT.OK
 }

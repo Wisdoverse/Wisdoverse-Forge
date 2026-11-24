@@ -72,6 +72,67 @@ const isText = (v) => typeof v === 'string' && v.length > 0
 const isOid = (v) => Number.isInteger(v) && v > 0
 const isTime = (v) => isText(v) && !Number.isNaN(Date.parse(v))
 
+const GENERATION = /^[0-9a-z]{6,24}$/
+const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
+const ENDPOINT_STATES = ['healthy', 'answers', 'unsupported']
+
+// An input generation: `private/inputs/<generation>/` holding the env file and runner reference.
+export const inputsProblems = (holder, where) => {
+  const i = holder?.inputs
+  const ok =
+    GENERATION.test(i?.generation ?? '') &&
+    /^[0-9a-f]{64}$/.test(i?.envSha256 ?? '') &&
+    /^[0-9a-f]{7,40}$/.test(i?.runner ?? '')
+  return ok ? [] : [`${where}.inputs`]
+}
+
+function recordProblems(rev, r) {
+  const ok =
+    r?.rev === rev &&
+    isText(r.config) &&
+    isText(r.releaseDir) &&
+    isText(r.indexSha256) &&
+    (r.frontendDir === null || isText(r.frontendDir)) &&
+    isObject(r.images) &&
+    Object.values(r.images).every(isText) &&
+    isObject(r.refs) &&
+    Object.values(r.refs).every(isText)
+  return [...(ok ? [] : [`records.${rev}`]), ...inputsProblems(r, `records.${rev}`)]
+}
+
+function expectProblems(e) {
+  const ledgerRow = (row) => Number.isInteger(row?.version) && isText(row.checksum)
+  const ok =
+    isObject(e) &&
+    isObject(e.endpoints) &&
+    Object.values(e.endpoints).every((v) => ENDPOINT_STATES.includes(v)) &&
+    Array.isArray(e.streams) &&
+    e.streams.every(isText) &&
+    Array.isArray(e.consumers) &&
+    e.consumers.every((c) => isText(c?.stream) && isText(c?.name)) &&
+    isObject(e.ledgers) &&
+    Object.values(e.ledgers).every((rows) => Array.isArray(rows) && rows.every(ledgerRow))
+  return ok ? [] : ['snapshot.expect']
+}
+
+// The journal is the pointer to the active inputs: the unfinished attempt's, otherwise the
+// current release's. A generation nothing points to is an orphan and is never used.
+export function activeInputs(state) {
+  const a = state?.attempt
+  return a && !TERMINAL.has(a.phase) ? a.inputs : (state?.records?.[state?.current]?.inputs ?? null)
+}
+
+// Plain top-level copies of the pointer, written in the same atomic write, so Jenkins can read
+// them with sed before any runner image is chosen.
+export function withPointers(state) {
+  const inputs = activeInputs(state)
+  return {
+    ...state,
+    activeGeneration: inputs?.generation ?? null,
+    activeRunner: inputs?.runner ?? null,
+  }
+}
+
 function attemptProblems(a) {
   const s = a.snapshot ?? {}
   const sealed = s.complete === true
@@ -81,10 +142,10 @@ function attemptProblems(a) {
     [PHASES.includes(a.phase), 'attempt.phase'],
     [isTime(a.startedAt), 'attempt.startedAt'],
     [isText(a.helperPrefix), 'attempt.helperPrefix'],
-    [isText(a.inputs?.envSha256), 'attempt.inputs'],
+    ...inputsProblems(a, 'attempt').map((field) => [false, field]),
     [Array.isArray(a.swaps), 'attempt.swaps'],
     [typeof s.complete === 'boolean', 'snapshot.complete'],
-    [typeof s.expect === 'object' && s.expect !== null, 'snapshot.expect'],
+    ...expectProblems(s.expect).map((field) => [false, field]),
     [Array.isArray(s.databases) && s.databases.length > 0, 'snapshot.databases'],
     [Array.isArray(s.volumes), 'snapshot.volumes'],
     [isText(s.webroot?.tar) && (!sealed || isText(s.webroot?.sha256)), 'snapshot.webroot'],
@@ -115,10 +176,12 @@ export function validateState(state) {
     if (typeof state.protected !== 'object' || state.protected === null) {
       problems.push('protected')
     }
-    const records =
-      state.records && typeof state.records === 'object' ? Object.entries(state.records) : null
-    if (!records || !records.every(([rev, r]) => r?.rev === rev && typeof r.images === 'object')) {
+    const records = isObject(state.records) ? Object.entries(state.records) : null
+    if (!records) {
       problems.push('records')
+    }
+    for (const [rev, r] of records ?? []) {
+      problems.push(...recordProblems(rev, r))
     }
     if (state.current && !state.records?.[state.current]) {
       problems.push('records.current')
@@ -219,6 +282,7 @@ export function summarize(state) {
     `previous release: ${state.previous ?? '(none)'}`,
     `recorded releases: ${Object.keys(state.records).join(', ') || '(none)'}`,
     `protected snapshots: baseline=${state.protected.baseline ?? '-'} last-good=${state.protected.lastGood ?? '-'}`,
+    `active inputs: generation ${activeInputs(state)?.generation ?? '(none)'}, runner ${activeInputs(state)?.runner ?? '(none)'}`,
   ]
   if (!a) {
     return [...lines, 'last attempt: (none)']
