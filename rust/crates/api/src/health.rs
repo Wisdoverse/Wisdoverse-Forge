@@ -22,7 +22,7 @@ use agentforge_infra::{NatsClient, ObjectStorageClient, RedisClient};
 use agentforge_platform::DockerClient;
 
 pub use crate::domain::context::{ContextFeature, ContextFeatureFlags};
-use crate::domain::system::{HealthDependencyChecks, health_response};
+use crate::domain::system::{HealthDependencyChecks, HealthReadinessResponse, health_response};
 use crate::mcp::McpAgentTools;
 use crate::services::billing::BillingGateway;
 use crate::services::email::EmailSender;
@@ -182,20 +182,38 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
             None => true,
         }
     };
-    let (db_ok, redis_ok, nats_ok, docker_ok) = tokio::join!(
-        within("database", READINESS_PROBE_BUDGET, agentforge_db::check_health(&state.pool)),
-        within("redis", READINESS_PROBE_BUDGET, redis_probe),
-        within("nats", READINESS_PROBE_BUDGET, state.nats.check_health()),
-        within("docker", READINESS_PROBE_BUDGET, docker_probe),
-    );
-
     // DB is always required. NATS is required once configured because
     // orchestration/event delivery depend on it; deployments that do not use
     // NATS can still omit NATS_URL and remain ready. Redis is required when the
     // deployment declares it needs external shared state (CN-7) — a degraded
     // Redis then drops the replica from rotation instead of serving 500s.
-    let nats_required = state.config.nats_url.is_some();
-    let redis_required = state.config.require_external_state;
+    readiness(
+        agentforge_db::check_health(&state.pool),
+        redis_probe,
+        state.nats.check_health(),
+        docker_probe,
+        state.config.nats_url.is_some(),
+        state.config.require_external_state,
+    )
+    .await
+}
+
+/// Run the four readiness probes concurrently, each bounded by
+/// [`READINESS_PROBE_BUDGET`], and map the policy result to the HTTP response.
+async fn readiness(
+    database: impl Future<Output = bool>,
+    redis: impl Future<Output = bool>,
+    nats: impl Future<Output = bool>,
+    docker: impl Future<Output = bool>,
+    nats_required: bool,
+    redis_required: bool,
+) -> (StatusCode, Json<HealthReadinessResponse>) {
+    let (db_ok, redis_ok, nats_ok, docker_ok) = tokio::join!(
+        within("database", READINESS_PROBE_BUDGET, database),
+        within("redis", READINESS_PROBE_BUDGET, redis),
+        within("nats", READINESS_PROBE_BUDGET, nats),
+        within("docker", READINESS_PROBE_BUDGET, docker),
+    );
     let readiness = HealthReadinessService::evaluate(
         HealthDependencyChecks { database: db_ok, redis: redis_ok, nats: nats_ok, docker: docker_ok },
         nats_required,
@@ -208,17 +226,85 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
 
 #[cfg(test)]
 mod tests {
+    use std::future::{pending, ready};
+
     use super::*;
+    use crate::domain::system::HealthChecksResponse;
 
     #[tokio::test(start_paused = true)]
     async fn readiness_probe_is_bounded_by_budget() {
         let start = tokio::time::Instant::now();
-        assert!(!within("stalled", READINESS_PROBE_BUDGET, std::future::pending::<bool>()).await);
+        assert!(!within("stalled", READINESS_PROBE_BUDGET, pending::<bool>()).await);
         assert_eq!(start.elapsed(), READINESS_PROBE_BUDGET);
 
         let start = tokio::time::Instant::now();
         assert!(within("fast", READINESS_PROBE_BUDGET, async { true }).await);
         assert!(!within("failing", READINESS_PROBE_BUDGET, async { false }).await);
         assert_eq!(start.elapsed(), Duration::ZERO);
+    }
+
+    /// Call the readiness seam and measure how long it took in (paused) Tokio time.
+    async fn timed(
+        database: impl Future<Output = bool>,
+        redis: impl Future<Output = bool>,
+        nats: impl Future<Output = bool>,
+        docker: impl Future<Output = bool>,
+        nats_required: bool,
+        redis_required: bool,
+    ) -> (StatusCode, HealthReadinessResponse, Duration) {
+        let start = tokio::time::Instant::now();
+        let (status, Json(body)) = readiness(database, redis, nats, docker, nats_required, redis_required).await;
+        (status, body, start.elapsed())
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn readiness_all_probes_fast_is_ready() {
+        let (status, body, elapsed) = timed(ready(true), ready(true), ready(true), ready(true), true, true).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body.status, "ready");
+        assert_eq!(elapsed, Duration::ZERO);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn readiness_stalled_optional_docker_stays_ready_at_budget() {
+        let (status, body, elapsed) =
+            timed(ready(true), ready(true), ready(true), pending::<bool>(), true, false).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body.status, "ready");
+        assert!(!body.checks.docker);
+        assert_eq!(elapsed, READINESS_PROBE_BUDGET);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn readiness_stalled_required_database_is_unavailable_at_budget() {
+        let (status, body, elapsed) =
+            timed(pending::<bool>(), ready(true), ready(true), ready(true), true, false).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body.status, "degraded");
+        assert!(!body.checks.database);
+        assert_eq!(elapsed, READINESS_PROBE_BUDGET);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn readiness_all_probes_stalled_share_one_budget() {
+        let (status, body, elapsed) =
+            timed(pending::<bool>(), pending::<bool>(), pending::<bool>(), pending::<bool>(), true, true).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body.checks, HealthChecksResponse { database: false, redis: false, nats: false, docker: false });
+        assert_eq!(elapsed, READINESS_PROBE_BUDGET);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn readiness_stalled_redis_fails_only_when_external_state_required() {
+        let (status, body, elapsed) =
+            timed(ready(true), pending::<bool>(), ready(true), ready(true), true, false).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(!body.checks.redis);
+        assert_eq!(elapsed, READINESS_PROBE_BUDGET);
+
+        let (status, body, elapsed) = timed(ready(true), pending::<bool>(), ready(true), ready(true), true, true).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(!body.checks.redis);
+        assert_eq!(elapsed, READINESS_PROBE_BUDGET);
     }
 }
