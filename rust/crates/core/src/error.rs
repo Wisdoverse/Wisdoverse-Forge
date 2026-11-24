@@ -33,6 +33,16 @@ pub enum ErrorKind {
     #[error("unprocessable entity: {0}")]
     Unprocessable(String),
 
+    /// Unprocessable error that carries a stable machine-readable code
+    /// (e.g. `"provider_credentials_rejected"`); `message` is operator guidance.
+    #[error("unprocessable entity: {message}")]
+    UnprocessableWithCode { code: &'static str, message: String },
+
+    /// Too many requests (HTTP 429). `retry_after_secs`, when set, is sent as
+    /// the `Retry-After` header; callers must bound it before constructing.
+    #[error("rate limited: {message}")]
+    RateLimited { code: &'static str, message: String, retry_after_secs: Option<u64> },
+
     #[error("unauthorized")]
     Unauthorized,
 
@@ -116,6 +126,8 @@ impl IntoResponse for AppError {
             ErrorKind::Validation(_) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
             ErrorKind::ValidationWithCode { .. } => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
             ErrorKind::Unprocessable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY"),
+            ErrorKind::UnprocessableWithCode { .. } => (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY"),
+            ErrorKind::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMITED"),
             ErrorKind::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
             ErrorKind::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::ForbiddenWithCode { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
@@ -143,7 +155,9 @@ impl IntoResponse for AppError {
                 "ok": false,
                 "error": { "code": *code, "message": message }
             }),
-            ErrorKind::ForbiddenWithCode { code, message } => json!({
+            ErrorKind::ForbiddenWithCode { code, message }
+            | ErrorKind::UnprocessableWithCode { code, message }
+            | ErrorKind::RateLimited { code, message, .. } => json!({
                 "ok": false,
                 "error": { "code": *code, "message": message }
             }),
@@ -157,7 +171,11 @@ impl IntoResponse for AppError {
             }),
         };
 
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+        if let ErrorKind::RateLimited { retry_after_secs: Some(secs), .. } = &self.kind {
+            response.headers_mut().insert(axum::http::header::RETRY_AFTER, axum::http::HeaderValue::from(*secs));
+        }
+        response
     }
 }
 
@@ -301,6 +319,8 @@ mod tests {
             ErrorKind::Forbidden("forbidden".into()),
             ErrorKind::ForbiddenWithCode { code: "errors.agent.lifecycle.not_permitted", message: "x".into() },
             ErrorKind::Conflict("x".into()),
+            ErrorKind::UnprocessableWithCode { code: "provider_request_rejected", message: "x".into() },
+            ErrorKind::RateLimited { code: "provider_rate_limited", message: "x".into(), retry_after_secs: None },
         ];
         for kind in kinds {
             let err = AppError::from(kind);
@@ -315,6 +335,8 @@ mod tests {
                     | ErrorKind::Forbidden(_)
                     | ErrorKind::ForbiddenWithCode { .. }
                     | ErrorKind::Conflict(_)
+                    | ErrorKind::UnprocessableWithCode { .. }
+                    | ErrorKind::RateLimited { .. }
                     | ErrorKind::Unavailable(_)
             ));
         }
@@ -346,5 +368,42 @@ mod tests {
         assert_eq!(body["ok"], false);
         assert_eq!(body["error"]["code"], "errors.agent.lifecycle.not_permitted");
         assert_eq!(body["error"]["message"], "operation not permitted on this agent");
+    }
+
+    #[tokio::test]
+    async fn unprocessable_with_code_emits_code_and_plain_message() {
+        let err = AppError::from(ErrorKind::UnprocessableWithCode {
+            code: "provider_credentials_rejected",
+            message: "Check the provider API key.".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(body["error"]["code"], "provider_credentials_rejected");
+        assert_eq!(body["error"]["message"], "Check the provider API key.");
+    }
+
+    #[tokio::test]
+    async fn rate_limited_sets_retry_after_only_when_known() {
+        let with = AppError::from(ErrorKind::RateLimited {
+            code: "provider_rate_limited",
+            message: "wait".into(),
+            retry_after_secs: Some(30),
+        })
+        .into_response();
+        assert_eq!(with.headers().get(axum::http::header::RETRY_AFTER).unwrap(), "30");
+        let (status, body) = response_to_json(with).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(body["error"]["code"], "provider_rate_limited");
+        assert_eq!(body["error"]["message"], "wait");
+
+        let without = AppError::from(ErrorKind::RateLimited {
+            code: "provider_rate_limited",
+            message: "wait".into(),
+            retry_after_secs: None,
+        })
+        .into_response();
+        assert_eq!(without.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert!(without.headers().get(axum::http::header::RETRY_AFTER).is_none());
     }
 }

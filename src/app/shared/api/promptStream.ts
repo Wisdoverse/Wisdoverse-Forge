@@ -3,6 +3,8 @@
 // (`features/chat/useChatStream`) and the quick-message composer
 // (`features/agents`) can consume provider streams without a cross-feature import.
 
+import i18n from 'i18next'
+
 export interface SseFrame {
   event: string
   data: unknown
@@ -52,10 +54,31 @@ export function isAbortError(error: unknown): boolean {
   )
 }
 
+// Provider failures before streaming carry a stable code from the Rust API.
+// Show the localized copy for that code; the server's fixed English guidance
+// (never the provider's own response body) is the fallback.
+const PROVIDER_ERROR_KEYS: Record<string, string> = {
+  provider_credentials_rejected: 'errors.provider.credentials_rejected',
+  provider_request_rejected: 'errors.provider.request_rejected',
+  provider_rate_limited: 'errors.provider.rate_limited',
+}
+
+function providerErrorGuidance(body: Record<string, unknown>): string | null {
+  const error = asRecord(body.error)
+  const key = typeof error.code === 'string' ? PROVIDER_ERROR_KEYS[error.code] : undefined
+  if (!key) return null
+  const serverText = typeof error.message === 'string' ? error.message.trim() : ''
+  const localized = i18n.t(key, { defaultValue: '' })
+  return (localized && localized !== key ? localized : serverText) || null
+}
+
 export function chatStreamHttpErrorMessage(
   status: number,
   body: Record<string, unknown> = {}
 ): string {
+  const providerGuidance = providerErrorGuidance(body)
+  if (providerGuidance) return providerGuidance
+
   const detail = messageDetail(body)
 
   if (status === 401) {

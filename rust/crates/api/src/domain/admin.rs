@@ -597,6 +597,8 @@ impl AdminBulkDeletePolicy {
             ErrorKind::Validation(msg) => format!("validation error: {msg}"),
             ErrorKind::ValidationWithCode { message, .. } => format!("validation error: {message}"),
             ErrorKind::Unprocessable(msg) => format!("unprocessable entity: {msg}"),
+            ErrorKind::UnprocessableWithCode { message, .. } => format!("unprocessable entity: {message}"),
+            ErrorKind::RateLimited { message, .. } => format!("rate limited: {message}"),
             ErrorKind::Conflict(msg) => format!("conflict: {msg}"),
             ErrorKind::Unauthorized => "unauthorized".to_string(),
             ErrorKind::Forbidden(_) => "forbidden".to_string(),

@@ -884,6 +884,13 @@ export const zh: TranslationKeys = {
     downloadError: '请重新打开当前页面后再次下载。下载没有开始。',
     rateLimited: '请等待 {{seconds}} 秒后重试。请求过于频繁。',
     quotaExceeded: '请让所有者提高额度，或释放一些容量。{{resource}} 配额已用完。',
+    provider: {
+      credentials_rejected:
+        '请在 LLM 设置中检查模型服务的 API 密钥，然后重新发送消息。模型服务拒绝了本组织的凭据。',
+      request_rejected:
+        '请检查智能体的模型名称、消息大小以及模型服务的账户和设置，然后重新发送消息。模型服务拒绝了这次请求。',
+      rate_limited: '请稍等片刻，然后重新发送消息。模型服务正在限制本组织的请求频率。',
+    },
     agent: {
       lifecycle: {
         restart_host_cli: {

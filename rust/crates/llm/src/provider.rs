@@ -41,9 +41,25 @@ pub fn timed_client() -> Client {
     client_with_timeouts(PROVIDER_CONNECT_TIMEOUT, PROVIDER_READ_IDLE_TIMEOUT)
 }
 
-pub(crate) fn provider_status_error(status: u16) -> LlmError {
+pub(crate) fn provider_status_error(response: &reqwest::Response) -> LlmError {
     // An upstream error body may contain secrets and has no useful local bound.
-    LlmError::Api { status, message: "provider request failed".into() }
+    let retry_after_secs = response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(parse_retry_after_secs);
+    LlmError::Api { status: response.status().as_u16(), message: "provider request failed".into(), retry_after_secs }
+}
+
+/// Parse the delta-seconds form of `Retry-After`. Optional whitespace around the
+/// field value is trimmed (HTTP allows it); signs, HTTP-dates and junk give None;
+/// overlong digit strings saturate at `u64::MAX` (callers clamp to their own bound).
+fn parse_retry_after_secs(value: &str) -> Option<u64> {
+    let digits = value.trim();
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some(digits.bytes().fold(0u64, |secs, b| secs.saturating_mul(10).saturating_add(u64::from(b - b'0'))))
 }
 
 pub(crate) async fn bounded_response_json(mut response: reqwest::Response) -> Result<serde_json::Value, LlmError> {
@@ -165,8 +181,9 @@ pub enum LlmError {
     #[error("HTTP error: {0}")]
     Http(#[source] reqwest::Error),
 
+    /// `retry_after_secs` is the provider's `Retry-After` delta-seconds, when it sent one.
     #[error("API error: {status} - {message}")]
-    Api { status: u16, message: String },
+    Api { status: u16, message: String, retry_after_secs: Option<u64> },
 
     #[error("Parse error: {0}")]
     Parse(String),
@@ -257,6 +274,31 @@ mod model_limit_tests {
     #[test]
     fn unknown_model_fallback_4k() {
         assert_eq!(model_context_limit("mystery-model"), 4_096);
+    }
+}
+
+#[cfg(test)]
+mod retry_after_tests {
+    use super::parse_retry_after_secs;
+
+    #[test]
+    fn retry_after_accepts_only_plain_delta_seconds() {
+        let thirty_digits = "123456789012345678901234567890";
+        for (raw, expected) in [
+            ("17", Some(17)),
+            (" 30 ", Some(30)),
+            ("0", Some(0)), // the API maps 0 to its 1-second floor
+            (thirty_digits, Some(u64::MAX)),
+            ("+17", None),
+            ("-1", None),
+            ("1.5", None),
+            ("", None),
+            ("   ", None),
+            ("Wed, 21 Oct 2015 07:28:00 GMT", None),
+            ("soon", None),
+        ] {
+            assert_eq!(parse_retry_after_secs(raw), expected, "raw {raw:?}");
+        }
     }
 }
 

@@ -118,6 +118,8 @@ pub(crate) fn app_error_message(err: AppError) -> String {
         ErrorKind::Validation(message) => format!("validation error: {message}"),
         ErrorKind::ValidationWithCode { message, .. } => format!("validation error: {message}"),
         ErrorKind::Unprocessable(message) => format!("unprocessable entity: {message}"),
+        ErrorKind::UnprocessableWithCode { message, .. } => format!("unprocessable entity: {message}"),
+        ErrorKind::RateLimited { message, .. } => format!("rate limited: {message}"),
         ErrorKind::NotFound(message) => format!("not found: {message}"),
         ErrorKind::Conflict(message) => format!("conflict: {message}"),
         ErrorKind::Unauthorized => "unauthorized".to_string(),

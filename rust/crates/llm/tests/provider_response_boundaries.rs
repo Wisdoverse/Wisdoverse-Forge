@@ -32,11 +32,35 @@ fn providers(base: &str) -> Vec<Box<dyn LlmProvider>> {
 
 fn assert_status<T>(result: Result<T, LlmError>, expected: u16) {
     match result {
-        Err(LlmError::Api { status, message }) => {
+        Err(LlmError::Api { status, message, .. }) => {
             assert_eq!(status, expected);
             assert_eq!(message, "provider request failed");
         }
         _ => panic!("expected a fixed provider-status error"),
+    }
+}
+
+fn retry_after<T>(result: Result<T, LlmError>) -> Option<u64> {
+    match result {
+        Err(LlmError::Api { status: 429, retry_after_secs, .. }) => retry_after_secs,
+        _ => panic!("expected a 429 provider-status error"),
+    }
+}
+
+#[tokio::test]
+async fn rate_limit_keeps_only_delta_seconds_retry_after() {
+    let server = MockServer::start().await;
+    for (header, expected) in [(Some("17"), Some(17)), (Some("Wed, 21 Oct 2015 07:28:00 GMT"), None), (None, None)] {
+        server.reset().await;
+        let mut template = ResponseTemplate::new(429).set_body_string("test-only-provider-body");
+        if let Some(value) = header {
+            template = template.insert_header("Retry-After", value);
+        }
+        Mock::given(method("POST")).respond_with(template).mount(&server).await;
+        for provider in providers(&server.uri()) {
+            assert_eq!(retry_after(provider.chat(request()).await), expected, "chat, header {header:?}");
+            assert_eq!(retry_after(provider.stream(request()).await), expected, "stream, header {header:?}");
+        }
     }
 }
 

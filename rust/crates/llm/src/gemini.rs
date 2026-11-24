@@ -126,7 +126,7 @@ impl LlmStream for GeminiProvider {
 
         let resp = self.client.post(url).header("x-goog-api-key", &self.api_key).json(&body).send().await?;
         if !resp.status().is_success() {
-            return Err(provider_status_error(resp.status().as_u16()));
+            return Err(provider_status_error(&resp));
         }
         Ok(Box::pin(parse_gemini_sse(resp.bytes_stream())))
     }

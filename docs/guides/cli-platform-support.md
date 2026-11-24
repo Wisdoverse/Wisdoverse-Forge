@@ -244,6 +244,32 @@ reparse-point checks before use. During recovery, a completed tombstone is
 processed before cleanup of pending or result files so an acknowledged event
 does not return to the queue.
 
+## Exit Codes
+
+The Platform CLI (`agentforge`) exits with one of these codes. `agentforge --help`
+prints the same table. Scripts should treat any non-zero exit code as a failure
+and read the printed `Error: <message> (<code>)` line (or `--format json`
+output) for the reason.
+
+| Exit code | Meaning                                                                                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0         | Success.                                                                                                                                                                                                     |
+| 1         | Any other failure: an API error with any other code (for example `provider_rate_limited`, `provider_credentials_rejected`, `provider_request_rejected`, `RATE_LIMITED`, `HTTP_ERROR`), or a transport error. |
+| 2         | `VALIDATION_ERROR`, a usage error, or a confirmation that needs `--force`.                                                                                                                                   |
+| 3         | `UNAUTHORIZED` or `INVALID_API_KEY`.                                                                                                                                                                         |
+| 4         | `NOT_FOUND`.                                                                                                                                                                                                 |
+| 5         | `FORBIDDEN`.                                                                                                                                                                                                 |
+| 6         | A wait or stream deadline was exceeded.                                                                                                                                                                      |
+| 7         | The event stream failed.                                                                                                                                                                                     |
+| 130       | Canceled (Ctrl+C or SIGTERM).                                                                                                                                                                                |
+
+A provider rate limit (`provider_rate_limited`, HTTP 429) exits 1. No exit code
+in this CLI means "temporary, retry later", and `6` means a local wait deadline,
+not a server condition. Read the message's `Retry after N seconds.` hint
+before resending. The CLI does not resend a POST (such as
+`agentforge agents prompt`) after a 429, because the server may already have
+saved the message. It still retries GET and DELETE.
+
 ## Contributor Requirements
 
 Any PR that changes the Platform CLI, sidecar CLI, installer, release packaging,
