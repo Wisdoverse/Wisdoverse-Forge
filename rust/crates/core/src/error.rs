@@ -33,6 +33,16 @@ pub enum ErrorKind {
     #[error("unprocessable entity: {0}")]
     Unprocessable(String),
 
+    /// Unprocessable error that carries a stable machine-readable code
+    /// (e.g. `"provider_credentials_rejected"`); `message` is operator guidance.
+    #[error("unprocessable entity: {message}")]
+    UnprocessableWithCode { code: &'static str, message: String },
+
+    /// Too many requests (HTTP 429). `retry_after_secs`, when set, is sent as
+    /// the `Retry-After` header; callers must bound it before constructing.
+    #[error("rate limited: {message}")]
+    RateLimited { code: &'static str, message: String, retry_after_secs: Option<u64> },
+
     #[error("unauthorized")]
     Unauthorized,
 
@@ -48,6 +58,13 @@ pub enum ErrorKind {
 
     #[error("conflict: {0}")]
     Conflict(String),
+
+    /// Conflict (409) that carries an i18n code for the client.
+    ///
+    /// Same contract as [`ValidationWithCode`]: `code` is the dotted i18n
+    /// key, `message` is the English fallback.
+    #[error("conflict: {message}")]
+    ConflictWithCode { code: &'static str, message: String },
 
     #[error("service unavailable: {0}")]
     Unavailable(String),
@@ -101,6 +118,22 @@ impl From<RuntimeCapabilityError> for AppError {
     }
 }
 
+impl AppError {
+    /// PostgreSQL `lock_not_available` (SQLSTATE 55P03), raised when a lock wait
+    /// exceeds `lock_timeout`. Callers that set a timeout map it to their own
+    /// busy response; every other error keeps its existing handling.
+    pub fn is_lock_timeout(&self) -> bool {
+        match &self.kind {
+            ErrorKind::Internal(err) => err
+                .downcast_ref::<sqlx::Error>()
+                .and_then(sqlx::Error::as_database_error)
+                .and_then(|db| db.code())
+                .is_some_and(|code| code == "55P03"),
+            _ => false,
+        }
+    }
+}
+
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.kind.fmt(f)
@@ -116,10 +149,12 @@ impl IntoResponse for AppError {
             ErrorKind::Validation(_) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
             ErrorKind::ValidationWithCode { .. } => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR"),
             ErrorKind::Unprocessable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY"),
+            ErrorKind::UnprocessableWithCode { .. } => (StatusCode::UNPROCESSABLE_ENTITY, "UNPROCESSABLE_ENTITY"),
+            ErrorKind::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMITED"),
             ErrorKind::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
             ErrorKind::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::ForbiddenWithCode { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
-            ErrorKind::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
+            ErrorKind::Conflict(_) | ErrorKind::ConflictWithCode { .. } => (StatusCode::CONFLICT, "CONFLICT"),
             ErrorKind::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
             ErrorKind::NotImplemented(_) => (StatusCode::NOT_IMPLEMENTED, "NOT_IMPLEMENTED"),
             ErrorKind::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
@@ -135,7 +170,7 @@ impl IntoResponse for AppError {
             }
         }
 
-        // Build the response body.  ValidationWithCode / ForbiddenWithCode emit
+        // Build the response body.  The `*WithCode` variants emit
         // the i18n dotted key as `code` so the frontend can look up localised
         // copy.  All other variants keep the existing stable type-level code.
         let body = match &self.kind {
@@ -143,7 +178,10 @@ impl IntoResponse for AppError {
                 "ok": false,
                 "error": { "code": *code, "message": message }
             }),
-            ErrorKind::ForbiddenWithCode { code, message } => json!({
+            ErrorKind::ForbiddenWithCode { code, message }
+            | ErrorKind::UnprocessableWithCode { code, message }
+            | ErrorKind::RateLimited { code, message, .. }
+            | ErrorKind::ConflictWithCode { code, message } => json!({
                 "ok": false,
                 "error": { "code": *code, "message": message }
             }),
@@ -157,7 +195,11 @@ impl IntoResponse for AppError {
             }),
         };
 
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+        if let ErrorKind::RateLimited { retry_after_secs: Some(secs), .. } = &self.kind {
+            response.headers_mut().insert(axum::http::header::RETRY_AFTER, axum::http::HeaderValue::from(*secs));
+        }
+        response
     }
 }
 
@@ -301,6 +343,8 @@ mod tests {
             ErrorKind::Forbidden("forbidden".into()),
             ErrorKind::ForbiddenWithCode { code: "errors.agent.lifecycle.not_permitted", message: "x".into() },
             ErrorKind::Conflict("x".into()),
+            ErrorKind::UnprocessableWithCode { code: "provider_request_rejected", message: "x".into() },
+            ErrorKind::RateLimited { code: "provider_rate_limited", message: "x".into(), retry_after_secs: None },
         ];
         for kind in kinds {
             let err = AppError::from(kind);
@@ -315,6 +359,8 @@ mod tests {
                     | ErrorKind::Forbidden(_)
                     | ErrorKind::ForbiddenWithCode { .. }
                     | ErrorKind::Conflict(_)
+                    | ErrorKind::UnprocessableWithCode { .. }
+                    | ErrorKind::RateLimited { .. }
                     | ErrorKind::Unavailable(_)
             ));
         }
@@ -346,5 +392,55 @@ mod tests {
         assert_eq!(body["ok"], false);
         assert_eq!(body["error"]["code"], "errors.agent.lifecycle.not_permitted");
         assert_eq!(body["error"]["message"], "operation not permitted on this agent");
+    }
+
+    #[tokio::test]
+    async fn unprocessable_with_code_emits_code_and_plain_message() {
+        let err = AppError::from(ErrorKind::UnprocessableWithCode {
+            code: "provider_credentials_rejected",
+            message: "Check the provider API key.".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(body["error"]["code"], "provider_credentials_rejected");
+        assert_eq!(body["error"]["message"], "Check the provider API key.");
+    }
+
+    #[tokio::test]
+    async fn rate_limited_sets_retry_after_only_when_known() {
+        let with = AppError::from(ErrorKind::RateLimited {
+            code: "provider_rate_limited",
+            message: "wait".into(),
+            retry_after_secs: Some(30),
+        })
+        .into_response();
+        assert_eq!(with.headers().get(axum::http::header::RETRY_AFTER).unwrap(), "30");
+        let (status, body) = response_to_json(with).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(body["error"]["code"], "provider_rate_limited");
+        assert_eq!(body["error"]["message"], "wait");
+
+        let without = AppError::from(ErrorKind::RateLimited {
+            code: "provider_rate_limited",
+            message: "wait".into(),
+            retry_after_secs: None,
+        })
+        .into_response();
+        assert_eq!(without.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert!(without.headers().get(axum::http::header::RETRY_AFTER).is_none());
+    }
+
+    #[tokio::test]
+    async fn conflict_with_code_emits_i18n_code() {
+        let err = AppError::from(ErrorKind::ConflictWithCode {
+            code: "errors.maintenance.merge_rejected",
+            message: "Record a new verdict.".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body["error"]["code"], "errors.maintenance.merge_rejected");
+        assert_eq!(body["error"]["message"], "Record a new verdict.");
     }
 }

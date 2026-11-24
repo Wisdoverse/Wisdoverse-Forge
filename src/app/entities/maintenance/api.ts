@@ -24,6 +24,7 @@ export type MaintenanceFailure =
   | 'conflict'
   | 'invalid-delivery'
   | 'delivery-unavailable'
+  | 'merge-in-progress'
 
 export class MaintenanceError extends Error {
   constructor(public readonly reason: MaintenanceFailure) {
@@ -178,6 +179,8 @@ function backendFailure(payload: unknown): MaintenanceFailure {
       return 'invalid-delivery'
     case 'errors.maintenance.delivery_unavailable':
       return 'delivery-unavailable'
+    case 'errors.maintenance.merge_in_progress':
+      return 'merge-in-progress'
     case 'errors.maintenance.invalid_request':
       return 'invalid-request'
     case 'errors.maintenance.destination_unavailable':
@@ -231,7 +234,13 @@ async function exchange<T>(
     if (response.status === 401) throw new MaintenanceError('unauthenticated')
     if (response.status === 403) throw new MaintenanceError('forbidden')
     if (response.status === 404) throw new MaintenanceError('missing')
-    if (response.status === 409) throw new MaintenanceError('conflict')
+    if (response.status === 409) {
+      const payload: unknown = await Promise.race([response.json().catch(() => null), interrupted])
+      const code = (payload as { error?: { code?: unknown } } | null)?.error?.code
+      throw new MaintenanceError(
+        code === 'errors.maintenance.merge_in_progress' ? 'merge-in-progress' : 'conflict'
+      )
+    }
     if (!response.ok) {
       if (response.status !== 400) throw new MaintenanceError('failed')
       const payload: unknown = await Promise.race([response.json().catch(() => null), interrupted])

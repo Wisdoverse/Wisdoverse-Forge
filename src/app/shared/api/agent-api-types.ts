@@ -14,7 +14,7 @@
  * All API responses may include these when ok=false.
  */
 export interface ApiErrorFields {
-  error?: string
+  error?: string | { code?: string; message?: string }
   message?: string
   details?: { reason?: string; issues?: Array<{ path: string; message: string }> }
   requestId?: string

@@ -37,7 +37,7 @@ impl Client {
         Ok(Self { inner: builder.build()?, opts })
     }
 
-    /// Sends the request with retry logic for 429 and idempotent 5xx responses,
+    /// Sends the request with retry logic for idempotent 429 and 5xx responses,
     /// and returns the raw parsed body `Value` — before any envelope unwrapping.
     async fn send_raw(
         &self,
@@ -61,7 +61,7 @@ impl Client {
         let mut attempt_429: u32 = 0;
         let mut attempt_5xx: u32 = 0;
 
-        let (status, bytes) = loop {
+        let (status, bytes, retry_after) = loop {
             let mut req = self.inner.request(method.clone(), &url);
             if let Some(t) = &self.opts.token {
                 req = req.bearer_auth(t);
@@ -116,7 +116,10 @@ impl Client {
                 }
             }
 
-            if status.as_u16() == 429 {
+            let retry_after =
+                resp.headers().get("Retry-After").and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u64>().ok());
+            // Same idempotency gate as 5xx: a retried POST (e.g. a prompt) would repeat its side effects.
+            if status.as_u16() == 429 && is_idempotent {
                 if attempt_429 >= MAX_RETRIES_429 {
                     return Err(CliError::Api(crate::client::ApiError {
                         code: "RATE_LIMITED".into(),
@@ -124,8 +127,6 @@ impl Client {
                         status: 429,
                     }));
                 }
-                let retry_after =
-                    resp.headers().get("Retry-After").and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u64>().ok());
                 let delay = retry_after.map(std::time::Duration::from_secs).unwrap_or_else(|| {
                     let base = std::time::Duration::from_secs(1u64 << attempt_429);
                     base + jitter()
@@ -153,23 +154,31 @@ impl Client {
             }
 
             let bytes = resp.bytes().await.map_err(|e| CliError::Transport(format!("read response body: {e}")))?;
-            break (status, bytes);
+            break (status, bytes, retry_after);
         };
 
         if status.is_client_error() || status.is_server_error() {
-            if let Ok(env) = serde_json::from_slice::<Value>(&bytes)
-                && let Some(code) = env.get("error").and_then(|v| v.as_str())
-            {
-                let message = env.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                return Err(CliError::Api(crate::client::ApiError {
-                    code: code.to_string(),
-                    message,
-                    status: status.as_u16(),
-                }));
+            let retry_hint = match retry_after {
+                Some(secs) if status.as_u16() == 429 => format!(" Retry after {secs} seconds."),
+                _ => String::new(),
+            };
+            if let Ok(env) = serde_json::from_slice::<Value>(&bytes) {
+                // Legacy `{error: "CODE", message}` or the Rust envelope `{error: {code, message}}`.
+                let error = env.get("error");
+                let nested = |field: &str| error.and_then(|v| v.get(field)).and_then(|v| v.as_str());
+                if let Some(code) = error.and_then(|v| v.as_str()).or_else(|| nested("code")) {
+                    let message =
+                        env.get("message").and_then(|v| v.as_str()).or_else(|| nested("message")).unwrap_or("");
+                    return Err(CliError::Api(crate::client::ApiError {
+                        code: code.to_string(),
+                        message: format!("{message}{retry_hint}").trim().to_string(),
+                        status: status.as_u16(),
+                    }));
+                }
             }
             return Err(CliError::Api(crate::client::ApiError {
                 code: "HTTP_ERROR".into(),
-                message: format!("HTTP {}", status.as_u16()),
+                message: format!("HTTP {}{retry_hint}", status.as_u16()),
                 status: status.as_u16(),
             }));
         }
@@ -750,6 +759,99 @@ mod tests {
         match err {
             crate::error::CliError::Api(api) if api.code == "RATE_LIMITED" => {}
             other => panic!("expected RATE_LIMITED, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn does_not_retry_429_on_post_and_returns_the_server_error() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/agents/a/prompt"))
+            .respond_with(ResponseTemplate::new(429).insert_header("Retry-After", "7").set_body_json(json!({
+                "ok": false,
+                "error": { "code": "provider_rate_limited", "message": "Wait a moment, then resend the message." }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = Client::new(ClientOptions {
+            server: server.uri(),
+            token: None,
+            timeout: std::time::Duration::from_secs(5),
+            insecure: false,
+            verbose: false,
+            debug: false,
+            trace: false,
+        })
+        .unwrap();
+
+        let err = client
+            .do_request(
+                reqwest::Method::POST,
+                "/api/v1/agents/a/prompt",
+                Some(&json!({"prompt":"hi"})),
+                ResponseKind::Auto,
+            )
+            .await
+            .unwrap_err();
+        match err {
+            crate::error::CliError::Api(api) => {
+                assert_eq!(api.status, 429);
+                assert_eq!(api.code, "provider_rate_limited");
+                assert_eq!(api.message, "Wait a moment, then resend the message. Retry after 7 seconds.");
+            }
+            other => panic!("expected ApiError, got {other:?}"),
+        }
+        // `.expect(1)` is verified when `server` drops: the POST was sent exactly once.
+    }
+
+    #[tokio::test]
+    async fn decoded_api_errors_map_to_documented_exit_codes() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+        let nested = |code: &str| json!({ "ok": false, "error": { "code": code, "message": "m" } }).to_string();
+        let cases = [
+            (400, nested("VALIDATION_ERROR"), "VALIDATION_ERROR", 2),
+            (401, nested("UNAUTHORIZED"), "UNAUTHORIZED", 3),
+            (404, nested("NOT_FOUND"), "NOT_FOUND", 4),
+            (403, nested("FORBIDDEN"), "FORBIDDEN", 5),
+            (422, nested("provider_credentials_rejected"), "provider_credentials_rejected", 1),
+            (422, nested("provider_request_rejected"), "provider_request_rejected", 1),
+            (429, nested("provider_rate_limited"), "provider_rate_limited", 1),
+            (409, nested("SOMETHING_NEW"), "SOMETHING_NEW", 1),
+            (404, json!({ "ok": false, "error": "NOT_FOUND", "message": "m" }).to_string(), "NOT_FOUND", 4),
+            (500, "<html>upstream error</html>".to_string(), "HTTP_ERROR", 1),
+        ];
+        let server = MockServer::start().await;
+        let client = Client::new(ClientOptions {
+            server: server.uri(),
+            token: None,
+            timeout: std::time::Duration::from_secs(5),
+            insecure: false,
+            verbose: false,
+            debug: false,
+            trace: false,
+        })
+        .unwrap();
+        for (status, body, code, exit) in cases {
+            server.reset().await;
+            Mock::given(method("POST"))
+                .and(path("/x"))
+                .respond_with(ResponseTemplate::new(status).set_body_string(body))
+                .expect(1)
+                .mount(&server)
+                .await;
+            // POST: never retried, so each case is a single decoded response.
+            let err = client.do_request(reqwest::Method::POST, "/x", None, ResponseKind::Auto).await.unwrap_err();
+            match &err {
+                crate::error::CliError::Api(api) => assert_eq!(api.code, code, "status {status}"),
+                other => panic!("status {status}: expected ApiError, got {other:?}"),
+            }
+            assert_eq!(err.exit_code(), exit, "status {status} code {code}");
+            server.verify().await;
         }
     }
 

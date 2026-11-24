@@ -668,11 +668,14 @@ $COMPOSE_PROD up -d --wait db redis nats orchestrator-db
 
 ## 4. Health Check Commands
 
+Liveness and readiness are explained in
+[Deployment: Health Verification](deployment.md#health-verification).
+
 ```bash
-# Application health
+# Liveness (process is running)
 curl -s http://localhost:4003/health | jq .
 
-# Readiness (database connectivity)
+# Readiness (PostgreSQL and NATS reachable; Compose health uses this)
 curl -s http://localhost:4003/api/health | jq .
 
 # Orchestrator health

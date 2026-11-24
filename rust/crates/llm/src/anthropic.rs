@@ -107,7 +107,7 @@ impl LlmStream for AnthropicProvider {
             .await?;
 
         if !resp.status().is_success() {
-            return Err(provider_status_error(resp.status().as_u16()));
+            return Err(provider_status_error(&resp));
         }
 
         let byte_stream = resp.bytes_stream();
@@ -216,9 +216,8 @@ impl LlmProvider for AnthropicProvider {
             .send()
             .await?;
 
-        let status = resp.status().as_u16();
-        if status != 200 {
-            return Err(provider_status_error(status));
+        if resp.status().as_u16() != 200 {
+            return Err(provider_status_error(&resp));
         }
 
         let json = bounded_response_json(resp).await?;

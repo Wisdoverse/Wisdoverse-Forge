@@ -282,15 +282,12 @@ impl PromptService {
                 base_url: credential.base_url,
             })
             .map_err(PromptProviderPolicy::build_error)?;
-        // TODO(T12): remap `LlmError::Api { status, .. }` to user-remediable `ErrorKind`
-        // (Validation / Unauthorized / Conflict / RateLimited) at the route layer so
-        // the frontend can distinguish "your API key is wrong" (401) from a real 500.
         // Bound the time to BEGIN streaming. The provider's HTTP client already
         // carries connect/read timeouts, but this is a tighter app-level deadline
         // so the caller fails fast instead of waiting out the transport timeout.
         let mut llm_stream = match tokio::time::timeout(STREAM_START_TIMEOUT, provider_instance.stream(req)).await {
-            // A transport connect/read timeout can fire before the outer deadline;
-            // classify it (and upstream 5xx) as retryable 503, not a 500.
+            // Domain policy maps provider 4xx to client-remediable statuses and
+            // transport/5xx (incl. a transport timeout before this deadline) to 503.
             Ok(result) => result.map_err(|e| PromptProviderPolicy::stream_construction_failed(&e))?,
             Err(_elapsed) => return Err(PromptProviderPolicy::stream_start_timed_out().into()),
         };

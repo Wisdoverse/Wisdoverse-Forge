@@ -7,6 +7,7 @@ use clap::{CommandFactory, FromArgMatches, Parser};
     name = "agentforge",
     about = "Wisdoverse Forge CLI — manage team agents and local setup",
     long_about = "Wisdoverse Forge CLI helps operators connect to a Forge server, sign in, check agents, and enroll local Host CLI agents. Start with `agentforge config set server https://forge.example.com`, then `agentforge auth login --token <platform-token>`.",
+    after_long_help = crate::error::EXIT_CODES_HELP,
     disable_help_subcommand = true,
     arg_required_else_help = true
 )]

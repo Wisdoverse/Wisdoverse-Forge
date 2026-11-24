@@ -5,6 +5,7 @@ import {
   chatStreamRequestErrorMessage,
   parseSseFrame,
 } from '@app/shared/api/promptStream'
+import { i18n } from '@app/i18n'
 
 function expectBeginnerMessage(actual: string, expected: string): void {
   expect(actual).toBe(expected)
@@ -111,6 +112,44 @@ describe('chatStreamHttpErrorMessage', () => {
     )
     expect(message).not.toContain('provider')
     expect(message).not.toContain('model service')
+  })
+
+  it('localizes provider failures before streaming by their stable code', async () => {
+    const serverText = 'server fallback text'
+    const cases = [
+      [422, 'provider_credentials_rejected', 'errors.provider.credentials_rejected'],
+      [422, 'provider_request_rejected', 'errors.provider.request_rejected'],
+      [429, 'provider_rate_limited', 'errors.provider.rate_limited'],
+    ] as const
+    try {
+      for (const lang of ['en', 'zh'] as const) {
+        await i18n.changeLanguage(lang)
+        for (const [status, code, key] of cases) {
+          const expected = i18n.t(key)
+          expect(expected).not.toBe(key)
+          expectBeginnerMessage(
+            chatStreamHttpErrorMessage(status, { ok: false, error: { code, message: serverText } }),
+            expected
+          )
+        }
+      }
+      expect(
+        chatStreamHttpErrorMessage(422, {
+          ok: false,
+          error: { code: 'provider_credentials_rejected', message: serverText },
+        })
+      ).toContain('API 密钥')
+    } finally {
+      await i18n.changeLanguage('en')
+    }
+  })
+
+  it('ignores server text for codes it does not know', () => {
+    const message = chatStreamHttpErrorMessage(422, {
+      ok: false,
+      error: { code: 'UNPROCESSABLE_ENTITY', message: 'raw detail' },
+    })
+    expect(message).not.toContain('raw detail')
   })
 
   it('keeps server failures actionable for first-time users', () => {

@@ -60,6 +60,39 @@ The CHANGELOG entry for such a correction goes under **Fixed** (the
 `### Bug Fixes` heading in the generated CHANGELOG). No other
 status code or error code change qualifies for this exception.
 
+### Enforcement Corrections
+
+A governed action has a defect if the product executes it although a recorded
+control requires refusal. Recorded controls are authorization checks, recorded
+human rejections, and safety gates. Refusing the action is a defect fix, not a
+breaking change, even when the status code or error code changes. This
+exception applies only when:
+
+- The control and its record existed before the change.
+- The earlier behavior executed the action despite that record.
+- The release notes name the endpoint, the condition, and the new status code
+  and error code.
+
+The CHANGELOG entry goes under **Fixed**. A change that adds a new control, or
+that refuses an action no existing record forbade, does not qualify for this
+exception.
+
+### Misclassified Internal Errors
+
+HTTP 500 with the generic internal error code reports a failure that the
+server did not classify. It is not part of the contract for any input.
+Replacing it with the correct status code and error code is a defect fix, not
+a breaking change. This exception applies only when:
+
+- The earlier response was HTTP 500 with the generic internal error code.
+- The caller or the operator can act on the new status code and error code.
+- The OpenAPI spec documents the new response.
+- The release notes name the endpoint, the condition, and the new status code
+  and error code.
+
+The CHANGELOG entry goes under **Fixed**. A change from one specific status
+code or error code to another does not qualify for this exception.
+
 ### Deprecation Window
 
 A deprecated surface stays callable for **90 days** after its replacement

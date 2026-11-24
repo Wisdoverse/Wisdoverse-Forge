@@ -136,7 +136,7 @@ impl LlmStream for OpenAiProvider {
         }
         let resp = rb.send().await?;
         if !resp.status().is_success() {
-            return Err(provider_status_error(resp.status().as_u16()));
+            return Err(provider_status_error(&resp));
         }
         Ok(Box::pin(parse_openai_sse(resp.bytes_stream())))
     }
@@ -258,9 +258,8 @@ impl LlmProvider for OpenAiProvider {
         }
 
         let resp = req.send().await?;
-        let status = resp.status().as_u16();
-        if status != 200 {
-            return Err(provider_status_error(status));
+        if resp.status().as_u16() != 200 {
+            return Err(provider_status_error(&resp));
         }
 
         let json = bounded_response_json(resp).await?;

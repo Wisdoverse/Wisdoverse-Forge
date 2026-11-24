@@ -157,6 +157,9 @@ pub(crate) struct SelfFixReview {
     pub sensitive: bool,
     /// Persisted review-status string (see [`review_status`]).
     pub review_status: Option<String>,
+    /// True when the latest human verdict on the task's current maintenance
+    /// report is `rejected`; the server then refuses the Forge merge (#1314).
+    pub current_revision_rejected: bool,
 }
 
 impl SelfFixReview {
@@ -175,7 +178,17 @@ impl SelfFixReview {
     ) -> Self {
         let diff_url = pr_url.as_deref().map(|u| format!("{}/files", u.trim_end_matches('/')));
         let sensitive = review_status.as_deref() == Some(review_status::SENSITIVE_BLOCKED);
-        Self { task_id, pr_number, pr_url, diff_url, head_sha, checks_green, sensitive, review_status }
+        Self {
+            task_id,
+            pr_number,
+            pr_url,
+            diff_url,
+            head_sha,
+            checks_green,
+            sensitive,
+            review_status,
+            current_revision_rejected: false,
+        }
     }
 }
 
@@ -201,8 +214,17 @@ pub(crate) struct SelfFixMergeResult {
 pub(crate) struct SelfFixMergeMetricPolicy;
 
 impl SelfFixMergeMetricPolicy {
-    pub(crate) const OUTCOMES: &'static [&'static str] =
-        &["merged", "already_merged", "sensitive_blocked", "checks_red", "head_moved", "exhausted", "failed"];
+    pub(crate) const OUTCOMES: &'static [&'static str] = &[
+        "merged",
+        "already_merged",
+        "sensitive_blocked",
+        "checks_red",
+        "head_moved",
+        "exhausted",
+        "failed",
+        "running",
+        "unconfirmed",
+    ];
 
     /// Classify a merge-executor `AppError` into a bounded-cardinality outcome
     /// label. Matches the three policy codes the Merge Executor can return as
@@ -216,6 +238,121 @@ impl SelfFixMergeMetricPolicy {
             }
             _ => "failed",
         }
+    }
+
+    /// A definite refusal: our own pre-merge gates (red CI, head moved,
+    /// sensitive) or the provider refusing the merge call (405/409). Any other
+    /// failure may follow a completed merge, so the task stays `approved`.
+    pub(crate) fn is_definite_refusal(err: &AppError) -> bool {
+        matches!(Self::failure_label(err), "checks_red" | "head_moved" | "sensitive_blocked")
+    }
+}
+
+/// Live pull-request state as reported by the provider.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PullRequestState {
+    Open,
+    Merged,
+    ClosedUnmerged,
+}
+
+/// Review status at the start of a merge attempt that may proceed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MergeEntry {
+    InReview,
+    /// A previous attempt was started but not confirmed.
+    Approved,
+}
+
+/// What an approve call does after taking the merge mutex (#1314).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MergeEntryAction {
+    /// The pull request is merged: persist `merged`, count no attempt.
+    MarkMerged,
+    /// Closed without merge: persist `changes_requested` and refuse.
+    MarkClosed,
+    /// The last attempt may still be settling at the provider: refuse, change nothing.
+    WaitUnconfirmed,
+    /// At the cap with an unconfirmed, still-open attempt: keep `approved`, refuse.
+    ExhaustedUnconfirmed,
+    /// At the cap from `in_review`: persist `changes_requested`, refuse.
+    Exhausted,
+    /// Run the decision transaction and the executor.
+    Proceed,
+}
+
+/// How long an unconfirmed attempt is given to finish or be dropped by the
+/// provider, measured from the task row's last write.
+/// Must exceed `MERGE_DECISION_BUDGET_MS`, which bounds how stale that write's timestamp can be.
+pub(crate) const MERGE_SETTLE_WINDOW_SECS: i64 = 30;
+
+/// Age budget of the merge decision transaction, also its `lock_timeout`. The
+/// committed `approved` timestamp is the transaction start, so it is at most
+/// this much (plus the commit's own latency) older than the commit.
+/// Must stay below `MERGE_SETTLE_WINDOW_SECS`, so the effective window is at least 25 s.
+pub(crate) const MERGE_DECISION_BUDGET_MS: u64 = 5_000;
+// Compile-time check of the relation above.
+const _: () = assert!(MERGE_DECISION_BUDGET_MS < MERGE_SETTLE_WINDOW_SECS as u64 * 1_000);
+
+impl SelfFixPolicy {
+    /// The single entry decision for an approve call: entry status x live pull
+    /// request state (read only for `approved`) x seconds since the task row's
+    /// last write x whether the attempt cap is reached.
+    pub(crate) fn merge_entry_action(
+        entry: MergeEntry,
+        pull_request: Option<PullRequestState>,
+        seconds_since_write: i64,
+        at_cap: bool,
+    ) -> MergeEntryAction {
+        match (entry, pull_request) {
+            (MergeEntry::InReview, _) if at_cap => MergeEntryAction::Exhausted,
+            (MergeEntry::InReview, _) => MergeEntryAction::Proceed,
+            (MergeEntry::Approved, Some(PullRequestState::Merged)) => MergeEntryAction::MarkMerged,
+            (MergeEntry::Approved, Some(PullRequestState::ClosedUnmerged)) => MergeEntryAction::MarkClosed,
+            // Open, or unknown (never read): wait out the settle window first.
+            (MergeEntry::Approved, _) if seconds_since_write < MERGE_SETTLE_WINDOW_SECS => {
+                MergeEntryAction::WaitUnconfirmed
+            }
+            (MergeEntry::Approved, None) => MergeEntryAction::WaitUnconfirmed,
+            (MergeEntry::Approved, Some(PullRequestState::Open)) if at_cap => MergeEntryAction::ExhaustedUnconfirmed,
+            (MergeEntry::Approved, Some(PullRequestState::Open)) => MergeEntryAction::Proceed,
+        }
+    }
+
+    /// Review status after a definite refusal, from the pull request state
+    /// re-read right after it: a provider refusal can still race a merge.
+    pub(crate) fn review_status_after_refusal(pull_request: PullRequestState) -> &'static str {
+        match pull_request {
+            PullRequestState::Merged => review_status::MERGED,
+            PullRequestState::ClosedUnmerged => review_status::CHANGES_REQUESTED,
+            PullRequestState::Open => review_status::IN_REVIEW,
+        }
+    }
+
+    /// The decision transaction is too old to commit: its `approved` timestamp
+    /// would shorten the settle window by more than the budget.
+    pub(crate) fn decision_over_budget(transaction_age_ms: i64) -> bool {
+        transaction_age_ms > MERGE_DECISION_BUDGET_MS as i64
+    }
+
+    /// The previous attempt is unconfirmed and still inside the settle window.
+    pub(crate) fn merge_unconfirmed() -> AppError {
+        ErrorKind::ConflictWithCode {
+            code: "errors.self_fix.merge_unconfirmed",
+            message: "The last finish attempt is not confirmed yet. Try again in a moment.".into(),
+        }
+        .into()
+    }
+
+    /// No attempts remain and the last one is unconfirmed with the pull request still open.
+    pub(crate) fn merge_attempts_exhausted_unconfirmed() -> AppError {
+        ErrorKind::ValidationWithCode {
+            code: "errors.self_fix.merge_attempts_exhausted_unconfirmed",
+            message: "No finish attempts remain and the last one is not confirmed. Merge or close the pull request on \
+                      GitHub, then select Finish this fix to update the status."
+                .into(),
+        }
+        .into()
     }
 }
 
@@ -331,6 +468,16 @@ impl SelfFixPolicy {
         ErrorKind::ValidationWithCode {
             code: "errors.self_fix.merge_attempts_exhausted",
             message: "Merge retry limit reached; review needs changes before another attempt.".into(),
+        }
+        .into()
+    }
+
+    /// Another approve call holds this task's merge mutex, or the decision
+    /// transaction could not finish inside `MERGE_DECISION_BUDGET_MS` (#1314).
+    pub(crate) fn merge_attempt_running() -> AppError {
+        ErrorKind::ConflictWithCode {
+            code: "errors.self_fix.merge_running",
+            message: "Another operation on this change is in progress. Try again in a moment.".into(),
         }
         .into()
     }
@@ -575,6 +722,114 @@ mod tests {
             message: "no PR to merge".into(),
         });
         assert_eq!(SelfFixMergeMetricPolicy::failure_label(&err), "failed");
+    }
+
+    #[test]
+    fn only_definite_merge_refusals_are_classified_definite() {
+        for err in [
+            SelfFixPolicy::checks_not_green(),
+            SelfFixPolicy::head_moved(),
+            SelfFixPolicy::sensitive_path_blocked(),
+            crate::domain::github_app::not_mergeable(),
+        ] {
+            assert!(SelfFixMergeMetricPolicy::is_definite_refusal(&err));
+        }
+        // A transport failure or an unexpected error may follow a completed merge.
+        for err in [
+            AppError::from(ErrorKind::Unavailable("github: request failed".into())),
+            AppError::from(anyhow::anyhow!("unexpected error")),
+        ] {
+            assert!(!SelfFixMergeMetricPolicy::is_definite_refusal(&err));
+        }
+    }
+
+    #[test]
+    fn merge_outcome_vocabulary_is_closed() {
+        let expected = [
+            "merged",
+            "already_merged",
+            "sensitive_blocked",
+            "checks_red",
+            "head_moved",
+            "exhausted",
+            "failed",
+            "running",
+            "unconfirmed",
+        ];
+        assert_eq!(SelfFixMergeMetricPolicy::OUTCOMES, expected.as_slice());
+        for err in [
+            SelfFixPolicy::checks_not_green(),
+            SelfFixPolicy::head_moved(),
+            SelfFixPolicy::sensitive_path_blocked(),
+            SelfFixPolicy::merge_attempt_running(),
+            SelfFixPolicy::merge_unconfirmed(),
+            AppError::from(ErrorKind::Unavailable("github".into())),
+        ] {
+            assert!(SelfFixMergeMetricPolicy::OUTCOMES.contains(&SelfFixMergeMetricPolicy::failure_label(&err)));
+        }
+    }
+
+    #[test]
+    fn a_refusal_that_raced_a_merge_ends_merged() {
+        use PullRequestState::*;
+        assert_eq!(SelfFixPolicy::review_status_after_refusal(Merged), review_status::MERGED);
+        assert_eq!(SelfFixPolicy::review_status_after_refusal(ClosedUnmerged), review_status::CHANGES_REQUESTED);
+        assert_eq!(SelfFixPolicy::review_status_after_refusal(Open), review_status::IN_REVIEW);
+    }
+
+    #[test]
+    fn a_decision_older_than_its_budget_is_refused() {
+        let budget = MERGE_DECISION_BUDGET_MS as i64;
+        assert!(!SelfFixPolicy::decision_over_budget(0));
+        assert!(!SelfFixPolicy::decision_over_budget(budget));
+        assert!(SelfFixPolicy::decision_over_budget(budget + 1));
+    }
+
+    #[test]
+    fn merge_entry_action_covers_every_combination() {
+        use MergeEntry::*;
+        use MergeEntryAction::*;
+        use PullRequestState::*;
+        let fresh = MERGE_SETTLE_WINDOW_SECS - 1;
+        let settled = MERGE_SETTLE_WINDOW_SECS;
+        // (entry, pull request, seconds since last write, at cap) -> action
+        let table = [
+            // `in_review` never consults the provider; only the cap matters.
+            (InReview, None, fresh, false, Proceed),
+            (InReview, None, fresh, true, Exhausted),
+            (InReview, None, settled, false, Proceed),
+            (InReview, None, settled, true, Exhausted),
+            (InReview, Some(Open), fresh, false, Proceed),
+            (InReview, Some(Open), settled, true, Exhausted),
+            (InReview, Some(Merged), fresh, false, Proceed),
+            (InReview, Some(Merged), settled, true, Exhausted),
+            (InReview, Some(ClosedUnmerged), fresh, false, Proceed),
+            (InReview, Some(ClosedUnmerged), settled, true, Exhausted),
+            // `approved`: the provider's actual state decides first.
+            (Approved, Some(Merged), fresh, false, MarkMerged),
+            (Approved, Some(Merged), fresh, true, MarkMerged),
+            (Approved, Some(Merged), settled, false, MarkMerged),
+            (Approved, Some(Merged), settled, true, MarkMerged),
+            (Approved, Some(ClosedUnmerged), fresh, false, MarkClosed),
+            (Approved, Some(ClosedUnmerged), fresh, true, MarkClosed),
+            (Approved, Some(ClosedUnmerged), settled, false, MarkClosed),
+            (Approved, Some(ClosedUnmerged), settled, true, MarkClosed),
+            (Approved, Some(Open), fresh, false, WaitUnconfirmed),
+            (Approved, Some(Open), fresh, true, WaitUnconfirmed),
+            (Approved, Some(Open), settled, false, Proceed),
+            (Approved, Some(Open), settled, true, ExhaustedUnconfirmed),
+            (Approved, None, fresh, false, WaitUnconfirmed),
+            (Approved, None, fresh, true, WaitUnconfirmed),
+            (Approved, None, settled, false, WaitUnconfirmed),
+            (Approved, None, settled, true, WaitUnconfirmed),
+        ];
+        for (entry, pr, age, cap, expected) in table {
+            assert_eq!(
+                SelfFixPolicy::merge_entry_action(entry, pr, age, cap),
+                expected,
+                "{entry:?} {pr:?} {age} {cap}"
+            );
+        }
     }
 
     #[test]

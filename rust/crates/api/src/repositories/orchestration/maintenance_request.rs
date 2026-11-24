@@ -2,7 +2,7 @@
 
 use agentforge_core::{AppResult, TenantScope};
 use chrono::{DateTime, Utc};
-use sqlx::{FromRow, PgPool, Postgres, Transaction};
+use sqlx::{FromRow, PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::domain::maintenance::MaintenanceSourceIdentity;
@@ -59,12 +59,21 @@ impl MaintenanceRequestRepository {
         scope: &TenantScope,
         task_id: Uuid,
     ) -> AppResult<Option<MaintenanceRequestRow>> {
+        Self::find_by_task_on(&mut *self.pool.acquire().await?, scope, task_id).await
+    }
+
+    /// [`Self::find_by_task`] on a caller-held connection or transaction.
+    pub(crate) async fn find_by_task_on(
+        conn: &mut PgConnection,
+        scope: &TenantScope,
+        task_id: Uuid,
+    ) -> AppResult<Option<MaintenanceRequestRow>> {
         Ok(sqlx::query_as::<_, MaintenanceRequestRow>(
             "SELECT * FROM maintenance_requests WHERE organization_id = $1 AND task_id = $2",
         )
         .bind(scope.org_id().as_uuid())
         .bind(task_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *conn)
         .await?)
     }
 

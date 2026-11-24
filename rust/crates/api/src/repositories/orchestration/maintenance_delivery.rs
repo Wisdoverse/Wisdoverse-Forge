@@ -169,6 +169,16 @@ impl MaintenanceDeliveryRepository {
             .bind(scope.org_id().as_uuid()).bind(task).fetch_optional(&mut **tx).await?)
     }
 
+    /// Latest verdict recorded on one report, read in the caller's transaction.
+    pub(crate) async fn latest_verdict_for_report_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
+        report: Uuid,
+    ) -> AppResult<Option<String>> {
+        Ok(sqlx::query_scalar("SELECT verdict FROM maintenance_review_decisions WHERE organization_id=$1 AND report_id=$2 ORDER BY created_at DESC,id DESC LIMIT 1")
+            .bind(scope.org_id().as_uuid()).bind(report).fetch_optional(&mut **tx).await?)
+    }
+
     pub(crate) async fn decision_by_key_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,

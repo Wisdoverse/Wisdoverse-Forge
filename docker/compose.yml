@@ -228,7 +228,11 @@ services:
       - CONTEXT_ANALYTICS_ENABLED=${CONTEXT_ANALYTICS_ENABLED:-false}
 
     healthcheck:
-      test: ['CMD', 'curl', '-sf', 'http://localhost:4003/health']
+      # Readiness, not liveness: `healthy` (used by depends_on and `up --wait`)
+      # means the API can serve, so it needs PostgreSQL and NATS (plus Redis
+      # when REQUIRE_EXTERNAL_STATE=true). `unhealthy` needs three failed probes
+      # in a row (about 60-90s), so a short NATS or Redis blip does not flap.
+      test: ['CMD', 'curl', '-sf', 'http://localhost:4003/api/health']
       interval: ${HEALTHCHECK_INTERVAL:-30s}
       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
       retries: ${HEALTHCHECK_RETRIES:-3}
