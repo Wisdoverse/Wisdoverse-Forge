@@ -30,11 +30,13 @@ mod delivery_outcomes;
 mod delivery_write;
 mod maintenance;
 mod merge_lock;
+mod reconcile;
 
 pub(crate) use crate::domain::maintenance::MaintenanceRequestInput;
 pub(crate) use crate::domain::maintenance_delivery::{
     ComparisonQuery, DecisionInput, HandoffInput, OutcomeQuery, VerificationInput,
 };
+pub(crate) use crate::domain::self_fix::ReconcileHeadInput;
 pub mod metrics;
 
 use std::path::PathBuf;
@@ -375,12 +377,11 @@ impl SelfFixService {
         //    transaction is held to `MERGE_DECISION_BUDGET_MS`: every lock wait
         //    fails fast, and a transaction that still ended up older than the
         //    budget is refused instead of committed.
-        let mut tx = conn.begin().await?;
-        match Self::decide_in_tx(&mut tx, scope, task_id, task.pr_head_sha.as_deref()).await {
-            Ok(true) => tx.commit().await?,
-            Ok(false) => return Self::refuse_busy_decision(tx).await,
-            Err(err) if err.is_lock_timeout() => return Self::refuse_busy_decision(tx).await,
-            Err(err) => return Err(err),
+        let mut tx = Self::begin_decision(conn).await?;
+        let decided = Self::decide_in_tx(&mut tx, scope, task_id, task.pr_head_sha.as_deref()).await;
+        if Self::finish_decision(tx, decided).await?.is_none() {
+            metrics::record_merge_outcome("running");
+            return Err(SelfFixPolicy::merge_attempt_running());
         }
 
         // Run the git-only guarded merge. NOTHING merges on a gate failure.
@@ -440,17 +441,50 @@ impl SelfFixService {
         })
     }
 
-    /// The merge decision transaction (step d). Its first statement sets the
-    /// transaction-local `lock_timeout` to the budget; its last measures the
-    /// transaction's age in PostgreSQL. The caller commits on `Ok(true)`;
-    /// `Ok(false)` (over budget) and every error are rolled back.
+    /// Begin a decision transaction on the merge mutex's connection. Its first
+    /// statement sets the transaction-local `lock_timeout` to the decision
+    /// budget, so every lock wait inside it fails fast with SQLSTATE 55P03.
+    /// Shared by the merge decision and head reconciliation.
+    pub(super) async fn begin_decision(conn: &mut PgConnection) -> AppResult<sqlx::Transaction<'_, sqlx::Postgres>> {
+        let mut tx = conn.begin().await?;
+        OrchestrationTaskRepository::set_lock_timeout_on(&mut tx, MERGE_DECISION_BUDGET_MS).await?;
+        Ok(tx)
+    }
+
+    /// Finish a decision transaction begun by [`Self::begin_decision`]. Its
+    /// last statement measures the transaction's age in PostgreSQL: anything
+    /// written carries the transaction START time. `Ok(None)`: busy (a lock
+    /// wait timed out, or the transaction outlived the budget) and rolled back,
+    /// nothing written. Any other error is returned (the transaction rolls back).
+    pub(super) async fn finish_decision<T>(
+        mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
+        decided: AppResult<T>,
+    ) -> AppResult<Option<T>> {
+        let value = match decided {
+            Ok(value) => value,
+            Err(err) if err.is_lock_timeout() => {
+                tx.rollback().await?;
+                return Ok(None);
+            }
+            Err(err) => return Err(err),
+        };
+        let age_ms = OrchestrationTaskRepository::transaction_age_ms_on(&mut tx).await?;
+        if SelfFixPolicy::decision_over_budget(age_ms) {
+            tx.rollback().await?;
+            return Ok(None);
+        }
+        tx.commit().await?;
+        Ok(Some(value))
+    }
+
+    /// The merge decision transaction body (step d), run between
+    /// [`Self::begin_decision`] and [`Self::finish_decision`].
     async fn decide_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: &TenantScope,
         task_id: Uuid,
         expected_head: Option<&str>,
-    ) -> AppResult<bool> {
-        OrchestrationTaskRepository::set_lock_timeout_on(tx, MERGE_DECISION_BUDGET_MS).await?;
+    ) -> AppResult<()> {
         let current = delivery_write::lock_task(tx, scope, task_id).await?;
         if current.pr_head_sha.as_deref() != expected_head {
             return Err(SelfFixPolicy::head_moved());
@@ -461,16 +495,7 @@ impl SelfFixService {
         }
         OrchestrationTaskRepository::bump_merge_attempts_in_tx(tx, scope, task_id).await?;
         OrchestrationTaskRepository::set_review_status_on(tx, scope, task_id, APPROVED).await?;
-        let age_ms = OrchestrationTaskRepository::transaction_age_ms_on(tx).await?;
-        Ok(!SelfFixPolicy::decision_over_budget(age_ms))
-    }
-
-    /// Roll back a decision that ran out of budget: nothing written, no
-    /// attempt counted, no provider call.
-    async fn refuse_busy_decision<T>(tx: sqlx::Transaction<'_, sqlx::Postgres>) -> AppResult<T> {
-        tx.rollback().await?;
-        metrics::record_merge_outcome("running");
-        Err(SelfFixPolicy::merge_attempt_running())
+        Ok(())
     }
 
     /// Read-side review snapshot for the in-platform review surface (milestone 8).

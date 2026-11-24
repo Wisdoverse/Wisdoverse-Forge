@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MaintenanceDelivery } from '@shared/types/maintenance-delivery'
 import { getMaintenanceDelivery } from '@app/entities/maintenance'
 import { useNavigationStore } from '@app/entities/navigation'
@@ -9,6 +9,7 @@ import { Timestamp } from './fields'
 import { ReportForm } from './ReportForm'
 import { DecisionForm } from './DecisionForm'
 import { HandoffForm } from './HandoffForm'
+import { ReconcileHeadForm } from './ReconcileHeadForm'
 import { CheckObservation, ReportCard } from './ReportCard'
 
 type State =
@@ -24,7 +25,12 @@ export function MaintenanceDeliveryPanel({ taskId }: { taskId: string }) {
 function Panel({ taskId }: { taskId: string }) {
   const [state, setState] = useState<State>({ status: 'loading' }),
     [version, setVersion] = useState(0),
-    [notice, setNotice] = useState('')
+    [notice, setNotice] = useState(''),
+    [focusNotice, setFocusNotice] = useState(0)
+  const noticeRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    if (focusNotice) noticeRef.current?.focus()
+  }, [focusNotice])
   useEffect(() => {
     const controller = new AbortController()
     setState({ status: 'loading' })
@@ -52,6 +58,13 @@ function Panel({ taskId }: { taskId: string }) {
     setNotice('Record saved. Refreshing the current evidence and history.')
     refresh()
   }
+  function reconciled() {
+    setNotice(
+      'The newer revision is now recorded. Earlier reports and verdicts no longer apply; create a new report before acceptance.'
+    )
+    setFocusNotice((n) => n + 1)
+    refresh()
+  }
   return (
     <section
       className="mt-6 space-y-4 break-words"
@@ -72,7 +85,7 @@ function Panel({ taskId }: { taskId: string }) {
         </button>
       </div>
       {notice && (
-        <p role="status" className={uiStyles.note}>
+        <p ref={noticeRef} tabIndex={-1} role="status" className={uiStyles.note}>
           {notice}
         </p>
       )}
@@ -94,6 +107,7 @@ function Panel({ taskId }: { taskId: string }) {
             </p>
             <CheckObservation checks={data.currentChecks} label="Current GitHub observation" />
           </div>
+          <ReconcileHeadForm data={data} onReconciled={reconciled} />
           <div className={`${uiStyles.cardPadded} space-y-2`}>
             <h3 className="font-medium">Recovery state</h3>
             <p>

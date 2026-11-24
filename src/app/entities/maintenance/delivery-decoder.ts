@@ -336,6 +336,17 @@ export function comparison(v: unknown, ids: string[]): T.MaintenanceComparison {
     rows,
   }
 }
+export function reconciled(v: unknown): T.ReconcileHeadResult {
+  const d = obj(v)
+  return {
+    taskId: id(d.taskId),
+    previousHead: sha(d.previousHead),
+    currentHead: sha(d.currentHead),
+    changed: bool(d.changed),
+    sensitive: bool(d.sensitive),
+    reviewStatus: nullable(d.reviewStatus, (s) => str(s, 64)),
+  }
+}
 export function taskIdentity(taskId: string): void {
   id(taskId)
 }

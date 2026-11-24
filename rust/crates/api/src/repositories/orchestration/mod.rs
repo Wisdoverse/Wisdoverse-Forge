@@ -918,6 +918,23 @@ impl OrchestrationTaskRepository {
         .await?)
     }
 
+    /// Store a reconciled pull-request head (tenant-scoped). The review window
+    /// (`review_opened_at`) and the attempt counter are left untouched.
+    pub(crate) async fn set_pr_head_sha_on(
+        conn: &mut PgConnection,
+        scope: &TenantScope,
+        id: Uuid,
+        head_sha: &str,
+    ) -> AppResult<()> {
+        sqlx::query("UPDATE orchestration_tasks SET pr_head_sha = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
+            .bind(head_sha)
+            .bind(id)
+            .bind(scope.org_id().as_uuid())
+            .execute(&mut *conn)
+            .await?;
+        Ok(())
+    }
+
     /// Set the review status on a caller-held connection or transaction (tenant-scoped).
     pub(crate) async fn set_review_status_on(
         conn: &mut PgConnection,

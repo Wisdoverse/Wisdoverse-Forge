@@ -2,6 +2,7 @@ import type {
   DecisionInput,
   HandoffInput,
   OutcomeQuery,
+  ReconcileHeadInput,
   VerificationInput,
 } from '@shared/types/maintenance-delivery'
 import { exchange, MaintenanceError } from './api'
@@ -11,6 +12,7 @@ import {
   delivery,
   handoff,
   outcomes,
+  reconciled,
   report,
   taskIdentity,
 } from './delivery-decoder'
@@ -65,6 +67,23 @@ export function recordMaintenanceHandoff(id: string, input: HandoffInput, signal
       if (saved.taskId !== id || saved.snapshot.revision !== input.expectedRevision)
         throw new MaintenanceError('invalid-response')
       return saved
+    },
+    signal
+  )
+}
+export function reconcileMaintenanceHead(
+  id: string,
+  input: ReconcileHeadInput,
+  signal?: AbortSignal
+) {
+  return exchange(
+    taskPath(id, 'reconcile-head'),
+    { method: 'POST', body: JSON.stringify(input) },
+    (v) => {
+      const result = reconciled(v)
+      if (result.taskId !== id || result.currentHead !== input.expectedNewHead)
+        throw new MaintenanceError('invalid-response')
+      return result
     },
     signal
   )

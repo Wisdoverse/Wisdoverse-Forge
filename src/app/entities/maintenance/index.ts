@@ -10,6 +10,7 @@ export {
   createVerification,
   recordMaintenanceDecision,
   recordMaintenanceHandoff,
+  reconcileMaintenanceHead,
   getMaintenanceOutcomes,
   compareMaintenanceReports,
 } from './delivery-api'

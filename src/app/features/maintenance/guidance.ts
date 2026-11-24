@@ -9,6 +9,16 @@ export const maintenanceGuidance: Record<MaintenanceFailure, string> = {
     'The produced revision could not be verified. Refresh after GitHub recovers or the head change has been reviewed before recording acceptance.',
   'merge-in-progress':
     "A merge of this change is in progress or unconfirmed. Choose Finish this fix in the task's fix check status to complete it, then record the verdict.",
+  busy: 'Another operation on this change is in progress. Wait a moment, refresh evidence, then try again.',
+  'reconcile-stale':
+    'The recorded revision changed since this page loaded. Refresh evidence, check both revisions, then try again.',
+  'reconcile-head-moved':
+    'The pull request moved to another revision. Refresh evidence to see the newest revision, then try again.',
+  'reconcile-not-open':
+    'The pull request is not open on GitHub. Reopen it there, or finish the change on GitHub.',
+  'reconcile-base-changed':
+    'The pull request no longer targets the branch this task was opened for. Finish the change on GitHub.',
+  'reconcile-merged': 'This change is already merged. There is no newer revision to use.',
   unauthenticated:
     'Sign in again, then return to this task or retry with the same source reference.',
   forbidden:

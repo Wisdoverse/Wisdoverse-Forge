@@ -6,6 +6,7 @@ import {
   getMaintenanceOutcomes,
   MAINTENANCE_TIMEOUT_MS,
   recordMaintenanceDecision,
+  reconcileMaintenanceHead,
 } from '@app/entities/maintenance'
 import { maintenanceTaskId } from '../../support/fixtures/maintenance'
 import {
@@ -161,6 +162,47 @@ describe('revision-bound maintenance evidence boundary', () => {
     )
     await expect(recordMaintenanceDecision(maintenanceTaskId, input)).rejects.toMatchObject({
       reason: 'merge-in-progress',
+    })
+  })
+
+  it('maps each refused newer-revision adoption to its own guidance and validates the result', async () => {
+    const input = { expectedStoredHead: 'a'.repeat(40), expectedNewHead: 'b'.repeat(40) }
+    for (const [code, reason] of [
+      ['errors.self_fix.merge_running', 'busy'],
+      ['errors.maintenance.merge_in_progress', 'merge-in-progress'],
+      ['errors.self_fix.reconcile_stale', 'reconcile-stale'],
+      ['errors.self_fix.reconcile_head_mismatch', 'reconcile-head-moved'],
+      ['errors.self_fix.reconcile_pull_request_not_open', 'reconcile-not-open'],
+      ['errors.self_fix.reconcile_base_changed', 'reconcile-base-changed'],
+      ['errors.self_fix.reconcile_merged', 'reconcile-merged'],
+      ['constructor', 'conflict'],
+    ]) {
+      mocks.fetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: false, error: { code, message: 'x' } }), { status: 409 })
+      )
+      await expect(reconcileMaintenanceHead(maintenanceTaskId, input)).rejects.toMatchObject({
+        reason,
+      })
+    }
+    const result = {
+      taskId: maintenanceTaskId,
+      previousHead: input.expectedStoredHead,
+      currentHead: input.expectedNewHead,
+      changed: true,
+      sensitive: true,
+      reviewStatus: 'sensitive_blocked',
+    }
+    mocks.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, data: result }), { status: 200 })
+    )
+    await expect(reconcileMaintenanceHead(maintenanceTaskId, input)).resolves.toEqual(result)
+    mocks.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, data: { ...result, currentHead: 'c'.repeat(40) } }), {
+        status: 200,
+      })
+    )
+    await expect(reconcileMaintenanceHead(maintenanceTaskId, input)).rejects.toMatchObject({
+      reason: 'invalid-response',
     })
   })
   it('bounds slow response bodies and cancels scoped reads', async () => {

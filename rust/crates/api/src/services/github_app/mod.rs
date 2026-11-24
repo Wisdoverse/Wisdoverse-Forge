@@ -68,6 +68,12 @@ struct InstallTokenResp {
     permissions: std::collections::HashMap<String, String>,
 }
 
+/// A pull request's changed paths; `complete` is false when the listing may be truncated.
+pub(crate) struct PullRequestFiles {
+    pub paths: Vec<String>,
+    pub complete: bool,
+}
+
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct PullRequest {
@@ -291,6 +297,40 @@ impl GithubAppClient {
             .await
             .map_err(|_| source_unavailable())?
             .snapshot(&self.cfg.repo, number)
+    }
+
+    /// Changed paths of a pull request (both sides of a rename), following
+    /// pagination. `complete` is false when the provider's listing cap may
+    /// have been reached or pages remain after the page limit.
+    pub(crate) async fn pull_request_files(&self, number: i32) -> AppResult<PullRequestFiles> {
+        // The provider stops listing at 3000 files; 30 pages of 100 reach it.
+        const PROVIDER_FILE_CAP: usize = 3000;
+        const MAX_PAGES: usize = 30;
+        #[derive(Deserialize)]
+        struct ChangedFile {
+            filename: String,
+            #[serde(default)]
+            previous_filename: Option<String>,
+        }
+        let endpoint = "GET /repos/{repo}/pulls/{number}/files";
+        let mut next = Some(format!("{}/repos/{}/pulls/{number}/files?per_page=100", Self::api_base(), self.cfg.repo));
+        let mut listed = 0;
+        let mut paths = Vec::new();
+        for _ in 0..MAX_PAGES {
+            let Some(url) = next.take() else { break };
+            let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
+            if !resp.status().is_success() {
+                return Err(unavailable_status(resp.status(), endpoint));
+            }
+            next = resp.headers().get(reqwest::header::LINK).and_then(|v| v.to_str().ok()).and_then(parse_link_next);
+            let page: Vec<ChangedFile> = resp.json().await.map_err(|_| unavailable(endpoint))?;
+            listed += page.len();
+            for file in page {
+                paths.extend(file.previous_filename);
+                paths.push(file.filename);
+            }
+        }
+        Ok(PullRequestFiles { paths, complete: next.is_none() && listed < PROVIDER_FILE_CAP })
     }
 
     /// Open a draft PR for a self-fix branch.
