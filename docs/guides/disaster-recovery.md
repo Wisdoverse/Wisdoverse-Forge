@@ -394,12 +394,13 @@ Success looks like this:
     host that had no previous copy. To undo, run only the first rename:
     `ALTER DATABASE $DB RENAME TO ${DB}_restore;`.
 
-  When every database is back to its state before the restore, delete the
-  `*_restore` copies as for phases 2 and 3. The listing then shows `<db>` and
-  `<db>_restore` for a database that existed before, and only `<db>_restore`
-  for one that did not. Then remove the cause; the block prints it, for
-  example a client that is still connected. Paste the block again, or start the
-  services again.
+  When every database is back to its state before the restore, the listing
+  shows `<db>` and `<db>_restore` for a database that existed before, and only
+  `<db>_restore` for one that did not. Then delete the `*_restore` copies as
+  for phases 2 and 3. After that, only the `<db>` names that existed before
+  remain; a database that did not exist before has neither name. Then remove
+  the cause; the block prints it, for example a client that is still
+  connected. Paste the block again, or start the services again.
 
 - **Stopped in phase 5:** all four databases are already promoted. They passed
   the phase 3 checks, so they are valid. Your previous databases are kept,
