@@ -103,7 +103,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(agentforge_orchestration_assignment_publish_seconds_bucket[$__rate_interval])) by (le))",
+          "expr": "max(agentforge_orchestration_assignment_publish_seconds{quantile=\"0.95\"})",
           "legendFormat": "assignment publish p95",
           "refId": "A"
         }
@@ -195,8 +195,8 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(agentforge_orchestration_result_apply_seconds_bucket[$__rate_interval])) by (le))",
-          "legendFormat": "result apply p95",
+          "expr": "max by (outcome) (agentforge_orchestration_result_apply_seconds{quantile=\"0.95\"})",
+          "legendFormat": "result apply p95 ({{outcome}})",
           "refId": "A"
         }
       ],
@@ -1016,12 +1016,12 @@
       "pluginVersion": "10.4.0",
       "targets": [
         {
-          "expr": "absent(agentforge_orchestration_assignment_publish_seconds_bucket) or on() vector(0)",
+          "expr": "absent(agentforge_orchestration_assignment_publish_seconds_count) or on() vector(0)",
           "legendFormat": "assignment publish latency",
           "refId": "A"
         },
         {
-          "expr": "absent(agentforge_orchestration_result_apply_seconds_bucket) or on() vector(0)",
+          "expr": "absent(agentforge_orchestration_result_apply_seconds_count) or on() vector(0)",
           "legendFormat": "result apply latency",
           "refId": "B"
         },

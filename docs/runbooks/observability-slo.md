@@ -15,10 +15,13 @@ What Forge measures and alerts on today:
 - CLI auth proxy OAuth client failures and self-fix delivery failures.
 - The agents-runtime endpoints (create, Host CLI enroll, restart).
 
-The alert rules live in `ops/prometheus/alerts.yml` and
-`ops/prometheus/agents-runtime.yml`. Add both files to `rule_files` in your
-Prometheus configuration. [Alerting Thresholds](#alerting-thresholds) lists
-every rule. Some indicators that earlier versions of this page described are
+The alert rules live in `ops/prometheus/alerts.yml`,
+`ops/prometheus/agents-runtime.yml` and, for orchestration production
+reliability, `docker/orchestration-alerts.yml`. Add all three files to
+`rule_files` in your Prometheus configuration.
+[Alerting Thresholds](#alerting-thresholds) lists every rule. Three rules in
+`ops/prometheus/alerts.yml` need an exporter that Forge does not ship; the table
+says which. Some indicators that earlier versions of this page described are
 not measured yet; see [Not Implemented Indicators](#not-implemented-indicators).
 
 To confirm that this page and the alert rules only name metrics the code emits,
@@ -161,28 +164,38 @@ _always_ explained.
 ## Alerting Thresholds
 
 Alerts should be routed to the operator's on-call channel. Every rule shipped
-in `ops/prometheus/alerts.yml` is listed below. The agents-runtime rules are in
+in `ops/prometheus/alerts.yml` is listed below. The **For** column is the rule's
+pending period: the condition must stay true that long before the alert fires;
+`0m` fires on the first evaluation. The agents-runtime rules are in
 [Agents Runtime SLOs](#agents-runtime-slos).
 
-| Alert rule                          | Condition                                                           | Severity | Notes                                                                                     |
-| ----------------------------------- | ------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
-| `APIHigh5xxRate`                    | Per-path API 5xx rate > 1% for 5 min                                | Page     | API availability SLI.                                                                     |
-| `APIErrorBudgetBurn`                | Global API 5xx rate > 1.4% over both 1h and 5m, for 2 min           | Page     | API availability SLI.                                                                     |
-| `API5xxRatioAtOrAboveSLO`           | Global API 5xx rate >= 0.5% over 30 days, for 1 hour                | Warning  | API availability SLI.                                                                     |
-| `APINotImplementedResponses`        | Any API 501 response in the last 15 min                             | Ticket   | Fires per route; see [Not Implemented Responses](#not-implemented-responses).             |
-| `APILatencyHighP95`                 | Per-path API p95 latency > 1 s for 10 min                           | Page     | API latency SLI.                                                                          |
-| `APILatencyHighP99`                 | Per-path API p99 latency > 3 s for 10 min                           | Ticket   | API latency SLI.                                                                          |
-| `OrchestratorHigh5xxRate`           | Per-path orchestrator 5xx rate > 1% for 5 min                       | Page     | Orchestrator HTTP traffic only (`service="orchestrator"`).                                |
-| `OrchestratorLatencyHighP95`        | Per-path orchestrator p95 latency > 1 s for 10 min                  | Ticket   | Orchestrator HTTP traffic only.                                                           |
-| `OrchestrationLagHigh`              | Oldest unpublished orchestration outbox row older than 60 s, 5 min  | Page     | See [Orchestration](orchestration.md).                                                    |
-| `OrchestrationOutboxBacklogHigh`    | More than 1000 unpublished outbox rows for 10 min                   | Ticket   | See [Orchestration](orchestration.md).                                                    |
-| `ContainerRestartLoop`              | API or orchestrator container restarted more than 3 times in 10 min | Page     | Needs a container exporter (cAdvisor or kube-state); Forge does not export this metric.   |
-| `HealthCheckFailing`                | Blackbox probe with job `staging-health` fails for 3 min            | Page     | Needs your own blackbox exporter job; the probe target is in your Prometheus config.      |
-| `APIMemoryHigh`                     | API resident memory > 80% of machine memory for 15 min              | Ticket   | Needs an exporter for `process_resident_memory_bytes`; the Forge services do not emit it. |
-| `CliAuthProxyInvalidClientFailures` | OAuth provider rejected the CLI auth proxy client in 10 min         | Critical | See [credential sync](credential-sync.md#cli-auth-proxy-invalid-client).                  |
-| `SelfFixPrPermanentFailure`         | A self-fix PR open failed permanently in 15 min                     | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                              |
-| `SelfFixMergeFailed`                | A self-fix merge attempt failed in 15 min                           | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                              |
-| `SelfFixMergeAttemptsExhausted`     | A self-fix approve hit the merge attempt cap in 15 min              | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                              |
+| Alert rule                          | Condition                                                                 | For | Severity | Notes                                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------- | --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APIHigh5xxRate`                    | Per-path API 5xx ratio > 1% over 5 min                                    | 5m  | Page     | API availability SLI.                                                                                                                                                                                           |
+| `APIErrorBudgetBurn`                | Global API 5xx ratio > 1.4% over both 1h and 5m                           | 2m  | Page     | API availability SLI.                                                                                                                                                                                           |
+| `API5xxRatioAtOrAboveSLO`           | Global API 5xx ratio >= 0.5% over 30 days, with nonzero traffic           | 1h  | Warning  | API availability SLI.                                                                                                                                                                                           |
+| `APINotImplementedResponses`        | Any API 501 response in the last 15 min                                   | 0m  | Ticket   | Fires per route; see [Not Implemented Responses](#not-implemented-responses).                                                                                                                                   |
+| `APILatencyHighP95`                 | Per-path API p95 latency > 1 s                                            | 10m | Page     | API latency SLI.                                                                                                                                                                                                |
+| `APILatencyHighP99`                 | Per-path API p99 latency > 3 s                                            | 10m | Ticket   | API latency SLI.                                                                                                                                                                                                |
+| `OrchestratorHigh5xxRate`           | Per-path orchestrator 5xx ratio > 1% over 5 min                           | 5m  | Page     | Orchestrator HTTP traffic only (`service="orchestrator"`).                                                                                                                                                      |
+| `OrchestratorLatencyHighP95`        | Per-path orchestrator p95 latency > 1 s                                   | 10m | Ticket   | Orchestrator HTTP traffic only.                                                                                                                                                                                 |
+| `OrchestrationLagHigh`              | Oldest unpublished orchestration outbox row older than 60 s               | 5m  | Page     | See [Orchestration](orchestration.md).                                                                                                                                                                          |
+| `OrchestrationOutboxBacklogHigh`    | More than 1000 unpublished outbox rows                                    | 10m | Ticket   | See [Orchestration](orchestration.md).                                                                                                                                                                          |
+| `ContainerRestartLoop`              | API or orchestrator container restarted more than 3 times in 10 min       | 0m  | Page     | Needs a Docker exporter that publishes `container_restart_count` (cAdvisor and kube-state-metrics use other names). Forge does not ship one; without it this alert never fires.                                 |
+| `HealthCheckFailing`                | Blackbox probe in the scrape job `staging-health` fails                   | 3m  | Page     | Needs the Prometheus blackbox exporter and a scrape job named `staging-health`. Forge ships neither; without them this alert never fires.                                                                       |
+| `APIMemoryHigh`                     | API resident memory > 80% of machine memory                               | 15m | Ticket   | Needs cAdvisor for `machine_memory_bytes` and an exporter that publishes `process_resident_memory_bytes` for the job `agentforge-server`; the Forge services emit neither. Without them this alert never fires. |
+| `CliAuthProxyInvalidClientFailures` | OAuth provider rejected the CLI auth proxy client at least once in 10 min | 1m  | Critical | See [credential sync](credential-sync.md#cli-auth-proxy-invalid-client).                                                                                                                                        |
+| `SelfFixPrPermanentFailure`         | A self-fix PR open failed permanently in the last 15 min                  | 0m  | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                                                                                                                                                    |
+| `SelfFixMergeFailed`                | A self-fix merge attempt failed in the last 15 min                        | 0m  | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                                                                                                                                                    |
+| `SelfFixMergeAttemptsExhausted`     | A self-fix approve hit the merge attempt cap in the last 15 min           | 0m  | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                                                                                                                                                    |
+
+The orchestration production rules in `docker/orchestration-alerts.yml`
+(`OrchestrationAssignmentOutboxBacklog`, `OrchestrationAssignmentOutboxStalled`,
+`OrchestrationExpiredWorkingLeases`, `OrchestrationStaleParticipants`,
+`OrchestrationBusyParticipantWithoutWork`,
+`OrchestrationWorkingTaskWithoutBusyParticipant`, `OrchestrationResultApplyLag`,
+`OrchestrationResultUnauthorizedSpike`, `OrchestrationOutboxPublishErrors`) are
+documented in the [Orchestration runbook](orchestration.md#alert-route-check).
 
 Both error-budget burn windows use a 1.4% threshold. This is 2.8 times the
 global 0.5% error budget.
@@ -219,7 +232,9 @@ panels:
 - Memory and CPU per service container, from your container exporter.
 
 The indicators under [Not Implemented Indicators](#not-implemented-indicators)
-have no metric, so they cannot have a panel yet.
+have no metric, so they cannot have a panel yet. The overview dashboard's memory
+and container restart panels use the external metrics named in
+[Alerting Thresholds](#alerting-thresholds) and stay empty without those exporters.
 
 Dashboard URLs and credentials live in the operator's private infra repo, not
 in this repository.
@@ -235,13 +250,16 @@ the agents-runtime service (#447).
 | `POST /api/v1/agents/local-enroll` | < 800ms | > 99.5%     | 28d    | `HostCliEnrollP95Slow`, `HostCliEnrollSuccessRatioBelowSLO`       |
 | `POST /api/v1/agents/:id/restart`  | < 2s    | > 99.0%     | 28d    | `ContainerRestartP95Slow`, `ContainerRestartSuccessRatioBelowSLO` |
 
-DB invariant and replay burst alerts also fire immediately without a `for:`
-window:
+The p95 alerts fire after the threshold is exceeded for 10 minutes. The success
+ratio alerts fire after the 28-day ratio stays below the target for 1 hour. All
+six are severity `warning`.
 
-| Alert                                     | Trigger                                                       | Severity |
-| ----------------------------------------- | ------------------------------------------------------------- | -------- |
-| `AgentsCheckConstraintViolation`          | Any `agents_check_constraint_violations_total` increase in 5m | critical |
-| `HostCliEnrollmentIdempotencyReplayBurst` | `agents_idempotency_replay_total` rate > 5/s for 5m           | warning  |
+Two more rules watch the DB invariant and replay bursts:
+
+| Alert                                     | Trigger                                                       | For                | Severity |
+| ----------------------------------------- | ------------------------------------------------------------- | ------------------ | -------- |
+| `AgentsCheckConstraintViolation`          | Any `agents_check_constraint_violations_total` increase in 5m | 0s (fires at once) | critical |
+| `HostCliEnrollmentIdempotencyReplayBurst` | `agents_idempotency_replay_total` rate > 5/s                  | 5m                 | warning  |
 
 Alert rules file: `ops/prometheus/agents-runtime.yml`
 
@@ -338,8 +356,14 @@ These orchestration metrics are emitted and shown on
 alerts on them:
 
 - `agentforge_orchestration_outbox_published_total`: assignment outbox rows published to NATS JetStream and acknowledged.
-- `agentforge_orchestration_outbox_publish_errors_total`: assignment publish attempts that failed.
-- `agentforge_orchestration_assignment_publish_seconds`: time to publish one assignment and receive the acknowledgement (histogram).
+- `agentforge_orchestration_assignment_publish_seconds`: time to publish one assignment and receive the acknowledgement.
+
+The second one is recorded as a histogram without configured buckets, so the
+exporter publishes it as a summary: one series per quantile (for example
+`agentforge_orchestration_assignment_publish_seconds{quantile="0.95"}`, over
+roughly the last minute) plus `_sum` and `_count`. It has no `_bucket` series,
+so `histogram_quantile()` does not work on it. Only
+`http_request_duration_seconds` has buckets.
 
 ## Logs
 

@@ -71,7 +71,7 @@
     "typecheck": "tsc --noEmit",
     "proto:gen": "npm run proto:gen:platform",
     "proto:gen:platform": "mkdir -p shared/generated/platform && protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=shared/generated/platform --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useExactTypes=false -I=rust/crates/platform/proto rust/crates/platform/proto/*.proto && sed -i 's|from \"./common\"|from \"./common.js\"|g' shared/generated/platform/*.ts && prettier --write 'shared/generated/platform/*.ts'",
-    "proto:check": "npm run proto:gen && git diff --exit-code shared/generated/platform/"
+    "proto:check": "npm run proto:gen && git diff --exit-code shared/generated/platform/ && test -z \"$(git ls-files --others --exclude-standard -- shared/generated/platform/)\""
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.15.0",
