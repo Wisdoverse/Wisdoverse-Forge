@@ -2,7 +2,7 @@ import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { AuthPage } from '@app/features/auth'
 import { getInviteTokenFromLocation, getResetTokenFromLocation } from '@app/shared/lib/publicAuth'
-import { teamApi } from '@app/entities/navigation/team/api/teamApi'
+import { teamApi } from '@app/entities/navigation'
 import { useAuth } from '@app/shared/model/auth.context'
 
 function removeAuthPageDom() {

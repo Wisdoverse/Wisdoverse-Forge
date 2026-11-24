@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
-import { useNavigationStore } from '@app/entities/navigation'
+import { useNavigationStore, useBoardStore } from '@app/entities/navigation'
 import { orchestrationApi, type TaskSummary } from '@app/shared/api/orchestration'
 import {
   agentAiServiceLabel,
@@ -10,7 +10,6 @@ import {
   isHostCliAgent,
   useAgentsStore,
 } from '@app/entities/agent'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { PreferenceGuideDisclosure, useSettingsStore } from '@app/entities/settings'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'
 import { useSkillsStore } from '@app/entities/skill'

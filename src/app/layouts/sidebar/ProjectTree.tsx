@@ -19,9 +19,7 @@ import {
   resourceMemberSelectionLostMessage,
 } from '@app/features/manage-members'
 import { CloneStatusBadge } from '@app/features/manage-project'
-import type { NavProject } from '@app/entities/navigation/project'
-import { projectApi } from '@app/entities/navigation/project'
-import type { NavTeam } from '@app/entities/navigation/team'
+import { projectApi, type NavProject, type NavTeam } from '@app/entities/navigation'
 import { userApi } from '@app/entities/user'
 
 interface ProjectTreeProps {

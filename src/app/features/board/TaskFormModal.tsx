@@ -13,9 +13,8 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
+import { waitingPlaceDisplayName, useBoardStore } from '@app/entities/navigation'
 import { useAgentsStore, isTaskImageCapable } from '@app/entities/agent'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { orchestrationApi, type TaskTemplate } from '@app/shared/api/orchestration'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'

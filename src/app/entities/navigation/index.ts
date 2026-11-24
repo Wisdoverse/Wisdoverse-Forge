@@ -3,7 +3,17 @@ export {
   useNavigationStore,
   type CloneStatusUpdate,
 } from './model/navigation.store'
+export { useBoardStore } from './model/board.store'
+export { agentGroupApi, waitingPlaceDisplayName } from './agent-group'
 export type { NavAgentGroup } from './agent-group'
+export type {
+  AddResourceMemberInput,
+  ResourceMember,
+  ResourceMemberRole,
+  UpdateResourceMemberInput,
+} from './member'
 export type { NavOrg } from './organization'
-export type { NavProject } from './project'
-export type { NavTeam } from './team'
+export { projectApi } from './project'
+export type { CloneStatus, CloneSummary, NavProject, UpdateProjectInput } from './project'
+export { teamApi } from './team'
+export type { NavTeam, UpdateTeamInput } from './team'

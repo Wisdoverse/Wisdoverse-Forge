@@ -3,9 +3,36 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { checkFsdBoundaries } from '../../../scripts/check-fsd-boundaries.mjs'
+import { checkFsdBoundaries as runChecker } from '../../../scripts/check-fsd-boundaries.mjs'
 
 let tempRoots: string[] = []
+
+type SharedInventory = { generic: Map<string, string>; frozenDomain: Map<string, string> }
+
+// Fixtures that are not about the shared inventory list their own shared/api
+// and shared/lib files as generic, so only the rule under test reports.
+function fixtureInventory(cwd: string): SharedInventory {
+  const sharedDir = path.join(cwd, 'src/app/shared')
+  const generic = new Map<string, string>()
+  for (const dir of ['api', 'lib']) {
+    if (!fs.existsSync(path.join(sharedDir, dir))) continue
+    for (const file of fs.readdirSync(path.join(sharedDir, dir), { recursive: true })) {
+      const entry = `${dir}/${String(file).split(path.sep).join('/')}`
+      if (fs.statSync(path.join(sharedDir, entry)).isFile()) generic.set(entry, 'fixture')
+    }
+  }
+  return { generic, frozenDomain: new Map() }
+}
+
+function checkFsdBoundaries({
+  cwd,
+  sharedInventory = fixtureInventory(cwd),
+}: {
+  cwd: string
+  sharedInventory?: SharedInventory
+}) {
+  return runChecker({ cwd, sharedInventory })
+}
 
 function fixture(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsd-boundaries-'))
@@ -197,9 +224,12 @@ export function BoardView() {
     it('accepts a downward import from features into entities and shared', () => {
       const cwd = fixture({
         'src/app/features/board/model/useBoard.ts': `
-import { taskApi } from '@app/entities/task/api/taskApi'
+import { taskApi } from '@app/entities/task'
 import { helper } from '@app/shared/lib/utils'
 export const x = [taskApi, helper]
+`,
+        'src/app/entities/task/index.ts': `
+export { taskApi } from './api/taskApi'
 `,
         'src/app/entities/task/api/taskApi.ts': `
 export const taskApi = 1
@@ -486,6 +516,94 @@ export const helper = 1
     })
   })
 
+  describe('public-api for entities (error)', () => {
+    it('flags a deep import into an entity slice from outside it', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+export const x = useBoardStore
+`,
+        'src/app/entities/navigation/index.ts': `
+export { useBoardStore } from './model/board.store'
+`,
+        'src/app/entities/navigation/model/board.store.ts': `
+export const useBoardStore = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[public-api] src/app/features/board/BoardView.tsx -> @app/entities/navigation/model/board.store (deep import into entities/navigation; import the slice barrel @app/entities/navigation)'
+        ),
+      ])
+    })
+
+    it('flags a deep import into a nested directory of an entity slice', () => {
+      const cwd = fixture({
+        'src/app/pages/login/index.tsx': `
+import { teamApi } from '@app/entities/navigation/team'
+export function LoginPage() {
+  return <span>{String(teamApi)}</span>
+}
+`,
+        'src/app/entities/navigation/team/index.ts': `
+export const teamApi = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[public-api] src/app/pages/login/index.tsx -> @app/entities/navigation/team'
+        ),
+      ])
+    })
+
+    it('accepts an import of the entity slice barrel', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+import { useBoardStore } from '@app/entities/navigation'
+export const x = useBoardStore
+`,
+        'src/app/entities/navigation/index.ts': `
+export { useBoardStore } from './model/board.store'
+`,
+        'src/app/entities/navigation/model/board.store.ts': `
+export const useBoardStore = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it('leaves deep imports inside the same entity slice alone', () => {
+      const cwd = fixture({
+        'src/app/entities/navigation/model/navigation.store.ts': `
+import { teamApi } from '../team/api/teamApi'
+import { projectApi } from '@app/entities/navigation/project/api/projectApi'
+export const x = [teamApi, projectApi]
+`,
+        'src/app/entities/navigation/team/api/teamApi.ts': `
+export const teamApi = 1
+`,
+        'src/app/entities/navigation/project/api/projectApi.ts': `
+export const projectApi = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+  })
+
   describe('cross-entity (error)', () => {
     it('warns when an entity slice imports a sibling entity slice', () => {
       const cwd = fixture({
@@ -640,6 +758,86 @@ export const useFeedStore = () => null
       ])
     })
 
+    it.each(['api', 'lib'])('flags an unlisted new file in shared/%s', (dir) => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+        [`src/app/shared/${dir}/agentThing.ts`]: 'export const agentThing = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: {
+          generic: new Map([['lib/utils.ts', 'class names']]),
+          frozenDomain: new Map(),
+        },
+      })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          `[shared-purity] src/app/shared/${dir}/agentThing.ts (unlisted file in shared/${dir} — domain code belongs in entities/<slice>`
+        ),
+      ])
+    })
+
+    it('accepts listed generic and frozen domain files', () => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+        'src/app/shared/api/legacy/billingApi.ts': 'export const billingApi = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: {
+          generic: new Map([['lib/utils.ts', 'class names']]),
+          frozenDomain: new Map([['api/legacy/billingApi.ts', 'billing API client']]),
+        },
+      })
+
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it('flags a stale inventory entry whose file does not exist', () => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: {
+          generic: new Map([['lib/utils.ts', 'class names']]),
+          frozenDomain: new Map([['api/removed.ts', 'moved to its entity']]),
+        },
+      })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[shared-purity] src/app/shared/api/removed.ts (stale inventory entry'
+        ),
+      ])
+    })
+
+    it('flags a file listed as both generic and frozen domain', () => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: {
+          generic: new Map([['lib/utils.ts', 'class names']]),
+          frozenDomain: new Map([['lib/utils.ts', 'class names']]),
+        },
+      })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining('[shared-purity] src/app/shared/lib/utils.ts (listed in both'),
+      ])
+    })
+
     it('leaves non-store shared/model files alone', () => {
       const cwd = fixture({
         'src/app/shared/model/board.types.ts': `
@@ -650,6 +848,15 @@ export type ColumnId = string
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
       expect(result.errors).toEqual([])
+    })
+  })
+
+  describe('repository', () => {
+    it('passes on the real source tree with the real shared inventory', () => {
+      const result = runChecker({ cwd: path.resolve(__dirname, '../../..') })
+
+      expect(result.errors).toEqual([])
+      expect(result.ok).toBe(true)
     })
   })
 

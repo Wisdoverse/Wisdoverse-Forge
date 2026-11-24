@@ -15,14 +15,20 @@ Its layer order is `app -> pages -> widgets -> features -> entities -> shared`.
 
 | Location under `src/app` | Ownership |
 | --- | --- |
-| `shared` | Shared utilities, global contexts, API clients independent of generated code, and stores used across slices |
-| `entities` | Domain API clients and types |
+| `shared` | Generic utilities, the UI kit, global contexts, and the transport-level API client, with no product knowledge |
+| `entities` | Domain API clients, types, and stores |
 | `features` | User workflows |
 | `widgets`, `pages` | Composed route surfaces |
 | `routes`, `layouts`, `providers` | App wiring |
 | `hooks` | WebSocket dispatch |
 | `features/*/model` | Realtime reducers for the owning feature |
 
+- Import an `entities`, `features`, `widgets`, or `pages` slice from outside it only through its root barrel, such as `@app/entities/navigation`.
+- Inside a slice, import its own files directly, not through its own barrel.
+- `npm run fsd:check` lists every file under `shared/api` and `shared/lib` as generic or frozen domain code.
+- Put new domain code in its `entities` slice.
+- Add a new generic file to `genericSharedFiles` in `scripts/check-fsd-boundaries.mjs` with a one-line reason.
+- Move a frozen domain file to its `entities` slice when you next change it, then remove its entry.
 - Compose new views through `routes`, `pages`, or `widgets`.
 - Do not restore a root-level view registry.
 - Run `npm run fsd:check` for every frontend change.

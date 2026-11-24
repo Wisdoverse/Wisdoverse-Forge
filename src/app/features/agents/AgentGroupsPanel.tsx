@@ -18,10 +18,12 @@ import {
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import {
+  useBoardStore,
+  waitingPlaceDisplayName,
+  useNavigationStore,
+} from '@app/entities/navigation'
 import type { TaskSummary } from '@app/shared/api/orchestration'
-import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
-import { useNavigationStore } from '@app/entities/navigation'
 import { agentGroupErrorMessage } from './model/agentGroupErrorMessage'
 
 const DEFAULT_GROUP_DESCRIPTION = 'Project tasks wait here until an available agent starts them.'

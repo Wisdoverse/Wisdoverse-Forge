@@ -9,14 +9,15 @@ import {
   resourceMemberSelectionLostMessage,
 } from '@app/features/manage-members'
 import { CreateProjectForm, EditableProjectRow } from '@app/features/manage-project'
-import { useNavigationStore } from '@app/entities/navigation'
 import {
+  useNavigationStore,
   projectApi,
   type CloneSummary,
   type NavProject,
   type UpdateProjectInput,
-} from '@app/entities/navigation/project'
-import { teamApi, type NavTeam } from '@app/entities/navigation/team'
+  teamApi,
+  type NavTeam,
+} from '@app/entities/navigation'
 import { userApi } from '@app/entities/user'
 import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMessage'
 

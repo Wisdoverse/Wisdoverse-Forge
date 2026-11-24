@@ -1,5 +1,9 @@
-import { useNavigationStore, type CloneStatusUpdate } from '@app/entities/navigation'
-import type { CloneStatus, CloneSummary } from '@app/entities/navigation/project'
+import {
+  useNavigationStore,
+  type CloneStatusUpdate,
+  type CloneStatus,
+  type CloneSummary,
+} from '@app/entities/navigation'
 
 /**
  * The `project_clone:status_update` realtime frame the backend worker broadcasts

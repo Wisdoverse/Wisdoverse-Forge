@@ -15,13 +15,15 @@
 //                          (feature ↛ feature cross-slice included)
 //     unknown-dir          F074: unrecognized src/app paths are rejected as
 //                          files and may be imported by nothing
-//     public-api           an import crossing INTO a features/widgets/pages
-//                          slice must target the slice root barrel, not a
-//                          deep file
+//     public-api           an import crossing INTO an entities/features/
+//                          widgets/pages slice must target the slice root
+//                          barrel, not a deep file
 //     cross-entity         an entity slice must not import another entity slice
 //     same-layer-isolation widget ↛ widget, page ↛ page sibling-slice imports
 //     shared-purity        domain stores must not live under
-//                          shared/model/*.store.ts
+//                          shared/model/*.store.ts, and every file under
+//                          shared/api or shared/lib must be listed in
+//                          genericSharedFiles or frozenDomainSharedFiles
 //     (plus the existing alias/unresolved/route-page-entrypoint errors)
 import fs from 'node:fs'
 import path from 'node:path'
@@ -51,13 +53,55 @@ const appLayerDirs = new Set(['routes', 'layouts', 'providers', 'hooks', 'i18n',
 
 // Layers whose slices expose a public API through their root barrel.
 const sliceOwningLayers = new Set(['entities', 'features', 'widgets', 'pages'])
-const slicedLayers = new Set(['features', 'widgets', 'pages'])
 
 // shared-purity: genuinely generic infra stores (theme/toast-style UI state)
 // may stay under shared/model. FSD-2 relocated all 10 domain stores to their
 // owning feature/entities slices, so the allowlist is empty. Add a file name
 // here only when the store carries no domain state.
 const genericSharedStores = new Set([])
+
+// shared-purity inventory for shared/api and shared/lib (paths relative to
+// src/app/shared). A file is generic when it names no product concept (agent,
+// task, workspace, organization, billing, self-fix, onboarding, ...) and would
+// work unchanged in another product. Domain code belongs in entities/<slice>.
+// A new generic file is added to genericSharedFiles with a one-line reason.
+const genericSharedFiles = new Map([
+  ['api/authFetch.ts', 'auth-aware fetch: token header, 401 refresh and retry'],
+  ['api/client.ts', 'JSON fetch wrapper over authFetch'],
+  ['api/index.ts', 'barrel for the JSON fetch wrapper'],
+  ['api/legacy/authFetch.ts', 'fetch wrapper: 401 refresh, retry, offline queue'],
+  ['lib/chunkError.ts', 'reload once after a failed lazy chunk load'],
+  ['lib/passwordRules.ts', 'password strength rules and messages'],
+  ['lib/slugify.ts', 'string to URL slug'],
+  ['lib/time.ts', 'relative time formatting'],
+  ['lib/uiStyles.ts', 'UI kit class names'],
+  ['lib/utils.ts', 'Tailwind class name merge'],
+  ['lib/versionCheck.ts', 'semantic version comparison'],
+])
+
+// Legacy domain code that predates the inventory. Frozen: the list may only
+// shrink. Move a file to its owning entities slice when it next changes.
+const frozenDomainSharedFiles = new Map([
+  ['api/agent-api-types.ts', 'agent API types (SSH keys, git credentials, profiles)'],
+  ['api/auth.ts', 'sign-in provider endpoint client'],
+  ['api/legacy.ts', 'agent, settings, billing and user API singletons'],
+  ['api/legacy/AgentAPI.ts', 'agent API client'],
+  ['api/legacy/billingApi.ts', 'billing API client'],
+  ['api/legacy/settingsApi.ts', 'settings API client'],
+  ['api/legacy/userApi.ts', 'user API client'],
+  ['api/orchestration.ts', 'task orchestration API client and types'],
+  ['api/promptStream.ts', 'agent prompt stream and chat error copy'],
+  ['api/selfFix.ts', 'self-fix repository setup client'],
+  ['lib/agentCapabilityCopy.ts', 'agent capability copy'],
+  ['lib/frontendReliability.ts', 'organization-scoped session telemetry events'],
+  ['lib/gettingStartedPreference.ts', 'onboarding preference'],
+  ['lib/gettingStartedProgress.ts', 'onboarding progress from tasks'],
+  ['lib/guidePreference.ts', 'settings guide-dismissal preference'],
+  ['lib/publicAuth.ts', 'password-reset and invite link parsing'],
+  ['lib/taskFailureCopy.ts', 'task failure copy'],
+  ['lib/workspaceResourceErrorMessage.ts', 'team and project error copy'],
+])
+const inventoriedSharedDirs = ['api', 'lib']
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return []
@@ -227,7 +271,11 @@ function isSliceBarrel(appRoot, file) {
   return parts.length === 3 && extensions.some((ext) => parts[2] === `index${ext}`)
 }
 
-export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
+export function checkFsdBoundaries({
+  cwd = process.cwd(),
+  // Injectable for tests; the repository always uses the inventory above.
+  sharedInventory = { generic: genericSharedFiles, frozenDomain: frozenDomainSharedFiles },
+} = {}) {
   const root = cwd
   const appRoot = path.join(root, 'src/app')
   const errors = []
@@ -365,10 +413,10 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         continue
       }
 
-      // public-api (ERROR): imports crossing into a features/widgets/pages
-      // slice must target the slice root barrel, not a deep file.
+      // public-api (ERROR): imports crossing into an entities/features/widgets/
+      // pages slice must target the slice root barrel, not a deep file.
       if (
-        slicedLayers.has(target.layer) &&
+        sliceOwningLayers.has(target.layer) &&
         (source.layer !== target.layer || source.slice !== target.slice) &&
         !isSliceBarrel(appRoot, resolved.file)
       ) {
@@ -394,6 +442,41 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         'shared-purity',
         null,
         'domain store in shared — move it to its owning feature or entities slice'
+      )
+    }
+  }
+
+  // shared-purity inventory (ERROR): shared/api and shared/lib accept only
+  // listed files, and every listed file must exist.
+  const sharedDir = path.join(appRoot, 'shared')
+  const { generic, frozenDomain } = sharedInventory
+  for (const entry of [...generic.keys()].filter((key) => frozenDomain.has(key)).sort()) {
+    addRuleError(
+      `src/app/shared/${entry}`,
+      'shared-purity',
+      null,
+      'listed in both genericSharedFiles and frozenDomainSharedFiles; keep one'
+    )
+  }
+  for (const entry of [...generic.keys(), ...frozenDomain.keys()].sort()) {
+    if (!fs.existsSync(path.join(sharedDir, entry))) {
+      addRuleError(
+        `src/app/shared/${entry}`,
+        'shared-purity',
+        null,
+        'stale inventory entry: the file does not exist; remove it from the shared inventory'
+      )
+    }
+  }
+  for (const dir of inventoriedSharedDirs) {
+    for (const file of walk(path.join(sharedDir, dir)).sort()) {
+      const entry = toPosix(sharedDir, file)
+      if (generic.has(entry) || frozenDomain.has(entry)) continue
+      addRuleError(
+        toPosix(root, file),
+        'shared-purity',
+        null,
+        `unlisted file in shared/${dir} — domain code belongs in entities/<slice>; if the file is generic infrastructure, add it to genericSharedFiles in scripts/check-fsd-boundaries.mjs with a one-line reason`
       )
     }
   }
