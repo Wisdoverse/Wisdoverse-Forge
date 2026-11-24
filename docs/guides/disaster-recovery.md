@@ -72,12 +72,18 @@ make prod-backup
 ```
 
 The `backup` service dumps the four databases into `docker/backups/` once a
-day and deletes dumps older than 7 days. Each dump is written as
-`.dump.partial` and renamed to `.dump` only after all four dumped. If any dump
-fails, the service exits with the `pg_dump` error, restarts, and retries. It
-does not publish a partial set and does not delete older backups after a
-failure. Leftover `.dump.partial` files from a failed run are removed when the
-next run starts.
+day and deletes dumps older than 7 days. Each run first writes its dumps into
+its own hidden staging folder, `docker/backups/.staging-<timestamp>-<id>/`. It
+publishes them as `.dump` files only after all four dumped. If any dump fails,
+the run removes its own staging folder, exits with the `pg_dump` error, and the
+service restarts and retries. It does not publish a partial set and does not
+delete older backups after a failure.
+
+Only one run works at a time. Each run takes the lock file
+`docker/backups/.backup.lock` first. The scheduled service waits as long as
+another run holds the lock. A manual run waits up to 10 minutes, then stops
+with exit code 75 and `another backup run still holds /backups/.backup.lock`,
+without touching any file.
 
 The dumps run one after another, in this order: `orchestrator`, `temporal`,
 `temporal_visibility`, then `agentforge`. Orchestrator rows hold Temporal
@@ -105,17 +111,18 @@ folder is lost with the server.
 $COMPOSE_BACKUP run --rm -e BACKUP_ONCE=1 backup
 ```
 
-It ends with `backup complete: <timestamp>` and exit code 0, or exits non-zero
-with the `pg_dump` error. Manual sets follow the same 7-day retention.
+It ends with `backup complete: <timestamp>` and exit code 0. Otherwise it exits
+non-zero with the `pg_dump` error, or with code 75 when another run kept the
+lock for 10 minutes. Manual sets follow the same 7-day retention.
 
 **Verify a backup set:**
 
 ```bash
-BACKUP_TS=YYYYMMDD_HHMMSS   # the timestamp of the set
-$COMPOSE_BACKUP run --rm --no-deps -e BACKUP_TS="$BACKUP_TS" --entrypoint sh backup -ec '
+BACKUP_SET=YYYYMMDD_HHMMSS   # the timestamp of the set
+$COMPOSE_BACKUP run --rm --no-deps -e BACKUP_SET="$BACKUP_SET" --entrypoint sh backup -ec '
   for db in orchestrator temporal temporal_visibility agentforge; do
-    pg_restore --list "/backups/${db}_$BACKUP_TS.dump" >/dev/null
-    echo "readable: ${db}_$BACKUP_TS.dump"
+    pg_restore --list "/backups/${db}_$BACKUP_SET.dump" >/dev/null
+    echo "readable: ${db}_$BACKUP_SET.dump"
   done'
 ```
 
@@ -169,13 +176,21 @@ Read this before you restore, so you know what to check afterwards.
   between two dumps of the same run can be in one database but missing from
   another. The four dumps run one after another, seconds to minutes apart, so
   they are not one snapshot.
-- **Skew you can see after a restore:**
-  - A workflow started between the `orchestrator` dump and the `temporal`
-    dump comes back as `draft` while Temporal still runs it. Its final status
-    is written when the Temporal execution finishes.
+- **Skew between the `orchestrator` dump and the `temporal` dump.** Workflow
+  rows can disagree with Temporal executions in two ways:
+  - **Started between the two dumps and still running when Temporal was
+    dumped.** The row comes back as `draft` without an execution ID, while
+    Temporal still runs the workflow. This is the only case that corrects
+    itself. The workflow's last step, `finalize_workflow_status`, had not run
+    yet, so Temporal runs it after the restore and writes the final status.
+  - **Finished between the two dumps.** The row comes back as `running` (or
+    `draft`), but the restored Temporal execution has already completed,
+    including its final status step. Completed steps do not run again, so the
+    row never reaches its final status. Step statuses (`workflow_nodes`) that
+    changed between the two dumps lag behind in the same way.
+- **Other skew:**
   - An organization deleted between the `orchestrator` dump and the
     `agentforge` dump still has orchestrator rows.
-    [The checks after a restore](#after-the-restore-check-for-skew) list them.
   - Steps that were running at backup time can run again after the restore,
     because Temporal retries steps that have no recorded result. An agent task
     can therefore run twice.
@@ -188,8 +203,9 @@ Read this before you restore, so you know what to check afterwards.
   - a re-run is refused while the status is `running`;
   - no background job checks workflow rows.
 
-  [The checks after a restore](#after-the-restore-check-for-skew) find
-  stranded workflows. Resolving them is a known gap.
+[The checks after a restore](#after-the-restore-check-for-skew) list every
+case above. Fixing the rows they find is manual today; automatic
+reconciliation is tracked in issue #1352.
 
 ### PostgreSQL Restore (all bundled databases)
 
@@ -202,141 +218,257 @@ Prerequisites:
   the backup was taken. Check with `$COMPOSE_PROD images`. See
   [Schema versions at startup](#schema-versions-at-startup).
 - About 30 minutes during which the API, orchestrator, and Temporal are offline.
+- A **bash** shell in the repository root, with the helper variables from the
+  top of this guide set. The block below stops at once in other shells.
 
-The restore never writes into the current databases. It restores into new,
-empty `*_restore` databases, stops at the first error, and then swaps names.
-The current databases are kept as `*_before_restore` until you remove them.
+The restore never writes into the current databases. It runs in five phases
+and stops at the first error:
 
-Restore order: restore all four databases while every service that uses them
-is stopped. Then start the API first, Temporal next, and the orchestrator last.
-The orchestrator is the only service that reads the other two: it calls the API
-and runs the Temporal workflows.
+1. **Preflight** checks the backup set, the database names, and open
+   connections. It creates nothing.
+2. **Restore** loads each dump into a new, empty `<db>_restore` database.
+3. **Validate** checks that every restored database has its tables and
+   migration ledger.
+4. **Promote** runs only when all four databases passed. Each database is
+   swapped in its own transaction: the current one becomes
+   `<db>_before_restore` and `<db>_restore` becomes `<db>`.
+5. **Start** brings up the API, then Temporal, then the orchestrator, and
+   checks health. The orchestrator is last because it is the only service that
+   reads the other two: it calls the API and runs the Temporal workflows.
+
+Edit the `BACKUP_SET=` line, then paste the whole block. It runs in a subshell,
+so a failure stops the block without closing your terminal.
 
 ```bash
-BACKUP_TS=YYYYMMDD_HHMMSS   # timestamp of the backup set you chose
+( [ -n "${BASH_VERSION:-}" ] || { echo "Run this block in bash." >&2; exit 1; }
+set -euo pipefail; shopt -s inherit_errexit
+BACKUP_SET=YYYYMMDD_HHMMSS   # timestamp of the backup set to restore; type it once, here
+sql() { local svc=$1 role=$2 db=$3; shift 3; $COMPOSE_PROD exec -T "$svc" psql -U "$role" -d "$db" -v ON_ERROR_STOP=1 -qAt "$@"; }
 
-# 1. Stop everything that writes to the databases, plus the scheduled backup
+echo "== Phase 1: preflight (creates nothing)"
+[[ "$BACKUP_SET" =~ ^[0-9]{8}_[0-9]{6}$ ]] || { echo "BACKUP_SET must look like 20260101_020000, not: $BACKUP_SET" >&2; exit 1; }
+for db in orchestrator temporal temporal_visibility agentforge; do
+  [ -s "docker/backups/${db}_${BACKUP_SET}.dump" ] || { echo "missing or empty: docker/backups/${db}_${BACKUP_SET}.dump" >&2; exit 1; }
+done
+$COMPOSE_BACKUP run --rm --no-deps -T -e BACKUP_SET="$BACKUP_SET" --entrypoint sh backup -ec '
+  for db in orchestrator temporal temporal_visibility agentforge; do
+    pg_restore --list "/backups/${db}_$BACKUP_SET.dump" >/dev/null || { echo "unreadable archive: ${db}_$BACKUP_SET.dump" >&2; exit 1; }
+  done'
+echo "  backup set $BACKUP_SET: four archives present and readable"
 $COMPOSE_BACKUP stop agentforge-server orchestrator temporal backup
-
-# 2. Make sure both database servers are running
 $COMPOSE_PROD up -d --wait db orchestrator-db
+taken=$(sql db agentforge postgres -c "select datname from pg_database where datname ~ '^(agentforge|temporal|temporal_visibility)_(before_)?restore$'"
+        sql orchestrator-db orchestrator postgres -c "select datname from pg_database where datname ~ '^orchestrator_(before_)?restore$'")
+[ -z "$taken" ] || { echo "these databases already exist; undo or clean up the earlier restore first:" $taken >&2; exit 1; }
+busy=$(sql db agentforge postgres -c "select datname || ' ' || usename || ' ' || coalesce(application_name, '') || ' ' || coalesce(client_addr::text, 'local') from pg_stat_activity where datname in ('agentforge', 'temporal', 'temporal_visibility') and pid <> pg_backend_pid()"
+       sql orchestrator-db orchestrator postgres -c "select datname || ' ' || usename || ' ' || coalesce(application_name, '') || ' ' || coalesce(client_addr::text, 'local') from pg_stat_activity where datname = 'orchestrator' and pid <> pg_backend_pid()")
+[ -z "$busy" ] || { printf 'still connected; stop these clients first:\n%s\n' "$busy" >&2; exit 1; }
+echo "  no *_restore or *_before_restore names, no open connections"
 
-# 3. Create fresh, empty databases to restore into
-$COMPOSE_PROD exec -T db psql -U agentforge -d postgres -v ON_ERROR_STOP=1 \
-  -c 'CREATE DATABASE agentforge_restore' \
-  -c 'CREATE DATABASE temporal_restore' \
-  -c 'CREATE DATABASE temporal_visibility_restore'
-$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d postgres -v ON_ERROR_STOP=1 \
-  -c 'CREATE DATABASE orchestrator_restore'
-
-# 4. Restore each dump in one transaction that stops at the first error
-$COMPOSE_BACKUP run --rm --no-deps -e BACKUP_TS="$BACKUP_TS" --entrypoint sh backup -ec '
+echo "== Phase 2: restore into fresh *_restore databases"
+sql db agentforge postgres -c 'CREATE DATABASE agentforge_restore' -c 'CREATE DATABASE temporal_restore' -c 'CREATE DATABASE temporal_visibility_restore'
+sql orchestrator-db orchestrator postgres -c 'CREATE DATABASE orchestrator_restore'
+$COMPOSE_BACKUP run --rm --no-deps -T -e BACKUP_SET="$BACKUP_SET" --entrypoint sh backup -ec '
   for db in agentforge temporal temporal_visibility; do
     PGPASSWORD="$POSTGRES_PASSWORD" pg_restore -h db -U agentforge -d "${db}_restore" \
-      --no-owner --single-transaction --exit-on-error "/backups/${db}_$BACKUP_TS.dump"
+      --no-owner --single-transaction --exit-on-error "/backups/${db}_$BACKUP_SET.dump"
   done
-  pg_restore --no-owner -f /tmp/orchestrator.sql "/backups/orchestrator_$BACKUP_TS.dump"
+  pg_restore --no-owner -f /tmp/orchestrator.sql "/backups/orchestrator_$BACKUP_SET.dump"
   sed -i "/^SET transaction_timeout = 0;$/d" /tmp/orchestrator.sql
   PGPASSWORD="$ORCHESTRATOR_DB_PASSWORD" psql -h orchestrator-db -U orchestrator -d orchestrator_restore \
-    --single-transaction -v ON_ERROR_STOP=1 -q -f /tmp/orchestrator.sql
-  echo "restored set $BACKUP_TS"'
+    --single-transaction -v ON_ERROR_STOP=1 -q -o /dev/null -f /tmp/orchestrator.sql'
+echo "  restored set $BACKUP_SET into the *_restore databases"
 
-# 5. Check the restored copies before using them
-$COMPOSE_PROD exec -T db psql -U agentforge -d agentforge_restore -c \
-  "select (select count(*) from organizations) orgs, (select count(*) from _sqlx_migrations) migrations"
-$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator_restore -c \
-  "select (select count(*) from workflows) workflows, (select count(*) from _sqlx_migrations) migrations"
+echo "== Phase 3: validate every restored database"
+check() { local svc=$1 role=$2 db=$3 want=$4 what=$5 query=$6 got
+  got=$(sql "$svc" "$role" "$db" -c "$query")
+  [ "$got" -ge "$want" ] || { echo "  $db: $what = $got, expected at least $want; nothing was renamed" >&2; exit 1; }
+  echo "  $db: $what = $got"; }
+check db agentforge agentforge_restore 1 "applied migrations" "select count(*) from _sqlx_migrations"
+check db agentforge agentforge_restore 3 "core tables" "select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('organizations', 'users', 'agents')"
+check orchestrator-db orchestrator orchestrator_restore 1 "applied migrations" "select count(*) from _sqlx_migrations"
+check orchestrator-db orchestrator orchestrator_restore 3 "core tables" "select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('workflows', 'tasks', 'participants')"
+check db agentforge temporal_restore 1 "schema_version rows" "select count(*) from schema_version"
+check db agentforge temporal_restore 3 "core tables" "select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('namespaces', 'executions', 'history_node')"
+check db agentforge temporal_visibility_restore 1 "schema_version rows" "select count(*) from schema_version"
+check db agentforge temporal_visibility_restore 1 "core tables" "select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'executions_visibility'"
 
-# 6. Swap: keep the current databases as *_before_restore, promote the restored copies
-$COMPOSE_PROD exec -T db psql -U agentforge -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-DO $$
-DECLARE n text;
-BEGIN
-  FOREACH n IN ARRAY ARRAY['agentforge', 'temporal', 'temporal_visibility'] LOOP
-    IF EXISTS (SELECT 1 FROM pg_database WHERE datname = n) THEN
-      EXECUTE format('ALTER DATABASE %I RENAME TO %I', n, n || '_before_restore');
-    END IF;
-    EXECUTE format('ALTER DATABASE %I RENAME TO %I', n || '_restore', n);
-  END LOOP;
-END $$;
+echo "== Phase 4: promote (one transaction per database)"
+promote() { sql "$1" "$2" postgres -v live="$3" -v old="${3}_before_restore" -v new="${3}_restore" <<'SQL'
+SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'live') AS had_live \gset
+BEGIN;
+\if :had_live
+ALTER DATABASE :"live" RENAME TO :"old";
+\endif
+ALTER DATABASE :"new" RENAME TO :"live";
+COMMIT;
+\if :had_live
+\echo '  promoted' :new 'to' :live '- previous copy kept as' :old
+\else
+\echo '  promoted' :new 'to' :live '- there was no previous copy'
+\endif
 SQL
-$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_database WHERE datname = 'orchestrator') THEN
-    ALTER DATABASE orchestrator RENAME TO orchestrator_before_restore;
-  END IF;
-  ALTER DATABASE orchestrator_restore RENAME TO orchestrator;
-END $$;
-SQL
+}
+promote db agentforge agentforge
+promote db agentforge temporal
+promote db agentforge temporal_visibility
+promote orchestrator-db orchestrator orchestrator
 
-# 7. Start the services: API, then Temporal, then the orchestrator
+echo "== Phase 5: start the API, then Temporal, then the orchestrator"
 $COMPOSE_PROD up -d --wait agentforge-server
 $COMPOSE_PROD up -d --wait temporal
 $COMPOSE_PROD up -d --wait orchestrator
-
-# 8. If you use the scheduled backup, start it again
-$COMPOSE_BACKUP up -d backup
+curl -fsS http://localhost:4003/api/health; echo
+curl -fsS -o /dev/null -w '  orchestrator readiness: HTTP %{http_code}\n' http://localhost:4010/health/ready
+echo "restore of backup set $BACKUP_SET complete" )
 ```
 
-Step 4 handles the orchestrator database differently on purpose. The backup
+If you use the scheduled backup, start it again: `$COMPOSE_BACKUP up -d backup`.
+
+Phase 2 handles the orchestrator database differently on purpose. The backup
 tools are PostgreSQL 18, and the bundled orchestrator database is PostgreSQL 16.
 PostgreSQL 18 tools write a `SET transaction_timeout` line that version 16
-rejects. Step 4 removes that line and stops on any other error.
-
-If any of steps 3 to 6 fails, nothing has replaced your current databases.
-Fix the cause, remove the `*_restore` databases with
-`DROP DATABASE <name>_restore` (connected to `postgres`), and start again at
-step 3. If step 6 stops because a `*_before_restore` database already exists
-from an earlier restore, remove that one first.
+rejects, so phase 2 removes that line and stops on any other error.
 
 Success looks like this:
 
-- Step 4 prints `restored set <timestamp>` without `error:` lines. A one-row
-  `set_config` result before it is normal output.
-- Step 5 shows the counts you expect for the backup time.
-- Step 7 returns once each service is healthy.
-- `curl -s http://localhost:4003/api/health` returns `"status":"ready"`.
-- `curl -s http://localhost:4010/health/ready` returns HTTP 200.
+- Each phase prints its lines, phase 3 shows a count for every check, and phase
+  4 prints one `promoted` line per database.
+- The block ends with `restore of backup set <timestamp> complete`.
+- `/api/health` prints `"status":"ready"`, and orchestrator readiness shows
+  `HTTP 200`.
+
+#### If the block stopped
+
+- **Stopped in phase 1:** nothing was created or renamed. Fix what it printed
+  and paste the block again. Start the services again if you stop here:
+  `$COMPOSE_PROD up -d --wait agentforge-server temporal orchestrator`.
+- **Stopped in phase 2 or 3:** your current databases are untouched. Nothing
+  was renamed. Delete the restored copies, fix the cause, and paste the block
+  again:
+
+  ```bash
+  $COMPOSE_PROD exec -T db psql -U agentforge -d postgres -v ON_ERROR_STOP=1 \
+    -c 'DROP DATABASE IF EXISTS agentforge_restore' \
+    -c 'DROP DATABASE IF EXISTS temporal_restore' \
+    -c 'DROP DATABASE IF EXISTS temporal_visibility_restore'
+  $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d postgres -v ON_ERROR_STOP=1 \
+    -c 'DROP DATABASE IF EXISTS orchestrator_restore'
+  ```
+
+- **Stopped in phase 4:** some databases may already be swapped. Each swap is
+  one transaction, so every database is either fully swapped or untouched.
+  List the names:
+
+  ```bash
+  $COMPOSE_PROD exec -T db psql -U agentforge -d postgres -At -c \
+    "select datname from pg_database where datname ~ '^(agentforge|temporal|temporal_visibility)(_restore|_before_restore)?$' order by 1"
+  $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d postgres -At -c \
+    "select datname from pg_database where datname ~ '^orchestrator(_restore|_before_restore)?$' order by 1"
+  ```
+
+  For each database `<db>`, read the result like this:
+
+  - `<db>_restore` still exists: not swapped. Nothing to undo.
+  - `<db>_restore` is gone and `<db>_before_restore` exists: swapped. To undo,
+    rename back in the opposite order, in one transaction. Set the three
+    variables for the database. Use `DB=orchestrator SERVICE=orchestrator-db
+    ROLE=orchestrator` for the orchestrator, and `SERVICE=db ROLE=agentforge`
+    for the others.
+
+    ```bash
+    DB=agentforge SERVICE=db ROLE=agentforge
+    $COMPOSE_PROD exec -T "$SERVICE" psql -U "$ROLE" -d postgres -v ON_ERROR_STOP=1 \
+      -c "ALTER DATABASE $DB RENAME TO ${DB}_restore; ALTER DATABASE ${DB}_before_restore RENAME TO $DB;"
+    ```
+
+  - `<db>_restore` is gone and there is no `<db>_before_restore`: swapped on a
+    host that had no previous copy. To undo, run only the first rename:
+    `ALTER DATABASE $DB RENAME TO ${DB}_restore;`.
+
+  When every database is back to its original name, delete the `*_restore`
+  copies as for phases 2 and 3. Then remove the cause; the block prints it, for
+  example a client that is still connected. Paste the block again, or start the
+  services again.
 
 #### After the restore: check for skew
 
 These checks are read-only. They find the skew described in
-[What a restore recovers](#what-a-restore-recovers):
+[What a restore recovers](#what-a-restore-recovers). The first check compares
+every workflow row that is not finished with Temporal's record of the same
+workflow, which is the latest run in Temporal's visibility database. It lists
+each row whose status or run ID disagrees with it:
 
 ```bash
-# Workflows the orchestrator thinks are running. For each one, ask Temporal:
-# "not found" means the workflow is stranded.
-$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -c \
-  "select id, name, temporal_workflow_id, updated_at from workflows where status = 'running' order by updated_at"
-TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # one temporal_workflow_id from the list above
+WF_ROWS=$($COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -At -c \
+  "select coalesce(string_agg(id::text || '|' || status || '|' || coalesce(temporal_run_id, ''), ';'), '') from workflows where status in ('draft', 'running', 'paused')")
+$COMPOSE_PROD exec -T db psql -U agentforge -d temporal_visibility -v rows="$WF_ROWS" <<'SQL'
+WITH r AS (
+  SELECT split_part(x, '|', 1) AS id, split_part(x, '|', 2) AS row_status, nullif(split_part(x, '|', 3), '') AS row_run_id
+  FROM unnest(string_to_array(:'rows', ';')) AS x),
+e AS (
+  SELECT DISTINCT ON (workflow_id) workflow_id, trim(run_id) AS run_id, status
+  FROM executions_visibility ORDER BY workflow_id, start_time DESC)
+SELECT r.id AS workflow, r.row_status, r.row_run_id, e.run_id AS temporal_run_id,
+  CASE e.status WHEN 1 THEN 'Running' WHEN 2 THEN 'Completed' WHEN 3 THEN 'Failed' WHEN 4 THEN 'Canceled'
+    WHEN 5 THEN 'Terminated' WHEN 6 THEN 'ContinuedAsNew' WHEN 7 THEN 'TimedOut' ELSE 'no execution' END AS temporal_status
+FROM r LEFT JOIN e ON e.workflow_id = 'orchestrator-' || r.id
+WHERE (e.workflow_id IS NULL AND r.row_status <> 'draft')
+   OR (e.status IS NOT NULL AND e.status <> 1)
+   OR (r.row_status = 'draft' AND e.workflow_id IS NOT NULL)
+   OR (r.row_run_id IS NOT NULL AND e.run_id IS NOT NULL AND r.row_run_id <> e.run_id)
+ORDER BY 1;
+SQL
+```
+
+How to read the result:
+
+- `no execution` on a `running` row: the workflow is stranded.
+- `Completed`, `Failed`, `Canceled`, `Terminated`, or `TimedOut` on a
+  `running` or `draft` row: the workflow finished between the two dumps.
+- `Running` on a `draft` row: this one corrects itself when it finishes.
+- A different `temporal_run_id`: the row points at an older run.
+
+Temporal's visibility database can lag its main database by a few seconds.
+Before you act on a row, confirm it with the Temporal CLI:
+
+```bash
+TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # orchestrator- plus a workflow id from the result
 $COMPOSE_PROD exec temporal temporal workflow describe --address temporal-internal:7233 \
   --namespace default --workflow-id "$TEMPORAL_WORKFLOW_ID"
+```
 
-# Organization IDs used by orchestrator rows that the API database does not have
+The second check lists organization IDs used by orchestrator rows that the API
+database does not have:
+
+```bash
 ORG_IDS=$($COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -At -c \
   "select coalesce(string_agg(distinct org_id, ','), '') from (select org_id from workflows union select org_id from tasks union select org_id from participants union select org_id from code_reviews) s")
 echo "select o as org_id_missing_in_api from unnest(string_to_array(:'ids', ',')) o where not exists (select 1 from organizations where id::text = o)" |
   $COMPOSE_PROD exec -T db psql -U agentforge -d agentforge -v ids="$ORG_IDS"
 ```
 
+Fixing the rows these checks find is manual today, because Forge has no
+supported action for it. Automatic reconciliation is tracked in issue #1352.
+
 After a few days of normal operation, remove the old copies. This deletes them
 permanently:
 
 ```bash
 $COMPOSE_PROD exec -T db psql -U agentforge -d postgres -v ON_ERROR_STOP=1 \
-  -c 'DROP DATABASE agentforge_before_restore' \
+  -c 'DROP DATABASE IF EXISTS agentforge_before_restore' \
   -c 'DROP DATABASE IF EXISTS temporal_before_restore' \
   -c 'DROP DATABASE IF EXISTS temporal_visibility_before_restore'
 $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d postgres -v ON_ERROR_STOP=1 \
-  -c 'DROP DATABASE orchestrator_before_restore'
+  -c 'DROP DATABASE IF EXISTS orchestrator_before_restore'
 ```
 
 **External databases (`make prod-ext`).** You own these backups. To restore
 the same way, create an empty database with your provider. It must be owned by
 the role in `DATABASE_URL` or `ORCHESTRATOR_DATABASE_URL`, and the API role must
-be allowed to create the `pgcrypto` extension. Run the step 4 commands against
-it with your provider's host and user. Then point the URL at the new database.
+be allowed to create the `pgcrypto` extension. Run the phase 2 restore commands
+against it with your provider's host and user. Then point the URL at the new
+database.
 
 #### Schema versions at startup
 
@@ -354,52 +486,85 @@ it with your provider's host and user. Then point the URL at the new database.
 
 ### Restore rehearsal record
 
-**2026-11-23 — mechanics rehearsal with a synthetic schema.** This is **not**
-an application-level restore proof; that rehearsal is still open. It used no
-Forge binaries, no Temporal server, and no real data.
+**2026-11-24 — mechanics rehearsal with a synthetic schema, current
+procedure.** This is **not** an application-level restore proof; that
+rehearsal is still open. It used no Forge binaries, no Temporal server, and no
+real data.
 
-- Revision: branch `fix/1325-1326-compose-backup-readiness` on `35fdd5f8`
-  plus the follow-up commit that adds this record. The backup command and the
-  guide blocks were run as committed.
+- Revision: branch `fix/1325-1326-compose-backup-readiness` at the commit that
+  adds this entry. The backup command and these guide blocks were run as
+  committed (byte-identical):
+  - manual backup;
+  - the five-phase restore block;
+  - the phase 2/3 cleanup block, the phase 4 name listing, and the undo block;
+  - both skew checks and the Temporal CLI line;
+  - removal of old copies.
+
+  The "Verify a backup set" block was not re-run in this round.
 - Images: `postgres:18-alpine` (PostgreSQL 18.7, `sha256:0115267ab5a5…`) for
   the backup tools and the API server; `postgres:16-alpine` (PostgreSQL 16.16,
   `sha256:1758b8743084…`) for the orchestrator server.
-- Setup: plain `docker run` containers on a private internal network, with no
-  published ports and no Compose project. The `db` server held `agentforge`,
-  `temporal`, and `temporal_visibility`; `orchestrator-db` held `orchestrator`.
-  The schemas used the object kinds of the real migrations: `pgcrypto`, an
-  enum type, extra schemas, CHECK and circular foreign keys, partial unique and
-  GIN indexes, `jsonb`, `text[]`, `inet`, `bytea`, plpgsql trigger functions, a
-  materialized view with a unique index, and `_sqlx_migrations`. Each had a few
-  rows.
-- Backup: the `backup` service command exactly as `docker compose config`
-  renders it for `prod` + `backup`, in the same image, with `BACKUP_ONCE=1`.
-  Result: `backup complete:` and four `.dump` files, exit 0.
-- Restore: the blocks under
-  [PostgreSQL Restore](#postgresql-restore-all-bundled-databases) run verbatim
-  in a shell, with `$COMPOSE_PROD` / `$COMPOSE_BACKUP` mapped to `docker exec`
-  / `docker run` of the same images. Compose lifecycle lines (`stop`, `up`) and
-  the Temporal CLI line were not exercised.
-- Results:
-  - All four databases restored into `*_restore` and were swapped.
-  - `pg_dump --schema-only` of each restored database matched the original,
-    ignoring only `\restrict` keys and the dump header.
-  - Per-table row counts and data matched.
-  - The reconciliation query listed the one synthetic orphan organization ID,
-    and the running-workflow query listed the one running workflow.
-  - The PostgreSQL 18 archive contained `SET transaction_timeout = 0;`. Without
-    the `sed` line, PostgreSQL 16 failed with `unrecognized configuration
-    parameter "transaction_timeout"` (exit 3).
-  - A second restore with no existing `temporal` databases, which is the
-    new-host case, only promoted the restored copies.
-- Failure: with `orchestrator-db` unreachable, the run exited 1 with
-  `could not translate host name "orchestrator-db"`. With `db` unreachable
-  after the orchestrator dump, the run exited 1. Both times no new `.dump` was
-  published, and the earlier set's SHA-256 sums were unchanged. The next
-  successful run removed the leftover `.partial` files.
-- Guide fix found by the rehearsal: a `<placeholder>` inside a command is shell
-  redirection syntax. Pasting the block failed with a syntax error, so the
-  Temporal check now uses a `TEMPORAL_WORKFLOW_ID=` line.
+- Setup:
+  - Plain `docker run` containers on a private internal network, with no
+    published ports and no Compose project.
+  - `$COMPOSE_PROD` and `$COMPOSE_BACKUP` were mapped to `docker exec` and
+    `docker run` of the same images. Compose lifecycle lines (`stop`, `up`),
+    `curl`, and the Temporal CLI line printed `SKIPPED`.
+  - The `temporal` and `temporal_visibility` databases used the real
+    `schema.sql` files from the `temporalio/auto-setup:1.26` image, plus the
+    `schema_version` table as `temporal-sql-tool` creates it.
+  - The API and orchestrator databases used synthetic schemas with the object
+    kinds of the real migrations, as in the earlier round.
+- Results by case:
+  - **Success path:** all five phases passed. Phase 3 printed a count for each
+    of the eight checks, and phase 4 printed four `promoted` lines. Each
+    restored database matched its `*_before_restore` original in
+    `pg_dump --schema-only` (ignoring `\restrict` keys and the dump header),
+    data, and per-table row counts.
+  - **Corrupted archive:** the block stopped in phase 1 with
+    `unreadable archive: agentforge_<set>.dump`. Nothing was created; names and
+    row counts were unchanged.
+  - **Phase 2 failure** (`db` unreachable before the restore): the block exited
+    1 with `could not translate host name "db"`. No rename happened, and the
+    live databases' row counts were unchanged. The cleanup block then returned
+    names and counts to the exact starting state.
+  - **Phase 4 failure:** a session was opened on `orchestrator` after the
+    three `db`-server swaps. The block exited 3 with `database "orchestrator"
+    is being accessed by other users`. `orchestrator` and `orchestrator_restore`
+    were both intact, because that swap rolled back. The name listing showed
+    three swapped databases. The undo block, once per swapped database, and
+    then the cleanup block returned names and row counts to the exact state
+    before the case.
+  - **Two backup runs at once** (a scheduled pass and a one-shot, started
+    together, each pass about 7 s): the scheduled pass logged `another backup
+    run is in progress; waiting for it`. The one-shot exited 0. Each run
+    published a complete set of four files with its own timestamp, no staging
+    folder was deleted by the other run, and earlier sets were unchanged.
+  - **Lock held by another run:** a one-shot with `BACKUP_LOCK_WAIT_SECS=10`
+    exited 75 with `still holds /backups/.backup.lock after 10s; not started`.
+    No file was added, removed, or changed.
+  - **Dump failure mid-run** (`db` unreachable after the orchestrator dump):
+    the run exited 1. It published nothing, left no staging folder, and earlier
+    sets were unchanged.
+  - **Skew check:** it listed exactly the four planted mismatches:
+    - `running` with a `Completed` execution (finished between the dumps);
+    - `running` with no execution (stranded);
+    - `draft` with a `Running` execution (corrects itself);
+    - `running` with an older run ID.
+
+    It did not list the consistent `running` row or the never-started `draft`.
+    The organization check listed the one planted orphan ID.
+- Guide fix found by this round: phase 1 printed only `Segmentation fault`
+  for a corrupted archive, because `pg_restore --list` crashes on it. Phase 1
+  now names the unreadable archive.
+
+**2026-11-23 — earlier mechanics rehearsal** (revision `914ea77c`; the
+staging, lock, and phased restore described above replaced that procedure).
+Backup and the earlier restore commands restored four synthetic databases with
+matching schema, data, and counts. The PostgreSQL 18 archive's
+`SET transaction_timeout = 0;` line failed on PostgreSQL 16 without the `sed`
+line (exit 3). Failed backup runs exited 1 without publishing a set. That round
+also found that a `<placeholder>` inside a command is shell redirection syntax.
 
 Earlier drill, before Temporal and the orchestrator were covered: a backup,
 wipe, and restore of the API database only, on a local stack with 1,000 tasks.
@@ -444,42 +609,24 @@ mc mirror --overwrite --preserve "backup/agentforge-YYYYMMDD" rustfs/agentforge
 $COMPOSE_PROD up -d --wait db redis nats orchestrator-db
 ```
 
-2. Copy the backup set into `docker/backups/`. Then run steps 3 to 7 of
-   [PostgreSQL Restore](#postgresql-restore-all-bundled-databases). On a new
-   host, step 6 finds no old `temporal` databases and only promotes the
-   restored copies.
+2. Copy the backup set into `docker/backups/`.
+3. For managed RustFS storage, start RustFS and restore attachments first:
 
-For managed RustFS storage, start RustFS and restore attachments before starting
-the API:
+   ```bash
+   $COMPOSE_PROD_STORAGE up -d --wait rustfs
+   mc alias set backup "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY" "$BACKUP_S3_SECRET_KEY"
+   mc alias set rustfs "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+   mc mirror --overwrite --preserve "backup/agentforge-YYYYMMDD" rustfs/agentforge
+   ```
 
-```bash
-$COMPOSE_PROD_STORAGE up -d --wait rustfs
-mc alias set backup "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY" "$BACKUP_S3_SECRET_KEY"
-mc alias set rustfs "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
-mc mirror --overwrite --preserve "backup/agentforge-YYYYMMDD" rustfs/agentforge
-```
+   Then set `COMPOSE_PROD="$COMPOSE_PROD_STORAGE"` in the same shell, so the
+   restore block starts the API with RustFS. For local attachment storage, skip
+   this step.
 
-Then start application services with the storage override so the API uses
-RustFS:
-
-```bash
-$COMPOSE_PROD_STORAGE up -d --wait agentforge-server orchestrator
-```
-
-For local attachment storage, skip the RustFS restore above and start the API
-with the regular production profile:
-
-```bash
-$COMPOSE_PROD up -d --wait agentforge-server orchestrator
-```
-
-Verify health:
-
-```bash
-curl -s http://localhost:4003/health | jq .
-curl -s http://localhost:4003/api/health | jq .
-curl -s http://localhost:4010/health | jq .
-```
+4. Run the [PostgreSQL Restore](#postgresql-restore-all-bundled-databases)
+   block. On a new host, phase 4 finds no old `temporal` databases and only
+   promotes the restored copies. The empty `agentforge` database that the new
+   `db` container created is kept as `agentforge_before_restore`.
 
 ---
 

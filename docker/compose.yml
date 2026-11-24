@@ -583,26 +583,48 @@ services:
       - ./backups:/backups
 
     # A failed dump exits non-zero (container restarts and shows the error in
-    # `ps`/logs); dumps are renamed to .dump and old ones pruned only after
-    # every database dumped successfully.
+    # `ps`/logs) and removes only its own staging directory; dumps are published
+    # as .dump and old ones pruned only after every database dumped successfully.
+    # One lock file serializes passes. The scheduled loop waits as long as it
+    # takes; a one-shot (BACKUP_ONCE=1) waits up to BACKUP_LOCK_WAIT_SECS
+    # (default 600) and then exits 75 without touching any file.
     entrypoint: /bin/sh
     command:
       - -ec
       - |
+        exec 9>>/backups/.backup.lock
+        trap 'rm -rf "$$stage"' EXIT
         while true; do
-          rm -f /backups/*.dump.partial
+          waited=0
+          until flock -n 9; do
+            if [ "$${BACKUP_ONCE:-0}" = 1 ] && [ "$$waited" -ge "$${BACKUP_LOCK_WAIT_SECS:-600}" ]; then
+              echo "backup: another backup run still holds /backups/.backup.lock after $${waited}s; not started" >&2
+              exit 75
+            fi
+            if [ "$$waited" = 0 ]; then echo "backup: another backup run is in progress; waiting for it"; fi
+            sleep 5
+            waited=$$((waited + 5))
+          done
+          # With the lock held no other pass is running, so a staging dir older than a day is a leftover.
+          find /backups -maxdepth 1 -name '.staging-*' -mmin +1440 -exec rm -rf {} +
           ts=$$(date +%Y%m%d_%H%M%S)
+          # A pass that finished within the same second already published this timestamp.
+          while ls /backups/*_"$$ts".dump >/dev/null 2>&1; do sleep 1; ts=$$(date +%Y%m%d_%H%M%S); done
+          stage="/backups/.staging-$$ts-$$(hostname)"
+          mkdir "$$stage"
           # Referencing side first, referenced side last: orchestrator rows hold Temporal execution and API ids; everything holds API ids.
-          PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "/backups/orchestrator_$$ts.dump.partial"
+          PGPASSWORD="$$ORCHESTRATOR_DB_PASSWORD" pg_dump -h orchestrator-db -U orchestrator -d orchestrator -F c -f "$$stage/orchestrator.dump"
           for db in temporal temporal_visibility "$$POSTGRES_DB"; do
-            PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$db" -F c -f "/backups/$${db}_$$ts.dump.partial"
+            PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h "$$POSTGRES_HOST" -U "$$POSTGRES_USER" -d "$$db" -F c -f "$$stage/$$db.dump"
           done
           for db in orchestrator temporal temporal_visibility "$$POSTGRES_DB"; do
-            mv "/backups/$${db}_$$ts.dump.partial" "/backups/$${db}_$$ts.dump"
+            mv "$$stage/$$db.dump" "/backups/$${db}_$$ts.dump"
           done
-          find /backups -name '*.dump' -mtime +7 -delete
+          rmdir "$$stage"
+          find /backups -maxdepth 1 -name '*.dump' -mtime +7 -delete
           echo "backup complete: $$ts (orchestrator temporal temporal_visibility $$POSTGRES_DB)"
           if [ "$${BACKUP_ONCE:-0}" = 1 ]; then exit 0; fi
+          flock -u 9
           sleep 86400
         done
 
