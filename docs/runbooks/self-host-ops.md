@@ -119,7 +119,9 @@ Applies to: every Compose profile. Before this change, the bundled database,
 Redis, NATS (client and monitoring ports), Temporal, the Temporal UI, Casdoor,
 Adminer, Redis Commander and the image registry listened on every address of
 the host. Now they listen on `127.0.0.1` unless you set a host address. The
-Caddy reverse proxy (`80`, `443`) is unchanged.
+`dev` profile (`make dev`) also no longer publishes the API on every address
+when `BIND_ADDRESS` is missing from `docker/.env`; it uses `127.0.0.1` like the
+other profiles. The Caddy reverse proxy (`80`, `443`) is unchanged.
 
 Symptom after upgrading: a Host CLI agent on another machine stays offline, or
 a tool you opened from another machine, such as the Temporal UI, no longer
@@ -127,24 +129,49 @@ loads.
 
 Shortest safe path: keep the new default and use an SSH tunnel for tools, for
 example `ssh -L 8233:127.0.0.1:8233 <user>@<server>`. If other machines must
-reach a port, add only the lines you need to `docker/.env`:
+reach a port, add only the lines you need to `docker/.env`. These lines open
+the ports on IPv4 only:
 
 ```bash
-# Host CLI agents on other machines (NATS client port 4222)
+# IPv4: Host CLI agents on other machines (NATS client port 4222)
 NATS_BIND_ADDRESS=0.0.0.0
-# Browsers on other machines sign in through Casdoor (port 8000)
+# IPv4: browsers on other machines sign in through Casdoor (port 8000)
 CASDOOR_BIND_ADDRESS=0.0.0.0
-# Database, Redis, NATS monitoring, Temporal, its UI and the tools.
+# IPv4: database, Redis, NATS monitoring, Temporal, its UI and the tools.
 # This also opens the API (4003) and orchestrator (4010) ports.
 BIND_ADDRESS=0.0.0.0
 ```
 
 Then start the stack the way you normally do, for example `make prod-pull`;
-Compose recreates the containers whose ports changed. `0.0.0.0` means every
-IPv4 address; Docker listened on IPv6 too before. Prefer the address of one
-interface, and allow only the machines that need the port in the host firewall.
-The NATS monitoring port, Temporal and its UI have no login. Host CLI details:
+Compose recreates the containers whose ports changed. Prefer the address of one
+interface over `0.0.0.0`, and allow only the machines that need the port in the
+host firewall. The NATS monitoring port, Temporal and its UI have no login.
+Host CLI details:
 [Deployment Guide](../guides/deployment.md#host-cli-agents-on-other-machines).
+
+Optional, IPv6 as well: before this change Docker also listened on IPv6. One
+host address cannot cover both, so add a second mapping in a small override
+file. Example for the NATS client port, saved as
+`docker/nats-ipv6.override.yml` (keep it out of version control):
+
+```yaml
+services:
+  nats:
+    ports:
+      - '[::]:${NATS_PORT:-4222}:4222'
+```
+
+Include it after the files your usual command uses, for example for the
+self-contained `prod` profile:
+
+```bash
+docker compose --env-file docker/.env -f docker/compose.yml -f docker/compose.prod.yml \
+  -f docker/nats-ipv6.override.yml --profile prod up -d
+```
+
+Compose adds this mapping next to the IPv4 one from `NATS_BIND_ADDRESS`. Use a
+specific IPv6 address in brackets instead of `[::]` to limit it to one
+interface. The host must have IPv6 enabled for this mapping.
 
 Success looks like this: on the host, `ss -ltn` lists these ports on
 `127.0.0.1`, or on the address you set.

@@ -1,4 +1,6 @@
+import { execFileSync } from 'node:child_process'
 import { isIP } from 'node:net'
+import { URL } from 'node:url'
 import YAML from 'yaml'
 
 const CORE_SERVICES = ['agentforge-server', 'orchestrator']
@@ -146,9 +148,13 @@ function resolveComposeDefaults(value) {
   return resolved
 }
 
-function isHostAddress(value) {
-  const bracketed = /^\[(.+)\]$/.exec(value)
-  return bracketed ? isIP(bracketed[1]) === 6 : isIP(value) !== 0
+// 127.0.0.0/8 or ::1 (bracketed in short syntax, either form in long-syntax host_ip).
+function isLoopbackAddress(value) {
+  const address = value.replace(/^\[(.+)\]$/, '$1')
+  if (isIP(address) === 4) {
+    return address.startsWith('127.')
+  }
+  return isIP(address) === 6 && new URL(`http://[${address}]`).hostname === '[::1]'
 }
 
 function shortSyntaxHostAddress(entry) {
@@ -174,16 +180,28 @@ export function validateComposePublishedPorts(composeContent, fileLabel = 'docke
         entry && typeof entry === 'object'
           ? resolveComposeDefaults(entry.host_ip ?? '')
           : shortSyntaxHostAddress(entry)
-      if (!isHostAddress(hostAddress)) {
+      if (!isLoopbackAddress(hostAddress)) {
         const shown = typeof entry === 'object' ? JSON.stringify(entry) : `'${entry}'`
         errors.push(
-          `${fileLabel} services.${serviceName}.ports[${index}] ${shown} must publish on an explicit host address (for example '\${BIND_ADDRESS:-127.0.0.1}:<host-port>:<container-port>' or host_ip)`
+          `${fileLabel} services.${serviceName}.ports[${index}] ${shown} must publish on a loopback host address by default (for example '\${BIND_ADDRESS:-127.0.0.1}:<host-port>:<container-port>' or host_ip); only the reverse proxy may listen on every address`
         )
       }
     })
   }
 
   return errors
+}
+
+const COMPOSE_FILE_NAME = /^(?:docker-)?compose[^/]*\.ya?ml$/
+
+export function selectComposeFiles(paths) {
+  return paths.filter((file) => COMPOSE_FILE_NAME.test(file.split('/').pop())).sort()
+}
+
+// Every tracked Compose file in the repository, as repository-relative paths.
+export function listComposeFiles(repoRoot) {
+  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' })
+  return selectComposeFiles(tracked.split('\0').filter(Boolean))
 }
 
 export function validateDockerfileBaseline(dockerfileContent) {

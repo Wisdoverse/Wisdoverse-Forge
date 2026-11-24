@@ -1,7 +1,11 @@
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  listComposeFiles,
+  selectComposeFiles,
   validateComposeBaseline,
   validateComposePublishedPorts,
   validateDockerfileBaseline,
@@ -20,59 +24,110 @@ describe('docker baseline policy', () => {
     expect(validateDockerfileBaseline(dockerfileContent)).toEqual([])
   })
 
-  it('requires an explicit host address on every published port in every Compose file', () => {
-    const dockerDir = path.join(projectRoot, 'docker')
-    const composeFiles = fs.readdirSync(dockerDir).filter((name) => /^compose.*\.ya?ml$/.test(name))
-    expect(composeFiles).toContain('compose.yml')
-    for (const name of composeFiles) {
-      const content = fs.readFileSync(path.join(dockerDir, name), 'utf8')
-      expect(validateComposePublishedPorts(content, `docker/${name}`)).toEqual([])
+  it('requires a loopback host address on every published port in every tracked Compose file', () => {
+    const composeFiles = listComposeFiles(projectRoot)
+    expect(composeFiles).toEqual(
+      expect.arrayContaining(['docker/compose.yml', 'docker/compose.dev.yml'])
+    )
+    for (const file of composeFiles) {
+      const content = fs.readFileSync(path.join(projectRoot, file), 'utf8')
+      expect(validateComposePublishedPorts(content, file)).toEqual([])
     }
   })
 
+  describe('Compose file discovery', () => {
+    it('selects compose*.y*ml and docker-compose*.y*ml anywhere in the repository', () => {
+      const paths = [
+        'docker/compose.yml',
+        'docker/compose.dev.yml',
+        'deploy/edge/docker-compose.override.yaml',
+        'compose.yaml',
+        'docker/nats.conf',
+        'docs/compose-guide.md',
+        'tests/fixtures/not-compose.yml',
+      ]
+      expect(selectComposeFiles(paths)).toEqual([
+        'compose.yaml',
+        'deploy/edge/docker-compose.override.yaml',
+        'docker/compose.dev.yml',
+        'docker/compose.yml',
+      ])
+    })
+
+    it('finds a tracked Compose file outside docker/', () => {
+      const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'compose-discovery-'))
+      try {
+        fs.mkdirSync(path.join(repo, 'deploy'))
+        fs.writeFileSync(path.join(repo, 'deploy/compose.yaml'), 'services: {}\n')
+        fs.writeFileSync(path.join(repo, 'untracked-compose.yml'), 'services: {}\n')
+        execFileSync('git', ['init', '-q'], { cwd: repo })
+        execFileSync('git', ['add', 'deploy/compose.yaml'], { cwd: repo })
+        expect(listComposeFiles(repo)).toEqual(['deploy/compose.yaml'])
+      } finally {
+        fs.rmSync(repo, { recursive: true, force: true })
+      }
+    })
+  })
+
   describe('published port host addresses', () => {
-    const portsOf = (ports: string) => `services:\n  nats:\n    ports:\n${ports}`
+    const portsOf = (...ports: string[]) =>
+      `services:\n  nats:\n    ports:\n${ports.map((port) => `      - ${port}\n`).join('')}`
 
     it('flags a published port without a host address', () => {
-      const errors = validateComposePublishedPorts(portsOf("      - '4222:4222'\n"), 'docker/x.yml')
+      const errors = validateComposePublishedPorts(portsOf("'4222:4222'"), 'docker/x.yml')
       expect(errors).toEqual([
         expect.stringContaining("docker/x.yml services.nats.ports[0] '4222:4222'"),
       ])
     })
 
     it('flags a container-only port, which Docker publishes on a random port of every address', () => {
-      expect(validateComposePublishedPorts(portsOf('      - 4222\n'))).toHaveLength(1)
+      expect(validateComposePublishedPorts(portsOf('4222'))).toHaveLength(1)
     })
 
-    it('accepts a variable whose default is an address, a literal address and bracketed IPv6', () => {
-      const ports = [
-        "      - '${X:-127.0.0.1}:4222:4222'",
-        "      - '127.0.0.1:${NATS_PORT:-4222}:4222/tcp'",
-        "      - '[::1]:8222:8222'",
-      ].join('\n')
-      expect(validateComposePublishedPorts(portsOf(`${ports}\n`))).toEqual([])
+    it.each([
+      ["'${X:-127.0.0.1}:4222:4222'", 'variable with a loopback default'],
+      ["'127.0.0.1:${NATS_PORT:-4222}:4222/tcp'", 'literal loopback with a protocol suffix'],
+      ["'127.0.0.1:5353:5353/udp'", 'udp suffix'],
+      ["'127.0.0.2:8000-8010:8000-8010'", 'port range on 127.0.0.0/8'],
+      ["'[::1]:8222:8222'", 'bracketed IPv6 loopback'],
+      ["'[::1]:9000-9001:9000-9001/tcp'", 'bracketed IPv6 with range and suffix'],
+      ["'${X-127.0.0.1}:4222:4222'", 'default without a colon'],
+      ["'${A:-${B:-127.0.0.1}}:4222:4222'", 'nested defaults'],
+      ["'127.0.0.1::4222'", 'random host port on loopback'],
+    ])('accepts %s (%s)', (entry) => {
+      expect(validateComposePublishedPorts(portsOf(entry))).toEqual([])
     })
 
-    it('flags a host address variable without a default', () => {
-      const ports =
-        "      - '${NATS_BIND_ADDRESS}:4222:4222'\n      - '${NATS_BIND_ADDRESS:?set it}:4222:4222'\n"
-      expect(validateComposePublishedPorts(portsOf(ports))).toHaveLength(2)
+    it.each([
+      ["'${NATS_BIND_ADDRESS}:4222:4222'", 'variable without a default'],
+      ["'${NATS_BIND_ADDRESS:?set it}:4222:4222'", 'required variable without a default'],
+      ["'${X:-localhost}:4222:4222'", 'hostname default'],
+      ["'${X:-0.0.0.0}:4222:4222'", 'all-IPv4 default'],
+      ["'${A:-${B:-0.0.0.0}}:4222:4222'", 'nested non-loopback default'],
+      ["'192.0.2.10:4222:4222'", 'literal non-loopback address'],
+      ["'0.0.0.0:8000-8010:8000-8010'", 'all-IPv4 range'],
+      ["'[::]:4222:4222'", 'all-IPv6 address'],
+      ["'[2001:db8::10]:4222:4222'", 'literal non-loopback IPv6'],
+    ])('flags %s (%s)', (entry) => {
+      expect(validateComposePublishedPorts(portsOf(entry))).toEqual([
+        expect.stringContaining('must publish on a loopback host address by default'),
+      ])
     })
 
-    it('flags a default that is not an address', () => {
-      expect(
-        validateComposePublishedPorts(portsOf("      - '${X:-localhost}:4222:4222'\n"))
-      ).toHaveLength(1)
-    })
-
-    it('checks host_ip in long syntax', () => {
-      const missing = '      - target: 4222\n        published: 4222\n'
-      const present =
-        "      - target: 4222\n        published: 4222\n        host_ip: '${X:-127.0.0.1}'\n"
-      expect(validateComposePublishedPorts(portsOf(missing))).toEqual([
+    it('checks host_ip in long syntax, including a variable default', () => {
+      const longPort = (hostIp?: string) =>
+        `services:\n  nats:\n    ports:\n      - target: 4222\n        published: 4222\n${
+          hostIp === undefined ? '' : `        host_ip: '${hostIp}'\n`
+        }`
+      expect(validateComposePublishedPorts(longPort())).toEqual([
         expect.stringContaining('services.nats.ports[0]'),
       ])
-      expect(validateComposePublishedPorts(portsOf(present))).toEqual([])
+      expect(validateComposePublishedPorts(longPort('${NATS_BIND_ADDRESS:-127.0.0.1}'))).toEqual([])
+      expect(validateComposePublishedPorts(longPort('::1'))).toEqual([])
+      expect(validateComposePublishedPorts(longPort('${NATS_BIND_ADDRESS:-0.0.0.0}'))).toHaveLength(
+        1
+      )
+      expect(validateComposePublishedPorts(longPort('${NATS_BIND_ADDRESS}'))).toHaveLength(1)
     })
 
     it('allows only the reverse proxy to keep the all-addresses default', () => {

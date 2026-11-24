@@ -48,7 +48,10 @@ Optional:
   ORCHESTRATION_REAL_CLI_TASK_TIMEOUT_MS  default: 300000 for real CLI mode
   ORCHESTRATION_REAL_SIDECAR_START_TIMEOUT_MS  default: 60000
   AGENTFORGE_SIDECAR_BIN           default: rust/target/debug/agentforge-sidecar in host mode
-  NATS_PORT                        default: 4222
+  NATS_PORT                        default: 4222 (host mode)
+  AGENTFORGE_SIDECAR_CONTAINER_NETWORK   default: $CONTAINER_NETWORK or agentforge-agents
+  AGENTFORGE_SIDECAR_CONTAINER_NATS_HOST default: nats (container mode, on that network)
+  AGENTFORGE_SIDECAR_CONTAINER_NATS_PORT default: 4222
 
 The script copies only local CLI credential directories into a temporary 0700
 HOME, points the sidecar at that HOME, and fails if cleanup cannot remove it.

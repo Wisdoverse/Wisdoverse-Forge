@@ -12,9 +12,8 @@
 
 services:
   agentforge-server:
-    ports:
-      - '${BIND_ADDRESS:-0.0.0.0}:${AGENTFORGE_PORT:-4003}:4003'
-
+    # Ports come from compose.yml (BIND_ADDRESS, default 127.0.0.1). Compose merges
+    # port lists across files, so a mapping here would be added, not replaced.
     environment:
       - NODE_ENV=development
       - ENVIRONMENT=development

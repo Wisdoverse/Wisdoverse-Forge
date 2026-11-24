@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  listComposeFiles,
   validateComposeBaseline,
   validateComposePublishedPorts,
   validateDockerfileBaseline,
@@ -12,9 +13,8 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(scriptDir, '..')
 
-const dockerDir = path.join(repoRoot, 'docker')
-const composePath = path.join(dockerDir, 'compose.yml')
-const dockerfilePath = path.join(dockerDir, 'Dockerfile')
+const composePath = path.join(repoRoot, 'docker', 'compose.yml')
+const dockerfilePath = path.join(repoRoot, 'docker', 'Dockerfile')
 
 function readFileOrDie(targetPath) {
   try {
@@ -28,15 +28,19 @@ function readFileOrDie(targetPath) {
 
 const composeContent = readFileOrDie(composePath)
 const dockerfileContent = readFileOrDie(dockerfilePath)
-const composeFiles = fs
-  .readdirSync(dockerDir)
-  .filter((name) => /^compose(\.[A-Za-z0-9_-]+)*\.ya?ml$/.test(name))
-  .sort()
+let composeFiles
+try {
+  composeFiles = listComposeFiles(repoRoot)
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[docker-baseline] ERROR: unable to list Compose files with git: ${message}`)
+  process.exit(2)
+}
 
 const errors = [
   ...validateComposeBaseline(composeContent),
-  ...composeFiles.flatMap((name) =>
-    validateComposePublishedPorts(readFileOrDie(path.join(dockerDir, name)), `docker/${name}`)
+  ...composeFiles.flatMap((file) =>
+    validateComposePublishedPorts(readFileOrDie(path.join(repoRoot, file)), file)
   ),
   ...validateDockerfileBaseline(dockerfileContent),
 ]
