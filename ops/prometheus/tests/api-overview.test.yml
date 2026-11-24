@@ -75,3 +75,175 @@ tests:
               summary: 'Observed API 5xx at least 0.5% (30-day lookback)'
               description: 'Observed ratio is 0.6%. Acceptance requires complete scrape coverage.'
               runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+  - name: A 501 burst does not page or appear as a per-path error ratio
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+60x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="501"}'
+        values: '0+600x30'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 20m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 0
+    alert_rule_test:
+      - alertname: APIHigh5xxRate
+        eval_time: 20m
+        exp_alerts: []
+      - alertname: APIErrorBudgetBurn
+        eval_time: 20m
+        exp_alerts: []
+
+  - name: Real 500s still page during a 501 burst
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/health",status="200"}'
+        values: '0+60x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="200"}'
+        values: '0+54x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="500"}'
+        values: '0+6x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="501"}'
+        values: '0+600x30'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 20m
+        exp_samples:
+          - labels: '{path="/health"}'
+            value: 0
+          - labels: '{path="/api/v1/tasks"}'
+            value: 0.1
+    alert_rule_test:
+      - alertname: APIHigh5xxRate
+        eval_time: 20m
+        exp_alerts:
+          - exp_labels:
+              path: /api/v1/tasks
+              severity: page
+              slo: availability
+            exp_annotations:
+              summary: '5xx rate >1% on /api/v1/tasks for 5m'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
+      - alertname: APIErrorBudgetBurn
+        eval_time: 20m
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: availability
+            exp_annotations:
+              summary: 'Error budget burn 2.8× over 1h+5m windows'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+  # Mixed statuses on ONE path: 90 x 200, 10 x 500 and 900 x 501 per minute.
+  # Correct ratio is 10 / 100 = 0.1. Keeping 501 in the denominator gives 0.01
+  # (not above the 1% threshold, so the page would not fire).
+  - name: Per-path ratio excludes 501 from both sides on the same path
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="200"}'
+        values: '0+90x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="500"}'
+        values: '0+10x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="501"}'
+        values: '0+900x30'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 20m
+        exp_samples:
+          - labels: '{path="/api/v1/agents/{id}/git"}'
+            value: 0.1
+    alert_rule_test:
+      - alertname: APIHigh5xxRate
+        eval_time: 20m
+        exp_alerts:
+          - exp_labels:
+              path: /api/v1/agents/{id}/git
+              severity: page
+              slo: availability
+            exp_annotations:
+              summary: '5xx rate >1% on /api/v1/agents/{id}/git for 5m'
+              runbook: 'docs/runbooks/observability-slo.md#api-availability'
+
+  # Same path, 995 x 200, 5 x 500 and 900 x 501 per minute. Correct ratio is
+  # 5 / 1000 = 0.005 (below 1%). Counting 501 as an error gives 905 / 1900 or
+  # 905 / 1000, both of which would page.
+  - name: Per-path ratio stays below threshold when only 501 volume is high
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="200"}'
+        values: '0+995x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="500"}'
+        values: '0+5x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/agents/{id}/git",status="501"}'
+        values: '0+900x30'
+    promql_expr_test:
+      - expr: __API_5XX_5M__
+        eval_time: 20m
+        exp_samples:
+          - labels: '{path="/api/v1/agents/{id}/git"}'
+            value: 0.005
+    alert_rule_test:
+      - alertname: APIHigh5xxRate
+        eval_time: 20m
+        exp_alerts: []
+
+  - name: 501 watch alert is silent without 501 responses
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="200"}'
+        values: '0+60x30'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="500"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - alertname: APINotImplementedResponses
+        eval_time: 20m
+        exp_alerts: []
+
+  # A route's first 501 creates a new counter series at 1 (no earlier sample).
+  # It must fire with that route, then resolve once 15m pass without a new 501.
+  - name: 501 watch alert fires on a route's first 501 and expires after 15m
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="200"}'
+        values: '0+60x60'
+      - series: 'http_requests_total{method="GET",path="/api/v1/tasks",status="501"}'
+        values: '_x10 1x50'
+    alert_rule_test:
+      - alertname: APINotImplementedResponses
+        eval_time: 5m
+        exp_alerts: []
+      - alertname: APINotImplementedResponses
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              path: /api/v1/tasks
+              severity: ticket
+              slo: availability
+            exp_annotations:
+              summary: 'API answered 501 Not Implemented on /api/v1/tasks in the last 15m'
+              description: 'A call to a deprecated stub endpoint, or a regression of an implemented route. 501s are excluded from the availability ratio.'
+              runbook: 'docs/runbooks/observability-slo.md#not-implemented-responses'
+      - alertname: APINotImplementedResponses
+        eval_time: 40m
+        exp_alerts: []
+
+  - name: 501 watch alert fires while a stub route keeps answering 501
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{method="POST",path="/api/v1/voice/transcribe",status="501"}'
+        values: '1+1x40'
+    alert_rule_test:
+      - alertname: APINotImplementedResponses
+        eval_time: 30m
+        exp_alerts:
+          - exp_labels:
+              path: /api/v1/voice/transcribe
+              severity: ticket
+              slo: availability
+            exp_annotations:
+              summary: 'API answered 501 Not Implemented on /api/v1/voice/transcribe in the last 15m'
+              description: 'A call to a deprecated stub endpoint, or a regression of an implemented route. 501s are excluded from the availability ratio.'
+              runbook: 'docs/runbooks/observability-slo.md#not-implemented-responses'

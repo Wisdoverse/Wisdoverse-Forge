@@ -45,10 +45,26 @@ Breaking changes include:
 - Removing or renaming a header the API used to set (e.g.
   `Set-Cookie: af_rt`).
 
+### False-Success Corrections
+
+An endpoint that reports success for work it never performed has a defect.
+Correcting it is a defect fix, not a breaking change, even when the status
+code or error code changes. This exception applies only when:
+
+- The endpoint reported success (for example `ok: true` or HTTP 200) although
+  the requested work did not happen.
+- The release notes name the endpoint and its new response (status code and
+  error code).
+
+The CHANGELOG entry for such a correction goes under **Fixed** (the
+`### Bug Fixes` heading in the generated CHANGELOG). No other
+status code or error code change qualifies for this exception.
+
 ### Deprecation Window
 
 A deprecated surface stays callable for **90 days** after its replacement
-lands. During the window:
+lands. When a deprecated surface has no replacement, the window starts on the
+date the deprecation is published in the CHANGELOG. During the window:
 
 - The OpenAPI spec marks the deprecated operation as `deprecated: true`.
 - Responses include a `Deprecation` header per RFC 9745 (or the closest
