@@ -48,6 +48,7 @@ make setup
 At minimum, configure these values in `docker/.env`:
 
 - `POSTGRES_PASSWORD`
+- `ORCHESTRATOR_DB_PASSWORD` (`prod` profile; use hex, for example `openssl rand -hex 24`)
 - `REDIS_PASSWORD`
 - `JWT_SECRET`
 - NATS callout variables listed in [NATS Auth Runbook](../runbooks/nats-auth.md)
@@ -61,7 +62,7 @@ At minimum, configure these values in `docker/.env`:
 | `prod`     | Self-contained production stack with internal backing services |
 | `external` | Rust services attached to externally managed infrastructure    |
 | `tools`    | Adminer and Redis Commander                                    |
-| `backup`   | Scheduled PostgreSQL backup helper                             |
+| `backup`   | Daily backup of both bundled PostgreSQL databases              |
 | `storage`  | RustFS S3-compatible object storage                            |
 | `casdoor`  | Casdoor identity provider integration                          |
 
