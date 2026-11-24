@@ -5,14 +5,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   validateComposeBaseline,
+  validateComposePublishedPorts,
   validateDockerfileBaseline,
 } from './lib/docker-baseline-policy.js'
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(scriptDir, '..')
 
-const composePath = path.join(repoRoot, 'docker', 'compose.yml')
-const dockerfilePath = path.join(repoRoot, 'docker', 'Dockerfile')
+const dockerDir = path.join(repoRoot, 'docker')
+const composePath = path.join(dockerDir, 'compose.yml')
+const dockerfilePath = path.join(dockerDir, 'Dockerfile')
 
 function readFileOrDie(targetPath) {
   try {
@@ -26,9 +28,16 @@ function readFileOrDie(targetPath) {
 
 const composeContent = readFileOrDie(composePath)
 const dockerfileContent = readFileOrDie(dockerfilePath)
+const composeFiles = fs
+  .readdirSync(dockerDir)
+  .filter((name) => /^compose(\.[A-Za-z0-9_-]+)*\.ya?ml$/.test(name))
+  .sort()
 
 const errors = [
   ...validateComposeBaseline(composeContent),
+  ...composeFiles.flatMap((name) =>
+    validateComposePublishedPorts(readFileOrDie(path.join(dockerDir, name)), `docker/${name}`)
+  ),
   ...validateDockerfileBaseline(dockerfileContent),
 ]
 

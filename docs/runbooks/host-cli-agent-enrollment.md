@@ -113,6 +113,9 @@ Admin prerequisites:
 - Host CLI enrollment is enabled for the organization.
 - `NATS_AGENT_URL` points to a NATS address reachable from the operator's
   machine. The API removes any user-info and injects per-agent credentials.
+  With the bundled Compose stack, the NATS client port listens only on
+  `127.0.0.1` until `NATS_BIND_ADDRESS` is set; see
+  [Host CLI agents on other machines](../guides/deployment.md#host-cli-agents-on-other-machines).
 
 Supported operator platforms are Linux x86_64, Linux ARM64, macOS Apple Silicon,
 macOS Intel, and Windows x86_64. Windows ARM64 is a secondary target until the

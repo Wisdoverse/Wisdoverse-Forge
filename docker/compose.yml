@@ -344,7 +344,7 @@ services:
     profiles: [dev, prod]
 
     ports:
-      - '${DB_EXPOSED_PORT:-5432}:5432'
+      - '${BIND_ADDRESS:-127.0.0.1}:${DB_EXPOSED_PORT:-5432}:5432'
 
     environment:
       POSTGRES_USER: agentforge
@@ -383,7 +383,7 @@ services:
     profiles: [dev, prod]
 
     ports:
-      - '${REDIS_EXPOSED_PORT:-6379}:6379'
+      - '${BIND_ADDRESS:-127.0.0.1}:${REDIS_EXPOSED_PORT:-6379}:6379'
 
     command: >
       redis-server
@@ -427,8 +427,11 @@ services:
     command: ['-c', '/etc/nats/nats.conf']
 
     ports:
-      - '${NATS_PORT:-4222}:4222'
-      - '${NATS_MONITOR_PORT:-8222}:8222'
+      # Client port. Agent containers use nats:4222 on the Docker network by default,
+      # not this port; only Host CLI agents on other machines need NATS_BIND_ADDRESS.
+      - '${NATS_BIND_ADDRESS:-127.0.0.1}:${NATS_PORT:-4222}:4222'
+      # Monitoring port has no authentication: keep it on BIND_ADDRESS (loopback).
+      - '${BIND_ADDRESS:-127.0.0.1}:${NATS_MONITOR_PORT:-8222}:8222'
 
     environment:
       # Issue #38 phase 2: the legacy `agent` user + `NATS_AGENT_PASSWORD`
@@ -490,6 +493,8 @@ services:
     restart: unless-stopped
     profiles: [prod]
 
+    # The one intentionally public listener. No host address on purpose: Docker then
+    # listens on all IPv4 and IPv6 addresses; an explicit 0.0.0.0 would be IPv4 only.
     ports:
       - '${HTTP_PORT:-${NGINX_HTTP_PORT:-80}}:80'
       - '${HTTPS_PORT:-${NGINX_HTTPS_PORT:-443}}:443'
@@ -534,7 +539,7 @@ services:
     profiles: [tools]
 
     ports:
-      - '${ADMINER_PORT:-8080}:8080'
+      - '${BIND_ADDRESS:-127.0.0.1}:${ADMINER_PORT:-8080}:8080'
 
     environment:
       ADMINER_DEFAULT_SERVER: db
@@ -554,7 +559,7 @@ services:
     profiles: [tools]
 
     ports:
-      - '${REDIS_COMMANDER_PORT:-8081}:8081'
+      - '${BIND_ADDRESS:-127.0.0.1}:${REDIS_COMMANDER_PORT:-8081}:8081'
 
     environment:
       REDIS_HOSTS: local:redis:6379
@@ -673,7 +678,7 @@ services:
     profiles: [storage]
 
     ports:
-      - '${REGISTRY_PORT:-5000}:5000'
+      - '${BIND_ADDRESS:-127.0.0.1}:${REGISTRY_PORT:-5000}:5000'
 
     environment:
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
@@ -799,7 +804,7 @@ services:
         condition: service_healthy
 
     ports:
-      - '${CASDOOR_PORT:-8000}:8000'
+      - '${CASDOOR_BIND_ADDRESS:-127.0.0.1}:${CASDOOR_PORT:-8000}:8000'
 
     volumes:
       - type: bind
@@ -866,8 +871,8 @@ services:
       - TEMPORAL_CLI_ADDRESS=temporal-internal:7233
       - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/docker.yaml
     ports:
-      - '${TEMPORAL_PORT:-7233}:7233'
-      - '${TEMPORAL_UI_PORT:-8233}:8233'
+      - '${BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_PORT:-7233}:7233'
+      - '${BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_UI_PORT:-8233}:8233'
     healthcheck:
       test:
         ['CMD', 'temporal', 'operator', 'cluster', 'health', '--address', 'temporal-internal:7233']
@@ -909,8 +914,8 @@ services:
       - TEMPORAL_ADDRESS=temporal-internal:7233
       - TEMPORAL_CLI_ADDRESS=temporal-internal:7233
     ports:
-      - '${TEMPORAL_PORT:-7233}:7233'
-      - '${TEMPORAL_UI_PORT:-8233}:8233'
+      - '${BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_PORT:-7233}:7233'
+      - '${BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_UI_PORT:-8233}:8233'
     healthcheck:
       test:
         ['CMD', 'temporal', 'operator', 'cluster', 'health', '--address', 'temporal-internal:7233']

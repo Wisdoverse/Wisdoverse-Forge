@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   validateComposeBaseline,
+  validateComposePublishedPorts,
   validateDockerfileBaseline,
 } from '../../../scripts/lib/docker-baseline-policy.js'
 
@@ -17,6 +18,70 @@ describe('docker baseline policy', () => {
 
     expect(validateComposeBaseline(composeContent)).toEqual([])
     expect(validateDockerfileBaseline(dockerfileContent)).toEqual([])
+  })
+
+  it('requires an explicit host address on every published port in every Compose file', () => {
+    const dockerDir = path.join(projectRoot, 'docker')
+    const composeFiles = fs.readdirSync(dockerDir).filter((name) => /^compose.*\.ya?ml$/.test(name))
+    expect(composeFiles).toContain('compose.yml')
+    for (const name of composeFiles) {
+      const content = fs.readFileSync(path.join(dockerDir, name), 'utf8')
+      expect(validateComposePublishedPorts(content, `docker/${name}`)).toEqual([])
+    }
+  })
+
+  describe('published port host addresses', () => {
+    const portsOf = (ports: string) => `services:\n  nats:\n    ports:\n${ports}`
+
+    it('flags a published port without a host address', () => {
+      const errors = validateComposePublishedPorts(portsOf("      - '4222:4222'\n"), 'docker/x.yml')
+      expect(errors).toEqual([
+        expect.stringContaining("docker/x.yml services.nats.ports[0] '4222:4222'"),
+      ])
+    })
+
+    it('flags a container-only port, which Docker publishes on a random port of every address', () => {
+      expect(validateComposePublishedPorts(portsOf('      - 4222\n'))).toHaveLength(1)
+    })
+
+    it('accepts a variable whose default is an address, a literal address and bracketed IPv6', () => {
+      const ports = [
+        "      - '${X:-127.0.0.1}:4222:4222'",
+        "      - '127.0.0.1:${NATS_PORT:-4222}:4222/tcp'",
+        "      - '[::1]:8222:8222'",
+      ].join('\n')
+      expect(validateComposePublishedPorts(portsOf(`${ports}\n`))).toEqual([])
+    })
+
+    it('flags a host address variable without a default', () => {
+      const ports =
+        "      - '${NATS_BIND_ADDRESS}:4222:4222'\n      - '${NATS_BIND_ADDRESS:?set it}:4222:4222'\n"
+      expect(validateComposePublishedPorts(portsOf(ports))).toHaveLength(2)
+    })
+
+    it('flags a default that is not an address', () => {
+      expect(
+        validateComposePublishedPorts(portsOf("      - '${X:-localhost}:4222:4222'\n"))
+      ).toHaveLength(1)
+    })
+
+    it('checks host_ip in long syntax', () => {
+      const missing = '      - target: 4222\n        published: 4222\n'
+      const present =
+        "      - target: 4222\n        published: 4222\n        host_ip: '${X:-127.0.0.1}'\n"
+      expect(validateComposePublishedPorts(portsOf(missing))).toEqual([
+        expect.stringContaining('services.nats.ports[0]'),
+      ])
+      expect(validateComposePublishedPorts(portsOf(present))).toEqual([])
+    })
+
+    it('allows only the reverse proxy to keep the all-addresses default', () => {
+      const content =
+        "services:\n  caddy:\n    ports:\n      - '80:80'\n  temporal:\n    ports:\n      - '8233:8233'\n"
+      expect(validateComposePublishedPorts(content)).toEqual([
+        expect.stringContaining('services.temporal.ports[0]'),
+      ])
+    })
   })
 
   it('flags missing hardening controls for core services', () => {

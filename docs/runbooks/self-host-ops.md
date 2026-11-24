@@ -113,6 +113,42 @@ HTTP 200 again. If the orchestrator logs show `password authentication failed`,
 steps 2 and 3 used different values. Repeat step 2 with the value from
 `docker/.env`.
 
+## Upgrade step: internal ports now listen only on this machine
+
+Applies to: every Compose profile. Before this change, the bundled database,
+Redis, NATS (client and monitoring ports), Temporal, the Temporal UI, Casdoor,
+Adminer, Redis Commander and the image registry listened on every address of
+the host. Now they listen on `127.0.0.1` unless you set a host address. The
+Caddy reverse proxy (`80`, `443`) is unchanged.
+
+Symptom after upgrading: a Host CLI agent on another machine stays offline, or
+a tool you opened from another machine, such as the Temporal UI, no longer
+loads.
+
+Shortest safe path: keep the new default and use an SSH tunnel for tools, for
+example `ssh -L 8233:127.0.0.1:8233 <user>@<server>`. If other machines must
+reach a port, add only the lines you need to `docker/.env`:
+
+```bash
+# Host CLI agents on other machines (NATS client port 4222)
+NATS_BIND_ADDRESS=0.0.0.0
+# Browsers on other machines sign in through Casdoor (port 8000)
+CASDOOR_BIND_ADDRESS=0.0.0.0
+# Database, Redis, NATS monitoring, Temporal, its UI and the tools.
+# This also opens the API (4003) and orchestrator (4010) ports.
+BIND_ADDRESS=0.0.0.0
+```
+
+Then start the stack the way you normally do, for example `make prod-pull`;
+Compose recreates the containers whose ports changed. `0.0.0.0` means every
+IPv4 address; Docker listened on IPv6 too before. Prefer the address of one
+interface, and allow only the machines that need the port in the host firewall.
+The NATS monitoring port, Temporal and its UI have no login. Host CLI details:
+[Deployment Guide](../guides/deployment.md#host-cli-agents-on-other-machines).
+
+Success looks like this: on the host, `ss -ltn` lists these ports on
+`127.0.0.1`, or on the address you set.
+
 ## Rotation & upgrade
 
 - Rotate the bundle signing key: generate a new Ed25519 pair, re-bundle on the

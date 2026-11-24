@@ -1,4 +1,10 @@
+import { isIP } from 'node:net'
+import YAML from 'yaml'
+
 const CORE_SERVICES = ['agentforge-server', 'orchestrator']
+// The reverse proxy is the one intentionally public listener. It keeps Docker's
+// default (all IPv4 and IPv6 addresses): an explicit 0.0.0.0 would drop IPv6.
+const PUBLIC_LISTENER_SERVICES = ['caddy']
 const HEALTH_ENDPOINTS = {
   'agentforge-server': '/api/health',
   orchestrator: '/health',
@@ -122,6 +128,59 @@ export function validateComposeBaseline(composeContent) {
     if (expectedHealth && !block.includes(expectedHealth)) {
       errors.push(`services.${serviceName} healthcheck must use ${expectedHealth}`)
     }
+  }
+
+  return errors
+}
+
+// Replace Compose interpolation with each variable's default, innermost first.
+// A variable without a default (`${X}`, `${X:?msg}`) resolves to an empty string.
+function resolveComposeDefaults(value) {
+  const innermost = /\$\{[A-Za-z_][A-Za-z0-9_]*(?:(:?[-?])([^${}]*))?\}/
+  let resolved = String(value)
+  while (innermost.test(resolved)) {
+    resolved = resolved.replace(innermost, (_, operator, fallback) =>
+      operator === '-' || operator === ':-' ? fallback : ''
+    )
+  }
+  return resolved
+}
+
+function isHostAddress(value) {
+  const bracketed = /^\[(.+)\]$/.exec(value)
+  return bracketed ? isIP(bracketed[1]) === 6 : isIP(value) !== 0
+}
+
+function shortSyntaxHostAddress(entry) {
+  const resolved = resolveComposeDefaults(entry).replace(/\/(tcp|udp|sctp)$/, '')
+  const bracketed = /^(\[[^\]]+\]):/.exec(resolved)
+  if (bracketed) {
+    return bracketed[1]
+  }
+  const parts = resolved.split(':')
+  return parts.length === 3 ? parts[0] : ''
+}
+
+export function validateComposePublishedPorts(composeContent, fileLabel = 'docker/compose.yml') {
+  const errors = []
+  const services = YAML.parse(composeContent, { merge: true })?.services ?? {}
+
+  for (const [serviceName, service] of Object.entries(services)) {
+    if (PUBLIC_LISTENER_SERVICES.includes(serviceName) || !Array.isArray(service?.ports)) {
+      continue
+    }
+    service.ports.forEach((entry, index) => {
+      const hostAddress =
+        entry && typeof entry === 'object'
+          ? resolveComposeDefaults(entry.host_ip ?? '')
+          : shortSyntaxHostAddress(entry)
+      if (!isHostAddress(hostAddress)) {
+        const shown = typeof entry === 'object' ? JSON.stringify(entry) : `'${entry}'`
+        errors.push(
+          `${fileLabel} services.${serviceName}.ports[${index}] ${shown} must publish on an explicit host address (for example '\${BIND_ADDRESS:-127.0.0.1}:<host-port>:<container-port>' or host_ip)`
+        )
+      }
+    })
   }
 
   return errors
