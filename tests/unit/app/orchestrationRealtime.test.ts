@@ -153,7 +153,12 @@ describe('dispatchWsMessage routes orchestration events to the handler', () => {
     dispatchWsMessage({
       type: 'review.escalated',
       orgId: 'org-1',
-      payload: { reviewId: 'review-9', taskId: 'task-9', overdueSecs: 90000 },
+      payload: {
+        reviewId: 'review-9',
+        taskId: 'task-9',
+        dueAt: '2026-04-02T00:00:00Z',
+        overdueSecs: 90000,
+      },
     })
     const notifications = useFeedStore.getState().notifications
     expect(notifications).toHaveLength(1)
@@ -166,8 +171,10 @@ describe('dispatchWsMessage routes orchestration events to the handler', () => {
     dispatchWsMessage({
       type: 'workflow:node_status',
       orgId: 'org-1',
-      payload: { workflowId: 'wf-2', nodeId: 'n1', nodeName: 'Test', status: 'running' },
+      // Wire shape of emit_node_status (orchestrator workflow/activities.rs): it
+      // carries no workflowId, so the reducer files the node under 'unknown'.
+      payload: { nodeId: 'n1', nodeName: 'Test', status: 'running', detail: null },
     })
-    expect(useWorkflowStore.getState().workflows['wf-2']?.n1?.status).toBe('running')
+    expect(useWorkflowStore.getState().workflows.unknown?.n1?.status).toBe('running')
   })
 })

@@ -1,9 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAdminStore } from '@app/entities/admin'
 import { useBoardStore } from '@app/entities/navigation/model/board.store'
 import { useContextStore } from '@app/features/context/model/context.store'
 import { useFeedStore } from '@app/entities/feed'
-import { dispatchWsMessage } from '@app/hooks/useWsDispatch'
+import {
+  IGNORED_WS_FRAMES,
+  dispatchWsMessage,
+  resetWsDispatchStateForTests,
+  unknownWsFrameCount,
+} from '@app/hooks/useWsDispatch'
+import { CONTROL_FRAME_FIXTURES, WS_FRAME_FIXTURES } from '@app/hooks/wsFrameCoverage'
+import { useNavigationStore } from '@app/entities/navigation'
 import { resetContextHandlerDedupeForTests } from '@app/features/context/model/contextRealtime'
 
 beforeEach(() => {
@@ -12,14 +21,33 @@ beforeEach(() => {
   useFeedStore.getState().reset()
   useAdminStore.setState({ cliImages: null, cliImagesLoading: false, cliImagesError: null })
   resetContextHandlerDedupeForTests()
+  resetWsDispatchStateForTests()
   localStorage.clear()
 })
+
+// Fields the Rust TaskSummary serializer always sends (ws_protocol.rs).
+const WIRE_TASK = {
+  createdBy: 'user-other',
+  selfFix: false,
+  contextCounts: { appliedMemories: 0, appliedSkills: 0, total: 0 },
+  attempt: 1,
+}
+
+// `Option` fields the cli_image.updated payload always sends, as null.
+const CLI_IMAGE_NULLS = {
+  localDigest: null,
+  remoteDigest: null,
+  localVersion: null,
+  remoteVersion: null,
+  lastError: null,
+}
 
 describe('dispatchWsMessage', () => {
   it('dispatches orchestration:task_update to board store when group matches', () => {
     useBoardStore.getState().setSelectedGroupId('g1')
 
     const task = {
+      ...WIRE_TASK,
       id: 'task1',
       groupId: 'g1',
       state: 'working',
@@ -33,7 +61,7 @@ describe('dispatchWsMessage', () => {
 
     dispatchWsMessage({
       type: 'orchestration:task_update',
-      payload: { action: 'updated', task, groupId: 'g1' },
+      payload: { action: 'updated', eventId: 'evt-task', task },
     })
 
     const columns = useBoardStore.getState().columns
@@ -48,7 +76,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update',
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task2',
           groupId: 'g-other',
           state: 'working',
@@ -228,8 +258,14 @@ describe('dispatchWsMessage', () => {
   })
 
   it('ignores unknown message types', () => {
-    expect(() => dispatchWsMessage({ type: 'pong' })).not.toThrow()
-    expect(() => dispatchWsMessage({ type: 'unknown_thing' })).not.toThrow()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(dispatchWsMessage({ type: 'pong' })).toBe('unknown')
+    expect(dispatchWsMessage({ type: 'unknown_thing' })).toBe('unknown')
+    expect(dispatchWsMessage({ type: 'unknown_thing' })).toBe('unknown')
+    expect(dispatchWsMessage('not json')).toBe('unknown')
+    // Counted every time, logged once per type.
+    expect(unknownWsFrameCount('unknown_thing')).toBe(2)
+    expect(warn).toHaveBeenCalledTimes(3)
   })
 
   it('dispatches context_application.recorded to task context counts', () => {
@@ -263,8 +299,20 @@ describe('dispatchWsMessage', () => {
   })
 
   it('dispatches context candidate events to the approval queue count', () => {
-    dispatchWsMessage({ type: 'context_candidate.created', candidateId: 'candidate-ws-1' })
-    dispatchWsMessage({ type: 'context_candidate.rejected', candidateId: 'candidate-ws-1' })
+    // Flat frame, as built by ContextCandidateBroadcast::payload (domain/context.rs).
+    const candidate = {
+      candidateId: 'candidate-ws-1',
+      itemKind: 'memory',
+      scopeKind: 'user',
+      scopeId: 'user-owner',
+      timestamp: '2026-04-03T00:00:00+00:00',
+    }
+    expect(
+      dispatchWsMessage({ type: 'context_candidate.created', state: 'pending', ...candidate })
+    ).toBe('handled')
+    expect(
+      dispatchWsMessage({ type: 'context_candidate.rejected', state: 'rejected', ...candidate })
+    ).toBe('handled')
 
     expect(useContextStore.getState().pendingCandidateCount).toBe(0)
   })
@@ -276,7 +324,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update',
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-1',
           groupId: 'g-other',
           state: 'blocked',
@@ -318,7 +368,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update' as const,
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: taskId,
           groupId: 'g-other',
           state: 'blocked',
@@ -355,7 +407,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update',
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-no-agent-name',
           groupId: 'g-other',
           state: 'completed',
@@ -386,7 +440,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update',
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-blocked-raw',
           groupId: 'g-other',
           state: 'blocked',
@@ -421,7 +477,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update',
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-blocked-error',
           groupId: 'g-other',
           state: 'blocked',
@@ -454,7 +512,9 @@ describe('dispatchWsMessage', () => {
       type: 'orchestration:task_update',
       payload: {
         action: 'updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-failed',
           groupId: 'g1',
           state: 'failed',
@@ -492,13 +552,18 @@ describe('dispatchWsMessage', () => {
     expect(notifications[0].message).not.toContain('401 Unauthorized')
   })
 
-  it('notifies for legacy error task updates with snake_case owner fields', () => {
+  it('reports the retired TypeScript-server task shape as unknown instead of notifying', () => {
+    // `created_by` and state 'error' came from the retired TypeScript server. The
+    // Rust TaskSummary serializer always sends `createdBy` and only kanban states
+    // (rust/crates/core/src/ws_protocol.rs), so this frame no longer decodes.
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    dispatchWsMessage({
+    const outcome = dispatchWsMessage({
       type: 'orchestration:task_update',
       payload: {
         action: 'task.failed',
+        eventId: 'evt-task',
         task: {
           id: 'task-owner-error',
           groupId: 'g1',
@@ -516,24 +581,19 @@ describe('dispatchWsMessage', () => {
       },
     })
 
-    const notifications = useFeedStore.getState().notifications
-    expect(notifications).toHaveLength(1)
-    expect(notifications[0]).toMatchObject({
-      id: 'task-owner:task-owner-error:failed',
-      type: 'failed',
-      taskId: 'task-owner-error',
-      ownerUserId: 'user-owner',
-    })
-    expect(notifications[0].message).toContain(
-      'Stopped before finishing. Open the task details, check the latest update, then retry when ready.'
+    expect(outcome).toBe('unknown')
+    expect(unknownWsFrameCount('orchestration:task_update (malformed)')).toBe(1)
+    expect(warn).toHaveBeenCalledWith(
+      '[ws] ignoring unknown realtime frame: orchestration:task_update (malformed)'
     )
-    expect(notifications[0].message).not.toContain('migration exited non-zero')
+    expect(useFeedStore.getState().notifications).toHaveLength(0)
   })
 
   it('does not notify non-owners and does not duplicate repeated completed events', () => {
     localStorage.setItem('af:auth:user', JSON.stringify({ id: 'user-owner' }))
 
     const task = {
+      ...WIRE_TASK,
       id: 'task-owner-2',
       groupId: 'g1',
       state: 'completed',
@@ -548,11 +608,21 @@ describe('dispatchWsMessage', () => {
       updatedAt: '2026-04-03T00:01:00Z',
     }
 
-    dispatchWsMessage({ type: 'orchestration:task_update', payload: { task } })
-    dispatchWsMessage({ type: 'orchestration:task_update', payload: { task } })
     dispatchWsMessage({
       type: 'orchestration:task_update',
-      payload: { task: { ...task, id: 'task-owner-3', createdBy: 'someone-else' } },
+      payload: { action: 'task.completed', eventId: 'evt-task', task },
+    })
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: { action: 'task.completed', eventId: 'evt-task', task },
+    })
+    dispatchWsMessage({
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'task.completed',
+        eventId: 'evt-task',
+        task: { ...task, id: 'task-owner-3', createdBy: 'someone-else' },
+      },
     })
 
     const notifications = useFeedStore.getState().notifications
@@ -567,7 +637,10 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'orchestration:task_update',
       payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-result-files',
           groupId: 'g1',
           state: 'completed',
@@ -599,7 +672,10 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'orchestration:task_update',
       payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-no-result',
           groupId: 'g1',
           state: 'completed',
@@ -629,7 +705,10 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'orchestration:task_update',
       payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-stdout',
           groupId: 'g1',
           state: 'completed',
@@ -666,7 +745,10 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'orchestration:task_update',
       payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-message-raw',
           groupId: 'g1',
           state: 'completed',
@@ -703,7 +785,10 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'orchestration:task_update',
       payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
         task: {
+          ...WIRE_TASK,
           id: 'task-owner-message-role',
           groupId: 'g1',
           state: 'completed',
@@ -774,10 +859,13 @@ describe('dispatchWsMessage', () => {
       type: 'credential:status_update',
       payload: {
         action: 'credential.revoked',
+        eventId: 'evt-credential-2',
         credential: {
           ownerUserId: 'someone-else',
           cliTool: 'codex',
           status: 'expired',
+          reason: 'invalid_grant',
+          revokedAt: '2026-04-03T00:02:00Z',
         },
       },
     })
@@ -789,6 +877,7 @@ describe('dispatchWsMessage', () => {
     const frame = {
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'codex',
         state: 'updated',
         localDigest: 'sha256:new',
@@ -818,6 +907,7 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'gemini',
         state: 'failed',
         localDigest: null,
@@ -875,6 +965,7 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'codex',
         state: 'updated',
         localDigest: 'sha256:new',
@@ -928,6 +1019,7 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'codex',
         state: 'failed',
         localDigest: null,
@@ -980,6 +1072,7 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'gemini',
         state: 'updated',
         remoteDigest: 'sha256:x',
@@ -999,6 +1092,7 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'gemini',
         state: 'failed',
         lastError: 'registry timeout',
@@ -1013,6 +1107,7 @@ describe('dispatchWsMessage', () => {
     dispatchWsMessage({
       type: 'cli_image.updated',
       payload: {
+        ...CLI_IMAGE_NULLS,
         tool: 'gemini',
         state: 'failed',
         lastError: 'auth revoked',
@@ -1034,11 +1129,235 @@ describe('dispatchWsMessage', () => {
     expect(() =>
       dispatchWsMessage({
         type: 'cli_image.updated',
-        payload: { tool: 'codex', state: 'updated', eventId: 'x', unix: 1 },
+        payload: { ...CLI_IMAGE_NULLS, tool: 'codex', state: 'updated', eventId: 'x', unix: 1 },
       })
     ).not.toThrow()
     expect(useAdminStore.getState().cliImages).toBeNull()
     // still toasts even when the panel was never opened
     expect(useFeedStore.getState().notifications).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Golden fixtures (#1327): every file in tests/fixtures/ws-protocol/ goes through
+// the real dispatcher with real stores. WS_PROTOCOL_FIXTURE_DIR points the suite
+// at a copy of the directory (used to prove the suite fails on a bad fixture).
+// ---------------------------------------------------------------------------
+
+const FIXTURE_DIR =
+  process.env.WS_PROTOCOL_FIXTURE_DIR ?? join(process.cwd(), 'tests/fixtures/ws-protocol')
+const fixtureFiles = readdirSync(FIXTURE_DIR)
+  .filter((file) => file.endsWith('.json'))
+  .sort()
+
+function readFixture(file: string): unknown {
+  return JSON.parse(readFileSync(join(FIXTURE_DIR, file), 'utf8'))
+}
+
+function fixtureType(fixture: unknown): string | undefined {
+  if (fixture === null || typeof fixture !== 'object' || !('type' in fixture)) return undefined
+  return typeof fixture.type === 'string' ? fixture.type : undefined
+}
+
+function registeredFixture(type: string): string | undefined {
+  const entry = Object.entries(WS_FRAME_FIXTURES).find(([key]) => key === type)?.[1]
+  return entry && 'fixture' in entry ? entry.fixture : undefined
+}
+
+function isIgnoredType(type: string): boolean {
+  return Object.keys(IGNORED_WS_FRAMES).includes(type)
+}
+
+// The observable effect each HANDLED fixture must have, with the state it needs.
+// Values are copied from the fixture files.
+const FIXTURE_EFFECTS: Record<string, { seed?: () => void; check: () => void }> = {
+  event: {
+    check: () => {
+      expect(useFeedStore.getState().feedItems).toEqual([
+        expect.objectContaining({
+          type: 'pre_tool_use',
+          taskTitle: 'Updating project files',
+          agentName: 'The agent',
+          timestamp: 1735732800000,
+        }),
+      ])
+    },
+  },
+  'cli_image.updated': {
+    check: () => {
+      expect(useFeedStore.getState().notifications).toEqual([
+        expect.objectContaining({
+          id: 'cli-image:codex:updated:sha256:00000000000000000000000000000000000000000000000000000000000000ab',
+          type: 'cli_image_updated',
+          taskTitle: 'Codex agent tool package updated',
+          timestamp: 1735732800000,
+        }),
+      ])
+    },
+  },
+  'orchestration:participant_update': {
+    check: () => {
+      expect(useFeedStore.getState().agents).toEqual([
+        { id: '00000000-0000-0000-0000-000000000014', name: 'agent-00000000', status: 'idle' },
+      ])
+    },
+  },
+  'orchestration:task_update': {
+    seed: () => {
+      useBoardStore.getState().setSelectedGroupId('00000000-0000-0000-0000-000000000022')
+      localStorage.setItem(
+        'af:auth:user',
+        JSON.stringify({ id: '00000000-0000-0000-0000-000000000023' })
+      )
+    },
+    check: () => {
+      expect(useBoardStore.getState().columns.blocked).toEqual([
+        expect.objectContaining({
+          id: '00000000-0000-0000-0000-000000000021',
+          state: 'blocked',
+          selfFix: true,
+          contextCounts: { appliedMemories: 3, appliedSkills: 5, total: 8 },
+        }),
+      ])
+      expect(useFeedStore.getState().notifications).toEqual([
+        expect.objectContaining({
+          id: 'task-owner:00000000-0000-0000-0000-000000000021:blocked',
+          taskTitle: 'Deploy staging',
+          ownerUserId: '00000000-0000-0000-0000-000000000023',
+        }),
+      ])
+    },
+  },
+  'project_clone:status_update': {
+    seed: () => {
+      useNavigationStore.setState({
+        projects: {
+          'team-1': [
+            {
+              id: '00000000-0000-0000-0000-000000000003',
+              teamId: 'team-1',
+              name: 'Web App',
+              slug: 'web-app',
+              color: '#0066cc',
+              description: '',
+            },
+          ],
+        },
+      })
+    },
+    check: () => {
+      expect(useNavigationStore.getState().projects['team-1']?.[0]).toMatchObject({
+        cloneStatus: 'ready',
+        clone: {
+          status: 'ready',
+          attempt: 1,
+          resolvedBranch: 'main',
+          headSha: '0000000000000000000000000000000000000abc',
+        },
+      })
+    },
+  },
+}
+
+describe('golden ws-protocol fixtures', () => {
+  beforeEach(() => {
+    useNavigationStore.getState().reset()
+  })
+
+  it('registers every fixture file, and every registered fixture exists', () => {
+    expect(fixtureFiles.length).toBeGreaterThan(0)
+    for (const file of fixtureFiles) {
+      const type = fixtureType(readFixture(file))
+      if (type === undefined) {
+        expect(CONTROL_FRAME_FIXTURES, `${file} has no type`).toContain(file)
+      } else {
+        expect(registeredFixture(type), `${file} (type ${type})`).toBe(file)
+      }
+    }
+    for (const entry of Object.values(WS_FRAME_FIXTURES)) {
+      if ('fixture' in entry) expect(fixtureFiles).toContain(entry.fixture)
+    }
+    for (const file of CONTROL_FRAME_FIXTURES) expect(fixtureFiles).toContain(file)
+  })
+
+  it.each(fixtureFiles)('dispatches %s with its expected effect', (file) => {
+    const fixture = readFixture(file)
+    const type = fixtureType(fixture)
+    const effect = type === undefined ? undefined : FIXTURE_EFFECTS[type]
+    effect?.seed?.()
+
+    const outcome = dispatchWsMessage(fixture)
+
+    if (type === undefined || isIgnoredType(type)) {
+      // Control frames and ignored types must not touch any store.
+      expect(outcome).toBe('ignored')
+      expect(useFeedStore.getState().feedItems).toHaveLength(0)
+      expect(useFeedStore.getState().notifications).toHaveLength(0)
+      return
+    }
+    expect(outcome).toBe('handled')
+    expect(effect, `no FIXTURE_EFFECTS entry for ${type}`).toBeDefined()
+    effect?.check()
+  })
+})
+
+describe('task frame field rules', () => {
+  // A complete wire task frame (shape of orchestration_task_update.json).
+  function taskFrame(task: Record<string, unknown>) {
+    return {
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
+        task: {
+          ...WIRE_TASK,
+          id: 'task-rules',
+          groupId: 'g1',
+          state: 'blocked',
+          method: 'tasks/send',
+          params: { task: 'Check rules', message: '' },
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+          ...task,
+        },
+      },
+    }
+  }
+
+  it.each([
+    ['null', null],
+    ['an array', ['waiting', 2]],
+    ['a scalar', 'waiting on agent'],
+  ])('keeps a task whose blockedMetadata is %s (Rust Option<Value>)', (_label, metadata) => {
+    useBoardStore.getState().setSelectedGroupId('g1')
+
+    expect(dispatchWsMessage(taskFrame({ blockedMetadata: metadata }))).toBe('handled')
+
+    expect(useBoardStore.getState().columns.blocked).toEqual([
+      expect.objectContaining({ id: 'task-rules', blockedMetadata: metadata }),
+    ])
+  })
+
+  it('rejects a fractional value in an integer field', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    useBoardStore.getState().setSelectedGroupId('g1')
+
+    expect(dispatchWsMessage(taskFrame({ progress: 42.5 }))).toBe('unknown')
+    expect(Object.values(useBoardStore.getState().columns).flat()).toHaveLength(0)
+  })
+
+  it('logs the field and value of an unrecognised closed-list value', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    expect(dispatchWsMessage(taskFrame({ state: 'archived' }))).toBe('unknown')
+    expect(dispatchWsMessage(taskFrame({ state: 'archived' }))).toBe('unknown')
+
+    expect(unknownWsFrameCount('orchestration:task_update (malformed)')).toBe(2)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith(
+      '[ws] ignoring unknown realtime frame: orchestration:task_update (malformed) (task.state has unrecognised value "archived")'
+    )
   })
 })

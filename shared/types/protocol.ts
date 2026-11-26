@@ -4,7 +4,7 @@
  * Server-to-client and client-to-server message definitions.
  */
 
-import type { TaskSummary, ParticipantSummary } from './agent.js'
+import type { OrchestrationParticipantBrief, TaskSummary } from './agent.js'
 
 // ============================================================================
 // WebSocket Messages
@@ -47,7 +47,7 @@ export type ServerMessage =
     }
   | {
       type: 'orchestration:participant_update'
-      payload: { action: string; participant: ParticipantSummary; eventId: string }
+      payload: { action: string; participant: OrchestrationParticipantBrief; eventId: string }
     }
   // Admin-only CLI agent-image auto-updater toast. Delivered on the global
   // `broadcast.admin.cli_image` subject, which only owner/admin connections
@@ -93,6 +93,82 @@ export type ClientMessage =
   | { type: 'terminal_detach'; payload: { agentId: string } }
   | { type: 'terminal_data'; payload: { agentId: string; data: string } }
   | { type: 'terminal_resize'; payload: { agentId: string; cols: number; rows: number } }
+
+/**
+ * Server -> Client frames that are NOT variants of the Rust `ServerMessage` enum:
+ * hand-built `json!` frames relayed verbatim from NATS `broadcast.*` by the
+ * gateway. They have no golden fixture yet (locking them needs a Rust-side
+ * test); `src/app/hooks/wsFrameCoverage.ts` lists each with its emitter.
+ * Kept out of `ServerMessage` so the drift gate's enum mirror stays exact.
+ */
+export type RelayedServerMessage =
+  // rust/bins/server/src/main.rs (`publish_cli_credential_notifications`).
+  | {
+      type: 'credential:status_update'
+      payload: {
+        action: string
+        eventId: string
+        credential: {
+          ownerUserId: string
+          cliTool: string
+          status: string
+          reason: string
+          revokedAt: string
+        }
+      }
+    }
+  // FLAT frame from `ContextCandidateBroadcast::payload`
+  // (rust/crates/api/src/domain/context.rs).
+  | {
+      type:
+        'context_candidate.created' | 'context_candidate.approved' | 'context_candidate.rejected'
+      candidateId: string
+      itemKind: string
+      state: string
+      scopeKind: string
+      scopeId: string
+      timestamp: string
+    }
+  // Orchestrator `realtime::Event` (`{ type, orgId, payload }`,
+  // rust/crates/orchestrator/src/realtime.rs) relayed on `broadcast.{org}`.
+  | {
+      type: 'workflow:status'
+      orgId: string
+      payload: { workflowId: string; status: string }
+    }
+  | {
+      type: 'workflow:node_status'
+      orgId: string
+      payload: { nodeId: string; nodeName: string; status: string; detail: string | null }
+    }
+  | {
+      type: 'review.escalated'
+      orgId: string
+      payload: {
+        reviewId: string
+        taskId: string
+        dueAt: string | null
+        overdueSecs: number | null
+      }
+    }
+  // No Rust producer exists for these two tags; the browser still routes them to
+  // the context reducer, which accepts either a `payload` object or flat fields.
+  | {
+      type: 'context_application.recorded' | 'context_feedback.submitted'
+      [key: string]: unknown
+    }
+
+/**
+ * Out-of-band gateway control frame (no `type`): `realtime_unavailable_frame` /
+ * `realtime_disconnected_frame` in rust/crates/api/src/domain/gateway.rs.
+ */
+export interface RealtimeControlFrame {
+  ok: false
+  error: string
+}
+
+/** Every frame the browser socket can receive and decode by `type`. */
+export type InboundServerMessage = ServerMessage | RelayedServerMessage
 
 // ============================================================================
 // REST: GET /api/v1/me

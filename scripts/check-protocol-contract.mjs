@@ -203,6 +203,70 @@ notes.push(
   `  Rust-only-missing-from-TS (${rustOnly.length}, PR-A adds): ${rustOnly.join(', ') || '(none — done)'}`
 )
 
+// --- 4b. Relayed frames: hand-built `json!` / orchestrator frames (#1327) ---
+// `RelayedServerMessage` in protocol.ts lists frames that are NOT Rust enum
+// variants, so §3b cannot see them. Each tag is registered here with the file
+// of its Rust producer (which must still contain the tag literal). Their golden
+// fixtures are deferred until a Rust-side test can lock them (#1366).
+const RELAYED_SERVER = [
+  { type: 'credential:status_update', producer: 'rust/bins/server/src/main.rs' },
+  { type: 'context_candidate.created', producer: 'rust/crates/api/src/domain/context.rs' },
+  { type: 'context_candidate.approved', producer: 'rust/crates/api/src/domain/context.rs' },
+  { type: 'context_candidate.rejected', producer: 'rust/crates/api/src/domain/context.rs' },
+  { type: 'workflow:status', producer: 'rust/crates/orchestrator/src/workflow/activities.rs' },
+  { type: 'workflow:node_status', producer: 'rust/crates/orchestrator/src/workflow/activities.rs' },
+  {
+    type: 'review.escalated',
+    producer: 'rust/crates/orchestrator/src/review_escalation_reaper.rs',
+  },
+]
+// Routed by the browser, but no Rust producer exists (see #1366).
+const RELAYED_NO_PRODUCER = ['context_application.recorded', 'context_feedback.submitted']
+
+const relayedStart = tsSource.indexOf('export type RelayedServerMessage')
+const relayedEnd = tsSource.indexOf('export interface RealtimeControlFrame', relayedStart)
+if (relayedStart < 0 || relayedEnd < 0) {
+  errors.push(
+    'RelayedServerMessage union (or RealtimeControlFrame after it) missing from protocol.ts'
+  )
+} else {
+  const relayedBlock = tsSource
+    .slice(relayedStart, relayedEnd)
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*'))
+    .join('\n')
+  // `type:` may carry a union of literals, possibly wrapped onto the next line.
+  const relayedTypes = new Set(
+    [...relayedBlock.matchAll(/\btype:\s*((?:'[a-z_.:]+'\s*\|?\s*)+)/g)].flatMap((m) =>
+      [...m[1].matchAll(/'([a-z_.:]+)'/g)].map((t) => t[1])
+    )
+  )
+  const registered = new Set([...RELAYED_SERVER.map((r) => r.type), ...RELAYED_NO_PRODUCER])
+  for (const tag of relayedTypes) {
+    if (!registered.has(tag)) {
+      errors.push(
+        `RelayedServerMessage tag '${tag}' is not in RELAYED_SERVER / RELAYED_NO_PRODUCER — register its Rust producer`
+      )
+    }
+  }
+  for (const tag of registered) {
+    if (!relayedTypes.has(tag)) {
+      errors.push(`relayed registry tag '${tag}' is no longer in the RelayedServerMessage union`)
+    }
+  }
+  for (const { type, producer } of RELAYED_SERVER) {
+    const abs = path.join(repoRoot, producer)
+    if (!fs.existsSync(abs)) {
+      errors.push(`relayed producer ${producer} for '${type}' does not exist`)
+    } else if (!fs.readFileSync(abs, 'utf8').includes(`"${type}"`)) {
+      errors.push(`relayed producer ${producer} no longer contains the tag "${type}"`)
+    }
+  }
+  notes.push(
+    `  relayed (non-enum) frames: ${RELAYED_SERVER.length} with producer anchors, ${RELAYED_NO_PRODUCER.length} with no producer (fixtures deferred, #1366)`
+  )
+}
+
 // --- 5. PROTOCOL_VERSION parity (Rust <-> TS) ---
 // Both sides declare the wire-contract version; a bump must land in the same PR.
 const rustVer = (fs

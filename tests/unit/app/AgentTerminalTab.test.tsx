@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
@@ -155,6 +157,28 @@ describe('AgentTerminalTab', () => {
     expect(notice).not.toContain('HTTP 500')
     expect(notice).not.toContain('pty connection failed')
     expect(notice).not.toContain('[terminal]')
+  })
+
+  test('consumes the terminal golden fixtures from tests/fixtures/ws-protocol', () => {
+    // The central dispatcher ignores terminal_* frames; this subscriber owns them.
+    const fixture = (file: string): unknown =>
+      JSON.parse(readFileSync(join(process.cwd(), 'tests/fixtures/ws-protocol', file), 'utf8'))
+    const agentId = '00000000-0000-0000-0000-000000000001'
+    render(<AgentTerminalTab agentId={agentId} agentName="Runner" containerId="container-1" />)
+
+    act(() => {
+      terminalMocks.subscription?.(fixture('terminal_output.json'))
+    })
+    const bytes = terminalMocks.write.mock.calls.at(-1)?.[0]
+    expect(bytes).toBeInstanceOf(Uint8Array)
+    expect(new TextDecoder().decode(bytes)).toBe('\u001b[?25hhello\r\n')
+
+    act(() => {
+      terminalMocks.subscription?.(fixture('terminal_error.json'))
+    })
+    expect(String(terminalMocks.write.mock.calls.at(-1)?.[0])).toContain(
+      'Live work notice: Connection dropped.'
+    )
   })
 
   test('shows a beginner unavailable state while live work is starting', () => {

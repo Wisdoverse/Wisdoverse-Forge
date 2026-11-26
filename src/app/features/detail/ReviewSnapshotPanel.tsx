@@ -25,11 +25,21 @@ interface ReviewSnapshotPanelProps {
 }
 
 const STATUS_LABEL: Record<SelfFixReviewStatus, string> = {
+  pending: 'Waiting for the check to start',
   in_review: 'Waiting for someone to check',
   approved: 'Finishing started, not confirmed',
   changes_requested: 'Needs changes',
+  rejected: 'Turned down by a reviewer',
   merged: 'Finished',
   sensitive_blocked: 'Needs owner or admin check',
+}
+
+/** Total lookup: a status this page does not know yet still shows a readable label. */
+function reviewStatusLabel(status: string): string {
+  return (
+    Object.entries(STATUS_LABEL).find(([key]) => key === status)?.[1] ??
+    'Not shown here yet. Open the fix check page to see the current status.'
+  )
 }
 
 /**
@@ -181,7 +191,7 @@ export function ReviewSnapshotPanel({ task }: ReviewSnapshotPanelProps) {
           {/* Status + CI + sensitive rows */}
           <div className="space-y-1.5 text-ui-body">
             {review.reviewStatus && (
-              <Row label="Status" value={STATUS_LABEL[review.reviewStatus]} />
+              <Row label="Status" value={reviewStatusLabel(review.reviewStatus)} />
             )}
             <div className="flex items-center gap-1.5">
               {review.checksGreen ? (
