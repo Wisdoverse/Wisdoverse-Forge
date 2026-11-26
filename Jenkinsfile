@@ -107,47 +107,62 @@ pipeline {
           '''
         }
         script { readPaths('staged/deploy.env') }
-        // Round 7 review, P1-B: tags are global on the host and immutable: first writer wins, with
-        // provenance. A tag that exists is adopted only with this revision's label. A new runner is
-        // built under a temporary tag; the shared tag is created, or adopted, under the host-wide
-        // image lock (DEPLOY_LOCK_DIR/images.lock, the lock the script takes for every tag it
-        // creates). The lock is taken inside the just-built runner (it has flock and docker), with
-        // the lock directory mounted at its host path. The runner is recorded by the id read back.
+        // Round 7/8 reviews: tags are global on the host and immutable: first writer wins, with
+        // provenance. Every check of the shared tag (its revision label and its id) and its creation
+        // happen inside one hold of the host-wide image lock DEPLOY_LOCK_DIR/images.lock, the lock
+        // the script takes for every tag. The lock is held by a helper container from the
+        // PostgreSQL client image the deploy already requires (busybox flock), with the lock
+        // directory mounted; it is released when the helper is removed. A failed inspection is a
+        // refusal, never "absent". The runner is recorded by the id read back under the lock.
         sh '''#!/bin/sh
           set -eu
           LOCAL="$JENKINS_HOME/$FORGE_JOB_DIR"
           SHARED="forge-deploy-runner:$FORGE_REV"
           LABEL="org.opencontainers.image.revision"
-          id_of() { docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true; }
-          rev_of() { docker image inspect --format "{{index .Config.Labels \\"$LABEL\\"}}" "$1" 2>/dev/null || true; }
-          WANT=$(id_of "$SHARED")
-          if [ -n "$WANT" ]; then
-            if [ "$(rev_of "$SHARED")" != "$FORGE_REV" ]; then
-              echo "$SHARED exists with another revision label; a release tag is immutable. Investigate who created it; do not retag it." >&2
-              exit 12
+          HOLDER="forge-image-lock-$BUILD_NUMBER-$$"
+          refuse() { echo "$*; nothing was deployed." >&2; exit 12; }
+          unlock() { docker rm -f "$HOLDER" >/dev/null 2>&1 || true; }
+          trap unlock EXIT
+          lock() {
+            docker run -d --rm --pull never --network none --name "$HOLDER" \\
+              --mount "type=bind,src=$FORGE_LOCK_DIR,dst=/lock" \\
+              "$FORGE_PG_CLIENT_IMAGE" flock -x /lock/images.lock sh -c 'echo locked; exec sleep 900' >/dev/null
+            i=0
+            until docker logs "$HOLDER" 2>/dev/null | grep -qx locked; do
+              i=$((i + 1))
+              [ "$i" -lt 900 ] || { unlock; refuse "The image lock $FORGE_LOCK_DIR/images.lock was not taken within 900 s"; }
+              sleep 1
+            done
+          }
+          # 0: present (prints its id after checking the label), 1: absent; any other failure refuses.
+          present() {
+            if OUT=$(docker image inspect --format '{{.Id}}' "$SHARED" 2>&1); then
+              [ "$(docker image inspect --format "{{index .Config.Labels \\"$LABEL\\"}}" "$SHARED")" = "$FORGE_REV" ] \\
+                || refuse "$SHARED exists with another revision label; a release tag is immutable: investigate, never retag"
+              WANT=$OUT
+              return 0
             fi
+            case "$OUT" in *"No such image"*|*"No such object"*) return 1 ;; esac
+            refuse "Inspection of $SHARED failed"
+          }
+          lock
+          if present; then
+            unlock
             echo "Adopted the existing runner image $WANT for $FORGE_REV (provenance matches)"
           else
+            unlock
             TEMP="$SHARED-build-$BUILD_NUMBER-$$"
             docker build --label "$LABEL=$FORGE_REV" -t "$TEMP" - < "$LOCAL/release/releases/$FORGE_REV/docker/Dockerfile.deploy-runner"
-            BUILT=$(id_of "$TEMP")
-            WANT=$(docker run --rm --network none \\
-              --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \\
-              --mount "type=bind,src=$FORGE_LOCK_DIR,dst=$FORGE_LOCK_DIR" \\
-              -e SHARED="$SHARED" -e BUILT="$BUILT" -e REV="$FORGE_REV" -e LABEL="$LABEL" \\
-              "$BUILT" flock -x -w 900 "$FORGE_LOCK_DIR/images.lock" sh -ec '
-                if ! docker image inspect "$SHARED" >/dev/null 2>&1; then docker tag "$BUILT" "$SHARED"; fi
-                [ "$(docker image inspect --format "{{index .Config.Labels \\"$LABEL\\"}}" "$SHARED")" = "$REV" ] || exit 12
-                docker image inspect --format "{{.Id}}" "$SHARED"
-              ') || {
-              docker image rm "$TEMP" >/dev/null 2>&1 || true
-              echo "$SHARED could not be published (another revision label under the lock, or the lock timed out); nothing was deployed." >&2
-              exit 12
-            }
-            docker image rm "$TEMP" >/dev/null
-            if [ "$WANT" != "$BUILT" ]; then
+            BUILT=$(docker image inspect --format '{{.Id}}' "$TEMP")
+            lock
+            if present; then
               echo "Another build published $SHARED first; adopted $WANT"
+            else
+              docker tag "$BUILT" "$SHARED"
+              present || refuse "$SHARED could not be read back after tagging"
             fi
+            unlock
+            docker image rm "$TEMP" >/dev/null
           fi
           printf '%s\\n' "$WANT" > "$LOCAL/private/staged/runner-image"
         '''
@@ -232,6 +247,8 @@ def readPaths(String file) {
   if (!env.FORGE_LOCK_DIR) {
     error('DEPLOY_LOCK_DIR must be set in the env file; nothing was deployed.')
   }
+  // Deliberate default (runbook): the client image holds no state; it also holds the image lock.
+  env.FORGE_PG_CLIENT_IMAGE = envValue('DEPLOY_PG_CLIENT_IMAGE') ?: 'postgres:18-alpine'
   [env.FORGE_WEB_ROOT, env.FORGE_LOCK_DIR].each { p ->
     if (!(p ==~ /\/[A-Za-z0-9._\/-]+/)) {
       error('WEBROOT and DEPLOY_LOCK_DIR must be absolute paths without spaces or commas.')

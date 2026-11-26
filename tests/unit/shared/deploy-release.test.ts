@@ -10,6 +10,7 @@ import {
   compareBaseline,
   createdVolumes,
   INPUTS_LABEL,
+  leftoverAdoptions,
   IDENTITY_KEYS,
   compareLedger,
   databaseFindings,
@@ -33,7 +34,6 @@ import {
   secretValues,
   snapshotVolumes,
   tagDriftFindings,
-  volumeCleanup,
   volumeFindings,
 } from '../../../scripts/lib/deploy-release/checks.js'
 import { loadVolumeClasses } from '../../../scripts/deploy-release.mjs'
@@ -1532,7 +1532,7 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
     )
     const leftover = facts({ p_compliance: { exists: true, driver: 'local' } })
     expect(check(t, leftover).join('\n')).toMatch(
-      /volume p_compliance already exists but no container of the running release uses it.*docker volume inspect p_compliance/
+      /volume p_compliance already exists but no container of the running release uses it and no rolled-back attempt created it.*docker volume inspect p_compliance/
     )
   })
   it('R2: a changed driver is refused', () => {
@@ -1554,7 +1554,7 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
       /volume mystery \(p_mystery, service api\) is not classified in scripts\/deploy-release.volumes.json/
     )
   })
-  it('a brand-new classified volume passes, and it is the one the rollback removes', () => {
+  it('a brand-new classified volume passes, and it is journaled as created', () => {
     const t = target(
       [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('compliance', '/var/lib/c')],
       decl({ compliance: { name: 'p_compliance' } })
@@ -1579,20 +1579,151 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
     ])
     expect(classes['agentforge-compliance'].reason.length).toBeGreaterThan(20)
   })
-  it('R4: cleanup removes stopped leftovers of this project, then the volume; anything else keeps it', () => {
-    const stopped = { id: 'c1', name: 'p-worker', project: 'p', running: false }
-    expect(volumeCleanup('p', [stopped])).toEqual({
-      removeContainers: ['c1'],
-      removeVolume: true,
-      blockers: [],
+  const prevBound = { prevRendered, prevContainers }
+  const withPrev = (rendered: unknown, o: Record<string, unknown>, state: unknown = null) =>
+    volumeFindings(CLASSES, { rendered, ...prevBound, volumeFacts: facts(), ...o }, state)
+  it('round 8: volumes_from is refused, naming the service', () => {
+    const t = target(undefined, decl(), undefined, {
+      worker: { container_name: 'p-worker', volumes_from: ['container:foreign:rw'] },
     })
-    const running = { id: 'c2', name: 'p-api', project: 'p', running: true }
-    const foreign = { id: 'c3', name: 'x', project: 'other', running: false }
-    const kept = volumeCleanup('p', [stopped, running, foreign])
-    expect(kept.removeVolume).toBe(false)
-    expect(kept.blockers.map((c: { name: string }) => c.name)).toEqual(['p-api', 'x'])
+    expect(check(t).join('\n')).toMatch(/service worker uses volumes_from/)
   })
-  it('R4: the recovery plan removes exactly the created volumes, after the previous release started', () => {
+  it('round 8: an anonymous volume in the target is refused', () => {
+    const t = target([
+      vol('uploads', '/var/lib/up'),
+      bind('/srv/ws', '/srv/ws'),
+      { type: 'volume', target: '/cache' },
+    ])
+    expect(check(t).join('\n')).toMatch(/service api declares an anonymous volume at \/cache/)
+  })
+  it('round 8: a bind or tmpfs replacing a named mount at the same target is refused', () => {
+    const asBind = target([bind('/srv/up', '/var/lib/up'), bind('/srv/ws', '/srv/ws')])
+    expect(check(asBind).join('\n')).toMatch(
+      /p_uploads at \/var\/lib\/up; the target release puts a bind mount there/
+    )
+    const asTmpfs = {
+      ...target([bind('/srv/ws', '/srv/ws')]),
+    }
+    ;(asTmpfs.services.api as Record<string, unknown>).tmpfs = ['/var/lib/up:size=64m']
+    expect(check(asTmpfs).join('\n')).toMatch(/puts a tmpfs mount there/)
+  })
+  it('round 8: one volume at two targets in a container is refused', () => {
+    const t = target([
+      vol('uploads', '/var/lib/up'),
+      bind('/srv/ws', '/srv/ws'),
+      vol('uploads', '/var/lib/up2'),
+    ])
+    expect(check(t).join('\n')).toMatch(
+      /mounts volume p_uploads at both \/var\/lib\/up and \/var\/lib\/up2/
+    )
+  })
+  it('round 8: the same volume at a different target (moved) is refused', () => {
+    const t = target([vol('uploads', '/srv/up2'), bind('/srv/ws', '/srv/ws')])
+    expect(check(t).join('\n')).toMatch(
+      /p-api mounts volume p_uploads at \/var\/lib\/up; the target release does not/
+    )
+  })
+  it('round 8: a service of the running release whose container is missing is refused', () => {
+    const missing = [prevContainers[0], { name: 'p-api', missing: true, mounts: [] }]
+    expect(withPrev(target(), { prevContainers: missing }).join('\n')).toMatch(
+      /container p-api of the running release \(service api, named volumes p_uploads\) does not exist/
+    )
+  })
+  it('round 8: a target release that removes a service with named volumes is refused', () => {
+    const t = {
+      services: { nats: { container_name: 'p-nats', volumes: [vol('nats-data', '/data')] } },
+      volumes: decl(),
+    }
+    expect(check(t).join('\n')).toMatch(
+      /p-api mounts volume p_uploads at \/var\/lib\/up; the target release removes that service/
+    )
+  })
+  it('round 8: a container whose mounts differ from the recorded release is refused', () => {
+    const drifted = [
+      prevContainers[0],
+      {
+        ...prevContainers[1],
+        mounts: [{ type: 'volume', name: 'p_nats-data', target: '/var/lib/up' }],
+      },
+    ]
+    expect(withPrev(target(), { prevContainers: drifted }).join('\n')).toMatch(
+      /container p-api mounts \/var\/lib\/up=p_nats-data, but the recorded release says \/var\/lib\/up=p_uploads/
+    )
+  })
+  it('round 8 R4: an inspection error is never "absent": refused, naming the volume and the error class', () => {
+    const t = target(
+      [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('compliance', '/var/lib/c')],
+      decl({ compliance: { name: 'p_compliance' } })
+    )
+    const out = check(
+      t,
+      facts({ p_compliance: { exists: null, driver: null, error: 'daemon unreachable' } })
+    )
+    expect(out.join('\n')).toMatch(
+      /volume p_compliance: inspection failed \(daemon unreachable\); it is not treated as absent/
+    )
+    expect(
+      createdVolumes(t, facts({ p_compliance: { exists: null, error: 'daemon unreachable' } }))
+    ).toEqual(['p_compliance'])
+  })
+  const withCompliance = (cls: string) => {
+    const t = target(
+      [vol('uploads', '/var/lib/up'), bind('/srv/ws', '/srv/ws'), vol('compliance', '/var/lib/c')],
+      decl({ compliance: { name: 'p_compliance' } })
+    )
+    const classes = {
+      ...CLASSES,
+      compliance: cls === 'snapshot' ? { class: 'snapshot' } : CLASSES.compliance,
+    }
+    const left = facts({ p_compliance: { exists: true, driver: 'local' } })
+    return { t, classes, left }
+  }
+  const rolledBack = {
+    attempt: { attemptId: 'aaaa1111', phase: 'rolled_back', createdVolumes: ['p_compliance'] },
+  }
+  it('round 8 R4: a retry adopts an excluded leftover that the last rolled-back attempt created', () => {
+    const { t, classes, left } = withCompliance('excluded')
+    expect(
+      volumeFindings(classes, { rendered: t, ...prevBound, volumeFacts: left }, rolledBack)
+    ).toEqual([])
+    expect(leftoverAdoptions(classes, { rendered: t, volumeFacts: left }, rolledBack)).toEqual([
+      { name: 'p_compliance', attemptId: 'aaaa1111' },
+    ])
+    // It stays listed as not part of a committed release.
+    expect(createdVolumes(t, left, [{ name: 'p_compliance', attemptId: 'aaaa1111' }])).toEqual([
+      'p_compliance',
+    ])
+  })
+  it('round 8 R4: a retry refuses a snapshot-class leftover, with the commands and the attempt id', () => {
+    const { t, classes, left } = withCompliance('snapshot')
+    const out = volumeFindings(
+      classes,
+      { rendered: t, ...prevBound, volumeFacts: left },
+      rolledBack
+    ).join('\n')
+    expect(out).toMatch(
+      /volume p_compliance \(class snapshot\) was left by rolled-back attempt aaaa1111/
+    )
+    expect(out).toContain('docker volume inspect p_compliance')
+    expect(out).toContain('docker volume rm p_compliance')
+    expect(leftoverAdoptions(classes, { rendered: t, volumeFacts: left }, rolledBack)).toEqual([])
+  })
+  it('round 8 R4: an unused existing volume that no journal lists is refused', () => {
+    const { t, classes, left } = withCompliance('excluded')
+    const otherAttempt = { attempt: { ...rolledBack.attempt, createdVolumes: ['p_other'] } }
+    for (const state of [
+      null,
+      otherAttempt,
+      { attempt: { ...rolledBack.attempt, phase: 'done' } },
+    ]) {
+      expect(
+        volumeFindings(classes, { rendered: t, ...prevBound, volumeFacts: left }, state).join('\n')
+      ).toMatch(
+        /volume p_compliance already exists but no container of the running release uses it and no rolled-back attempt created it/
+      )
+    }
+  })
+  it('round 8 R4: no rollback or recovery plan removes a volume, and the effect layer has no volume removal', () => {
     const attempt = { ...attemptFixture(true), createdVolumes: ['p_compliance'] }
     const observed = {
       databases: {
@@ -1601,13 +1732,13 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
       },
     }
     const ops = planRecovery(attempt, observed).map((s: { op: string }) => s.op)
-    const at = ops.indexOf('remove_created_volumes')
-    expect(at).toBeGreaterThan(ops.lastIndexOf('start'))
-    const step = planRecovery(attempt, observed)[at]
-    expect(step).toMatchObject({ volumes: ['p_compliance'], bestEffort: true })
-    expect(
-      planRecovery(attemptFixture(true), observed).map((s: { op: string }) => s.op)
-    ).not.toContain('remove_created_volumes')
+    expect(ops.filter((op: string) => /volume/.test(op) && op !== 'restore_volume')).toEqual([])
+    const effects = fs.readFileSync(
+      path.join(root, 'scripts/lib/deploy-release/effects.js'),
+      'utf8'
+    )
+    expect(effects).not.toMatch(/'volume',\s*'(rm|remove|prune)'/)
+    expect(effects).not.toMatch(/volume (rm|remove|prune)/)
   })
 })
 
@@ -1626,76 +1757,22 @@ describe('round 7 review, P1-B: provenance of release tags', () => {
   })
 })
 
-describe('round 7 review, P1-A R4: a rollback restores the pre-attempt volume set', () => {
-  // Op order of a deploy that fails its backend check, from a probe run.
-  async function opsOfFailedDeploy() {
+describe('round 8 review R4: a transient inspection failure refuses and changes nothing', () => {
+  it('a pre-existing unused volume of this project that cannot be inspected: exit 12, nothing removed or started', async () => {
     const world = createWorld()
-    const ctx = ctxFor(world, {}, fakeConfig({ simulateVerifyFailure: true }))
-    const seen: string[] = []
-    const run = ctx.exec.run
-    ctx.exec.run = (step: { op: string }, st: unknown) => {
-      seen.push(step.op)
-      return run(step, st)
-    }
-    expect(await deploy(ctx)).toBe(EXIT.ROLLED_BACK)
-    return { world, seen }
-  }
-
-  it('the rollback removes exactly the volume the attempt created; a redeploy then passes', async () => {
-    const { world, seen } = await opsOfFailedDeploy()
-    expect(seen).toContain('remove_created_volumes')
-    expect([...world.dockerVolumes].sort()).toEqual(['forge_agentforge-uploads', 'forge_nats-data'])
-    const state = JSON.parse(world.stateJson)
-    expect(state.attempt.createdVolumes).toEqual([CREATED_VOLUME])
-    expect(state.attempt.volumeCleanup).toEqual({ removed: [CREATED_VOLUME], kept: [] })
-    expect(await deploy(ctxFor(world, {}))).toBe(EXIT.OK)
-    expect(world.dockerVolumes.has(CREATED_VOLUME)).toBe(true)
-  })
-
-  it('a volume the rollback could not remove is reported, and the retry is refused by R3(b)', async () => {
-    const world = createWorld()
-    world.volumeRemovalFails = true
+    world.dockerVolumes.add(CREATED_VOLUME) // exists, unused by the running release
+    world.inspectFails = new Set([CREATED_VOLUME])
+    const before = world.stateJson
     const messages: string[] = []
-    const ctx = {
-      ...ctxFor(world, {}, fakeConfig({ simulateVerifyFailure: true })),
-      log: (m: string) => messages.push(m),
-    }
-    expect(await deploy(ctx)).toBe(EXIT.ROLLED_BACK)
-    expect(JSON.parse(world.stateJson).attempt.volumeCleanup.kept).toEqual([
-      { name: CREATED_VOLUME, reason: 'in use' },
-    ])
-    world.volumeRemovalFails = false
-    const retry: string[] = []
-    expect(await deploy({ ...ctxFor(world, {}), log: (m: string) => retry.push(m) })).toBe(
-      EXIT.PREFLIGHT_REFUSED
+    const ctx = { ...ctxFor(world, {}), log: (m: string) => messages.push(m) }
+    expect(await deploy(ctx)).toBe(EXIT.PREFLIGHT_REFUSED)
+    expect(messages.join('\n')).toMatch(
+      new RegExp(`volume ${CREATED_VOLUME}: inspection failed \\(daemon unreachable\\)`)
     )
-    expect(retry.join('\n')).toMatch(
-      new RegExp(
-        `volume ${CREATED_VOLUME} already exists but no container of the running release uses it`
-      )
-    )
-  })
-
-  it('recover after a runner kill between the journal entry and the removal finishes the removal', async () => {
-    const { seen } = await opsOfFailedDeploy()
-    // The fake counts effect ops only; journal-only steps (seal, commit, close) have none.
-    const k = seen
-      .filter((op) => !['seal', 'commit', 'close'].includes(op))
-      .indexOf('remove_created_volumes')
-    for (const when of ['before', 'after']) {
-      const world = createWorld()
-      const crashed = ctxFor(
-        world,
-        { crash: { at: k, when } },
-        fakeConfig({ simulateVerifyFailure: true })
-      )
-      await expect(deploy(crashed)).rejects.toThrow(/crash/)
-      const st = JSON.parse(world.stateJson)
-      expect(st.attempt.step?.op).toBe('remove_created_volumes')
-      expect(await recover(ctxFor(world, {}))).toBe(EXIT.OK)
-      expect(world.dockerVolumes.has(CREATED_VOLUME)).toBe(false)
-      expect(JSON.parse(world.stateJson).attempt.phase).toBe('rolled_back')
-    }
+    expect(world.dockerVolumes.has(CREATED_VOLUME)).toBe(true)
+    expect(world.running).toBe('prev')
+    expect(world.stateJson).toBe(before)
+    expect(ctx.exec.calls()).toBe(0)
   })
 })
 

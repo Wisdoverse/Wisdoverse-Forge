@@ -121,14 +121,18 @@ const publishRules = (fates: Record<string, Fate>) => [
     }
     return [
       temp,
-      { match: shared, code: 1, once: true },
-      ...(fate === 'race' ? [] : [{ match: shared, code: 1, once: true }]),
+      { match: shared, code: 1, err: 'Error: No such image\n', once: true },
+      ...(fate === 'race'
+        ? []
+        : [{ match: shared, code: 1, err: 'Error: No such image\n', once: true }]),
       { match: shared, out: `sha256:${fate === 'race' ? 'first' : 'built'}-${repo}\n` },
       { match: labelsRule(`${repo}:${REV}`), out: provenance(REV) },
     ]
   }),
   { match: '^create ', out: 'frontend-cid\n' },
   { match: '^inspect frontend-cid', code: 1 },
+  // Any other shared tag: absent ("no such image"), the only answer that means absent.
+  { match: inspectRule('[a-z-]+:[0-9a-f]+'), code: 1, err: 'Error: No such image\n' },
 ]
 const ALL = ['agentforge-server', 'agentforge-orchestrator', 'agentforge-frontend']
 const builds = () => stub.calls().filter((c) => c.argv[0] === 'build')
@@ -146,9 +150,14 @@ function expectComposeContract(envFile: string) {
     expect(at('--profile')).toBe('external')
     expect(at('--env-file')).toBe(envFile)
     const files = argv.filter((_a: string, i: number) => argv[i - 1] === '-f')
+    // `build` adds exactly one attempt override after the deploy's own two files.
+    const extra = argv.includes('build')
+      ? [expect.stringMatching(/build-override-[0-9a-z]+\.json$/)]
+      : []
     expect(files).toEqual([
       p('release/releases', REV, 'docker/compose.yml'),
       p('release/releases', REV, 'docker/compose.external.yml'),
+      ...extra,
     ])
   }
 }
@@ -196,12 +205,32 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
     expect(r.out).toContain(`built images and frontend for ${REV}`)
     expect(r.code).toBe(0)
     expectComposeContract(p('private/staged/deploy.env'))
-    expect(composeCalls().find((c) => c.argv.includes('config'))?.parallel).toBe('1')
-    expect(builds()).toHaveLength(3)
-    for (const b of builds()) {
-      expect(b.argv.join(' ')).toContain(`--label org.opencontainers.image.revision=${REV}`)
-      expect(b.argv.join(' ')).toMatch(new RegExp(`-t agentforge-[a-z]+:${REV}-build-[0-9a-z]+ `))
-    }
+    // Server and orchestrator: `compose build` with the deploy's files, profile and project plus
+    // an override holding only the provenance labels and temporary image names.
+    const composeBuild = composeCalls().find((c) => c.argv.includes('build'))
+    expect(composeBuild?.argv.slice(-3)).toEqual(['build', 'agentforge-server', 'orchestrator'])
+    expect(composeBuild?.parallel).toBe('1')
+    const override = JSON.parse(composeBuild?.overrides[0] ?? '{}')
+    const attempt = /-build-([0-9a-z]+)$/.exec(override.services['agentforge-server'].image)?.[1]
+    expect(override).toEqual({
+      services: {
+        'agentforge-server': {
+          image: `agentforge-server:${REV}-build-${attempt}`,
+          build: { labels: { 'org.opencontainers.image.revision': REV } },
+        },
+        orchestrator: {
+          image: `agentforge-orchestrator:${REV}-build-${attempt}`,
+          build: { labels: { 'org.opencontainers.image.revision': REV } },
+        },
+      },
+    })
+    expect(fs.readdirSync(p('release/tmp')).filter((f) => f.includes('override'))).toEqual([])
+    // The frontend (not a Compose service of this profile) is the one plain `docker build`.
+    expect(builds()).toHaveLength(1)
+    expect(builds()[0].argv.join(' ')).toContain(`--label org.opencontainers.image.revision=${REV}`)
+    expect(builds()[0].argv.join(' ')).toMatch(
+      new RegExp(`-t agentforge-frontend:${REV}-build-${attempt} `)
+    )
     expect(tags()).toEqual(ALL.map((repo) => `sha256:built-${repo} ${repo}:${REV}`))
     expect(removedTags()).toHaveLength(3)
     removedTags().forEach((tag) => expect(tag).toMatch(new RegExp(`:${REV}-build-[0-9a-z]+$`)))
@@ -385,50 +414,36 @@ describe('loadConfig provides every field the modules read', () => {
     }
   })
 
-  it('probe ports accept Compose address form; anything else is a refusal (12)', () => {
-    const saved = { ...process.env }
-    Object.assign(process.env, {
-      FORGE_RELEASE_ROOT: p('release'),
-      FORGE_PRIVATE_ROOT: p('private'),
-    })
-    try {
-      stage(
-        envText()
-          .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=127.0.0.2:28222')
-          .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=0.0.0.0:24010')
-      )
-      const cfg = loadConfig('deploy', ['--revision', REV])
-      expect(cfg.ports.natsMonitor).toBe('127.0.0.2:28222')
-      expect(cfg.ports.orchestrator).toBe('127.0.0.1:24010')
-    } finally {
-      process.env = saved
-    }
-    stage(envText().replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=monitor'))
-    const r = cli('deploy', '--revision', REV)
-    expect(r.code).toBe(12)
-    expect(r.out).toContain(
-      'NATS_MONITOR_PORT must be a port 1-65535 or <address>:<port> (IPv4, [IPv6] or hostname)'
-    )
-    expect(stub.calls()).toEqual([])
-  })
-
   it.each([
     ['port 0', 'NATS_MONITOR_PORT=0', 'NATS_MONITOR_PORT'],
     ['port 65536', 'NATS_MONITOR_PORT=65536', 'NATS_MONITOR_PORT'],
-    ['a malformed dotted address', 'ORCHESTRATOR_PORT=127.0.0.256:24010', 'ORCHESTRATOR_PORT'],
-    ['a dotted address with too few parts', 'ORCHESTRATOR_PORT=10.1.1:24010', 'ORCHESTRATOR_PORT'],
-    ['an unbracketed IPv6 address', 'NATS_MONITOR_PORT=::1:28222', 'NATS_MONITOR_PORT'],
-    ['a malformed bind address', 'BIND_ADDRESS=300.1.1.1', 'BIND_ADDRESS'],
+    ['a word', 'NATS_MONITOR_PORT=monitor', 'NATS_MONITOR_PORT'],
+    // #1362: Compose publishes `${BIND_ADDRESS}:${PORT}`; an address form would render garbage.
+    ['an address form', 'ORCHESTRATOR_PORT=127.0.0.1:24010', 'ORCHESTRATOR_PORT'],
+    ['a malformed bind address', 'BIND_ADDRESS=127.0.0.256', 'BIND_ADDRESS'],
+    ['a dotted bind address with too few parts', 'BIND_ADDRESS=10.1.1', 'BIND_ADDRESS'],
+    ['an unbracketed IPv6 bind address', 'BIND_ADDRESS=::1', 'BIND_ADDRESS'],
+    ['a malformed NATS bind address', 'NATS_BIND_ADDRESS=300.1.1.1', 'NATS_BIND_ADDRESS'],
   ])('P3: %s is a refusal (12) naming the variable', (_label, line, key) => {
     const [name] = line.split('=')
-    stage(envText().replace(new RegExp(`^${name}=.*$`, 'm'), line))
+    const text = envText()
+    stage(
+      new RegExp(`^${name}=`, 'm').test(text)
+        ? text.replace(new RegExp(`^${name}=.*$`, 'm'), line)
+        : `${text}${line}\n`
+    )
     const r = cli('deploy', '--revision', REV)
     expect(r.code).toBe(12)
     expect(r.out).toContain(`refused: ${key} must be`)
     expect(stub.calls()).toEqual([])
   })
 
-  it('P3: IPv4, bracketed IPv6 and hostname addresses with ports 1 and 65535 are accepted', () => {
+  it.each([
+    ['10.0.0.1', '10.0.0.1'],
+    ['[::1]', '[::1]'],
+    ['probe.example.com', 'probe.example.com'],
+    ['0.0.0.0', '127.0.0.1'],
+  ])('P3: BIND_ADDRESS=%s with ports 1 and 65535 is accepted; probes use it', (bind, host) => {
     const saved = { ...process.env }
     Object.assign(process.env, {
       FORGE_RELEASE_ROOT: p('release'),
@@ -437,15 +452,15 @@ describe('loadConfig provides every field the modules read', () => {
     try {
       stage(
         envText()
-          .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=[::1]:65535')
-          .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=probe.example.com:1')
-          .replace(/^AGENTFORGE_PORT=.*$/m, 'AGENTFORGE_PORT=10.0.0.1:24003')
+          .replace(/^BIND_ADDRESS=.*$/m, `BIND_ADDRESS=${bind}`)
+          .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=65535')
+          .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=1')
       )
       const cfg = loadConfig('deploy', ['--revision', REV])
       expect(cfg.ports).toEqual({
-        api: '10.0.0.1:24003',
-        orchestrator: 'probe.example.com:1',
-        natsMonitor: '[::1]:65535',
+        api: `${host}:24003`,
+        orchestrator: `${host}:1`,
+        natsMonitor: `${host}:65535`,
       })
     } finally {
       process.env = saved
@@ -544,6 +559,7 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
       {
         match: '^image inspect --format \\{\\{\\.Id\\}\\} agentforge-server:baseline-cli-test$',
         code: 1,
+        err: 'Error: No such image\n',
         once: true,
       },
       ...baselineRules({ out: 'sha256:live-server\n' }),
@@ -581,7 +597,9 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
     const r = cli('build', '--revision', REV)
     expect(r.code).toBe(0)
     // This run built its own server image too, then found the first writer's tag under the lock.
-    expect(builds().filter((b) => b.argv.join(' ').includes('agentforge-server:'))).toHaveLength(1)
+    expect(composeCalls().find((c) => c.argv.includes('build'))?.argv).toContain(
+      'agentforge-server'
+    )
     expect(r.out).toMatch(
       new RegExp(
         `agentforge-server:${REV} was published by another build first; adopted sha256:first-agentforge-server, discarded sha256:built-agentforge-server`
@@ -601,6 +619,28 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
       /tag agentforge-server:.* exists with other provenance .*f00dbad.*immutable/
     )
     expect(builds()).toEqual([])
+    expect(composeCalls().some((c) => c.argv.includes('build'))).toBe(false)
+    expect(tags()).toEqual([])
+  })
+
+  it('round 8: a failed tag inspection under the lock is a refusal (12), never "absent": nothing built or tagged', () => {
+    stage()
+    stub.rules([
+      specRule(),
+      {
+        match: inspectRule(`agentforge-server:${REV}`),
+        code: 1,
+        err: 'Error response from daemon: context deadline exceeded\n',
+      },
+      { match: inspectRule('[a-z-]+:[0-9a-f]+'), code: 1, err: 'Error: No such image\n' },
+    ])
+    const r = cli('build', '--revision', REV)
+    expect(r.code).toBe(12)
+    expect(r.out).toContain(
+      `refused: inspection of agentforge-server:${REV} failed (docker exited 1); nothing was tagged`
+    )
+    expect(composeCalls().some((c) => c.argv.includes('build'))).toBe(false)
+    expect(builds()).toEqual([])
     expect(tags()).toEqual([])
   })
 
@@ -616,6 +656,7 @@ describe('round 6, S2: image tags are global, so none is ever moved', () => {
     const r = cli('build', '--revision', REV)
     expect(r.code).toBe(0)
     expect(builds()).toEqual([])
+    expect(composeCalls().some((c) => c.argv.includes('build'))).toBe(false)
     expect(tags()).toEqual([])
     expect(r.out).toContain(
       `adopted the existing agentforge-server:${REV} (sha256:existing-agentforge-server)`

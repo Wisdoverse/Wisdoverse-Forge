@@ -70,6 +70,7 @@ export const IDENTITY_KEYS = [
   'WEBROOT',
   'DEPLOY_LOCK_DIR',
   'BIND_ADDRESS',
+  'NATS_BIND_ADDRESS',
   'AGENTFORGE_HOST_PORT',
   'AGENTFORGE_PORT',
   'ORCHESTRATOR_PORT',
@@ -198,10 +199,13 @@ export function identityFindings(project, rendered, containers, prevRendered = n
   return out
 }
 
-// Round 7 review, P1-A: named volumes. R1 classification, R2 existing mounts keep their identity,
-// R3 added mounts neither overlap an existing mount nor adopt a volume the running release does
-// not use. `o.prevContainers` are the running release's containers, `o.volumeFacts[name]` is
-// `{ exists, driver }` from `docker volume inspect` at preflight.
+// Named volumes (round 7 and 8 reviews). R1 classification; R2 every named-volume mount of the
+// running release, taken from its frozen rendered config and cross-checked against its containers,
+// keeps target, volume, driver and `external`; R3 an added mount neither overlaps an existing one
+// nor adopts a volume the running release does not use; R4 the volumes absent at preflight are
+// journaled, never deleted by the tool. Facts: `o.prevContainers` has one entry per service of the
+// running release (`missing: true` when no container exists, running or stopped);
+// `o.volumeFacts[name]` is `{ exists, driver }`, or `{ error }` when inspection failed.
 const posixInside = (child, parent) =>
   child !== parent && child.startsWith(parent.endsWith('/') ? parent : `${parent}/`)
 const overlaps = (a, b) => a === b || posixInside(a, b) || posixInside(b, a)
@@ -213,28 +217,100 @@ const specByName = (rendered, name) =>
   Object.keys(rendered?.volumes ?? {})
     .map((key) => volumeSpec(rendered, key))
     .find((v) => v.name === name) ?? null
+// A service's named-volume mounts as `{ target, name, source }`.
+const namedMounts = (rendered, svc) =>
+  (svc?.volumes ?? [])
+    .filter((v) => v.type === 'volume' && v.source)
+    .map((v) => ({ target: v.target, source: v.source, name: volumeSpec(rendered, v.source).name }))
+// Every mount a service declares at a target, including `tmpfs:` entries ("/path[:options]").
+const mountAt = (svc, target) =>
+  (svc?.volumes ?? []).find((v) => v.target === target) ??
+  (svc?.tmpfs ?? [])
+    .map((t) => ({ type: 'tmpfs', target: String(t).split(':')[0] }))
+    .find((t) => t.target === target) ??
+  null
 const MANIFEST = 'scripts/deploy-release.volumes.json'
+// The last rolled-back attempt of this project: its created volumes may be adopted on retry.
+const lastRolledBack = (state) => (state?.attempt?.phase === 'rolled_back' ? state.attempt : null)
 
-export function volumeFindings(classes, o) {
+export function volumeFindings(classes, o, state = null) {
   const out = []
   const target = o.rendered
   const prev = o.prevRendered
-  const prevByName = new Map((o.prevContainers ?? []).map((c) => [c.name, c]))
-  const named = (m) => m.type === 'volume' && Boolean(specByName(prev, m.name))
-  const usedBefore = new Set(
-    (o.prevContainers ?? []).flatMap((c) => c.mounts.filter(named).map((m) => m.name))
-  )
   const facts = (name) => o.volumeFacts?.[name] ?? { exists: false, driver: null }
-  // R2: every named-volume mount of the running release, by container and target.
-  for (const c of o.prevContainers ?? []) {
-    const svc = Object.values(target.services).find((s) => s.container_name === c.name)
-    for (const m of c.mounts.filter(named)) {
-      const where = `${c.name} mounts volume ${m.name} at ${m.target}`
-      const tm = (svc?.volumes ?? []).find((v) => v.target === m.target)
-      if (!svc || !tm || tm.type !== 'volume') {
+  const containers = new Map((o.prevContainers ?? []).map((c) => [c.name, c]))
+  const usedBefore = new Set(
+    Object.values(prev?.services ?? {}).flatMap((svc) => namedMounts(prev, svc).map((m) => m.name))
+  )
+  for (const [name, f] of Object.entries(o.volumeFacts ?? {})) {
+    if (f.error) {
+      out.push(`volume ${name}: inspection failed (${f.error}); it is not treated as absent`)
+    }
+  }
+  for (const [service, svc] of Object.entries(target.services)) {
+    if ((svc.volumes_from ?? []).length > 0) {
+      out.push(
+        `service ${service} uses volumes_from, which bypasses the volume rules; not supported`
+      )
+    }
+    for (const v of (svc.volumes ?? []).filter((m) => m.type === 'volume' && !m.source)) {
+      out.push(
+        `service ${service} declares an anonymous volume at ${v.target}; name it and classify it`
+      )
+    }
+    const seen = new Map()
+    for (const m of namedMounts(target, svc)) {
+      if (!['snapshot', 'excluded'].includes(classes[m.source]?.class)) {
         out.push(
-          `${where}; the target release does not (a mount is never removed or replaced by a deploy)`
+          `volume ${m.source} (${m.name}, service ${service}) is not classified in ${MANIFEST}`
         )
+      }
+      if (seen.has(m.name)) {
+        out.push(
+          `service ${service} mounts volume ${m.name} at both ${seen.get(m.name)} and ${m.target}`
+        )
+      }
+      seen.set(m.name, m.target)
+    }
+  }
+  // R2, from the complete inventory of the running release.
+  for (const [service, psvc] of Object.entries(prev?.services ?? {})) {
+    const before = namedMounts(prev, psvc)
+    if (before.length === 0) {
+      continue
+    }
+    const c = containers.get(psvc.container_name)
+    if (!c || c.missing) {
+      out.push(
+        `container ${psvc.container_name} of the running release (service ${service}, named volumes ${before.map((m) => m.name).join(', ')}) does not exist; restore it before deploying`
+      )
+      continue
+    }
+    const key = (list) =>
+      list
+        .map((m) => `${m.target}=${m.name}`)
+        .sort()
+        .join(' ')
+    const actual = c.mounts.filter((m) => m.type === 'volume' && usedBefore.has(m.name))
+    if (key(actual) !== key(before)) {
+      out.push(
+        `container ${c.name} mounts ${key(actual) || 'no named volume'}, but the recorded release says ${key(before)}`
+      )
+    }
+    const tsvc = Object.values(target.services).find((s) => s.container_name === c.name)
+    for (const m of before) {
+      const where = `${c.name} mounts volume ${m.name} at ${m.target}`
+      if (!tsvc) {
+        out.push(`${where}; the target release removes that service`)
+        continue
+      }
+      const tm = mountAt(tsvc, m.target)
+      if (!tm) {
+        out.push(`${where}; the target release does not (a deploy never removes or moves a mount)`)
+        continue
+      }
+      if (tm.type !== 'volume' || !tm.source) {
+        out.push(`${where}; the target release puts a ${tm.type} mount there instead`)
         continue
       }
       const want = volumeSpec(target, tm.source)
@@ -252,53 +328,76 @@ export function volumeFindings(classes, o) {
       }
     }
   }
-  for (const [service, svc] of Object.entries(target.services)) {
-    const c = prevByName.get(svc.container_name)
-    const existing = c?.mounts.filter((m) => m.type === 'volume' || m.type === 'bind') ?? []
-    for (const tm of (svc.volumes ?? []).filter((v) => v.type === 'volume')) {
-      const want = volumeSpec(target, tm.source)
-      // R1: classified in the manifest.
-      const cls = classes[tm.source]?.class
-      if (!['snapshot', 'excluded'].includes(cls)) {
-        out.push(
-          `volume ${tm.source} (${want.name}, service ${service}) is not classified in ${MANIFEST}`
-        )
-      }
-      if (existing.some((m) => m.target === tm.target && m.type === 'volume' && named(m))) {
+  // R3, for every mount the running container does not have (all mounts of a new service).
+  const last = lastRolledBack(state)
+  for (const svc of Object.values(target.services)) {
+    const c = containers.get(svc.container_name)
+    const existing =
+      c && !c.missing ? c.mounts.filter((m) => m.type === 'volume' || m.type === 'bind') : []
+    const before = new Set(
+      namedMounts(
+        prev,
+        Object.values(prev?.services ?? {}).find((p) => p.container_name === svc.container_name)
+      ).map((m) => `${m.target}=${m.name}`)
+    )
+    for (const m of namedMounts(target, svc)) {
+      if (before.has(`${m.target}=${m.name}`)) {
         continue // an existing mount: R2 above
       }
-      // R3 (a): an added mount never equals, shadows or contains an existing mount of the container.
-      const clash = existing.find((m) => overlaps(tm.target, m.target))
+      const clash = existing.find((e) => overlaps(m.target, e.target))
       if (clash) {
         out.push(
-          `${svc.container_name}: the added volume ${want.name} at ${tm.target} overlaps the existing ${clash.type} mount at ${clash.target}`
+          `${svc.container_name}: the added volume ${m.name} at ${m.target} overlaps the existing ${clash.type} mount at ${clash.target}`
         )
         continue
       }
-      // R3 (b): the volume is new (this deploy creates it) or already used by the running release.
-      const f = facts(want.name)
-      if (f.exists && !usedBefore.has(want.name)) {
-        out.push(
-          `volume ${want.name} already exists but no container of the running release uses it (a leftover of an earlier attempt, or another deployment's); inspect it with \`docker volume inspect ${want.name}\` and remove it only if it is a leftover`
-        )
-      } else if (f.exists && f.driver && want.driver !== f.driver) {
-        out.push(
-          `volume ${want.name} has driver ${f.driver}; the target release declares ${want.driver}`
-        )
+      const f = facts(m.name)
+      if (!f.exists || f.error || usedBefore.has(m.name)) {
+        if (f.exists && f.driver && volumeSpec(target, m.source).driver !== f.driver) {
+          out.push(
+            `volume ${m.name} has driver ${f.driver}; the target release declares ${volumeSpec(target, m.source).driver}`
+          )
+        }
+        continue
       }
+      const fromAttempt = last?.createdVolumes?.includes(m.name)
+      const cls = classes[m.source]?.class
+      if (fromAttempt && cls === 'excluded') {
+        continue // adopted: see leftoverAdoptions
+      }
+      out.push(
+        fromAttempt
+          ? `volume ${m.name} (class snapshot) was left by rolled-back attempt ${last.attemptId} and holds data that failed release wrote; inspect it with \`docker volume inspect ${m.name}\`, then remove it with \`docker volume rm ${m.name}\` before deploying again`
+          : `volume ${m.name} already exists but no container of the running release uses it and no rolled-back attempt created it (another deployment's, or an unknown leftover); inspect it with \`docker volume inspect ${m.name}\` and remove it only if you are sure it is a leftover`
+      )
     }
   }
   return out
 }
 
-// R4: the volumes the target mounts that do not exist at preflight; a rollback removes exactly these.
-export function createdVolumes(rendered, volumeFacts) {
-  const names = Object.values(rendered.services).flatMap((s) =>
-    (s.volumes ?? [])
-      .filter((v) => v.type === 'volume')
-      .map((v) => volumeSpec(rendered, v.source).name)
+// Excluded-class volumes that the last rolled-back attempt created and that still exist: adopted.
+export function leftoverAdoptions(classes, o, state) {
+  const last = lastRolledBack(state)
+  return Object.values(o.rendered.services)
+    .flatMap((svc) => namedMounts(o.rendered, svc))
+    .filter(
+      (m) =>
+        last?.createdVolumes?.includes(m.name) &&
+        classes[m.source]?.class === 'excluded' &&
+        o.volumeFacts?.[m.name]?.exists
+    )
+    .map((m) => ({ name: m.name, attemptId: last.attemptId }))
+    .filter((a, i, all) => all.findIndex((b) => b.name === a.name) === i)
+}
+
+// R4: the volumes this attempt did not find at preflight, plus adopted leftovers of a rolled-back
+// attempt (still not part of a committed release). Journaled with the intent; never deleted.
+export function createdVolumes(rendered, volumeFacts, adopted = []) {
+  const names = Object.values(rendered.services).flatMap((svc) =>
+    namedMounts(rendered, svc).map((m) => m.name)
   )
-  return [...new Set(names)].filter((name) => !volumeFacts?.[name]?.exists).sort()
+  const absent = names.filter((name) => !volumeFacts?.[name]?.exists)
+  return [...new Set([...absent, ...adopted.map((a) => a.name)])].sort()
 }
 
 // The archive list: snapshot-class volumes of the target that exist at preflight.
@@ -307,18 +406,6 @@ export function snapshotVolumes(classes, rendered, volumeFacts) {
     .filter(([key, v]) => v.class === 'snapshot' && rendered.volumes?.[key])
     .map(([key]) => volumeSpec(rendered, key).name)
     .filter((name) => volumeFacts?.[name]?.exists)
-}
-
-// R4 cleanup decision for one created volume: remove the failed release's stopped leftovers that
-// still reference it, then the volume itself; anything running or foreign keeps it.
-export function volumeCleanup(project, refs) {
-  const leftovers = refs.filter((c) => c.project === project && !c.running)
-  const blockers = refs.filter((c) => !leftovers.includes(c))
-  return {
-    removeContainers: leftovers.map((c) => c.id),
-    removeVolume: blockers.length === 0,
-    blockers,
-  }
 }
 
 // Round 7 review, P1-B: an image this pipeline builds carries its revision (and, when the build
@@ -457,7 +544,7 @@ export function preflightFindings(config, state, o) {
     )
   }
   out.push(...identityFindings(config.project, o.rendered, o.containers, o.prevRendered))
-  out.push(...volumeFindings(config.volumeClasses ?? {}, o))
+  out.push(...volumeFindings(config.volumeClasses ?? {}, o, state))
   out.push(...(o.provenanceProblems ?? []))
   out.push(...databaseFindings(config.databases, o.databases))
   out.push(...agentContainerFindings(o.agentContainers))

@@ -8,7 +8,7 @@ import {
   deploy,
   recover,
 } from '../../../scripts/lib/deploy-release/engine.js'
-import { createdVolumes } from '../../../scripts/lib/deploy-release/checks.js'
+import { createdVolumes, leftoverAdoptions } from '../../../scripts/lib/deploy-release/checks.js'
 import { emptyState, releaseId } from '../../../scripts/lib/deploy-release/journal.js'
 
 const DBS = [
@@ -163,11 +163,19 @@ export function goodPreflight(world) {
     })
     Object.assign(databases[name], { subscriptions: 0, publications: 0, connLimit: -1 })
   }
+  // A name in world.inspectFails answers like a transient daemon error, never as "absent".
   const volumeFacts = Object.fromEntries(
     Object.values(DECLARED).map(({ name }) => [
       name,
-      { exists: world.dockerVolumes.has(name), driver: 'local' },
+      world.inspectFails?.has(name)
+        ? { exists: null, driver: null, error: 'daemon unreachable' }
+        : { exists: world.dockerVolumes.has(name), driver: 'local' },
     ])
+  )
+  const adopted = leftoverAdoptions(
+    VOLUME_CLASSES,
+    { rendered: TARGET_RENDERED, volumeFacts },
+    JSON.parse(world.stateJson)
   )
   return {
     envVersion: 'next',
@@ -175,7 +183,11 @@ export function goodPreflight(world) {
     prevRendered: PREV_RENDERED,
     prevContainers: PREV_CONTAINERS,
     volumeFacts,
-    createdVolumes: createdVolumes(TARGET_RENDERED, volumeFacts),
+    createdVolumes: createdVolumes(TARGET_RENDERED, volumeFacts, adopted),
+    notes: adopted.map(
+      (a) =>
+        `adopting volume ${a.name} (class excluded), left by rolled-back attempt ${a.attemptId}`
+    ),
     images: {},
     bindProbes: [],
     freeBytes: { private: 2 ** 40 },
@@ -340,13 +352,6 @@ export function fakeExecutor(world, opts = {}) {
     restore_webroot: () => {
       world.webroot = world.tars.webroot
     },
-    remove_created_volumes: (s) => {
-      if (world.volumeRemovalFails) {
-        return { removed: [], kept: s.volumes.map((name) => ({ name, reason: 'in use' })) }
-      }
-      const removed = s.volumes.filter((name) => world.dockerVolumes.delete(name))
-      return { removed, kept: [] }
-    },
     prune: () => null,
   }
   return {
@@ -434,6 +439,7 @@ export function fakeExecutor(world, opts = {}) {
       return observed()
     },
     run: (step) => {
+      SEEN_OPS.add(step.op)
       const op = ops[step.op]
       if (!op) {
         return {}
@@ -515,10 +521,8 @@ export function outcomeErrors(world, wanted) {
   if (world.sqlHelper) {
     errors.push('the SQL helper container was left running')
   }
-  // R4: a rollback leaves no volume the attempt created; a pre-existing volume is never removed.
-  if (rev === 'prev' && world.dockerVolumes.has(CREATED_VOLUME)) {
-    errors.push(`volume ${CREATED_VOLUME}, created by the attempt, survived the rollback`)
-  }
+  // R4 (round 8): the tool never deletes a volume; a rolled-back attempt's volume stays (status
+  // lists it, and a retry adopts it only when it is class `excluded`).
   if (rev !== 'prev' && !world.dockerVolumes.has(CREATED_VOLUME)) {
     errors.push(`volume ${CREATED_VOLUME} of the new release is missing`)
   }
@@ -588,8 +592,14 @@ let sweepResults = []
 const committedPhase = (world) =>
   ['verified', 'done'].includes(JSON.parse(world.stateJson).attempt?.phase)
 
+// Every step op any scenario ran (round 8 review: no deploy, rollback or recover path removes a
+// volume). archive_volume and restore_volume copy contents; neither removes a volume.
+const SEEN_OPS = new Set()
+export const VOLUME_OPS_ALLOWED = ['archive_volume', 'restore_volume']
+
 export async function faultMatrix() {
   sweepResults = []
+  SEEN_OPS.clear()
   const probe = createWorld()
   const probeCtx = ctxFor(probe, {})
   await deploy(probeCtx)
@@ -935,5 +945,30 @@ export async function faultMatrix() {
     appearedErrors.push('expected a rollback before any snapshot, keeping the pre-existing agent')
   }
   results.push({ name: 'agent appears after preflight', errors: appearedErrors })
-  return [...results, ...sweepResults]
+  // Round 8 review R4: after a rollback the created (excluded-class) volume stays, and the retry
+  // adopts it from the journal instead of refusing.
+  const retried = createWorld()
+  const firstCode = await deploy(ctxFor(retried, {}, fakeConfig({ simulateVerifyFailure: true })))
+  const leftOver = retried.dockerVolumes.has(CREATED_VOLUME)
+  const retryCode = await deploy(ctxFor(retried, {}))
+  results.push({
+    name: 'a rolled-back attempt leaves its excluded volume; the retry adopts it',
+    errors:
+      firstCode === EXIT.ROLLED_BACK &&
+      leftOver &&
+      retryCode === EXIT.OK &&
+      JSON.parse(retried.stateJson).current === NEXT &&
+      JSON.parse(retried.stateJson).attempt.createdVolumes.includes(CREATED_VOLUME)
+        ? []
+        : [`first exit ${firstCode}, left over ${leftOver}, retry exit ${retryCode}`],
+  })
+  const all = [...results, ...sweepResults]
+  const removing = [...SEEN_OPS].filter(
+    (op) => /volume/.test(op) && !VOLUME_OPS_ALLOWED.includes(op)
+  )
+  all.push({
+    name: `no step of any scenario removes a volume (${SEEN_OPS.size} distinct ops seen)`,
+    errors: removing.map((op) => `step ${op} touches volumes`),
+  })
+  return all
 }

@@ -77,20 +77,20 @@ REQUIRED. The tool uses no defaults for them: several Compose defaults are
 the names of an existing deployment, and on a shared host a missing variable
 would point at it. A missing one is a refusal (exit 12) that lists the names.
 
-| Variable                                                                                                                      | Meaning                                                                                                                                                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `COMPOSE_PROJECT_NAME`, `CONTAINER_NAME_PREFIX`                                                                               | Compose project and container name prefix of this deployment                                                                                                                                                              |
-| `DATABASE_URL`                                                                                                                | API database, `postgres://<api-role>:<password>@<db-host>:5432/<api-db>`                                                                                                                                                  |
-| `ORCHESTRATOR_DATABASE_URL`                                                                                                   | Orchestrator database, with its own role                                                                                                                                                                                  |
-| `DB_HOST`, `DB_PORT`                                                                                                          | Database server for Temporal                                                                                                                                                                                              |
-| `TEMPORAL_DB_USER`, `TEMPORAL_DB_PASSWORD`, `TEMPORAL_DB_NAME`                                                                | Temporal role and database; the visibility database is `<name>_visibility`                                                                                                                                                |
-| `EXTERNAL_NETWORK`                                                                                                            | Docker network where the database host name resolves                                                                                                                                                                      |
-| `CONTAINER_NETWORK`                                                                                                           | Docker network of this deployment's agent containers                                                                                                                                                                      |
-| `WEBROOT`                                                                                                                     | Absolute host path the web server serves, for example `/srv/forge-deploy/www`                                                                                                                                             |
-| `AGENTFORGE_WORKSPACE_ROOT`, `OAUTH_MOUNT_DIR`                                                                                | Absolute host paths of the agent workspaces and the OAuth staging directory                                                                                                                                               |
-| `DEPLOY_LOCK_DIR`                                                                                                             | Absolute lock directory, for example `/var/lock/forge-deploy`                                                                                                                                                             |
-| `APP_URL`                                                                                                                     | URL used to check the served `index.html`, for example `https://forge.example.com`                                                                                                                                        |
-| `BIND_ADDRESS`, `AGENTFORGE_PORT`, `ORCHESTRATOR_PORT`, `NATS_PORT`, `NATS_MONITOR_PORT`, `TEMPORAL_PORT`, `TEMPORAL_UI_PORT` | Published address and ports; the health probes use them. The compose file publishes NATS and Temporal on every interface; to keep one on loopback, give the port as `127.0.0.1:<port>` (the probes then use that address) |
+| Variable                                                                                                                      | Meaning                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `COMPOSE_PROJECT_NAME`, `CONTAINER_NAME_PREFIX`                                                                               | Compose project and container name prefix of this deployment                                                                                                                                                    |
+| `DATABASE_URL`                                                                                                                | API database, `postgres://<api-role>:<password>@<db-host>:5432/<api-db>`                                                                                                                                        |
+| `ORCHESTRATOR_DATABASE_URL`                                                                                                   | Orchestrator database, with its own role                                                                                                                                                                        |
+| `DB_HOST`, `DB_PORT`                                                                                                          | Database server for Temporal                                                                                                                                                                                    |
+| `TEMPORAL_DB_USER`, `TEMPORAL_DB_PASSWORD`, `TEMPORAL_DB_NAME`                                                                | Temporal role and database; the visibility database is `<name>_visibility`                                                                                                                                      |
+| `EXTERNAL_NETWORK`                                                                                                            | Docker network where the database host name resolves                                                                                                                                                            |
+| `CONTAINER_NETWORK`                                                                                                           | Docker network of this deployment's agent containers                                                                                                                                                            |
+| `WEBROOT`                                                                                                                     | Absolute host path the web server serves, for example `/srv/forge-deploy/www`                                                                                                                                   |
+| `AGENTFORGE_WORKSPACE_ROOT`, `OAUTH_MOUNT_DIR`                                                                                | Absolute host paths of the agent workspaces and the OAuth staging directory                                                                                                                                     |
+| `DEPLOY_LOCK_DIR`                                                                                                             | Absolute lock directory, for example `/var/lock/forge-deploy`                                                                                                                                                   |
+| `APP_URL`                                                                                                                     | URL used to check the served `index.html`, for example `https://forge.example.com`                                                                                                                              |
+| `BIND_ADDRESS`, `AGENTFORGE_PORT`, `ORCHESTRATOR_PORT`, `NATS_PORT`, `NATS_MONITOR_PORT`, `TEMPORAL_PORT`, `TEMPORAL_UI_PORT` | Published address and ports. Each port is a bare number 1-65535: the Compose files publish every port on `BIND_ADDRESS` (the NATS client port on `NATS_BIND_ADDRESS`), and the health probes use `BIND_ADDRESS` |
 
 Deliberate defaults: these values have a default because none of them selects
 another deployment's state.
@@ -199,31 +199,48 @@ image tags print and the web root exists.
 ## Named volumes
 
 Preflight applies four rules to named volumes. A broken rule is a refusal
-(exit 12) that names the volume; nothing was changed.
+(exit 12) that names the volume; nothing was changed. The deploy tool never
+deletes a volume.
 
 1. **Every volume is classified.** Each named volume the release mounts is
    listed in `scripts/deploy-release.volumes.json` as `snapshot` (archived
    while stopped on every deploy and restored on rollback) or `excluded` (not
    archived, with a one-line reason). A release that adds a volume must add it
-   there too.
-2. **A volume in use keeps its place.** Every named volume that a running
-   container mounts must be mounted by the new release at the same path, under
-   the same name, with the same driver and the same `external` setting. A
-   deploy never removes or moves a mount; such a release is refused and has
-   to be handled by hand.
+   there too. Anonymous volumes and `volumes_from` are refused.
+2. **A volume in use keeps its place.** Preflight takes every named volume of
+   the running release from its recorded configuration and checks it against
+   the containers that exist (running or stopped). Each one must be mounted by
+   the new release in the same container, at the same path, under the same
+   name, with the same driver and the same `external` setting, and not
+   replaced by a bind or tmpfs mount. A missing container, a removed service, a
+   moved mount, or one volume mounted at two paths is refused. Such a change
+   has to be handled by hand.
 3. **An added volume is new or shared, and does not overlap.** A mount the
    running container does not have yet must not sit on, inside or above any of
    its existing mounts. Its volume must either not exist yet (the deploy
-   creates it) or already be used by a container of the running release. A
-   volume that exists but nothing running uses is refused: it is a leftover
-   of an earlier attempt or belongs to another deployment. Inspect it with
-   `docker volume inspect <name>`, and remove it only if it is a leftover.
-4. **A rollback removes what the attempt created.** The volumes that did not
-   exist at preflight are written to the journal before anything starts. A
-   rollback (and `recover`, when it rolls back) removes them once the previous
-   release runs again, and never removes a volume that existed before. If one
-   cannot be removed, the rollback still finishes, `status` shows it as
-   `KEPT`, and the next deploy refuses it by rule 3 until you remove it.
+   creates it) or already be used by the running release. Only a reply of
+   "no such volume" counts as "does not exist": any other inspection error is a
+   refusal that names the volume and the kind of error.
+4. **A rolled-back attempt leaves its new volumes in place.** The volumes that
+   did not exist at preflight are written to the journal before anything
+   starts. A rollback and `recover` do not remove them; `status` lists each one
+   that still exists as `volume <name>: left by rolled-back attempt <id>`.
+
+The next deploy treats such a leftover by its class:
+
+- `excluded`: adopted (the deploy says `adopting volume <name> ... left by
+rolled-back attempt <id>`), because it holds nothing a rollback restores.
+- `snapshot`: refused, because it holds data the failed release wrote. Look at
+  it, then remove it before you deploy again:
+
+  ```bash
+  docker volume inspect <name>     # confirm it is the one status names
+  docker volume rm <name>          # only this volume; the running release does not use it
+  ```
+
+- An existing volume that the running release does not use and no rolled-back
+  attempt created is refused: it belongs to another deployment or is an
+  unknown leftover. Inspect it and remove it only if you are sure.
 
 ## Release image tags
 
@@ -233,8 +250,11 @@ every deployment on the host and are immutable: the first build that publishes
 a tag wins. Every image the pipeline builds carries the label
 `org.opencontainers.image.revision=<commit>`. A tag is created only under the
 host-wide lock `<DEPLOY_LOCK_DIR>/images.lock`, so give every deployment on one
-host the same `DEPLOY_LOCK_DIR`. An existing tag is adopted, without a build,
-only when its label is this commit; a tag with another label is refused as
+host the same `DEPLOY_LOCK_DIR`. Every check of a shared tag (its label and its
+image id) and its creation happen inside one hold of that lock, and a failed
+inspection is a refusal (exit 12), never "absent". Jenkins holds the lock in a
+short-lived helper container from `DEPLOY_PG_CLIENT_IMAGE`. An existing tag is
+adopted, without a build, only when its label is this commit; a tag with another label is refused as
 `a release tag is immutable` (exit 12). Investigate who created it; never
 retag it.
 
@@ -704,23 +724,29 @@ it runs. Fill in the four placeholders first.
     git -C "$REPO" archive --format=tar "$REV" | tar -x -C "$DEST.partial"
     mv "$DEST.partial" "$DEST"
   fi
-  # Runner image: tags are immutable, first writer wins. Adopt an existing tag only with this
-  # revision's label; otherwise build under a temporary tag and publish under the image lock.
+  # Runner image: tags are immutable, first writer wins. The label check, the tag and the id
+  # read-back happen in one hold of the image lock. held <built-id|""> prints the adopted or
+  # published id; exit 3 = absent (build first); exit 12 = refused.
   SHARED="forge-deploy-runner:$REV"
-  LABEL=org.opencontainers.image.revision
-  rev_of() { docker image inspect --format "{{index .Config.Labels \"$LABEL\"}}" "$1" 2>/dev/null || true; }
-  if docker image inspect "$SHARED" >/dev/null 2>&1; then
-    [ "$(rev_of "$SHARED")" = "$REV" ] || refuse "$SHARED has another revision label; investigate, never retag"
-  else
+  held() {
+    # shellcheck disable=SC2016  # $1..$3 are expanded by the inner sh
+    flock -x -w 900 "$LOCK/images.lock" sh -c '
+      if ! out=$(docker image inspect --format "{{.Id}}" "$1" 2>&1); then
+        case "$out" in *"No such image"*|*"No such object"*) ;; *) exit 12 ;; esac
+        [ -n "$2" ] || exit 3
+        docker tag "$2" "$1"
+      fi
+      [ "$(docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$1")" = "$3" ] || exit 12
+      docker image inspect --format "{{.Id}}" "$1"' sh "$SHARED" "$1" "$REV"
+  }
+  rc=0; IMG=$(held "") || rc=$?
+  if [ "$rc" = 3 ]; then
     TEMP="$SHARED-build-$(date +%s)-$$"
-    docker build --label "$LABEL=$REV" -t "$TEMP" - < "$DEST/docker/Dockerfile.deploy-runner"
-    BUILT=$(docker image inspect --format '{{.Id}}' "$TEMP")
-    flock -x -w 900 "$LOCK/images.lock" sh -c \
-      'docker image inspect "$1" >/dev/null 2>&1 || docker tag "$2" "$1"' sh "$SHARED" "$BUILT"
+    docker build --label "org.opencontainers.image.revision=$REV" -t "$TEMP" - < "$DEST/docker/Dockerfile.deploy-runner"
+    rc=0; IMG=$(held "$(docker image inspect --format '{{.Id}}' "$TEMP")") || rc=$?
     docker image rm "$TEMP" >/dev/null
-    [ "$(rev_of "$SHARED")" = "$REV" ] || refuse "$SHARED was published with another revision label"
   fi
-  IMG=$(docker image inspect --format '{{.Id}}' "$SHARED")
+  [ "$rc" = 0 ] || refuse "$SHARED: another revision label, a failed inspection, or the lock timed out"
   # Staged inputs: one directory, swapped in with a rename.
   umask 077
   rm -rf "$ROOT/private/staged.partial" && mkdir "$ROOT/private/staged.partial"

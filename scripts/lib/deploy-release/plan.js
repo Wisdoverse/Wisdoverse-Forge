@@ -170,13 +170,6 @@ export function planRecovery(attempt, observed) {
     snapshot.databases.forEach((d) => steps.push(...partialSnapshotSteps(d, observed.databases)))
   }
   steps.push(rb({ op: 'start', rev: previous }))
-  // R4: after the previous release replaced the target's containers, remove what this attempt
-  // created. Never fails the rollback: what cannot be removed is reported (and refused next time).
-  if ((attempt.createdVolumes ?? []).length > 0) {
-    steps.push(
-      rb({ op: 'remove_created_volumes', volumes: attempt.createdVolumes, bestEffort: true })
-    )
-  }
   if (snapshot.complete && !snapshot.webroot.restored) {
     steps.push(
       rb({ op: 'restore_webroot', tar: snapshot.webroot.tar, sha256: snapshot.webroot.sha256 })

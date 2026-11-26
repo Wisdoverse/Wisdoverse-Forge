@@ -235,10 +235,12 @@ export function loadConfig(command, args) {
   }
   const attemptId = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}${randomBytes(2).toString('hex')}`
   const roles = { api: api.role, orchestrator: orchestrator.role, temporal }
-  if (!validAddress(env.BIND_ADDRESS)) {
-    throw new InputsError(
-      'BIND_ADDRESS must be an IPv4 address, a [bracketed] IPv6 address or a hostname'
-    )
+  for (const key of ['BIND_ADDRESS', 'NATS_BIND_ADDRESS'].filter((k) => k in env)) {
+    if (!validAddress(env[key])) {
+      throw new InputsError(
+        `${key} must be an IPv4 address, a [bracketed] IPv6 address or a hostname`
+      )
+    }
   }
   const bind = env.BIND_ADDRESS === '0.0.0.0' ? '127.0.0.1' : env.BIND_ADDRESS
   return {
@@ -321,16 +323,16 @@ export function validAddress(a) {
 }
 const validPort = (p) => /^[0-9]{1,5}$/.test(p) && Number(p) >= 1 && Number(p) <= 65535
 
+// Since #1362 the Compose files publish these ports as `${BIND_ADDRESS}:${PORT}:...`, so a port
+// variable is a bare port (an address form would render an invalid binding) and the probe uses
+// BIND_ADDRESS.
 function probeAddress(env, key, bind) {
-  const value = env[key]
-  const m = /^(?:(.+):)?([^:\]]+)$/.exec(value)
-  const bad = () =>
-    new InputsError(`${key} must be a port 1-65535 or <address>:<port> (IPv4, [IPv6] or hostname)`)
-  if (!m || !validPort(m[2]) || (m[1] !== undefined && !validAddress(m[1]))) {
-    throw bad()
+  if (!validPort(env[key] ?? '')) {
+    throw new InputsError(
+      `${key} must be a port 1-65535 (the Compose files publish it on BIND_ADDRESS)`
+    )
   }
-  const address = !m[1] || m[1] === '0.0.0.0' ? bind : m[1]
-  return `${address}:${m[2]}`
+  return `${bind}:${env[key]}`
 }
 
 // P3: forwarded to Compose only as a positive safe integer.
@@ -372,6 +374,17 @@ function statusNotes(ctx, revision) {
     notes.push(
       `note: the active env file differs from its recorded hash (deployment identity ${same ? 'unchanged' : 'CHANGED'})`
     )
+  }
+  // Round 8 review: the tool never deletes a volume; say which ones a rolled-back attempt left.
+  const a = state.attempt
+  if (a?.phase === 'rolled_back' && (a.createdVolumes ?? []).length > 0) {
+    for (const [name, f] of Object.entries(exec.volumeStates(a.createdVolumes))) {
+      if (f.exists || f.error) {
+        notes.push(
+          `volume ${name}: left by rolled-back attempt ${a.attemptId}${f.error ? ` (inspection failed: ${f.error})` : ''}`
+        )
+      }
+    }
   }
   if (revision) {
     const recorded = Object.values(state.records).some((r) => r.revision === revision)
