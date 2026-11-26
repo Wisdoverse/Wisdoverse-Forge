@@ -218,6 +218,9 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://agentforge@localhost:5432/agentforge_test
+      # The git-backed self-fix bridge tests skip themselves (and report as
+      # passed) unless this is set; CI is the place they must run.
+      SELF_FIX_IT: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install protobuf compiler and mold linker
