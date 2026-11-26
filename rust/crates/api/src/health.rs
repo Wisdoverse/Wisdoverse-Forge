@@ -196,8 +196,11 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
 /// Redis that goes read-only / loses write ACLs after boot must drop the
 /// replica from rotation. Otherwise a PING is the right lightweight check.
 async fn redis_ready(redis: &RwLock<RedisClient>, require_external_state: bool) -> bool {
-    let redis = redis.read().await;
-    if require_external_state { redis.probe_read_write().await } else { redis.check_health().await }
+    // Take the handle under the guard, then probe after releasing it.
+    let Some(conn) = redis.read().await.handle() else {
+        return false;
+    };
+    if require_external_state { conn.probe_read_write().await } else { conn.check_health().await }
 }
 
 /// Run the four readiness probes concurrently, each bounded by
@@ -327,7 +330,7 @@ mod tests {
         assert!(!redis.read().await.is_connected());
 
         fake.restart().await;
-        // Production recovery bound (9.5 s, see `redis_client`) plus scheduling headroom.
+        // Production recovery bound (8 s, see `redis_client`) plus scheduling headroom.
         let deadline = std::time::Instant::now() + Duration::from_secs(15);
         while ready_with_required_redis(&redis).await != StatusCode::OK {
             assert!(std::time::Instant::now() < deadline, "readiness did not recover after Redis came back");

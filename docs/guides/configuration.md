@@ -104,8 +104,11 @@ keeps serving requests:
 - `/api/health` reports `"redis": false`. With `REQUIRE_EXTERNAL_STATE=true`
   readiness returns 503 until Redis accepts writes again.
 - The API reconnects by itself, also when Redis was unreachable at startup. It
-  uses Redis again at most 9.5 seconds after Redis is reachable. You do not need
-  to restart the API.
+  uses Redis again at most 8 seconds after Redis is reachable. You do not need
+  to restart the API. This also holds when the old connection went silent
+  without closing (a firewall dropping packets, a host gone without notice) and
+  after a disabled Redis user is enabled again: every retry uses a new
+  connection and a new login.
 
 What you see in the API log, once per change:
 
@@ -115,12 +118,13 @@ What you see in the API log, once per change:
 The counter `agentforge_redis_state_changes_total{state="lost"|"restored"}`
 counts the same changes.
 
-Numbers behind the 9.5-second bound: each connection attempt times out after
-1 second and each reply after 0.5 seconds. A request-path command gets at most
-1 second in total. While Redis is usable, the API sends `PING` every 5 seconds.
-While Redis is down, it retries with a delay that starts at 0.25 seconds and
-doubles up to 5 seconds, with random jitter. The bound is three probe deadlines
-of 1.5 seconds plus one 5-second wait.
+Numbers behind the 8-second bound: each connection attempt times out after
+1 second and each reply after 0.5 seconds, so one check takes at most
+1.5 seconds. A request-path command gets at most 1 second in total. While
+Redis is usable, the API sends `PING` every 5 seconds. While Redis is down, it
+tries a new connection with a delay that starts at 0.25 seconds and doubles up
+to 5 seconds, with random jitter. The bound is two checks of 1.5 seconds plus
+one 5-second wait.
 
 A command that timed out may still have run on Redis. The API never resends it,
 so a sign-in that failed during an outage must be started again.

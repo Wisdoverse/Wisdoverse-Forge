@@ -6,6 +6,9 @@
 //! `DEL` and `EXISTS`. Expiry is not modelled. A test can stop it (closes the
 //! listener and every connection), start it again on the same port, and switch
 //! it into the failure [`Mode`]s the reconnection tests need.
+//!
+//! Compiled only for `agentforge-infra`'s own tests or when the `test-support` feature is
+//! enabled explicitly; nothing in the workspace enables it outside tests.
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -30,6 +33,8 @@ pub enum Mode {
     DropOnAccept,
     /// Answer writes with a `READONLY` error (a read-only replica).
     ReadOnly,
+    /// Reject `AUTH` (a disabled Redis user); everything else is answered.
+    DenyAuth,
 }
 
 #[derive(Default)]
@@ -37,6 +42,9 @@ struct State {
     data: Mutex<HashMap<Vec<u8>, Vec<u8>>>,
     mode: Mutex<Option<Mode>>,
     commands: Mutex<Vec<String>>,
+    /// Connections are numbered as accepted; those below this number never answer again.
+    next_connection: Mutex<usize>,
+    silenced_below: Mutex<usize>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -77,6 +85,17 @@ impl FakeRedis {
     /// `redis://` URL for an address.
     pub fn url_for(addr: SocketAddr) -> String {
         format!("redis://{addr}/")
+    }
+
+    /// `redis://` URL with a password, so the client sends `AUTH` during its handshake.
+    pub fn url_with_password(&self, password: &str) -> String {
+        format!("redis://:{password}@{}/", self.addr)
+    }
+
+    /// Keep every connection open now open, but never answer on it again (a silent firewall,
+    /// or a peer that acknowledges TCP but stops answering). New connections are answered.
+    pub fn silence_open_connections(&self) {
+        *lock(&self.state.silenced_below) = *lock(&self.state.next_connection);
     }
 
     pub fn set_mode(&self, mode: Mode) {
@@ -125,6 +144,11 @@ impl Drop for FakeRedis {
 }
 
 async fn serve(stream: TcpStream, state: Arc<State>) {
+    let id = {
+        let mut next = lock(&state.next_connection);
+        *next += 1;
+        *next - 1
+    };
     let mode = || lock(&state.mode).unwrap_or(Mode::Normal);
     if mode() == Mode::DropOnAccept {
         return;
@@ -134,6 +158,9 @@ async fn serve(stream: TcpStream, state: Arc<State>) {
     while let Some(args) = read_command(&mut read).await {
         let name = String::from_utf8_lossy(&args[0]).to_ascii_uppercase();
         lock(&state.commands).push(name.clone());
+        if id < *lock(&state.silenced_below) {
+            continue;
+        }
         let reply = match mode() {
             Mode::Blackhole => continue,
             Mode::Delay(delay) => {
@@ -141,7 +168,10 @@ async fn serve(stream: TcpStream, state: Arc<State>) {
                 reply(&state, &name, &args, false)
             }
             Mode::ReadOnly => reply(&state, &name, &args, true),
-            Mode::Normal | Mode::DropOnAccept => reply(&state, &name, &args, false),
+            Mode::DenyAuth if name == "AUTH" => {
+                b"-WRONGPASS invalid username-password pair or user is disabled.\r\n".to_vec()
+            }
+            Mode::Normal | Mode::DropOnAccept | Mode::DenyAuth => reply(&state, &name, &args, false),
         };
         if write.write_all(&reply).await.is_err() {
             return;

@@ -1228,7 +1228,7 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(3), "degraded path must not wait for a reconnect");
 
         // Redis is back: the SAME store and client recover within the documented
-        // bound (9.5 s, see `agentforge_infra::redis_client`) plus headroom.
+        // bound (8 s, see `agentforge_infra::redis_client`) plus headroom.
         fake.restart().await;
         let deadline = std::time::Instant::now() + Duration::from_secs(15);
         while !client.read().await.is_connected() {

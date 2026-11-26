@@ -79,7 +79,9 @@ Keep only status codes, TTL ranges, and pass or fail results in the run record.
 ## Recover After Redis Returns
 
 Restore Redis through its approved service procedure.
-The API reconnects by itself within 9.5 seconds after Redis is reachable, also when Redis was unreachable at API startup.
+The API reconnects by itself within 8 seconds after Redis is reachable, also when Redis was unreachable at API startup.
+This also holds when the old connection went silent without closing, for example behind a firewall that drops packets.
+If a Redis user was disabled and is enabled again, the API logs in again by itself.
 The API log shows `Redis connection lost` when the outage began and `Redis connection restored` with `down_for_ms` when it ended.
 The [configuration guide](../guides/configuration.md#redis-availability) explains the bound.
 

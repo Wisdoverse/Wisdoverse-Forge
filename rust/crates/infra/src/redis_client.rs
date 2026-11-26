@@ -9,26 +9,37 @@
 //! With a URL configured the client keeps an explicit state, usable or down:
 //!
 //! - Commands go through the `redis` crate's [`ConnectionManager`], built lazily with the
-//!   crate's own reconnection retries switched off. While the manager reconnects, commands
+//!   crate's own reconnection retries switched off. While a manager reconnects, commands
 //!   issued after a failure wait for that reconnection outside the response timeout
-//!   (`redis-1.8.2/src/aio/connection_manager.rs:380-382`, `:702-706`), so request paths
-//!   never use it while the state is down: [`RedisClient::handle`] returns `None` at once.
+//!   (`redis-1.8.2/src/aio/connection_manager.rs:380-382`, `:702-706`); it keeps a connection
+//!   that only times out (`:405-413`) and keeps a failed setup such as a rejected `AUTH`
+//!   (`:417-426`). So request paths never use a manager while the state is down
+//!   ([`RedisClient::handle`] returns `None` at once), and recovery never reuses one: every
+//!   probe while down builds a fresh manager, and only one that answered replaces the old one.
 //! - Every request-path command runs under one overall deadline
 //!   (`Timings::DEFAULT.request_deadline`, 1 s). A deadline or connection error marks the
 //!   state down immediately (the next caller degrades without waiting) and wakes the monitor.
+//!   Failures reported through a replaced manager are ignored.
 //! - One background monitor task per client owns recovery. While usable it PINGs every 5 s,
-//!   so a loss is noticed even when nothing uses Redis; while down it PINGs with capped
-//!   exponential backoff (250 ms doubling to 5 s, with jitter) until Redis answers, forever.
-//!   It ends when the client is dropped. Being unreachable at startup is the same case as
-//!   losing the connection later.
-//! - Redis is used again at most `Timings::recovery_bound` (9.5 s) after it is reachable.
+//!   so a loss is noticed even when nothing uses Redis; while down it probes a fresh
+//!   connection with capped exponential backoff (250 ms doubling to 5 s, with jitter) until
+//!   Redis answers, forever. It ends when the client is dropped. Being unreachable at startup
+//!   is the same case as losing the connection later.
+//! - Redis is used again at most `Timings::recovery_bound` (8 s) after it is reachable, also
+//!   when the old socket is never closed (a silent firewall, a host gone without a FIN).
 //! - Commands are never replayed. A command that timed out may still have run on the server
 //!   (for example a `GETDEL` that consumed OAuth state), so callers must keep treating a
 //!   timeout as a failure of that operation.
-//! - Each change of state logs one line (`warn` when lost, `info` with the outage length when
-//!   restored) and counts `agentforge_redis_state_changes_total{state}`.
+//! - The usable flag, the outage start, the failure generation and the log line change
+//!   together under one short lock (never held across an await). Each change of state logs
+//!   one line (`warn` when lost, `info` with the outage length when restored) and counts
+//!   `agentforge_redis_state_changes_total{state}`.
+//!
+//! The in-process fake Redis used by the tests (`crate::fake_redis`) is compiled only for this
+//! crate's tests or when the `test-support` feature is enabled explicitly; nothing in the
+//! workspace enables that feature outside tests (`agentforge-api` turns it on only in its
+//! `[dev-dependencies]`).
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -67,17 +78,19 @@ impl Timings {
         backoff_max: Duration::from_secs(5),
     };
 
-    /// A monitor PING may first have to wait for a connection attempt, then for its reply.
+    /// One probe: a connection attempt (fresh manager) or an existing connection, then a reply.
     fn probe_deadline(&self) -> Duration {
         self.connect_timeout + self.response_timeout
     }
 
-    /// Longest time from "Redis is reachable" to "the state is usable": a probe already
-    /// running may still fail (two PINGs), the monitor then waits at most one interval or
-    /// backoff step, and the next probe succeeds within one PING deadline.
+    /// Longest time from "Redis is reachable" to "the state is usable". While down: a probe
+    /// that started just before may still fail, the monitor waits at most one backoff step,
+    /// and the next probe on a fresh connection succeeds. While usable with a dead or silent
+    /// socket: at most one interval to the next PING, which fails within a probe deadline,
+    /// then at once a probe on a fresh connection.
     #[cfg(test)]
     fn recovery_bound(&self) -> Duration {
-        self.probe_deadline() * 3 + self.probe_interval.max(self.backoff_max)
+        self.probe_deadline() * 2 + self.probe_interval.max(self.backoff_max)
     }
 
     /// Delay before the next probe after `failures` failed probes while down. Equal jitter
@@ -99,31 +112,85 @@ fn is_connection_failure(err: &RedisError) -> bool {
     err.is_io_error() || err.is_unrecoverable_error()
 }
 
-/// Shared usable/down state of one client.
-struct Health {
-    usable: AtomicBool,
-    /// Start of the current outage; `None` while usable.
-    down_since: Mutex<Option<Instant>>,
+fn timed_out() -> RedisError {
+    std::io::Error::from(std::io::ErrorKind::TimedOut).into()
+}
+
+async fn within<T>(deadline: Duration, command: impl Future<Output = RedisResult<T>>) -> RedisResult<T> {
+    tokio::time::timeout(deadline, command).await.unwrap_or_else(|_| Err(timed_out()))
+}
+
+/// Everything that changes together; only touched under [`Shared::state`].
+struct State {
+    usable: bool,
+    /// The manager handles are cut from; replaced on recovery.
+    manager: ConnectionManager,
+    /// Bumped on every replacement, so failures seen through an older manager are ignored.
+    epoch: u64,
+    /// Bumped on every loss; a probe that started before the latest loss cannot mark usable.
+    generation: u64,
+    /// Start of the current outage; `None` exactly while usable.
+    down_since: Option<Instant>,
+}
+
+struct Shared {
+    client: Client,
+    config: ConnectionManagerConfig,
+    state: Mutex<State>,
     /// Wakes the monitor when a request-path command finds Redis gone.
     wake: Notify,
 }
 
-impl Health {
-    fn mark_down(&self, err: &RedisError) {
-        if self.usable.swap(false, Ordering::AcqRel) {
-            *lock(&self.down_since) = Some(Instant::now());
-            metrics::counter!("agentforge_redis_state_changes_total", "state" => "lost").increment(1);
-            tracing::warn!(error = %err, "Redis connection lost; Redis-backed features are degraded until it is restored");
-            self.wake.notify_one();
-        }
+impl Shared {
+    fn fresh_manager(&self) -> RedisResult<ConnectionManager> {
+        ConnectionManager::new_lazy_with_config(self.client.clone(), self.config.clone())
     }
 
-    fn mark_up(&self) {
-        if !self.usable.swap(true, Ordering::AcqRel) {
-            let down_for = lock(&self.down_since).take().map(|since| since.elapsed()).unwrap_or_default();
+    fn handle(self: &Arc<Self>, deadline: Duration) -> Option<RedisHandle> {
+        let state = lock(&self.state);
+        state.usable.then(|| RedisHandle {
+            manager: state.manager.clone(),
+            epoch: state.epoch,
+            shared: self.clone(),
+            deadline,
+        })
+    }
+
+    fn generation(&self) -> u64 {
+        lock(&self.state).generation
+    }
+
+    /// A command through `epoch`'s manager hit a connection failure.
+    fn report_failure(&self, epoch: u64, err: &RedisError) {
+        let mut state = lock(&self.state);
+        if state.epoch != epoch || !state.usable {
+            return;
+        }
+        state.usable = false;
+        state.generation += 1;
+        state.down_since = Some(Instant::now());
+        metrics::counter!("agentforge_redis_state_changes_total", "state" => "lost").increment(1);
+        tracing::warn!(error = %err, "Redis connection lost; Redis-backed features are degraded until it is restored");
+        drop(state);
+        self.wake.notify_one();
+    }
+
+    /// A probe that started at `generation` got an answer through `manager`: install it and
+    /// mark usable, unless Redis was lost again since the probe started.
+    fn report_success(&self, generation: u64, manager: ConnectionManager) -> bool {
+        let mut state = lock(&self.state);
+        if state.generation != generation {
+            return false;
+        }
+        state.manager = manager;
+        state.epoch += 1;
+        if !state.usable {
+            state.usable = true;
+            let down_for = state.down_since.take().map(|since| since.elapsed()).unwrap_or_default();
             metrics::counter!("agentforge_redis_state_changes_total", "state" => "restored").increment(1);
             tracing::info!(down_for_ms = down_for.as_millis() as u64, "Redis connection restored");
         }
+        true
     }
 }
 
@@ -133,37 +200,30 @@ impl Health {
 #[derive(Clone)]
 pub struct RedisHandle {
     manager: ConnectionManager,
-    health: Arc<Health>,
+    epoch: u64,
+    shared: Arc<Shared>,
     deadline: Duration,
-}
-
-impl RedisHandle {
-    fn with_deadline(&self, deadline: Duration) -> Self {
-        Self { deadline, ..self.clone() }
-    }
 }
 
 async fn bounded<T>(
-    health: &Health,
+    shared: &Shared,
+    epoch: u64,
     deadline: Duration,
-    command: impl std::future::Future<Output = RedisResult<T>>,
+    command: impl Future<Output = RedisResult<T>>,
 ) -> RedisResult<T> {
-    let result = match tokio::time::timeout(deadline, command).await {
-        Ok(result) => result,
-        Err(_) => Err(std::io::Error::from(std::io::ErrorKind::TimedOut).into()),
-    };
+    let result = within(deadline, command).await;
     if let Err(err) = &result
         && is_connection_failure(err)
     {
-        health.mark_down(err);
+        shared.report_failure(epoch, err);
     }
     result
 }
 
 impl ConnectionLike for RedisHandle {
     fn req_packed_command<'a>(&'a mut self, cmd: &'a Cmd) -> RedisFuture<'a, Value> {
-        let Self { manager, health, deadline } = self;
-        Box::pin(bounded(health, *deadline, manager.send_packed_command(cmd)))
+        let Self { manager, epoch, shared, deadline } = self;
+        Box::pin(bounded(shared, *epoch, *deadline, manager.send_packed_command(cmd)))
     }
 
     fn req_packed_commands<'a>(
@@ -172,8 +232,8 @@ impl ConnectionLike for RedisHandle {
         offset: usize,
         count: usize,
     ) -> RedisFuture<'a, Vec<Value>> {
-        let Self { manager, health, deadline } = self;
-        Box::pin(bounded(health, *deadline, manager.send_packed_commands(cmd, offset, count)))
+        let Self { manager, epoch, shared, deadline } = self;
+        Box::pin(bounded(shared, *epoch, *deadline, manager.send_packed_commands(cmd, offset, count)))
     }
 
     fn get_db(&self) -> i64 {
@@ -181,31 +241,77 @@ impl ConnectionLike for RedisHandle {
     }
 }
 
-/// PING up to `attempts` times. After a failed connection attempt the next command only
-/// returns that failure and starts a new attempt (`connection_manager.rs:702-706`); a second
-/// PING waits for that attempt.
-async fn probe(conn: &mut RedisHandle, attempts: usize) -> bool {
-    for _ in 0..attempts {
-        match redis::cmd("PING").query_async::<String>(conn).await {
-            Ok(_) => return true,
-            Err(err) if is_connection_failure(&err) => continue,
-            Err(_) => return false,
-        }
+impl RedisHandle {
+    /// Health check — sends a PING command and returns `true` if Redis responds.
+    pub async fn check_health(mut self) -> bool {
+        redis::cmd("PING").query_async::<String>(&mut self).await.is_ok()
     }
-    false
+
+    /// Probe the actual read/write path used by the OAuth/PKCE state store:
+    /// `SET` a short-TTL throwaway key, then `GETDEL` it (the exact operations
+    /// `cli_auth_proxy` performs). Unlike [`check_health`](Self::check_health) (PING only),
+    /// this verifies the connection can actually WRITE — so a reachable but read-only
+    /// or ACL-restricted Redis (connects, rejects `SET`) is detected.
+    pub async fn probe_read_write(mut self) -> bool {
+        use redis::AsyncCommands;
+        use std::sync::OnceLock;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        // Probe the SAME keyspace the OAuth state store uses
+        // (`cli-auth-proxy:state:`), so a Redis ACL that restricts that key
+        // pattern is tested accurately — probing a different prefix could pass or
+        // fail independently of the path actually being guarded. A distinctive
+        // `__rw-probe__` marker keeps it from ever colliding with a real state key.
+        //
+        // The instance id is a per-PROCESS random UUID, NOT `process::id()`:
+        // containers commonly share pid 1, so pid + a per-process counter (which
+        // also starts at 0 everywhere) would NOT be unique across replicas, and one
+        // replica's `GETDEL` could consume another's key and falsely fail a healthy
+        // Redis. UUID + monotonic seq makes every probe key distinct across
+        // replicas and across repeated (readiness) probes within a process.
+        static INSTANCE: OnceLock<String> = OnceLock::new();
+        static PROBE_SEQ: AtomicU64 = AtomicU64::new(0);
+        let instance = INSTANCE.get_or_init(|| uuid::Uuid::new_v4().to_string());
+        let key =
+            format!("cli-auth-proxy:state:__rw-probe__:{}:{}", instance, PROBE_SEQ.fetch_add(1, Ordering::Relaxed));
+        if self.set_ex::<_, _, ()>(&key, "1", 10).await.is_err() {
+            return false;
+        }
+        let got: redis::RedisResult<Option<String>> = redis::cmd("GETDEL").arg(&key).query_async(&mut self).await;
+        matches!(got, Ok(Some(_)))
+    }
 }
 
-async fn monitor(mut conn: RedisHandle, timings: Timings) {
+/// PING a manager that is not installed (its failures report nothing).
+async fn ping(manager: &mut ConnectionManager, deadline: Duration) -> bool {
+    within(deadline, redis::cmd("PING").query_async::<String>(manager)).await.is_ok()
+}
+
+/// One probe while down: a fresh manager, so neither a silent old socket nor a cached failed
+/// setup (a rejected `AUTH`) is reused. Installed only if it answered.
+async fn probe_fresh(shared: &Shared, deadline: Duration) -> bool {
+    let generation = shared.generation();
+    let Ok(mut candidate) = shared.fresh_manager() else {
+        return false;
+    };
+    ping(&mut candidate, deadline).await && shared.report_success(generation, candidate)
+}
+
+async fn monitor(shared: Arc<Shared>, timings: Timings) {
     let mut failures = 0;
     loop {
-        let wait =
-            if conn.health.usable.load(Ordering::Acquire) { timings.probe_interval } else { timings.backoff(failures) };
+        let usable = lock(&shared.state).usable;
+        let wait = if usable { timings.probe_interval } else { timings.backoff(failures) };
         tokio::select! {
             () = tokio::time::sleep(wait) => {}
-            () = conn.health.wake.notified() => {}
+            () = shared.wake.notified() => {}
         }
-        if probe(&mut conn, 2).await {
-            conn.health.mark_up();
+        // While usable, PING the installed manager; a failure reports the loss and wakes us.
+        if let Some(conn) = shared.handle(timings.probe_deadline()) {
+            conn.check_health().await;
+            continue;
+        }
+        if probe_fresh(&shared, timings.probe_deadline()).await {
             failures = 0;
         } else {
             failures = failures.saturating_add(1);
@@ -215,7 +321,8 @@ async fn monitor(mut conn: RedisHandle, timings: Timings) {
 }
 
 struct Connected {
-    handle: RedisHandle,
+    shared: Arc<Shared>,
+    request_deadline: Duration,
     monitor: tokio::task::JoinHandle<()>,
 }
 
@@ -249,45 +356,53 @@ impl RedisClient {
             tracing::info!("Redis URL not configured, running without Redis");
             return Self { connected: None };
         };
-        let manager = Client::open(url).and_then(|client| {
-            let config = ConnectionManagerConfig::new()
-                .set_connection_timeout(Some(timings.connect_timeout))
-                .set_response_timeout(Some(timings.response_timeout))
-                // The monitor owns retrying; a crate retry sequence would make commands wait.
-                .set_number_of_retries(0);
-            ConnectionManager::new_lazy_with_config(client, config)
+        let config = ConnectionManagerConfig::new()
+            .set_connection_timeout(Some(timings.connect_timeout))
+            .set_response_timeout(Some(timings.response_timeout))
+            // The monitor owns retrying; a crate retry sequence would make commands wait.
+            .set_number_of_retries(0);
+        let built = Client::open(url).and_then(|client| {
+            let manager = ConnectionManager::new_lazy_with_config(client.clone(), config.clone())?;
+            Ok((client, manager))
         });
-        let manager = match manager {
-            Ok(manager) => manager,
+        let (client, manager) = match built {
+            Ok(built) => built,
             Err(err) => {
                 tracing::warn!(error = %err, "Redis client creation failed, running without Redis");
                 return Self { connected: None };
             }
         };
-        let health = Arc::new(Health {
-            usable: AtomicBool::new(false),
-            down_since: Mutex::new(Some(Instant::now())),
+        let shared = Arc::new(Shared {
+            client,
+            config,
+            state: Mutex::new(State {
+                usable: false,
+                manager: manager.clone(),
+                epoch: 0,
+                generation: 0,
+                down_since: Some(Instant::now()),
+            }),
             wake: Notify::new(),
         });
-        let handle = RedisHandle { manager, health, deadline: timings.request_deadline };
-        let mut probe_conn = handle.with_deadline(timings.probe_deadline());
         // Connect before returning, as before, so the startup checks see a usable Redis.
-        if probe(&mut probe_conn, 1).await {
-            handle.health.usable.store(true, Ordering::Release);
-            *lock(&handle.health.down_since) = None;
+        let mut first = manager;
+        if ping(&mut first, timings.probe_deadline()).await {
+            let mut state = lock(&shared.state);
+            state.usable = true;
+            state.down_since = None;
             tracing::info!("Redis connected");
         } else {
             tracing::warn!(
                 "Redis connection failed, running without Redis until it becomes reachable (retrying in the background)"
             );
         }
-        let monitor = tokio::spawn(monitor(probe_conn, timings));
-        Self { connected: Some(Connected { handle, monitor }) }
+        let monitor = tokio::spawn(monitor(shared.clone(), timings));
+        Self { connected: Some(Connected { shared, request_deadline: timings.request_deadline, monitor }) }
     }
 
     /// Returns `true` while Redis is usable.
     pub fn is_connected(&self) -> bool {
-        self.handle().is_some()
+        self.connected.as_ref().is_some_and(|connected| lock(&connected.shared.state).usable)
     }
 
     /// An owned handle for Redis commands, or `None` at once when Redis is not configured or
@@ -295,54 +410,23 @@ impl RedisClient {
     /// before running commands on it.
     pub fn handle(&self) -> Option<RedisHandle> {
         let connected = self.connected.as_ref()?;
-        connected.handle.health.usable.load(Ordering::Acquire).then(|| connected.handle.clone())
+        connected.shared.handle(connected.request_deadline)
     }
 
-    /// Health check — sends a PING command and returns `true` if Redis responds.
+    /// [`RedisHandle::check_health`], or `false` without a usable Redis.
     pub async fn check_health(&self) -> bool {
-        let Some(mut conn) = self.handle() else {
-            return false;
-        };
-        redis::cmd("PING").query_async::<String>(&mut conn).await.is_ok()
+        match self.handle() {
+            Some(conn) => conn.check_health().await,
+            None => false,
+        }
     }
 
-    /// Probe the actual read/write path used by the OAuth/PKCE state store:
-    /// `SET` a short-TTL throwaway key, then `GETDEL` it (the exact operations
-    /// `cli_auth_proxy` performs). Unlike [`is_connected`](Self::is_connected)
-    /// (connection usable) or [`check_health`](Self::check_health) (PING only), this
-    /// verifies the connection can actually WRITE — so a reachable but read-only
-    /// or ACL-restricted Redis (connects, rejects `SET`) is detected. Returns
-    /// `false` if Redis is absent or any step fails.
+    /// [`RedisHandle::probe_read_write`], or `false` without a usable Redis.
     pub async fn probe_read_write(&self) -> bool {
-        use redis::AsyncCommands;
-        use std::sync::OnceLock;
-        use std::sync::atomic::AtomicU64;
-
-        let Some(mut conn) = self.handle() else {
-            return false;
-        };
-        // Probe the SAME keyspace the OAuth state store uses
-        // (`cli-auth-proxy:state:`), so a Redis ACL that restricts that key
-        // pattern is tested accurately — probing a different prefix could pass or
-        // fail independently of the path actually being guarded. A distinctive
-        // `__rw-probe__` marker keeps it from ever colliding with a real state key.
-        //
-        // The instance id is a per-PROCESS random UUID, NOT `process::id()`:
-        // containers commonly share pid 1, so pid + a per-process counter (which
-        // also starts at 0 everywhere) would NOT be unique across replicas, and one
-        // replica's `GETDEL` could consume another's key and falsely fail a healthy
-        // Redis. UUID + monotonic seq makes every probe key distinct across
-        // replicas and across repeated (readiness) probes within a process.
-        static INSTANCE: OnceLock<String> = OnceLock::new();
-        static PROBE_SEQ: AtomicU64 = AtomicU64::new(0);
-        let instance = INSTANCE.get_or_init(|| uuid::Uuid::new_v4().to_string());
-        let key =
-            format!("cli-auth-proxy:state:__rw-probe__:{}:{}", instance, PROBE_SEQ.fetch_add(1, Ordering::Relaxed));
-        if conn.set_ex::<_, _, ()>(&key, "1", 10).await.is_err() {
-            return false;
+        match self.handle() {
+            Some(conn) => conn.probe_read_write().await,
+            None => false,
         }
-        let got: redis::RedisResult<Option<String>> = redis::cmd("GETDEL").arg(&key).query_async(&mut conn).await;
-        matches!(got, Ok(Some(_)))
     }
 }
 
@@ -484,15 +568,19 @@ mod tests {
             let logs = Self::default();
             let writer = logs.clone();
             let subscriber = tracing_subscriber::fmt()
-                .with_max_level(tracing::Level::INFO)
+                .with_max_level(tracing::Level::DEBUG)
                 .with_writer(move || writer.clone())
                 .with_ansi(false)
                 .finish();
             (logs, tracing::subscriber::set_default(subscriber))
         }
 
+        fn text(&self) -> String {
+            String::from_utf8_lossy(&lock(&self.0)).into_owned()
+        }
+
         fn count(&self, needle: &str) -> usize {
-            String::from_utf8_lossy(&lock(&self.0)).matches(needle).count()
+            self.text().matches(needle).count()
         }
     }
 
@@ -548,9 +636,18 @@ mod tests {
         assert!(!client.is_connected());
     }
 
+    /// The number quoted in the module docs, `docs/guides/configuration.md`,
+    /// `docs/runbooks/redis-recovery.md` and the CHANGELOG.
+    const DOCUMENTED_RECOVERY_BOUND: Duration = Duration::from_secs(8);
+
     #[test]
     fn default_recovery_bound_matches_the_documentation() {
-        assert_eq!(Timings::DEFAULT.recovery_bound(), Duration::from_millis(9500));
+        let t = Timings::DEFAULT;
+        // A probe that just failed, one wait, one successful probe; each probe is one
+        // connection attempt plus one reply.
+        let derived = (t.connect_timeout + t.response_timeout) * 2 + t.probe_interval.max(t.backoff_max);
+        assert_eq!(t.recovery_bound(), derived);
+        assert_eq!(DOCUMENTED_RECOVERY_BOUND, derived, "update the documented number");
         for failures in 0..40 {
             let delay = Timings::DEFAULT.backoff(failures);
             assert!(delay <= Timings::DEFAULT.backoff_max, "backoff {delay:?} above the cap");
@@ -689,12 +786,104 @@ mod tests {
     async fn dropping_the_client_stops_the_monitor() {
         let fake = FakeRedis::start().await;
         let client = RedisClient::connect_with(Some(&fake.url()), FAST).await;
-        let health = Arc::downgrade(&client.connected.as_ref().expect("configured").handle.health);
+        let shared = Arc::downgrade(&client.connected.as_ref().expect("configured").shared);
         drop(client);
         let start = Instant::now();
-        while health.upgrade().is_some() {
+        while shared.upgrade().is_some() {
             assert!(start.elapsed() < SLACK, "monitor task still holds the client state");
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
+    }
+    #[tokio::test]
+    async fn recovers_when_the_old_socket_stays_open_and_silent() {
+        let fake = FakeRedis::start().await;
+        let client = RedisClient::connect_with(Some(&fake.url()), FAST).await;
+        assert!(client.is_connected());
+        // The old connection is never closed and never answers again; new ones are answered.
+        fake.silence_open_connections();
+        assert!(!timed_health(&client, FAST.request_deadline + SLACK).await);
+        wait_until(&client, true, FAST.recovery_bound() + SLACK).await;
+        assert!(client.check_health().await);
+        assert!(client.probe_read_write().await);
+    }
+
+    #[tokio::test]
+    async fn recovers_after_auth_is_denied_and_allowed_again() {
+        let (logs, _guard) = Logs::capture();
+        let mut fake = FakeRedis::start().await;
+        let password = uuid::Uuid::new_v4().simple().to_string();
+        let client = RedisClient::connect_with(Some(&fake.url_with_password(&password)), FAST).await;
+        assert!(client.is_connected());
+
+        // The Redis user is disabled and the connection drops: every new AUTH is rejected.
+        fake.set_mode(Mode::DenyAuth);
+        fake.restart().await;
+        assert!(!timed_health(&client, FAST.request_deadline + SLACK).await);
+        tokio::time::sleep(FAST.recovery_bound()).await;
+        assert!(!client.is_connected(), "AUTH is still denied");
+
+        // Access restored: the same client recovers instead of keeping the cached failure.
+        fake.set_mode(Mode::Normal);
+        wait_until(&client, true, FAST.recovery_bound() + SLACK).await;
+        assert!(client.probe_read_write().await);
+        assert!(fake.received("AUTH") > 2, "the client kept trying to authenticate");
+        assert!(!logs.text().contains(&password), "no credential in any log line");
+    }
+
+    /// Asserts the state invariant: the outage start is set exactly while down.
+    fn assert_consistent(shared: &Shared) {
+        let state = lock(&shared.state);
+        assert_eq!(state.usable, state.down_since.is_none(), "flag and outage start disagree");
+    }
+
+    #[tokio::test]
+    async fn a_probe_that_started_before_a_loss_cannot_mark_usable() {
+        let (logs, _guard) = Logs::capture();
+        let fake = FakeRedis::start().await;
+        let client = RedisClient::connect_with(Some(&fake.url()), FAST).await;
+        let shared = &client.connected.as_ref().expect("configured").shared;
+        // Driven synchronously, so the monitor task cannot run in between.
+        let epoch = lock(&shared.state).epoch;
+        let probe_started = shared.generation();
+        shared.report_failure(epoch, &timed_out());
+        assert_consistent(shared);
+        let stale = shared.fresh_manager().expect("manager");
+        assert!(!shared.report_success(probe_started, stale), "older probe overwrote a newer failure");
+        assert!(!client.is_connected());
+        assert_consistent(shared);
+
+        let fresh = shared.fresh_manager().expect("manager");
+        assert!(shared.report_success(shared.generation(), fresh));
+        assert!(client.is_connected());
+        assert_consistent(shared);
+        let text = logs.text();
+        let (lost, restored) = (text.find(LOST).expect("lost line"), text.find(RESTORED).expect("restored line"));
+        assert!(lost < restored, "restored logged before lost");
+        assert_eq!((logs.count(LOST), logs.count(RESTORED)), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn restore_then_loss_keep_flag_outage_and_log_in_step() {
+        let (logs, _guard) = Logs::capture();
+        let addr = FakeRedis::unused_addr();
+        let client = RedisClient::connect_with(Some(&FakeRedis::url_for(addr)), FAST).await;
+        let shared = &client.connected.as_ref().expect("configured").shared;
+        let old_epoch = lock(&shared.state).epoch;
+        assert_consistent(shared);
+
+        // Restored first, then a loss: both complete in that order, nothing left behind.
+        assert!(shared.report_success(shared.generation(), shared.fresh_manager().expect("manager")));
+        assert_consistent(shared);
+        // A failure seen through the replaced manager does not touch the new one.
+        shared.report_failure(old_epoch, &timed_out());
+        assert!(client.is_connected());
+        let epoch = lock(&shared.state).epoch;
+        shared.report_failure(epoch, &timed_out());
+        assert!(!client.is_connected());
+        assert_consistent(shared);
+        assert!(lock(&shared.state).down_since.is_some());
+        let text = logs.text();
+        assert!(text.find(RESTORED).expect("restored") < text.find(LOST).expect("lost"));
+        assert_eq!((logs.count(LOST), logs.count(RESTORED)), (1, 1));
     }
 }
