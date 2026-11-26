@@ -50,18 +50,6 @@ impl Tenant {
             [],
         )
     }
-
-    /// Same organization as `self`, acting as another tenant's user (used to
-    /// hit a unique key that does not include the organization).
-    fn proof_as(self, user: Uuid) -> ScopedRead {
-        ScopedRead::from_validated_memberships(
-            self.org.into(),
-            UserId::from(user),
-            [WorkspaceId::from(self.ws())],
-            [],
-            [],
-        )
-    }
 }
 
 async fn exec(pool: &PgPool, sql: &str, binds: &[Uuid]) {
@@ -410,12 +398,13 @@ async fn seed_run(pool: &PgPool, t: Tenant, idempotency_key: &str) -> (Uuid, Uui
     (agent, task, run)
 }
 
-async fn seed_feedback(pool: &PgPool, t: Tenant, run: Uuid, item: Uuid) -> Uuid {
+/// A feedback row stored under organization `owner_org`, keyed by `t.user`.
+async fn seed_feedback(pool: &PgPool, owner_org: Uuid, t: Tenant, run: Uuid, item: Uuid) -> Uuid {
     sqlx::query_scalar(
         "INSERT INTO context_feedback (organization_id, workspace_id, run_id, item_id, item_kind, label, user_id)
          VALUES ($1, $1, $2, $3, 'memory', 'useful', $4) RETURNING id",
     )
-    .bind(t.org)
+    .bind(owner_org)
     .bind(run)
     .bind(item)
     .bind(t.user)
@@ -424,49 +413,92 @@ async fn seed_feedback(pool: &PgPool, t: Tenant, run: Uuid, item: Uuid) -> Uuid 
     .expect("seed feedback")
 }
 
-/// The upsert's unique key `(run_id, item_id, item_kind, user_id)` has no
-/// organization, so its conflict update must not touch another organization's row.
+async fn upsert_feedback(pool: &PgPool, proof: ScopedRead, run: Uuid, item: Uuid) -> AppResult<Uuid> {
+    let mut tx = pool.begin().await.expect("begin");
+    let result = ContextFeedbackRepository::upsert_in_tx(
+        &mut tx,
+        &proof,
+        CreateContextFeedbackRecord {
+            workspace_id: proof.workspace_ids()[0],
+            run_id: run,
+            item_id: item,
+            item_kind: "memory",
+            label: "stale",
+            note: Some("changed"),
+        },
+    )
+    .await;
+    tx.commit().await.expect("commit");
+    result.map(|feedback| feedback.id)
+}
+
+async fn feedback_count(pool: &PgPool) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM context_feedback").fetch_one(pool).await.unwrap()
+}
+
+/// The upsert's source must be the caller's own run and item: an unknown and a
+/// foreign run or item produce the same inaccessible-target error, and nothing
+/// is written.
 #[sqlx::test(migrations = "../db/migrations")]
-async fn context_feedback_upsert_conflict_is_constrained_by_organization(pool: PgPool) {
+async fn context_feedback_upsert_source_is_constrained_by_organization(pool: PgPool) {
     let (a, b) = tenants(&pool).await;
     let (_, _, a_run) = seed_run(&pool, a, "feedback").await;
     let (_, _, b_run) = seed_run(&pool, b, "feedback").await;
     let a_item = seed_memory(&pool, a).await;
     let b_item = seed_memory(&pool, b).await;
-    let a_fb = seed_feedback(&pool, a, a_run, a_item).await;
-    let b_fb = seed_feedback(&pool, b, b_run, b_item).await;
-    let before = (row(&pool, "context_feedback", "id", a_fb).await, row(&pool, "context_feedback", "id", b_fb).await);
+    let count = feedback_count(&pool).await;
+    let unknown = Uuid::new_v4();
 
-    let call = |proof: ScopedRead, run: Uuid, item: Uuid| {
-        let pool = pool.clone();
-        async move {
-            let mut tx = pool.begin().await.expect("begin");
-            let result = ContextFeedbackRepository::upsert_in_tx(
-                &mut tx,
-                &proof,
-                CreateContextFeedbackRecord {
-                    workspace_id: proof.workspace_ids()[0],
-                    run_id: run,
-                    item_id: item,
-                    item_kind: "memory",
-                    label: "stale",
-                    note: Some("changed"),
-                },
-            )
-            .await;
-            tx.commit().await.expect("commit");
-            result.map(|feedback| feedback.id)
-        }
-    };
+    let unknown_run = upsert_feedback(&pool, b.proof(), unknown, b_item).await;
+    let unknown_item = upsert_feedback(&pool, b.proof(), b_run, unknown).await;
+    let foreign_run = upsert_feedback(&pool, b.proof(), a_run, b_item).await;
+    let foreign_item = upsert_feedback(&pool, b.proof(), b_run, a_item).await;
+    for (label, result, id) in [
+        ("unknown run", &unknown_run, unknown),
+        ("unknown item", &unknown_item, unknown),
+        ("foreign run", &foreign_run, a_run),
+        ("foreign item", &foreign_item, a_item),
+    ] {
+        let err = result.as_ref().expect_err(label);
+        assert!(matches!(err.kind, agentforge_core::ErrorKind::Forbidden(_)), "{label}: unexpected error: {err}");
+        assert_eq!(shape(result, id), shape(&unknown_run, unknown), "{label}: must look like an unknown run");
+    }
+    assert_eq!(feedback_count(&pool).await, count, "a refused upsert must not insert");
 
-    // Organization B, as A's user, on A's (run, item): the conflict hits A's row.
-    let foreign = call(b.proof_as(a.user), a_run, a_item).await;
-    let err = foreign.expect_err("a conflicting row of another organization must not be updated");
+    upsert_feedback(&pool, b.proof(), b_run, b_item).await.expect("own insert");
+    assert_eq!(feedback_count(&pool).await, count + 1);
+}
+
+/// The upsert's unique key `(run_id, item_id, item_kind, user_id)` has no
+/// organization, so its conflict update must not touch a row stored under
+/// another organization, even when the caller's own run and item match the key.
+#[sqlx::test(migrations = "../db/migrations")]
+async fn context_feedback_upsert_conflict_is_constrained_by_organization(pool: PgPool) {
+    let (a, b) = tenants(&pool).await;
+    let (_, _, a_run) = seed_run(&pool, a, "feedback").await;
+    let a_item = seed_memory(&pool, a).await;
+    let a_other_item = seed_memory(&pool, a).await;
+    let a_fb = seed_feedback(&pool, a.org, a, a_run, a_item).await;
+    // Ownership mismatch: stored under organization B, keyed by A's run, item and user.
+    let mismatched = seed_feedback(&pool, b.org, a, a_run, a_other_item).await;
+    let before =
+        (row(&pool, "context_feedback", "id", a_fb).await, row(&pool, "context_feedback", "id", mismatched).await);
+
+    let conflict = upsert_feedback(&pool, a.proof(), a_run, a_other_item).await;
+    let unknown = Uuid::new_v4();
+    let missing = upsert_feedback(&pool, a.proof(), unknown, a_other_item).await;
+    let err = conflict.as_ref().expect_err("a conflicting row of another organization must not be updated");
     assert!(matches!(err.kind, agentforge_core::ErrorKind::Forbidden(_)), "unexpected error: {err}");
-    assert_eq!(row(&pool, "context_feedback", "id", a_fb).await, before.0, "A's feedback row changed");
-    assert_eq!(row(&pool, "context_feedback", "id", b_fb).await, before.1, "B's feedback row changed");
+    assert_foreign_is_unknown(
+        &pool,
+        ("context_feedback", "id", a_fb, mismatched),
+        shape(&conflict, a_other_item),
+        shape(&missing, unknown),
+        before.clone(),
+    )
+    .await;
 
-    let own = call(a.proof(), a_run, a_item).await.expect("own conflict update");
+    let own = upsert_feedback(&pool, a.proof(), a_run, a_item).await.expect("own conflict update");
     assert_eq!(own, a_fb, "own upsert must update the existing row");
     let label: String = sqlx::query_scalar("SELECT label FROM context_feedback WHERE id = $1")
         .bind(a_fb)
@@ -474,7 +506,7 @@ async fn context_feedback_upsert_conflict_is_constrained_by_organization(pool: P
         .await
         .unwrap();
     assert_eq!(label, "stale");
-    assert_eq!(row(&pool, "context_feedback", "id", b_fb).await, before.1, "B's feedback row changed");
+    assert_eq!(row(&pool, "context_feedback", "id", mismatched).await, before.1, "mismatched row changed");
 }
 
 // ------------------------------------------------------ context candidate ----
@@ -640,18 +672,19 @@ async fn task_run_upsert_is_constrained_by_task_organization(pool: PgPool) {
     let repo = TaskRunRepository::new(pool.clone());
     let before = (row(&pool, "task_runs", "id", a_run).await, row(&pool, "task_runs", "id", b_run).await);
 
-    let call = |scope: TenantScope, mut task: OrchestrationTask, agent: Uuid| {
+    let call_with_key = |scope: TenantScope, mut task: OrchestrationTask, agent: Uuid, key: &'static str| {
         let pool = pool.clone();
         let repo = &repo;
         async move {
             task.assigned_agent_id = Some(AgentId::from(agent));
             let mut tx = pool.begin().await.expect("begin");
-            let result =
-                repo.create_for_assignment_in_tx(&mut tx, &scope, &task, "assignment", serde_json::json!({})).await;
+            let result = repo.create_for_assignment_in_tx(&mut tx, &scope, &task, key, serde_json::json!({})).await;
             tx.commit().await.expect("commit");
             result.map(|run| run.id)
         }
     };
+    let call =
+        |scope: TenantScope, task: OrchestrationTask, agent: Uuid| call_with_key(scope, task, agent, "assignment");
 
     // Organization B with its own agent, pointed at A's task.
     let foreign = call(b.scope(), load_task(&pool, a_task).await, b_agent).await;
@@ -680,4 +713,33 @@ async fn task_run_upsert_is_constrained_by_task_organization(pool: PgPool) {
     let own = call(a.scope(), load_task(&pool, a_task).await, a_agent).await.expect("own conflict update");
     assert_eq!(own, a_run, "own upsert must return the existing run");
     assert_eq!(row(&pool, "task_runs", "id", b_run).await, before.1);
+
+    // Conflict branch on its own: a run stored under organization B for A's task
+    // (ownership mismatch). A's own task and agent pass the source check, so
+    // only the conflict condition keeps B's row untouched.
+    let mismatched = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO task_runs (id, organization_id, workspace_id, orchestration_task_id, agent_id, idempotency_key, status, started_at)
+         VALUES ($1, $2, $2, $3, $4, 'mismatch', 'working', now())",
+    )
+    .bind(mismatched)
+    .bind(b.org)
+    .bind(a_task)
+    .bind(b_agent)
+    .execute(&pool)
+    .await
+    .expect("seed mismatched run");
+    let before = (row(&pool, "task_runs", "id", a_run).await, row(&pool, "task_runs", "id", mismatched).await);
+    let conflict = call_with_key(a.scope(), load_task(&pool, a_task).await, a_agent, "mismatch").await;
+    let unknown_agent = Uuid::new_v4();
+    let missing = call_with_key(a.scope(), load_task(&pool, a_task).await, unknown_agent, "mismatch").await;
+    assert!(conflict.is_err(), "the conflict update must not touch another organization's run");
+    assert_foreign_is_unknown(
+        &pool,
+        ("task_runs", "id", a_run, mismatched),
+        shape(&conflict, a_agent),
+        shape(&missing, unknown_agent),
+        before,
+    )
+    .await;
 }

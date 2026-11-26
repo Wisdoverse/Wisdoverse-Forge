@@ -99,7 +99,9 @@ fn guard_allows_background_constructor_outside_allowlist() {
     write_fixture(
         &root,
         "rust/crates/api/src/services/worker.rs",
-        &format!("fn sweep(scope: &{TS}) -> impl Fn(&{TS}) {{ {TS}::for_background(org, UserId::SYSTEM, None) }}"),
+        &format!(
+            "fn sweep(scope: &{TS}) -> impl Fn(&{TS}) + Send {{\n    {TS}::for_background(org, UserId::SYSTEM, None)\n}}\nfn into() -> impl Into<{TS}> {{ x }}\nimpl Sweep for Worker {{\n    fn run(&self) {{ for s in scopes {{ s }} }}\n}}"
+        ),
     );
 
     let output = run_guard(&root);
@@ -129,6 +131,20 @@ fn guard_rejects_constructor_evasions() {
             format!("impl From<Claims> for agentforge_core::{TS} {{\n    fn from(c: Claims) -> Self {{ todo!() }}\n}}"),
         ),
         ("unchecked_scoped_read", "fn f() { ScopedRead::unchecked_from_parts(o, u) }".to_string()),
+        // Multi-line headers: the scanner matches whole statements, not lines.
+        ("type_alias_split_lines", format!("type Scope =\n    agentforge_core::{TS};\nfn f() {{ Scope::new(o, u) }}")),
+        (
+            "trait_impl_split_lines",
+            format!("impl MakeScope\n    for {TS}\n{{\n    fn make() -> Self {{ Self::new(o, u) }}\n}}"),
+        ),
+        (
+            "attributed_trait_impl_split_lines",
+            format!(
+                "#[async_trait]\nimpl MakeScope\nfor agentforge_core::{TS} {{\n    async fn make() -> Self {{ Self::new(o, u) }}\n}}"
+            ),
+        ),
+        ("inherent_impl_split_lines", format!("impl\n{TS} {{\n    fn make() -> Self {{ Self::new(o, u) }}\n}}")),
+        ("alias_import_split_lines", format!("use agentforge_core::{{\n    OrgId,\n    {TS}\n        as Scope,\n}};")),
     ];
 
     for (name, source) in cases {

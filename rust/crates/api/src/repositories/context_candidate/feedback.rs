@@ -130,7 +130,21 @@ impl ContextFeedbackRepository {
             r#"INSERT INTO context_feedback (
                    organization_id, workspace_id, run_id, item_id, item_kind, label, note, user_id
                )
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               SELECT $1, $2, $3, $4, $5, $6, $7, $8
+                WHERE EXISTS (
+                          SELECT 1 FROM task_runs r
+                           WHERE r.id = $3 AND r.organization_id = $1 AND r.workspace_id = $2
+                      )
+                  AND (
+                          ($5 = 'memory' AND EXISTS (
+                              SELECT 1 FROM memory_items m
+                               WHERE m.id = $4 AND m.organization_id = $1 AND m.workspace_id = $2
+                          ))
+                       OR ($5 = 'skill' AND EXISTS (
+                              SELECT 1 FROM skills s
+                               WHERE s.id = $4 AND s.organization_id = $1 AND s.workspace_id = $2
+                          ))
+                      )
                ON CONFLICT ON CONSTRAINT context_feedback_unique_user_run_item DO UPDATE
                   SET label = EXCLUDED.label,
                       note = EXCLUDED.note,
@@ -148,8 +162,9 @@ impl ContextFeedbackRepository {
         .bind(proof.user_id().as_uuid())
         .fetch_optional(&mut **tx)
         .await?
-        // The unique key has no organization: a conflicting row of another
-        // organization is left untouched and reported like any inaccessible target.
+        // The source rows must belong to the organization, and the unique key has
+        // no organization: an unknown or foreign run or item, and a conflicting row
+        // of another organization, all yield no row and the same inaccessible-target error.
         .ok_or_else(ContextFeedbackPolicy::inaccessible_feedback_target)
     }
 

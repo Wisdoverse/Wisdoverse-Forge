@@ -43,26 +43,35 @@ is_allowed() {
   grep -Fxq "$1" "$allowed"
 }
 
-# Restricted constructions, matched on one production line at a time.
+# Restricted constructions, matched on one production STATEMENT at a time
+# (see production_lines: lines are joined up to the next `;`, `{` or `}` and
+# whitespace is collapsed, so line breaks cannot split a match).
 pattern='TenantScope[[:space:]]*>?[[:space:]]*::[[:space:]]*(new|with_axes)([^[:alnum:]_]|$)'
 pattern="$pattern"'|Scoped(Read|Write)[[:space:]]*::[[:space:]]*unchecked_'
 pattern="$pattern"'|TenantScope[[:space:]]+as[[:space:]]'
 pattern="$pattern"'|(^|[^[:alnum:]_])type[[:space:]]+[[:alnum:]_]+[^=]*=[^;]*TenantScope[[:space:]]*;'
-# The impl rule is anchored on the TAB that starts the source text in the
-# `LINENO<TAB>FN<TAB>line` records below (an impl item starts its line).
-tab="$(printf '\t')"
-pattern="$pattern"'|'"$tab"'[[:space:]]*(unsafe[[:space:]]+)?impl([^[:alnum:]_][^{;]*)?[^[:alnum:]_]TenantScope([^[:alnum:]_][^{;]*)?(\{|$)'
+# Any impl block for TenantScope: a trait impl (`impl X for TenantScope`) or an
+# inherent impl (`impl TenantScope`), where `Self::new` would be reachable.
+pattern="$pattern"'|(^|[^[:alnum:]_])impl([^[:alnum:]_][^{;]*)?[^[:alnum:]_]for[[:space:]]+[[:alnum:]_:]*TenantScope([^[:alnum:]_]|$)'
+pattern="$pattern"'|(^|[^[:alnum:]_])impl(<[^>]*>)?[[:space:]]+[[:alnum:]_:]*TenantScope([^[:alnum:]_]|$)'
 
-# Emit only PRODUCTION lines of a Rust file as `LINENO<TAB>FN<TAB>line`, where FN
-# is the innermost enclosing function (`-` at item level). Skips comment lines
-# and `#[cfg(test)]` / test-support `#[cfg(...)]` blocks by tracking brace
-# depth, mirroring the production-line logic in route_ddd_boundary_test.rs.
-# A line ending in `TenantScope`, `TenantScope::` or `::` is joined with the
-# next one so a line break cannot split a constructor path.
+# Emit the PRODUCTION statements of a Rust file as `LINENO<TAB>FN<TAB>text`,
+# where LINENO is the statement's first line and FN the innermost enclosing
+# function there (`-` at item level). Lines are joined until one ends in `;`,
+# `{` or `}` (optionally followed by `,`), and whitespace is collapsed, so a
+# type alias, impl header or constructor path split over lines is still one
+# match. Skips comment lines and `#[cfg(test)]` / test-support `#[cfg(...)]`
+# blocks by tracking brace depth, mirroring route_ddd_boundary_test.rs.
 production_lines() {
   awk '
     function braces(s,   o, c) { o = gsub(/{/, "{", s); c = gsub(/}/, "}", s); return o - c }
     function current_fn() { return sp > 0 ? fn_name[sp] : "-" }
+    function flush() {
+      if (held == "") { return }
+      gsub(/[ \t]+/, " ", held)
+      print held_no "\t" held_fn "\t" held
+      held = ""
+    }
     BEGIN { skip = 0; pending = 0; depth = 0; sp = 0; pending_fn = ""; held = ""; held_no = 0; held_fn = "" }
     {
       if (skip > 0) {
@@ -90,6 +99,7 @@ production_lines() {
       if (t ~ /^#\[cfg\(test\)\]/ \
           || t ~ /^#\[cfg\(feature = "test-support"\)\]/ \
           || t ~ /^#\[cfg\(any\(test, feature = "test-support"\)\)\]/) {
+        flush()
         pending = 1
         next
       }
@@ -105,21 +115,13 @@ production_lines() {
         pending_fn = ""
       }
 
-      if (held != "") {
-        line = held " " t; no = held_no; f = held_fn; held = ""
-      } else {
-        line = $0; no = FNR; f = current_fn()
-      }
-      if (line ~ /(TenantScope|::|>)[ \t]*$/) {
-        held = line; held_no = no; held_fn = f
-      } else {
-        print no "\t" f "\t" line
-      }
+      if (held == "") { held = t; held_no = FNR; held_fn = current_fn() } else { held = held " " t }
+      if (t ~ /[;{}],?[ \t]*$/) { flush() }
 
       depth += braces($0)
       while (sp > 0 && depth <= fn_depth[sp]) { sp-- }
     }
-    END { if (held != "") { print held_no "\t" held_fn "\t" held } }
+    END { flush() }
   ' "$1"
 }
 

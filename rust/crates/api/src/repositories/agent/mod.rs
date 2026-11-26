@@ -954,7 +954,18 @@ impl AgentRepository {
     ) -> AppResult<AgentCollaborator> {
         // Verify agent belongs to tenant
         self.find_by_id(scope, agent_id).await?;
+        self.update_collaborator_row(scope, agent_id, user_id, permission).await
+    }
 
+    /// The update statement itself; it constrains the Agent's organization even
+    /// without the caller's `find_by_id` pre-check.
+    async fn update_collaborator_row(
+        &self,
+        scope: &TenantScope,
+        agent_id: AgentId,
+        user_id: Uuid,
+        permission: &str,
+    ) -> AppResult<AgentCollaborator> {
         sqlx::query_as::<_, AgentCollaborator>(
             r#"UPDATE agent_collaborators SET permission = $3
                WHERE agent_id = $1 AND user_id = $2
@@ -974,7 +985,12 @@ impl AgentRepository {
     pub async fn remove_collaborator(&self, scope: &TenantScope, agent_id: AgentId, user_id: Uuid) -> AppResult<()> {
         // Verify agent belongs to tenant
         self.find_by_id(scope, agent_id).await?;
+        self.remove_collaborator_row(scope, agent_id, user_id).await
+    }
 
+    /// The delete statement itself; it constrains the Agent's organization even
+    /// without the caller's `find_by_id` pre-check.
+    async fn remove_collaborator_row(&self, scope: &TenantScope, agent_id: AgentId, user_id: Uuid) -> AppResult<()> {
         let result = sqlx::query(
             "DELETE FROM agent_collaborators WHERE agent_id = $1 AND user_id = $2
                AND EXISTS (SELECT 1 FROM agents a WHERE a.id = $1 AND a.organization_id = $3)",
@@ -1355,5 +1371,71 @@ mod tests {
             "expected typed validation rejection, got: {:?}",
             err.kind
         );
+    }
+
+    fn masked<T: std::fmt::Debug>(result: &AppResult<T>, id: uuid::Uuid) -> String {
+        match result {
+            Ok(value) => format!("Ok({value:?})"),
+            Err(err) => format!("Err({})", err.to_string().replace(&id.to_string(), "<id>")),
+        }
+    }
+
+    async fn collaborator_row(pool: &sqlx::PgPool, agent_id: uuid::Uuid) -> Option<String> {
+        sqlx::query_scalar("SELECT to_jsonb(c)::text FROM agent_collaborators c WHERE c.agent_id = $1")
+            .bind(agent_id)
+            .fetch_optional(pool)
+            .await
+            .expect("read collaborator row")
+    }
+
+    /// #1324: the collaborator statements constrain the Agent's organization
+    /// themselves, beneath the public methods' `find_by_id` pre-check. A foreign
+    /// Agent id returns exactly the unknown-id result and changes no row.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn collaborator_statements_are_constrained_by_organization(pool: sqlx::PgPool) {
+        let (scope_a, user_a) = seed_user_with_org(&pool).await;
+        let (scope_b, user_b) = seed_user_with_org(&pool).await;
+        let mut agents = Vec::new();
+        for (scope, user) in [(&scope_a, user_a), (&scope_b, user_b)] {
+            let agent = uuid::Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO agents (id, organization_id, workspace_id, user_id, name, status)
+                 VALUES ($1, $2, $2, $3, 'agent', 'idle')",
+            )
+            .bind(agent)
+            .bind(scope.org_id().as_uuid())
+            .bind(user)
+            .execute(&pool)
+            .await
+            .expect("seed agent");
+            sqlx::query("INSERT INTO agent_collaborators (agent_id, user_id, permission) VALUES ($1, $2, 'view')")
+                .bind(agent)
+                .bind(user)
+                .execute(&pool)
+                .await
+                .expect("seed collaborator");
+            agents.push(agent);
+        }
+        let (a_agent, b_agent, unknown) = (agents[0], agents[1], uuid::Uuid::new_v4());
+        let repo = AgentRepository::new(pool.clone());
+        let rows = || async { (collaborator_row(&pool, a_agent).await, collaborator_row(&pool, b_agent).await) };
+
+        let before = rows().await;
+        let foreign = repo.update_collaborator_row(&scope_b, AgentId::from(a_agent), user_a, "edit").await;
+        let missing = repo.update_collaborator_row(&scope_b, AgentId::from(unknown), user_a, "edit").await;
+        assert!(foreign.is_err(), "foreign collaborator update must fail");
+        assert_eq!(masked(&foreign, a_agent), masked(&missing, unknown));
+        assert_eq!(rows().await, before, "foreign collaborator update changed a row");
+        let own = repo.update_collaborator_row(&scope_a, AgentId::from(a_agent), user_a, "edit").await;
+        assert_eq!(own.expect("own collaborator update").permission, "edit");
+
+        let before = rows().await;
+        let foreign = repo.remove_collaborator_row(&scope_b, AgentId::from(a_agent), user_a).await;
+        let missing = repo.remove_collaborator_row(&scope_b, AgentId::from(unknown), user_a).await;
+        assert!(foreign.is_err(), "foreign collaborator removal must fail");
+        assert_eq!(masked(&foreign, a_agent), masked(&missing, unknown));
+        assert_eq!(rows().await, before, "foreign collaborator removal changed a row");
+        repo.remove_collaborator_row(&scope_a, AgentId::from(a_agent), user_a).await.expect("own removal");
+        assert_eq!(rows().await, (None, before.1));
     }
 }

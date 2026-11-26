@@ -70,12 +70,20 @@ Entries name one function (`path::fn_name`) or, for the definition and the
 test-only helper, a whole file. The scanner also rejects an aliased import or
 type alias of `TenantScope`, whitespace or a line break inside the constructor
 path, a function pointer to a constructor, and any `impl` block for
-`TenantScope` outside its definition. It is a text scan: a macro that pastes
-the identifier together is left to review.
+`TenantScope` outside its definition. It matches whole statements (lines joined
+up to the next `;`, `{` or `}`, whitespace collapsed), so splitting a type
+alias, impl header or constructor path over several lines does not hide it.
+It is a text scan: a macro that pastes the identifier together is left to
+review.
 
 Cross-organization tests for rule 3 live in
-`rust/crates/api/tests/tenant_predicate_writes_test.rs` and
-`repositories/agent/mcp.rs`.
+`rust/crates/api/tests/tenant_predicate_writes_test.rs` and in the repository
+modules `agent/mcp.rs`, `agent/mod.rs` and `identity/group.rs` (those call the
+statements beneath the public methods' pre-checks).
+
+Organization rename (`OrganizationRepository::update`) is allowed only for a
+live owner or admin membership of that organization, checked in the `UPDATE`
+statement itself.
 
 ### Legitimately unscoped writes
 

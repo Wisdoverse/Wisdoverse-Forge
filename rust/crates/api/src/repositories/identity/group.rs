@@ -302,7 +302,12 @@ impl GroupRepository {
     pub async fn remove_member(&self, scope: &TenantScope, group_id: GroupId, user_id: Uuid) -> AppResult<()> {
         // Verify group belongs to tenant
         self.find_by_id(scope, group_id).await?;
+        self.remove_member_row(scope, group_id, user_id).await
+    }
 
+    /// The delete statement itself; it constrains the group's organization even
+    /// without the caller's `find_by_id` pre-check.
+    async fn remove_member_row(&self, scope: &TenantScope, group_id: GroupId, user_id: Uuid) -> AppResult<()> {
         let result = sqlx::query(
             "DELETE FROM group_members WHERE group_id = $1 AND user_id = $2
                AND EXISTS (SELECT 1 FROM groups g WHERE g.id = $1 AND g.organization_id = $3)",
@@ -317,5 +322,78 @@ impl GroupRepository {
             return Err(ResourceRepositoryPolicy::group_member_not_found(group_id, user_id));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn seed_group(pool: &PgPool) -> (TenantScope, GroupId, Uuid) {
+        let (org, user, group) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org)
+            .bind(format!("Org {org}"))
+            .bind(format!("org-{org}"))
+            .execute(pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user)
+            .bind(format!("u-{user}@example.com"))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        sqlx::query("INSERT INTO groups (id, organization_id, name, created_by) VALUES ($1, $2, 'group', $3)")
+            .bind(group)
+            .bind(org)
+            .bind(user)
+            .execute(pool)
+            .await
+            .expect("seed group");
+        sqlx::query("INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)")
+            .bind(group)
+            .bind(user)
+            .execute(pool)
+            .await
+            .expect("seed group member");
+        (crate::test_support::tenant_scope_for_ids(org, user), GroupId::from(group), user)
+    }
+
+    async fn member_row(pool: &PgPool, group: GroupId) -> Option<String> {
+        sqlx::query_scalar("SELECT to_jsonb(m)::text FROM group_members m WHERE m.group_id = $1")
+            .bind(group.as_uuid())
+            .fetch_optional(pool)
+            .await
+            .expect("read group member row")
+    }
+
+    fn masked(result: &AppResult<()>, id: Uuid) -> String {
+        match result {
+            Ok(()) => "Ok".to_string(),
+            Err(err) => format!("Err({})", err.to_string().replace(&id.to_string(), "<id>")),
+        }
+    }
+
+    /// #1324: the member delete constrains the group's organization itself,
+    /// beneath `remove_member`'s `find_by_id` pre-check. A foreign group id
+    /// returns exactly the unknown-id result and changes no row.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn member_removal_statement_is_constrained_by_organization(pool: PgPool) {
+        let (scope_a, a_group, user_a) = seed_group(&pool).await;
+        let (scope_b, b_group, _) = seed_group(&pool).await;
+        let unknown = GroupId::from(Uuid::new_v4());
+        let repo = GroupRepository::new(pool.clone());
+        let before = (member_row(&pool, a_group).await, member_row(&pool, b_group).await);
+
+        let foreign = repo.remove_member_row(&scope_b, a_group, user_a).await;
+        let missing = repo.remove_member_row(&scope_b, unknown, user_a).await;
+        assert!(foreign.is_err(), "foreign member removal must fail");
+        assert_eq!(masked(&foreign, a_group.as_uuid()), masked(&missing, unknown.as_uuid()));
+        assert_eq!((member_row(&pool, a_group).await, member_row(&pool, b_group).await), before);
+
+        repo.remove_member_row(&scope_a, a_group, user_a).await.expect("own member removal");
+        assert_eq!(member_row(&pool, a_group).await, None);
+        assert_eq!(member_row(&pool, b_group).await, before.1);
     }
 }
