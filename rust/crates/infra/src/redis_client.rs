@@ -995,6 +995,7 @@ mod tests {
             .with_ansi(false)
             .finish();
         let _guard = tracing::subscriber::set_default(subscriber);
+        // Callers' tasks log through this subscriber too (the global one in the server).
         // The monitor only probes when woken, and its probes fail: only this test changes state.
         let hour = Duration::from_secs(3600);
         let quiet = Timings { probe_interval: hour, backoff_min: hour, backoff_max: hour, ..FAST };
@@ -1007,28 +1008,35 @@ mod tests {
         // First transition: the reporter picks it up and blocks in the writer.
         let first = {
             let client = client.clone();
-            tokio::spawn(async move {
-                let shared = &client.connected.as_ref().expect("configured").shared;
-                let epoch = lock(&shared.state).epoch;
-                shared.report_failure(epoch, &timed_out());
-            })
+            tokio::spawn(
+                async move {
+                    let shared = &client.connected.as_ref().expect("configured").shared;
+                    let epoch = lock(&shared.state).epoch;
+                    shared.report_failure(epoch, &timed_out());
+                }
+                .with_current_subscriber(),
+            )
         };
         let start = Instant::now();
         while !waiting.load(Ordering::SeqCst) && start.elapsed() < SLACK {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        // While the writer is blocked, callers still get handles and report transitions.
+        // While the writer is blocked, callers still get handles and report transitions. The
+        // callers log through the same subscriber, as every thread does in the server.
         let others = {
             let client = client.clone();
-            tokio::spawn(async move {
-                let shared = &client.connected.as_ref().expect("configured").shared;
-                let down = client.handle().is_none();
-                let restored = shared.report_success(shared.generation(), shared.fresh_manager().expect("manager"));
-                let usable = client.handle().is_some();
-                let epoch = lock(&shared.state).epoch;
-                shared.report_failure(epoch, &timed_out());
-                down && restored && usable && client.handle().is_none()
-            })
+            tokio::spawn(
+                async move {
+                    let shared = &client.connected.as_ref().expect("configured").shared;
+                    let down = client.handle().is_none();
+                    let restored = shared.report_success(shared.generation(), shared.fresh_manager().expect("manager"));
+                    let usable = client.handle().is_some();
+                    let epoch = lock(&shared.state).epoch;
+                    shared.report_failure(epoch, &timed_out());
+                    down && restored && usable && client.handle().is_none()
+                }
+                .with_current_subscriber(),
+            )
         };
         let first = tokio::time::timeout(Duration::from_secs(2), first).await;
         let others = tokio::time::timeout(Duration::from_secs(2), others).await;
