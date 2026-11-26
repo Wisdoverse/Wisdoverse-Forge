@@ -8,10 +8,10 @@ use uuid::Uuid;
 // Boundary of the three lists below: they cover the files that DECIDE,
 // AUTHORIZE, RECORD and WIRE self-fix delivery — the decision functions, the
 // queries those decisions run, the administrator policy and its re-check
-// query, the audit insert, the GitHub client, the routes, their registration
-// and the auth middleware. They deliberately do not follow transitive
-// dependencies further (shared row types, the database pool, the error and
-// HTTP framework types). The lists are a tripwire that sends a change to a
+// query, the audit insert, the GitHub client (including its request and
+// audit-text builders), the routes, their registration and the auth
+// middleware. They deliberately do not follow transitive dependencies further
+// (shared row types, the database pool, the error and HTTP framework types). The lists are a tripwire that sends a change to a
 // human; they are one layer, and the rule that nothing merges without an
 // explicit administrator approval does not depend on them.
 
@@ -57,6 +57,8 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/repositories/audit.rs",
     // Route registration: which middleware the self-fix routes sit behind.
     "rust/crates/api/src/router.rs",
+    // The GitHub request builders: the merge payload's expected-head `sha` and the audit comment text.
+    "rust/crates/api/src/domain/github_app.rs",
 ];
 
 #[allow(dead_code)]
@@ -643,47 +645,111 @@ mod tests {
         assert!(!blocked(&["docs/guides/configuration.md"]));
     }
 
+    /// Source with `//` and `/* */` comments and ALL whitespace removed (string
+    /// literals are kept), so the guard below matches tokens, not formatting.
+    fn normalized(source: &str) -> String {
+        let (mut out, mut chars, mut in_str) = (String::new(), source.chars().peekable(), false);
+        while let Some(c) = chars.next() {
+            if in_str {
+                if c == '\\' {
+                    out.push(c);
+                    out.extend(chars.next());
+                    continue;
+                }
+                in_str = c != '"';
+            } else if c == '/' && chars.peek() == Some(&'/') {
+                chars.by_ref().find(|&n| n == '\n');
+                continue;
+            } else if c == '/' && chars.peek() == Some(&'*') {
+                chars.next();
+                let mut prev = ' ';
+                chars.by_ref().find(|&n| std::mem::replace(&mut prev, n) == '*' && n == '/');
+                continue;
+            } else if c == '\'' && chars.peek() == Some(&'"') {
+                // The char literal `'"'` must not open a string.
+                out.push(c);
+                out.extend(chars.next());
+                continue;
+            } else {
+                in_str = c == '"';
+            }
+            if !c.is_whitespace() {
+                out.push(c);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn normalized_strips_comments_and_whitespace_only() {
+        assert_eq!(
+            normalized("a . find_by_id_on ( x ) // find_by_id(\n/* y( */ \"// z\""),
+            "a.find_by_id_on(x)\"//z\""
+        );
+    }
+
     #[test]
     fn merge_gate_queries_stay_on_the_protected_path() {
-        assert!(blocked(&["rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs"]));
-        // The shared repository file is not protected, so the merge-gate
-        // queries must not move back into it.
-        let read = |file: &str| {
-            std::fs::read_to_string(format!("{}/src/repositories/orchestration/{file}", env!("CARGO_MANIFEST_DIR")))
-                .unwrap()
+        let source = |path: &str| {
+            normalized(&std::fs::read_to_string(format!("{}/src/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap())
         };
-        assert!(
-            !read("mod.rs").contains("pg_try_advisory_lock"),
-            "the merge-mutex query belongs in self_fix_delivery.rs (a protected path), not the shared mod.rs"
-        );
-        assert!(read("self_fix_delivery.rs").contains("pg_try_advisory_lock"));
-        // The administrator re-check that `lock_task` relies on is protected too,
-        // and must stay in the file the policy names.
-        assert!(blocked(&["rust/crates/api/src/repositories/user/mod.rs"]));
-        let user_repository =
-            std::fs::read_to_string(format!("{}/src/repositories/user/mod.rs", env!("CARGO_MANIFEST_DIR"))).unwrap();
-        assert!(user_repository.contains("fn find_is_admin_by_id_in_tx"));
-        // The policy, the audit insert and the route registration stay in the
-        // exact files the policy names.
-        let source =
-            |path: &str| std::fs::read_to_string(format!("{}/src/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap();
-        for (path, needle) in [
-            ("domain/admin.rs", "fn require_platform_admin(is_admin: bool)"),
-            ("repositories/audit.rs", "pub async fn create_in_tx("),
+        // Each (protected file, token that must stay in it). Tokens are written
+        // readably and normalized like the source.
+        for (path, token) in [
+            // The merge mutex and the decision read live in the protected repository.
+            ("repositories/orchestration/self_fix_delivery.rs", "pg_try_advisory_lock"),
+            // Generic declaration (`<'e>`), so the token stops at the name.
+            ("repositories/orchestration/self_fix_delivery.rs", "fn find_for_delivery_decision"),
+            // The administrator re-check, its policy, the audit insert, route registration.
+            ("repositories/user/mod.rs", "fn find_is_admin_by_id_in_tx("),
+            ("domain/admin.rs", "fn require_platform_admin("),
+            ("repositories/audit.rs", "fn create_in_tx("),
             ("router.rs", ".merge(routes::self_fix::self_fix_routes())"),
+            // The GitHub merge payload and audit comment builders, and the client calling them.
+            ("domain/github_app.rs", "fn merge_squash_body("),
+            ("domain/github_app.rs", "fn comment_body("),
+            ("services/github_app/mod.rs", "github_app::merge_squash_body("),
+            ("services/github_app/mod.rs", "github_app::comment_body("),
+            // The merge entry and head reconciliation read the task through the protected query.
+            ("services/self_fix/mod.rs", "OrchestrationTaskRepository::find_for_delivery_decision("),
+            ("services/self_fix/reconcile.rs", "OrchestrationTaskRepository::find_for_delivery_decision("),
+            // The merge-attempt cap is resolved inside the protected service.
+            ("services/self_fix/mod.rs", "max_merge_attempts: config.self_fix_max_merge_attempts,"),
         ] {
             assert!(blocked(&[format!("rust/crates/api/src/{path}").as_str()]), "{path} must be sensitive");
-            assert!(source(path).contains(needle), "{needle} must stay in {path}");
+            assert!(source(path).contains(&normalized(token)), "{token} must stay in {path}");
         }
-        // The merge entry and head-reconcile decisions read the task through
-        // the protected `find_for_delivery_decision`, not the shared reads.
-        assert!(read("self_fix_delivery.rs").contains("fn find_for_delivery_decision"));
-        let reconcile = source("services/self_fix/reconcile.rs");
-        assert!(!reconcile.contains("find_by_id(") && !reconcile.contains("find_by_id_on("));
+        // The shared repository file is not protected, so the merge mutex must not move back into it.
+        assert!(
+            !source("repositories/orchestration/mod.rs").contains("pg_try_advisory_lock"),
+            "the merge-mutex query belongs in self_fix_delivery.rs (a protected path), not the shared mod.rs"
+        );
+        // Neither decision reads the task through the shared, unprotected reads.
+        let shared_read = |text: &str| text.contains("find_by_id(") || text.contains("find_by_id_on(");
+        assert!(!shared_read(&source("services/self_fix/reconcile.rs")));
         let service = source("services/self_fix/mod.rs");
         let merge_entry = &service
-            [service.find("async fn approve_and_merge(").unwrap()..service.find("async fn begin_decision(").unwrap()];
-        assert!(!merge_entry.contains("find_by_id(") && !merge_entry.contains("find_by_id_on("));
+            [service.find("asyncfnapprove_and_merge(").unwrap()..service.find("asyncfnbegin_decision(").unwrap()];
+        assert!(!shared_read(merge_entry));
+        // The composition root (not protected) hands over the configuration and
+        // never picks the cap itself.
+        let wiring = source("state_services.rs");
+        let call = &wiring[wiring.find("SelfFixService::new(").unwrap() + "SelfFixService::new(".len()..];
+        let mut depth = 1;
+        let args = &call[..call
+            .find(|c| {
+                depth += i32::from(c == '(') - i32::from(c == ')');
+                depth == 0
+            })
+            .unwrap()];
+        assert!(!wiring.contains("max_merge_attempts"), "state_services.rs must not set the merge-attempt cap");
+        assert!(
+            args.trim_end_matches(',').ends_with(",&self.config"),
+            "SelfFixService::new must receive the configuration as its last argument: {args}"
+        );
+        // The merge payload carries the expected head, GitHub's atomic guard
+        // against a push made after the final check.
+        assert_eq!(crate::domain::github_app::merge_squash_body("deadbeef")["sha"], "deadbeef");
     }
 
     #[test]

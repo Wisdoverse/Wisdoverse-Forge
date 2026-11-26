@@ -98,7 +98,7 @@ impl SelfFixService {
         github: Option<GithubAppClient>,
         workspace_root: String,
         limits: ImportLimits,
-        max_merge_attempts: i32,
+        config: &agentforge_core::AppConfig,
     ) -> Self {
         let maintenance_requests = MaintenanceRequestRepository::new(tasks.pool().clone());
         let runs = TaskRunRepository::new(tasks.pool().clone());
@@ -114,7 +114,8 @@ impl SelfFixService {
             github: github.map(Arc::new),
             workspace_root,
             limits,
-            max_merge_attempts,
+            // The cap is resolved here, on the protected path, not by the composition root.
+            max_merge_attempts: config.self_fix_max_merge_attempts,
         }
     }
 
