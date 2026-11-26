@@ -13,7 +13,8 @@ use uuid::Uuid;
 // review reaper, both composition roots (`state_services.rs`, the server
 // binary), the files that declare the modules holding that code, the auth
 // middleware, and the dependency and build manifests (`Cargo.toml`,
-// `Cargo.lock`, `build.rs`, toolchain files, `package.json`, `.cargo/`).
+// `Cargo.lock`, `build.rs`, toolchain files, `package.json`, `.cargo/`) and
+// the vendored dependency source under `rust/third_party/`.
 // Configurable safety limits are bounded in listed files, so configuration
 // alone cannot remove them: the merge-attempt cap (1..=10,
 // `services/self_fix/mod.rs`) and the review deadline (1 hour to 30 days,
@@ -42,6 +43,9 @@ const SENSITIVE_DIR_PREFIXES: &[&str] = &[
     // Dependency and build inputs: a change here can replace any code the gate depends on.
     ".cargo/",
     "rust/.cargo/",
+    // Vendored dependency source (path dependencies of the workspace): changing it changes
+    // what the gate's own calls do, with no manifest change.
+    "rust/third_party/",
 ];
 
 /// Basenames sensitive wherever they appear.
@@ -721,6 +725,10 @@ mod tests {
         }
         assert!(blocked(&[".cargo/config.toml"]));
         assert!(blocked(&["rust/.cargo/config.toml"]));
+        // Vendored dependency source is as sensitive as the manifests that select it.
+        assert!(blocked(&["rust/third_party/sqlx-nomysql/src/lib.rs"]));
+        assert!(blocked(&["rust/third_party/sqlx-macros-core-nomysql/src/query/mod.rs"]));
+        assert!(!blocked(&["docs/third_party/notes.md"]));
         // A file that merely contains one of the names is not a manifest.
         for path in ["docs/Cargo.toml.md", "my-package.json.bak", "notes/build.rs.txt", "src/cargo/config.ts"] {
             assert!(!blocked(&[path]), "{path} must not be sensitive");
