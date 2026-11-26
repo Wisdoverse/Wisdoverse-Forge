@@ -30,11 +30,13 @@ mod delivery_outcomes;
 mod delivery_write;
 mod maintenance;
 mod merge_lock;
+mod reconcile;
 
 pub(crate) use crate::domain::maintenance::MaintenanceRequestInput;
 pub(crate) use crate::domain::maintenance_delivery::{
     ComparisonQuery, DecisionInput, HandoffInput, OutcomeQuery, VerificationInput,
 };
+pub(crate) use crate::domain::self_fix::ReconcileHeadInput;
 pub mod metrics;
 
 use std::path::PathBuf;
@@ -67,6 +69,29 @@ use crate::services::self_fix::import::ImportLimits;
 use crate::services::self_fix::merge_executor::{MergeRequest, pull_request_state, run_merge_executor};
 use crate::services::self_fix::merge_lock::MergeLock;
 
+/// Bounds of the per-task merge-attempt cap. They live here, on the protected
+/// path, so configuration alone cannot remove the cap (the default is 5).
+pub(crate) const MIN_MERGE_ATTEMPTS: i32 = 1;
+pub(crate) const MAX_MERGE_ATTEMPTS: i32 = 10;
+
+/// Clamp the configured cap into `MIN_MERGE_ATTEMPTS..=MAX_MERGE_ATTEMPTS`,
+/// warning once per process when the configured value is out of range.
+fn bounded_max_merge_attempts(configured: i32) -> i32 {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    let used = configured.clamp(MIN_MERGE_ATTEMPTS, MAX_MERGE_ATTEMPTS);
+    if used != configured {
+        WARNED.call_once(|| {
+            tracing::warn!(
+                setting = "SELF_FIX_MAX_MERGE_ATTEMPTS",
+                configured,
+                used,
+                "self-fix: merge-attempt cap is outside {MIN_MERGE_ATTEMPTS}..={MAX_MERGE_ATTEMPTS}; using the nearest bound"
+            );
+        });
+    }
+    used
+}
+
 /// Server-side self-fix PR Bridge service.
 ///
 /// Holds the task + agent repositories, the (optional) GitHub App client, the
@@ -96,7 +121,7 @@ impl SelfFixService {
         github: Option<GithubAppClient>,
         workspace_root: String,
         limits: ImportLimits,
-        max_merge_attempts: i32,
+        config: &agentforge_core::AppConfig,
     ) -> Self {
         let maintenance_requests = MaintenanceRequestRepository::new(tasks.pool().clone());
         let runs = TaskRunRepository::new(tasks.pool().clone());
@@ -112,7 +137,7 @@ impl SelfFixService {
             github: github.map(Arc::new),
             workspace_root,
             limits,
-            max_merge_attempts,
+            max_merge_attempts: bounded_max_merge_attempts(config.self_fix_max_merge_attempts),
         }
     }
 
@@ -246,7 +271,7 @@ impl SelfFixService {
 
         // 1. Load the task (tenant-scoped, so another tenant gets 404 before any
         //    lock or provider call); require self-fix.
-        let task = self.tasks.find_by_id(scope, task_id).await?;
+        let task = OrchestrationTaskRepository::find_for_delivery_decision(self.tasks.pool(), scope, task_id).await?;
         if !task.self_fix {
             return Err(SelfFixPolicy::not_a_self_fix_task());
         }
@@ -273,7 +298,7 @@ impl SelfFixService {
         approver_id: &str,
     ) -> AppResult<SelfFixMergeResult> {
         // a. Fresh read under the mutex.
-        let task = OrchestrationTaskRepository::find_by_id_on(conn, scope, task_id).await?;
+        let task = OrchestrationTaskRepository::find_for_delivery_decision(&mut *conn, scope, task_id).await?;
 
         // Require a PR linkage (number + recorded head SHA): the executor merges
         // an EXISTING PR, it does not open one.
@@ -375,12 +400,11 @@ impl SelfFixService {
         //    transaction is held to `MERGE_DECISION_BUDGET_MS`: every lock wait
         //    fails fast, and a transaction that still ended up older than the
         //    budget is refused instead of committed.
-        let mut tx = conn.begin().await?;
-        match Self::decide_in_tx(&mut tx, scope, task_id, task.pr_head_sha.as_deref()).await {
-            Ok(true) => tx.commit().await?,
-            Ok(false) => return Self::refuse_busy_decision(tx).await,
-            Err(err) if err.is_lock_timeout() => return Self::refuse_busy_decision(tx).await,
-            Err(err) => return Err(err),
+        let mut tx = Self::begin_decision(conn).await?;
+        let decided = Self::decide_in_tx(&mut tx, scope, task_id, task.pr_head_sha.as_deref()).await;
+        if Self::finish_decision(tx, decided).await?.is_none() {
+            metrics::record_merge_outcome("running");
+            return Err(SelfFixPolicy::merge_attempt_running());
         }
 
         // Run the git-only guarded merge. NOTHING merges on a gate failure.
@@ -440,17 +464,50 @@ impl SelfFixService {
         })
     }
 
-    /// The merge decision transaction (step d). Its first statement sets the
-    /// transaction-local `lock_timeout` to the budget; its last measures the
-    /// transaction's age in PostgreSQL. The caller commits on `Ok(true)`;
-    /// `Ok(false)` (over budget) and every error are rolled back.
+    /// Begin a decision transaction on the merge mutex's connection. Its first
+    /// statement sets the transaction-local `lock_timeout` to the decision
+    /// budget, so every lock wait inside it fails fast with SQLSTATE 55P03.
+    /// Shared by the merge decision and head reconciliation.
+    pub(super) async fn begin_decision(conn: &mut PgConnection) -> AppResult<sqlx::Transaction<'_, sqlx::Postgres>> {
+        let mut tx = conn.begin().await?;
+        OrchestrationTaskRepository::set_lock_timeout_on(&mut tx, MERGE_DECISION_BUDGET_MS).await?;
+        Ok(tx)
+    }
+
+    /// Finish a decision transaction begun by [`Self::begin_decision`]. Its
+    /// last statement measures the transaction's age in PostgreSQL: anything
+    /// written carries the transaction START time. `Ok(None)`: busy (a lock
+    /// wait timed out, or the transaction outlived the budget) and rolled back,
+    /// nothing written. Any other error is returned (the transaction rolls back).
+    pub(super) async fn finish_decision<T>(
+        mut tx: sqlx::Transaction<'_, sqlx::Postgres>,
+        decided: AppResult<T>,
+    ) -> AppResult<Option<T>> {
+        let value = match decided {
+            Ok(value) => value,
+            Err(err) if err.is_lock_timeout() => {
+                tx.rollback().await?;
+                return Ok(None);
+            }
+            Err(err) => return Err(err),
+        };
+        let age_ms = OrchestrationTaskRepository::transaction_age_ms_on(&mut tx).await?;
+        if SelfFixPolicy::decision_over_budget(age_ms) {
+            tx.rollback().await?;
+            return Ok(None);
+        }
+        tx.commit().await?;
+        Ok(Some(value))
+    }
+
+    /// The merge decision transaction body (step d), run between
+    /// [`Self::begin_decision`] and [`Self::finish_decision`].
     async fn decide_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: &TenantScope,
         task_id: Uuid,
         expected_head: Option<&str>,
-    ) -> AppResult<bool> {
-        OrchestrationTaskRepository::set_lock_timeout_on(tx, MERGE_DECISION_BUDGET_MS).await?;
+    ) -> AppResult<()> {
         let current = delivery_write::lock_task(tx, scope, task_id).await?;
         if current.pr_head_sha.as_deref() != expected_head {
             return Err(SelfFixPolicy::head_moved());
@@ -461,16 +518,7 @@ impl SelfFixService {
         }
         OrchestrationTaskRepository::bump_merge_attempts_in_tx(tx, scope, task_id).await?;
         OrchestrationTaskRepository::set_review_status_on(tx, scope, task_id, APPROVED).await?;
-        let age_ms = OrchestrationTaskRepository::transaction_age_ms_on(tx).await?;
-        Ok(!SelfFixPolicy::decision_over_budget(age_ms))
-    }
-
-    /// Roll back a decision that ran out of budget: nothing written, no
-    /// attempt counted, no provider call.
-    async fn refuse_busy_decision<T>(tx: sqlx::Transaction<'_, sqlx::Postgres>) -> AppResult<T> {
-        tx.rollback().await?;
-        metrics::record_merge_outcome("running");
-        Err(SelfFixPolicy::merge_attempt_running())
+        Ok(())
     }
 
     /// Read-side review snapshot for the in-platform review surface (milestone 8).

@@ -5,6 +5,29 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+// Boundary of the three lists below: they cover the files that DECIDE,
+// AUTHORIZE, RECORD and WIRE self-fix delivery — the decision functions, the
+// queries those decisions run, the administrator policy and its re-check
+// query, the audit insert, the GitHub client (including its request and
+// audit-text builders), the routes, their registration, the PR worker, the
+// review reaper, both composition roots (`state_services.rs`, the server
+// binary), the files that declare the modules holding that code, the auth
+// middleware, and the dependency and build manifests (`Cargo.toml`,
+// `Cargo.lock`, `build.rs`, toolchain files, `package.json`, `.cargo/`) and
+// the vendored dependency source under `rust/third_party/`.
+// Configurable safety limits are bounded in listed files, so configuration
+// alone cannot remove them: the merge-attempt cap (1..=10,
+// `services/self_fix/mod.rs`) and the review deadline (1 hour to 30 days,
+// `jobs/src/self_fix_review_reaper.rs`). The merge settle window and decision
+// budget are constants in this file. Outside the lists: shared row types, the
+// database pool, the error and HTTP framework types, the shared
+// `repositories/orchestration/mod.rs` (it declares `self_fix_delivery`; an
+// accident-level guard test pins that declaration), and deploy and container
+// inputs (`docker/`, `scripts/`, Makefiles, Dockerfiles), which the deployment
+// work under issue #1319 adds. That residual risk is accepted because every
+// self-fix change still needs an explicit administrator approval. The lists
+// are a tripwire that sends a change to a human, not the only layer.
+
 /// Glob-prefix directories whose ANY descendant is sensitive.
 #[allow(dead_code)]
 const SENSITIVE_DIR_PREFIXES: &[&str] = &[
@@ -15,11 +38,31 @@ const SENSITIVE_DIR_PREFIXES: &[&str] = &[
     "rust/crates/api/src/services/github_app/",
     "rust/crates/api/src/domain/maintenance_delivery/",
     "rust/crates/api/src/repositories/orchestration/maintenance_delivery/",
+    // Self-fix safety decisions beside `domain/self_fix.rs` (head reconciliation).
+    "rust/crates/api/src/domain/self_fix/",
+    // Dependency and build inputs: a change here can replace any code the gate depends on.
+    ".cargo/",
+    "rust/.cargo/",
+    // Vendored dependency source (path dependencies of the workspace): changing it changes
+    // what the gate's own calls do, with no manifest change.
+    "rust/third_party/",
 ];
 
 /// Basenames sensitive wherever they appear.
 #[allow(dead_code)]
-const SENSITIVE_BASENAMES: &[&str] = &["middleware.rs", "mcp.rs", "security.rs"];
+const SENSITIVE_BASENAMES: &[&str] = &[
+    "middleware.rs",
+    "mcp.rs",
+    "security.rs",
+    // Dependency and build inputs: a change here can replace any code the gate depends on.
+    "Cargo.toml",
+    "Cargo.lock",
+    "build.rs",
+    "rust-toolchain.toml",
+    "rust-toolchain",
+    "package.json",
+    "package-lock.json",
+];
 
 /// Exact repo-root-relative files (own-code + CODEOWNERS).
 #[allow(dead_code)]
@@ -35,6 +78,33 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/domain/maintenance_delivery.rs",
     "rust/crates/api/src/repositories/orchestration/maintenance_request.rs",
     "rust/crates/api/src/repositories/orchestration/maintenance_delivery.rs",
+    // The merge mutex, decision lock/budget, review-status, attempt and head writes.
+    "rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs",
+    // The in-transaction administrator re-check used by the merge gate and head reconciliation.
+    "rust/crates/api/src/repositories/user/mod.rs",
+    // The administrator policy (`AdminRolePolicy::require_platform_admin`) behind that re-check.
+    "rust/crates/api/src/domain/admin.rs",
+    // The transactional audit insert (`AuditRepository::create_in_tx`) for reconciled heads.
+    "rust/crates/api/src/repositories/audit.rs",
+    // Route registration: which middleware the self-fix routes sit behind.
+    "rust/crates/api/src/router.rs",
+    // The GitHub request builders: the merge payload's expected-head `sha` and the audit comment text.
+    "rust/crates/api/src/domain/github_app.rs",
+    // The composition root: wires every service, including self-fix delivery and its limits.
+    "rust/crates/api/src/state_services.rs",
+    // Decides when an open review expires, and bounds the review deadline.
+    "rust/crates/jobs/src/self_fix_review_reaper.rs",
+    // Runs PR opening for self-fix tasks: dequeue, retry and drop decisions.
+    "rust/crates/api/src/services/self_fix_pr_worker.rs",
+    // The server composition root: starts the review reaper and the PR worker.
+    "rust/bins/server/src/main.rs",
+    // Declares the modules that hold self-fix delivery code.
+    "rust/crates/api/src/lib.rs",
+    "rust/crates/api/src/services/mod.rs",
+    "rust/crates/api/src/domain/mod.rs",
+    "rust/crates/api/src/routes/mod.rs",
+    "rust/crates/api/src/repositories/mod.rs",
+    "rust/crates/jobs/src/lib.rs",
 ];
 
 #[allow(dead_code)]
@@ -61,6 +131,13 @@ impl SensitivePathPolicy {
 }
 
 /// Review status vocabulary (mirrors orchestrator ReviewState; driven API-side).
+mod reconcile;
+pub(crate) use reconcile::{
+    Comparison, PullRequestRead, RECONCILE_HEAD_AUDIT_ACTION, RECONCILE_HEAD_AUDIT_RESOURCE, ReconcileAction,
+    ReconcileHeadInput, ReconcileHeadResult, ReconcileObservation, reconcile_head_action, reconcile_head_audit_details,
+    reconcile_refusal,
+};
+
 pub(crate) mod review_status {
     #[allow(dead_code)]
     pub(crate) const IN_REVIEW: &str = "in_review";
@@ -594,6 +671,9 @@ mod tests {
         assert!(blocked(&[".github/CODEOWNERS"]));
         assert!(blocked(&["rust/crates/api/src/services/self_fix/bridge.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/self_fix/merge_executor.rs"]));
+        assert!(blocked(&["rust/crates/api/src/domain/self_fix/reconcile.rs"]));
+        assert!(blocked(&["rust/crates/api/src/domain/self_fix/any_future_module.rs"]));
+        assert!(blocked(&["rust/crates/api/src/services/self_fix/reconcile.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/mod.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/verification.rs"]));
         assert!(blocked(&["rust/crates/api/src/services/github_app/nested/client.rs"]));
@@ -605,10 +685,202 @@ mod tests {
     }
 
     #[test]
+    fn exact_delivery_paths_are_sensitive() {
+        for path in [
+            "rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs",
+            "rust/crates/api/src/repositories/user/mod.rs",
+            "rust/crates/api/src/domain/admin.rs",
+            "rust/crates/api/src/repositories/audit.rs",
+            "rust/crates/api/src/router.rs",
+            "rust/crates/api/src/domain/github_app.rs",
+            "rust/crates/api/src/state_services.rs",
+            "rust/crates/jobs/src/self_fix_review_reaper.rs",
+            "rust/crates/api/src/services/self_fix_pr_worker.rs",
+            "rust/bins/server/src/main.rs",
+            "rust/crates/api/src/lib.rs",
+            "rust/crates/api/src/services/mod.rs",
+            "rust/crates/api/src/domain/mod.rs",
+            "rust/crates/api/src/routes/mod.rs",
+            "rust/crates/api/src/repositories/mod.rs",
+            "rust/crates/jobs/src/lib.rs",
+        ] {
+            assert!(blocked(&[path]), "{path} must be sensitive");
+        }
+    }
+
+    #[test]
+    fn dependency_and_build_inputs_are_sensitive() {
+        for name in [
+            "Cargo.toml",
+            "Cargo.lock",
+            "build.rs",
+            "rust-toolchain.toml",
+            "rust-toolchain",
+            "package.json",
+            "package-lock.json",
+        ] {
+            assert!(blocked(&[name]), "{name} at the repository root must be sensitive");
+            assert!(blocked(&[format!("rust/crates/api/{name}").as_str()]), "{name} in a crate must be sensitive");
+            assert!(blocked(&[format!("services/web/{name}").as_str()]), "{name} in a package must be sensitive");
+        }
+        assert!(blocked(&[".cargo/config.toml"]));
+        assert!(blocked(&["rust/.cargo/config.toml"]));
+        // Vendored dependency source is as sensitive as the manifests that select it.
+        assert!(blocked(&["rust/third_party/sqlx-nomysql/src/lib.rs"]));
+        assert!(blocked(&["rust/third_party/sqlx-macros-core-nomysql/src/query/mod.rs"]));
+        assert!(!blocked(&["docs/third_party/notes.md"]));
+        // A file that merely contains one of the names is not a manifest.
+        for path in ["docs/Cargo.toml.md", "my-package.json.bak", "notes/build.rs.txt", "src/cargo/config.ts"] {
+            assert!(!blocked(&[path]), "{path} must not be sensitive");
+        }
+    }
+
+    #[test]
     fn benign_paths_do_not_trip() {
         assert!(!blocked(&["src/app/features/board/TaskCard.tsx"]));
         assert!(!blocked(&["rust/crates/api/src/routes/licenses.rs"]));
         assert!(!blocked(&["docs/guides/configuration.md"]));
+    }
+
+    /// Source with `//` and (nested) `/* */` comments and ALL whitespace
+    /// removed; string, raw-string and `'"'` literals are kept, so the guard
+    /// below matches tokens, not formatting.
+    fn normalized(source: &str) -> String {
+        let s: Vec<char> = source.chars().collect();
+        let at = |i: usize, p: &str| s[i..].iter().copied().take(p.len()).eq(p.chars());
+        let ident = |i: usize| s[i].is_alphanumeric() || s[i] == '_';
+        let keep = |out: &mut String, lit: &[char]| out.extend(lit.iter().filter(|c| !c.is_whitespace()));
+        let (mut out, mut i) = (String::new(), 0);
+        while i < s.len() {
+            let raw_hashes = (s[i] == 'r'
+                && (i == 0 || !ident(i - 1) || ("bc".contains(s[i - 1]) && (i == 1 || !ident(i - 2)))))
+            .then(|| s[i + 1..].iter().take_while(|&&c| c == '#').count())
+            .filter(|&n| s.get(i + 1 + n) == Some(&'"'));
+            if at(i, "//") {
+                while i < s.len() && s[i] != '\n' {
+                    i += 1;
+                }
+            } else if at(i, "/*") {
+                let mut depth = 0;
+                while i < s.len() {
+                    if at(i, "/*") {
+                        depth += 1;
+                        i += 2;
+                    } else if at(i, "*/") {
+                        depth -= 1;
+                        i += 2;
+                        if depth == 0 {
+                            break;
+                        }
+                    } else {
+                        i += 1;
+                    }
+                }
+            } else if let Some(n) = raw_hashes {
+                let close = format!("\"{}", "#".repeat(n));
+                let mut end = i + 2 + n;
+                while end < s.len() && !at(end, &close) {
+                    end += 1;
+                }
+                let end = (end + close.len()).min(s.len());
+                keep(&mut out, &s[i..end]);
+                i = end;
+            } else if s[i] == '"' {
+                let mut end = i + 1;
+                while end < s.len() && s[end] != '"' {
+                    end += if s[end] == '\\' { 2 } else { 1 };
+                }
+                let end = (end + 1).min(s.len());
+                keep(&mut out, &s[i..end]);
+                i = end;
+            } else if at(i, "'\"'") {
+                out.push_str("'\"'");
+                i += 3;
+            } else {
+                keep(&mut out, &s[i..=i]);
+                i += 1;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn normalized_strips_comments_and_whitespace_only() {
+        assert_eq!(
+            normalized("a . find_by_id_on ( x ) // find_by_id(\n/* y( */ \"// z\" '\"' w"),
+            "a.find_by_id_on(x)\"//z\"'\"'w"
+        );
+        assert_eq!(normalized("a /* outer /* inner */ still comment */ b"), "ab");
+        assert_eq!(normalized(r#"a r"\" // c"#), r#"ar"\""#);
+        assert_eq!(
+            normalized(r###"a r#"x "q" // not a comment"# b br"/*" c"###),
+            r###"ar#"x"q"//notacomment"#bbr"/*"c"###
+        );
+    }
+
+    // Purpose and limit: the CONTROL is the sensitive list — gate code lives in
+    // listed files, so a change that weakens the gate must touch one. This test
+    // only catches a human refactor that accidentally moves gate code into an
+    // unlisted file; it is a lexical check, not a defense against obfuscation.
+    #[test]
+    fn merge_gate_queries_stay_on_the_protected_path() {
+        let source = |path: &str| {
+            normalized(&std::fs::read_to_string(format!("{}/src/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap())
+        };
+        // Each (protected file, token that must stay in it). Tokens are written
+        // readably and normalized like the source.
+        for (path, token) in [
+            // The merge mutex and the decision read live in the protected repository.
+            ("repositories/orchestration/self_fix_delivery.rs", "pg_try_advisory_lock"),
+            // Generic declaration (`<'e>`), so the token stops at the name.
+            ("repositories/orchestration/self_fix_delivery.rs", "fn find_for_delivery_decision"),
+            ("repositories/orchestration/self_fix_delivery.rs", "fn set_base_commit_sha("),
+            // The administrator re-check, its policy, the audit insert, route registration.
+            ("repositories/user/mod.rs", "fn find_is_admin_by_id_in_tx("),
+            ("domain/admin.rs", "fn require_platform_admin("),
+            ("repositories/audit.rs", "fn create_in_tx("),
+            ("router.rs", ".merge(routes::self_fix::self_fix_routes())"),
+            // The GitHub merge payload and audit comment builders, and the client calling them.
+            ("domain/github_app.rs", "fn merge_squash_body("),
+            ("domain/github_app.rs", "fn comment_body("),
+            ("services/github_app/mod.rs", "github_app::merge_squash_body("),
+            ("services/github_app/mod.rs", "github_app::comment_body("),
+            // The merge entry and head reconciliation read the task through the protected query.
+            ("services/self_fix/mod.rs", "OrchestrationTaskRepository::find_for_delivery_decision("),
+            ("services/self_fix/reconcile.rs", "OrchestrationTaskRepository::find_for_delivery_decision("),
+            // The merge-attempt cap is bounded inside the protected service.
+            ("services/self_fix/mod.rs", "fn bounded_max_merge_attempts("),
+            ("services/self_fix/mod.rs", "bounded_max_merge_attempts(config.self_fix_max_merge_attempts)"),
+        ] {
+            assert!(blocked(&[format!("rust/crates/api/src/{path}").as_str()]), "{path} must be sensitive");
+            assert!(source(path).contains(&normalized(token)), "{token} must stay in {path}");
+        }
+        // The shared, unlisted orchestration repository declares listed
+        // modules; they must stay plain declarations, never redirected.
+        let shared_repository = source("repositories/orchestration/mod.rs");
+        for declaration in
+            ["mod self_fix_delivery;", "pub(crate) mod maintenance_delivery;", "pub(crate) mod maintenance_request;"]
+        {
+            assert!(
+                shared_repository.contains(&normalized(declaration)),
+                "{declaration} must stay in the shared mod.rs"
+            );
+        }
+        assert!(!shared_repository.contains("#[path"), "the shared mod.rs must not redirect a module with #[path]");
+        // Accidental moves back into the shared, unlisted code.
+        assert!(
+            !source("repositories/orchestration/mod.rs").contains("pg_try_advisory_lock"),
+            "the merge-mutex query belongs in self_fix_delivery.rs (a protected path), not the shared mod.rs"
+        );
+        let shared_read = |text: &str| text.contains("find_by_id(") || text.contains("find_by_id_on(");
+        assert!(!shared_read(&source("services/self_fix/reconcile.rs")));
+        let service = source("services/self_fix/mod.rs");
+        let merge_entry = &service
+            [service.find("asyncfnapprove_and_merge(").unwrap()..service.find("asyncfnbegin_decision(").unwrap()];
+        assert!(!shared_read(merge_entry));
+        // The merge payload carries the expected head, GitHub's atomic guard
+        // against a push made after the final check.
+        assert_eq!(crate::domain::github_app::merge_squash_body("deadbeef")["sha"], "deadbeef");
     }
 
     #[test]

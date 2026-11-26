@@ -7,6 +7,22 @@ export function deliveryGuidance(error: unknown): string {
   if (reason === 'unauthenticated') return 'Sign in again before reviewing evidence.'
   if (reason === 'conflict')
     return 'The task or revision changed. Refresh evidence, review the new version and submit again. Stop active work using task controls before recording a handoff.'
+  if (reason === 'busy')
+    return 'Another operation on this change is in progress. Wait a moment, refresh evidence, then try again.'
+  if (reason === 'reconcile-stale')
+    return 'The recorded revision changed since this page loaded. Refresh evidence, check both revisions, then try again.'
+  if (reason === 'reconcile-head-moved')
+    return 'The pull request moved to another revision. Refresh evidence to see the newest revision, then try again.'
+  if (reason === 'reconcile-not-open')
+    return 'The pull request is not open on GitHub. Reopen it there, or finish the change on GitHub.'
+  if (reason === 'reconcile-base-changed')
+    return 'The pull request no longer targets the branch this task was opened for. Finish the change on GitHub.'
+  if (reason === 'reconcile-merged')
+    return 'This change is already merged. There is no newer revision to use.'
+  if (reason === 'reconcile-merge-unconfirmed')
+    return 'A finish attempt for this change is in progress or not confirmed. Choose Finish this fix to complete it, then use the new revision.'
+  if (reason === 'provider-unavailable')
+    return 'GitHub could not be read, so nothing was changed. Try again. If it keeps failing, check that the pull request still exists and that the GitHub App can access the repository.'
   if (reason === 'merge-in-progress')
     return "A merge of this change is in progress or unconfirmed. Choose Finish this fix in the task's fix check status to complete it, then record the verdict."
   if (reason === 'delivery-unavailable')

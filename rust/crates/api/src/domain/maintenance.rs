@@ -83,6 +83,10 @@ pub(crate) struct MaintenancePullRequest {
     pub state: String,
     pub head_sha: String,
     pub base_branch: String,
+    /// The base commit GitHub reports for the pull request; used for the
+    /// head-reconcile comparison and not part of the trace contract.
+    #[serde(skip_serializing)]
+    pub base_sha: Option<String>,
 }
 
 /// A narrow wire adapter: never imports PR bodies, tokens or provider URLs.
@@ -104,6 +108,8 @@ struct GithubHead {
 struct GithubBase {
     #[serde(rename = "ref")]
     branch: String,
+    #[serde(default)]
+    sha: Option<String>,
     repo: GithubRepository,
 }
 
@@ -121,6 +127,7 @@ impl GithubMaintenancePullRequest {
             || self.base.branch.is_empty()
             || !matches!(self.head.sha.len(), 40 | 64)
             || !self.head.sha.bytes().all(|c| c.is_ascii_hexdigit())
+            || self.base.sha.as_ref().is_some_and(|sha| !is_full_sha(sha))
         {
             return Err(source_unavailable());
         }
@@ -130,8 +137,13 @@ impl GithubMaintenancePullRequest {
             state: if self.merged { "merged".into() } else { self.state },
             head_sha: self.head.sha.to_ascii_lowercase(),
             base_branch: self.base.branch,
+            base_sha: self.base.sha.map(|sha| sha.to_ascii_lowercase()),
         })
     }
+}
+
+fn is_full_sha(sha: &str) -> bool {
+    matches!(sha.len(), 40 | 64) && sha.bytes().all(|c| c.is_ascii_hexdigit())
 }
 
 pub(crate) fn ensure_repairable(source: &MaintenancePullRequest, default_branch: &str) -> AppResult<()> {
@@ -304,6 +316,25 @@ mod tests {
     fn provider_pr() -> Value {
         json!({"number":42, "state":"open", "merged":false, "head":{"sha":"A".repeat(40)},
             "base":{"ref":"main", "repo":{"full_name":"Acme/Widgets"}}, "body":"untrusted content", "html_url":"https://example.com"})
+    }
+
+    #[test]
+    fn snapshot_keeps_a_valid_base_commit_and_rejects_a_malformed_one() {
+        let read = |base: Value| {
+            let mut value = provider_pr();
+            value["base"]["sha"] = base;
+            serde_json::from_value::<GithubMaintenancePullRequest>(value).unwrap().snapshot("acme/widgets", 42)
+        };
+        assert_eq!(read(json!("B".repeat(40))).unwrap().base_sha, Some("b".repeat(40)));
+        assert!(read(json!("not-a-sha")).is_err());
+        assert_eq!(
+            serde_json::from_value::<GithubMaintenancePullRequest>(provider_pr())
+                .unwrap()
+                .snapshot("acme/widgets", 42)
+                .unwrap()
+                .base_sha,
+            None
+        );
     }
 
     #[test]

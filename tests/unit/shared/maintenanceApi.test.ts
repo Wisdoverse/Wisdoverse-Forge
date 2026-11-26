@@ -122,6 +122,7 @@ describe('maintenance API boundary', () => {
     [403, 'forbidden'],
     [404, 'missing'],
     [500, 'failed'],
+    [503, 'provider-unavailable'],
   ])('sanitizes HTTP %s', async (status, reason) => {
     mocks.fetch.mockResolvedValueOnce(
       new Response('synthetic-secret', { status: status as number })

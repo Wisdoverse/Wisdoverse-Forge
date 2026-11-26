@@ -69,6 +69,13 @@ pub enum ErrorKind {
     #[error("service unavailable: {0}")]
     Unavailable(String),
 
+    /// Service unavailable (503) that carries an i18n code for the client.
+    ///
+    /// Same contract as [`ValidationWithCode`]: `code` is the dotted i18n
+    /// key, `message` is the English fallback.
+    #[error("service unavailable: {message}")]
+    UnavailableWithCode { code: &'static str, message: String },
+
     #[error("not implemented: {0}")]
     NotImplemented(String),
 
@@ -155,7 +162,9 @@ impl IntoResponse for AppError {
             ErrorKind::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::ForbiddenWithCode { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             ErrorKind::Conflict(_) | ErrorKind::ConflictWithCode { .. } => (StatusCode::CONFLICT, "CONFLICT"),
-            ErrorKind::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE"),
+            ErrorKind::Unavailable(_) | ErrorKind::UnavailableWithCode { .. } => {
+                (StatusCode::SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE")
+            }
             ErrorKind::NotImplemented(_) => (StatusCode::NOT_IMPLEMENTED, "NOT_IMPLEMENTED"),
             ErrorKind::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };
@@ -181,7 +190,8 @@ impl IntoResponse for AppError {
             ErrorKind::ForbiddenWithCode { code, message }
             | ErrorKind::UnprocessableWithCode { code, message }
             | ErrorKind::RateLimited { code, message, .. }
-            | ErrorKind::ConflictWithCode { code, message } => json!({
+            | ErrorKind::ConflictWithCode { code, message }
+            | ErrorKind::UnavailableWithCode { code, message } => json!({
                 "ok": false,
                 "error": { "code": *code, "message": message }
             }),
@@ -429,6 +439,19 @@ mod tests {
         .into_response();
         assert_eq!(without.status(), StatusCode::TOO_MANY_REQUESTS);
         assert!(without.headers().get(axum::http::header::RETRY_AFTER).is_none());
+    }
+
+    #[tokio::test]
+    async fn unavailable_with_code_emits_i18n_code() {
+        let err = AppError::from(ErrorKind::UnavailableWithCode {
+            code: "errors.self_fix.reconcile_provider_unavailable",
+            message: "GitHub could not be read.".into(),
+        });
+        let (status, body) = response_to_json(err.into_response()).await;
+
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["error"]["code"], "errors.self_fix.reconcile_provider_unavailable");
+        assert_eq!(body["error"]["message"], "GitHub could not be read.");
     }
 
     #[tokio::test]

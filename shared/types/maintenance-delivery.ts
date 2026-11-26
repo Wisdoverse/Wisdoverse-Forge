@@ -209,6 +209,22 @@ export interface MaintenanceDelivery {
   hasMoreHandoffs: boolean
 }
 
+/** `POST /self-fix/tasks/{id}/reconcile-head`; mirrors Rust `ReconcileHeadInput`. */
+export interface ReconcileHeadInput {
+  expectedStoredHead: string
+  expectedNewHead: string
+}
+
+/** Mirrors Rust `ReconcileHeadResult`. `changed` is false for an idempotent repeat. */
+export interface ReconcileHeadResult {
+  taskId: string
+  previousHead: string
+  currentHead: string
+  changed: boolean
+  sensitive: boolean
+  reviewStatus: string | null
+}
+
 export interface OutcomeQuery {
   from?: string | null
   to?: string | null

@@ -20,12 +20,49 @@ To continue, choose one of these:
 
 - **Record a new verdict on a newer report.** Save a new verification report for the same revision, then record a verdict on it. The rejection belongs to the older report, so it no longer blocks the merge.
 - **Finish the change on GitHub.** Review and merge or close the pull request there.
-
-Adopting a newer pull-request revision in the app is not available yet. Refreshing evidence does not move the task to a new head.
+- **Use a newer revision.** If someone pushed to the pull request, adopt its new head with **Use the new revision** (see below), then report on and review that revision.
 
 After a new report and verdict, choose **Check fix status** in the review panel. **Finish this fix** is enabled again when the other merge checks also pass. Ordinary self-fix tasks without a maintenance request are not affected.
 
 While Forge is finishing a fix, the review panel shows **Finishing started, not confirmed**. During that time, recording a verdict returns HTTP `409` with error code `errors.maintenance.merge_in_progress`. Choose **Finish this fix** to complete or confirm the merge, then record the verdict. A verdict recorded after the task reads **Finished** is accepted, because merging and acceptance are separate records. When the last finish attempt is unconfirmed, **Finish this fix** first reads the pull request on GitHub. A merged pull request is recorded as finished. A pull request closed without merging returns the task to review with changes requested. If the pull request is still open, Forge waits 30 seconds after the last attempt before trying again, and returns HTTP `409` with error code `errors.self_fix.merge_unconfirmed` until then. If no attempts remain, Forge keeps the task in this state and asks you to merge or close the pull request on GitHub, then choose **Finish this fix** to update the status. Forge assumes GitHub finishes or drops a merge request within those 30 seconds.
+
+## When the pull request has a newer revision
+
+Forge stores the pull request's head when it opens the pull request. If someone pushes to that pull request, the delivery panel reports that the head changed, Forge refuses acceptance for the old revision, and **Finish this fix** fails with "head moved". Refreshing evidence does not move the task to the new head. A platform administrator adopts it explicitly.
+
+Before you start:
+
+- You are a Forge platform administrator.
+- The task's pull request is open on GitHub and still targets the branch the task was opened for.
+- No finish attempt is running or unconfirmed (the review panel does not show **Finishing started, not confirmed**), and the change is not merged.
+
+To adopt the newer revision:
+
+1. Choose **Refresh evidence** in the task's **Verification, recovery and human review** panel.
+2. The panel shows **The pull request has a newer revision**, with the recorded revision and the newer revision on GitHub (short forms).
+3. Choose **Use the new revision**, check both revisions, then choose **Confirm: use revision …**.
+
+Forge checks GitHub again before it writes anything. The pull request must be open, its base unchanged, and its head equal to the revision you confirmed. Forge then compares the pull request's base commit with the revision you confirmed. Both are fixed commit IDs, so retargeting or pushing to the pull request meanwhile cannot change what is checked. Afterwards Forge reads the pull request once more and refuses if it is no longer open, targets another base, or has another head. If any changed file is sensitive, or the comparison lists 300 or more files (GitHub lists at most 300, so the list may be incomplete), the task becomes **Needs owner or admin check** (`sensitive_blocked`) and in-app finishing stays disabled. A reconcile never clears an existing sensitive block.
+
+Which files count as sensitive: the list covers the files that decide, authorize, record and wire self-fix delivery. That means the decision functions, the queries those decisions run, the administrator policy and its re-check query, the audit insert, the GitHub client (including its request and audit-text builders), the routes, their registration, the pull-request worker, the review reaper, both composition roots (the service wiring and the server binary), the files that declare the modules holding that code, and the authentication middleware. It also covers the dependency and build manifests (`Cargo.toml`, `Cargo.lock`, `build.rs`, `rust-toolchain.toml`, `rust-toolchain`, `package.json`, `package-lock.json`, and the `.cargo/` directories) and the vendored dependency source under `rust/third_party/`, because a change there can replace any code the checks depend on. Two safety limits can be configured, and both are bounded inside listed files, so configuration alone cannot remove them: `SELF_FIX_MAX_MERGE_ATTEMPTS` (1 to 10, in the self-fix service) and `SELF_FIX_REVIEW_DEADLINE_SECS` (1 hour to 30 days, in the review reaper). The merge settle window and the merge decision budget are fixed constants in the self-fix policy. Outside the list: shared row types, the database pool, the error and HTTP framework types, the shared orchestration repository file (a test keeps its module declarations plain), and deploy and container inputs such as `docker/`, `scripts/`, Makefiles and Dockerfiles, which are being added separately (issue #1319). That remaining risk is accepted because every self-fix change still needs an explicit administrator approval. The list is a tripwire that sends a change to a person, not the only layer of protection.
+
+Success looks like this: the panel announces that the newer revision is recorded, and **Current recorded revision** shows the new head. An audit record names you and both revisions. Earlier reports and verdicts are kept, but they belong to the old revision and no longer apply. A rejection of the old revision no longer blocks finishing. A verdict always belongs to one revision: if the pull request later returns to a revision that already has a verdict, that verdict applies again (a rejection blocks finishing again, and an acceptance still needs your explicit **Finish this fix**). The merge-attempt count and the review deadline do not change.
+
+What to do next: run or review the change at the new revision, save a new verification report, and record a verdict on it. Acceptance requires that new report.
+
+If the action is refused, the API returns HTTP `409` with one of these codes:
+
+| Code                                              | Meaning                                                                          | What to do                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `errors.self_fix.reconcile_stale`                 | The recorded revision changed since the page loaded                              | Refresh evidence, check both revisions, try again                    |
+| `errors.self_fix.reconcile_head_mismatch`         | The pull request changed while Forge checked it (new revision or rewritten base) | Refresh evidence to see the newest revision, try again               |
+| `errors.self_fix.reconcile_pull_request_not_open` | The pull request is closed or merged on GitHub                                   | Reopen it on GitHub, or finish the change there                      |
+| `errors.self_fix.reconcile_base_changed`          | The pull request targets another repository or branch                            | Finish the change on GitHub                                          |
+| `errors.self_fix.reconcile_merged`                | The change is already merged                                                     | Nothing to adopt                                                     |
+| `errors.self_fix.reconcile_merge_unconfirmed`     | A finish attempt is in progress or not confirmed                                 | Choose **Finish this fix** to complete it, then use the new revision |
+| `errors.self_fix.merge_running`                   | Another operation on this change is running                                      | Wait a moment, then try again                                        |
+
+If GitHub cannot be read at any step, or returns something Forge cannot use, the API returns HTTP `503` with error code `errors.self_fix.reconcile_provider_unavailable` and nothing is written: the revision, status and audit log stay unchanged. Try again. If it keeps failing, check that the pull request still exists and that the GitHub App can access the repository. Another organization's task returns `404`, and a caller who is not a platform administrator gets `403`.
 
 ## Interpreting records and totals
 

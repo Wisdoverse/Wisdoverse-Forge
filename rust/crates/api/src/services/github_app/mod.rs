@@ -68,6 +68,12 @@ struct InstallTokenResp {
     permissions: std::collections::HashMap<String, String>,
 }
 
+/// Changed paths of a comparison; `complete` is false when the list may be truncated.
+pub(crate) struct ChangedFiles {
+    pub paths: Vec<String>,
+    pub complete: bool,
+}
+
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct PullRequest {
@@ -291,6 +297,50 @@ impl GithubAppClient {
             .await
             .map_err(|_| source_unavailable())?
             .snapshot(&self.cfg.repo, number)
+    }
+
+    /// Changed paths between two immutable commits, `base...head` (changes on
+    /// `head` since its merge base with `base`), including both sides of a
+    /// rename. GitHub's REST documentation ("Compare two commits") states the
+    /// comparison "includes up to 300 changed files for the entire comparison"
+    /// and lists them "only on the first page", with no truncation flag. So a
+    /// result with 300 or more files, or without a file list, is reported as
+    /// possibly incomplete (`complete == false`).
+    pub(crate) async fn compare_files(&self, base: &str, head: &str) -> AppResult<ChangedFiles> {
+        const COMPARE_FILE_CAP: usize = 300;
+        #[derive(Deserialize)]
+        struct ChangedFile {
+            filename: String,
+            #[serde(default)]
+            previous_filename: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct Compared {
+            #[serde(default)]
+            files: Option<Vec<ChangedFile>>,
+        }
+        let endpoint = "GET /repos/{repo}/compare/{base}...{head}";
+        let full_sha = |sha: &str| matches!(sha.len(), 40 | 64) && sha.bytes().all(|c| c.is_ascii_hexdigit());
+        if !full_sha(base) || !full_sha(head) {
+            return Err(unavailable(endpoint));
+        }
+        // Files are listed only on the first page; one commit per page keeps it small.
+        let url = format!("{}/repos/{}/compare/{base}...{head}?per_page=1", Self::api_base(), self.cfg.repo);
+        let resp = self.authed(reqwest::Method::GET, url).await?.send().await.map_err(|_| unavailable(endpoint))?;
+        if !resp.status().is_success() {
+            return Err(unavailable_status(resp.status(), endpoint));
+        }
+        let compared: Compared = resp.json().await.map_err(|_| unavailable(endpoint))?;
+        let Some(files) = compared.files else {
+            return Ok(ChangedFiles { paths: vec![], complete: false });
+        };
+        let complete = files.len() < COMPARE_FILE_CAP;
+        let mut paths = Vec::with_capacity(files.len());
+        for file in files {
+            paths.extend(file.previous_filename);
+            paths.push(file.filename);
+        }
+        Ok(ChangedFiles { paths, complete })
     }
 
     /// Open a draft PR for a self-fix branch.

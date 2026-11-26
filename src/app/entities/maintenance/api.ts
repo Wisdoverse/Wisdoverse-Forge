@@ -25,6 +25,14 @@ export type MaintenanceFailure =
   | 'invalid-delivery'
   | 'delivery-unavailable'
   | 'merge-in-progress'
+  | 'busy'
+  | 'reconcile-stale'
+  | 'reconcile-head-moved'
+  | 'reconcile-not-open'
+  | 'reconcile-base-changed'
+  | 'reconcile-merged'
+  | 'reconcile-merge-unconfirmed'
+  | 'provider-unavailable'
 
 export class MaintenanceError extends Error {
   constructor(public readonly reason: MaintenanceFailure) {
@@ -34,6 +42,17 @@ export class MaintenanceError extends Error {
 }
 
 export const MAINTENANCE_TIMEOUT_MS = 30_000
+/** Typed 409 codes with their own guidance; any other 409 is a generic conflict. */
+const CONFLICT_FAILURES = new Map<unknown, MaintenanceFailure>([
+  ['errors.maintenance.merge_in_progress', 'merge-in-progress'],
+  ['errors.self_fix.merge_running', 'busy'],
+  ['errors.self_fix.reconcile_stale', 'reconcile-stale'],
+  ['errors.self_fix.reconcile_head_mismatch', 'reconcile-head-moved'],
+  ['errors.self_fix.reconcile_pull_request_not_open', 'reconcile-not-open'],
+  ['errors.self_fix.reconcile_base_changed', 'reconcile-base-changed'],
+  ['errors.self_fix.reconcile_merged', 'reconcile-merged'],
+  ['errors.self_fix.reconcile_merge_unconfirmed', 'reconcile-merge-unconfirmed'],
+])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
@@ -179,6 +198,8 @@ function backendFailure(payload: unknown): MaintenanceFailure {
       return 'invalid-delivery'
     case 'errors.maintenance.delivery_unavailable':
       return 'delivery-unavailable'
+    case 'errors.self_fix.reconcile_invalid':
+      return 'reconcile-stale'
     case 'errors.maintenance.merge_in_progress':
       return 'merge-in-progress'
     case 'errors.maintenance.invalid_request':
@@ -237,10 +258,9 @@ async function exchange<T>(
     if (response.status === 409) {
       const payload: unknown = await Promise.race([response.json().catch(() => null), interrupted])
       const code = (payload as { error?: { code?: unknown } } | null)?.error?.code
-      throw new MaintenanceError(
-        code === 'errors.maintenance.merge_in_progress' ? 'merge-in-progress' : 'conflict'
-      )
+      throw new MaintenanceError(CONFLICT_FAILURES.get(code) ?? 'conflict')
     }
+    if (response.status === 503) throw new MaintenanceError('provider-unavailable')
     if (!response.ok) {
       if (response.status !== 400) throw new MaintenanceError('failed')
       const payload: unknown = await Promise.race([response.json().catch(() => null), interrupted])

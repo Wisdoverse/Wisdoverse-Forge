@@ -125,7 +125,9 @@ pub(crate) fn app_error_message(err: AppError) -> String {
         ErrorKind::Unauthorized => "unauthorized".to_string(),
         ErrorKind::Forbidden(_) => "forbidden".to_string(),
         ErrorKind::ForbiddenWithCode { .. } => "forbidden".to_string(),
-        ErrorKind::Unavailable(message) => format!("service unavailable: {message}"),
+        ErrorKind::Unavailable(message) | ErrorKind::UnavailableWithCode { message, .. } => {
+            format!("service unavailable: {message}")
+        }
         ErrorKind::NotImplemented(message) => format!("not implemented: {message}"),
         ErrorKind::Internal(message) => format!("internal error: {message}"),
     }

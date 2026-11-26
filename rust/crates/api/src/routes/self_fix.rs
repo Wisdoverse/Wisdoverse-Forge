@@ -10,6 +10,8 @@
 //!   CI, and an unmoved head before merging; sensitive-blocked tasks are HARD
 //!   refused here regardless of any client state (plan D4 — this is a dedicated
 //!   review surface, NOT the pre-dispatch `waiting_approval` button).
+//! - `POST /api/v1/self-fix/tasks/{id}/reconcile-head` — platform-admin adoption
+//!   of a changed pull-request head after live checks (#1315).
 //!
 //! All handlers use the standard [`AuthUser`] authentication path. Task calls
 //! are tenant-scoped by `auth.scope`; deployment-wide repository metadata is
@@ -26,8 +28,8 @@ use agentforge_core::AppResult;
 
 use crate::domain::self_fix::self_fix_data_response;
 use crate::health::AppState;
-use crate::services::self_fix::MaintenanceRequestInput;
 use crate::services::self_fix::{ComparisonQuery, DecisionInput, HandoffInput, OutcomeQuery, VerificationInput};
+use crate::services::self_fix::{MaintenanceRequestInput, ReconcileHeadInput};
 
 /// Read-only, live platform-admin setup check. The service verifies the caller
 /// before disclosing deployment-wide repository metadata or contacting GitHub.
@@ -133,6 +135,17 @@ async fn approve(State(state): State<AppState>, auth: AuthUser, Path(id): Path<U
     Ok(Json(self_fix_data_response(result)))
 }
 
+/// Platform-admin adoption of a changed pull-request head. The service checks
+/// authority, tenant ownership and the live pull request before writing.
+async fn reconcile_head(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(input): Json<ReconcileHeadInput>,
+) -> AppResult<Json<Value>> {
+    Ok(Json(self_fix_data_response(state.self_fix_service().reconcile_head(&auth.scope, id, input).await?)))
+}
+
 /// Self-fix setup/review/approve routes, merged into `/api/v1` behind auth.
 pub fn self_fix_routes() -> Router<AppState> {
     Router::new()
@@ -148,4 +161,5 @@ pub fn self_fix_routes() -> Router<AppState> {
         .route("/self-fix/reports/{id}", get(get_report))
         .route("/self-fix/tasks/{id}/review", get(get_review))
         .route("/self-fix/tasks/{id}/approve", post(approve))
+        .route("/self-fix/tasks/{id}/reconcile-head", post(reconcile_head))
 }

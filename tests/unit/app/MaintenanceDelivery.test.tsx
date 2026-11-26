@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   report: vi.fn(),
   decision: vi.fn(),
   handoff: vi.fn(),
+  reconcile: vi.fn(),
 }))
 vi.mock('@app/shared/model/auth.context', () => ({ useAuth: () => mocks.auth }))
 vi.mock('@app/entities/maintenance', async (original) => ({
@@ -29,6 +30,7 @@ vi.mock('@app/entities/maintenance', async (original) => ({
   createVerification: mocks.report,
   recordMaintenanceDecision: mocks.decision,
   recordMaintenanceHandoff: mocks.handoff,
+  reconcileMaintenanceHead: mocks.reconcile,
 }))
 beforeEach(() => {
   mocks.auth = {
@@ -125,6 +127,158 @@ describe('maintenance evidence operator workflow', () => {
       rework: null,
       operation: null,
     })
+  })
+  it('offers the newer pull-request revision with both revisions and a confirmation step', async () => {
+    const data = maintenanceDelivery()
+    const stored = data.trace.recordedPrHeadSha!
+    const next = 'd'.repeat(40)
+    data.trace.producedState.headChanged = true
+    data.trace.producedState.snapshot!.headSha = next
+    mocks.get.mockResolvedValue(data)
+    mocks.reconcile.mockResolvedValue({
+      taskId: maintenanceTaskId,
+      previousHead: stored,
+      currentHead: next,
+      changed: true,
+      sensitive: false,
+      reviewStatus: 'in_review',
+    })
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    const action = await screen.findByRole('button', { name: 'Use the new revision' })
+    const group = screen.getByTestId('maintenance-reconcile-head')
+    expect(group).toHaveTextContent(`Recorded revision ${stored.slice(0, 7)}`)
+    expect(group).toHaveTextContent(`newer revision on GitHub ${next.slice(0, 7)}`)
+    expect(action).toHaveAccessibleDescription(
+      'Earlier reports and verdicts no longer apply; a new report is needed before acceptance.'
+    )
+    fireEvent.click(action)
+    const confirm = screen.getByRole('button', {
+      name: `Confirm: use revision ${next.slice(0, 7)}`,
+    })
+    await waitFor(() => expect(confirm).toHaveFocus())
+    expect(mocks.reconcile).not.toHaveBeenCalled()
+    fireEvent.click(confirm)
+    await waitFor(() => expect(mocks.reconcile).toHaveBeenCalledTimes(1))
+    expect(mocks.reconcile.mock.calls[0][0]).toBe(maintenanceTaskId)
+    expect(mocks.reconcile.mock.calls[0][1]).toEqual({
+      expectedStoredHead: stored,
+      expectedNewHead: next,
+    })
+    const notice = await screen.findByText(
+      'The newer revision is now recorded. Earlier reports and verdicts no longer apply. Create a new report for the new revision before acceptance.'
+    )
+    expect(notice).toHaveAttribute('role', 'status')
+    await waitFor(() => expect(notice).toHaveFocus())
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+  })
+  it.each([
+    [
+      'a task at the attempt limit',
+      'in_review',
+      3,
+      /no finish attempts remain\. Review the new revision and finish it on GitHub\./,
+    ],
+    [
+      'a task with changes requested',
+      'changes_requested',
+      0,
+      /changes were requested or no finish attempts remain/,
+    ],
+    ['a sensitive new revision', 'sensitive_blocked', 0, /finishing in Forge is disabled/],
+  ] as const)(
+    'tells the truth about what happens next for %s',
+    async (_case, status, attempts, expected) => {
+      const data = maintenanceDelivery()
+      data.trace.producedState.headChanged = true
+      data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+      data.recovery.mergeAttempts = attempts
+      data.recovery.reviewStatus = status === 'sensitive_blocked' ? 'in_review' : status
+      mocks.get.mockResolvedValue(data)
+      mocks.reconcile.mockResolvedValue({
+        taskId: maintenanceTaskId,
+        previousHead: data.trace.recordedPrHeadSha,
+        currentHead: 'd'.repeat(40),
+        changed: true,
+        sensitive: status === 'sensitive_blocked',
+        reviewStatus: status,
+      })
+      render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Use the new revision' }))
+      fireEvent.click(screen.getByRole('button', { name: /Confirm: use revision/ }))
+      expect(await screen.findByText(expected)).toHaveAttribute('role', 'status')
+    }
+  )
+  it('cancels the confirmation without writing', async () => {
+    const data = maintenanceDelivery()
+    data.trace.producedState.headChanged = true
+    data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+    mocks.get.mockResolvedValue(data)
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the new revision' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Use the new revision' })).toBeInTheDocument()
+    expect(mocks.reconcile).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['the head did not change', (d: MaintenanceDelivery) => d],
+    [
+      'a merge is in progress or unconfirmed',
+      (d: MaintenanceDelivery) => ({ ...d, recovery: { ...d.recovery, reviewStatus: 'approved' } }),
+    ],
+    [
+      'the change is merged',
+      (d: MaintenanceDelivery) => ({ ...d, recovery: { ...d.recovery, reviewStatus: 'merged' } }),
+    ],
+    [
+      'the pull request is closed',
+      (d: MaintenanceDelivery) => {
+        d.trace.producedState.snapshot!.state = 'closed'
+        return d
+      },
+    ],
+  ])('does not offer the newer revision when %s', async (name, shape) => {
+    const data = maintenanceDelivery()
+    if (name !== 'the head did not change') {
+      data.trace.producedState.headChanged = true
+      data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+    }
+    mocks.get.mockResolvedValue(shape(data))
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    await screen.findByTestId('verification-report')
+    expect(screen.queryByTestId('maintenance-reconcile-head')).toBeNull()
+  })
+  it.each([
+    [
+      'reconcile-merge-unconfirmed',
+      'A finish attempt for this change is in progress or not confirmed. Choose Finish this fix to complete it, then use the new revision.',
+    ],
+    [
+      'provider-unavailable',
+      'GitHub could not be read, so nothing was changed. Try again. If it keeps failing, check that the pull request still exists and that the GitHub App can access the repository.',
+    ],
+  ] as const)('explains the %s refusal of the newer revision', async (reason, message) => {
+    const data = maintenanceDelivery()
+    data.trace.producedState.headChanged = true
+    data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+    mocks.get.mockResolvedValue(data)
+    mocks.reconcile.mockRejectedValueOnce(new MaintenanceError(reason))
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the new revision' }))
+    fireEvent.click(screen.getByRole('button', { name: /Confirm: use revision/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+  })
+  it('explains a refused newer revision in plain language', async () => {
+    const data = maintenanceDelivery()
+    data.trace.producedState.headChanged = true
+    data.trace.producedState.snapshot!.headSha = 'd'.repeat(40)
+    mocks.get.mockResolvedValue(data)
+    mocks.reconcile.mockRejectedValueOnce(new MaintenanceError('reconcile-head-moved'))
+    render(<MaintenanceDeliveryPanel taskId={maintenanceTaskId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the new revision' }))
+    fireEvent.click(screen.getByRole('button', { name: /Confirm: use revision/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The pull request moved to another revision. Refresh evidence to see the newest revision, then try again.'
+    )
   })
   it('disables acceptance on a changed head and handoff while work is active', async () => {
     const data = maintenanceDelivery()
