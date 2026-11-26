@@ -69,6 +69,29 @@ use crate::services::self_fix::import::ImportLimits;
 use crate::services::self_fix::merge_executor::{MergeRequest, pull_request_state, run_merge_executor};
 use crate::services::self_fix::merge_lock::MergeLock;
 
+/// Bounds of the per-task merge-attempt cap. They live here, on the protected
+/// path, so configuration alone cannot remove the cap (the default is 5).
+pub(crate) const MIN_MERGE_ATTEMPTS: i32 = 1;
+pub(crate) const MAX_MERGE_ATTEMPTS: i32 = 10;
+
+/// Clamp the configured cap into `MIN_MERGE_ATTEMPTS..=MAX_MERGE_ATTEMPTS`,
+/// warning once per process when the configured value is out of range.
+fn bounded_max_merge_attempts(configured: i32) -> i32 {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    let used = configured.clamp(MIN_MERGE_ATTEMPTS, MAX_MERGE_ATTEMPTS);
+    if used != configured {
+        WARNED.call_once(|| {
+            tracing::warn!(
+                setting = "SELF_FIX_MAX_MERGE_ATTEMPTS",
+                configured,
+                used,
+                "self-fix: merge-attempt cap is outside {MIN_MERGE_ATTEMPTS}..={MAX_MERGE_ATTEMPTS}; using the nearest bound"
+            );
+        });
+    }
+    used
+}
+
 /// Server-side self-fix PR Bridge service.
 ///
 /// Holds the task + agent repositories, the (optional) GitHub App client, the
@@ -114,8 +137,7 @@ impl SelfFixService {
             github: github.map(Arc::new),
             workspace_root,
             limits,
-            // The cap is resolved here, on the protected path, not by the composition root.
-            max_merge_attempts: config.self_fix_max_merge_attempts,
+            max_merge_attempts: bounded_max_merge_attempts(config.self_fix_max_merge_attempts),
         }
     }
 

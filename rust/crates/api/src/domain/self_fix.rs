@@ -9,11 +9,14 @@ use uuid::Uuid;
 // AUTHORIZE, RECORD and WIRE self-fix delivery — the decision functions, the
 // queries those decisions run, the administrator policy and its re-check
 // query, the audit insert, the GitHub client (including its request and
-// audit-text builders), the routes, their registration and the auth
-// middleware. They deliberately do not follow transitive dependencies further
-// (shared row types, the database pool, the error and HTTP framework types). The lists are a tripwire that sends a change to a
-// human; they are one layer, and the rule that nothing merges without an
-// explicit administrator approval does not depend on them.
+// audit-text builders), the routes, their registration, the composition root
+// that constructs the services, and the auth middleware. Safety limits such as
+// the merge-attempt cap are bounded inside the protected module, so
+// configuration alone cannot remove them. Shared row types, the database pool
+// and the error and HTTP framework types stay outside; that residual risk is
+// accepted because every self-fix change still needs an explicit
+// administrator approval. The lists are a tripwire that sends a change to a
+// human, not the only layer.
 
 /// Glob-prefix directories whose ANY descendant is sensitive.
 #[allow(dead_code)]
@@ -59,6 +62,8 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/router.rs",
     // The GitHub request builders: the merge payload's expected-head `sha` and the audit comment text.
     "rust/crates/api/src/domain/github_app.rs",
+    // The composition root: wires every service, including self-fix delivery and its limits.
+    "rust/crates/api/src/state_services.rs",
 ];
 
 #[allow(dead_code)]
@@ -645,36 +650,63 @@ mod tests {
         assert!(!blocked(&["docs/guides/configuration.md"]));
     }
 
-    /// Source with `//` and `/* */` comments and ALL whitespace removed (string
-    /// literals are kept), so the guard below matches tokens, not formatting.
+    /// Source with `//` and (nested) `/* */` comments and ALL whitespace
+    /// removed; string, raw-string and `'"'` literals are kept, so the guard
+    /// below matches tokens, not formatting.
     fn normalized(source: &str) -> String {
-        let (mut out, mut chars, mut in_str) = (String::new(), source.chars().peekable(), false);
-        while let Some(c) = chars.next() {
-            if in_str {
-                if c == '\\' {
-                    out.push(c);
-                    out.extend(chars.next());
-                    continue;
+        let s: Vec<char> = source.chars().collect();
+        let at = |i: usize, p: &str| s[i..].iter().copied().take(p.len()).eq(p.chars());
+        let ident = |i: usize| s[i].is_alphanumeric() || s[i] == '_';
+        let keep = |out: &mut String, lit: &[char]| out.extend(lit.iter().filter(|c| !c.is_whitespace()));
+        let (mut out, mut i) = (String::new(), 0);
+        while i < s.len() {
+            let raw_hashes = (s[i] == 'r'
+                && (i == 0 || !ident(i - 1) || ("bc".contains(s[i - 1]) && (i == 1 || !ident(i - 2)))))
+            .then(|| s[i + 1..].iter().take_while(|&&c| c == '#').count())
+            .filter(|&n| s.get(i + 1 + n) == Some(&'"'));
+            if at(i, "//") {
+                while i < s.len() && s[i] != '\n' {
+                    i += 1;
                 }
-                in_str = c != '"';
-            } else if c == '/' && chars.peek() == Some(&'/') {
-                chars.by_ref().find(|&n| n == '\n');
-                continue;
-            } else if c == '/' && chars.peek() == Some(&'*') {
-                chars.next();
-                let mut prev = ' ';
-                chars.by_ref().find(|&n| std::mem::replace(&mut prev, n) == '*' && n == '/');
-                continue;
-            } else if c == '\'' && chars.peek() == Some(&'"') {
-                // The char literal `'"'` must not open a string.
-                out.push(c);
-                out.extend(chars.next());
-                continue;
+            } else if at(i, "/*") {
+                let mut depth = 0;
+                while i < s.len() {
+                    if at(i, "/*") {
+                        depth += 1;
+                        i += 2;
+                    } else if at(i, "*/") {
+                        depth -= 1;
+                        i += 2;
+                        if depth == 0 {
+                            break;
+                        }
+                    } else {
+                        i += 1;
+                    }
+                }
+            } else if let Some(n) = raw_hashes {
+                let close = format!("\"{}", "#".repeat(n));
+                let mut end = i + 2 + n;
+                while end < s.len() && !at(end, &close) {
+                    end += 1;
+                }
+                let end = (end + close.len()).min(s.len());
+                keep(&mut out, &s[i..end]);
+                i = end;
+            } else if s[i] == '"' {
+                let mut end = i + 1;
+                while end < s.len() && s[end] != '"' {
+                    end += if s[end] == '\\' { 2 } else { 1 };
+                }
+                let end = (end + 1).min(s.len());
+                keep(&mut out, &s[i..end]);
+                i = end;
+            } else if at(i, "'\"'") {
+                out.push_str("'\"'");
+                i += 3;
             } else {
-                in_str = c == '"';
-            }
-            if !c.is_whitespace() {
-                out.push(c);
+                keep(&mut out, &s[i..=i]);
+                i += 1;
             }
         }
         out
@@ -683,11 +715,21 @@ mod tests {
     #[test]
     fn normalized_strips_comments_and_whitespace_only() {
         assert_eq!(
-            normalized("a . find_by_id_on ( x ) // find_by_id(\n/* y( */ \"// z\""),
-            "a.find_by_id_on(x)\"//z\""
+            normalized("a . find_by_id_on ( x ) // find_by_id(\n/* y( */ \"// z\" '\"' w"),
+            "a.find_by_id_on(x)\"//z\"'\"'w"
+        );
+        assert_eq!(normalized("a /* outer /* inner */ still comment */ b"), "ab");
+        assert_eq!(normalized(r#"a r"\" // c"#), r#"ar"\""#);
+        assert_eq!(
+            normalized(r###"a r#"x "q" // not a comment"# b br"/*" c"###),
+            r###"ar#"x"q"//notacomment"#bbr"/*"c"###
         );
     }
 
+    // Purpose and limit: the CONTROL is the sensitive list — gate code lives in
+    // listed files, so a change that weakens the gate must touch one. This test
+    // only catches a human refactor that accidentally moves gate code into an
+    // unlisted file; it is a lexical check, not a defense against obfuscation.
     #[test]
     fn merge_gate_queries_stay_on_the_protected_path() {
         let source = |path: &str| {
@@ -713,40 +755,24 @@ mod tests {
             // The merge entry and head reconciliation read the task through the protected query.
             ("services/self_fix/mod.rs", "OrchestrationTaskRepository::find_for_delivery_decision("),
             ("services/self_fix/reconcile.rs", "OrchestrationTaskRepository::find_for_delivery_decision("),
-            // The merge-attempt cap is resolved inside the protected service.
-            ("services/self_fix/mod.rs", "max_merge_attempts: config.self_fix_max_merge_attempts,"),
+            // The merge-attempt cap is bounded inside the protected service.
+            ("services/self_fix/mod.rs", "fn bounded_max_merge_attempts("),
+            ("services/self_fix/mod.rs", "bounded_max_merge_attempts(config.self_fix_max_merge_attempts)"),
         ] {
             assert!(blocked(&[format!("rust/crates/api/src/{path}").as_str()]), "{path} must be sensitive");
             assert!(source(path).contains(&normalized(token)), "{token} must stay in {path}");
         }
-        // The shared repository file is not protected, so the merge mutex must not move back into it.
+        // Accidental moves back into the shared, unlisted code.
         assert!(
             !source("repositories/orchestration/mod.rs").contains("pg_try_advisory_lock"),
             "the merge-mutex query belongs in self_fix_delivery.rs (a protected path), not the shared mod.rs"
         );
-        // Neither decision reads the task through the shared, unprotected reads.
         let shared_read = |text: &str| text.contains("find_by_id(") || text.contains("find_by_id_on(");
         assert!(!shared_read(&source("services/self_fix/reconcile.rs")));
         let service = source("services/self_fix/mod.rs");
         let merge_entry = &service
             [service.find("asyncfnapprove_and_merge(").unwrap()..service.find("asyncfnbegin_decision(").unwrap()];
         assert!(!shared_read(merge_entry));
-        // The composition root (not protected) hands over the configuration and
-        // never picks the cap itself.
-        let wiring = source("state_services.rs");
-        let call = &wiring[wiring.find("SelfFixService::new(").unwrap() + "SelfFixService::new(".len()..];
-        let mut depth = 1;
-        let args = &call[..call
-            .find(|c| {
-                depth += i32::from(c == '(') - i32::from(c == ')');
-                depth == 0
-            })
-            .unwrap()];
-        assert!(!wiring.contains("max_merge_attempts"), "state_services.rs must not set the merge-attempt cap");
-        assert!(
-            args.trim_end_matches(',').ends_with(",&self.config"),
-            "SelfFixService::new must receive the configuration as its last argument: {args}"
-        );
         // The merge payload carries the expected head, GitHub's atomic guard
         // against a push made after the final check.
         assert_eq!(crate::domain::github_app::merge_squash_body("deadbeef")["sha"], "deadbeef");
