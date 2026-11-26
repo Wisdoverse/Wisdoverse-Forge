@@ -176,8 +176,7 @@ impl ContextResolverService {
         let Some(redis) = &self.redis else {
             return None;
         };
-        let mut redis = redis.write().await;
-        let conn = redis.connection_mut()?;
+        let mut conn = redis.read().await.handle()?;
         let raw: Option<String> = match conn.get(key).await {
             Ok(raw) => raw,
             Err(err) => {
@@ -196,8 +195,7 @@ impl ContextResolverService {
         let Some(payload) = context_resolver_cache_payload(resolved) else {
             return;
         };
-        let mut redis = redis.write().await;
-        let Some(conn) = redis.connection_mut() else {
+        let Some(mut conn) = redis.read().await.handle() else {
             return;
         };
         let result: redis::RedisResult<()> = conn.set_ex(key, payload, MEMO_TTL.as_secs()).await;

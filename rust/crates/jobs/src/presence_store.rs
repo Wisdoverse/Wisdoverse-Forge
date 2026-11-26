@@ -101,8 +101,7 @@ impl PresenceBackend {
         let Some(redis) = &self.inner.redis else {
             return RedisRecord::Unavailable;
         };
-        let mut guard = redis.write().await;
-        let Some(conn) = guard.connection_mut() else {
+        let Some(mut conn) = redis.read().await.handle() else {
             self.note_fallback();
             return RedisRecord::Unavailable;
         };
@@ -116,7 +115,7 @@ impl PresenceBackend {
             .arg("EX")
             .arg(self.inner.stale_after.as_secs())
             .arg("GET")
-            .query_async(conn)
+            .query_async(&mut conn)
             .await;
         match prior {
             Ok(Some(prev)) if prev == fingerprint => {
@@ -155,12 +154,11 @@ impl PresenceBackend {
         let Some(redis) = &self.inner.redis else {
             return;
         };
-        let mut guard = redis.write().await;
-        let Some(conn) = guard.connection_mut() else {
+        let Some(mut conn) = redis.read().await.handle() else {
             return;
         };
         let key = format!("{PRESENCE_KEY_PREFIX}{agent_id}");
-        let _: Result<i64, redis::RedisError> = redis::cmd("DEL").arg(&key).query_async(conn).await;
+        let _: Result<i64, redis::RedisError> = redis::cmd("DEL").arg(&key).query_async(&mut conn).await;
     }
 
     /// Given non-offline participant `agent_id`s, return those whose Redis
@@ -177,8 +175,7 @@ impl PresenceBackend {
         if candidates.is_empty() {
             return Some(Vec::new());
         }
-        let mut guard = redis.write().await;
-        let Some(conn) = guard.connection_mut() else {
+        let Some(mut conn) = redis.read().await.handle() else {
             self.note_fallback();
             return None;
         };
@@ -186,7 +183,7 @@ impl PresenceBackend {
         for agent_id in candidates {
             pipe.cmd("EXISTS").arg(format!("{PRESENCE_KEY_PREFIX}{agent_id}"));
         }
-        let exists: Result<Vec<i64>, redis::RedisError> = pipe.query_async(conn).await;
+        let exists: Result<Vec<i64>, redis::RedisError> = pipe.query_async(&mut conn).await;
         match exists {
             Ok(flags) => {
                 self.clear_fallback();

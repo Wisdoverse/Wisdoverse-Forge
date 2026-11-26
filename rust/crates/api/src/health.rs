@@ -167,14 +167,7 @@ async fn within(dependency: &'static str, budget: Duration, probe: impl Future<O
 /// is owned by the system domain boundary. Every probe is bounded by
 /// [`READINESS_PROBE_BUDGET`] and all run concurrently.
 pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
-    // CN-7: when external state is required, readiness must verify Redis can
-    // actually WRITE the state store's SET/GETDEL path, not just answer PING — a
-    // Redis that goes read-only / loses write ACLs after boot must drop the
-    // replica from rotation. Otherwise a PING is the right lightweight check.
-    let redis_probe = async {
-        let mut redis = state.redis.write().await;
-        if state.config.require_external_state { redis.probe_read_write().await } else { redis.check_health().await }
-    };
+    let redis_probe = redis_ready(&state.redis, state.config.require_external_state);
     // Docker is optional — absence is not degraded, but if present, check connectivity.
     let docker_probe = async {
         match &state.docker {
@@ -196,6 +189,18 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
         state.config.require_external_state,
     )
     .await
+}
+
+/// CN-7: when external state is required, readiness must verify Redis can
+/// actually WRITE the state store's SET/GETDEL path, not just answer PING — a
+/// Redis that goes read-only / loses write ACLs after boot must drop the
+/// replica from rotation. Otherwise a PING is the right lightweight check.
+async fn redis_ready(redis: &RwLock<RedisClient>, require_external_state: bool) -> bool {
+    // Take the handle under the guard, then probe after releasing it.
+    let Some(conn) = redis.read().await.handle() else {
+        return false;
+    };
+    if require_external_state { conn.probe_read_write().await } else { conn.check_health().await }
 }
 
 /// Run the four readiness probes concurrently, each bounded by
@@ -306,5 +311,40 @@ mod tests {
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
         assert!(!body.checks.redis);
         assert_eq!(elapsed, READINESS_PROBE_BUDGET);
+    }
+
+    /// Readiness of a replica that requires external state, with its Redis probe.
+    async fn ready_with_required_redis(redis: &RwLock<RedisClient>) -> StatusCode {
+        readiness(ready(true), redis_ready(redis, true), ready(true), ready(true), false, true).await.0
+    }
+
+    #[tokio::test]
+    async fn required_redis_readiness_drops_during_an_outage_and_returns_without_restart() {
+        use agentforge_infra::fake_redis::FakeRedis;
+        let mut fake = FakeRedis::start().await;
+        let redis = RwLock::new(RedisClient::connect(Some(&fake.url())).await);
+        assert_eq!(ready_with_required_redis(&redis).await, StatusCode::OK);
+
+        fake.stop().await;
+        assert_eq!(ready_with_required_redis(&redis).await, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(!redis.read().await.is_connected());
+
+        fake.restart().await;
+        // Production recovery bound (8 s, see `redis_client`) plus scheduling headroom.
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
+        while ready_with_required_redis(&redis).await != StatusCode::OK {
+            assert!(std::time::Instant::now() < deadline, "readiness did not recover after Redis came back");
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn read_only_redis_is_not_ready_when_external_state_is_required() {
+        use agentforge_infra::fake_redis::{FakeRedis, Mode};
+        let fake = FakeRedis::start().await;
+        fake.set_mode(Mode::ReadOnly);
+        let redis = RwLock::new(RedisClient::connect(Some(&fake.url())).await);
+        assert_eq!(ready_with_required_redis(&redis).await, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(redis_ready(&redis, false).await, "PING still answers: optional Redis stays ready");
     }
 }

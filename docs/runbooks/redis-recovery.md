@@ -79,14 +79,21 @@ Keep only status codes, TTL ranges, and pass or fail results in the run record.
 ## Recover After Redis Returns
 
 Restore Redis through its approved service procedure.
-Do not assume that a healthy Redis process restored the API connection.
-Readiness and new authorization requests can remain unavailable after Redis returns.
+The API reconnects by itself within 8 seconds after Redis is reachable, also when Redis was unreachable at API startup.
+This also holds when the old connection went silent without closing, for example behind a firewall that drops packets.
+If a Redis user was disabled and is enabled again, the API logs in again by itself.
+When Redis answers a fresh `PING` but then times out on commands, the API alternates between usable and down, logging two lines and opening one connection per cycle, at most a few per second per replica.
+That pattern in the log means Redis is overloaded, not that the network is down.
+The API log shows `Redis connection lost` when the outage began and `Redis connection restored` with `down_for_ms` when it ended.
+The [configuration guide](../guides/configuration.md#redis-availability) explains the bound.
 
 Query `http://127.0.0.1:4003/api/health` again.
 Send a new authenticated authorize request only when readiness returns HTTP 200.
 Confirm the new state has a 300-second TTL and the API returns `ok: true`.
+An authorize or callback request that failed during the outage must be started again.
 
-If readiness or the authorize request still fails, restart only the API service:
+If readiness still fails 30 seconds after Redis is healthy, check the Redis URL, password, and write access first.
+Restart only the API service as a last resort:
 
 ```bash
 docker compose --env-file docker/.env \
@@ -106,15 +113,15 @@ Do not finish the OAuth flow during this recovery procedure.
 
 The local qualification on 2026-10-11 passed `make prod-ext` with the required state flag. An authenticated authorize request stored state with a 300-second TTL. The wrong-provider request returned HTTP 400 and consumed the state. The replay request returned HTTP 400.
 
-Redis restoration alone did not restore API operations or readiness. Restarting the API restored readiness and new state writes. The unexpired control state remained available after API recovery with Redis AOF and the same data volume.
+On that date, Redis restoration alone did not restore API operations or readiness; restarting the API did. Since #1359 the API reconnects by itself; automated tests stop and restart an in-process Redis under a running client. The unexpired control state remained available after API recovery with Redis AOF and the same data volume.
 
 The Temporal gate completed in 0.142 seconds. An anonymous Temporal workflow creation request returned HTTP 401. A Temporal workflow status request for another organization returned HTTP 404. These Temporal results do not establish CLI OAuth tenant isolation. We did not run model execution or provider login.
 
-This result does not qualify production Redis or power-loss recovery. It does not prove automatic reconnection, complete OAuth, or provider login. It does not qualify presence state or multi-replica behavior. The [runtime validation guide](runtime-validation.md) tracks other runtime evidence.
+This result does not qualify production Redis or power-loss recovery. It does not prove complete OAuth or provider login, and the 2026-10-11 run predates automatic reconnection. It does not qualify presence state or multi-replica behavior. The [runtime validation guide](runtime-validation.md) tracks other runtime evidence.
 
 ## Source References
 
-- [`RedisClient`](../../rust/crates/infra/src/redis_client.rs) runs the Redis `SET` and `GETDEL` readiness probe.
+- [`RedisClient`](../../rust/crates/infra/src/redis_client.rs) runs the Redis `SET` and `GETDEL` readiness probe and reconnects after an outage.
 - [`cli_auth_proxy`](../../rust/crates/api/src/services/cli_auth_proxy/mod.rs) stores state with a 300-second TTL and consumes it with `GETDEL`.
 - [`CLI auth proxy routes`](../../rust/crates/api/src/routes/cli_auth_proxy.rs) require authenticated requests.
 - [`API readiness`](../../rust/crates/api/src/health.rs) calls the probe when the service requires external state.

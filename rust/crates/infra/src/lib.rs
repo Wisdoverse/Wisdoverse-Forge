@@ -4,13 +4,15 @@
 //! Redis is optional (circuit breaker pattern — degrades gracefully when unavailable).
 //! NATS is used for the event pipeline and WebSocket broadcast.
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod fake_redis;
 pub mod nats;
 pub mod object_storage;
 pub mod redis_client;
 
 pub use self::nats::NatsClient;
 pub use self::object_storage::ObjectStorageClient;
-pub use self::redis_client::RedisClient;
+pub use self::redis_client::{RedisClient, RedisHandle};
 
 /// Crate version from Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

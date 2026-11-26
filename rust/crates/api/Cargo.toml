@@ -66,4 +66,5 @@ httpmock = "0.9"
 metrics-util.workspace = true
 tracing-subscriber.workspace = true
 agentforge-llm = { workspace = true, features = ["test-support"] }
+agentforge-infra = { workspace = true, features = ["test-support"] }
 agentforge-api = { path = ".", features = ["test-support"] }
