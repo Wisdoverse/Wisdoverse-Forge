@@ -264,6 +264,7 @@ dependencies = [
  "aws-credential-types",
  "aws-sdk-s3",
  "metrics",
+ "metrics-util",
  "redis",
  "secrecy",
  "serde",

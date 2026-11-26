@@ -33,10 +33,11 @@
 //! - The usable flag, the outage start and the failure generation change together under one
 //!   short lock that is never held across an await and never around anything that can block:
 //!   under it a transition is only recorded as an event in a bounded channel (non-blocking
-//!   send; a full channel counts the event as dropped). A reporter task writes the lines and
-//!   metrics afterwards, in transition order: one line per change (`warn` when lost, `info`
-//!   with the outage length when restored, both with `dropped_state_changes`) and
-//!   `agentforge_redis_state_changes_total{state}`.
+//!   send; a full channel counts the event as dropped). A reporter task writes the lines
+//!   afterwards, in transition order: one line per change (`warn` when lost, `info` with the
+//!   outage length when restored, both with `dropped_state_changes`). The thread that made a
+//!   change counts it in `agentforge_redis_state_changes_total{state}` right after releasing
+//!   the lock, so the metric stays exact even when log lines are dropped.
 //!
 //! The in-process fake Redis used by the tests (`crate::fake_redis`) is compiled only for this
 //! crate's tests or when the `test-support` feature is enabled explicitly; nothing in the
@@ -197,6 +198,8 @@ impl Shared {
         state.down_since = Some(Instant::now());
         self.record(Event::Lost { error: err.to_string() });
         drop(state);
+        // Counted here, after the lock, so the metric never depends on the log queue.
+        metrics::counter!("agentforge_redis_state_changes_total", "state" => "lost").increment(1);
         self.wake.notify_one();
     }
 
@@ -209,11 +212,14 @@ impl Shared {
         }
         state.manager = manager;
         state.epoch += 1;
-        if !state.usable {
-            state.usable = true;
-            let down_for = state.down_since.take().map(|since| since.elapsed()).unwrap_or_default();
-            self.record(Event::Restored { down_for });
+        if state.usable {
+            return true;
         }
+        state.usable = true;
+        let down_for = state.down_since.take().map(|since| since.elapsed()).unwrap_or_default();
+        self.record(Event::Restored { down_for });
+        drop(state);
+        metrics::counter!("agentforge_redis_state_changes_total", "state" => "restored").increment(1);
         true
     }
 }
@@ -344,14 +350,13 @@ async fn monitor(shared: Arc<Shared>, timings: Timings) {
     }
 }
 
-/// Writes state-change lines and metrics in transition order, outside the state lock. Ends
+/// Writes state-change lines in transition order, outside the state lock. Ends
 /// when the client's shared state is dropped.
 async fn report(mut events: mpsc::Receiver<Event>, dropped: Arc<AtomicU64>) {
     while let Some(event) = events.recv().await {
         let dropped = dropped.swap(0, Ordering::Relaxed);
         match event {
             Event::Lost { error } => {
-                metrics::counter!("agentforge_redis_state_changes_total", "state" => "lost").increment(1);
                 tracing::warn!(
                     error,
                     dropped_state_changes = dropped,
@@ -359,7 +364,6 @@ async fn report(mut events: mpsc::Receiver<Event>, dropped: Arc<AtomicU64>) {
                 );
             }
             Event::Restored { down_for } => {
-                metrics::counter!("agentforge_redis_state_changes_total", "state" => "restored").increment(1);
                 tracing::info!(
                     down_for_ms = down_for.as_millis() as u64,
                     dropped_state_changes = dropped,
@@ -1052,5 +1056,87 @@ mod tests {
         let (lost, restored, lost_again) =
             (text.find(LOST).expect("lost"), text.find(RESTORED).expect("restored"), text.rfind(LOST).expect("lost"));
         assert!(lost < restored && restored < lost_again, "lines out of transition order:\n{text}");
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn state_change_metric_counts_every_transition_when_log_lines_are_dropped() {
+        use metrics_util::debugging::{DebugValue, DebuggingRecorder};
+        let writer = GatedLogs {
+            logs: Logs::default(),
+            gate: Arc::new((StdMutex::new(true), std::sync::Condvar::new())),
+            waiting: Arc::default(),
+        };
+        let (logs, gate, waiting) = (writer.logs.clone(), writer.gate.clone(), writer.waiting.clone());
+        let set_gate = |is_open: bool| {
+            *lock(&gate.0) = is_open;
+            gate.1.notify_all();
+        };
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        let hour = Duration::from_secs(3600);
+        let quiet = Timings { probe_interval: hour, backoff_min: hour, backoff_max: hour, ..FAST };
+        let mut fake = FakeRedis::start().await;
+        let client = RedisClient::connect_with(Some(&fake.url()), quiet).await;
+        let shared = &client.connected.as_ref().expect("configured").shared;
+        fake.stop().await;
+        set_gate(false);
+
+        // Far more transitions than the event channel holds while the log writer is stuck.
+        const CYCLES: usize = EVENT_BUFFER * 3;
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+        let writer_was_blocked = metrics::with_local_recorder(&recorder, || {
+            let epoch = lock(&shared.state).epoch;
+            shared.report_failure(epoch, &timed_out());
+            // The reporter takes that event and blocks in the writer (bounded wait).
+            let start = Instant::now();
+            while !waiting.load(Ordering::SeqCst) && start.elapsed() < SLACK {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            for _ in 0..CYCLES {
+                assert!(shared.report_success(shared.generation(), shared.fresh_manager().expect("manager")));
+                let epoch = lock(&shared.state).epoch;
+                shared.report_failure(epoch, &timed_out());
+            }
+            waiting.load(Ordering::SeqCst)
+        });
+        let lines_while_blocked = logs.count(LOST) + logs.count(RESTORED);
+        // Release before asserting, so a failure cannot leave the reporter blocked forever.
+        set_gate(true);
+
+        // One snapshot: taking it drains the recorder's counters.
+        let snapshot = snapshotter.snapshot().into_vec();
+        let counted = |state: &str| {
+            snapshot
+                .iter()
+                .find(|(key, ..)| {
+                    key.key().name() == "agentforge_redis_state_changes_total"
+                        && key.key().labels().any(|label| label.key() == "state" && label.value() == state)
+                })
+                .map(|(.., value)| value)
+        };
+        assert!(writer_was_blocked, "the log writer was never reached");
+        assert_eq!(lines_while_blocked, 0, "no line can be written while the writer is blocked");
+        assert_eq!(counted("lost"), Some(&DebugValue::Counter(CYCLES as u64 + 1)), "every loss is counted");
+        assert_eq!(counted("restored"), Some(&DebugValue::Counter(CYCLES as u64)), "every restore is counted");
+
+        // One event was in the writer and the channel held EVENT_BUFFER; the rest were dropped,
+        // and the next line written says how many.
+        let transitions = 2 * CYCLES + 1;
+        let written = 1 + EVENT_BUFFER;
+        let start = Instant::now();
+        while logs.count(LOST) + logs.count(RESTORED) < written {
+            assert!(start.elapsed() < SLACK, "queued lines were not written after release");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        let dropped = transitions - written;
+        assert!(
+            logs.text().contains(&format!("dropped_state_changes={dropped}")),
+            "the next line must report {dropped} dropped state changes:\n{}",
+            logs.text()
+        );
     }
 }
