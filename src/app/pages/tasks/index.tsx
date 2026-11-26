@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { BoardView } from '@app/features/board'
 import { ListView } from '@app/features/list'
 import { MaintenanceIntake } from '@app/features/maintenance'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useBoardStore } from '@app/entities/navigation'
 // Lazy components — the widgets/views barrel owns the lazy() wrappers so both
 // stay separate dynamic chunks behind the Suspense boundaries below.
 import { TimelineView, Workshop3DView } from '@app/widgets/views'

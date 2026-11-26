@@ -1,4 +1,4 @@
-import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
+import { InjectionPreviewModal } from '@app/entities/context'
 import { taskPriorityLabel, taskStateLabel } from '@app/entities/task'
 import type { TaskSummary } from '@app/shared/api/orchestration'
 import { uiStyles } from '@app/shared/lib/uiStyles'

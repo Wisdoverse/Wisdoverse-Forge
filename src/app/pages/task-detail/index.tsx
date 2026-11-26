@@ -12,8 +12,8 @@ import {
   TaskDocumentBody,
   TaskStatus,
 } from '@app/features/detail'
-import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useContextFeaturesStore } from '@app/entities/context'
+import { useBoardStore } from '@app/entities/navigation'
 import { taskPriorityLabel } from '@app/entities/task'
 import { MaintenanceTracePanel } from '@app/features/maintenance'
 import { MaintenanceDeliveryPanel } from '@app/features/maintenance-delivery'

@@ -3,9 +3,39 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { checkFsdBoundaries } from '../../../scripts/check-fsd-boundaries.mjs'
+import {
+  checkFsdBoundaries as runChecker,
+  sharedFileInventory,
+} from '../../../scripts/check-fsd-boundaries.mjs'
 
 let tempRoots: string[] = []
+
+type SharedInventory = Map<string, 'generic' | 'frozen-domain'>
+
+// Fixtures that are not about the shared inventory list their own shared/api
+// and shared/lib files as generic, so only the rule under test reports.
+function fixtureInventory(cwd: string): SharedInventory {
+  const sharedDir = path.join(cwd, 'src/app/shared')
+  const inventory: SharedInventory = new Map()
+  for (const dir of ['api', 'lib']) {
+    if (!fs.existsSync(path.join(sharedDir, dir))) continue
+    for (const file of fs.readdirSync(path.join(sharedDir, dir), { recursive: true })) {
+      const entry = `${dir}/${String(file).split(path.sep).join('/')}`
+      if (fs.statSync(path.join(sharedDir, entry)).isFile()) inventory.set(entry, 'generic')
+    }
+  }
+  return inventory
+}
+
+function checkFsdBoundaries({
+  cwd,
+  sharedInventory = fixtureInventory(cwd),
+}: {
+  cwd: string
+  sharedInventory?: SharedInventory
+}) {
+  return runChecker({ cwd, sharedInventory })
+}
 
 function fixture(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsd-boundaries-'))
@@ -194,7 +224,7 @@ export function BoardView() {
       ])
     })
 
-    it('accepts a downward import from features into entities and shared', () => {
+    it('allows the downward direction but flags a deep entity import (public-api)', () => {
       const cwd = fixture({
         'src/app/features/board/model/useBoard.ts': `
 import { taskApi } from '@app/entities/task/api/taskApi'
@@ -210,8 +240,13 @@ export const helper = 1
       })
 
       const result = checkFsdBoundaries({ cwd })
-      expect(result.ok).toBe(true)
-      expect(result.errors).toEqual([])
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[public-api] src/app/features/board/model/useBoard.ts -> @app/entities/task/api/taskApi'
+        ),
+      ])
     })
 
     it('tolerates ambient .d.ts files but still boundary-checks their references (codex round 2)', () => {
@@ -486,6 +521,271 @@ export const helper = 1
     })
   })
 
+  describe('public-api for entities (error)', () => {
+    it('flags a deep import into an entity slice from outside it', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+import { useBoardStore } from '@app/entities/navigation/model/board.store'
+export const x = useBoardStore
+`,
+        'src/app/entities/navigation/index.ts': `
+export { useBoardStore } from './model/board.store'
+`,
+        'src/app/entities/navigation/model/board.store.ts': `
+export const useBoardStore = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[public-api] src/app/features/board/BoardView.tsx -> @app/entities/navigation/model/board.store (deep import into entities/navigation; import the slice barrel @app/entities/navigation)'
+        ),
+      ])
+    })
+
+    it.each([
+      ['relative', `import { useBoardStore } from '../../entities/navigation/model/board.store'`],
+      ['type-only', `import type { BoardState } from '@app/entities/navigation/model/board.store'`],
+      ['re-export', `export { useBoardStore } from '@app/entities/navigation/model/board.store'`],
+      [
+        'dynamic import()',
+        `export const load = () => import('@app/entities/navigation/model/board.store')`,
+      ],
+    ])('flags a %s deep import into an entity slice', (_form, statement) => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `${statement}\nexport const marker = 1\n`,
+        'src/app/entities/navigation/model/board.store.ts': `
+export type BoardState = { id: string }
+export const useBoardStore = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining('[public-api] src/app/features/board/BoardView.tsx -> '),
+      ])
+      expect(result.errors[0]).toContain('(deep import into entities/navigation;')
+    })
+
+    it.each([
+      [
+        'an import-type reference',
+        `export type Item = import(/* c */ '@app/entities/navigation/model/item').Item`,
+      ],
+      [
+        'a commented import type declaration',
+        `import /* c */ type { Item } from '@app/entities/navigation/model/item'\nexport type X = Item`,
+      ],
+    ])('flags %s to a deep entity file', (_form, source) => {
+      const cwd = fixture({
+        'src/app/features/board/types.ts': `${source}\n`,
+        'src/app/entities/navigation/model/item.ts': 'export interface Item { id: string }\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.errors).toEqual([
+        '[public-api] src/app/features/board/types.ts -> @app/entities/navigation/model/item (deep import into entities/navigation; import the slice barrel @app/entities/navigation)',
+      ])
+    })
+
+    it.each([
+      [
+        'a JSDoc import-type',
+        `/** @param {import('@app/entities/navigation/model/item').Item} item */\nexport function show(item) {\n  return item\n}`,
+        '@app/entities/navigation/model/item',
+      ],
+      [
+        'a JSDoc @import tag',
+        `/** @import { Item } from '@app/entities/navigation/model/item' */\nexport const marker = 1`,
+        '@app/entities/navigation/model/item',
+      ],
+      [
+        'a reference path',
+        `/// <reference path="../../entities/navigation/model/item.ts" />\nexport const marker = 1`,
+        '../../entities/navigation/model/item.ts',
+      ],
+    ])('flags %s into a deep entity file', (_form, source, target) => {
+      const cwd = fixture({
+        'src/app/features/board/doc.ts': `${source}\n`,
+        'src/app/entities/navigation/model/item.ts': 'export interface Item { id: string }\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.errors).toEqual([
+        `[public-api] src/app/features/board/doc.ts -> ${target} (deep import into entities/navigation; import the slice barrel @app/entities/navigation)`,
+      ])
+    })
+
+    it('leaves package type references and JSDoc prose alone', () => {
+      const cwd = fixture({
+        'src/app/features/board/doc.ts': `/// <reference types="vite/client" />
+/// <reference lib="dom" />
+/**
+ * Prose that mentions import('@app/entities/navigation/model/item') outside a type.
+ * @returns the marker
+ */
+export function marker() {
+  return 1
+}
+`,
+        'src/app/entities/navigation/model/item.ts': 'export interface Item { id: string }\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it.each(['entities', 'features', 'widgets', 'pages'])(
+      'flags a %s barrel that imports itself',
+      (layer) => {
+        const cwd = fixture({
+          [`src/app/${layer}/demo/index.ts`]: `import * as slice from './index'\nexport const demoPage = slice\n`,
+        })
+
+        const result = checkFsdBoundaries({ cwd })
+
+        expect(result.errors).toEqual([
+          `[own-barrel] src/app/${layer}/demo/index.ts -> ./index (${layer}/demo imports its own barrel; import the file directly)`,
+        ])
+      }
+    )
+
+    it('ignores import() text inside comments and strings', () => {
+      const cwd = fixture({
+        'src/app/features/board/notes.ts': `
+// import('@app/entities/navigation/model/item')
+/* import type { Item } from '@app/entities/navigation/model/item' */
+export const hint = "import('@app/entities/navigation/model/item')"
+export const template = \`import('@app/entities/navigation/model/item')\`
+`,
+        'src/app/entities/navigation/model/item.ts': 'export interface Item { id: string }\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it.each([
+      ['alias', `import { useBoardStore } from '@app/entities/navigation'`],
+      ['relative', `import { useBoardStore } from '..'`],
+    ])("flags a %s import of the slice's own barrel", (_form, statement) => {
+      const cwd = fixture({
+        'src/app/entities/navigation/model/navigation.store.ts': `${statement}\nexport const x = useBoardStore\n`,
+        'src/app/entities/navigation/index.ts': `export { useBoardStore } from './model/board.store'\n`,
+        'src/app/entities/navigation/model/board.store.ts': 'export const useBoardStore = 1\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[own-barrel] src/app/entities/navigation/model/navigation.store.ts -> '
+        ),
+      ])
+      expect(result.errors[0]).toContain('(entities/navigation imports its own barrel;')
+    })
+
+    it('flags a feature importing its own barrel', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `import { helper } from '@app/features/board'\nexport const x = helper\n`,
+        'src/app/features/board/index.ts': `export { helper } from './helper'\n`,
+        'src/app/features/board/helper.ts': 'export const helper = 1\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[own-barrel] src/app/features/board/BoardView.tsx -> @app/features/board'
+        ),
+      ])
+    })
+
+    it('still accepts another slice barrel from inside a slice', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `import { useBoardStore } from '@app/entities/navigation'\nexport const x = useBoardStore\n`,
+        'src/app/entities/navigation/index.ts': `export { useBoardStore } from './model/board.store'\n`,
+        'src/app/entities/navigation/model/board.store.ts': 'export const useBoardStore = 1\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it('flags a deep import into a nested directory of an entity slice', () => {
+      const cwd = fixture({
+        'src/app/pages/login/index.tsx': `
+import { teamApi } from '@app/entities/navigation/team'
+export function LoginPage() {
+  return <span>{String(teamApi)}</span>
+}
+`,
+        'src/app/entities/navigation/team/index.ts': `
+export const teamApi = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[public-api] src/app/pages/login/index.tsx -> @app/entities/navigation/team'
+        ),
+      ])
+    })
+
+    it('accepts an import of the entity slice barrel', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+import { useBoardStore } from '@app/entities/navigation'
+export const x = useBoardStore
+`,
+        'src/app/entities/navigation/index.ts': `
+export { useBoardStore } from './model/board.store'
+`,
+        'src/app/entities/navigation/model/board.store.ts': `
+export const useBoardStore = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it('leaves deep imports inside the same entity slice alone', () => {
+      const cwd = fixture({
+        'src/app/entities/navigation/model/navigation.store.ts': `
+import { teamApi } from '../team/api/teamApi'
+import { projectApi } from '@app/entities/navigation/project/api/projectApi'
+export const x = [teamApi, projectApi]
+`,
+        'src/app/entities/navigation/team/api/teamApi.ts': `
+export const teamApi = 1
+`,
+        'src/app/entities/navigation/project/api/projectApi.ts': `
+export const projectApi = 1
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+  })
+
   describe('cross-entity (error)', () => {
     it('warns when an entity slice imports a sibling entity slice', () => {
       const cwd = fixture({
@@ -640,6 +940,109 @@ export const useFeedStore = () => null
       ])
     })
 
+    it.each(['api', 'lib'])('flags an unlisted new file in shared/%s', (dir) => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+        [`src/app/shared/${dir}/agentThing.ts`]: 'export const agentThing = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: new Map([['lib/utils.ts', 'generic']]),
+      })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          `[shared-purity] src/app/shared/${dir}/agentThing.ts (unlisted file in shared/${dir} — domain code belongs in entities/<slice>`
+        ),
+      ])
+    })
+
+    it('covers sub-directories, index files and declaration files', () => {
+      const cwd = fixture({
+        'src/app/shared/api/index.ts': 'export {}\n',
+        'src/app/shared/api/legacy/teamApi.ts': 'export const teamApi = 1\n',
+        'src/app/shared/lib/globals.d.ts': 'export {}\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd, sharedInventory: new Map() })
+
+      expect(result.errors).toEqual([
+        expect.stringContaining('[shared-purity] src/app/shared/api/index.ts (unlisted'),
+        expect.stringContaining('[shared-purity] src/app/shared/api/legacy/teamApi.ts (unlisted'),
+        expect.stringContaining('[shared-purity] src/app/shared/lib/globals.d.ts (unlisted'),
+      ])
+    })
+
+    it('accepts listed generic and frozen-domain files', () => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+        'src/app/shared/api/legacy/billingApi.ts': 'export const billingApi = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: new Map([
+          ['lib/utils.ts', 'generic'],
+          ['api/legacy/billingApi.ts', 'frozen-domain'],
+        ]),
+      })
+
+      expect(result.ok).toBe(true)
+      expect(result.errors).toEqual([])
+    })
+
+    it('flags a stale inventory entry whose file does not exist', () => {
+      const cwd = fixture({
+        'src/app/shared/lib/utils.ts': 'export const cn = 1\n',
+      })
+
+      const result = checkFsdBoundaries({
+        cwd,
+        sharedInventory: new Map([
+          ['lib/utils.ts', 'generic'],
+          ['api/removed.ts', 'frozen-domain'],
+        ]),
+      })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[shared-purity] src/app/shared/api/removed.ts (stale inventory entry'
+        ),
+      ])
+    })
+
+    it('pins the frozen-domain list', () => {
+      const frozen = [...sharedFileInventory]
+        .filter(([, kind]) => kind === 'frozen-domain')
+        .map(([file]) => file)
+        .sort()
+      // Entries may only be removed (move the file to entities/<slice>). Adding
+      // one is a review decision that needs a stated reason in the pull request.
+      expect(frozen).toEqual([
+        'api/agent-api-types.ts',
+        'api/auth.ts',
+        'api/legacy.ts',
+        'api/legacy/AgentAPI.ts',
+        'api/legacy/billingApi.ts',
+        'api/legacy/settingsApi.ts',
+        'api/legacy/userApi.ts',
+        'api/orchestration.ts',
+        'api/promptStream.ts',
+        'api/selfFix.ts',
+        'lib/agentCapabilityCopy.ts',
+        'lib/frontendReliability.ts',
+        'lib/gettingStartedPreference.ts',
+        'lib/gettingStartedProgress.ts',
+        'lib/passwordRules.ts',
+        'lib/publicAuth.ts',
+        'lib/taskFailureCopy.ts',
+        'lib/workspaceResourceErrorMessage.ts',
+      ])
+    })
+
     it('leaves non-store shared/model files alone', () => {
       const cwd = fixture({
         'src/app/shared/model/board.types.ts': `
@@ -650,6 +1053,71 @@ export type ColumnId = string
       const result = checkFsdBoundaries({ cwd })
       expect(result.ok).toBe(true)
       expect(result.errors).toEqual([])
+    })
+  })
+
+  describe('import forms the checker cannot resolve (error)', () => {
+    it('flags an alias import that climbs out with ..', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+import { useBoardStore } from '@shared/../src/app/entities/navigation/model/board.store'
+export const x = useBoardStore
+`,
+        'src/app/entities/navigation/model/board.store.ts': 'export const useBoardStore = 1\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          "src/app/features/board/BoardView.tsx imports @shared/../src/app/entities/navigation/model/board.store; an alias import must not contain '..'"
+        ),
+      ])
+    })
+
+    it('flags import.meta.glob', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+export const stores = import.meta.glob('../../entities/navigation/model/*.ts', { eager: true })
+`,
+        'src/app/entities/navigation/model/board.store.ts': 'export const useBoardStore = 1\n',
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining(
+          '[import-glob] src/app/features/board/BoardView.tsx (import.meta.glob bypasses the boundary rules'
+        ),
+      ])
+    })
+
+    it('flags a computed import()', () => {
+      const cwd = fixture({
+        'src/app/features/board/BoardView.tsx': `
+const target = '@app/entities/navigation/model/board.store'
+export const load = () => import(target)
+`,
+      })
+
+      const result = checkFsdBoundaries({ cwd })
+
+      expect(result.ok).toBe(false)
+      expect(result.errors).toEqual([
+        expect.stringContaining('[computed-import] src/app/features/board/BoardView.tsx'),
+      ])
+    })
+  })
+
+  describe('repository', () => {
+    // Parses all of src/app, which takes longer than the 10 s default on a busy runner.
+    it('passes on the real source tree with the real shared inventory', { timeout: 60_000 }, () => {
+      const result = runChecker({ cwd: path.resolve(__dirname, '../../..') })
+
+      expect(result.errors).toEqual([])
+      expect(result.ok).toBe(true)
     })
   })
 

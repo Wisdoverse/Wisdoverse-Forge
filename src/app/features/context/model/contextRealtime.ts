@@ -1,5 +1,5 @@
 import type { TaskContextCounts } from '@app/shared/api/orchestration'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useBoardStore } from '@app/entities/navigation'
 import { useContextStore } from './context.store'
 
 export type ContextRealtimeEventType =

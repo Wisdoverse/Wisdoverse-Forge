@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useNavigationStore } from '@app/entities/navigation'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
-import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
+import {
+  useNavigationStore,
+  useBoardStore,
+  waitingPlaceDisplayName,
+} from '@app/entities/navigation'
 import { MaintenanceError, submitMaintenanceRequest } from '@app/entities/maintenance'
 import type { MaintenanceRequestInput, MaintenanceSubmission } from '@shared/types/maintenance'
 import { useAuth } from '@app/shared/model/auth.context'

@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useContextFeaturesStore } from '@app/entities/context'
 import { useSettingsStore } from '@app/entities/settings'
 import { shouldShowGettingStarted } from '@app/shared/lib/gettingStartedPreference'
 

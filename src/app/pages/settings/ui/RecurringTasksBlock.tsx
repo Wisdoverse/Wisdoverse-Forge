@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CalendarClock, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useNavigationStore } from '@app/entities/navigation'
-import { agentGroupApi, type NavAgentGroup } from '@app/entities/navigation/agent-group'
+import { useNavigationStore, agentGroupApi, type NavAgentGroup } from '@app/entities/navigation'
 import {
   orchestrationApi,
   type CreateRecurringTaskInput,

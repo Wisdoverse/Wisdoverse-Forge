@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 // FSD-5: AST-grade Feature-Sliced Design boundary checker.
 //
-// Import extraction runs es-module-lexer over `ts.transpileModule` output:
-// es-module-lexer lexes JS modules only (JSX/TS syntax is a parse error by
-// design), so each file is first normalized with TypeScript using
-// `verbatimModuleSyntax`, which keeps every import/re-export statement —
-// including type-only ones after the `import type` → `import` prefix rewrite —
-// visible to the lexer. Static imports, re-exports, and dynamic `import()`
-// calls with static string literals are all checked.
+// Imports are read from each file's TypeScript source AST
+// (`ts.createSourceFile`): static imports and re-exports (type-only ones
+// included), `import x = require()`, dynamic `import()` calls, and
+// `import('x').T` type references are all checked. Comments and strings never
+// count as imports.
 //
 // Rule set (ALL rules are errors — the FSD-strict gate closed with FSD-2):
 //     downward-layering    imports may only point down the layer order
@@ -15,22 +13,26 @@
 //                          (feature ↛ feature cross-slice included)
 //     unknown-dir          F074: unrecognized src/app paths are rejected as
 //                          files and may be imported by nothing
-//     public-api           an import crossing INTO a features/widgets/pages
-//                          slice must target the slice root barrel, not a
-//                          deep file
+//     public-api           an import crossing INTO an entities/features/
+//                          widgets/pages slice must target the slice root
+//                          barrel, not a deep file
 //     cross-entity         an entity slice must not import another entity slice
 //     same-layer-isolation widget ↛ widget, page ↛ page sibling-slice imports
 //     shared-purity        domain stores must not live under
-//                          shared/model/*.store.ts
-//     (plus the existing alias/unresolved/route-page-entrypoint errors)
+//                          shared/model/*.store.ts, and every file under
+//                          shared/api or shared/lib must be listed in
+//                          sharedFileInventory as generic or frozen-domain
+//     own-barrel           a file inside a slice must not import that
+//                          slice's own root barrel
+//     computed-import      import() must take a string literal
+//     import-glob          import.meta.glob / globEager are not allowed
+//     (plus the existing alias/unresolved/route-page-entrypoint errors; an
+//     alias import containing a '..' segment is an alias error)
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { init, parse } from 'es-module-lexer/minimal'
 import ts from 'typescript'
-
-await init()
 
 const extensions = ['.tsx', '.ts', '.jsx', '.js']
 // F074: `unknown` (an unrecognised src/app dir) is deliberately NOT in this rank
@@ -51,13 +53,57 @@ const appLayerDirs = new Set(['routes', 'layouts', 'providers', 'hooks', 'i18n',
 
 // Layers whose slices expose a public API through their root barrel.
 const sliceOwningLayers = new Set(['entities', 'features', 'widgets', 'pages'])
-const slicedLayers = new Set(['features', 'widgets', 'pages'])
 
 // shared-purity: genuinely generic infra stores (theme/toast-style UI state)
 // may stay under shared/model. FSD-2 relocated all 10 domain stores to their
 // owning feature/entities slices, so the allowlist is empty. Add a file name
 // here only when the store carries no domain state.
 const genericSharedStores = new Set([])
+
+// shared-purity inventory: every source file under shared/api and shared/lib
+// (paths relative to src/app/shared, sub-directories included). Classify by
+// what the code does, not by its name:
+//   generic        names no product concept (agent, task, workspace,
+//                  organization, billing, self-fix, onboarding, ...) and would
+//                  work unchanged in another product. A new generic file is
+//                  added here with a one-line reason.
+//   frozen-domain  legacy domain code that predates this inventory. A mixed
+//                  file is frozen-domain until it is split; when in doubt,
+//                  frozen-domain. These entries may only be removed: move the
+//                  file to its owning entities slice when it next changes.
+// New domain code belongs in entities/<slice>.
+export const sharedFileInventory = new Map([
+  ['api/agent-api-types.ts', 'frozen-domain'], // agent types: SSH keys, git credentials, profiles
+  ['api/auth.ts', 'frozen-domain'], // sign-in provider endpoint client
+  ['api/authFetch.ts', 'generic'], // auth-aware fetch: token header, 401 refresh and retry
+  ['api/client.ts', 'generic'], // JSON fetch wrapper over authFetch
+  ['api/index.ts', 'generic'], // barrel for the JSON fetch wrapper
+  ['api/legacy.ts', 'frozen-domain'], // agent, settings, billing and user API singletons
+  ['api/legacy/AgentAPI.ts', 'frozen-domain'], // agent API client
+  ['api/legacy/authFetch.ts', 'generic'], // fetch wrapper: 401 refresh, retry, offline queue
+  ['api/legacy/billingApi.ts', 'frozen-domain'], // billing API client
+  ['api/legacy/settingsApi.ts', 'frozen-domain'], // settings API client
+  ['api/legacy/userApi.ts', 'frozen-domain'], // user API client
+  ['api/orchestration.ts', 'frozen-domain'], // task orchestration API client and types
+  ['api/promptStream.ts', 'frozen-domain'], // agent prompt stream and chat error copy
+  ['api/selfFix.ts', 'frozen-domain'], // self-fix repository setup client
+  ['lib/agentCapabilityCopy.ts', 'frozen-domain'], // agent capability copy
+  ['lib/chunkError.ts', 'generic'], // reload once after a failed lazy chunk load
+  ['lib/frontendReliability.ts', 'frozen-domain'], // organization-bound session telemetry
+  ['lib/gettingStartedPreference.ts', 'frozen-domain'], // onboarding preference
+  ['lib/gettingStartedProgress.ts', 'frozen-domain'], // onboarding progress from tasks
+  ['lib/guidePreference.ts', 'generic'], // dismissed-guide check by key
+  ['lib/passwordRules.ts', 'frozen-domain'], // product password policy and copy
+  ['lib/publicAuth.ts', 'frozen-domain'], // password-reset and invite link parsing
+  ['lib/slugify.ts', 'generic'], // string to URL slug
+  ['lib/taskFailureCopy.ts', 'frozen-domain'], // task failure copy
+  ['lib/time.ts', 'generic'], // relative time formatting
+  ['lib/uiStyles.ts', 'generic'], // UI kit class names
+  ['lib/utils.ts', 'generic'], // Tailwind class name merge
+  ['lib/versionCheck.ts', 'generic'], // semantic version comparison
+  ['lib/workspaceResourceErrorMessage.ts', 'frozen-domain'], // team and project error copy
+])
+const inventoriedSharedDirs = ['api', 'lib']
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return []
@@ -105,6 +151,10 @@ function classify(appRoot, filePath) {
 }
 
 function resolveSpecifier(appRoot, sourceFile, specifier) {
+  // `@shared/../src/app/...` would otherwise pass as an unchecked package path.
+  if (/^@(app|shared)?\//.test(specifier) && specifier.split('/').includes('..')) {
+    return { kind: 'alias-traversal' }
+  }
   if (specifier.startsWith('@shared/')) return { kind: 'external-shared' }
   if (specifier.startsWith('@/')) return { kind: 'forbidden-alias' }
   if (specifier.startsWith('@app/')) {
@@ -122,65 +172,109 @@ function resolveSpecifier(appRoot, sourceFile, specifier) {
   return { kind: 'package' }
 }
 
-// --- import extraction (es-module-lexer over TypeScript-normalized source) ---
+// --- import extraction (TypeScript source AST) ---
 
-const typeImportPrefix = /^(\s*)import\s+type(?=[\s{*])/gm
-const typeReExportPrefix = /^(\s*)export\s+type(?=\s*[{*])/gm
-// Named-specifier brace group of an import/export statement. The `[^'"()=]`
-// head guard keeps this off object/function bodies (`export const x = {`,
-// `export function f() {`), which always contain `=` or `(` first.
-const importExportClauseBraces = /(^|\n)(\s*(?:import|export)\s[^'"()=]*?\{)([^}]*)(\})/g
-// String-literal import() call/type reference, matched against the RAW source.
-const dynamicImportLiteral = /\bimport\s*\(\s*(['"])([^'"]+)\1\s*\)/g
+const scriptKinds = {
+  '.ts': ts.ScriptKind.TS,
+  '.tsx': ts.ScriptKind.TSX,
+  '.js': ts.ScriptKind.JS,
+  '.jsx': ts.ScriptKind.JSX,
+}
 
+// Names an import/export clause pulls from its module (original names, type
+// specifiers included); `*` stands for a namespace import or star re-export.
+function clauseNames(node) {
+  if (ts.isImportDeclaration(node) || ts.isJSDocImportTag(node)) {
+    const clause = node.importClause
+    if (!clause) return []
+    const names = clause.name ? [clause.name.text] : []
+    const bindings = clause.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) names.push('*')
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        names.push((element.propertyName ?? element.name).text)
+      }
+    }
+    return names
+  }
+  const clause = node.exportClause
+  if (!clause || ts.isNamespaceExport(clause)) return ['*']
+  return clause.elements.map((element) => (element.propertyName ?? element.name).text)
+}
+
+function isStaticString(node) {
+  return (
+    node !== undefined && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+  )
+}
+
+// Every module reference in the file, read from the source AST so type-only
+// forms survive and comments or strings never count: import/export
+// declarations, `import x = require()`, `import()` calls, `import('x').T` type
+// references (JSDoc type expressions and `@import` tags included),
+// `/// <reference path>` and relative `/// <reference types>` directives, and
+// `import.meta.glob` (which the caller rejects). `specifier` is null for an
+// `import()` whose argument is not a static string.
 function extractImports(sourceFile) {
   const raw = fs.readFileSync(sourceFile, 'utf8')
-  // Rewrite `import type` / `export type ... from` statements AND inline
-  // `type X` specifiers to their value form so `verbatimModuleSyntax` keeps
-  // them: boundary rules (including the route page-entrypoint name gate)
-  // apply to type-only imports too, and transpilation would otherwise drop
-  // inline type specifiers before the statement is sliced (codex P2).
-  const normalized = raw
-    .replace(typeImportPrefix, '$1import')
-    .replace(typeReExportPrefix, '$1export')
-    .replace(
-      importExportClauseBraces,
-      (_match, lead, head, names, close) =>
-        `${lead}${head}${names.replace(/\btype\s+/g, '')}${close}`
-    )
-  const { outputText } = ts.transpileModule(normalized, {
-    // transpileModule refuses to emit declaration files ("Debug Failure").
-    // The content of a .d.ts is valid in a plain .ts module (ambient
-    // `declare` blocks erase cleanly), so emit it under a .ts name instead of
-    // hard-erroring the file (codex round-2 P2).
-    fileName: sourceFile.replace(/\.d\.ts$/, '.ts'),
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ESNext,
-      jsx: ts.JsxEmit.React,
-      verbatimModuleSyntax: true,
-    },
-  })
-  const [imports] = parse(outputText, sourceFile)
-  const entries = imports
-    .filter((entry) => entry.n !== undefined && entry.d !== -2) // -2 = import.meta
-    .map((entry) => ({
-      specifier: entry.n,
-      // Full statement text for static imports/re-exports; dynamic import()
-      // records carry no clause.
-      statement: entry.d === -1 ? outputText.slice(entry.ss, entry.se) : null,
-    }))
-  // Type-position import() references (`type T = import('@app/x').Y`) are
-  // erased by the transpile before the lexer sees them; recover any
-  // string-literal import() specifier from the raw source that the lexer
-  // did not already report (codex round-2 P2).
-  const seen = new Set(entries.map((entry) => entry.specifier))
-  for (const match of raw.matchAll(dynamicImportLiteral)) {
-    if (!seen.has(match[2])) {
-      seen.add(match[2])
-      entries.push({ specifier: match[2], statement: null })
+  const kind = scriptKinds[path.extname(sourceFile)] ?? ts.ScriptKind.TS
+  const ast = ts.createSourceFile(sourceFile, raw, ts.ScriptTarget.Latest, false, kind)
+  const entries = []
+  const relativeTo = (fileName) => {
+    const dir = path.dirname(sourceFile)
+    const rel = toPosix(dir, path.resolve(dir, fileName))
+    return rel.startsWith('.') ? rel : `./${rel}`
+  }
+  for (const reference of ast.referencedFiles) {
+    entries.push({ specifier: relativeTo(reference.fileName), names: null })
+  }
+  // A bare `types` name is a package (`vite/client`); only a relative one can
+  // point into src/app. `reference lib` always names a built-in lib.
+  for (const reference of ast.typeReferenceDirectives) {
+    if (reference.fileName.startsWith('.')) {
+      entries.push({ specifier: relativeTo(reference.fileName), names: null })
     }
   }
+  const visit = (node) => {
+    // forEachChild skips attached JSDoc, which can hold import-type nodes.
+    for (const doc of node.jsDoc ?? []) visit(doc)
+    if (
+      (ts.isImportDeclaration(node) || ts.isJSDocImportTag(node)) &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      entries.push({ specifier: node.moduleSpecifier.text, names: clauseNames(node) })
+    } else if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      entries.push({ specifier: node.moduleSpecifier.text, names: clauseNames(node) })
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      entries.push({ specifier: node.moduleReference.expression.text, names: null })
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const [argument] = node.arguments
+      entries.push({ specifier: isStaticString(argument) ? argument.text : null, names: null })
+    } else if (
+      ts.isImportTypeNode(node) &&
+      ts.isLiteralTypeNode(node.argument) &&
+      ts.isStringLiteral(node.argument.literal)
+    ) {
+      entries.push({ specifier: node.argument.literal.text, names: null })
+    } else if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isMetaProperty(node.expression) &&
+      node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
+      (node.name.text === 'glob' || node.name.text === 'globEager')
+    ) {
+      entries.push({ specifier: null, names: null, glob: node.name.text })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(ast)
   return entries
 }
 
@@ -196,38 +290,16 @@ function isRouteEntrypointBypass(source, target) {
   return target.layer === 'features' || target.layer === 'widgets'
 }
 
-function collectNamedImports(importClause) {
-  const namedMatch = importClause.match(/\{([^}]+)\}/)
-  if (!namedMatch) {
-    const defaultImport = importClause.split(',')[0]?.trim()
-    return defaultImport ? [defaultImport] : []
-  }
-
-  return namedMatch[1]
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) =>
-      part
-        .replace(/^type\s+/, '')
-        .split(/\s+as\s+/i)[0]
-        ?.trim()
-    )
-    .filter(Boolean)
-}
-
-function nonPageEntrypointNames(statement) {
-  const clauseMatch = statement.match(/^(?:import|export)\s+([\s\S]*?)\s+from\s+['"]/)
-  if (!clauseMatch) return []
-  return collectNamedImports(clauseMatch[1]).filter((name) => !name.endsWith('Page'))
-}
-
 function isSliceBarrel(appRoot, file) {
   const parts = path.relative(appRoot, file).split(path.sep)
   return parts.length === 3 && extensions.some((ext) => parts[2] === `index${ext}`)
 }
 
-export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
+export function checkFsdBoundaries({
+  cwd = process.cwd(),
+  // Injectable for tests; the repository always uses the inventory above.
+  sharedInventory = sharedFileInventory,
+} = {}) {
   const root = cwd
   const appRoot = path.join(root, 'src/app')
   const errors = []
@@ -258,10 +330,35 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
       continue
     }
 
-    for (const { specifier, statement } of imports) {
+    for (const { specifier, names, glob } of imports) {
+      if (glob) {
+        addRuleError(
+          relFile,
+          'import-glob',
+          null,
+          `import.meta.${glob} bypasses the boundary rules; import each module explicitly, through the slice barrel when it crosses into a slice`
+        )
+        continue
+      }
+
+      if (specifier === null) {
+        addRuleError(
+          relFile,
+          'computed-import',
+          null,
+          'import() needs a string literal so the boundary rules can check it'
+        )
+        continue
+      }
+
       const resolved = resolveSpecifier(appRoot, sourceFile, specifier)
 
       if (resolved.kind === 'package' || resolved.kind === 'external-shared') continue
+
+      if (resolved.kind === 'alias-traversal') {
+        addError(relFile, `${relFile} imports ${specifier}; an alias import must not contain '..'`)
+        continue
+      }
 
       if (resolved.kind === 'forbidden-alias') {
         addError(relFile, `${relFile} imports ${specifier}; use @app/* or @shared/* inside src/app`)
@@ -293,9 +390,9 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
           source.layer === 'app' &&
           source.slice === 'routes' &&
           target.layer === 'pages' &&
-          statement
+          names
         ) {
-          const badNames = nonPageEntrypointNames(statement)
+          const badNames = names.filter((name) => !name.endsWith('Page'))
           if (badNames.length > 0) {
             for (const name of badNames) {
               addError(
@@ -365,10 +462,27 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         continue
       }
 
-      // public-api (ERROR): imports crossing into a features/widgets/pages
-      // slice must target the slice root barrel, not a deep file.
+      // own-barrel (ERROR): a slice imports its own files directly; going
+      // through its own barrel invites import cycles.
       if (
-        slicedLayers.has(target.layer) &&
+        sliceOwningLayers.has(source.layer) &&
+        target.layer === source.layer &&
+        target.slice === source.slice &&
+        isSliceBarrel(appRoot, resolved.file)
+      ) {
+        addRuleError(
+          relFile,
+          'own-barrel',
+          specifier,
+          `${source.layer}/${source.slice} imports its own barrel; import the file directly`
+        )
+        continue
+      }
+
+      // public-api (ERROR): imports crossing into an entities/features/widgets/
+      // pages slice must target the slice root barrel, not a deep file.
+      if (
+        sliceOwningLayers.has(target.layer) &&
         (source.layer !== target.layer || source.slice !== target.slice) &&
         !isSliceBarrel(appRoot, resolved.file)
       ) {
@@ -394,6 +508,31 @@ export function checkFsdBoundaries({ cwd = process.cwd() } = {}) {
         'shared-purity',
         null,
         'domain store in shared — move it to its owning feature or entities slice'
+      )
+    }
+  }
+
+  // shared-purity inventory (ERROR): shared/api and shared/lib accept only
+  // listed files, and every listed file must exist.
+  const sharedDir = path.join(appRoot, 'shared')
+  for (const entry of [...sharedInventory.keys()].sort()) {
+    if (!fs.existsSync(path.join(sharedDir, entry))) {
+      addRuleError(
+        `src/app/shared/${entry}`,
+        'shared-purity',
+        null,
+        'stale inventory entry: the file does not exist; remove it from sharedFileInventory'
+      )
+    }
+  }
+  for (const dir of inventoriedSharedDirs) {
+    for (const file of walk(path.join(sharedDir, dir)).sort()) {
+      if (sharedInventory.has(toPosix(sharedDir, file))) continue
+      addRuleError(
+        toPosix(root, file),
+        'shared-purity',
+        null,
+        `unlisted file in shared/${dir} — domain code belongs in entities/<slice>; if the file is generic infrastructure, add it to sharedFileInventory in scripts/check-fsd-boundaries.mjs as 'generic' with a one-line reason`
       )
     }
   }

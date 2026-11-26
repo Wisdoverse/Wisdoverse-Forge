@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useContextFeaturesStore } from '@app/entities/context'
+import { useBoardStore } from '@app/entities/navigation'
 import {
   orchestrationApi,
   type ParticipantSummary,

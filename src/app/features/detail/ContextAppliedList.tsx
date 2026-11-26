@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Brain, Workflow } from 'lucide-react'
-import { FeedbackControls } from '@app/entities/context/ui/FeedbackControls'
+import { FeedbackControls } from '@app/entities/context'
 import { formatRelativeTime } from '@app/shared/lib/time'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
