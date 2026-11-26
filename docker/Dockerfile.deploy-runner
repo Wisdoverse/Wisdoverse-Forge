@@ -1,0 +1,68 @@
+# =============================================================================
+# Wisdoverse Forge deploy runner (issue #1319)
+# =============================================================================
+#
+# Throwaway image that runs scripts/deploy-release.mjs: Node.js, the Docker CLI
+# with the Compose and Buildx plugins, and util-linux (flock). It contains no
+# repository files and no secrets; the release, private, web and lock
+# directories are mounted at run time (see docs/runbooks/boe-deploy.md).
+# PostgreSQL commands run in a separate postgres client container on the
+# deployment's external network, so no database client is installed here.
+#
+# Build with an empty context (nothing from the checkout is sent):
+#   docker build -t forge-deploy-runner:<commit> - < docker/Dockerfile.deploy-runner
+#
+# Supply chain: base image pinned by tag and digest; every downloaded binary is
+# verified against a pinned sha256 before installation. Update both together.
+# =============================================================================
+
+ARG NODE_IMAGE=node:24.22.2-trixie-slim@sha256:0820eaa85e07d0490446dd01d14707e17e6108a36988cf374899cd057eb3812d
+
+FROM ${NODE_IMAGE} AS fetch
+ARG DOCKER_CLI_VERSION=29.8.2
+ARG COMPOSE_VERSION=5.1.3
+ARG BUILDX_VERSION=0.38.2
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) A=x86_64; B=amd64; \
+        DOCKER_SHA256=995d1ef289677f74fd58d8d2c35727b6a4ee389c69db8638a3e42d0487aa5b0f; \
+        COMPOSE_SHA256=a0298760c9772d2c06888fc8703a487c94c3c3b0134adeef830742a2fc7647b4; \
+        BUILDX_SHA256=7992ec09413b80ff57ba4e081f56fc833d7bac1d5e71143c6c809e7e6065f6d6 ;; \
+      arm64) A=aarch64; B=arm64; \
+        DOCKER_SHA256=76a624e4a8e5da654d1150e808175125efb5a6f1b6aa1cbd9caee18f51047a50; \
+        COMPOSE_SHA256=e8105a3e687ea7e0b0f81abe4bf9269c8a2801fb72c2b498b5ff2472bc54145f; \
+        BUILDX_SHA256=46c0f334772de3cb0b341cc415caf7339fb5cfc8b8438ebcb5a10e7f23800d36 ;; \
+      *) echo "unsupported architecture" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /out; \
+    curl -fsSL "https://download.docker.com/linux/static/stable/${A}/docker-${DOCKER_CLI_VERSION}.tgz" -o /tmp/docker.tgz; \
+    echo "${DOCKER_SHA256}  /tmp/docker.tgz" | sha256sum -c -; \
+    tar -xzf /tmp/docker.tgz --strip-components=1 -C /out docker/docker; \
+    curl -fsSL "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-${A}" -o /out/docker-compose; \
+    echo "${COMPOSE_SHA256}  /out/docker-compose" | sha256sum -c -; \
+    curl -fsSL "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${B}" -o /out/docker-buildx; \
+    echo "${BUILDX_SHA256}  /out/docker-buildx" | sha256sum -c -; \
+    chmod 0755 /out/docker /out/docker-compose /out/docker-buildx
+
+FROM ${NODE_IMAGE}
+LABEL org.opencontainers.image.title="Wisdoverse Forge deploy runner" \
+      org.opencontainers.image.source="https://github.com/Wisdoverse/Wisdoverse-Forge" \
+      org.opencontainers.image.licenses="LicenseRef-Wisdoverse-Forge-BSL-1.1"
+# dist-upgrade keeps the slim base's Debian packages current between Node releases.
+# ca-certificates: the Go-based docker CLI and buildx fetch registry tokens with the system trust
+# store, which the slim base lacks (Node bundles its own, so only builds fail without it).
+RUN apt-get update \
+    && apt-get -y dist-upgrade \
+    && apt-get install -y --no-install-recommends util-linux ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+COPY --from=fetch /out/docker /usr/local/bin/docker
+COPY --from=fetch /out/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+COPY --from=fetch /out/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
+ENV NODE_ENV=production \
+    NO_UPDATE_NOTIFIER=1
+# Root is required: the runner drives the host Docker socket and writes the web root as its owner.
+CMD ["node", "--version"]

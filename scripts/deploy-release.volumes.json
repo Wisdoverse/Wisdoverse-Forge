@@ -1,0 +1,13 @@
+{
+  "$comment": "Every named volume the deployed Compose files mount (profile external) must be classified here (runbook: Named volumes). snapshot: archived while stopped on every deploy and restored on rollback. excluded: not archived; give a one-line reason.",
+  "$imageVolumesComment": "Anonymous volumes from an image VOLUME declaration, by Compose service and container path, each excluded with a reason. None of the deployed images (server, orchestrator, nats, temporalio/auto-setup) declares a VOLUME today.",
+  "imageVolumes": {},
+  "volumes": {
+    "nats-data": { "class": "snapshot" },
+    "agentforge-uploads": { "class": "snapshot" },
+    "agentforge-compliance": {
+      "class": "excluded",
+      "reason": "scheduled compliance CSV exports and their .last_run marker, regenerated from the database; a rollback restores the database, not old export files"
+    }
+  }
+}
