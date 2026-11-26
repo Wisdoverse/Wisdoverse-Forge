@@ -70,9 +70,24 @@ export const RUNBOOK_NON_METRIC_TOKENS = new Set([
 // call in production code fails the check instead of silently changing these.
 export const DEFAULT_QUANTILES = [0, 0.5, 0.9, 0.95, 0.99, 0.999, 1]
 
-// Label keys the code never emits — using one as a selector/grouping silently
-// matches zero series. The HTTP metrics use {method, path, status, le}.
-const FORBIDDEN_LABEL = /\b(code|route)\b\s*(=~?|[,)}])/
+// Label keys the code never emits — matching on one in a selector silently
+// matches zero series. The HTTP metrics use {method, path, status, le}. Only
+// `{...}` matchers are checked: by/without/on/ignoring/group_* may name a label
+// a series lacks.
+const FORBIDDEN_LABELS = new Set(['code', 'route'])
+
+// Label keys used in the `{...}` matchers of a PromQL expression.
+export function selectorLabelKeys(expr) {
+  const keys = []
+  const unquoted = expr.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`/g, (q) =>
+    ' '.repeat(q.length)
+  )
+  for (const block of unquoted.matchAll(/\{([^{}]*)\}/g)) {
+    for (const key of block[1].matchAll(/(?:^|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=~|!~|!=|=)/g))
+      keys.push(key[1])
+  }
+  return keys
+}
 
 const SHELL_FENCE = /^(bash|sh|shell|console|zsh|powershell|ps1|text)$/
 const SNAKE_CASE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/
@@ -235,19 +250,28 @@ export function scanRustSource({ code, skeleton }, rel = 'source.rs') {
   const problems = []
   // Match call heads on the skeleton (so text inside string literals is never a
   // call), then read the name literal from `code` at the same offset.
+  // Names may be plain ("x") or raw (r"x", r#"x"#) string literals.
   const literalAt = (index) => {
-    const literal = /"([a-zA-Z_:][a-zA-Z0-9_:]*)"/y
+    const literal = /(?:r(#*))?"([a-zA-Z_:][a-zA-Z0-9_:]*)"\1(?![#])/y
     literal.lastIndex = index
-    return literal.exec(code)?.[1]
+    return literal.exec(code)?.[2]
   }
-  for (const m of skeleton.matchAll(/\b(counter|gauge|histogram)!\s*\(\s*"/g)) {
-    const name = literalAt(m.index + m[0].length - 1)
+  const LITERAL_START = '(?=r#*"|")'
+  for (const m of skeleton.matchAll(
+    new RegExp(`\\b(counter|gauge|histogram)!\\s*\\(\\s*${LITERAL_START}`, 'g')
+  )) {
+    const name = literalAt(m.index + m[0].length)
     if (!name) continue
     if (!types.has(name)) types.set(name, new Set())
     types.get(name).add(m[1])
   }
-  for (const m of skeleton.matchAll(/\bset_buckets_for_metric\s*\(\s*(Matcher::Full\s*\(\s*")?/g)) {
-    const name = m[1] && literalAt(m.index + m[0].length - 1)
+  for (const m of skeleton.matchAll(
+    new RegExp(
+      `\\bset_buckets_for_metric\\s*\\(\\s*(Matcher::Full\\s*\\(\\s*${LITERAL_START})?`,
+      'g'
+    )
+  )) {
+    const name = m[1] !== undefined && literalAt(m.index + m[0].length)
     if (name) bucketed.add(name)
     else
       problems.push(
@@ -465,7 +489,7 @@ export function opsViolations(rel, exprs, catalog, defined = new Set()) {
       const problem = seriesProblem(name, catalog, { selector, defined })
       if (problem) out.push(`  ${where}: ${problem}`)
     }
-    if (FORBIDDEN_LABEL.test(text)) {
+    if (selectorLabelKeys(text).some((key) => FORBIDDEN_LABELS.has(key))) {
       out.push(
         `  ${where}: '${text.trim()}' uses a never-emitted label key (code/route); the HTTP metrics use status/path`
       )

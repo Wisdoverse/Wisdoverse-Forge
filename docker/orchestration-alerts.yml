@@ -68,9 +68,10 @@ groups:
           runbook: docs/runbooks/orchestration.md#participant-task-divergence
 
       - alert: OrchestrationResultApplyLag
-        # No buckets are configured for this histogram, so the exporter publishes a
-        # summary: p95 is the `quantile="0.95"` series over the exporter's ~60s window.
-        expr: max(agentforge_orchestration_result_apply_seconds{quantile="0.95"}) > 10
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(agentforge_orchestration_result_apply_seconds_bucket[5m])) by (le)
+          ) > 10
         for: 10m
         labels:
           severity: critical

@@ -34,6 +34,14 @@ use tokio::signal;
 use tokio::sync::{RwLock, watch};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
+/// Histogram buckets (seconds) for the orchestration assignment publish and
+/// result apply latencies. They bracket the `OrchestrationResultApplyLag`
+/// 10 s threshold and the release-gate dashboard ranges; without explicit
+/// buckets the exporter renders these metrics as summaries with no `_bucket`
+/// series, so the shipped `histogram_quantile()` queries return nothing.
+const ORCHESTRATION_LATENCY_BUCKETS: [f64; 13] =
+    [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RunMode {
     Serve,
@@ -133,6 +141,16 @@ async fn main() -> Result<()> {
                 &agentforge_api::observability::http_metrics::HTTP_DURATION_BUCKETS,
             )
             .map_err(|err| anyhow!("configure http_request_duration_seconds buckets: {err}"))?
+            .set_buckets_for_metric(
+                Matcher::Full("agentforge_orchestration_assignment_publish_seconds".to_owned()),
+                &ORCHESTRATION_LATENCY_BUCKETS,
+            )
+            .map_err(|err| anyhow!("configure agentforge_orchestration_assignment_publish_seconds buckets: {err}"))?
+            .set_buckets_for_metric(
+                Matcher::Full("agentforge_orchestration_result_apply_seconds".to_owned()),
+                &ORCHESTRATION_LATENCY_BUCKETS,
+            )
+            .map_err(|err| anyhow!("configure agentforge_orchestration_result_apply_seconds buckets: {err}"))?
             .install_recorder()
             .map_err(|err| anyhow!("install prometheus recorder: {err}"))?,
     );

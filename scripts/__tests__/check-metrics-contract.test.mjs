@@ -166,6 +166,15 @@ test('json: datasource variables are skipped and label_values keeps only its sel
   assert.match(violations[0], /d\.json:1: missing_total is never recorded/)
 })
 
+test('labels: only selector matchers are checked, grouping lists may name any label', () => {
+  const check = (text) => opsViolations('r.yml', [{ line: 1, text }], catalog)
+  assert.deepEqual(check('http_requests_total / ignoring(code) http_requests_total'), [])
+  assert.deepEqual(check('sum by (route) (http_requests_total)'), [])
+  assert.deepEqual(check('http_requests_total{path="code=1"}'), [])
+  assert.equal(check('http_requests_total{code=~"5.."}').length, 1)
+  assert.equal(check('http_requests_total{method="GET", route="/x"}').length, 1)
+})
+
 // --- Rust emitters ------------------------------------------------------------
 
 test('emitters: only recording macros in production code count', () => {
@@ -177,6 +186,8 @@ test('emitters: only recording macros in production code count', () => {
     '    let url = "http://example.invalid/{"; let brace = \'{\';',
     '    let raw = r#"counter!("raw_string_total") }"#;',
     '    metrics::counter!("real_total").increment(1);',
+    '    metrics::counter!(r#"raw_name_total"#, "k" => "v").increment(1);',
+    '    metrics::gauge!(r"raw_plain_gauge").set(1.0);',
     '    metrics::gauge!(',
     '        "real_gauge"',
     '    ).set(1.0);',
@@ -189,15 +200,22 @@ test('emitters: only recording macros in production code count', () => {
     'async fn t() { metrics::histogram!("test_fn_seconds").record(1.0); }',
     'fn after() { metrics::histogram!("after_seconds").record(1.0); }',
   ].join('\n')
-  assert.deepEqual(recorded(src), ['real_total', 'real_gauge', 'after_seconds'])
+  assert.deepEqual(recorded(src), [
+    'real_total',
+    'raw_name_total',
+    'raw_plain_gauge',
+    'real_gauge',
+    'after_seconds',
+  ])
 })
 
 test('emitters: bucket configuration is read; unsupported configuration fails', () => {
   const scan = (src, rel) => scanRustSource(rustViews(src), rel)
   const ok = scan(
-    'PrometheusBuilder::new().set_buckets_for_metric(Matcher::Full("a_seconds".to_owned()), &B)?'
+    'PrometheusBuilder::new().set_buckets_for_metric(Matcher::Full("a_seconds".to_owned()), &B)?' +
+      '.set_buckets_for_metric(Matcher::Full(r#"b_seconds"#.to_owned()), &B)?'
   )
-  assert.deepEqual([...ok.bucketed], ['a_seconds'])
+  assert.deepEqual([...ok.bucketed], ['a_seconds', 'b_seconds'])
   assert.deepEqual(ok.problems, [])
   const bad = scan(
     'b.set_buckets_for_metric(Matcher::Prefix("a".into()), &B)?\n.set_buckets(&B)?\n.set_quantiles(&Q)?',

@@ -103,7 +103,7 @@
       },
       "targets": [
         {
-          "expr": "max(agentforge_orchestration_assignment_publish_seconds{quantile=\"0.95\"})",
+          "expr": "histogram_quantile(0.95, sum(rate(agentforge_orchestration_assignment_publish_seconds_bucket[$__rate_interval])) by (le))",
           "legendFormat": "assignment publish p95",
           "refId": "A"
         }
@@ -195,8 +195,8 @@
       },
       "targets": [
         {
-          "expr": "max by (outcome) (agentforge_orchestration_result_apply_seconds{quantile=\"0.95\"})",
-          "legendFormat": "result apply p95 ({{outcome}})",
+          "expr": "histogram_quantile(0.95, sum(rate(agentforge_orchestration_result_apply_seconds_bucket[$__rate_interval])) by (le))",
+          "legendFormat": "result apply p95",
           "refId": "A"
         }
       ],

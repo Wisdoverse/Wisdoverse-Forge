@@ -358,12 +358,14 @@ alerts on them:
 - `agentforge_orchestration_outbox_published_total`: assignment outbox rows published to NATS JetStream and acknowledged.
 - `agentforge_orchestration_assignment_publish_seconds`: time to publish one assignment and receive the acknowledgement.
 
-The second one is recorded as a histogram without configured buckets, so the
-exporter publishes it as a summary: one series per quantile (for example
-`agentforge_orchestration_assignment_publish_seconds{quantile="0.95"}`, over
-roughly the last minute) plus `_sum` and `_count`. It has no `_bucket` series,
-so `histogram_quantile()` does not work on it. Only
-`http_request_duration_seconds` has buckets.
+The API server exports `agentforge_orchestration_assignment_publish_seconds`
+and `agentforge_orchestration_result_apply_seconds` as histograms with buckets
+from 5 ms to 60 s (`_bucket`, `_sum`, `_count`), so `histogram_quantile()`
+works on them. Before this change they were summaries with `quantile` series
+and no `_bucket` series, so the release-gate latency panels and
+`OrchestrationResultApplyLag` returned nothing. A histogram recorded without
+configured buckets is exported as a summary; `npm run metrics:contract` fails
+when a rule or panel asks for `_bucket` series of such a metric.
 
 ## Logs
 

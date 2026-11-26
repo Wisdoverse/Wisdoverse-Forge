@@ -141,7 +141,7 @@ expected_metric() {
     OrchestrationStaleParticipants) printf 'agentforge_orchestration_stale_participants' ;;
     OrchestrationBusyParticipantWithoutWork) printf 'agentforge_orchestration_busy_participants_without_work' ;;
     OrchestrationWorkingTaskWithoutBusyParticipant) printf 'agentforge_orchestration_working_tasks_without_busy_participant' ;;
-    OrchestrationResultApplyLag) printf 'agentforge_orchestration_result_apply_seconds{quantile="0.95"}' ;;
+    OrchestrationResultApplyLag) printf 'agentforge_orchestration_result_apply_seconds_bucket' ;;
     OrchestrationResultUnauthorizedSpike) printf 'agentforge_orchestration_result_unauthorized_total' ;;
     OrchestrationOutboxPublishErrors) printf 'agentforge_orchestration_outbox_publish_errors_total' ;;
     *) printf 'unknown' ;;
