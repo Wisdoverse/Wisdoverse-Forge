@@ -30,9 +30,12 @@
 //! - Commands are never replayed. A command that timed out may still have run on the server
 //!   (for example a `GETDEL` that consumed OAuth state), so callers must keep treating a
 //!   timeout as a failure of that operation.
-//! - The usable flag, the outage start, the failure generation and the log line change
-//!   together under one short lock (never held across an await). Each change of state logs
-//!   one line (`warn` when lost, `info` with the outage length when restored) and counts
+//! - The usable flag, the outage start and the failure generation change together under one
+//!   short lock that is never held across an await and never around anything that can block:
+//!   under it a transition is only recorded as an event in a bounded channel (non-blocking
+//!   send; a full channel counts the event as dropped). A reporter task writes the lines and
+//!   metrics afterwards, in transition order: one line per change (`warn` when lost, `info`
+//!   with the outage length when restored, both with `dropped_state_changes`) and
 //!   `agentforge_redis_state_changes_total{state}`.
 //!
 //! The in-process fake Redis used by the tests (`crate::fake_redis`) is compiled only for this
@@ -40,13 +43,19 @@
 //! workspace enables that feature outside tests (`agentforge-api` turns it on only in its
 //! `[dev-dependencies]`).
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use agentforge_core::AppConfig;
 use redis::aio::{ConnectionLike, ConnectionManager, ConnectionManagerConfig};
 use redis::{Client, Cmd, Pipeline, RedisError, RedisFuture, RedisResult, Value};
-use tokio::sync::Notify;
+use tokio::sync::{Notify, mpsc};
+use tracing::instrument::WithSubscriber;
+
+/// State-change events waiting for the reporter; transitions are rare, so this never fills
+/// in practice.
+const EVENT_BUFFER: usize = 64;
 
 /// The numbers behind connection handling and recovery.
 #[derive(Clone, Copy, Debug)]
@@ -133,15 +142,32 @@ struct State {
     down_since: Option<Instant>,
 }
 
+/// A change of state, decided under the state lock and reported after it.
+#[derive(Debug)]
+enum Event {
+    Lost { error: String },
+    Restored { down_for: Duration },
+}
+
 struct Shared {
     client: Client,
     config: ConnectionManagerConfig,
     state: Mutex<State>,
     /// Wakes the monitor when a request-path command finds Redis gone.
     wake: Notify,
+    events: mpsc::Sender<Event>,
+    /// Events the full channel could not take; reported with the next line.
+    dropped: Arc<AtomicU64>,
 }
 
 impl Shared {
+    /// Called under the state lock: never blocks.
+    fn record(&self, event: Event) {
+        if self.events.try_send(event).is_err() {
+            self.dropped.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
     fn fresh_manager(&self) -> RedisResult<ConnectionManager> {
         ConnectionManager::new_lazy_with_config(self.client.clone(), self.config.clone())
     }
@@ -169,8 +195,7 @@ impl Shared {
         state.usable = false;
         state.generation += 1;
         state.down_since = Some(Instant::now());
-        metrics::counter!("agentforge_redis_state_changes_total", "state" => "lost").increment(1);
-        tracing::warn!(error = %err, "Redis connection lost; Redis-backed features are degraded until it is restored");
+        self.record(Event::Lost { error: err.to_string() });
         drop(state);
         self.wake.notify_one();
     }
@@ -187,8 +212,7 @@ impl Shared {
         if !state.usable {
             state.usable = true;
             let down_for = state.down_since.take().map(|since| since.elapsed()).unwrap_or_default();
-            metrics::counter!("agentforge_redis_state_changes_total", "state" => "restored").increment(1);
-            tracing::info!(down_for_ms = down_for.as_millis() as u64, "Redis connection restored");
+            self.record(Event::Restored { down_for });
         }
         true
     }
@@ -320,6 +344,32 @@ async fn monitor(shared: Arc<Shared>, timings: Timings) {
     }
 }
 
+/// Writes state-change lines and metrics in transition order, outside the state lock. Ends
+/// when the client's shared state is dropped.
+async fn report(mut events: mpsc::Receiver<Event>, dropped: Arc<AtomicU64>) {
+    while let Some(event) = events.recv().await {
+        let dropped = dropped.swap(0, Ordering::Relaxed);
+        match event {
+            Event::Lost { error } => {
+                metrics::counter!("agentforge_redis_state_changes_total", "state" => "lost").increment(1);
+                tracing::warn!(
+                    error,
+                    dropped_state_changes = dropped,
+                    "Redis connection lost; Redis-backed features are degraded until it is restored"
+                );
+            }
+            Event::Restored { down_for } => {
+                metrics::counter!("agentforge_redis_state_changes_total", "state" => "restored").increment(1);
+                tracing::info!(
+                    down_for_ms = down_for.as_millis() as u64,
+                    dropped_state_changes = dropped,
+                    "Redis connection restored"
+                );
+            }
+        }
+    }
+}
+
 struct Connected {
     shared: Arc<Shared>,
     request_deadline: Duration,
@@ -372,9 +422,15 @@ impl RedisClient {
                 return Self { connected: None };
             }
         };
+        let (events, receiver) = mpsc::channel(EVENT_BUFFER);
+        let dropped = Arc::new(AtomicU64::new(0));
+        // Logs through the subscriber current here (the global one in the server).
+        tokio::spawn(report(receiver, dropped.clone()).with_current_subscriber());
         let shared = Arc::new(Shared {
             client,
             config,
+            events,
+            dropped,
             state: Mutex::new(State {
                 usable: false,
                 manager: manager.clone(),
@@ -387,9 +443,11 @@ impl RedisClient {
         // Connect before returning, as before, so the startup checks see a usable Redis.
         let mut first = manager;
         if ping(&mut first, timings.probe_deadline()).await {
-            let mut state = lock(&shared.state);
-            state.usable = true;
-            state.down_since = None;
+            {
+                let mut state = lock(&shared.state);
+                state.usable = true;
+                state.down_since = None;
+            }
             tracing::info!("Redis connected");
         } else {
             tracing::warn!(
@@ -587,6 +645,15 @@ mod tests {
     const LOST: &str = "Redis connection lost";
     const RESTORED: &str = "Redis connection restored";
 
+    /// Wait until the reporter task has written exactly these state-change lines.
+    async fn expect_lines(logs: &Logs, lost: usize, restored: usize) {
+        let start = Instant::now();
+        while (logs.count(LOST), logs.count(RESTORED)) != (lost, restored) {
+            assert!(start.elapsed() < SLACK, "expected {lost} lost / {restored} restored lines:\n{}", logs.text());
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
     /// Wait until `is_connected()` equals `want`, failing after `limit`.
     async fn wait_until(client: &RedisClient, want: bool, limit: Duration) -> Duration {
         let start = Instant::now();
@@ -678,8 +745,7 @@ mod tests {
             assert!(client.check_health().await);
             assert!(client.probe_read_write().await);
         }
-        assert_eq!(logs.count(LOST), 2, "one lost line per outage");
-        assert_eq!(logs.count(RESTORED), 2, "one restored line per recovery");
+        expect_lines(&logs, 2, 2).await;
     }
 
     #[tokio::test]
@@ -694,7 +760,7 @@ mod tests {
         fake.restart().await;
         wait_until(&client, true, FAST.recovery_bound() + SLACK).await;
         assert!(client.probe_read_write().await);
-        assert_eq!((logs.count(LOST), logs.count(RESTORED)), (1, 1));
+        expect_lines(&logs, 1, 1).await;
     }
 
     #[tokio::test]
@@ -710,7 +776,7 @@ mod tests {
         wait_until(&client, true, FAST.recovery_bound() + SLACK).await;
         assert!(client.check_health().await);
         assert!(client.probe_read_write().await);
-        assert_eq!((logs.count(LOST), logs.count(RESTORED)), (0, 1));
+        expect_lines(&logs, 0, 1).await;
     }
 
     #[tokio::test]
@@ -856,10 +922,10 @@ mod tests {
         assert!(shared.report_success(shared.generation(), fresh));
         assert!(client.is_connected());
         assert_consistent(shared);
+        expect_lines(&logs, 1, 1).await;
         let text = logs.text();
         let (lost, restored) = (text.find(LOST).expect("lost line"), text.find(RESTORED).expect("restored line"));
         assert!(lost < restored, "restored logged before lost");
-        assert_eq!((logs.count(LOST), logs.count(RESTORED)), (1, 1));
     }
 
     #[tokio::test]
@@ -882,8 +948,101 @@ mod tests {
         assert!(!client.is_connected());
         assert_consistent(shared);
         assert!(lock(&shared.state).down_since.is_some());
+        expect_lines(&logs, 1, 1).await;
         let text = logs.text();
         assert!(text.find(RESTORED).expect("restored") < text.find(LOST).expect("lost"));
-        assert_eq!((logs.count(LOST), logs.count(RESTORED)), (1, 1));
+    }
+
+    /// A log writer that blocks every write while its gate is closed (a backed-up stdout pipe).
+    #[derive(Clone)]
+    struct GatedLogs {
+        logs: Logs,
+        gate: Arc<(StdMutex<bool>, std::sync::Condvar)>,
+        waiting: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl std::io::Write for GatedLogs {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            let (open, changed) = &*self.gate;
+            let mut open = lock(open);
+            while !*open {
+                self.waiting.store(true, Ordering::SeqCst);
+                open = changed.wait(open).unwrap_or_else(PoisonError::into_inner);
+            }
+            drop(open);
+            self.logs.write(bytes)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_blocked_log_writer_does_not_block_redis_callers() {
+        let writer = GatedLogs {
+            logs: Logs::default(),
+            gate: Arc::new((StdMutex::new(true), std::sync::Condvar::new())),
+            waiting: Arc::default(),
+        };
+        let (logs, gate, waiting) = (writer.logs.clone(), writer.gate.clone(), writer.waiting.clone());
+        let set_gate = |is_open: bool| {
+            *lock(&gate.0) = is_open;
+            gate.1.notify_all();
+        };
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        // The monitor only probes when woken, and its probes fail: only this test changes state.
+        let hour = Duration::from_secs(3600);
+        let quiet = Timings { probe_interval: hour, backoff_min: hour, backoff_max: hour, ..FAST };
+        let mut fake = FakeRedis::start().await;
+        let client = Arc::new(RedisClient::connect_with(Some(&fake.url()), quiet).await);
+        assert!(client.is_connected());
+        fake.stop().await;
+        set_gate(false);
+
+        // First transition: the reporter picks it up and blocks in the writer.
+        let first = {
+            let client = client.clone();
+            tokio::spawn(async move {
+                let shared = &client.connected.as_ref().expect("configured").shared;
+                let epoch = lock(&shared.state).epoch;
+                shared.report_failure(epoch, &timed_out());
+            })
+        };
+        let start = Instant::now();
+        while !waiting.load(Ordering::SeqCst) && start.elapsed() < SLACK {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        // While the writer is blocked, callers still get handles and report transitions.
+        let others = {
+            let client = client.clone();
+            tokio::spawn(async move {
+                let shared = &client.connected.as_ref().expect("configured").shared;
+                let down = client.handle().is_none();
+                let restored = shared.report_success(shared.generation(), shared.fresh_manager().expect("manager"));
+                let usable = client.handle().is_some();
+                let epoch = lock(&shared.state).epoch;
+                shared.report_failure(epoch, &timed_out());
+                down && restored && usable && client.handle().is_none()
+            })
+        };
+        let first = tokio::time::timeout(Duration::from_secs(2), first).await;
+        let others = tokio::time::timeout(Duration::from_secs(2), others).await;
+        let was_waiting = waiting.load(Ordering::SeqCst);
+        // Release before asserting, so a failure cannot leave a worker blocked forever.
+        set_gate(true);
+        assert!(was_waiting, "the log writer was never reached");
+        assert!(matches!(first, Ok(Ok(()))), "report_failure blocked behind the log writer: {first:?}");
+        assert!(matches!(others, Ok(Ok(true))), "a caller blocked behind the log writer: {others:?}");
+
+        expect_lines(&logs, 2, 1).await;
+        let text = logs.text();
+        let (lost, restored, lost_again) =
+            (text.find(LOST).expect("lost"), text.find(RESTORED).expect("restored"), text.rfind(LOST).expect("lost"));
+        assert!(lost < restored && restored < lost_again, "lines out of transition order:\n{text}");
     }
 }
