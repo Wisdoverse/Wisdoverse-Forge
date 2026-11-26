@@ -88,9 +88,10 @@ impl SsoStateStore {
         match self {
             Self::Redis(client) => {
                 let key = format!("{prefix}{key}");
-                let mut guard = client.write().await;
-                let conn = guard
-                    .connection_mut()
+                let mut conn = client
+                    .read()
+                    .await
+                    .handle()
                     .ok_or_else(|| SsoPolicy::sso_unavailable("shared state store is unavailable"))?;
                 let _: () = conn.set_ex(&key, value, ttl_secs).await.map_err(|err| -> AppError {
                     tracing::warn!(error = %err, "SSO Redis SET_EX failed");
@@ -106,12 +107,13 @@ impl SsoStateStore {
         match self {
             Self::Redis(client) => {
                 let key = format!("{prefix}{key}");
-                let mut guard = client.write().await;
-                let conn = guard
-                    .connection_mut()
+                let mut conn = client
+                    .read()
+                    .await
+                    .handle()
                     .ok_or_else(|| SsoPolicy::sso_unavailable("shared state store is unavailable"))?;
                 let raw: Option<String> =
-                    redis::cmd("GETDEL").arg(&key).query_async(conn).await.map_err(|err| -> AppError {
+                    redis::cmd("GETDEL").arg(&key).query_async(&mut conn).await.map_err(|err| -> AppError {
                         tracing::warn!(error = %err, "SSO Redis GETDEL failed");
                         SsoPolicy::sso_unavailable("could not read the sign-in transaction").into()
                     })?;

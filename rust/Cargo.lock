@@ -263,6 +263,7 @@ dependencies = [
  "async-nats",
  "aws-credential-types",
  "aws-sdk-s3",
+ "metrics",
  "redis",
  "secrecy",
  "serde",
@@ -270,6 +271,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "url",
  "uuid",
 ]

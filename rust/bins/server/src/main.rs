@@ -158,6 +158,7 @@ async fn main() -> Result<()> {
     // Register metric descriptions so dashboards have series present from the
     // first scrape even before traffic or a background sweep fires.
     agentforge_jobs::register_metrics();
+    agentforge_infra::redis_client::register_metrics();
     agentforge_api::observability::register_http_metrics();
     agentforge_api::services::cli_auth_proxy::register_cli_auth_proxy_metrics();
     agentforge_api::services::usage_analytics::register_usage_analytics_metrics();
@@ -228,7 +229,7 @@ async fn main() -> Result<()> {
     // the Redis state store and then 500s. Probe the real read/write path and fail
     // fast at boot (complements the config-time URL-present guard in `from_env`).
     // Only probe when required, to avoid a needless write on single-replica boots.
-    let redis_usable = if config.require_external_state { redis.write().await.probe_read_write().await } else { true };
+    let redis_usable = if config.require_external_state { redis.read().await.probe_read_write().await } else { true };
     agentforge_core::ensure_external_state_redis_ready(config.require_external_state, redis_usable)?;
     let context_resolver = Arc::new(
         agentforge_api::services::context_resolver::ContextResolverService::new(

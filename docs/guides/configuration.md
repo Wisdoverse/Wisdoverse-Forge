@@ -56,7 +56,7 @@ databases; direct/custom server starts fail closed unless they opt in.
 | `PORT`                              | `4003`        | No                     | Rust API listen port                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `HOST`                              | `0.0.0.0`     | No                     | Rust API bind host                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `DATABASE_URL`                      | none          | Yes                    | PostgreSQL connection string                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `REDIS_URL`                         | none          | No                     | Redis connection string                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `REDIS_URL`                         | none          | No                     | Redis connection string. Redis is optional: while it is unavailable the API keeps running and Redis-backed features degrade. The API reconnects by itself, also when Redis was unreachable at startup. See [Redis availability](#redis-availability)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `REQUIRE_EXTERNAL_STATE`            | `false`       | No                     | For multiple API replicas, set `true`. Startup requires configured Redis and successful `SET`/`GETDEL` operations. Readiness returns 503 if these operations fail. Compose forwards this setting. With `REDIS_URL`, Container CLI OAuth state uses Redis even when this flag is `false`. Without `REDIS_URL`, single-replica deployments use process memory. See [Redis recovery](../runbooks/redis-recovery.md). |
 | `PRESENCE_REDIS_ENABLED`            | `false`       | No                     | ADR 0008 Phase 2: serve agent liveness from a Redis TTL key instead of a per-heartbeat PostgreSQL write. Requires `REDIS_URL`; degrades to PostgreSQL if Redis is down. Keep off until the per-beat write is a measured bottleneck                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `PARTICIPANT_STALE_AFTER_SECS`      | `90`          | No                     | Seconds with no agent heartbeat before the agent is marked offline (also the Redis presence key TTL when Phase 2 is on). Keep ~3x the sidecar heartbeat interval                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -91,6 +91,42 @@ The bundled local Nginx access logs replace invite redemption paths, including
 trailing slashes and suffixes, with `/api/v1/invites/{token}/redeem`. Other
 request paths remain unchanged. This masking applies only to those Nginx access
 logs.
+
+### Redis availability
+
+Redis is optional. When `REDIS_URL` is set and Redis stops answering, the API
+keeps serving requests:
+
+- Requests that need Redis take their usual degraded path at once. Container
+  CLI and SSO sign-in fail with an error instead of storing state elsewhere,
+  the context cache uses process memory, and Redis presence falls back to
+  PostgreSQL. No request waits for a reconnection.
+- `/api/health` reports `"redis": false`. With `REQUIRE_EXTERNAL_STATE=true`
+  readiness returns 503 until Redis accepts writes again.
+- The API reconnects by itself, also when Redis was unreachable at startup. It
+  uses Redis again at most 9.5 seconds after Redis is reachable. You do not need
+  to restart the API.
+
+What you see in the API log, once per change:
+
+- `Redis connection lost` (warning) when Redis stops answering.
+- `Redis connection restored` (info) with `down_for_ms`, the outage length.
+
+The counter `agentforge_redis_state_changes_total{state="lost"|"restored"}`
+counts the same changes.
+
+Numbers behind the 9.5-second bound: each connection attempt times out after
+1 second and each reply after 0.5 seconds. A request-path command gets at most
+1 second in total. While Redis is usable, the API sends `PING` every 5 seconds.
+While Redis is down, it retries with a delay that starts at 0.25 seconds and
+doubles up to 5 seconds, with random jitter. The bound is three probe deadlines
+of 1.5 seconds plus one 5-second wait.
+
+A command that timed out may still have run on Redis. The API never resends it,
+so a sign-in that failed during an outage must be started again.
+
+If Redis stays down, check Redis itself: `docker compose logs redis` for the
+bundled service, or your provider's status for an external one.
 
 ## Enterprise Sign-In (OpenID Connect)
 

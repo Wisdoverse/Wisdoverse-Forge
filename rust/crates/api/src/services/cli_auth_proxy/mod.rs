@@ -283,8 +283,8 @@ impl StateStore {
             Self::Redis(client) => {
                 let key = redis_state_key(state);
                 let value = cli_auth_state_entry_payload(&entry)?;
-                let mut guard = client.write().await;
-                let conn = guard.connection_mut().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
+                let mut conn =
+                    client.read().await.handle().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
                 let _: () = conn.set_ex(&key, &value, STATE_TTL_SECS).await.map_err(|err| {
                     tracing::warn!(error = %err, "OAuth state Redis SET_EX failed — propagating as Internal");
                     CliAuthProxyPolicy::redis_set_failed(err)
@@ -302,12 +302,13 @@ impl StateStore {
         match self {
             Self::Redis(client) => {
                 let key = redis_state_key(state);
-                let mut guard = client.write().await;
-                let conn = guard.connection_mut().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
-                let raw: Option<String> = redis::cmd("GETDEL").arg(&key).query_async(conn).await.map_err(|err| {
-                    tracing::warn!(error = %err, "OAuth state Redis GETDEL failed — propagating as Internal");
-                    CliAuthProxyPolicy::redis_getdel_failed(err)
-                })?;
+                let mut conn =
+                    client.read().await.handle().ok_or_else(CliAuthProxyPolicy::redis_connection_unavailable)?;
+                let raw: Option<String> =
+                    redis::cmd("GETDEL").arg(&key).query_async(&mut conn).await.map_err(|err| {
+                        tracing::warn!(error = %err, "OAuth state Redis GETDEL failed — propagating as Internal");
+                        CliAuthProxyPolicy::redis_getdel_failed(err)
+                    })?;
                 match raw {
                     Some(value) => Ok(Some(cli_auth_state_entry_from_payload::<StateEntry>(&value)?)),
                     None => Ok(None),
@@ -1203,6 +1204,40 @@ mod tests {
         let err = store.take("s-redis").await.expect_err("disconnected Redis take must Err");
         let msg = format!("{}", err.kind);
         assert!(msg.to_lowercase().contains("redis"), "error should mention redis, got: {msg}");
+    }
+
+    #[tokio::test]
+    async fn redis_state_store_works_again_after_a_redis_outage_without_rebuild() {
+        use agentforge_infra::fake_redis::FakeRedis;
+        let entry = || StateEntry {
+            code_verifier: SecretString::from("v".to_string()),
+            provider: "openai".into(),
+            user_id: uuid::Uuid::nil(),
+        };
+        let mut fake = FakeRedis::start().await;
+        let client = Arc::new(RwLock::new(RedisClient::connect(Some(&fake.url())).await));
+        let store = StateStore::Redis(client.clone());
+        store.put("s-1", entry()).await.expect("put while Redis is up");
+        assert!(store.take("s-1").await.expect("take while Redis is up").is_some());
+
+        // Outage: the store fails closed (Internal), quickly, as before.
+        fake.stop().await;
+        let started = std::time::Instant::now();
+        assert!(store.put("s-2", entry()).await.is_err());
+        assert!(store.take("s-2").await.is_err());
+        assert!(started.elapsed() < Duration::from_secs(3), "degraded path must not wait for a reconnect");
+
+        // Redis is back: the SAME store and client recover within the documented
+        // bound (9.5 s, see `agentforge_infra::redis_client`) plus headroom.
+        fake.restart().await;
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
+        while !client.read().await.is_connected() {
+            assert!(std::time::Instant::now() < deadline, "Redis state store did not recover");
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        store.put("s-3", entry()).await.expect("put after recovery");
+        let back = store.take("s-3").await.expect("take after recovery").expect("state present");
+        assert_eq!(back.code_verifier.expose_secret(), "v");
     }
 
     #[tokio::test]
