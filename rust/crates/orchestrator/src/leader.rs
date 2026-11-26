@@ -55,6 +55,7 @@ pub(crate) const LEADER_LOCK_CLASS: i32 = 0x4f52_4348;
 /// block one another.
 pub(crate) const DISPATCH_REAPER_LOCK_ID: i32 = 1;
 pub(crate) const REVIEW_ESCALATION_REAPER_LOCK_ID: i32 = 2;
+pub(crate) const WORKFLOW_RECONCILER_LOCK_ID: i32 = 3;
 
 /// Leadership status for one tick.
 #[derive(Debug)]
@@ -131,10 +132,9 @@ mod tests {
 
     #[test]
     fn singleton_loops_use_distinct_lock_ids() {
-        assert_ne!(
-            DISPATCH_REAPER_LOCK_ID, REVIEW_ESCALATION_REAPER_LOCK_ID,
-            "each singleton loop needs its own lock id or they would block each other"
-        );
+        let ids = [DISPATCH_REAPER_LOCK_ID, REVIEW_ESCALATION_REAPER_LOCK_ID, WORKFLOW_RECONCILER_LOCK_ID];
+        let unique: std::collections::HashSet<i32> = ids.into_iter().collect();
+        assert_eq!(unique.len(), ids.len(), "each singleton loop needs its own lock id or they would block each other");
     }
 
     #[sqlx::test]

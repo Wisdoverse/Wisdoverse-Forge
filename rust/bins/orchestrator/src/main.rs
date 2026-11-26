@@ -65,6 +65,35 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // #1352: end `running` rows whose Temporal execution is closed or proven
+    // missing. Needs the database and a live Temporal-backed workflow service.
+    if state.config.workflow_reconcile_enabled {
+        match (state.workflow_store.clone(), state.workflow_service.clone()) {
+            (Some(store), Some(service)) if state.pool.is_some() => {
+                let leader_pool = state.config.leader_election_enabled.then(|| state.pool.clone()).flatten();
+                let namespace = state.config.temporal_namespace.clone();
+                let grace = state.config.workflow_reconcile_grace_secs;
+                tokio::spawn(async move {
+                    agentforge_orchestrator::workflow_reconciler::WorkflowReconcilerWorker::new(
+                        store,
+                        service.runtime(),
+                        leader_pool,
+                        namespace,
+                        grace,
+                    )
+                    .run()
+                    .await;
+                    tracing::error!(
+                        "workflow reconciler loop exited unexpectedly — running workflows without a Temporal execution will no longer be reconciled"
+                    );
+                });
+            }
+            _ => tracing::warn!(
+                "workflow reconciler not started: it needs the orchestrator database and a reachable Temporal at boot"
+            ),
+        }
+    }
+
     let app = state.clone().router();
 
     let addr = format!("{}:{}", state.config.host, state.config.port);

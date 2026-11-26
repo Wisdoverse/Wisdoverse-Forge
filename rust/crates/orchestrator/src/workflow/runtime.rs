@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use super::errors::{Result, WorkflowError};
-use super::model::{Decision, NodeStatus, SignalRequest, Workflow, WorkflowNode, WorkflowStatus};
+use super::model::{Decision, ExecutionObservation, NodeStatus, SignalRequest, Workflow, WorkflowNode, WorkflowStatus};
 use super::store::Store;
 
 #[async_trait]
@@ -15,6 +15,13 @@ pub trait WorkflowRuntime: Send + Sync {
     async fn start_workflow(&self, workflow: &Workflow, nodes: &[WorkflowNode], layers: &[Vec<String>]) -> Result<()>;
     async fn cancel_workflow(&self, workflow: &Workflow) -> Result<()>;
     async fn signal_workflow(&self, workflow: &Workflow, signal: SignalRequest, layers: &[Vec<String>]) -> Result<()>;
+
+    /// Ask the engine about the CURRENT execution behind `workflow` (#1352).
+    /// Read-only: never starts, cancels or signals anything. Runtimes without
+    /// a separate engine cannot answer, which callers treat as "change nothing".
+    async fn observe_execution(&self, _workflow: &Workflow) -> Result<ExecutionObservation> {
+        Err(WorkflowError::Unavailable("this workflow runtime cannot observe executions".to_string()))
+    }
 }
 
 #[derive(Clone)]
@@ -96,6 +103,7 @@ impl WorkflowRuntime for MemoryWorkflowRuntime {
                 &workflow.org_id,
                 format!("orchestrator-{}", workflow.id),
                 Uuid::now_v7().to_string(),
+                None,
             )
             .await?;
         self.store.update_status(&workflow.id, &workflow.org_id, WorkflowStatus::Running).await?;

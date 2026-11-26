@@ -16,6 +16,7 @@ pub mod state;
 pub mod task;
 pub mod team;
 pub mod workflow;
+pub mod workflow_reconciler;
 
 pub use config::Config;
 pub use router::create_router;

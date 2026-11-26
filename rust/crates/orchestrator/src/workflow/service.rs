@@ -1,10 +1,18 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use super::dag::validate_dag;
 use super::errors::{Result, WorkflowError};
-use super::model::{NodeHistory, NodeRequest, SignalRequest, Workflow, WorkflowNode, WorkflowStatus};
+use super::model::{
+    ExecutionObservation, ExecutionState, MissingMark, NodeHistory, NodeRequest, SignalRequest, Workflow, WorkflowNode,
+    WorkflowStatus,
+};
 use super::runtime::WorkflowRuntime;
 use super::store::Store;
+
+/// Upper bound on the live Temporal lookup inside a status read (#1352), so a
+/// slow Temporal delays the read by at most this much and never fails it.
+const STATUS_READ_OBSERVE_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Clone)]
 pub struct WorkflowService {
@@ -19,6 +27,11 @@ impl WorkflowService {
 
     pub fn runtime_kind(&self) -> &'static str {
         self.runtime.kind()
+    }
+
+    /// The runtime behind this service, for the execution reconciler (#1352).
+    pub fn runtime(&self) -> Arc<dyn WorkflowRuntime> {
+        self.runtime.clone()
     }
 
     pub async fn start_workflow(&self, workflow_id: &str, org_id: &str) -> Result<Workflow> {
@@ -44,10 +57,37 @@ impl WorkflowService {
         self.store.get_by_id(workflow_id, org_id).await
     }
 
-    pub async fn get_status(&self, workflow_id: &str, org_id: &str) -> Result<(Workflow, Vec<WorkflowNode>)> {
-        let workflow = self.store.get_by_id(workflow_id, org_id).await?;
+    /// Stored workflow and nodes, plus a bounded live look at its execution
+    /// while the row says `running` (#1352). The look never fails the read and
+    /// never ends the workflow; it may only record when the execution was
+    /// first seen missing, which the reconciler's grace period starts from.
+    pub async fn get_status(
+        &self,
+        workflow_id: &str,
+        org_id: &str,
+    ) -> Result<(Workflow, Vec<WorkflowNode>, Option<ExecutionState>)> {
+        let mut workflow = self.store.get_by_id(workflow_id, org_id).await?;
         let nodes = self.store.get_nodes(workflow_id).await?;
-        Ok((workflow, nodes))
+        if workflow.status != WorkflowStatus::Running || workflow.temporal_workflow_id.is_none() {
+            return Ok((workflow, nodes, None));
+        }
+        let observed =
+            tokio::time::timeout(STATUS_READ_OBSERVE_TIMEOUT, self.runtime.observe_execution(&workflow)).await;
+        let state = match observed {
+            Ok(Ok(ExecutionObservation::Running)) => ExecutionState::Running,
+            Ok(Ok(ExecutionObservation::Closed { .. })) => ExecutionState::Closed,
+            Ok(Ok(ExecutionObservation::Unverifiable)) => ExecutionState::Unverifiable,
+            Ok(Ok(ExecutionObservation::Missing)) => {
+                match self.store.record_execution_check(&workflow, MissingMark::Set).await {
+                    Ok(true) => workflow = self.store.get_by_id(workflow_id, org_id).await?,
+                    Ok(false) => {}
+                    Err(err) => tracing::warn!(error = %err, workflow_id, "could not record missing execution"),
+                }
+                ExecutionState::Missing
+            }
+            Ok(Err(_)) | Err(_) => ExecutionState::Unknown,
+        };
+        Ok((workflow, nodes, Some(state)))
     }
 
     pub async fn cancel_workflow(&self, workflow_id: &str, org_id: &str) -> Result<()> {
@@ -99,7 +139,7 @@ mod tests {
     use super::WorkflowService;
     use crate::workflow::errors::{Result as WfResult, WorkflowError};
     use crate::workflow::model::{
-        Decision, NodeHistory, NodeStatus, NodeType, SignalRequest, Workflow, WorkflowNode, WorkflowStatus,
+        Decision, MissingMark, NodeHistory, NodeStatus, NodeType, SignalRequest, Workflow, WorkflowNode, WorkflowStatus,
     };
     use crate::workflow::runtime::WorkflowRuntime;
     use crate::workflow::store::Store;
@@ -114,6 +154,11 @@ mod tests {
             created_by: "user".into(),
             temporal_workflow_id: None,
             temporal_run_id: None,
+            temporal_namespace_id: None,
+            status_cause: None,
+            execution_missing_since: None,
+            execution_checked_at: None,
+            reconciled_at: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -165,8 +210,39 @@ mod tests {
         async fn update_status(&self, _id: &str, _org: &str, _status: WorkflowStatus) -> WfResult<()> {
             Ok(())
         }
-        async fn set_temporal_ids(&self, _id: &str, _org: &str, _wf: String, _run: String) -> WfResult<()> {
+        async fn set_temporal_ids(
+            &self,
+            _id: &str,
+            _org: &str,
+            _wf: String,
+            _run: String,
+            _namespace_id: Option<String>,
+        ) -> WfResult<()> {
             Ok(())
+        }
+        async fn update_status_for_run(
+            &self,
+            _id: &str,
+            _org: &str,
+            _run: &str,
+            _status: WorkflowStatus,
+        ) -> WfResult<bool> {
+            Ok(true)
+        }
+        async fn reconcile_candidates(&self, _limit: usize) -> WfResult<Vec<Workflow>> {
+            Ok(vec![])
+        }
+        async fn record_execution_check(&self, _w: &Workflow, _mark: MissingMark) -> WfResult<bool> {
+            Ok(false)
+        }
+        async fn reconcile_status(
+            &self,
+            _w: &Workflow,
+            _status: WorkflowStatus,
+            _cause: &str,
+            _missing_for_secs: Option<u64>,
+        ) -> WfResult<bool> {
+            Ok(false)
         }
         async fn update_node_status(
             &self,

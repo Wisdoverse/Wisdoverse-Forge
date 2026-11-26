@@ -48,6 +48,15 @@ fn map_error(err: WorkflowError) -> Response {
         WorkflowError::NotFound => error(StatusCode::NOT_FOUND, "workflow not found"),
         WorkflowError::InvalidInput(message) => error(StatusCode::BAD_REQUEST, &message),
         WorkflowError::Unavailable(message) => error(StatusCode::SERVICE_UNAVAILABLE, &message),
+        WorkflowError::ExecutionNotRunning => (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "workflow_execution_not_running",
+                "error": "workflow has no running execution; reload its status before retrying",
+            })),
+        )
+            .into_response(),
         WorkflowError::Internal(message) => error(StatusCode::INTERNAL_SERVER_ERROR, &message),
     }
 }
@@ -98,6 +107,11 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
         created_by: identity.user_id,
         temporal_workflow_id: None,
         temporal_run_id: None,
+        temporal_namespace_id: None,
+        status_cause: None,
+        execution_missing_since: None,
+        execution_checked_at: None,
+        reconciled_at: None,
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
@@ -191,9 +205,11 @@ async fn status(State(state): State<AppState>, headers: HeaderMap, Path(id): Pat
     };
 
     match service.get_status(&id, &identity.org_id).await {
-        Ok((workflow, nodes)) => {
-            (StatusCode::OK, Json(json!({"ok": true, "workflow": workflow, "nodes": nodes}))).into_response()
-        }
+        Ok((workflow, nodes, execution_state)) => (
+            StatusCode::OK,
+            Json(json!({"ok": true, "workflow": workflow, "nodes": nodes, "executionState": execution_state})),
+        )
+            .into_response(),
         Err(err) => map_error(err),
     }
 }
@@ -312,5 +328,20 @@ async fn history(State(state): State<AppState>, headers: HeaderMap, Path(id): Pa
     match service.get_history(&id, &identity.org_id).await {
         Ok(history) => (StatusCode::OK, Json(json!({"ok": true, "history": history}))).into_response(),
         Err(err) => map_error(err),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn missing_execution_is_a_coded_conflict_without_internal_text() {
+        let response = map_error(WorkflowError::ExecutionNotRunning);
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["ok"], false);
+        assert_eq!(body["code"], "workflow_execution_not_running");
     }
 }

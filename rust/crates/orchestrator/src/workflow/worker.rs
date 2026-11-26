@@ -107,7 +107,11 @@ where
     };
 
     let client = connect(config.clone()).await?;
-    let runtime: Arc<dyn WorkflowRuntime> = Arc::new(TemporalWorkflowRuntime::new(client.clone(), store.clone()));
+    let runtime: Arc<dyn WorkflowRuntime> = Arc::new(TemporalWorkflowRuntime::new(
+        client.clone(),
+        store.clone(),
+        config.workflow_reconcile_trust_current_temporal,
+    ));
     let service = Arc::new(WorkflowService::new(store.clone(), runtime));
     let worker = start(client, outbound_mcp, store, broadcaster)?;
     Ok(Some(WorkflowRuntimeComponents { service, worker }))

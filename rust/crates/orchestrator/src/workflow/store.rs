@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use super::errors::Result;
-use super::model::{NodeHistory, NodeStatus, Workflow, WorkflowNode, WorkflowStatus};
+use super::model::{MissingMark, NodeHistory, NodeStatus, Workflow, WorkflowNode, WorkflowStatus};
 
 #[async_trait]
 pub trait Store: Send + Sync {
@@ -11,7 +11,41 @@ pub trait Store: Send + Sync {
     async fn get_nodes(&self, workflow_id: &str) -> Result<Vec<WorkflowNode>>;
     async fn list(&self, org_id: &str, limit: usize, offset: usize) -> Result<Vec<Workflow>>;
     async fn update_status(&self, id: &str, org_id: &str, status: WorkflowStatus) -> Result<()>;
-    async fn set_temporal_ids(&self, id: &str, org_id: &str, workflow_id: String, run_id: String) -> Result<()>;
+    /// Record a freshly started execution. Also clears the reconciliation
+    /// metadata of any earlier run (#1352). `namespace_id` is the
+    /// server-assigned id of the Temporal namespace, when it could be read.
+    async fn set_temporal_ids(
+        &self,
+        id: &str,
+        org_id: &str,
+        workflow_id: String,
+        run_id: String,
+        namespace_id: Option<String>,
+    ) -> Result<()>;
+    /// Finalizer write fenced by execution identity (#1352): only applies when
+    /// the row still records `run_id` (the first run of the finalizing chain),
+    /// so a late finalizer of an earlier run cannot overwrite a re-run.
+    /// Returns false when the row belongs to another run.
+    async fn update_status_for_run(&self, id: &str, org_id: &str, run_id: &str, status: WorkflowStatus)
+    -> Result<bool>;
+    /// Reconciliation candidates across all organizations: `running` rows with
+    /// a Temporal execution, never-checked first, then least recently checked.
+    async fn reconcile_candidates(&self, limit: usize) -> Result<Vec<Workflow>>;
+    /// Record that Temporal answered about `workflow`, adjusting the missing
+    /// mark. Compare-and-set on organization, status, execution ids and the
+    /// `updated_at` read; returns false when the row changed meanwhile.
+    async fn record_execution_check(&self, workflow: &Workflow, mark: MissingMark) -> Result<bool>;
+    /// Set a reconciled terminal status with its cause, under the same
+    /// compare-and-set as [`Store::record_execution_check`]. With
+    /// `missing_for_secs`, it also requires the execution to have been missing
+    /// at least that long. Returns false when nothing was written.
+    async fn reconcile_status(
+        &self,
+        workflow: &Workflow,
+        status: WorkflowStatus,
+        cause: &str,
+        missing_for_secs: Option<u64>,
+    ) -> Result<bool>;
     async fn update_node_status(
         &self,
         node_id: &str,

@@ -30,6 +30,19 @@ async fn legacy_table_exists(pool: &PgPool, table: &str) -> bool {
     .expect("legacy table existence query")
 }
 
+/// #1352 reconciliation columns on `workflows`, with their expected types.
+async fn assert_reconcile_columns(pool: &PgPool) {
+    for (column, udt) in [
+        ("temporal_namespace_id", "text"),
+        ("status_cause", "text"),
+        ("execution_missing_since", "timestamptz"),
+        ("execution_checked_at", "timestamptz"),
+        ("reconciled_at", "timestamptz"),
+    ] {
+        assert_eq!(column_udt(pool, "workflows", column).await, udt, "workflows.{column}");
+    }
+}
+
 #[sqlx::test(migrations = "./migrations")]
 async fn fresh_schema_matches_rust_owned_uuid_contract(pool: PgPool) {
     for (table, column) in [
@@ -51,6 +64,7 @@ async fn fresh_schema_matches_rust_owned_uuid_contract(pool: PgPool) {
     ] {
         assert_eq!(column_udt(&pool, table, column).await, "uuid", "{table}.{column}");
     }
+    assert_reconcile_columns(&pool).await;
 }
 
 #[sqlx::test(migrations = false)]
@@ -166,6 +180,7 @@ async fn legacy_integer_schema_is_preserved_and_replaced_with_uuid_tables(pool: 
     .expect("seed legacy integer schema");
 
     sqlx::migrate!("./migrations").run(&pool).await.expect("run orchestrator migrations");
+    assert_reconcile_columns(&pool).await;
 
     for (table, column) in [
         ("workflows", "id"),

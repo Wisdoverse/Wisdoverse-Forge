@@ -376,10 +376,24 @@ impl WorkflowActivities {
         _ctx: ActivityContext,
         input: FinalizeWorkflowStatusInput,
     ) -> Result<(), ActivityError> {
-        self.store
-            .update_status(&input.workflow_id, &input.org_id, input.status)
-            .await
-            .map_err(|err| ActivityError::from(anyhow!(err.to_string())))?;
+        // Fenced by execution identity (#1352): a late finalizer of an earlier
+        // run must not overwrite the status of a re-run.
+        let applied = match input.first_execution_run_id.as_deref() {
+            Some(run_id) => {
+                self.store.update_status_for_run(&input.workflow_id, &input.org_id, run_id, input.status).await
+            }
+            None => self.store.update_status(&input.workflow_id, &input.org_id, input.status).await.map(|()| true),
+        }
+        .map_err(|err| ActivityError::from(anyhow!(err.to_string())))?;
+        if !applied {
+            tracing::info!(
+                workflow_id = %input.workflow_id,
+                org_id = %input.org_id,
+                status = input.status.as_str(),
+                "finalizer of an earlier run skipped: the workflow now records a different run"
+            );
+            return Ok(());
+        }
         self.emit_workflow_status(&input.org_id, &input.workflow_id, input.status);
         Ok(())
     }
@@ -478,6 +492,10 @@ pub struct FinalizeWorkflowStatusInput {
     pub workflow_id: String,
     pub org_id: String,
     pub status: WorkflowStatus,
+    /// First run of the finalizing execution chain (the run id recorded at
+    /// start). Absent only for executions scheduled before #1352.
+    #[serde(default)]
+    pub first_execution_run_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

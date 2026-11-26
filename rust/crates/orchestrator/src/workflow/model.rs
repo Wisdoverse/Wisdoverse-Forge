@@ -141,8 +141,73 @@ pub struct Workflow {
     pub temporal_workflow_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temporal_run_id: Option<String>,
+    /// Server-assigned id of the Temporal namespace the execution was started
+    /// in. Proves a later "not found" came from the same Temporal (#1352).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temporal_namespace_id: Option<String>,
+    /// Why the current status was set by reconciliation instead of by the
+    /// workflow itself (#1352): `execution_lost`, `execution_missing` or
+    /// `reconciled_from_temporal`. Cleared by the next normal status change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_cause: Option<String>,
+    /// When Temporal was first seen answering "not found" for this workflow's
+    /// execution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_missing_since: Option<DateTime<Utc>>,
+    /// When the reconciler last got an answer from Temporal about this row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_checked_at: Option<DateTime<Utc>>,
+    /// When reconciliation last set this workflow's status.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reconciled_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+/// Cause written when the reconciler fails a workflow whose execution stayed
+/// missing for the whole grace period.
+pub const CAUSE_EXECUTION_LOST: &str = "execution_lost";
+/// Cause written when a cancel found no execution left to cancel.
+pub const CAUSE_EXECUTION_MISSING: &str = "execution_missing";
+/// Cause written when the row is brought in line with a closed execution.
+pub const CAUSE_RECONCILED_FROM_TEMPORAL: &str = "reconciled_from_temporal";
+
+/// What Temporal said about the CURRENT execution behind a workflow row
+/// (#1352). A failed lookup is an error, never one of these.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecutionObservation {
+    /// An execution exists and is not closed (running, paused, or a status
+    /// this code does not know). Leave the row alone.
+    Running,
+    /// The current execution closed with a terminal outcome.
+    Closed { run_id: String, status: WorkflowStatus },
+    /// Temporal answered "workflow execution not found", and the namespace it
+    /// answered for is proven to be the one the workflow was started in (or
+    /// the operator acknowledged the current Temporal).
+    Missing,
+    /// "Not found", but nothing proves this is the Temporal the workflow was
+    /// started in. Never acted on.
+    Unverifiable,
+}
+
+/// Execution state returned by a workflow status read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionState {
+    Running,
+    Missing,
+    Closed,
+    Unverifiable,
+    /// Temporal could not be asked in time.
+    Unknown,
+}
+
+/// How a reconciliation check changes `execution_missing_since`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MissingMark {
+    Keep,
+    Clear,
+    Set,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
