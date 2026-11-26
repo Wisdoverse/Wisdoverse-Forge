@@ -530,19 +530,50 @@ do steps 3 and 7 against every one of them.
 To repair them:
 
 1. **Check the connection.** The orchestrator must point at the Temporal you
-   restored or re-created (`ORCHESTRATOR_TEMPORAL_HOST`,
-   `ORCHESTRATOR_TEMPORAL_NAMESPACE`). Ask Temporal about one workflow you know
-   was running:
+   restored or re-created. Do all three checks; the acknowledgment tells the
+   orchestrator to trust whatever it is connected to.
+
+   First, print where the orchestrator connects, and compare it with the
+   address of the Temporal you restored or re-created:
 
    ```bash
-   TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # orchestrator- plus a workflow id
-   $COMPOSE_PROD exec temporal temporal workflow describe --address temporal-internal:7233 \
-     --namespace "$TEMPORAL_NAMESPACE" --workflow-id "$TEMPORAL_WORKFLOW_ID"
+   $COMPOSE_PROD exec orchestrator printenv ORCHESTRATOR_TEMPORAL_HOST
    ```
 
-   Success looks like the workflow's details. `not found` for every workflow
-   you try means the orchestrator may point at the wrong Temporal: stop here
-   and fix the connection first.
+   Success looks like one line with the address you expect. If it is a
+   different server, fix `docker/.env`, recreate the container and start again.
+
+   Second, ask that Temporal for the namespace:
+
+   ```bash
+   $COMPOSE_PROD exec temporal temporal operator namespace describe \
+     --address temporal-internal:7233 --namespace "$TEMPORAL_NAMESPACE"
+   ```
+
+   Success looks like the namespace's details. An error means the namespace
+   does not exist on this server: stop here and fix that first.
+
+   Third, decide which case you are in:
+   - **Temporal was restored from a backup** (some executions survived). Ask
+     about one workflow you know was running before the backup was taken:
+
+     ```bash
+     TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # orchestrator- plus a workflow id
+     $COMPOSE_PROD exec temporal temporal workflow describe --address temporal-internal:7233 \
+       --namespace "$TEMPORAL_NAMESPACE" --workflow-id "$TEMPORAL_WORKFLOW_ID"
+     ```
+
+     Success looks like the workflow's details. If every workflow you try is
+     `not found` although the backup should contain them, the orchestrator may
+     point at the wrong Temporal: stop here and fix the connection first.
+
+   - **Temporal was re-created empty** (every execution was lost). Every
+     workflow is `not found`, and that is expected. Continue only if the first
+     check showed the server you re-created, the second check succeeded, and
+     you have made sure that no other Temporal still holds these executions
+     (for example the old server is gone or shut down). After the procedure,
+     every workflow that was running is marked `failed` with the cause
+     `execution_lost` and can be re-run.
 
 2. **Turn the acknowledgment on.** Add this line to `docker/.env`:
 
@@ -662,6 +693,15 @@ Before you run a workflow marked `execution_lost` again, check Temporal first if
 the namespace or address changed recently: when its real execution still runs
 somewhere else, a re-run does the work twice. The same applies after a restore
 from an older backup: steps that were running at backup time can run again.
+
+Known limit — resetting a workflow with Temporal tooling. Forge never resets
+a workflow by itself. If you reset one by hand (Temporal CLI or UI) at the
+moment its last step is writing the result, that abandoned run can still record
+its outcome, so the workflow can show `completed` or `failed` while the reset
+run is working. It corrects itself when the reset run finishes and records its
+own result; Temporal refuses a second start of the same workflow while one is
+running, so a re-run in that window fails instead of doing the work twice. After
+a manual reset, check the workflow's status once the reset run has finished.
 
 The reconciler is on by default (`ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED`).
 
