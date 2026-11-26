@@ -143,6 +143,7 @@ impl MemoryRepository {
 
     pub async fn update_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         id: MemoryItemId,
         record: UpdateMemoryRecord<'_>,
     ) -> AppResult<MemoryItem> {
@@ -156,7 +157,7 @@ impl MemoryRepository {
                    visibility = COALESCE($7, visibility),
                    confidence = COALESCE($8, confidence),
                    last_verified_at = COALESCE($9, last_verified_at)
-               WHERE id = $1
+               WHERE id = $1 AND organization_id = $10
                RETURNING *"#,
         )
         .bind(id.as_uuid())
@@ -168,6 +169,7 @@ impl MemoryRepository {
         .bind(record.visibility)
         .bind(record.confidence)
         .bind(record.last_verified_at)
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
@@ -175,30 +177,37 @@ impl MemoryRepository {
 
     pub async fn extend_ttl_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         id: MemoryItemId,
         ttl_expires_at: Option<DateTime<Utc>>,
     ) -> AppResult<MemoryItem> {
         sqlx::query_as::<_, MemoryItem>(
             r#"UPDATE memory_items
                SET ttl_expires_at = $2
-               WHERE id = $1
+               WHERE id = $1 AND organization_id = $3
                RETURNING *"#,
         )
         .bind(id.as_uuid())
         .bind(ttl_expires_at)
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn revoke_in_tx(tx: &mut Transaction<'_, Postgres>, id: MemoryItemId) -> AppResult<MemoryItem> {
+    pub async fn revoke_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
+        id: MemoryItemId,
+    ) -> AppResult<MemoryItem> {
         sqlx::query_as::<_, MemoryItem>(
             r#"UPDATE memory_items
                SET state = 'revoked', revoked_at = now()
-               WHERE id = $1 AND revoked_at IS NULL
+               WHERE id = $1 AND organization_id = $2 AND revoked_at IS NULL
                RETURNING *"#,
         )
         .bind(id.as_uuid())
+        .bind(proof.org_id().as_uuid())
         .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| MemoryAccessPolicy::already_revoked(id))
@@ -206,18 +215,20 @@ impl MemoryRepository {
 
     pub async fn reclassify_scope_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         id: MemoryItemId,
         write_scope: &ScopedWrite,
     ) -> AppResult<MemoryItem> {
         sqlx::query_as::<_, MemoryItem>(
             r#"UPDATE memory_items
                SET scope_kind = $2, scope_id = $3
-               WHERE id = $1
+               WHERE id = $1 AND organization_id = $4
                RETURNING *"#,
         )
         .bind(id.as_uuid())
         .bind(write_scope.kind().as_label())
         .bind(write_scope.id())
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)

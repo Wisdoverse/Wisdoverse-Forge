@@ -50,7 +50,7 @@ impl ComplianceExportService {
             let Some(user_id) = self.repo.any_org_member(OrgId::from(org_id)).await? else {
                 continue;
             };
-            let scope = TenantScope::with_axes(OrgId::from(org_id), user_id, None, None, None);
+            let scope = TenantScope::for_background(OrgId::from(org_id), user_id, None);
             let rows = self.task_repo.export_task_history(&scope, 1000).await?;
             if rows.is_empty() {
                 continue;

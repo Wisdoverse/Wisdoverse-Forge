@@ -172,6 +172,7 @@ impl MemoryService {
         self.require_owner_or_manager(scope, &current).await?;
         let item = MemoryRepository::update_in_tx(
             &mut tx,
+            &proof,
             id,
             UpdateMemoryRecord {
                 title: input.title.as_deref(),
@@ -202,7 +203,7 @@ impl MemoryService {
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
-        let item = MemoryRepository::revoke_in_tx(&mut tx, id).await?;
+        let item = MemoryRepository::revoke_in_tx(&mut tx, &proof, id).await?;
         let audit = MemoryRevokedAudit::new(item.scope_kind.as_str(), item.sensitivity.as_str());
         self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
@@ -220,7 +221,7 @@ impl MemoryService {
         let mut tx = self.repo.pool().begin().await?;
         let current = MemoryRepository::lock_visible_for_update(&mut tx, &proof, id).await?;
         self.require_owner_or_manager(scope, &current).await?;
-        let item = MemoryRepository::extend_ttl_in_tx(&mut tx, id, ttl_expires_at).await?;
+        let item = MemoryRepository::extend_ttl_in_tx(&mut tx, &proof, id, ttl_expires_at).await?;
         let audit = MemoryTtlExtendedAudit::new(item.scope_kind.as_str(), item.ttl_expires_at);
         self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;
@@ -256,7 +257,7 @@ impl MemoryService {
             }
         };
 
-        let item = MemoryRepository::reclassify_scope_in_tx(&mut tx, id, &target).await?;
+        let item = MemoryRepository::reclassify_scope_in_tx(&mut tx, &proof, id, &target).await?;
         let audit = MemoryReclassifiedAudit::from_decision(decision, item.sensitivity.as_str(), item.content_redacted);
         self.emit_memory_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload()).await?;
         tx.commit().await?;

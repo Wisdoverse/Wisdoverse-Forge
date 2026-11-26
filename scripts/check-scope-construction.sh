@@ -1,13 +1,22 @@
 #!/bin/sh
 set -eu
 
-# Defense-in-depth guard: a TenantScope (or an unchecked Scoped read/write) may
-# only be constructed at sanctioned production sites (auth middleware / gateway /
-# documented background workers). Test constructors are NOT flagged: this scanner
-# skips `/tests/` integration directories and `#[cfg(test)]` / test-support `#[cfg]`
-# blocks, so the allowlist need only cover genuine PRODUCTION construction sites
-# (a file-level allowlist would otherwise blind the guard to new production
-# constructors in any module that also has inline tests — codex review).
+# Defense-in-depth guard (ADR 0004): a TenantScope (or an unchecked Scoped
+# read/write) may only be constructed at sanctioned production sites:
+#   - the auth middleware and the WebSocket gateway, allowlisted per FUNCTION
+#     (`path::fn_name`), so a new wrapper function in those files is flagged;
+#   - background work, through `TenantScope::for_background`, which this
+#     scanner does not flag.
+# It also rejects the cheap evasions: a renamed import or type alias of
+# TenantScope, whitespace or a line break inside `TenantScope::new`, a function
+# pointer (`.map(TenantScope::new)`), and any `impl` block for TenantScope
+# outside its definition (where `Self::new` would be reachable).
+# Known limit: this is a text scan, not a type check; a macro that pastes the
+# identifier together would not be seen. Review covers that.
+#
+# Test constructors are NOT flagged: this scanner skips `/tests/` integration
+# directories and `#[cfg(test)]` / test-support `#[cfg]` blocks, so the
+# allowlist need only cover genuine PRODUCTION construction sites.
 
 repo_root="${SCOPE_CONSTRUCTION_REPO_ROOT:-$(pwd)}"
 scan_root="${SCOPE_CONSTRUCTION_SCAN_ROOT:-$repo_root/rust}"
@@ -29,18 +38,41 @@ trap 'rm -f "$allowed" "$violations"' EXIT
 
 sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$allowlist_file" > "$allowed"
 
+# An entry is either a whole file (`path`) or one function (`path::fn_name`).
 is_allowed() {
-  rel_path="$1"
-  grep -Fxq "$rel_path" "$allowed"
+  grep -Fxq "$1" "$allowed"
 }
 
-# Emit only PRODUCTION lines of a Rust file, as `LINENO:line`. Skips
-# `#[cfg(test)]` / test-support `#[cfg(...)]` blocks by tracking brace depth,
-# mirroring the production-line logic in route_ddd_boundary_test.rs.
+# Restricted constructions, matched on one production STATEMENT at a time
+# (see production_lines: lines are joined up to the next `;`, `{` or `}` and
+# whitespace is collapsed, so line breaks cannot split a match).
+pattern='TenantScope[[:space:]]*>?[[:space:]]*::[[:space:]]*(new|with_axes)([^[:alnum:]_]|$)'
+pattern="$pattern"'|Scoped(Read|Write)[[:space:]]*::[[:space:]]*unchecked_'
+pattern="$pattern"'|TenantScope[[:space:]]+as[[:space:]]'
+pattern="$pattern"'|(^|[^[:alnum:]_])type[[:space:]]+[[:alnum:]_]+[^=]*=[^;]*TenantScope[[:space:]]*;'
+# Any impl block for TenantScope: a trait impl (`impl X for TenantScope`) or an
+# inherent impl (`impl TenantScope`), where `Self::new` would be reachable.
+pattern="$pattern"'|(^|[^[:alnum:]_])impl([^[:alnum:]_][^{;]*)?[^[:alnum:]_]for[[:space:]]+[[:alnum:]_:]*TenantScope([^[:alnum:]_]|$)'
+pattern="$pattern"'|(^|[^[:alnum:]_])impl(<[^>]*>)?[[:space:]]+[[:alnum:]_:]*TenantScope([^[:alnum:]_]|$)'
+
+# Emit the PRODUCTION statements of a Rust file as `LINENO<TAB>FN<TAB>text`,
+# where LINENO is the statement's first line and FN the innermost enclosing
+# function there (`-` at item level). Lines are joined until one ends in `;`,
+# `{` or `}` (optionally followed by `,`), and whitespace is collapsed, so a
+# type alias, impl header or constructor path split over lines is still one
+# match. Skips comment lines and `#[cfg(test)]` / test-support `#[cfg(...)]`
+# blocks by tracking brace depth, mirroring route_ddd_boundary_test.rs.
 production_lines() {
   awk '
     function braces(s,   o, c) { o = gsub(/{/, "{", s); c = gsub(/}/, "}", s); return o - c }
-    BEGIN { skip = 0; pending = 0 }
+    function current_fn() { return sp > 0 ? fn_name[sp] : "-" }
+    function flush() {
+      if (held == "") { return }
+      gsub(/[ \t]+/, " ", held)
+      print held_no "\t" held_fn "\t" held
+      held = ""
+    }
+    BEGIN { skip = 0; pending = 0; depth = 0; sp = 0; pending_fn = ""; held = ""; held_no = 0; held_fn = "" }
     {
       if (skip > 0) {
         skip += braces($0)
@@ -49,6 +81,7 @@ production_lines() {
       }
       t = $0
       sub(/^[ \t]+/, "", t)
+      if (t ~ /^\/\//) { next }
       if (pending) {
         # Consume the cfg-gated item header, which may span multiple lines
         # (e.g. a multiline `fn helper(\n ...\n) -> TenantScope {`). Stay in
@@ -66,16 +99,34 @@ production_lines() {
       if (t ~ /^#\[cfg\(test\)\]/ \
           || t ~ /^#\[cfg\(feature = "test-support"\)\]/ \
           || t ~ /^#\[cfg\(any\(test, feature = "test-support"\)\)\]/) {
+        flush()
         pending = 1
         next
       }
-      print FNR ":" $0
+
+      if (match($0, /(^|[^[:alnum:]_])fn[ \t]+[[:alnum:]_]+/)) {
+        name = substr($0, RSTART, RLENGTH)
+        sub(/^.*fn[ \t]+/, "", name)
+        pending_fn = name
+      }
+      if (pending_fn != "" && index($0, "{") > 0) {
+        sp++; fn_name[sp] = pending_fn; fn_depth[sp] = depth; pending_fn = ""
+      } else if (pending_fn != "" && t ~ /;[ \t]*$/) {
+        pending_fn = ""
+      }
+
+      if (held == "") { held = t; held_no = FNR; held_fn = current_fn() } else { held = held " " t }
+      if (t ~ /[;{}],?[ \t]*$/) { flush() }
+
+      depth += braces($0)
+      while (sp > 0 && depth <= fn_depth[sp]) { sp-- }
     }
+    END { flush() }
   ' "$1"
 }
 
 find "$scan_root" -type f -name '*.rs' | while IFS= read -r file; do
-  rel_path="${file#$repo_root/}"
+  rel_path="${file#"$repo_root"/}"
 
   # Integration test directories are entirely test code.
   case "$rel_path" in
@@ -86,18 +137,24 @@ find "$scan_root" -type f -name '*.rs' | while IFS= read -r file; do
     continue
   fi
 
-  production_lines "$file" \
-    | grep -E 'TenantScope::(new|with_axes)[[:space:]]*\(|Scoped(Read|Write)::unchecked_[[:alnum:]_]*[[:space:]]*\(' \
-    | sed "s|^|$rel_path:|" >> "$violations" || true
+  production_lines "$file" | grep -E "$pattern" | while IFS="$(printf '\t')" read -r line_no fn_name text; do
+    if is_allowed "$rel_path::$fn_name"; then
+      continue
+    fi
+    printf '%s:%s: [fn %s] %s\n' "$rel_path" "$line_no" "$fn_name" "$text" >> "$violations"
+  done || true
 done
 
 if [ -s "$violations" ]; then
   cat >&2 <<'MSG'
 ERROR: direct scope construction is restricted.
 
-Construct TenantScope only in auth middleware / gateway / a documented worker,
-move test construction through rust/crates/api/src/test_support.rs, or add a
-documented allowlist entry only when the constructor itself is being tested.
+TenantScope::new / TenantScope::with_axes are reserved for the auth middleware
+and the WebSocket gateway. Background work must use
+TenantScope::for_background(org_id, acting_user, workspace_id) with the
+organization taken from a loaded database row (see ADR 0004). Do not alias,
+re-implement or wrap the constructors. Tests should go through
+rust/crates/api/src/test_support.rs.
 
 Violations:
 MSG

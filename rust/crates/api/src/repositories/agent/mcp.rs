@@ -123,37 +123,9 @@ impl McpAgentRepository {
             .ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(agent_id))
     }
 
-    pub(crate) async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
-        let result = sqlx::query(
-            "UPDATE agents
-             SET status = $2,
-                 interactive_lease_expires_at = CASE
-                     WHEN $2::agent_status = 'working'
-                     THEN NOW() + INTERVAL '60 seconds'
-                     ELSE NULL
-                 END,
-                 interactive_owner_session_id = CASE
-                     WHEN $2::agent_status = 'working' THEN NULL
-                     ELSE interactive_owner_session_id
-                 END,
-                 updated_at = CASE
-                     WHEN status IS DISTINCT FROM $2::agent_status THEN NOW()
-                     ELSE updated_at
-                 END
-             WHERE id = $1",
-        )
-        .bind(agent_id)
-        .bind(status)
-        .execute(&self.pool)
-        .await?;
-        if result.rows_affected() == 0 {
-            return Err(AgentRepositoryPolicy::agent_uuid_not_found(agent_id));
-        }
-        Ok(())
-    }
-
     pub(crate) async fn begin_agent_work(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
     ) -> AppResult<chrono::DateTime<Utc>> {
@@ -167,11 +139,13 @@ impl McpAgentRepository {
                           ELSE updated_at
                       END
                 WHERE id = $1
+                  AND organization_id = $3
                   AND container_id = $2
             RETURNING interactive_lease_expires_at"#,
         )
         .bind(agent_id)
         .bind(expected_container_id)
+        .bind(org_id)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AgentRepositoryPolicy::agent_uuid_not_found(agent_id))
@@ -179,6 +153,7 @@ impl McpAgentRepository {
 
     pub(crate) async fn renew_agent_work_lease(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: chrono::DateTime<Utc>,
@@ -187,6 +162,7 @@ impl McpAgentRepository {
             r#"UPDATE agents
                   SET interactive_lease_expires_at = clock_timestamp() + INTERVAL '60 seconds'
                 WHERE id = $1
+                  AND organization_id = $4
                   AND container_id = $2
                   AND interactive_lease_expires_at = $3
                   AND interactive_lease_expires_at > clock_timestamp()
@@ -195,12 +171,14 @@ impl McpAgentRepository {
         .bind(agent_id)
         .bind(expected_container_id)
         .bind(expected_lease)
+        .bind(org_id)
         .fetch_optional(&self.pool)
         .await?)
     }
 
     pub(crate) async fn finish_agent_work(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: chrono::DateTime<Utc>,
@@ -213,6 +191,7 @@ impl McpAgentRepository {
                       interactive_owner_session_id = NULL,
                       updated_at = NOW()
                 WHERE id = $1
+                  AND organization_id = $5
                   AND container_id = $2
                   AND interactive_lease_expires_at = $4
                   AND interactive_lease_expires_at > clock_timestamp()
@@ -222,17 +201,26 @@ impl McpAgentRepository {
         .bind(expected_container_id)
         .bind(status)
         .bind(expected_lease)
+        .bind(org_id)
         .fetch_optional(&self.pool)
         .await?
         .unwrap_or(false))
     }
 
-    pub(crate) async fn delete_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
-        let result = sqlx::query("DELETE FROM agents WHERE id = $1 AND container_id IS NOT DISTINCT FROM $2")
-            .bind(agent_id)
-            .bind(expected_container_id)
-            .execute(&self.pool)
-            .await?;
+    pub(crate) async fn delete_agent(
+        &self,
+        org_id: Uuid,
+        agent_id: Uuid,
+        expected_container_id: Option<&str>,
+    ) -> AppResult<()> {
+        let result = sqlx::query(
+            "DELETE FROM agents WHERE id = $1 AND organization_id = $3 AND container_id IS NOT DISTINCT FROM $2",
+        )
+        .bind(agent_id)
+        .bind(expected_container_id)
+        .bind(org_id)
+        .execute(&self.pool)
+        .await?;
         if result.rows_affected() == 0 {
             return Err(AgentRepositoryPolicy::agent_uuid_not_found(agent_id));
         }
@@ -368,7 +356,7 @@ mod tests {
         .expect("seed Agent");
         let repo = McpAgentRepository::new(pool.clone());
 
-        repo.delete_agent(agent_id, Some("container-stale"))
+        repo.delete_agent(org_id, agent_id, Some("container-stale"))
             .await
             .expect_err("stale container must not authorize deletion");
         assert!(
@@ -378,6 +366,108 @@ mod tests {
                 .await
                 .unwrap()
         );
-        repo.delete_agent(agent_id, Some("container-current")).await.expect("delete current container");
+        repo.delete_agent(org_id, agent_id, Some("container-current")).await.expect("delete current container");
+    }
+
+    async fn seed_mcp_agent(pool: &PgPool, org_id: Uuid, user_id: Uuid, container_id: &str) -> Uuid {
+        let agent_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO agents
+                (id, organization_id, workspace_id, user_id, runtime_kind, cli_tool, container_id,
+                 container_image_identity, status)
+             VALUES ($1, $2, $2, $3, 'container', 'claude', $4, $5, 'idle')",
+        )
+        .bind(agent_id)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(container_id)
+        .bind(serde_json::json!({
+            "source": "agentforge-agent:claude",
+            "imageId": format!("sha256:{}", "e".repeat(64)),
+            "versionSource": "not-reported",
+            "trust": "host-local"
+        }))
+        .execute(pool)
+        .await
+        .expect("seed Agent");
+        agent_id
+    }
+
+    async fn agent_row(pool: &PgPool, agent_id: Uuid) -> Option<String> {
+        sqlx::query_scalar("SELECT to_jsonb(a)::text FROM agents a WHERE a.id = $1")
+            .bind(agent_id)
+            .fetch_optional(pool)
+            .await
+            .expect("read Agent row")
+    }
+
+    fn shape<T: std::fmt::Debug>(result: &AppResult<T>, id: Uuid) -> String {
+        match result {
+            Ok(value) => format!("Ok({value:?})"),
+            Err(err) => format!("Err({})", err.to_string().replace(&id.to_string(), "<id>")),
+        }
+    }
+
+    /// #1324: lease writes and delete constrain by organization in SQL. A
+    /// foreign organization gets exactly the unknown-id result and changes no row.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn mcp_agent_writes_are_constrained_by_organization(pool: PgPool) {
+        let (org_a, user_a) = seed_org(&pool, "mcp-tenant-a").await;
+        let (org_b, user_b) = seed_org(&pool, "mcp-tenant-b").await;
+        let a_agent = seed_mcp_agent(&pool, org_a, user_a, "ctr-a").await;
+        let b_agent = seed_mcp_agent(&pool, org_b, user_b, "ctr-b").await;
+        let unknown = Uuid::new_v4();
+        let repo = McpAgentRepository::new(pool.clone());
+
+        let assert_untouched = |label: &'static str, before: (Option<String>, Option<String>)| {
+            let pool = pool.clone();
+            async move {
+                assert_eq!(agent_row(&pool, a_agent).await, before.0, "{label}: A's Agent row changed");
+                assert_eq!(agent_row(&pool, b_agent).await, before.1, "{label}: B's Agent row changed");
+            }
+        };
+        let snapshot = || {
+            let pool = pool.clone();
+            async move { (agent_row(&pool, a_agent).await, agent_row(&pool, b_agent).await) }
+        };
+
+        // begin
+        let before = snapshot().await;
+        let foreign = repo.begin_agent_work(org_b, a_agent, "ctr-a").await;
+        let missing = repo.begin_agent_work(org_b, unknown, "ctr-a").await;
+        assert!(foreign.is_err());
+        assert_eq!(shape(&foreign, a_agent), shape(&missing, unknown));
+        assert_untouched("begin", before).await;
+        let lease = repo.begin_agent_work(org_a, a_agent, "ctr-a").await.expect("own begin");
+
+        // renew
+        let before = snapshot().await;
+        let foreign = repo.renew_agent_work_lease(org_b, a_agent, "ctr-a", lease).await;
+        let missing = repo.renew_agent_work_lease(org_b, unknown, "ctr-a", lease).await;
+        assert!(matches!(foreign, Ok(None)));
+        assert_eq!(shape(&foreign, a_agent), shape(&missing, unknown));
+        assert_untouched("renew", before).await;
+        let lease =
+            repo.renew_agent_work_lease(org_a, a_agent, "ctr-a", lease).await.expect("own renew").expect("renewed");
+
+        // finish
+        let before = snapshot().await;
+        let foreign = repo.finish_agent_work(org_b, a_agent, "ctr-a", lease, AgentStatus::Idle).await;
+        let missing = repo.finish_agent_work(org_b, unknown, "ctr-a", lease, AgentStatus::Idle).await;
+        assert!(matches!(foreign, Ok(false)));
+        assert_eq!(shape(&foreign, a_agent), shape(&missing, unknown));
+        assert_untouched("finish", before).await;
+        assert!(repo.finish_agent_work(org_a, a_agent, "ctr-a", lease, AgentStatus::Idle).await.expect("own finish"));
+
+        // delete
+        let before = snapshot().await;
+        let foreign = repo.delete_agent(org_b, a_agent, Some("ctr-a")).await;
+        let missing = repo.delete_agent(org_b, unknown, Some("ctr-a")).await;
+        assert!(foreign.is_err());
+        assert_eq!(shape(&foreign, a_agent), shape(&missing, unknown));
+        assert_untouched("delete", before.clone()).await;
+        repo.delete_agent(org_a, a_agent, Some("ctr-a")).await.expect("own delete");
+        assert_eq!(agent_row(&pool, a_agent).await, None);
+        assert_eq!(agent_row(&pool, b_agent).await, before.1);
     }
 }

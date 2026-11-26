@@ -121,7 +121,7 @@ impl RecurringTaskService {
         let claimed = self.repo.claim_due(100).await?;
         let mut created = 0;
         for row in claimed {
-            let scope = TenantScope::with_axes(row.organization_id, row.created_by, None, None, None);
+            let scope = TenantScope::for_background(row.organization_id, row.created_by, None);
             let initial = TaskCreationPolicy::initial_unassigned_state(&[], row.requires_approval, None, &[]);
             match self
                 .task_repo

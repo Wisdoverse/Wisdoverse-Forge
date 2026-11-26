@@ -61,6 +61,10 @@ impl TaskRunRepository {
                  FROM agents agent
                 WHERE agent.id = $4
                   AND agent.organization_id = $2
+                  AND EXISTS (
+                      SELECT 1 FROM orchestration_tasks task
+                       WHERE task.id = $3 AND task.organization_id = $2
+                  )
                   AND (agent.runtime_kind <> 'container' OR (
                       agent.container_id IS NOT NULL
                       AND agent.container_image_identity IS NOT NULL
@@ -71,6 +75,7 @@ impl TaskRunRepository {
                           ELSE task_runs.status
                       END,
                       updated_at = NOW()
+                WHERE task_runs.organization_id = EXCLUDED.organization_id
                RETURNING *"#,
         )
         .bind(Uuid::now_v7())

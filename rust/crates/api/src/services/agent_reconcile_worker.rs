@@ -74,12 +74,10 @@ impl AgentContainerReconcileWorker {
         let control = self.state.agent_container_control_service();
         let mut reconciled = 0usize;
         for agent_ref in refs {
-            let scope = TenantScope::with_axes(
+            let scope = TenantScope::for_background(
                 OrgId::from(agent_ref.organization_id),
                 UserId::from(agent_ref.user_id),
                 agent_ref.workspace_id.map(WorkspaceId::from),
-                None,
-                None,
             );
             match control
                 .reconcile_agent_if_container_absent(&scope, AgentId::from(agent_ref.id), &agent_ref.container_id)

@@ -269,6 +269,7 @@ impl SkillService {
         let prior_version = SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
         let skill = SkillRepository::update_in_tx(
             &mut tx,
+            scope,
             id,
             UpdateSkillRecord {
                 name: input.name.as_deref(),
@@ -316,7 +317,7 @@ impl SkillService {
         SkillMutationPolicy::ensure_revokeable(id, &current.state)?;
         self.require_owner_or_manager(scope, &current).await?;
         let prior_version = SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
-        let skill = SkillRepository::revoke_in_tx(&mut tx, id).await?;
+        let skill = SkillRepository::revoke_in_tx(&mut tx, scope, id).await?;
         let revoked_audit = SkillRevokedAudit::new(
             SkillAuditIdentity::new(
                 skill.id,
@@ -405,7 +406,8 @@ impl SkillService {
         let pre_restore_version =
             SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
         let resulting_version = current.version + 1;
-        let skill = SkillRepository::restore_from_snapshot_in_tx(&mut tx, id, &snapshot, resulting_version).await?;
+        let skill =
+            SkillRepository::restore_from_snapshot_in_tx(&mut tx, scope, id, &snapshot, resulting_version).await?;
         let restored_audit = SkillRestoredAudit::new(
             SkillAuditIdentity::new(
                 skill.id,

@@ -98,12 +98,18 @@ pub trait McpAgentStore: Send + Sync {
 
     async fn get_agent(&self, agent_id: Uuid) -> AppResult<McpAgentRecord>;
 
-    async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()>;
-
-    async fn begin_agent_work(&self, agent_id: Uuid, expected_container_id: &str) -> AppResult<DateTime<Utc>>;
+    /// Lease writes and delete constrain by `org_id` in SQL (#1324); pass the
+    /// caller's organization, not one read back from the Agent row.
+    async fn begin_agent_work(
+        &self,
+        org_id: Uuid,
+        agent_id: Uuid,
+        expected_container_id: &str,
+    ) -> AppResult<DateTime<Utc>>;
 
     async fn renew_agent_work_lease(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: DateTime<Utc>,
@@ -111,19 +117,20 @@ pub trait McpAgentStore: Send + Sync {
 
     async fn finish_agent_work(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: DateTime<Utc>,
         status: AgentStatus,
     ) -> AppResult<bool>;
 
-    async fn delete_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()>;
+    async fn delete_agent(&self, org_id: Uuid, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()>;
 }
 
 #[async_trait]
 pub trait McpAgentRuntime: Send + Sync {
     async fn create_agent(&self, req: McpAgentRuntimeCreate) -> AppResult<McpAgentRuntimeCreateResult>;
-    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()>;
+    async fn send_prompt(&self, org_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()>;
     async fn destroy_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()>;
     async fn session_status(&self, agent_id: Uuid) -> AppResult<SessionStatus>;
 }
@@ -243,12 +250,12 @@ where
         let prompt = McpAgentPrompt::parse(prompt)?;
         #[cfg(test)]
         if self.lifecycle_pool.is_none() {
-            return self.runtime.send_prompt(agent_id, prompt.content()).await;
+            return self.runtime.send_prompt(org_id, agent_id, prompt.content()).await;
         }
         let Some(tx) = self.admit_idle_lifecycle(&record).await? else {
             return Err(AgentContainerRuntimePolicy::lifecycle_blocked_by_active_work().into());
         };
-        let result = self.runtime.send_prompt(agent_id, prompt.content()).await;
+        let result = self.runtime.send_prompt(org_id, agent_id, prompt.content()).await;
         finish_mcp_lifecycle(tx, result).await
     }
 
@@ -257,7 +264,7 @@ where
         #[cfg(test)]
         if self.lifecycle_pool.is_none() {
             self.runtime.destroy_agent(agent_id, record.container_id.as_deref()).await?;
-            return self.store.delete_agent(agent_id, record.container_id.as_deref()).await;
+            return self.store.delete_agent(org_id, agent_id, record.container_id.as_deref()).await;
         }
         let Some(tx) = self.admit_idle_lifecycle(&record).await? else {
             return Err(AgentContainerRuntimePolicy::lifecycle_blocked_by_active_work().into());
@@ -267,7 +274,7 @@ where
         // final delete to the same authoritative container.
         let current = self.require_agent_in_scope(org_id, workspace_id, agent_id).await?;
         let result = match self.runtime.destroy_agent(agent_id, current.container_id.as_deref()).await {
-            Ok(()) => self.store.delete_agent(agent_id, current.container_id.as_deref()).await,
+            Ok(()) => self.store.delete_agent(org_id, agent_id, current.container_id.as_deref()).await,
             Err(err) => Err(err),
         };
         finish_mcp_lifecycle(tx, result).await

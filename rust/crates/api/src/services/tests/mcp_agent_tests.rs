@@ -78,18 +78,9 @@ impl McpAgentStore for TestStore {
         record.ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")).into())
     }
 
-    async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
-        let mut records = self.records.lock().expect("records lock");
-        let Some(record) = records.iter_mut().find(|record| record.agent_id == agent_id) else {
-            return Err(ErrorKind::NotFound(format!("agent {agent_id}")).into());
-        };
-        record.status = status;
-        record.updated_at = Some(chrono::Utc::now());
-        Ok(())
-    }
-
     async fn begin_agent_work(
         &self,
+        _org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
     ) -> AppResult<chrono::DateTime<chrono::Utc>> {
@@ -110,6 +101,7 @@ impl McpAgentStore for TestStore {
 
     async fn renew_agent_work_lease(
         &self,
+        _org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: chrono::DateTime<chrono::Utc>,
@@ -132,6 +124,7 @@ impl McpAgentStore for TestStore {
 
     async fn finish_agent_work(
         &self,
+        _org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: chrono::DateTime<chrono::Utc>,
@@ -153,7 +146,7 @@ impl McpAgentStore for TestStore {
         Ok(true)
     }
 
-    async fn delete_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
+    async fn delete_agent(&self, _org_id: Uuid, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
         let mut records = self.records.lock().expect("records lock");
         let Some(index) = records
             .iter()
@@ -194,7 +187,7 @@ impl McpAgentRuntime for TestRuntime {
         })
     }
 
-    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+    async fn send_prompt(&self, _org_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()> {
         self.prompt_calls.lock().expect("prompt calls").push((agent_id, prompt.to_string()));
         self.statuses
             .lock()

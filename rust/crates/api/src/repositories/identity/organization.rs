@@ -5,7 +5,7 @@ use agentforge_db::entities::Organization;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::resource::ResourceRepositoryPolicy;
+use crate::domain::resource::{ResourcePermissionPolicy, ResourceRepositoryPolicy};
 
 /// Database access layer for organizations.
 pub struct OrganizationRepository {
@@ -93,20 +93,32 @@ impl OrganizationRepository {
         Ok(role)
     }
 
-    /// Update an organization's name (tenant-scoped via membership check).
+    /// Rename an organization. Only a live owner or admin membership of that
+    /// organization may rename it; the statement itself enforces the role.
+    /// A non-member gets not-found; a member without the role gets forbidden.
     pub async fn update(&self, scope: &TenantScope, id: OrgId, name: &str) -> AppResult<Organization> {
-        // Verify membership first
+        // Non-members get not-found, as for every other organization read.
         let _ = self.find_by_id(scope, id).await?;
 
-        sqlx::query_as::<_, Organization>(
-            r#"UPDATE organizations SET name = $2, updated_at = NOW()
-               WHERE id = $1 AND deleted_at IS NULL
-               RETURNING *"#,
+        let renamed = sqlx::query_as::<_, Organization>(
+            r#"UPDATE organizations o SET name = $2, updated_at = NOW()
+               WHERE o.id = $1
+                 AND o.deleted_at IS NULL
+                 AND EXISTS (
+                     SELECT 1 FROM organization_members om
+                      WHERE om.organization_id = o.id
+                        AND om.user_id = $3
+                        AND om.role IN ('owner', 'admin')
+                 )
+               RETURNING o.*"#,
         )
         .bind(id.as_uuid())
         .bind(name)
+        .bind(scope.user_id().as_uuid())
         .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| ResourceRepositoryPolicy::organization_not_found(id))
+        .await?;
+        // No row after the membership check means the caller lacks the role.
+        ResourcePermissionPolicy::ensure_can_manage_org(renamed.is_some())?;
+        renamed.ok_or_else(|| ResourceRepositoryPolicy::organization_not_found(id))
     }
 }
