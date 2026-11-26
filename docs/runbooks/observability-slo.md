@@ -6,6 +6,34 @@ The targets here are the defaults shipped in this repository; an operator
 running Wisdoverse Forge may tighten them but should not loosen them without
 recording the change next to their deployment config.
 
+## Start Here
+
+What Forge measures and alerts on today:
+
+- API availability and latency, from the shared HTTP metrics.
+- Orchestrator HTTP errors and latency, and the orchestration outbox lag and backlog.
+- CLI auth proxy OAuth client failures and self-fix delivery failures.
+- The agents-runtime endpoints (create, Host CLI enroll, restart).
+
+The alert rules live in `ops/prometheus/alerts.yml`,
+`ops/prometheus/agents-runtime.yml` and, for orchestration production
+reliability, `docker/orchestration-alerts.yml`. Add all three files to
+`rule_files` in your Prometheus configuration.
+[Alerting Thresholds](#alerting-thresholds) lists every rule. Three rules in
+`ops/prometheus/alerts.yml` need an exporter that Forge does not ship; the table
+says which. Some indicators that earlier versions of this page described are
+not measured yet; see [Not Implemented Indicators](#not-implemented-indicators).
+
+To confirm that this page and the alert rules only name metrics the code emits,
+run this from the repository root (requires Node.js and `npm ci`):
+
+```bash
+npm run metrics:contract
+```
+
+Success prints `[metrics-contract] ... names + labels resolve.` A failure lists
+each metric that no code emits, with its file and line. CI runs the same check.
+
 ## SLIs
 
 The Rust API and orchestrator each emit Prometheus metrics through
@@ -25,15 +53,14 @@ absent label matches a negative matcher) and orchestrator-only queries select
 `service="orchestrator"`. The shipped alert rules in `ops/prometheus/alerts.yml`
 follow exactly this split. The relevant metric families are:
 
-| SLI                       | Metric                                                                                                                            | Definition                                                                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| API availability          | `http_requests_total{status=~"5..",status!="501",service!="orchestrator"}`                                                        | `1 - (5xx requests / total requests)` over a rolling window, with status `501` excluded from both counts.                                                    |
-| API latency (p95)         | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=~"/api/v1/agents.*", method="POST"}[5m])))` | p95 over the agents-runtime write paths, computed from the histogram `_bucket` series (labels `method`/`path`); excludes WebSocket upgrades and SSE streams. |
-| Orchestrator success rate | `task_runs_completed_total{status="success"} / task_runs_completed_total`                                                         | Fraction of completed task runs that ended without an error status.                                                                                          |
-| Workflow start latency    | `temporal_workflow_start_seconds{quantile="0.95"}`                                                                                | Time from `start_workflow` accepted to the workflow worker picking it up.                                                                                    |
-| NATS event delivery       | `nats_messages_delivered_total / nats_messages_published_total`                                                                   | Fraction of events successfully delivered to a consumer.                                                                                                     |
-| DB pool saturation        | `sqlx_connection_pool_in_use / sqlx_connection_pool_size`                                                                         | Average over the SLO window.                                                                                                                                 |
-| WebSocket fanout backlog  | `ws_outbound_buffer_depth{quantile="0.99"}`                                                                                       | Backlog depth at the 99th percentile per connection.                                                                                                         |
+| SLI               | Metric                                                                                                                            | Definition                                                                                                                                                   | Alert rules                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| API availability  | `http_requests_total{status=~"5..",status!="501",service!="orchestrator"}`                                                        | `1 - (5xx requests / total requests)` over a rolling window, with status `501` excluded from both counts.                                                    | `API5xxRatioAtOrAboveSLO`, `APIHigh5xxRate`, `APIErrorBudgetBurn`  |
+| API latency (p95) | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path=~"/api/v1/agents.*", method="POST"}[5m])))` | p95 over the agents-runtime write paths, computed from the histogram `_bucket` series (labels `method`/`path`); excludes WebSocket upgrades and SSE streams. | `APILatencyHighP95`, `APILatencyHighP99` (all API paths, per path) |
+
+Orchestrator success rate, workflow start latency, NATS event delivery, DB pool
+saturation and WebSocket fanout backlog have no metric yet. See
+[Not Implemented Indicators](#not-implemented-indicators).
 
 A deliberate `501 Not Implemented` reply marks an endpoint that has no implementation yet.
 It does not measure the availability of implemented service, so the availability SLI,
@@ -58,15 +85,10 @@ Success looks like the alert resolving on its own once no route has answered 501
 The defaults below assume a single-tenant self-hosted deployment serving
 ~10–50 operators. They are starting points, not contractual ceilings.
 
-| Surface                   | Window  | Target         |
-| ------------------------- | ------- | -------------- |
-| API availability          | 30 days | > 99.5%        |
-| API p95 latency           | 30 days | 350 ms         |
-| Orchestrator success rate | 30 days | 99.0%          |
-| Workflow start p95        | 30 days | 1.5 s          |
-| NATS event delivery       | 7 days  | 99.9%          |
-| DB pool saturation        | 30 days | < 70% average  |
-| WebSocket backlog p99     | 30 days | < 512 messages |
+| Surface          | Window  | Target  |
+| ---------------- | ------- | ------- |
+| API availability | 30 days | > 99.5% |
+| API p95 latency  | 30 days | 350 ms  |
 
 ## API Availability
 
@@ -141,21 +163,39 @@ _always_ explained.
 
 ## Alerting Thresholds
 
-Alerts should be routed to the operator's on-call channel. The recommended
-defaults:
+Alerts should be routed to the operator's on-call channel. Every rule shipped
+in `ops/prometheus/alerts.yml` is listed below. The **For** column is the rule's
+pending period: the condition must stay true that long before the alert fires;
+`0m` fires on the first evaluation. The agents-runtime rules are in
+[Agents Runtime SLOs](#agents-runtime-slos).
 
-| Condition                                        | Severity | Where it fires                                              |
-| ------------------------------------------------ | -------- | ----------------------------------------------------------- |
-| Per-path API 5xx rate > 1% over 5 min            | Page     | Fires when the condition remains true for 5 min.             |
-| Global API 5xx rate > 1.4% over 1h and 5m        | Page     | Fires when both windows exceed the threshold for 2 min.      |
-| Global API 5xx rate >= 0.5% over 30 days         | Warning  | Fires when the condition remains true for 1 hour.            |
-| Any API 501 response in the last 15 min          | Ticket   | Fires per route; see [Not Implemented Responses](#not-implemented-responses). |
-| API p95 latency > 1 s for 10 min                 | Warning  | API latency SLI.                                            |
-| Orchestrator workflow start p95 > 5 s for 10 min | Warning  | Workflow start SLI.                                         |
-| Task run failure rate > 5% for 15 min            | Warning  | Orchestrator success rate SLI.                              |
-| DB connection pool saturation > 90% for 5 min    | Critical | Pool saturation SLI; usually indicates a stuck transaction. |
-| NATS event delivery < 99% for 5 min              | Warning  | NATS SLI; check Compose health of the NATS service.         |
-| `/health` 200 lost for 60 s                      | Critical | Synthetic liveness check.                                   |
+| Alert rule                          | Condition                                                                 | For | Severity | Notes                                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------- | --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APIHigh5xxRate`                    | Per-path API 5xx ratio > 1% over 5 min                                    | 5m  | Page     | API availability SLI.                                                                                                                                                                                           |
+| `APIErrorBudgetBurn`                | Global API 5xx ratio > 1.4% over both 1h and 5m                           | 2m  | Page     | API availability SLI.                                                                                                                                                                                           |
+| `API5xxRatioAtOrAboveSLO`           | Global API 5xx ratio >= 0.5% over 30 days, with nonzero traffic           | 1h  | Warning  | API availability SLI.                                                                                                                                                                                           |
+| `APINotImplementedResponses`        | Any API 501 response in the last 15 min                                   | 0m  | Ticket   | Fires per route; see [Not Implemented Responses](#not-implemented-responses).                                                                                                                                   |
+| `APILatencyHighP95`                 | Per-path API p95 latency > 1 s                                            | 10m | Page     | API latency SLI.                                                                                                                                                                                                |
+| `APILatencyHighP99`                 | Per-path API p99 latency > 3 s                                            | 10m | Ticket   | API latency SLI.                                                                                                                                                                                                |
+| `OrchestratorHigh5xxRate`           | Per-path orchestrator 5xx ratio > 1% over 5 min                           | 5m  | Page     | Orchestrator HTTP traffic only (`service="orchestrator"`).                                                                                                                                                      |
+| `OrchestratorLatencyHighP95`        | Per-path orchestrator p95 latency > 1 s                                   | 10m | Ticket   | Orchestrator HTTP traffic only.                                                                                                                                                                                 |
+| `OrchestrationLagHigh`              | Oldest unpublished orchestration outbox row older than 60 s               | 5m  | Page     | See [Orchestration](orchestration.md).                                                                                                                                                                          |
+| `OrchestrationOutboxBacklogHigh`    | More than 1000 unpublished outbox rows                                    | 10m | Ticket   | See [Orchestration](orchestration.md).                                                                                                                                                                          |
+| `ContainerRestartLoop`              | API or orchestrator container restarted more than 3 times in 10 min       | 0m  | Page     | Needs a Docker exporter that publishes `container_restart_count` (cAdvisor and kube-state-metrics use other names). Forge does not ship one; without it this alert never fires.                                 |
+| `HealthCheckFailing`                | Blackbox probe in the scrape job `staging-health` fails                   | 3m  | Page     | Needs the Prometheus blackbox exporter and a scrape job named `staging-health`. Forge ships neither; without them this alert never fires.                                                                       |
+| `APIMemoryHigh`                     | API resident memory > 80% of machine memory                               | 15m | Ticket   | Needs cAdvisor for `machine_memory_bytes` and an exporter that publishes `process_resident_memory_bytes` for the job `agentforge-server`; the Forge services emit neither. Without them this alert never fires. |
+| `CliAuthProxyInvalidClientFailures` | OAuth provider rejected the CLI auth proxy client at least once in 10 min | 1m  | Critical | See [credential sync](credential-sync.md#cli-auth-proxy-invalid-client).                                                                                                                                        |
+| `SelfFixPrPermanentFailure`         | A self-fix PR open failed permanently in the last 15 min                  | 0m  | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                                                                                                                                                    |
+| `SelfFixMergeFailed`                | A self-fix merge attempt failed in the last 15 min                        | 0m  | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                                                                                                                                                    |
+| `SelfFixMergeAttemptsExhausted`     | A self-fix approve hit the merge attempt cap in the last 15 min           | 0m  | Warning  | See [Self-Fix Delivery](#self-fix-delivery).                                                                                                                                                                    |
+
+The orchestration production rules in `docker/orchestration-alerts.yml`
+(`OrchestrationAssignmentOutboxBacklog`, `OrchestrationAssignmentOutboxStalled`,
+`OrchestrationExpiredWorkingLeases`, `OrchestrationStaleParticipants`,
+`OrchestrationBusyParticipantWithoutWork`,
+`OrchestrationWorkingTaskWithoutBusyParticipant`, `OrchestrationResultApplyLag`,
+`OrchestrationResultUnauthorizedSpike`, `OrchestrationOutboxPublishErrors`) are
+documented in the [Orchestration runbook](orchestration.md#alert-route-check).
 
 Both error-budget burn windows use a 1.4% threshold. This is 2.8 times the
 global 0.5% error budget.
@@ -170,7 +210,7 @@ if it fails to recover within five minutes.
 When an alert fires, refer to the matching runbook:
 
 - API 5xx rate: [API Availability](observability-slo.md#api-availability)
-- NATS delivery: [docs/runbooks/nats-auth.md](nats-auth.md)
+- NATS authentication or connection problems (no NATS delivery alert exists yet): [docs/runbooks/nats-auth.md](nats-auth.md)
 - Credential failure: [docs/runbooks/credential-sync.md](credential-sync.md)
 - Context governance: [docs/runbooks/context-governance-audit.md](context-governance-audit.md)
 - Orchestration: [docs/runbooks/orchestration.md](orchestration.md)
@@ -188,11 +228,13 @@ the metrics listed above. A reference dashboard skeleton has the following
 panels:
 
 - Request rate, error rate, p50/p95/p99 latency per route.
-- Active WebSocket connections and outbound buffer depth distribution.
-- Orchestrator workflow start latency and task run success rate.
-- NATS publish/deliver rates by subject.
-- SQLx pool size, in-use, and acquire-time histogram.
-- Memory and CPU per service container.
+- Orchestration outbox backlog, oldest unpublished age, and publish errors.
+- Memory and CPU per service container, from your container exporter.
+
+The indicators under [Not Implemented Indicators](#not-implemented-indicators)
+have no metric, so they cannot have a panel yet. The overview dashboard's memory
+and container restart panels use the external metrics named in
+[Alerting Thresholds](#alerting-thresholds) and stay empty without those exporters.
 
 Dashboard URLs and credentials live in the operator's private infra repo, not
 in this repository.
@@ -208,13 +250,16 @@ the agents-runtime service (#447).
 | `POST /api/v1/agents/local-enroll` | < 800ms | > 99.5%     | 28d    | `HostCliEnrollP95Slow`, `HostCliEnrollSuccessRatioBelowSLO`       |
 | `POST /api/v1/agents/:id/restart`  | < 2s    | > 99.0%     | 28d    | `ContainerRestartP95Slow`, `ContainerRestartSuccessRatioBelowSLO` |
 
-DB invariant and replay burst alerts also fire immediately without a `for:`
-window:
+The p95 alerts fire after the threshold is exceeded for 10 minutes. The success
+ratio alerts fire after the 28-day ratio stays below the target for 1 hour. All
+six are severity `warning`.
 
-| Alert                                     | Trigger                                                       | Severity |
-| ----------------------------------------- | ------------------------------------------------------------- | -------- |
-| `AgentsCheckConstraintViolation`          | Any `agents_check_constraint_violations_total` increase in 5m | critical |
-| `HostCliEnrollmentIdempotencyReplayBurst` | `agents_idempotency_replay_total` rate > 5/s for 5m           | warning  |
+Two more rules watch the DB invariant and replay bursts:
+
+| Alert                                     | Trigger                                                       | For                | Severity |
+| ----------------------------------------- | ------------------------------------------------------------- | ------------------ | -------- |
+| `AgentsCheckConstraintViolation`          | Any `agents_check_constraint_violations_total` increase in 5m | 0s (fires at once) | critical |
+| `HostCliEnrollmentIdempotencyReplayBurst` | `agents_idempotency_replay_total` rate > 5/s                  | 5m                 | warning  |
 
 Alert rules file: `ops/prometheus/agents-runtime.yml`
 
@@ -285,6 +330,42 @@ Success looks like this: the counter stops increasing and the alert resolves
 after the 15-minute window passes. For PR failures, the next self-fix task opens
 a draft pull request. For merge failures, the task's **Review** tab reads
 **Merged**. For an exhausted task, the PR is merged or closed on GitHub.
+
+## Not Implemented Indicators
+
+Earlier versions of this page described the indicators below. No Forge service
+emits their metrics, so they have no SLO target, no alert rule and no dashboard
+panel. Do not build alerts on these names: they would never fire.
+
+| Indicator                 | Metric named earlier                                             | What you can use today                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Orchestrator success rate | `task_runs_completed_total`                                      | Nothing yet.                                                                                                                                 |
+| Workflow start latency    | `temporal_workflow_start_seconds`                                | Nothing yet. The assignment publish time in [Emitted Without Alert Rules](#emitted-without-alert-rules) covers only the publish step.        |
+| NATS event delivery       | `nats_messages_delivered_total`, `nats_messages_published_total` | `OrchestrationLagHigh` and `OrchestrationOutboxBacklogHigh` cover the orchestrator's publish to NATS. Delivery to consumers is not measured. |
+| DB pool saturation        | `sqlx_connection_pool_in_use`, `sqlx_connection_pool_size`       | Nothing yet.                                                                                                                                 |
+| WebSocket fanout backlog  | `ws_outbound_buffer_depth`                                       | Nothing yet.                                                                                                                                 |
+
+`npm run metrics:contract` allows a never-emitted metric name only in this
+section, and fails if a name listed here starts being emitted. When one of
+these indicators is implemented, move it back to [SLIs](#slis) with its alert.
+
+## Emitted Without Alert Rules
+
+These orchestration metrics are emitted and shown on
+`ops/grafana/orchestration-release-gate-dashboard.json`, but no shipped rule
+alerts on them:
+
+- `agentforge_orchestration_outbox_published_total`: assignment outbox rows published to NATS JetStream and acknowledged.
+- `agentforge_orchestration_assignment_publish_seconds`: time to publish one assignment and receive the acknowledgement.
+
+The API server exports `agentforge_orchestration_assignment_publish_seconds`
+and `agentforge_orchestration_result_apply_seconds` as histograms with buckets
+from 5 ms to 60 s (`_bucket`, `_sum`, `_count`), so `histogram_quantile()`
+works on them. Before this change they were summaries with `quantile` series
+and no `_bucket` series, so the release-gate latency panels and
+`OrchestrationResultApplyLag` returned nothing. A histogram recorded without
+configured buckets is exported as a summary; `npm run metrics:contract` fails
+when a rule or panel asks for `_bucket` series of such a metric.
 
 ## Logs
 

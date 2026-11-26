@@ -1016,12 +1016,12 @@
       "pluginVersion": "10.4.0",
       "targets": [
         {
-          "expr": "absent(agentforge_orchestration_assignment_publish_seconds_bucket) or on() vector(0)",
+          "expr": "absent(agentforge_orchestration_assignment_publish_seconds_count) or on() vector(0)",
           "legendFormat": "assignment publish latency",
           "refId": "A"
         },
         {
-          "expr": "absent(agentforge_orchestration_result_apply_seconds_bucket) or on() vector(0)",
+          "expr": "absent(agentforge_orchestration_result_apply_seconds_count) or on() vector(0)",
           "legendFormat": "result apply latency",
           "refId": "B"
         },

@@ -25,7 +25,8 @@
 #   * `credential_refresh_errors_total{cli_tool, reason}` — CLI auth proxy refresh errors
 #   * `agentforge_self_fix_pr_total{outcome}` — self-fix PR Bridge open outcomes
 #   * `agentforge_self_fix_merge_total{outcome}` — self-fix Merge Executor outcomes
-#   * `process_resident_memory_bytes` — exporter standard (external)
+#   * `process_resident_memory_bytes` — external; the Forge services do not emit it,
+#     so APIMemoryHigh needs a process exporter (see EXTERNAL_METRICS in the check)
 #
 # Service discrimination (CN-5): the orchestrator emits the SAME HTTP metric
 # names as the API, tagged `service="orchestrator"`; the API emits no `service`
@@ -205,8 +206,9 @@ groups:
 
   - name: agentforge.deploy
     rules:
+      # External: needs a Docker exporter publishing container_restart_count; Forge does not ship one, so without it this never fires.
       - alert: ContainerRestartLoop
-        # cAdvisor / kube-state metric. For raw docker, derive from the
+        # Not a cAdvisor or kube-state-metrics name. For raw docker, derive from the
         # health-check exit code or container_start_time_seconds delta.
         expr: |
           increase(container_restart_count{name=~"agentforge-(server|orchestrator)"}[10m]) > 3
@@ -217,6 +219,7 @@ groups:
         annotations:
           summary: '{{ $labels.name }} restarted >3× in 10m'
 
+      # External: needs the blackbox exporter and a `staging-health` scrape job; Forge ships neither, so without them this never fires.
       - alert: HealthCheckFailing
         # Match any blackbox probe target whose Prometheus job label is `staging-health`.
         # The actual staging hostname lives in the Prometheus scrape config (not in this
@@ -231,6 +234,7 @@ groups:
 
   - name: agentforge.resource
     rules:
+      # External: needs cAdvisor (machine_memory_bytes) and a process exporter for job agentforge-server; Forge ships neither, so without them this never fires.
       - alert: APIMemoryHigh
         expr: |
           process_resident_memory_bytes{job="agentforge-server"}

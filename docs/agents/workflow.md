@@ -23,7 +23,8 @@ Choose checks from the changed behavior and its dependencies.
 | Runtime or deployment | Relevant Compose target and service health checks |
 | Production contracts | `make prod-ext`, service health checks, and orchestration-chain checks |
 
-- Commit generated protocol files with their source changes.
+- Commit generated protocol files with their source changes. CI runs
+  `npm run proto:check` with `protoc` 3.21.12; use the same version locally.
 - Use `npm run test:unit` or `npm run test:integration` for the relevant Vitest project.
 - Use `npm run test:e2e` for browser journeys affected by the change.
 - Report each check's actual result.

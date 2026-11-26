@@ -87,7 +87,7 @@ Run the union of the checks for every area you touched.
 | Documentation only                    | `git diff --check`                                                                                                              |
 | Frontend / shared / scripts           | `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run test:unit`                                                |
 | Rust code                             | `cd rust && cargo fmt --all --check`, `cd rust && cargo clippy --workspace -- -D warnings`, `cd rust && cargo test --workspace` |
-| Proto or generated platform contracts | `npm run proto:gen`, `npm run proto:check`                                                                                      |
+| Proto or generated platform contracts | `npm run proto:gen`, `npm run proto:check` (needs `protoc` 3.21.12; CI runs `proto:check` in the ESLint job)                     |
 
 If a change spans multiple areas, run the combined matrix before pushing.
 
