@@ -186,7 +186,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
         agentStats = agents.reduce(
           (acc, a) => {
             acc.total++
-            if (a.status === 'working' || a.status === 'waiting' || a.status === 'attention') {
+            if (a.status === 'working') {
               acc.working++
               acc.online++
             } else if (a.status === 'idle') {

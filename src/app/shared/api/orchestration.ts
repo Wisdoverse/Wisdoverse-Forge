@@ -13,7 +13,16 @@ import type {
   RejectContextCandidateRequest,
   TaskContextResponse,
 } from '@shared/types/context'
+import type { OrchTaskState, ParticipantSummary, TaskSummary } from '@shared/types/agent'
 import { authFetch } from './authFetch'
+
+// Wire types have ONE declaration, in `shared/types` (#1327).
+export type {
+  ParticipantSummary,
+  TaskContextCounts,
+  TaskSummary,
+  TaskWaitEstimate,
+} from '@shared/types/agent'
 
 export interface RecurringTask {
   id: string
@@ -47,8 +56,7 @@ export interface ReviewGateStatus {
   missing: string[]
 }
 
-export type TaskState =
-  'backlog' | 'queued' | 'working' | 'blocked' | 'completed' | 'failed' | 'canceled'
+export type TaskState = OrchTaskState
 
 export type BlockedReason =
   | 'waiting_agent'
@@ -62,20 +70,6 @@ export interface TaskResultArtifact {
   name: string
   mimeType: string
   data: string
-}
-
-export type TaskResultPayload =
-  | TaskResultArtifact[]
-  | {
-      stdout?: string
-      message?: string
-      [key: string]: unknown
-    }
-
-export interface TaskContextCounts {
-  appliedMemories: number
-  appliedSkills: number
-  total: number
 }
 
 export interface TaskRunImageEvidence {
@@ -138,60 +132,6 @@ export interface TaskReviewCheck {
   updatedAt: string
 }
 
-export interface TaskSummary {
-  id: string
-  groupId?: string
-  state: TaskState
-  method: string
-  params: { task: string; message: string }
-  assignedTo?: string
-  assignedAgentName?: string
-  /** Human owner for lifecycle notifications. Currently the task creator. */
-  createdBy?: string
-  priority: 'low' | 'normal' | 'high' | 'urgent'
-  progress: number
-  error?: string
-  result?: TaskResultPayload
-  /** Reason a `blocked` task is stuck. Drives the kanban "还差什么" hint. */
-  blockedReason?: BlockedReason
-  /** Human-readable hint already localized server-side (e.g. "等待空闲 agent (2 个忙碌)"). */
-  blockedHint?: string
-  /** Reason-specific structured payload (counts, missing fields, approver, etc.). */
-  blockedMetadata?: Record<string, unknown>
-  createdAt: string
-  updatedAt: string
-  /** Database-owned monotonic revision. Absent only during rolling upgrades. */
-  rowVersion?: number
-  completedAt?: string
-  contextCounts?: TaskContextCounts
-  /** 1-based attempt counter; incremented on each retry. */
-  attempt: number
-  /** RFC3339 timestamp when the current worker lease expires (only set while working). */
-  leaseExpiresAt?: string
-  /** True when this is a self-fix task (a code-fix against this repo). Drives the Review tab. */
-  selfFix?: boolean
-  /** Draft-PR number once the self-fix Bridge has opened one. */
-  prNumber?: number
-  /** Canonical PR URL. */
-  prUrl?: string
-  /** PR head SHA recorded at open time (the merge gate re-verifies against it). */
-  prHeadSha?: string
-  /** Persisted self-fix review status (mirrors the Rust `review_status` vocabulary). */
-  reviewStatus?: SelfFixReviewStatus
-  /** Queued-time dispatch prediction (present only while waiting). */
-  waitEstimate?: TaskWaitEstimate
-}
-
-/** Server-computed prediction for when a waiting task's agent will start it. */
-export interface TaskWaitEstimate {
-  /** 1-based position in the effective queue (same agent, else shared pool). */
-  position: number
-  /** Median duration of recently completed tasks in this org, seconds. 0 = no history yet. */
-  typicalSeconds: number
-  /** Predicted seconds until the agent starts this task. */
-  estimatedSeconds: number
-}
-
 /** Self-fix review-status vocabulary — mirrors `domain::self_fix::review_status` (Rust). */
 export type SelfFixReviewStatus =
   'in_review' | 'approved' | 'changes_requested' | 'merged' | 'sensitive_blocked'
@@ -218,21 +158,17 @@ export function taskResultArtifacts(result: TaskSummary['result']): TaskResultAr
   if (!result) return []
 
   if (Array.isArray(result)) {
-    return result.filter(
-      (item): item is TaskResultArtifact =>
-        Boolean(item) &&
-        typeof item.name === 'string' &&
-        typeof item.mimeType === 'string' &&
-        typeof item.data === 'string'
-    )
+    return result.filter(isTaskResultArtifact)
   }
 
-  if (typeof result.stdout === 'string') {
-    return [{ name: 'text-result.txt', mimeType: 'text/plain', data: result.stdout }]
+  const fields = typeof result === 'object' ? result : {}
+
+  if ('stdout' in fields && typeof fields.stdout === 'string') {
+    return [{ name: 'text-result.txt', mimeType: 'text/plain', data: fields.stdout }]
   }
 
-  if (typeof result.message === 'string') {
-    return [{ name: 'final-answer.txt', mimeType: 'text/plain', data: result.message }]
+  if ('message' in fields && typeof fields.message === 'string') {
+    return [{ name: 'final-answer.txt', mimeType: 'text/plain', data: fields.message }]
   }
 
   return [
@@ -244,17 +180,17 @@ export function taskResultArtifacts(result: TaskSummary['result']): TaskResultAr
   ]
 }
 
-export interface ParticipantSummary {
-  id: string
-  agentId: string
-  name: string
-  status: 'available' | 'busy' | 'offline'
-  capabilities: string[]
-  /** Agent runtime kind ('container' | 'cli' | 'api'), used to gate
-   * runtime-specific affordances such as task image upload. Omitted by older
-   * servers / when the agent row could not be resolved. */
-  runtimeKind?: 'container' | 'cli' | 'api'
-  lastHeartbeatAt?: string
+function isTaskResultArtifact(item: unknown): item is TaskResultArtifact {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    'name' in item &&
+    typeof item.name === 'string' &&
+    'mimeType' in item &&
+    typeof item.mimeType === 'string' &&
+    'data' in item &&
+    typeof item.data === 'string'
+  )
 }
 
 export interface TaskStats {

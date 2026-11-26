@@ -1,4 +1,4 @@
-import type { CliTool } from '@shared/types'
+import type { AgentStatus, CliTool } from '@shared/types'
 
 /**
  * Canonical runtime kind discriminator.
@@ -13,9 +13,8 @@ import type { CliTool } from '@shared/types'
  */
 export type AgentRuntimeKind = 'container' | 'cli' | 'api'
 
-export type AgentStatus = 'working' | 'idle' | 'offline'
-
-export type { CliTool }
+// Wire type, one declaration in `shared/types` (#1327).
+export type { AgentStatus, CliTool }
 
 export interface AgentInfo {
   id: string

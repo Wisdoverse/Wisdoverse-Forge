@@ -1,20 +1,14 @@
 import { useEffect } from 'react'
-import type { TaskSummary } from '@app/shared/api/orchestration'
+import type { InboundServerMessage, TaskSummary } from '@shared/types'
 import { taskBlockedPreview, taskFailurePreview } from '@app/shared/lib/taskFailureCopy'
 import { useAdminStore } from '@app/entities/admin'
 import { useBoardStore } from '@app/entities/navigation'
 import { useFeedStore } from '@app/entities/feed'
 import { useWebSocket } from '@app/shared/model/websocket.context'
-import { handleContextWsMessage, type ContextRealtimeMessage } from '@app/features/context'
-import {
-  CLONE_STATUS_WS_TYPE,
-  handleCloneStatusWsMessage,
-  type CloneStatusWsMessage,
-} from '@app/features/manage-project'
-import {
-  handleOrchestrationWsMessage,
-  type OrchestrationRealtimeMessage,
-} from '@app/features/orchestration'
+import { handleContextWsMessage } from '@app/features/context'
+import { CLONE_STATUS_WS_TYPE, handleCloneStatusWsMessage } from '@app/features/manage-project'
+import { handleOrchestrationWsMessage } from '@app/features/orchestration'
+import { decodeServerMessage } from './decodeServerMessage'
 
 // F072: monotonic counter so two attention items created in the same millisecond
 // get distinct ids. A bare `attention-${Date.now()}` collides under a burst, and
@@ -25,46 +19,89 @@ function nextAttentionId(): string {
   return `attention-${Date.now()}-${attentionSeq}`
 }
 
-interface WsMessage {
-  type: string
-  [key: string]: unknown
+/** What `dispatchWsMessage` did with a frame (asserted by the fixture tests). */
+export type WsDispatchOutcome = 'handled' | 'ignored' | 'unknown'
+
+/**
+ * Frames this dispatcher deliberately does not act on, with the reason. Every
+ * other `InboundServerMessage` member must have a `case` below (compile error
+ * otherwise).
+ */
+export const IGNORED_WS_FRAMES = {
+  terminal_output: 'Consumed by the terminal subscriber in features/agents/AgentTerminalTab.tsx.',
+  terminal_error: 'Consumed by the terminal subscriber in features/agents/AgentTerminalTab.tsx.',
+  turn_invalidate:
+    'No consumer yet: ChatView loads turns once (chat.store fetchEvents) and has no live refresh.',
+} as const satisfies Partial<Record<InboundServerMessage['type'], string>>
+
+/** Reason the `{ ok: false, error }` gateway control frames are ignored. */
+export const IGNORED_CONTROL_FRAME_REASON =
+  'No consumer yet: realtime_unavailable / realtime_disconnected are not shown to the user.'
+
+type IgnoredFrame = Extract<InboundServerMessage, { type: keyof typeof IGNORED_WS_FRAMES }>
+
+function isIgnoredFrame(message: InboundServerMessage): message is IgnoredFrame {
+  return Object.hasOwn(IGNORED_WS_FRAMES, message.type)
 }
 
-export function dispatchWsMessage(msg: WsMessage) {
-  const payload = msg.payload
-  const payloadRecord = recordField(payload)
+// Frames that are not a known message are counted and logged once per key.
+const unknownFrameCounts = new Map<string, number>()
+
+export function unknownWsFrameCount(key: string): number {
+  return unknownFrameCounts.get(key) ?? 0
+}
+
+export function resetWsDispatchStateForTests(): void {
+  unknownFrameCounts.clear()
+}
+
+function reportUnknown(key: string): WsDispatchOutcome {
+  const count = (unknownFrameCounts.get(key) ?? 0) + 1
+  unknownFrameCounts.set(key, count)
+  if (count === 1) console.warn(`[ws] ignoring unknown realtime frame: ${key}`)
+  return 'unknown'
+}
+
+/** `never` parameter: a member of the union without a `case` fails to compile. */
+function unhandledFrame(_frame: never, type: string): WsDispatchOutcome {
+  return reportUnknown(type)
+}
+
+export function dispatchWsMessage(data: unknown): WsDispatchOutcome {
+  const decoded = decodeServerMessage(data)
+  if (decoded.kind === 'control') return 'ignored'
+  if (decoded.kind === 'unrecognized') return reportUnknown(decoded.key)
+  const msg = decoded.message
+  if (isIgnoredFrame(msg)) return 'ignored'
+  const type = msg.type
 
   switch (msg.type) {
     case 'orchestration:task_update': {
-      const task = recordField(payloadRecord?.task) as TaskSummary | null
-      if (task) {
-        notifyTaskOwner(task)
+      const task = msg.payload.task
+      notifyTaskOwner(task)
 
-        const selectedGroupId = useBoardStore.getState().selectedGroupId
-        if (selectedGroupId && task.groupId === selectedGroupId) {
-          useBoardStore.getState().upsertTask(task)
-        }
+      const selectedGroupId = useBoardStore.getState().selectedGroupId
+      if (selectedGroupId && task.groupId === selectedGroupId) {
+        useBoardStore.getState().upsertTask(task)
       }
-      break
+      return 'handled'
     }
 
     case 'orchestration:participant_update': {
-      const participant = recordField(payloadRecord?.participant)
-      if (participant) {
-        const current = useFeedStore.getState().agents
-        const mapped = {
-          id: stringField(participant.agentId) ?? stringField(participant.id) ?? '',
-          name: stringField(participant.name) ?? '',
-          status: mapAgentStatus(participant.status),
-        }
-        const exists = current.find((a) => a.id === mapped.id)
-        if (exists) {
-          useFeedStore.getState().setAgents(current.map((a) => (a.id === mapped.id ? mapped : a)))
-        } else {
-          useFeedStore.getState().setAgents([...current, mapped])
-        }
+      const participant = msg.payload.participant
+      const current = useFeedStore.getState().agents
+      const mapped = {
+        id: participant.agentId,
+        name: participant.name,
+        status: feedStatus(participant.status),
       }
-      break
+      const exists = current.find((a) => a.id === mapped.id)
+      if (exists) {
+        useFeedStore.getState().setAgents(current.map((a) => (a.id === mapped.id ? mapped : a)))
+      } else {
+        useFeedStore.getState().setAgents([...current, mapped])
+      }
+      return 'handled'
     }
 
     // MS-3 PR-A: 'agents' / 'agent_update' cases removed — the Rust backend never
@@ -75,82 +112,72 @@ export function dispatchWsMessage(msg: WsMessage) {
       // The gateway relays events in the flat BroadcastMessage shape
       // ({ type:'event', eventType, eventData, agentId, orgId }) — the event
       // detail (tool, timestamp, …) lives in `eventData`, NOT a nested `payload`.
-      const data = recordField(msg.eventData)
-      if (data) {
-        const eventType = stringField(msg.eventType) ?? 'event'
-        // `agentId` is a session id / UUID on the wire, not a display name. Show
-        // the CLI tool the relay hook stamps into eventData when present, but the
-        // canonical Rust event frame (normalize_event_data / the event.json
-        // fixture) carries no cliTool — fall back to the repo's neutral actor
-        // label ('The agent', matching HistoryTab) so the feed/attention UI never
-        // renders a blank ` is waiting`.
-        const agentName = stringField(data.cliTool) ?? 'The agent'
-        const tool = stringField(data.tool)
-        const timestamp = numberField(data.timestamp) ?? Date.now()
+      const data = msg.eventData
+      const eventType = stringField(msg.eventType) ?? 'event'
+      // `agentId` is a session id / UUID on the wire, not a display name. Show
+      // the CLI tool the relay hook stamps into eventData when present, but the
+      // canonical Rust event frame (normalize_event_data / the event.json
+      // fixture) carries no cliTool — fall back to the repo's neutral actor
+      // label ('The agent', matching HistoryTab) so the feed/attention UI never
+      // renders a blank ` is waiting`.
+      const agentName = stringField(data.cliTool) ?? 'The agent'
+      const tool = stringField(data.tool)
+      const timestamp = numberField(data.timestamp) ?? Date.now()
 
-        // Streaming LLM output is rendered in ChatView, not the feed. Both
-        // `text_stream` (issue #34) and `token_update` fire on every streamed
-        // token and are broadcast-but-not-persisted server-side
-        // (is_persistable() in event_consumer.rs), so surfacing them here would
-        // flood the activity feed. Drop them to keep the feed on real lifecycle.
-        if (eventType === 'text_stream' || eventType === 'token_update') break
+      // Streaming LLM output is rendered in ChatView, not the feed. Both
+      // `text_stream` (issue #34) and `token_update` fire on every streamed
+      // token and are broadcast-but-not-persisted server-side
+      // (is_persistable() in event_consumer.rs), so surfacing them here would
+      // flood the activity feed. Drop them to keep the feed on real lifecycle.
+      if (eventType === 'text_stream' || eventType === 'token_update') return 'handled'
 
-        useFeedStore.getState().addFeedItem({
-          id: `${eventType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          type: eventType,
+      useFeedStore.getState().addFeedItem({
+        id: `${eventType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: eventType,
+        agentName,
+        taskTitle: agentActivityTitle(eventType, tool),
+        detail: agentActivityDetail(eventType, tool),
+        timestamp,
+      })
+
+      // The live Rust event type is `permission_request` (the sidecar hook
+      // name); `permission_prompt` is the legacy projected alias — accept both.
+      const needsPermission =
+        eventType === 'permission_request' || eventType === 'permission_prompt'
+      if (needsPermission || eventType === 'blocked') {
+        useFeedStore.getState().addAttentionItem({
+          id: nextAttentionId(),
+          taskTitle: tool ?? 'Task',
           agentName,
-          taskTitle: agentActivityTitle(eventType, tool),
-          detail: agentActivityDetail(eventType, tool),
-          timestamp,
+          reason: needsPermission ? 'Permission required' : 'Blocked',
+          timestamp: Date.now(),
         })
-
-        // The live Rust event type is `permission_request` (the sidecar hook
-        // name); `permission_prompt` is the legacy projected alias — accept both.
-        const needsPermission =
-          eventType === 'permission_request' || eventType === 'permission_prompt'
-        if (needsPermission || eventType === 'blocked') {
-          useFeedStore.getState().addAttentionItem({
-            id: nextAttentionId(),
-            taskTitle: tool ?? 'Task',
-            agentName,
-            reason: needsPermission ? 'Permission required' : 'Blocked',
-            timestamp: Date.now(),
-          })
-        }
       }
-      break
+      return 'handled'
     }
 
     case 'credential:status_update': {
-      notifyCredentialOwner(payloadRecord)
-      break
+      notifyCredentialOwner(msg.payload)
+      return 'handled'
     }
 
     case 'cli_image.updated': {
-      handleCliImageUpdate(payloadRecord)
-      break
+      handleCliImageUpdate(msg.payload)
+      return 'handled'
     }
 
     case CLONE_STATUS_WS_TYPE: {
-      handleCloneStatusWsMessage(msg as CloneStatusWsMessage)
-      break
+      handleCloneStatusWsMessage(msg)
+      return 'handled'
     }
 
-    case 'context_candidate.created': {
-      handleContextWsMessage(msg as ContextRealtimeMessage)
-      break
-    }
-
+    case 'context_candidate.created':
     case 'context_candidate.approved':
-    case 'context_candidate.rejected': {
-      handleContextWsMessage(msg as ContextRealtimeMessage)
-      break
-    }
-
+    case 'context_candidate.rejected':
     case 'context_application.recorded':
     case 'context_feedback.submitted': {
-      handleContextWsMessage(msg as ContextRealtimeMessage)
-      break
+      handleContextWsMessage(msg)
+      return 'handled'
     }
 
     // Orchestrator realtime events relayed via NATS broadcast.{org_id} and
@@ -159,12 +186,12 @@ export function dispatchWsMessage(msg: WsMessage) {
     case 'workflow:status':
     case 'workflow:node_status':
     case 'review.escalated': {
-      handleOrchestrationWsMessage(msg as OrchestrationRealtimeMessage)
-      break
+      handleOrchestrationWsMessage(msg)
+      return 'handled'
     }
 
     default:
-      break
+      return unhandledFrame(msg, type)
   }
 }
 
@@ -174,12 +201,6 @@ function stringField(value: unknown): string | null {
 
 function numberField(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-function recordField(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
 }
 
 // F073: `currentUserId` runs once per dispatched WS message (owner-notification
@@ -208,23 +229,12 @@ function currentUserId(): string | null {
   }
 }
 
-function taskOwnerId(task: TaskSummary): string | null {
-  const legacyTask = task as TaskSummary & { created_by?: unknown; ownerUserId?: unknown }
-  const owner = task.createdBy ?? legacyTask.created_by ?? legacyTask.ownerUserId
-  return stringField(owner)
-}
-
 function notifyTaskOwner(task: TaskSummary) {
-  const state = String(task.state).toLowerCase()
   const notificationType =
-    state === 'blocked'
-      ? 'blocked'
-      : state === 'failed' || state === 'error'
-        ? 'failed'
-        : state === 'completed' || state === 'done'
-          ? 'completed'
-          : null
-  const ownerId = taskOwnerId(task)
+    task.state === 'blocked' || task.state === 'failed' || task.state === 'completed'
+      ? task.state
+      : null
+  const ownerId = stringField(task.createdBy)
   if (!notificationType || !task.id || !ownerId) return
 
   if (ownerId !== currentUserId()) return
@@ -335,15 +345,23 @@ function activityToolLabel(tool: string): string {
   }
 }
 
-function notifyCredentialOwner(payload: Record<string, unknown> | null) {
-  if (!payload) return
-  const credential = recordField(payload.credential) ?? payload
-  const ownerId = stringField(credential.ownerUserId ?? credential.userId)
+type CredentialStatusPayload = Extract<
+  InboundServerMessage,
+  { type: 'credential:status_update' }
+>['payload']
+type CliImageUpdatedPayload = Extract<
+  InboundServerMessage,
+  { type: 'cli_image.updated' }
+>['payload']
+
+function notifyCredentialOwner(payload: CredentialStatusPayload) {
+  const credential = payload.credential
+  const ownerId = stringField(credential.ownerUserId)
   if (!ownerId || ownerId !== currentUserId()) return
 
-  const action = stringField(payload.action)?.toLowerCase() ?? ''
-  const status = stringField(credential.status)?.toLowerCase() ?? ''
-  const reason = stringField(credential.reason ?? credential.revokeReason)
+  const action = payload.action.toLowerCase()
+  const status = credential.status.toLowerCase()
+  const reason = stringField(credential.reason)
   const isExpired =
     action === 'credential.revoked' ||
     status === 'expired' ||
@@ -351,14 +369,13 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
     reason === 'invalid_grant'
   if (!isExpired) return
 
-  const cliTool =
-    stringField(credential.cliTool ?? credential.provider ?? credential.tool) ?? 'container-cli'
+  const cliTool = stringField(credential.cliTool) ?? 'container-cli'
   const displayName = displayCliTool(cliTool)
-  const revokedAt = stringField(credential.revokedAt ?? credential.updatedAt)
+  const revokedAt = stringField(credential.revokedAt)
   const revokedTimestamp = revokedAt ? Date.parse(revokedAt) : Number.NaN
   const timestamp = Number.isFinite(revokedTimestamp) ? revokedTimestamp : Date.now()
   const eventKey =
-    stringField(payload.eventId ?? credential.eventId) ??
+    stringField(payload.eventId) ??
     (Number.isFinite(revokedTimestamp) ? new Date(timestamp).toISOString() : String(timestamp))
 
   useFeedStore.getState().addNotification({
@@ -374,18 +391,16 @@ function notifyCredentialOwner(payload: Record<string, unknown> | null) {
   })
 }
 
-function handleCliImageUpdate(payload: Record<string, unknown> | null) {
-  if (!payload) return
+function handleCliImageUpdate(payload: CliImageUpdatedPayload) {
+  const { state, unix } = payload
   const tool = stringField(payload.tool)
-  const state = stringField(payload.state)
-  if (!tool || (state !== 'updated' && state !== 'failed' && state !== 'update_available')) return
+  if (!tool) return
 
   const localDigest = stringField(payload.localDigest)
   const remoteDigest = stringField(payload.remoteDigest)
   const localVersion = stringField(payload.localVersion)
   const remoteVersion = stringField(payload.remoteVersion)
   const lastError = stringField(payload.lastError)
-  const unix = numberField(payload.unix) ?? Math.floor(Date.now() / 1000)
   // The producer's stable dedup key; fall back to a derived one. addNotification
   // dedups by id, so a redelivered frame updates in place rather than re-toasting.
   const eventId = stringField(payload.eventId) ?? `cli-image:${tool}:${state}`
@@ -448,11 +463,13 @@ function completionSummary(task: TaskSummary): string {
   if (Array.isArray(result)) {
     return `${result.length} result file${result.length === 1 ? '' : 's'}`
   }
-  if (typeof result.message === 'string' && result.message.trim()) {
-    return safeCompletionMessage(result.message)
-  }
-  if (typeof result.stdout === 'string' && result.stdout.trim()) {
-    return 'Finished with a text result. Open the task details to check it before using it.'
+  if (typeof result === 'object') {
+    if ('message' in result && typeof result.message === 'string' && result.message.trim()) {
+      return safeCompletionMessage(result.message)
+    }
+    if ('stdout' in result && typeof result.stdout === 'string' && result.stdout.trim()) {
+      return 'Finished with a text result. Open the task details to check it before using it.'
+    }
   }
   return 'Completed'
 }
@@ -482,18 +499,20 @@ function safeCompletionMessage(message: string): string {
   return trimmed
 }
 
-function mapAgentStatus(status: unknown): 'working' | 'idle' | 'blocked' | 'offline' {
-  switch (stringField(status)) {
-    case 'working':
+/** WS participant status -> activity-feed agent status (`online` means idle). */
+function feedStatus(
+  status: Extract<
+    InboundServerMessage,
+    { type: 'orchestration:participant_update' }
+  >['payload']['participant']['status']
+): 'working' | 'idle' | 'offline' {
+  switch (status) {
+    case 'online':
+      return 'idle'
     case 'busy':
       return 'working'
-    case 'blocked':
-      return 'blocked'
     case 'offline':
-    case 'error':
       return 'offline'
-    default:
-      return 'idle'
   }
 }
 
@@ -503,8 +522,7 @@ export function useWsDispatch() {
   useEffect(
     () =>
       subscribe((data) => {
-        if (!data || typeof data !== 'object') return
-        dispatchWsMessage(data as WsMessage)
+        dispatchWsMessage(data)
       }),
     [subscribe]
   )

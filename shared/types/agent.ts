@@ -10,8 +10,8 @@ import type { CliTool } from './tools.js'
 // Agent Management (Orchestration)
 // ============================================================================
 
-/** Status of a managed agent */
-export type AgentStatus = 'idle' | 'working' | 'waiting' | 'attention' | 'offline'
+/** Status of a managed agent. Mirrors `AgentStatus` in `rust/crates/core/src/types.rs`. */
+export type AgentStatus = 'working' | 'idle' | 'offline'
 
 /**
  * Canonical runtime kind discriminator for a managed agent.
@@ -340,54 +340,94 @@ export interface TaskContextCounts {
   total: number
 }
 
-/** Lightweight task representation for WS broadcasts and list views */
+/** Server-computed prediction for when a waiting task's agent will start it. */
+export interface TaskWaitEstimate {
+  /** 1-based position in the effective queue (same agent, else shared pool). */
+  position: number
+  /** Median duration of recently completed tasks in this org, seconds. 0 = no history yet. */
+  typicalSeconds: number
+  /** Predicted seconds until the agent starts this task. */
+  estimatedSeconds: number
+}
+
+/**
+ * Kanban task projection. Mirrors `TaskSummary` in
+ * `rust/crates/core/src/ws_protocol.rs` — ONE serializer for the REST task
+ * endpoints and the `orchestration:task_update` frame.
+ */
 export interface TaskSummary {
   id: string
-  groupId: string
+  /** `null` for a task that is not in a group. */
+  groupId: string | null
   state: OrchTaskState
   method: string
+  params: { task: string; message: string }
+  priority: OrchTaskPriority
+  progress: number
+  /** Task owner (user UUID); also the human who gets lifecycle notifications. */
+  createdBy: string
   assignedTo?: string
   assignedAgentName?: string
-  progress: number
-  priority: OrchTaskPriority
-  params: { task: string; message: string }
   error?: string
+  /** Any JSON the run finished with; narrow before use (see `taskResultArtifacts`). */
+  result?: unknown
+  /** Reason a `blocked` task is stuck (server vocabulary, see `BlockedReason` in the API client). */
+  blockedReason?: string
+  /** Human-readable hint already localized server-side (e.g. "等待空闲 agent (2 个忙碌)"). */
+  blockedHint?: string
+  /** Reason-specific structured payload (counts, missing fields, approver, etc.). */
+  blockedMetadata?: Record<string, unknown>
   createdAt: string
   updatedAt: string
   /** Database-owned monotonic revision. Absent only during rolling upgrades. */
   rowVersion?: number
   completedAt?: string
-  contextCounts?: TaskContextCounts
+  /** True when this is a self-fix task (a code-fix against this repo). Drives the Review tab. */
+  selfFix: boolean
+  /** Draft-PR number once the self-fix Bridge has opened one. */
+  prNumber?: number
+  /** Canonical PR URL. */
+  prUrl?: string
+  /** PR head SHA recorded at open time (the merge gate re-verifies against it). */
+  prHeadSha?: string
+  /** Persisted review status (the `orchestration_tasks.review_status` column, sent as-is). */
+  reviewStatus?: string
+  contextCounts: TaskContextCounts
   /** 1-based attempt counter; incremented on each retry. */
   attempt: number
   /** RFC3339 timestamp when the current worker lease expires (only set while working). */
   leaseExpiresAt?: string
-  // MS-3 PR-E: the jobs WS projector now emits the full Rust `TaskSummary`
-  // shape (same adapter as the REST responses), so `orchestration:task_update`
-  // frames carry the fields below too.
-  /** Task owner (user UUID). */
-  createdBy?: string
-  /** Completion result payload, when the task finished with one. */
-  result?: unknown
-  blockedReason?: string
-  /** Backend-rendered human hint for the blocked card. */
-  blockedHint?: string
-  blockedMetadata?: Record<string, unknown>
-  /** True when this is a self-fix task (drives the PR Review tab). */
-  selfFix?: boolean
-  prNumber?: number
-  prUrl?: string
-  prHeadSha?: string
-  reviewStatus?: string
+  /** Queued-time dispatch prediction (REST list only, while waiting; never on the WS frame). */
+  waitEstimate?: TaskWaitEstimate
 }
 
-/** Lightweight participant representation for WS broadcasts */
+/**
+ * Participant returned by the REST orchestration endpoints. Mirrors
+ * `ParticipantSummary` in `rust/crates/api/src/domain/orchestration.rs`;
+ * `status` is the `participants.status` column vocabulary.
+ */
 export interface ParticipantSummary {
   id: string
   agentId: string
   name: string
+  status: 'available' | 'busy' | 'offline'
+  capabilities: string[]
+  /** Agent runtime kind, used to gate runtime-specific affordances such as
+   * task image upload. Omitted when the agent row could not be resolved. */
+  runtimeKind?: AgentRuntimeKind
+  lastHeartbeatAt?: string
+}
+
+/**
+ * Participant snapshot inside the `orchestration:participant_update` frame.
+ * Mirrors `OrchestrationParticipantBrief` in `rust/crates/core/src/ws_protocol.rs`;
+ * `status` is the WS vocabulary (`available` is sent as `online`).
+ */
+export interface OrchestrationParticipantBrief {
+  id: string
+  agentId: string
+  name: string
   status: 'online' | 'busy' | 'offline'
-  groupId?: string
 }
 
 /** Task stats response from /groups/:groupId/tasks/stats */
@@ -436,5 +476,3 @@ export type SessionResponse = AgentResponse
 export type SessionListResponse = AgentListResponse
 /** @deprecated Use AgentGroup */
 export type SessionGroup = AgentGroup
-/** @deprecated Use ParticipantSummary */
-export type AgentSummary = ParticipantSummary
