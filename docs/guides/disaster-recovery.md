@@ -698,10 +698,11 @@ Known limit — resetting a workflow with Temporal tooling. Forge never resets
 a workflow by itself. If you reset one by hand (Temporal CLI or UI) at the
 moment its last step is writing the result, that abandoned run can still record
 its outcome, so the workflow can show `completed` or `failed` while the reset
-run is working. It corrects itself when the reset run finishes and records its
-own result; Temporal refuses a second start of the same workflow while one is
-running, so a re-run in that window fails instead of doing the work twice. After
-a manual reset, check the workflow's status once the reset run has finished.
+run is still working. It corrects itself when the reset run finishes and
+records its own result. Until then, do not run the workflow again from Forge: a
+re-run ends the execution that is in progress and starts a new one, so the
+reset run's work would be thrown away and repeated. After a manual reset, wait
+until the reset run has closed in Temporal, then check the workflow's status.
 
 The reconciler is on by default (`ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED`).
 
