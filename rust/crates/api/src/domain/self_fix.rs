@@ -11,15 +11,21 @@ use uuid::Uuid;
 // query, the audit insert, the GitHub client (including its request and
 // audit-text builders), the routes, their registration, the PR worker, the
 // review reaper, both composition roots (`state_services.rs`, the server
-// binary) and the auth middleware. Configurable safety limits are bounded in
-// listed files, so configuration alone cannot remove them: the merge-attempt
-// cap (1..=10, `services/self_fix/mod.rs`) and the review deadline (1 hour to
-// 30 days, `jobs/src/self_fix_review_reaper.rs`). The merge settle window and
-// decision budget are constants in this file. Shared row types, the database
-// pool and the error and HTTP framework types stay outside; that residual risk
-// is accepted because every self-fix change still needs an explicit
-// administrator approval. The lists are a tripwire that sends a change to a
-// human, not the only layer.
+// binary), the files that declare the modules holding that code, the auth
+// middleware, and the dependency and build manifests (`Cargo.toml`,
+// `Cargo.lock`, `build.rs`, toolchain files, `package.json`, `.cargo/`).
+// Configurable safety limits are bounded in listed files, so configuration
+// alone cannot remove them: the merge-attempt cap (1..=10,
+// `services/self_fix/mod.rs`) and the review deadline (1 hour to 30 days,
+// `jobs/src/self_fix_review_reaper.rs`). The merge settle window and decision
+// budget are constants in this file. Outside the lists: shared row types, the
+// database pool, the error and HTTP framework types, the shared
+// `repositories/orchestration/mod.rs` (it declares `self_fix_delivery`; an
+// accident-level guard test pins that declaration), and deploy and container
+// inputs (`docker/`, `scripts/`, Makefiles, Dockerfiles), which the deployment
+// work under issue #1319 adds. That residual risk is accepted because every
+// self-fix change still needs an explicit administrator approval. The lists
+// are a tripwire that sends a change to a human, not the only layer.
 
 /// Glob-prefix directories whose ANY descendant is sensitive.
 #[allow(dead_code)]
@@ -33,11 +39,26 @@ const SENSITIVE_DIR_PREFIXES: &[&str] = &[
     "rust/crates/api/src/repositories/orchestration/maintenance_delivery/",
     // Self-fix safety decisions beside `domain/self_fix.rs` (head reconciliation).
     "rust/crates/api/src/domain/self_fix/",
+    // Dependency and build inputs: a change here can replace any code the gate depends on.
+    ".cargo/",
+    "rust/.cargo/",
 ];
 
 /// Basenames sensitive wherever they appear.
 #[allow(dead_code)]
-const SENSITIVE_BASENAMES: &[&str] = &["middleware.rs", "mcp.rs", "security.rs"];
+const SENSITIVE_BASENAMES: &[&str] = &[
+    "middleware.rs",
+    "mcp.rs",
+    "security.rs",
+    // Dependency and build inputs: a change here can replace any code the gate depends on.
+    "Cargo.toml",
+    "Cargo.lock",
+    "build.rs",
+    "rust-toolchain.toml",
+    "rust-toolchain",
+    "package.json",
+    "package-lock.json",
+];
 
 /// Exact repo-root-relative files (own-code + CODEOWNERS).
 #[allow(dead_code)]
@@ -73,6 +94,13 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/services/self_fix_pr_worker.rs",
     // The server composition root: starts the review reaper and the PR worker.
     "rust/bins/server/src/main.rs",
+    // Declares the modules that hold self-fix delivery code.
+    "rust/crates/api/src/lib.rs",
+    "rust/crates/api/src/services/mod.rs",
+    "rust/crates/api/src/domain/mod.rs",
+    "rust/crates/api/src/routes/mod.rs",
+    "rust/crates/api/src/repositories/mod.rs",
+    "rust/crates/jobs/src/lib.rs",
 ];
 
 #[allow(dead_code)]
@@ -665,8 +693,37 @@ mod tests {
             "rust/crates/jobs/src/self_fix_review_reaper.rs",
             "rust/crates/api/src/services/self_fix_pr_worker.rs",
             "rust/bins/server/src/main.rs",
+            "rust/crates/api/src/lib.rs",
+            "rust/crates/api/src/services/mod.rs",
+            "rust/crates/api/src/domain/mod.rs",
+            "rust/crates/api/src/routes/mod.rs",
+            "rust/crates/api/src/repositories/mod.rs",
+            "rust/crates/jobs/src/lib.rs",
         ] {
             assert!(blocked(&[path]), "{path} must be sensitive");
+        }
+    }
+
+    #[test]
+    fn dependency_and_build_inputs_are_sensitive() {
+        for name in [
+            "Cargo.toml",
+            "Cargo.lock",
+            "build.rs",
+            "rust-toolchain.toml",
+            "rust-toolchain",
+            "package.json",
+            "package-lock.json",
+        ] {
+            assert!(blocked(&[name]), "{name} at the repository root must be sensitive");
+            assert!(blocked(&[format!("rust/crates/api/{name}").as_str()]), "{name} in a crate must be sensitive");
+            assert!(blocked(&[format!("services/web/{name}").as_str()]), "{name} in a package must be sensitive");
+        }
+        assert!(blocked(&[".cargo/config.toml"]));
+        assert!(blocked(&["rust/.cargo/config.toml"]));
+        // A file that merely contains one of the names is not a manifest.
+        for path in ["docs/Cargo.toml.md", "my-package.json.bak", "notes/build.rs.txt", "src/cargo/config.ts"] {
+            assert!(!blocked(&[path]), "{path} must not be sensitive");
         }
     }
 
@@ -790,6 +847,18 @@ mod tests {
             assert!(blocked(&[format!("rust/crates/api/src/{path}").as_str()]), "{path} must be sensitive");
             assert!(source(path).contains(&normalized(token)), "{token} must stay in {path}");
         }
+        // The shared, unlisted orchestration repository declares listed
+        // modules; they must stay plain declarations, never redirected.
+        let shared_repository = source("repositories/orchestration/mod.rs");
+        for declaration in
+            ["mod self_fix_delivery;", "pub(crate) mod maintenance_delivery;", "pub(crate) mod maintenance_request;"]
+        {
+            assert!(
+                shared_repository.contains(&normalized(declaration)),
+                "{declaration} must stay in the shared mod.rs"
+            );
+        }
+        assert!(!shared_repository.contains("#[path"), "the shared mod.rs must not redirect a module with #[path]");
         // Accidental moves back into the shared, unlisted code.
         assert!(
             !source("repositories/orchestration/mod.rs").contains("pg_try_advisory_lock"),
