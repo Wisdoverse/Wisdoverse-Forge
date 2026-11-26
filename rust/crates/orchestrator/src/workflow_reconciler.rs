@@ -13,11 +13,11 @@
 //! | "not found", proven same Temporal, first sight    | record `execution_missing_since`                    |
 //! | "not found", proven, missing for the grace period | `failed`, cause `execution_lost` (re-runnable)      |
 //! | "not found", not provable (namespace id differs)  | leave alone, count as unverifiable                  |
-//! | error or timeout                                  | change nothing, stop the tick, back off             |
+//! | error, timeout, or Temporal not reachable yet     | change nothing, stop the tick, back off             |
 //!
 //! It never starts, cancels or signals a workflow. Every write is a
-//! compare-and-set on organization, status, execution ids and the
-//! `updated_at` that was read, so a concurrent legitimate transition always
+//! compare-and-set on organization, status, execution ids and the row's
+//! `state_version` as read, so a concurrent legitimate transition always
 //! wins. That also keeps it correct when several replicas sweep at once
 //! (leader election is off by default); with election on, only the holder of
 //! [`crate::leader::WORKFLOW_RECONCILER_LOCK_ID`] sweeps.
@@ -26,10 +26,14 @@
 //! examined least-recently-checked first, so healthy long-running rows cannot
 //! starve the rest. The grace period is a minimum before a lost execution is
 //! marked, not a guaranteed recovery time under backlog.
+//!
+//! It connects to Temporal lazily, so it runs even when Temporal is down while
+//! the orchestrator starts: until Temporal answers, every tick is an error tick.
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::future::BoxFuture;
 use sqlx::PgPool;
 use sqlx::Postgres;
 use sqlx::pool::PoolConnection;
@@ -50,6 +54,25 @@ pub const TICK_BUDGET: Duration = Duration::from_secs(30);
 pub const MAX_BACKOFF_TICKS: u32 = 8;
 
 const METRIC: &str = "orchestrator_workflow_reconcile_total";
+const TRUST_GAUGE: &str = "orchestrator_workflow_reconcile_trust_current_temporal";
+
+/// Connects the Temporal-backed runtime the reconciler asks. Called lazily on
+/// each tick until it succeeds, so the reconciler does not depend on Temporal
+/// being up when the orchestrator starts (#1352).
+pub type RuntimeConnector = Arc<dyn Fn() -> BoxFuture<'static, Result<Arc<dyn WorkflowRuntime>>> + Send + Sync>;
+
+/// The production connector: a Temporal client of its own for `config`.
+pub fn temporal_connector(config: Arc<crate::config::Config>, store: Arc<dyn Store>) -> RuntimeConnector {
+    Arc::new(move || -> BoxFuture<'static, Result<Arc<dyn WorkflowRuntime>>> {
+        let config = config.clone();
+        let store = store.clone();
+        Box::pin(async move {
+            crate::workflow::connect_workflow_runtime(&config, store)
+                .await
+                .map_err(|err| crate::workflow::WorkflowError::Unavailable(format!("connect temporal: {err}")))
+        })
+    })
+}
 
 /// What one tick saw, by outcome. `examined` counts rows Temporal answered for.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -82,12 +105,15 @@ pub fn backoff_ticks(consecutive_error_ticks: u32) -> u32 {
 
 pub struct WorkflowReconcilerWorker {
     store: Arc<dyn Store>,
-    runtime: Arc<dyn WorkflowRuntime>,
+    connect: RuntimeConnector,
+    runtime: tokio::sync::Mutex<Option<Arc<dyn WorkflowRuntime>>>,
     /// Pool for the leader lock; `None` when leader election is off.
     leader_pool: Option<PgPool>,
     /// Configured Temporal namespace name, for the operator-facing warning.
     namespace: String,
     grace_secs: u64,
+    /// Operator acknowledgment is on; reported on every start (#1352).
+    trust_current_temporal: bool,
     interval: Duration,
 }
 
@@ -95,12 +121,22 @@ impl WorkflowReconcilerWorker {
     /// Create a reconciler. The sweep interval is 60 seconds.
     pub fn new(
         store: Arc<dyn Store>,
-        runtime: Arc<dyn WorkflowRuntime>,
+        connect: RuntimeConnector,
         leader_pool: Option<PgPool>,
         namespace: String,
         grace_secs: u64,
+        trust_current_temporal: bool,
     ) -> Self {
-        Self { store, runtime, leader_pool, namespace, grace_secs, interval: Duration::from_secs(60) }
+        Self {
+            store,
+            connect,
+            runtime: tokio::sync::Mutex::new(None),
+            leader_pool,
+            namespace,
+            grace_secs,
+            trust_current_temporal,
+            interval: Duration::from_secs(60),
+        }
     }
 
     /// Run the loop. Each tick commits row by row, so an abrupt stop loses no
@@ -110,12 +146,24 @@ impl WorkflowReconcilerWorker {
             METRIC,
             "Workflow rows checked against Temporal by the execution reconciler, labelled by outcome."
         );
+        metrics::describe_gauge!(
+            TRUST_GAUGE,
+            "1 while ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL is on, else 0."
+        );
+        metrics::gauge!(TRUST_GAUGE).set(if self.trust_current_temporal { 1.0 } else { 0.0 });
         tracing::info!(
             grace_secs = self.grace_secs,
             interval_secs = self.interval.as_secs(),
             namespace = %self.namespace,
+            trust_current_temporal = self.trust_current_temporal,
             "workflow execution reconciler started"
         );
+        if self.trust_current_temporal {
+            tracing::warn!(
+                namespace = %self.namespace,
+                "workflow reconciler: ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL is on; workflows whose Temporal namespace cannot be verified are reconciled too. Turn it off once the recovery is done"
+            );
+        }
         let mut ticker = tokio::time::interval(self.interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut leader_conn: Option<PoolConnection<Postgres>> = None;
@@ -183,6 +231,15 @@ impl WorkflowReconcilerWorker {
         let deadline = Instant::now() + TICK_BUDGET;
         let candidates = self.store.reconcile_candidates(RECONCILE_BATCH).await?;
         let mut outcome = ReconcileOutcome::default();
+        if candidates.is_empty() {
+            return Ok(outcome);
+        }
+        let Some(runtime) = self.connected_runtime(deadline).await else {
+            // Temporal cannot be asked: an error tick that changes nothing.
+            outcome.errors += 1;
+            metrics::counter!(METRIC, "outcome" => "error").increment(1);
+            return Ok(outcome);
+        };
         for workflow in &candidates {
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
@@ -190,7 +247,7 @@ impl WorkflowReconcilerWorker {
             }
             let observation = match tokio::time::timeout(
                 CALL_TIMEOUT.min(remaining),
-                self.runtime.observe_execution(workflow),
+                runtime.observe_execution(workflow),
             )
             .await
             {
@@ -237,6 +294,32 @@ impl WorkflowReconcilerWorker {
         Ok(outcome)
     }
 
+    /// The runtime, connecting it first if needed (bounded by the call timeout
+    /// and the tick deadline). `None` when Temporal cannot be reached now; the
+    /// run loop's capped backoff spaces out the retries.
+    async fn connected_runtime(&self, deadline: Instant) -> Option<Arc<dyn WorkflowRuntime>> {
+        let mut slot = self.runtime.lock().await;
+        if let Some(runtime) = slot.as_ref() {
+            return Some(runtime.clone());
+        }
+        let budget = CALL_TIMEOUT.min(deadline.saturating_duration_since(Instant::now()));
+        match tokio::time::timeout(budget, (self.connect)()).await {
+            Ok(Ok(runtime)) => {
+                tracing::info!(namespace = %self.namespace, "workflow reconciler connected to Temporal");
+                *slot = Some(runtime.clone());
+                Some(runtime)
+            }
+            Ok(Err(err)) => {
+                tracing::warn!(error = %err, namespace = %self.namespace, "workflow reconciler: cannot connect to Temporal");
+                None
+            }
+            Err(_) => {
+                tracing::warn!(namespace = %self.namespace, "workflow reconciler: connecting to Temporal timed out");
+                None
+            }
+        }
+    }
+
     async fn apply(
         &self,
         workflow: &Workflow,
@@ -245,7 +328,7 @@ impl WorkflowReconcilerWorker {
     ) -> Result<()> {
         match observation {
             ExecutionObservation::Running => {
-                self.store.record_execution_check(workflow, MissingMark::Clear).await?;
+                self.store.record_execution_check(workflow, MissingMark::Clear, "running").await?;
                 outcome.running += 1;
             }
             ExecutionObservation::Closed { run_id, status }
@@ -261,12 +344,12 @@ impl WorkflowReconcilerWorker {
             // The current run is not the recorded one (reset, retry or a
             // successor): its outcome is not proof about this row.
             ExecutionObservation::Closed { .. } => {
-                self.store.record_execution_check(workflow, MissingMark::Keep).await?;
+                self.store.record_execution_check(workflow, MissingMark::Keep, "closed").await?;
                 outcome.left_alone += 1;
             }
             // First sight only marks: the grace period starts here.
             ExecutionObservation::Missing if workflow.execution_missing_since.is_none() => {
-                if self.store.record_execution_check(workflow, MissingMark::Set).await? {
+                if self.store.record_execution_check(workflow, MissingMark::Set, "missing").await? {
                     outcome.missing += 1;
                 } else {
                     outcome.left_alone += 1;
@@ -281,14 +364,14 @@ impl WorkflowReconcilerWorker {
                     log_reconciled(workflow, WorkflowStatus::Failed, CAUSE_EXECUTION_LOST);
                     outcome.lost += 1;
                 } else {
-                    self.store.record_execution_check(workflow, MissingMark::Keep).await?;
+                    self.store.record_execution_check(workflow, MissingMark::Keep, "missing").await?;
                     outcome.missing += 1;
                 }
             }
             // Only the check time is recorded, so the row rotates to the back
             // of the queue; its status and missing mark stay untouched.
             ExecutionObservation::Unverifiable => {
-                self.store.record_execution_check(workflow, MissingMark::Keep).await?;
+                self.store.record_execution_check(workflow, MissingMark::Keep, "unverifiable").await?;
                 outcome.unverifiable += 1;
             }
         }

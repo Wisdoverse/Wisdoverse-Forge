@@ -14,7 +14,8 @@ use agentforge_orchestrator::workflow::{
     ExecutionObservation, ExecutionState, MemoryWorkflowRuntime, PgWorkflowStore, Result as WfResult, SignalRequest,
     Store, Workflow, WorkflowError, WorkflowNode, WorkflowRuntime, WorkflowService, WorkflowStatus,
 };
-use agentforge_orchestrator::workflow_reconciler::{RECONCILE_BATCH, WorkflowReconcilerWorker};
+use agentforge_orchestrator::workflow_reconciler::{RECONCILE_BATCH, RuntimeConnector, WorkflowReconcilerWorker};
+use futures::future::BoxFuture;
 
 const ORG: &str = "org-reconcile";
 const GRACE_SECS: u64 = 600;
@@ -105,7 +106,7 @@ async fn set_missing_since(pool: &PgPool, id: &str, minutes_ago: i32) {
 async fn snapshot(pool: &PgPool, id: &str) -> String {
     sqlx::query(
         "SELECT concat_ws('|', status, status_cause, execution_missing_since, execution_checked_at, reconciled_at,
-                          updated_at, temporal_run_id) AS snap
+                          updated_at, temporal_run_id, execution_observation, state_version) AS snap
            FROM workflows WHERE id = CAST($1 AS uuid)",
     )
     .bind(id)
@@ -115,9 +116,27 @@ async fn snapshot(pool: &PgPool, id: &str) -> String {
     .get("snap")
 }
 
-fn worker(pool: &PgPool, fake: Arc<FakeTemporal>, leader: bool) -> WorkflowReconcilerWorker {
+fn connector(fake: Arc<FakeTemporal>) -> RuntimeConnector {
+    Arc::new(move || -> BoxFuture<'static, WfResult<Arc<dyn WorkflowRuntime>>> {
+        let fake = fake.clone();
+        Box::pin(async move { Ok(fake as Arc<dyn WorkflowRuntime>) })
+    })
+}
+
+fn worker_with(pool: &PgPool, connect: RuntimeConnector, leader: bool) -> WorkflowReconcilerWorker {
     let store: Arc<dyn Store> = Arc::new(PgWorkflowStore::new(pool.clone()));
-    WorkflowReconcilerWorker::new(store, fake, leader.then(|| pool.clone()), "orchestrator".to_string(), GRACE_SECS)
+    WorkflowReconcilerWorker::new(
+        store,
+        connect,
+        leader.then(|| pool.clone()),
+        "orchestrator".to_string(),
+        GRACE_SECS,
+        false,
+    )
+}
+
+fn worker(pool: &PgPool, fake: Arc<FakeTemporal>, leader: bool) -> WorkflowReconcilerWorker {
+    worker_with(pool, connector(fake), leader)
 }
 
 async fn load(pool: &PgPool, id: &str) -> Workflow {
@@ -137,6 +156,7 @@ async fn missing_execution_first_sight_marks_only(pool: PgPool) {
     let after = load(&pool, &id).await;
     assert_eq!(after.status, WorkflowStatus::Running, "first sight must not end the workflow");
     assert!(after.execution_missing_since.is_some(), "first sight records when it went missing");
+    assert_eq!(after.execution_observation.as_deref(), Some("missing"));
     assert!(after.status_cause.is_none());
 }
 
@@ -199,6 +219,9 @@ async fn present_and_running_execution_is_unchanged_and_mark_cleared(pool: PgPoo
     let after = load(&pool, &id).await;
     assert_eq!(after.status, WorkflowStatus::Running);
     assert!(after.execution_missing_since.is_none(), "a present execution clears the missing mark");
+    assert_eq!(after.execution_observation.as_deref(), Some("running"));
+    assert!(after.execution_checked_at.is_some());
+    assert_eq!(after.state_version, before.state_version, "bookkeeping never bumps the version");
     assert_eq!(after.updated_at, before.updated_at, "a present execution is never transitioned");
     assert!(after.status_cause.is_none() && after.reconciled_at.is_none());
 }
@@ -263,6 +286,7 @@ async fn unverifiable_not_found_is_never_marked(pool: PgPool) {
     assert_eq!(outcome.unverifiable, 1);
     let after = load(&pool, &id).await;
     assert_eq!(after.status, WorkflowStatus::Running, "an unprovable miss must not end the workflow");
+    assert_eq!(after.execution_observation.as_deref(), Some("unverifiable"));
     assert!(after.status_cause.is_none());
 }
 
@@ -357,7 +381,7 @@ async fn tick_is_skipped_when_another_replica_holds_the_leader_lock(pool: PgPool
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn status_read_reports_execution_state_and_records_first_miss(pool: PgPool) {
+async fn status_read_reports_execution_state_and_only_sets_the_missing_mark(pool: PgPool) {
     let participant = seed_participant(&pool).await;
     let id = seed_running(&pool, &participant, "status-read").await;
     let store: Arc<dyn Store> = Arc::new(PgWorkflowStore::new(pool.clone()));
@@ -376,4 +400,75 @@ async fn status_read_reports_execution_state_and_records_first_miss(pool: PgPool
     assert_eq!(state, Some(ExecutionState::Missing));
     assert_eq!(workflow.status, WorkflowStatus::Running);
     assert!(workflow.execution_missing_since.is_some());
+    // Reads never move the reconciler's fairness timestamp, so polling cannot
+    // keep a lost workflow behind the other candidates.
+    assert!(workflow.execution_checked_at.is_none(), "a status read must not write execution_checked_at");
+
+    // Polling again writes nothing at all.
+    let polled = snapshot(&pool, &id).await;
+    for _ in 0..3 {
+        service.get_status(&id, ORG).await.expect("status read");
+    }
+    assert_eq!(snapshot(&pool, &id).await, polled, "repeated reads must not write");
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn temporal_down_at_start_gives_error_ticks_then_normal_ticks(pool: PgPool) {
+    let participant = seed_participant(&pool).await;
+    let id = seed_running(&pool, &participant, "lazy-connect").await;
+    set_missing_since(&pool, &id, 60).await;
+    let before = snapshot(&pool, &id).await;
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let fake = Arc::new(FakeTemporal::answering(Some(ExecutionObservation::Running)));
+    let connect: RuntimeConnector = {
+        let attempts = attempts.clone();
+        Arc::new(move || -> BoxFuture<'static, WfResult<Arc<dyn WorkflowRuntime>>> {
+            let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+            let fake = fake.clone();
+            Box::pin(async move {
+                if attempt < 2 {
+                    Err(WorkflowError::Unavailable("connection refused".to_string()))
+                } else {
+                    Ok(fake as Arc<dyn WorkflowRuntime>)
+                }
+            })
+        })
+    };
+    let worker = worker_with(&pool, connect, false);
+
+    for _ in 0..2 {
+        let outcome = worker.tick().await.expect("tick");
+        assert_eq!((outcome.errors, outcome.examined), (1, 0), "Temporal down is an error tick");
+        assert_eq!(snapshot(&pool, &id).await, before, "nothing changes while Temporal is down");
+    }
+    let outcome = worker.tick().await.expect("tick");
+    assert_eq!((outcome.errors, outcome.running), (0, 1), "once connected, ticks are normal");
+    let outcome = worker.tick().await.expect("tick");
+    assert_eq!(outcome.errors, 0);
+    assert_eq!(attempts.load(Ordering::SeqCst), 3, "a connected runtime is reused");
+    assert!(load(&pool, &id).await.execution_missing_since.is_none());
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn fenced_status_write_cannot_overwrite_a_rerun(pool: PgPool) {
+    // P1-1 at the store level: a delayed successful cancel of run-1 arrives
+    // after a re-run recorded run-2.
+    let participant = seed_participant(&pool).await;
+    let id = seed_running(&pool, &participant, "late-cancel").await;
+    let store = PgWorkflowStore::new(pool.clone());
+    let read_before_rerun = load(&pool, &id).await;
+    store
+        .set_temporal_ids(&id, ORG, "orchestrator-late-cancel".into(), "run-2".into(), Some("ns-1".into()))
+        .await
+        .expect("record re-run");
+    let rerun = snapshot(&pool, &id).await;
+
+    let applied =
+        store.set_status_if_unchanged(&read_before_rerun, WorkflowStatus::Cancelled).await.expect("fenced write");
+
+    assert!(!applied);
+    assert_eq!(snapshot(&pool, &id).await, rerun, "the row keeps run-2's state");
+    let current = load(&pool, &id).await;
+    assert!(store.set_status_if_unchanged(&current, WorkflowStatus::Cancelled).await.unwrap());
+    assert_eq!(load(&pool, &id).await.status, WorkflowStatus::Cancelled);
 }

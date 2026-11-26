@@ -111,7 +111,9 @@ async fn create(State(state): State<AppState>, headers: HeaderMap, Json(req): Js
         status_cause: None,
         execution_missing_since: None,
         execution_checked_at: None,
+        execution_observation: None,
         reconciled_at: None,
+        state_version: 0,
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };

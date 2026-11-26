@@ -373,29 +373,49 @@ impl WorkflowActivities {
     #[activity(name = "FinalizeWorkflowStatus")]
     pub async fn finalize_workflow_status(
         self: Arc<Self>,
-        _ctx: ActivityContext,
+        ctx: ActivityContext,
         input: FinalizeWorkflowStatusInput,
     ) -> Result<(), ActivityError> {
-        // Fenced by execution identity (#1352): a late finalizer of an earlier
-        // run must not overwrite the status of a re-run.
-        let applied = match input.first_execution_run_id.as_deref() {
-            Some(run_id) => {
-                self.store.update_status_for_run(&input.workflow_id, &input.org_id, run_id, input.status).await
-            }
-            None => self.store.update_status(&input.workflow_id, &input.org_id, input.status).await.map(|()| true),
-        }
-        .map_err(|err| ActivityError::from(anyhow!(err.to_string())))?;
+        let scheduling_run_id = ctx.info().workflow_execution.as_ref().map(|execution| execution.run_id().to_string());
+        let applied = finalize_status(self.store.as_ref(), &input, scheduling_run_id.as_deref())
+            .await
+            .map_err(|err| ActivityError::from(anyhow!(err.to_string())))?;
         if !applied {
             tracing::info!(
                 workflow_id = %input.workflow_id,
                 org_id = %input.org_id,
                 status = input.status.as_str(),
-                "finalizer of an earlier run skipped: the workflow now records a different run"
+                "finalizer skipped: the workflow records a different run, or the finalizing run is unknown"
             );
             return Ok(());
         }
         self.emit_workflow_status(&input.org_id, &input.workflow_id, input.status);
         Ok(())
+    }
+}
+
+/// The finalizer's status write, fenced by execution identity (#1352) so a
+/// late finalizer of an earlier run cannot overwrite a re-run. The identity is
+/// the first run of the finalizing chain from the input; inputs scheduled
+/// before #1352 lack it, so the run that scheduled the activity is used
+/// instead. When neither is known nothing is written; the reconciler repairs
+/// the row from the closed execution. Returns whether the status was written.
+pub(crate) async fn finalize_status(
+    store: &dyn Store,
+    input: &FinalizeWorkflowStatusInput,
+    scheduling_run_id: Option<&str>,
+) -> super::errors::Result<bool> {
+    let run_id = input.first_execution_run_id.as_deref().or(scheduling_run_id).filter(|run_id| !run_id.is_empty());
+    match run_id {
+        Some(run_id) => store.update_status_for_run(&input.workflow_id, &input.org_id, run_id, input.status).await,
+        None => {
+            tracing::warn!(
+                workflow_id = %input.workflow_id,
+                org_id = %input.org_id,
+                "finalizer has no execution identity; status not written, the reconciler will repair it"
+            );
+            Ok(false)
+        }
     }
 }
 
@@ -790,5 +810,62 @@ mod tests {
         for s in ["idle", "completed", "error", "failed", "totally_unknown"] {
             assert!(!KNOWN_IN_PROGRESS_STATUSES.contains(&s), "{s} must not be in the in-progress set");
         }
+    }
+
+    // ---- #1352: finalizer fencing for inputs scheduled before the upgrade ----
+
+    async fn store_recording(run_id: &str) -> (MemoryStore, String) {
+        let store = MemoryStore::new();
+        let mut workflow = crate::workflow::Workflow {
+            id: String::new(),
+            name: "wf".into(),
+            description: String::new(),
+            status: WorkflowStatus::Running,
+            org_id: "org-a".into(),
+            created_by: "user".into(),
+            temporal_workflow_id: None,
+            temporal_run_id: None,
+            temporal_namespace_id: None,
+            status_cause: None,
+            execution_missing_since: None,
+            execution_checked_at: None,
+            execution_observation: None,
+            reconciled_at: None,
+            state_version: 0,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        store.create(&mut workflow, &mut Vec::new()).await.unwrap();
+        store.set_temporal_ids(&workflow.id, "org-a", "orchestrator-x".into(), run_id.into(), None).await.unwrap();
+        (store, workflow.id)
+    }
+
+    fn old_format_input(workflow_id: &str) -> FinalizeWorkflowStatusInput {
+        // Exactly what a finalizer scheduled before #1352 carries.
+        serde_json::from_value(json!({"workflowId": workflow_id, "orgId": "org-a", "status": "completed"}))
+            .expect("old-format input deserializes")
+    }
+
+    #[tokio::test]
+    async fn old_format_finalizer_uses_the_scheduling_run_and_cannot_overwrite_a_rerun() {
+        let (store, id) = store_recording("run-2").await;
+        let input = old_format_input(&id);
+        assert!(input.first_execution_run_id.is_none());
+
+        let applied = finalize_status(&store, &input, Some("run-1")).await.unwrap();
+        assert!(!applied, "a finalizer scheduled by the earlier run must be fenced out");
+        assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Running);
+
+        let applied = finalize_status(&store, &input, Some("run-2")).await.unwrap();
+        assert!(applied);
+        assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn old_format_finalizer_without_any_identity_writes_nothing() {
+        let (store, id) = store_recording("run-1").await;
+        let applied = finalize_status(&store, &old_format_input(&id), None).await.unwrap();
+        assert!(!applied);
+        assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Running);
     }
 }

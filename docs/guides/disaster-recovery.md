@@ -476,11 +476,14 @@ there are no `*_before_restore` copies; delete the `*_restore` copies instead.
 
 #### After the restore: check for skew
 
-What happens on its own: about a minute after the orchestrator starts with
-Temporal reachable, the workflow execution reconciler begins to check every
-workflow row that says `running` against Temporal, up to 50 rows a minute, the
-least recently checked first. It never starts, cancels or signals a workflow,
-and it changes nothing while Temporal cannot be asked.
+What happens on its own: once a minute, the workflow execution reconciler
+checks workflow rows that say `running` against Temporal, up to 50 rows a
+minute, the least recently checked first. It starts with the orchestrator even
+when Temporal is still down, and keeps trying to reach Temporal until it
+answers. It never starts, cancels or signals a workflow, and it changes nothing
+while Temporal cannot be asked. Each row it checks records the time
+(`execution_checked_at`) and the answer (`execution_observation`: `running`,
+`closed`, `missing` or `unverifiable`).
 
 | Temporal says about the workflow's current execution | What the reconciler does |
 | --- | --- |
@@ -515,19 +518,45 @@ To repair them:
      --namespace "${ORCHESTRATOR_TEMPORAL_NAMESPACE:-orchestrator}" --workflow-id "$TEMPORAL_WORKFLOW_ID"
    ```
 
-2. Set `ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=true` for the
-   orchestrator and restart it.
-3. Watch the reconciled list below until no `running` row is left with
-   `execution_missing_since` set. That takes at least the grace period.
-4. Remove the setting (or set it to `false`) and restart the orchestrator
-   again.
+2. Note the current time, then set
+   `ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=true` for the
+   orchestrator and restart it so it reads the setting. While it is on, the
+   orchestrator logs a warning, `/metrics` shows
+   `orchestrator_workflow_reconcile_trust_current_temporal 1`, and
+   `/health/ready` shows `"workflowReconcileTrustCurrentTemporal": true`.
+3. Wait until every `running` row has been checked since you set it, and none
+   is left waiting out the grace period. Put the time from step 2 in
+   `SET_AT`. Run this until both counts are `0`, which takes at least the grace
+   period:
+
+   ```bash
+   SET_AT='2026-01-31 12:00:00+00'   # when you set the acknowledgment
+   $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -v set_at="$SET_AT" -c \
+     "select count(*) filter (where execution_checked_at is null or execution_checked_at < :'set_at') as not_checked_yet,
+             count(*) filter (where execution_missing_since is not null) as waiting_out_grace
+        from workflows where status = 'running' and temporal_workflow_id is not null"
+   ```
+
+   `not_checked_yet` counts rows the reconciler has not answered for since the
+   acknowledgment. `waiting_out_grace` counts rows it will still mark
+   `execution_lost`.
+4. Remove the setting (or set it to `false`) and restart the orchestrator so
+   it reads the change.
+
+Rows that are still not provable without the acknowledgment (`unverifiable`):
+
+```bash
+$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -c \
+  "select id, org_id, execution_checked_at from workflows
+    where status = 'running' and execution_observation = 'unverifiable' order by execution_checked_at"
+```
 
 The reconciled list shows which workflows were repaired, when and why, and
 which ones are waiting out the grace period:
 
 ```bash
 $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -c \
-  "select id, org_id, status, status_cause, execution_missing_since, reconciled_at
+  "select id, org_id, status, status_cause, execution_observation, execution_missing_since, reconciled_at
      from workflows
     where status_cause is not null or execution_missing_since is not null
     order by coalesce(reconciled_at, execution_missing_since) desc"
@@ -546,9 +575,7 @@ the namespace or address changed recently: when its real execution still runs
 somewhere else, a re-run does the work twice. The same applies after a restore
 from an older backup: steps that were running at backup time can run again.
 
-The reconciler is on by default (`ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED`). It
-starts only when the orchestrator reaches Temporal at boot; restart the
-orchestrator once Temporal is back.
+The reconciler is on by default (`ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED`).
 
 One check stays manual. It lists organization IDs used by orchestrator rows that the API
 database does not have:

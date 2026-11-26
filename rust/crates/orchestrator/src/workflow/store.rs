@@ -31,10 +31,19 @@ pub trait Store: Send + Sync {
     /// Reconciliation candidates across all organizations: `running` rows with
     /// a Temporal execution, never-checked first, then least recently checked.
     async fn reconcile_candidates(&self, limit: usize) -> Result<Vec<Workflow>>;
-    /// Record that Temporal answered about `workflow`, adjusting the missing
-    /// mark. Compare-and-set on organization, status, execution ids and the
-    /// `updated_at` read; returns false when the row changed meanwhile.
-    async fn record_execution_check(&self, workflow: &Workflow, mark: MissingMark) -> Result<bool>;
+    /// Reconciler bookkeeping: record that Temporal answered `observation`
+    /// about `workflow` (`execution_checked_at`, `execution_observation`) and
+    /// adjust the missing mark. Compare-and-set on organization, status,
+    /// execution ids and `state_version`; returns false when the row changed.
+    /// Only the reconciler writes the check time, so reads cannot reorder it.
+    async fn record_execution_check(&self, workflow: &Workflow, mark: MissingMark, observation: &str) -> Result<bool>;
+    /// Status read saw a proven-missing execution: set `execution_missing_since`
+    /// if it is not set yet, under the same compare-and-set. Nothing else.
+    async fn mark_execution_missing(&self, workflow: &Workflow) -> Result<bool>;
+    /// Normal status change fenced by execution identity and `state_version`
+    /// (used after a successful cancel), so it cannot overwrite a re-run or a
+    /// transition that happened after `workflow` was read.
+    async fn set_status_if_unchanged(&self, workflow: &Workflow, status: WorkflowStatus) -> Result<bool>;
     /// Set a reconciled terminal status with its cause, under the same
     /// compare-and-set as [`Store::record_execution_check`]. With
     /// `missing_for_secs`, it also requires the execution to have been missing

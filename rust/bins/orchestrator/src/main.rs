@@ -66,20 +66,23 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // #1352: end `running` rows whose Temporal execution is closed or proven
-    // missing. Needs the database and a live Temporal-backed workflow service.
-    if state.config.workflow_reconcile_enabled {
-        match (state.workflow_store.clone(), state.workflow_service.clone()) {
-            (Some(store), Some(service)) if state.pool.is_some() => {
-                let leader_pool = state.config.leader_election_enabled.then(|| state.pool.clone()).flatten();
-                let namespace = state.config.temporal_namespace.clone();
-                let grace = state.config.workflow_reconcile_grace_secs;
+    // missing. Needs the database and the Temporal configuration; it connects
+    // to Temporal lazily, so it also recovers when Temporal starts later.
+    if state.config.workflow_reconcile_enabled && state.config.temporal_enabled {
+        match (state.workflow_store.clone(), state.pool.clone()) {
+            (Some(store), Some(pool)) => {
+                let config = state.config.clone();
+                let leader_pool = config.leader_election_enabled.then_some(pool);
+                let connect =
+                    agentforge_orchestrator::workflow_reconciler::temporal_connector(config.clone(), store.clone());
                 tokio::spawn(async move {
                     agentforge_orchestrator::workflow_reconciler::WorkflowReconcilerWorker::new(
                         store,
-                        service.runtime(),
+                        connect,
                         leader_pool,
-                        namespace,
-                        grace,
+                        config.temporal_namespace.clone(),
+                        config.workflow_reconcile_grace_secs,
+                        config.workflow_reconcile_trust_current_temporal,
                     )
                     .run()
                     .await;
@@ -88,9 +91,7 @@ async fn main() -> anyhow::Result<()> {
                     );
                 });
             }
-            _ => tracing::warn!(
-                "workflow reconciler not started: it needs the orchestrator database and a reachable Temporal at boot"
-            ),
+            _ => tracing::warn!("workflow reconciler not started: it needs the orchestrator database"),
         }
     }
 

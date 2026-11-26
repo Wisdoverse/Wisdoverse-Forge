@@ -157,9 +157,17 @@ pub struct Workflow {
     /// When the reconciler last got an answer from Temporal about this row.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_checked_at: Option<DateTime<Utc>>,
+    /// The reconciler's last answer from Temporal for this row: `running`,
+    /// `closed`, `missing` or `unverifiable`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_observation: Option<String>,
     /// When reconciliation last set this workflow's status.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reconciled_at: Option<DateTime<Utc>>,
+    /// Compare-and-set token (#1352): the database trigger increments it on
+    /// every change except reconciler bookkeeping. Internal, not serialized.
+    #[serde(default, skip_serializing)]
+    pub state_version: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -200,6 +208,18 @@ pub enum ExecutionState {
     Unverifiable,
     /// Temporal could not be asked in time.
     Unknown,
+}
+
+impl ExecutionObservation {
+    /// Value stored in `execution_observation`.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::Closed { .. } => "closed",
+            Self::Missing => "missing",
+            Self::Unverifiable => "unverifiable",
+        }
+    }
 }
 
 /// How a reconciliation check changes `execution_missing_since`.
