@@ -22,6 +22,25 @@ fn merge_lock_key(scope: &TenantScope, id: Uuid) -> String {
 }
 
 impl OrchestrationTaskRepository {
+    /// The task row behind a self-fix delivery decision (merge entry and head
+    /// reconcile): its review status, head, attempt count and `updated_at`.
+    /// Same row type and tenant predicate as the shared `find_by_id`, kept here
+    /// so the read the gate decides on is on the protected path.
+    pub(crate) async fn find_for_delivery_decision<'e>(
+        db: impl sqlx::PgExecutor<'e>,
+        scope: &TenantScope,
+        id: Uuid,
+    ) -> AppResult<OrchestrationTask> {
+        sqlx::query_as::<_, OrchestrationTask>(
+            "SELECT * FROM orchestration_tasks WHERE id = $1 AND organization_id = $2",
+        )
+        .bind(id)
+        .bind(scope.org_id().as_uuid())
+        .fetch_optional(db)
+        .await?
+        .ok_or_else(|| OrchestrationRepositoryPolicy::task_not_found(id))
+    }
+
     pub(crate) async fn lock_by_id_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: &TenantScope,

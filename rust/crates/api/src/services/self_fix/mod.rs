@@ -248,7 +248,7 @@ impl SelfFixService {
 
         // 1. Load the task (tenant-scoped, so another tenant gets 404 before any
         //    lock or provider call); require self-fix.
-        let task = self.tasks.find_by_id(scope, task_id).await?;
+        let task = OrchestrationTaskRepository::find_for_delivery_decision(self.tasks.pool(), scope, task_id).await?;
         if !task.self_fix {
             return Err(SelfFixPolicy::not_a_self_fix_task());
         }
@@ -275,7 +275,7 @@ impl SelfFixService {
         approver_id: &str,
     ) -> AppResult<SelfFixMergeResult> {
         // a. Fresh read under the mutex.
-        let task = OrchestrationTaskRepository::find_by_id_on(conn, scope, task_id).await?;
+        let task = OrchestrationTaskRepository::find_for_delivery_decision(&mut *conn, scope, task_id).await?;
 
         // Require a PR linkage (number + recorded head SHA): the executor merges
         // an EXISTING PR, it does not open one.

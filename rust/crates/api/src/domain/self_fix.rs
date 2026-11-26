@@ -5,6 +5,16 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+// Boundary of the three lists below: they cover the files that DECIDE,
+// AUTHORIZE, RECORD and WIRE self-fix delivery — the decision functions, the
+// queries those decisions run, the administrator policy and its re-check
+// query, the audit insert, the GitHub client, the routes, their registration
+// and the auth middleware. They deliberately do not follow transitive
+// dependencies further (shared row types, the database pool, the error and
+// HTTP framework types). The lists are a tripwire that sends a change to a
+// human; they are one layer, and the rule that nothing merges without an
+// explicit administrator approval does not depend on them.
+
 /// Glob-prefix directories whose ANY descendant is sensitive.
 #[allow(dead_code)]
 const SENSITIVE_DIR_PREFIXES: &[&str] = &[
@@ -41,6 +51,12 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs",
     // The in-transaction administrator re-check used by the merge gate and head reconciliation.
     "rust/crates/api/src/repositories/user/mod.rs",
+    // The administrator policy (`AdminRolePolicy::require_platform_admin`) behind that re-check.
+    "rust/crates/api/src/domain/admin.rs",
+    // The transactional audit insert (`AuditRepository::create_in_tx`) for reconciled heads.
+    "rust/crates/api/src/repositories/audit.rs",
+    // Route registration: which middleware the self-fix routes sit behind.
+    "rust/crates/api/src/router.rs",
 ];
 
 #[allow(dead_code)]
@@ -647,6 +663,27 @@ mod tests {
         let user_repository =
             std::fs::read_to_string(format!("{}/src/repositories/user/mod.rs", env!("CARGO_MANIFEST_DIR"))).unwrap();
         assert!(user_repository.contains("fn find_is_admin_by_id_in_tx"));
+        // The policy, the audit insert and the route registration stay in the
+        // exact files the policy names.
+        let source =
+            |path: &str| std::fs::read_to_string(format!("{}/src/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        for (path, needle) in [
+            ("domain/admin.rs", "fn require_platform_admin(is_admin: bool)"),
+            ("repositories/audit.rs", "pub async fn create_in_tx("),
+            ("router.rs", ".merge(routes::self_fix::self_fix_routes())"),
+        ] {
+            assert!(blocked(&[format!("rust/crates/api/src/{path}").as_str()]), "{path} must be sensitive");
+            assert!(source(path).contains(needle), "{needle} must stay in {path}");
+        }
+        // The merge entry and head-reconcile decisions read the task through
+        // the protected `find_for_delivery_decision`, not the shared reads.
+        assert!(read("self_fix_delivery.rs").contains("fn find_for_delivery_decision"));
+        let reconcile = source("services/self_fix/reconcile.rs");
+        assert!(!reconcile.contains("find_by_id(") && !reconcile.contains("find_by_id_on("));
+        let service = source("services/self_fix/mod.rs");
+        let merge_entry = &service
+            [service.find("async fn approve_and_merge(").unwrap()..service.find("async fn begin_decision(").unwrap()];
+        assert!(!merge_entry.contains("find_by_id(") && !merge_entry.contains("find_by_id_on("));
     }
 
     #[test]

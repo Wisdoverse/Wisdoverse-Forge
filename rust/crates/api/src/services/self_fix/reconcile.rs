@@ -34,7 +34,7 @@ impl SelfFixService {
         self.require_platform_admin(scope).await?;
         let input = input.prepare()?;
         // Tenant-scoped: another tenant gets 404 here, before any lock or provider call.
-        let task = self.tasks.find_by_id(scope, task_id).await?;
+        let task = OrchestrationTaskRepository::find_for_delivery_decision(self.tasks.pool(), scope, task_id).await?;
         if !task.self_fix {
             return Err(SelfFixPolicy::not_a_self_fix_task());
         }
@@ -58,7 +58,7 @@ impl SelfFixService {
         pr_number: i32,
         input: &ReconcileHeadInput,
     ) -> AppResult<ReconcileHeadResult> {
-        let task = OrchestrationTaskRepository::find_by_id_on(conn, scope, task_id).await?;
+        let task = OrchestrationTaskRepository::find_for_delivery_decision(&mut *conn, scope, task_id).await?;
         match reconcile_head_action(task.review_status.as_deref(), task.pr_head_sha.as_deref(), input, None) {
             ReconcileAction::Observe => {}
             ReconcileAction::NoOp => {
