@@ -303,11 +303,15 @@ impl GroupRepository {
         // Verify group belongs to tenant
         self.find_by_id(scope, group_id).await?;
 
-        let result = sqlx::query("DELETE FROM group_members WHERE group_id = $1 AND user_id = $2")
-            .bind(group_id.as_uuid())
-            .bind(user_id)
-            .execute(&self.pool)
-            .await?;
+        let result = sqlx::query(
+            "DELETE FROM group_members WHERE group_id = $1 AND user_id = $2
+               AND EXISTS (SELECT 1 FROM groups g WHERE g.id = $1 AND g.organization_id = $3)",
+        )
+        .bind(group_id.as_uuid())
+        .bind(user_id)
+        .bind(scope.org_id().as_uuid())
+        .execute(&self.pool)
+        .await?;
 
         if result.rows_affected() == 0 {
             return Err(ResourceRepositoryPolicy::group_member_not_found(group_id, user_id));

@@ -69,9 +69,8 @@ impl SelfFixPrWorker {
         };
 
         // Background workers act on behalf of the job's org; the user axis is
-        // unused by `open_pr` (org-scoped), so use a nil placeholder
-        // (precedent: project_clone_worker.rs:1372).
-        let scope = TenantScope::new(OrgId::from(payload.org_id), UserId::from(Uuid::nil()));
+        // unused by `open_pr` (org-scoped), so the system user acts.
+        let scope = TenantScope::for_background(OrgId::from(payload.org_id), UserId::SYSTEM, None);
 
         match self.service.open_pr(&scope, payload.task_id).await {
             Ok(outcome) => {

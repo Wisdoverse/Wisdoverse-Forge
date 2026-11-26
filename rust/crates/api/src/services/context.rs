@@ -202,7 +202,8 @@ impl ContextApprovalService {
         if let Err(rejection) =
             ContextCandidatePolicy::ensure_source_run_approvable(candidate.source_run_id, source_run_status.as_deref())
         {
-            let rejected = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
+            let rejected =
+                ContextCandidateRepository::update_state_in_tx(&mut tx, &proof, candidate.id, "rejected").await?;
             self.emit_candidate_audit(
                 &mut tx,
                 scope,
@@ -317,7 +318,8 @@ impl ContextApprovalService {
                     },
                 )
                 .await?;
-                let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "approved").await?;
+                let updated =
+                    ContextCandidateRepository::update_state_in_tx(&mut tx, &proof, candidate.id, "approved").await?;
                 let audit = ContextCandidateApprovalAudit::memory(
                     item.scope_kind.as_str(),
                     item.sensitivity.as_str(),
@@ -404,6 +406,7 @@ impl ContextApprovalService {
                     SkillVersionRepository::insert_snapshot_in_tx(&mut tx, &current, scope.user_id()).await?;
                 let skill = SkillRepository::promote_candidate_in_tx(
                     &mut tx,
+                    scope,
                     current.id.as_uuid(),
                     target.kind().as_label(),
                     target.id(),
@@ -411,7 +414,8 @@ impl ContextApprovalService {
                     sensitivity,
                 )
                 .await?;
-                let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "approved").await?;
+                let updated =
+                    ContextCandidateRepository::update_state_in_tx(&mut tx, &proof, candidate.id, "approved").await?;
                 let audit = ContextCandidateApprovalAudit::skill(
                     skill.scope_kind.clone(),
                     skill.sensitivity.as_str(),
@@ -474,7 +478,7 @@ impl ContextApprovalService {
             },
         )
         .await?;
-        let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, candidate.id, "rejected").await?;
+        let updated = ContextCandidateRepository::update_state_in_tx(&mut tx, &proof, candidate.id, "rejected").await?;
         let audit = ContextCandidateManualRejectionAudit::new(reason, approval.self_approval);
         self.emit_candidate_audit(&mut tx, scope, audit.audit_action(), audit.audit_payload(&candidate.item_kind))
             .await?;
@@ -652,16 +656,16 @@ impl ContextFeedbackService {
     ) -> AppResult<bool> {
         match label {
             ContextFeedbackLabel::Useful => {
-                ContextFeedbackRepository::mark_memory_useful_in_tx(tx, item_id).await?;
+                ContextFeedbackRepository::mark_memory_useful_in_tx(tx, proof, item_id).await?;
                 Ok(false)
             }
             ContextFeedbackLabel::Stale => {
-                ContextFeedbackRepository::mark_memory_stale_in_tx(tx, item_id).await?;
+                ContextFeedbackRepository::mark_memory_stale_in_tx(tx, proof, item_id).await?;
                 let stale_count =
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "memory", "stale")
                         .await?;
                 if ContextFeedbackPolicy::should_revoke_after_label(label, stale_count) {
-                    Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, item_id).await?.is_some())
+                    Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, proof, item_id).await?.is_some())
                 } else {
                     Ok(false)
                 }
@@ -671,13 +675,13 @@ impl ContextFeedbackService {
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "memory", "wrong")
                         .await?;
                 if ContextFeedbackPolicy::should_revoke_after_label(label, wrong_count) {
-                    Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, item_id).await?.is_some())
+                    Ok(ContextFeedbackRepository::revoke_memory_if_active_in_tx(tx, proof, item_id).await?.is_some())
                 } else {
                     Ok(false)
                 }
             }
             ContextFeedbackLabel::TooSensitive => {
-                ContextFeedbackRepository::mark_memory_needs_review_in_tx(tx, item_id).await?;
+                ContextFeedbackRepository::mark_memory_needs_review_in_tx(tx, proof, item_id).await?;
                 Ok(true)
             }
             ContextFeedbackLabel::DoNotUseAgain => Ok(false),
@@ -698,7 +702,7 @@ impl ContextFeedbackService {
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "skill", "wrong")
                         .await?;
                 if ContextFeedbackPolicy::should_revoke_after_label(label, wrong_count) {
-                    Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, item_id).await?.is_some())
+                    Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, proof, item_id).await?.is_some())
                 } else {
                     Ok(false)
                 }
@@ -708,7 +712,7 @@ impl ContextFeedbackService {
                     ContextFeedbackRepository::count_label_in_tx(tx, proof, workspace_id, item_id, "skill", "stale")
                         .await?;
                 if ContextFeedbackPolicy::should_revoke_after_label(label, stale_count) {
-                    Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, item_id).await?.is_some())
+                    Ok(ContextFeedbackRepository::revoke_skill_if_active_in_tx(tx, proof, item_id).await?.is_some())
                 } else {
                     Ok(false)
                 }

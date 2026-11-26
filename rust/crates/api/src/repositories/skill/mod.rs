@@ -176,6 +176,7 @@ impl SkillRepository {
 
     pub async fn update_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
         id: Uuid,
         record: UpdateSkillRecord<'_>,
     ) -> AppResult<Skill> {
@@ -190,7 +191,7 @@ impl SkillRepository {
                    sensitivity = COALESCE($8, sensitivity),
                    version = version + 1,
                    updated_at = now()
-               WHERE id = $1
+               WHERE id = $1 AND organization_id = $9
                RETURNING *"#,
         )
         .bind(id)
@@ -201,12 +202,13 @@ impl SkillRepository {
         .bind(record.enabled)
         .bind(record.state)
         .bind(record.sensitivity)
+        .bind(scope.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn revoke_in_tx(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> AppResult<Skill> {
+    pub async fn revoke_in_tx(tx: &mut Transaction<'_, Postgres>, scope: &TenantScope, id: Uuid) -> AppResult<Skill> {
         sqlx::query_as::<_, Skill>(
             r#"UPDATE skills
                SET state = 'revoked',
@@ -215,10 +217,12 @@ impl SkillRepository {
                    version = version + 1,
                    updated_at = now()
                WHERE id = $1
+                 AND organization_id = $2
                  AND state <> 'revoked'
                RETURNING *"#,
         )
         .bind(id)
+        .bind(scope.org_id().as_uuid())
         .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| SkillRepositoryPolicy::skill_already_revoked(id))
@@ -226,6 +230,7 @@ impl SkillRepository {
 
     pub async fn restore_from_snapshot_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
         id: Uuid,
         snapshot: &SkillSnapshot,
         resulting_version: i32,
@@ -252,7 +257,7 @@ impl SkillRepository {
                    success_evidence = $19,
                    revoked_at = $20,
                    updated_at = now()
-               WHERE id = $1
+               WHERE id = $1 AND organization_id = $21
                RETURNING *"#,
         )
         .bind(id)
@@ -275,6 +280,7 @@ impl SkillRepository {
         .bind(&snapshot.examples)
         .bind(&snapshot.success_evidence)
         .bind(snapshot.revoked_at)
+        .bind(scope.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
@@ -282,6 +288,7 @@ impl SkillRepository {
 
     pub async fn promote_candidate_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        scope: &TenantScope,
         id: Uuid,
         scope_kind: &str,
         scope_id: Uuid,
@@ -299,6 +306,7 @@ impl SkillRepository {
                    version = version + 1,
                    updated_at = now()
                WHERE id = $1
+                 AND organization_id = $6
                  AND state = 'candidate'
                  AND revoked_at IS NULL
                RETURNING *"#,
@@ -308,6 +316,7 @@ impl SkillRepository {
         .bind(scope_id)
         .bind(ttl_expires_at)
         .bind(sensitivity)
+        .bind(scope.org_id().as_uuid())
         .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| SkillRepositoryPolicy::skill_not_pending_candidate(id))

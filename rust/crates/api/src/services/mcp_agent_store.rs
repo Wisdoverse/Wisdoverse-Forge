@@ -74,38 +74,37 @@ impl McpAgentStore for SqlxMcpAgentStore {
         })
     }
 
-    async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
-        self.repo.update_agent_status(agent_id, status).await
-    }
-
     async fn begin_agent_work(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
     ) -> AppResult<chrono::DateTime<chrono::Utc>> {
-        self.repo.begin_agent_work(agent_id, expected_container_id).await
+        self.repo.begin_agent_work(org_id, agent_id, expected_container_id).await
     }
 
     async fn renew_agent_work_lease(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: chrono::DateTime<chrono::Utc>,
     ) -> AppResult<Option<chrono::DateTime<chrono::Utc>>> {
-        self.repo.renew_agent_work_lease(agent_id, expected_container_id, expected_lease).await
+        self.repo.renew_agent_work_lease(org_id, agent_id, expected_container_id, expected_lease).await
     }
 
     async fn finish_agent_work(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: &str,
         expected_lease: chrono::DateTime<chrono::Utc>,
         status: AgentStatus,
     ) -> AppResult<bool> {
-        self.repo.finish_agent_work(agent_id, expected_container_id, expected_lease, status).await
+        self.repo.finish_agent_work(org_id, agent_id, expected_container_id, expected_lease, status).await
     }
 
-    async fn delete_agent(&self, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
-        self.repo.delete_agent(agent_id, expected_container_id).await
+    async fn delete_agent(&self, org_id: Uuid, agent_id: Uuid, expected_container_id: Option<&str>) -> AppResult<()> {
+        self.repo.delete_agent(org_id, agent_id, expected_container_id).await
     }
 }

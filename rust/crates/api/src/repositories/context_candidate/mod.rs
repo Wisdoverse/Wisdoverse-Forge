@@ -188,6 +188,7 @@ impl ContextCandidateRepository {
 
     pub async fn update_state_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         id: Uuid,
         state: &str,
     ) -> AppResult<ContextCandidate> {
@@ -196,10 +197,12 @@ impl ContextCandidateRepository {
                   SET state = $2,
                       updated_at = now()
                 WHERE id = $1
+                  AND organization_id = $3
                 RETURNING *"#,
         )
         .bind(id)
         .bind(state)
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)

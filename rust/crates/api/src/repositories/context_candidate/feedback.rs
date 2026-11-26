@@ -135,6 +135,7 @@ impl ContextFeedbackRepository {
                   SET label = EXCLUDED.label,
                       note = EXCLUDED.note,
                       updated_at = now()
+                WHERE context_feedback.organization_id = EXCLUDED.organization_id
                RETURNING *"#,
         )
         .bind(proof.org_id().as_uuid())
@@ -145,9 +146,11 @@ impl ContextFeedbackRepository {
         .bind(record.label)
         .bind(record.note)
         .bind(proof.user_id().as_uuid())
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(Into::into)
+        .fetch_optional(&mut **tx)
+        .await?
+        // The unique key has no organization: a conflicting row of another
+        // organization is left untouched and reported like any inaccessible target.
+        .ok_or_else(ContextFeedbackPolicy::inaccessible_feedback_target)
     }
 
     pub async fn count_label_in_tx(
@@ -177,27 +180,39 @@ impl ContextFeedbackRepository {
         .map_err(Into::into)
     }
 
-    pub async fn mark_memory_useful_in_tx(tx: &mut Transaction<'_, Postgres>, item_id: Uuid) -> AppResult<MemoryItem> {
+    pub async fn mark_memory_useful_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
+        item_id: Uuid,
+    ) -> AppResult<MemoryItem> {
         sqlx::query_as::<_, MemoryItem>(
             r#"UPDATE memory_items
                   SET last_verified_at = now()
                 WHERE id = $1
+                  AND organization_id = $2
                 RETURNING *"#,
         )
         .bind(item_id)
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
     }
 
-    pub async fn mark_memory_stale_in_tx(tx: &mut Transaction<'_, Postgres>, item_id: Uuid) -> AppResult<MemoryItem> {
+    pub async fn mark_memory_stale_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
+        item_id: Uuid,
+    ) -> AppResult<MemoryItem> {
         sqlx::query_as::<_, MemoryItem>(
             r#"UPDATE memory_items
                   SET last_verified_at = NULL
                 WHERE id = $1
+                  AND organization_id = $2
                 RETURNING *"#,
         )
         .bind(item_id)
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
@@ -205,16 +220,19 @@ impl ContextFeedbackRepository {
 
     pub async fn mark_memory_needs_review_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         item_id: Uuid,
     ) -> AppResult<MemoryItem> {
         sqlx::query_as::<_, MemoryItem>(
             r#"UPDATE memory_items
                   SET state = 'needs_review'
                 WHERE id = $1
+                  AND organization_id = $2
                   AND revoked_at IS NULL
                 RETURNING *"#,
         )
         .bind(item_id)
+        .bind(proof.org_id().as_uuid())
         .fetch_one(&mut **tx)
         .await
         .map_err(Into::into)
@@ -222,6 +240,7 @@ impl ContextFeedbackRepository {
 
     pub async fn revoke_memory_if_active_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         item_id: Uuid,
     ) -> AppResult<Option<MemoryItem>> {
         sqlx::query_as::<_, MemoryItem>(
@@ -229,10 +248,12 @@ impl ContextFeedbackRepository {
                   SET state = 'revoked',
                       revoked_at = now()
                 WHERE id = $1
+                  AND organization_id = $2
                   AND revoked_at IS NULL
                 RETURNING *"#,
         )
         .bind(item_id)
+        .bind(proof.org_id().as_uuid())
         .fetch_optional(&mut **tx)
         .await
         .map_err(Into::into)
@@ -240,6 +261,7 @@ impl ContextFeedbackRepository {
 
     pub async fn revoke_skill_if_active_in_tx(
         tx: &mut Transaction<'_, Postgres>,
+        proof: &ScopedRead,
         item_id: Uuid,
     ) -> AppResult<Option<Skill>> {
         sqlx::query_as::<_, Skill>(
@@ -248,10 +270,12 @@ impl ContextFeedbackRepository {
                       enabled = false,
                       revoked_at = now()
                 WHERE id = $1
+                  AND organization_id = $2
                   AND revoked_at IS NULL
                 RETURNING *"#,
         )
         .bind(item_id)
+        .bind(proof.org_id().as_uuid())
         .fetch_optional(&mut **tx)
         .await
         .map_err(Into::into)

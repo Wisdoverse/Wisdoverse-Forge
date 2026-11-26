@@ -340,18 +340,20 @@ where
 {
     fn spawn_completion_monitor(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: String,
         expected_lease: chrono::DateTime<Utc>,
     ) {
         let runtime = (*self).clone();
         tokio::spawn(async move {
-            runtime.monitor_prompt(agent_id, expected_container_id, expected_lease).await;
+            runtime.monitor_prompt(org_id, agent_id, expected_container_id, expected_lease).await;
         });
     }
 
     async fn monitor_prompt(
         &self,
+        org_id: Uuid,
         agent_id: Uuid,
         expected_container_id: String,
         mut expected_lease: chrono::DateTime<Utc>,
@@ -379,7 +381,7 @@ where
             if !matches!(state, DockerSessionState::Running | DockerSessionState::Created) {
                 let _ = self
                     .store
-                    .finish_agent_work(agent_id, &expected_container_id, expected_lease, AgentStatus::Offline)
+                    .finish_agent_work(org_id, agent_id, &expected_container_id, expected_lease, AgentStatus::Offline)
                     .await;
                 self.clear_tracking(agent_id);
                 break;
@@ -393,13 +395,17 @@ where
                 Ok(true) => {
                     let _ = self
                         .store
-                        .finish_agent_work(agent_id, &expected_container_id, expected_lease, AgentStatus::Idle)
+                        .finish_agent_work(org_id, agent_id, &expected_container_id, expected_lease, AgentStatus::Idle)
                         .await;
                     self.observations.lock().expect("observation lock").remove(&agent_id);
                     break;
                 }
                 Ok(false) => {
-                    match self.store.renew_agent_work_lease(agent_id, &expected_container_id, expected_lease).await {
+                    match self
+                        .store
+                        .renew_agent_work_lease(org_id, agent_id, &expected_container_id, expected_lease)
+                        .await
+                    {
                         Ok(Some(renewed_lease)) => expected_lease = renewed_lease,
                         Ok(None) => {
                             // Process pause/restart or another authoritative owner
@@ -453,7 +459,7 @@ where
         Ok(McpAgentRuntimeCreateResult { container_id, image_identity: resolved.evidence })
     }
 
-    async fn send_prompt(&self, agent_id: Uuid, prompt: &str) -> AppResult<()> {
+    async fn send_prompt(&self, org_id: Uuid, agent_id: Uuid, prompt: &str) -> AppResult<()> {
         let record = self.store.get_agent(agent_id).await?;
         let container_id = require_container_id(&record)?;
         let cli_tool = infer_cli_tool(
@@ -462,14 +468,14 @@ where
         );
 
         self.wait_for_cli_ready(&container_id, &cli_tool).await?;
-        let owner_lease = self.store.begin_agent_work(agent_id, &container_id).await?;
+        let owner_lease = self.store.begin_agent_work(org_id, agent_id, &container_id).await?;
         if let Err(err) = self
             .docker
             .write_stdin_sequence(&container_id, vec![b"\x15".to_vec(), prompt.as_bytes().to_vec(), b"\r".to_vec()])
             .await
         {
             if let Err(reset_err) =
-                self.store.finish_agent_work(agent_id, &container_id, owner_lease, AgentStatus::Idle).await
+                self.store.finish_agent_work(org_id, agent_id, &container_id, owner_lease, AgentStatus::Idle).await
             {
                 tracing::warn!(error = ?reset_err, %agent_id, "failed to restore MCP Agent status after prompt write failure");
             }
@@ -487,7 +493,7 @@ where
         };
         self.observations.lock().expect("observation lock").insert(agent_id, initial_hash);
         self.remember_session(agent_id, DockerRuntimeSession { container_id, cli_tool });
-        self.spawn_completion_monitor(agent_id, require_container_id(&record)?, owner_lease);
+        self.spawn_completion_monitor(org_id, agent_id, require_container_id(&record)?, owner_lease);
         Ok(())
     }
 
@@ -768,16 +774,9 @@ mod tests {
                 .ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")).into())
         }
 
-        async fn update_agent_status(&self, agent_id: Uuid, status: AgentStatus) -> AppResult<()> {
-            let mut agents = self.agents.lock().expect("agents lock");
-            let agent = agents.get_mut(&agent_id).ok_or_else(|| ErrorKind::NotFound(format!("agent {agent_id}")))?;
-            agent.status = status;
-            agent.updated_at = Some(Utc::now());
-            Ok(())
-        }
-
         async fn begin_agent_work(
             &self,
+            _org_id: Uuid,
             agent_id: Uuid,
             expected_container_id: &str,
         ) -> AppResult<chrono::DateTime<Utc>> {
@@ -795,6 +794,7 @@ mod tests {
 
         async fn renew_agent_work_lease(
             &self,
+            _org_id: Uuid,
             agent_id: Uuid,
             expected_container_id: &str,
             expected_lease: chrono::DateTime<Utc>,
@@ -814,6 +814,7 @@ mod tests {
 
         async fn finish_agent_work(
             &self,
+            _org_id: Uuid,
             agent_id: Uuid,
             expected_container_id: &str,
             expected_lease: chrono::DateTime<Utc>,
@@ -834,7 +835,12 @@ mod tests {
             Ok(true)
         }
 
-        async fn delete_agent(&self, agent_id: Uuid, _expected_container_id: Option<&str>) -> AppResult<()> {
+        async fn delete_agent(
+            &self,
+            _org_id: Uuid,
+            agent_id: Uuid,
+            _expected_container_id: Option<&str>,
+        ) -> AppResult<()> {
             self.agents.lock().expect("agents lock").remove(&agent_id);
             Ok(())
         }
@@ -915,11 +921,12 @@ mod tests {
     #[tokio::test]
     async fn docker_runtime_prompt_status_and_destroy_use_local_store_and_docker_backend() {
         let agent_id = Uuid::now_v7();
+        let org_id = Uuid::now_v7();
         let now = Utc::now() - ChronoDuration::seconds(30);
         let store = TestStore::default();
         store.insert(McpAgentRecord {
             agent_id,
-            organization_id: Uuid::now_v7(),
+            organization_id: org_id,
             workspace_id: Uuid::now_v7(),
             user_id: Uuid::now_v7(),
             project_id: Some(Uuid::now_v7()),
@@ -949,7 +956,7 @@ mod tests {
         );
         let runtime = runtime(store.clone(), docker.clone());
 
-        runtime.send_prompt(agent_id, "ship it").await.expect("send prompt");
+        runtime.send_prompt(org_id, agent_id, "ship it").await.expect("send prompt");
         let working = runtime.session_status(agent_id).await.expect("working status");
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {

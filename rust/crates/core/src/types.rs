@@ -60,6 +60,12 @@ define_id!(
     /// Unique identifier for a user.
     UserId
 );
+
+impl UserId {
+    /// Acting user for background work that has no stored owner (the nil UUID).
+    /// It is never a real `users` row, so it must not be written as a foreign key.
+    pub const SYSTEM: Self = Self(Uuid::nil());
+}
 define_id!(
     /// Unique identifier for a project.
     ProjectId

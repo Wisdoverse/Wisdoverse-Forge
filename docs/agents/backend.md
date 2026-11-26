@@ -21,9 +21,17 @@ Their `/workspace` mount contains projects scoped to one organization and worksp
 - Register new HTTP, WebSocket, and MCP routes in `rust/crates/api/src/router.rs`.
 - Require authentication through `rust/crates/api/src/middleware.rs`.
 - Exempt only intentionally public infrastructure endpoints, such as `/health`.
-- Require `&TenantScope` in repository methods for tenant data.
-- Constrain tenant queries by organization.
-- Construct tenant scope only in auth middleware.
+- Require `&TenantScope` (or a `ScopedRead`/`ScopedWrite` proof built from it)
+  in repository methods for tenant data.
+- Constrain tenant queries by organization inside the SQL statement. A by-id
+  `UPDATE`, `DELETE` or upsert conflict branch names the organization itself:
+  `organization_id = $n`, or an `EXISTS` through the owning row when the table
+  has no such column. A caller's earlier check does not replace it.
+- A foreign id must produce exactly the result of an unknown id.
+- Construct a request scope only in the auth middleware or the WebSocket
+  gateway. Background work uses `TenantScope::for_background`. The rule, the
+  legitimately unscoped methods and the guard are in
+  [ADR 0004](../adr/0004-tenant-scope-pattern.md).
 - Where already used, preserve the `{ ok: true/false, ...data }` response format.
 
 The API uses `route -> service -> domain -> repository` boundaries.

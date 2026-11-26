@@ -1,14 +1,18 @@
 //! Compile-time enforced tenant isolation.
 //!
-//! [`TenantScope`] can only be constructed by auth middleware (fields are private).
-//! Repository methods accept `&TenantScope` to ensure every query is scoped to
-//! the authenticated organization and user.
+//! [`TenantScope`] fields are private. Request scopes are built by the auth
+//! middleware and the WebSocket gateway; background work uses
+//! [`TenantScope::for_background`]. `scripts/check-scope-construction.sh`
+//! (run by the `auth` crate's `scope_construction_allowlist_test`) rejects any
+//! other production call site. Repository methods accept `&TenantScope` so
+//! every query is scoped to the organization.
 
 use uuid::Uuid;
 
 use crate::types::{OrgId, ProjectId, TeamId, UserId, WorkspaceId};
 
-/// Tenant isolation scope — constructed by auth middleware only.
+/// Tenant isolation scope — built by auth middleware, the WebSocket gateway, or
+/// [`TenantScope::for_background`].
 ///
 /// Repository methods require `&TenantScope` to execute queries, enforcing
 /// at compile time that unauthenticated code paths cannot access tenant data.
@@ -22,23 +26,25 @@ pub struct TenantScope {
 }
 
 impl TenantScope {
-    /// Create a new tenant scope.
+    /// Create a tenant scope without governance axes.
     ///
-    /// # Safety contract
-    /// **Only call from verified auth context** (auth middleware after JWT validation).
-    /// This constructor is `pub` because the `auth` crate (a separate crate that depends
-    /// on `core`) needs to construct `TenantScope` from validated tokens.
-    /// A sealed-token pattern will replace this once the auth crate is fully implemented.
+    /// # Who may call this
+    /// Test code only (`#[cfg(test)]`, `tests/`, the `test-support` helpers).
+    /// It is `pub` because `core` cannot limit visibility to other crates;
+    /// `scripts/check-scope-construction.sh` rejects production call sites.
     #[doc(hidden)]
     pub fn new(org_id: OrgId, user_id: UserId) -> Self {
         Self { org_id, user_id, workspace_id: None, team_id: None, project_id: None }
     }
 
-    /// Create a tenant scope with optional governance axes from verified auth context.
+    /// Create a request scope with optional governance axes.
     ///
-    /// # Safety contract
-    /// **Only call from verified auth context** after the workspace/team/project axes have
-    /// been taken from trusted claims or validated against membership state.
+    /// # Who may call this
+    /// Only the auth middleware (`crates/auth/src/middleware.rs`) and the
+    /// WebSocket gateway (`crates/api/src/gateway/ws.rs`), after validating the
+    /// JWT the values come from, plus test code. Background work uses
+    /// [`TenantScope::for_background`]. `scripts/check-scope-construction.sh`
+    /// rejects any other production call site.
     #[doc(hidden)]
     pub fn with_axes(
         org_id: OrgId,
@@ -48,6 +54,20 @@ impl TenantScope {
         project_id: Option<ProjectId>,
     ) -> Self {
         Self { org_id, user_id, workspace_id, team_id, project_id }
+    }
+
+    /// Create the scope for background work (workers, schedulers, sweeps) that
+    /// runs without a request.
+    ///
+    /// # Contract
+    /// - `org_id` comes from a database row or a server-enqueued job the worker
+    ///   loaded, never from request input.
+    /// - `acting_user` is the stored owner of that work (for example the row's
+    ///   creator or a live member of the organization), or [`UserId::SYSTEM`]
+    ///   when the work has no owner.
+    /// - `workspace_id` is the row's own workspace when it has one.
+    pub fn for_background(org_id: OrgId, acting_user: UserId, workspace_id: Option<WorkspaceId>) -> Self {
+        Self { org_id, user_id: acting_user, workspace_id, team_id: None, project_id: None }
     }
 
     /// The organization this request is scoped to.
@@ -342,6 +362,20 @@ mod tests {
         assert_eq!(scope.workspace_id(), Some(workspace));
         assert_eq!(scope.team_id(), Some(team));
         assert_eq!(scope.project_id(), Some(project));
+    }
+
+    #[test]
+    fn background_scope_carries_org_user_and_workspace_only() {
+        let org = OrgId::new();
+        let workspace = WorkspaceId::new();
+
+        let scope = TenantScope::for_background(org, UserId::SYSTEM, Some(workspace));
+
+        assert_eq!(scope.org_id(), org);
+        assert_eq!(scope.user_id().as_uuid(), Uuid::nil());
+        assert_eq!(scope.workspace_id(), Some(workspace));
+        assert_eq!(scope.team_id(), None);
+        assert_eq!(scope.project_id(), None);
     }
 
     #[test]
