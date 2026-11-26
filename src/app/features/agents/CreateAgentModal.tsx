@@ -13,7 +13,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { waitingPlaceDisplayName } from '@app/entities/navigation/agent-group'
+import { waitingPlaceDisplayName, useNavigationStore } from '@app/entities/navigation'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import {
@@ -22,7 +22,6 @@ import {
   localAgentSetupPasteHint,
   useAgentsStore,
 } from '@app/entities/agent'
-import { useNavigationStore } from '@app/entities/navigation'
 import { useSettingsStore } from '@app/entities/settings'
 import type { AgentCreateInitialKind, LocalAgentEnrollmentResponse } from '@app/entities/agent'
 import type { LlmProviderConfig } from '@app/shared/api/legacy/settingsApi'

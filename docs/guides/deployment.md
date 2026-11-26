@@ -80,6 +80,67 @@ At minimum, configure these values in `docker/.env`:
 | `nats`                | `4222`, `8222` | Event transport                             |
 | `caddy`               | `80`, `443`    | Reverse proxy and automatic HTTPS in `prod` |
 
+## Which Ports Are Reachable From Other Machines
+
+With the default configuration, only the Caddy reverse proxy (`80` and `443`
+in the `prod` profile) listens on every address of the host, IPv4 and IPv6.
+Every other published port listens on `127.0.0.1`, so only programs on the
+host itself can reach it. Reach the product from elsewhere through the reverse
+proxy. Reach an internal tool, such as the Temporal UI, through an SSH tunnel:
+
+```bash
+ssh -L 8233:127.0.0.1:8233 <user>@<server>
+```
+
+Then open `http://localhost:8233` on your own machine.
+
+| Port (default)                          | Service                     | Host address setting   | Default     |
+| --------------------------------------- | --------------------------- | ---------------------- | ----------- |
+| `80`, `443` (`HTTP_PORT`, `HTTPS_PORT`) | Caddy reverse proxy         | none, all addresses    | all         |
+| `4003` (`AGENTFORGE_PORT`)              | Rust API                    | `BIND_ADDRESS`         | `127.0.0.1` |
+| `4010` (`ORCHESTRATOR_PORT`)            | Rust orchestrator           | `BIND_ADDRESS`         | `127.0.0.1` |
+| `5432` (`DB_EXPOSED_PORT`)              | Bundled PostgreSQL          | `BIND_ADDRESS`         | `127.0.0.1` |
+| `6379` (`REDIS_EXPOSED_PORT`)           | Bundled Redis               | `BIND_ADDRESS`         | `127.0.0.1` |
+| `4222` (`NATS_PORT`)                    | NATS client port            | `NATS_BIND_ADDRESS`    | `127.0.0.1` |
+| `8222` (`NATS_MONITOR_PORT`)            | NATS monitoring, no login   | `BIND_ADDRESS`         | `127.0.0.1` |
+| `7233` (`TEMPORAL_PORT`)                | Temporal, no login          | `BIND_ADDRESS`         | `127.0.0.1` |
+| `8233` (`TEMPORAL_UI_PORT`)             | Temporal UI, no login       | `BIND_ADDRESS`         | `127.0.0.1` |
+| `8080` (`ADMINER_PORT`)                 | Adminer (`tools`)           | `BIND_ADDRESS`         | `127.0.0.1` |
+| `8081` (`REDIS_COMMANDER_PORT`)         | Redis Commander (`tools`)   | `BIND_ADDRESS`         | `127.0.0.1` |
+| `5000` (`REGISTRY_PORT`)                | Image registry (`storage`)  | `BIND_ADDRESS`         | `127.0.0.1` |
+| `9000`, `9001` (`RUSTFS_*_PORT`)        | RustFS (`storage`)          | `RUSTFS_BIND_ADDRESS`  | `127.0.0.1` |
+| `8000` (`CASDOOR_PORT`)                 | Casdoor sign-in (`casdoor`) | `CASDOOR_BIND_ADDRESS` | `127.0.0.1` |
+| `5433` (`CASDOOR_DB_PORT`)              | Casdoor PostgreSQL          | fixed                  | `127.0.0.1` |
+
+`BIND_ADDRESS=0.0.0.0` opens every port in its rows at once, including ports
+without a login. Avoid it on a host with a public address.
+
+### Host CLI agents on other machines
+
+Agent containers on this host do not use the published NATS port. By default
+they connect to `nats:4222` on the Docker network. Host CLI agents on other machines connect
+to the address in `NATS_AGENT_URL`, so that machine must reach the NATS client
+port:
+
+1. In `docker/.env`, set `NATS_BIND_ADDRESS` to the address of the host
+   interface those machines reach, or `0.0.0.0` for all IPv4 addresses. Write
+   an IPv6 address in brackets, for example `[2001:db8::10]`.
+2. In the host firewall, allow port `4222` only from those machines.
+3. Set `NATS_AGENT_URL` to the address they use. Also set
+   `NATS_CONTAINER_URL=nats://nats:4222`, so agent containers keep using the
+   Docker network instead of the public address.
+4. Start the stack the way you normally do, for example `make prod-pull`.
+
+The bundled NATS server (`docker/nats.conf`) has no TLS, so this traffic is not
+encrypted. Host CLI enrollment rejects a `NATS_AGENT_URL` that does not start
+with `tls://` unless `ALLOW_PLAINTEXT_HOST_NATS=true`. For anything but an
+isolated lab, enable TLS in the NATS server configuration (a `tls` block in
+`docker/nats.conf`) and use the `tls://` address, or carry the traffic through
+a VPN or SSH tunnel. See [Host CLI Agent Enrollment](../runbooks/host-cli-agent-enrollment.md).
+
+Success looks like this: on the host, `ss -ltn | grep 4222` shows the address
+you set, and the agent shows as online in the Agents view.
+
 ## Development Deployment
 
 ```bash
@@ -328,7 +389,7 @@ liveness because an image cannot assume its dependencies. On platforms with
 separate probes, such as Kubernetes, use `/health` for liveness and
 `/api/health` for readiness.
 
-In environments that expose Temporal UI, also confirm `http://localhost:8233` is reachable.
+In environments that run Temporal, also confirm `http://localhost:8233` is reachable from the host itself (it listens on `BIND_ADDRESS`).
 
 For the external profile, also verify internal workflow and event wiring:
 
@@ -348,6 +409,17 @@ npm run migrate
 ```
 
 In containerized deployments, `make migrate` runs the migration command inside the Rust server container.
+
+Upgrade note: on a database first created by the legacy backend, the old `team_invites` table is moved to the `legacy_pre_089` schema before migration 089 creates the current one. Its rows are kept there; the server logs one `moved legacy table out of public before its migration` line when this happens. Startup is refused, with nothing changed, only when a legacy-shaped `public.team_invites` is still waiting to be moved and `legacy_pre_089.team_invites` already exists. In that case, check whether `legacy_pre_089.team_invites` still holds data you need, back it up, rename or drop it, and start again.
+
+The archived invitations are kept for inspection only. They are not imported into the current invitation system, so anyone who still needs access must be invited again through the current invite flow. Once you no longer need the archive, remove it with:
+
+```sql
+DROP TABLE legacy_pre_089.team_invites;
+DROP SCHEMA legacy_pre_089;
+```
+
+`DROP TABLE` without `CASCADE` stops with an error if another table still has a foreign key to the archive, so nothing else is removed by accident.
 
 ## When to Update This Document
 

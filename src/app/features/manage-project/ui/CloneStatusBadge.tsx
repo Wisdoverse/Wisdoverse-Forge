@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { projectApi, type CloneStatus, type CloneSummary } from '@app/entities/navigation/project'
+import { projectApi, type CloneStatus, type CloneSummary } from '@app/entities/navigation'
 
 interface CloneStatusBadgeProps {
   projectId: string

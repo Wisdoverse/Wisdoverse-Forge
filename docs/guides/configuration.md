@@ -566,7 +566,9 @@ the private key out of logs.
 | `AGENTFORGE_PORT`            | Host port mapping for the Rust API                                                                                           |
 | `AGENTFORGE_HOST_PORT`       | Optional host-only override for the Rust API published port; the container still listens on `4003`                           |
 | `ORCHESTRATOR_PORT`          | Host port mapping for the Rust orchestrator                                                                                  |
-| `BIND_ADDRESS`               | Bind scope for published ports                                                                                               |
+| `BIND_ADDRESS`               | Host address for the API, orchestrator, bundled DB and Redis, NATS monitoring, Temporal, its UI and tools; `127.0.0.1`       |
+| `NATS_BIND_ADDRESS`          | Host address for the NATS client port; default `127.0.0.1`. Change it only for Host CLI agents on other machines             |
+| `CASDOOR_BIND_ADDRESS`       | Host address for the Casdoor sign-in port (`casdoor` profile); default `127.0.0.1`                                           |
 | `CONTAINER_NAME_PREFIX`      | Optional Compose container-name prefix for running an isolated second stack on the same host                                 |
 | `APP_HOST`                   | Public host served by Caddy in the self-contained `prod` profile                                                             |
 | `HTTP_PORT` / `HTTPS_PORT`   | Public Caddy port mappings for the `prod` profile; non-443 HTTPS ports are included in generated `APP_URL` and `CORS_ORIGIN` |
@@ -583,6 +585,8 @@ the private key out of logs.
 | `STORAGE_LOCAL_PATH`         | Writable mount path for local attachment storage                                                                             |
 | `S3_*`                       | S3 settings when using the `storage` profile                                                                                 |
 | `MINIO_*`                    | Compatibility aliases for older object-storage configurations                                                                |
+
+Which ports other machines can reach, and how to open one safely: [Deployment Guide](deployment.md#which-ports-are-reachable-from-other-machines).
 
 ## Telemetry Export (OpenTelemetry, optional)
 

@@ -28,12 +28,22 @@ const DATABASE_URL = configuredDatabaseUrl()
 const SIDECAR_BIN =
   process.env.AGENTFORGE_SIDECAR_BIN ?? path.join(rustRoot, 'target/debug/agentforge-sidecar')
 const SIDECAR_CONTAINER_IMAGE = process.env.AGENTFORGE_SIDECAR_CONTAINER_IMAGE?.trim() || undefined
+// Container mode defaults to the path real agent containers use: the agent network and
+// NATS's internal address. The published NATS port is loopback-only by default, which a
+// container cannot reach through host-gateway on Linux. Setting only the NATS host keeps
+// the older host-gateway path.
+const SIDECAR_CONTAINER_NATS_HOST_OVERRIDE =
+  process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_HOST?.trim() || undefined
 const SIDECAR_CONTAINER_NETWORK =
-  process.env.AGENTFORGE_SIDECAR_CONTAINER_NETWORK?.trim() || undefined
-const SIDECAR_CONTAINER_NATS_HOST =
-  process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_HOST ?? 'host.docker.internal'
+  process.env.AGENTFORGE_SIDECAR_CONTAINER_NETWORK?.trim() ||
+  (SIDECAR_CONTAINER_NATS_HOST_OVERRIDE
+    ? undefined
+    : process.env.CONTAINER_NETWORK?.trim() || 'agentforge-agents')
+const SIDECAR_CONTAINER_NATS_HOST = SIDECAR_CONTAINER_NATS_HOST_OVERRIDE ?? 'nats'
 const NATS_PORT = process.env.NATS_PORT ?? '4222'
-const SIDECAR_CONTAINER_NATS_PORT = process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_PORT ?? NATS_PORT
+const SIDECAR_CONTAINER_NATS_PORT =
+  process.env.AGENTFORGE_SIDECAR_CONTAINER_NATS_PORT ??
+  (SIDECAR_CONTAINER_NATS_HOST_OVERRIDE ? NATS_PORT : '4222')
 const SIDECAR_START_TIMEOUT_MS = positiveIntEnv(
   process.env.ORCHESTRATION_REAL_SIDECAR_START_TIMEOUT_MS,
   60_000

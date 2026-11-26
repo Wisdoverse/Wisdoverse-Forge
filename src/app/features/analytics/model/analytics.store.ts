@@ -6,7 +6,7 @@ import {
   type AgentUsageEntry,
   type ContextUsageAnalytics,
 } from '@app/shared/api/orchestration'
-import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useContextFeaturesStore } from '@app/entities/context'
 
 export type DateRange = 'today' | '7d' | '30d'
 

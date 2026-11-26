@@ -12,7 +12,7 @@ import {
   type TaskStats,
 } from '@app/shared/api/orchestration'
 import { listAuthProviders, type AuthProviderInfo } from '@app/shared/api/auth'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useBoardStore } from '@app/entities/navigation'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { summarizeOperations, type OperationsSummary } from './model/triage'
 

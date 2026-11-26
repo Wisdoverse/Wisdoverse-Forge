@@ -13,7 +13,7 @@ import {
 } from '@app/shared/lib/taskFailureCopy'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { taskMachineKey, taskPriorityLabel, taskStateLabel } from '@app/entities/task'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useBoardStore } from '@app/entities/navigation'
 import {
   orchestrationApi,
   taskResultArtifacts,

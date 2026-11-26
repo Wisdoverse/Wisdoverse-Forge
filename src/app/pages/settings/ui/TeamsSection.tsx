@@ -10,7 +10,7 @@ import {
 } from '@app/features/manage-members'
 import { CreateTeamForm, EditableTeamRow } from '@app/features/manage-team'
 import { userApi } from '@app/entities/user'
-import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/navigation/team'
+import { teamApi, type NavTeam, type UpdateTeamInput } from '@app/entities/navigation'
 import { workspaceSettingsErrorMessage } from '../model/workspaceSettingsErrorMessage'
 
 export function TeamsSection() {

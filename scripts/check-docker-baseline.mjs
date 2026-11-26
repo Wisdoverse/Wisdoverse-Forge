@@ -4,7 +4,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  listComposeFiles,
   validateComposeBaseline,
+  validateComposePublishedPorts,
   validateDockerfileBaseline,
 } from './lib/docker-baseline-policy.js'
 
@@ -26,9 +28,20 @@ function readFileOrDie(targetPath) {
 
 const composeContent = readFileOrDie(composePath)
 const dockerfileContent = readFileOrDie(dockerfilePath)
+let composeFiles
+try {
+  composeFiles = listComposeFiles(repoRoot)
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[docker-baseline] ERROR: unable to list Compose files with git: ${message}`)
+  process.exit(2)
+}
 
 const errors = [
   ...validateComposeBaseline(composeContent),
+  ...composeFiles.flatMap((file) =>
+    validateComposePublishedPorts(readFileOrDie(path.join(repoRoot, file)), file)
+  ),
   ...validateDockerfileBaseline(dockerfileContent),
 ]
 

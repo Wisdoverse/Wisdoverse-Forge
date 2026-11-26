@@ -3,12 +3,11 @@ import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, FolderKanban } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
-import { useContextFeaturesStore } from '@app/entities/context/model/context-features.store'
+import { useBoardStore, useNavigationStore } from '@app/entities/navigation'
+import { useContextFeaturesStore, InjectionPreviewModal } from '@app/entities/context'
 import { BeginnerLoadingState } from '@app/shared/ui/BeginnerLoadingState'
 import { uiStyles } from '@app/shared/lib/uiStyles'
 import { cn } from '@app/shared/lib/utils'
-import { useNavigationStore } from '@app/entities/navigation'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskCard, taskCardSearchText } from './TaskCard'
 import {
@@ -17,7 +16,6 @@ import {
   type ParticipantSummary,
   type TaskSummary,
 } from '@app/shared/api/orchestration'
-import { InjectionPreviewModal } from '@app/entities/context/ui/InjectionPreviewModal'
 import type { ColumnId } from '@app/shared/model/board.types'
 import type { ContextPreviewResponse } from '@shared/types/context'
 import { AssignmentReadinessPanel, type BoardWorkloadSnapshot } from './AssignmentReadinessPanel'

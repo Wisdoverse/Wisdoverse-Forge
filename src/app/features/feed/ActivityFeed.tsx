@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@app/shared/lib/utils'
 import { uiStyles } from '@app/shared/lib/uiStyles'
-import { useBoardStore } from '@app/entities/navigation/model/board.store'
+import { useBoardStore } from '@app/entities/navigation'
 import { useFeedStore } from '@app/entities/feed'
 import { AgentStatusBar } from './AgentStatusBar'
 import { AttentionZone } from './AttentionZone'

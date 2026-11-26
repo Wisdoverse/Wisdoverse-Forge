@@ -1,4 +1,12 @@
+import { execFileSync } from 'node:child_process'
+import { isIP } from 'node:net'
+import { URL } from 'node:url'
+import YAML from 'yaml'
+
 const CORE_SERVICES = ['agentforge-server', 'orchestrator']
+// The reverse proxy is the one intentionally public listener. It keeps Docker's
+// default (all IPv4 and IPv6 addresses): an explicit 0.0.0.0 would drop IPv6.
+const PUBLIC_LISTENER_SERVICES = ['caddy']
 const HEALTH_ENDPOINTS = {
   'agentforge-server': '/api/health',
   orchestrator: '/health',
@@ -125,6 +133,75 @@ export function validateComposeBaseline(composeContent) {
   }
 
   return errors
+}
+
+// Replace Compose interpolation with each variable's default, innermost first.
+// A variable without a default (`${X}`, `${X:?msg}`) resolves to an empty string.
+function resolveComposeDefaults(value) {
+  const innermost = /\$\{[A-Za-z_][A-Za-z0-9_]*(?:(:?[-?])([^${}]*))?\}/
+  let resolved = String(value)
+  while (innermost.test(resolved)) {
+    resolved = resolved.replace(innermost, (_, operator, fallback) =>
+      operator === '-' || operator === ':-' ? fallback : ''
+    )
+  }
+  return resolved
+}
+
+// 127.0.0.0/8 or ::1 (bracketed in short syntax, either form in long-syntax host_ip).
+function isLoopbackAddress(value) {
+  const address = value.replace(/^\[(.+)\]$/, '$1')
+  if (isIP(address) === 4) {
+    return address.startsWith('127.')
+  }
+  return isIP(address) === 6 && new URL(`http://[${address}]`).hostname === '[::1]'
+}
+
+function shortSyntaxHostAddress(entry) {
+  const resolved = resolveComposeDefaults(entry).replace(/\/(tcp|udp|sctp)$/, '')
+  const bracketed = /^(\[[^\]]+\]):/.exec(resolved)
+  if (bracketed) {
+    return bracketed[1]
+  }
+  const parts = resolved.split(':')
+  return parts.length === 3 ? parts[0] : ''
+}
+
+export function validateComposePublishedPorts(composeContent, fileLabel = 'docker/compose.yml') {
+  const errors = []
+  const services = YAML.parse(composeContent, { merge: true })?.services ?? {}
+
+  for (const [serviceName, service] of Object.entries(services)) {
+    if (PUBLIC_LISTENER_SERVICES.includes(serviceName) || !Array.isArray(service?.ports)) {
+      continue
+    }
+    service.ports.forEach((entry, index) => {
+      const hostAddress =
+        entry && typeof entry === 'object'
+          ? resolveComposeDefaults(entry.host_ip ?? '')
+          : shortSyntaxHostAddress(entry)
+      if (!isLoopbackAddress(hostAddress)) {
+        const shown = typeof entry === 'object' ? JSON.stringify(entry) : `'${entry}'`
+        errors.push(
+          `${fileLabel} services.${serviceName}.ports[${index}] ${shown} must publish on a loopback host address by default (for example '\${BIND_ADDRESS:-127.0.0.1}:<host-port>:<container-port>' or host_ip); only the reverse proxy may listen on every address`
+        )
+      }
+    })
+  }
+
+  return errors
+}
+
+const COMPOSE_FILE_NAME = /^(?:docker-)?compose[^/]*\.ya?ml$/
+
+export function selectComposeFiles(paths) {
+  return paths.filter((file) => COMPOSE_FILE_NAME.test(file.split('/').pop())).sort()
+}
+
+// Every tracked Compose file in the repository, as repository-relative paths.
+export function listComposeFiles(repoRoot) {
+  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' })
+  return selectComposeFiles(tracked.split('\0').filter(Boolean))
 }
 
 export function validateDockerfileBaseline(dockerfileContent) {
