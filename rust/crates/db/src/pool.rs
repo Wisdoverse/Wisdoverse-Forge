@@ -199,12 +199,109 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
 /// Verifies the SHA-256 manifest before applying any migration. If the manifest
 /// check fails the process should not proceed — the caller receives a
 /// [`ManifestError`] wrapped in a [`MigrateError`]-compatible error path.
+/// Before migrating, legacy-shaped tables that would collide with a pending
+/// migration are moved out of `public` to `legacy_pre_<version>` (see `LEGACY_TABLE_COLLISIONS`).
 ///
 /// This is safe to call on every startup — already-applied migrations are skipped.
 pub async fn run_migrations(pool: &PgPool) -> Result<(), RunMigrationsError> {
     verify_manifest(MIGRATION_MANIFEST, MIGRATION_SOURCES)?;
+    reconcile_legacy_collisions(pool).await?;
     sqlx::migrate!("./migrations").run(pool).await?;
     Ok(())
+}
+
+/// A table that a database first created by the legacy backend can still hold
+/// in `public`, under the same name a later migration creates with
+/// `CREATE TABLE IF NOT EXISTS`. Without reconciliation that migration skips
+/// the table and then fails on the first statement that needs the current
+/// shape. See ADR 0006 for when an entry may be added.
+struct LegacyCollision {
+    /// Migration that creates the current table.
+    migration_version: i64,
+    table: &'static str,
+    /// A column only the current shape has.
+    current_shape_column: &'static str,
+}
+
+const LEGACY_TABLE_COLLISIONS: &[LegacyCollision] =
+    &[LegacyCollision { migration_version: 89, table: "team_invites", current_shape_column: "token_hash" }];
+
+/// Serializes reconciliation between servers that start at the same time.
+const LEGACY_RECONCILE_LOCK_KEY: i64 = 0x0af0_1e9a_c011_1de5;
+
+/// Schema a collision's legacy table is moved to, e.g. `legacy_pre_089`.
+/// Not `legacy`: migration 027 drops that schema with CASCADE.
+fn legacy_target_schema(collision: &LegacyCollision) -> String {
+    format!("legacy_pre_{:03}", collision.migration_version)
+}
+
+/// Move each legacy-shaped table in [`LEGACY_TABLE_COLLISIONS`] from `public`
+/// to `legacy_pre_<version>` before the migrator runs, so its migration
+/// creates the current table. Rows, indexes, constraints and owned sequences
+/// move with the table; foreign keys that point at it keep pointing at it.
+/// Nothing is dropped. If the target schema already holds a table of that
+/// name, it refuses with [`RunMigrationsError::LegacyTargetExists`] before
+/// changing anything.
+async fn reconcile_legacy_collisions(pool: &PgPool) -> Result<(), RunMigrationsError> {
+    for collision in LEGACY_TABLE_COLLISIONS {
+        let mut tx = pool.begin().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock($1)").bind(LEGACY_RECONCILE_LOCK_KEY).execute(&mut *tx).await?;
+
+        let table = collision.table;
+        let target_schema = legacy_target_schema(collision);
+        let (has_ledger, public_exists, target_exists, has_current_column): (bool, bool, bool, bool) = sqlx::query_as(
+            "SELECT to_regclass('_sqlx_migrations') IS NOT NULL,
+                        to_regclass(format('public.%I', $1::text)) IS NOT NULL,
+                        to_regclass(format('%I.%I', $3::text, $1::text)) IS NOT NULL,
+                        EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2)",
+        )
+        .bind(table)
+        .bind(collision.current_shape_column)
+        .bind(&target_schema)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !public_exists || has_current_column {
+            continue;
+        }
+        // Separate query: `_sqlx_migrations` cannot be named before it exists.
+        if has_ledger {
+            let applied: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM _sqlx_migrations WHERE version = $1)")
+                .bind(collision.migration_version)
+                .fetch_one(&mut *tx)
+                .await?;
+            if applied {
+                continue;
+            }
+        }
+        if target_exists {
+            return Err(RunMigrationsError::LegacyTargetExists {
+                schema: target_schema,
+                table,
+                migration_version: collision.migration_version,
+            });
+        }
+
+        let (schema, ident) = (quote_ident(&target_schema), quote_ident(table));
+        sqlx::raw_sql(&format!("CREATE SCHEMA IF NOT EXISTS {schema}; ALTER TABLE public.{ident} SET SCHEMA {schema}"))
+            .execute(&mut *tx)
+            .await?;
+        let rows: i64 =
+            sqlx::query_scalar(&format!("SELECT count(*) FROM {schema}.{ident}")).fetch_one(&mut *tx).await?;
+        tx.commit().await?;
+        tracing::info!(
+            table,
+            target_schema = %target_schema,
+            rows,
+            migration_version = collision.migration_version,
+            "moved legacy table out of public before its migration"
+        );
+    }
+    Ok(())
+}
+
+fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
 }
 
 /// Unified error type for [`run_migrations`].
@@ -216,6 +313,20 @@ pub enum RunMigrationsError {
     /// Migration manifest verification failed — possible supply-chain tampering.
     #[error("migration manifest verification failed: {0}")]
     Manifest(#[from] ManifestError),
+
+    /// Moving a legacy-shaped table out of the way of its migration failed.
+    #[error("legacy table reconciliation failed: {0}")]
+    LegacyReconcile(#[from] sqlx::Error),
+
+    /// The schema a legacy-shaped table must move to already holds a table of
+    /// that name. Nothing was changed.
+    #[error(
+        "legacy table reconciliation refused: public.{table} has the legacy shape and must move to \
+         {schema}.{table} before migration {migration_version:03}, but {schema}.{table} already exists. \
+         Nothing was changed. Check whether {schema}.{table} still holds data you need, back it up, \
+         rename or drop it, then start the server again"
+    )]
+    LegacyTargetExists { schema: String, table: &'static str, migration_version: i64 },
 
     /// SQLx migration execution failed.
     #[error("migration failed: {0}")]
