@@ -377,7 +377,15 @@ impl WorkflowActivities {
         input: FinalizeWorkflowStatusInput,
     ) -> Result<(), ActivityError> {
         let scheduling_run_id = ctx.info().workflow_execution.as_ref().map(|execution| execution.run_id().to_string());
-        let applied = finalize_status(self.store.as_ref(), &input, scheduling_run_id.as_deref())
+        // Only for pre-#1352 inputs scheduled by a continued run: one bounded
+        // describe of the scheduling run yields the first run of its chain.
+        let resolve_first_run = || async {
+            match ctx.workflow_handle::<super::temporal::OrchestratorWorkflowRun>() {
+                Some(handle) => super::temporal::first_run_id_of(&handle).await,
+                None => None,
+            }
+        };
+        let applied = finalize_status(self.store.as_ref(), &input, scheduling_run_id.as_deref(), resolve_first_run)
             .await
             .map_err(|err| ActivityError::from(anyhow!(err.to_string())))?;
         if !applied {
@@ -395,28 +403,58 @@ impl WorkflowActivities {
 }
 
 /// The finalizer's status write, fenced by execution identity (#1352) so a
-/// late finalizer of an earlier run cannot overwrite a re-run. The identity is
-/// the first run of the finalizing chain from the input; inputs scheduled
-/// before #1352 lack it, so the run that scheduled the activity is used
-/// instead. When neither is known nothing is written; the reconciler repairs
-/// the row from the closed execution. Returns whether the status was written.
-pub(crate) async fn finalize_status(
+/// late finalizer of an earlier run cannot overwrite a re-run. The row records
+/// the first run of its chain; the write applies only to a run of that chain
+/// (the rule in [`crate::workflow::belongs_to_recorded_chain`]).
+///
+/// - The input carries the chain's first run id: compare that.
+/// - Inputs scheduled before #1352 lack it. The scheduling run is compared
+///   first (it is the first run unless the chain continued); if that does not
+///   match, `resolve_first_run` asks Temporal once for the scheduling run's
+///   first run id and that is compared.
+/// - When no identity can be established nothing is written; the reconciler
+///   repairs the row from the closed execution.
+///
+/// Returns whether the status was written.
+pub(crate) async fn finalize_status<F, Fut>(
     store: &dyn Store,
     input: &FinalizeWorkflowStatusInput,
     scheduling_run_id: Option<&str>,
-) -> super::errors::Result<bool> {
-    let run_id = input.first_execution_run_id.as_deref().or(scheduling_run_id).filter(|run_id| !run_id.is_empty());
-    match run_id {
-        Some(run_id) => store.update_status_for_run(&input.workflow_id, &input.org_id, run_id, input.status).await,
+    resolve_first_run: F,
+) -> super::errors::Result<bool>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let write = |run_id: String| async move {
+        store.update_status_for_run(&input.workflow_id, &input.org_id, &run_id, input.status).await
+    };
+    if let Some(first_run_id) = input.first_execution_run_id.clone().filter(|id| !id.is_empty()) {
+        return write(first_run_id).await;
+    }
+    let Some(scheduling_run_id) = scheduling_run_id.filter(|id| !id.is_empty()) else {
+        warn_no_identity(input);
+        return Ok(false);
+    };
+    if write(scheduling_run_id.to_string()).await? {
+        return Ok(true);
+    }
+    match resolve_first_run().await {
+        Some(first_run_id) if first_run_id != scheduling_run_id => write(first_run_id).await,
+        Some(_) => Ok(false),
         None => {
-            tracing::warn!(
-                workflow_id = %input.workflow_id,
-                org_id = %input.org_id,
-                "finalizer has no execution identity; status not written, the reconciler will repair it"
-            );
+            warn_no_identity(input);
             Ok(false)
         }
     }
+}
+
+fn warn_no_identity(input: &FinalizeWorkflowStatusInput) {
+    tracing::warn!(
+        workflow_id = %input.workflow_id,
+        org_id = %input.org_id,
+        "finalizer could not establish its execution chain; status not written, the reconciler will repair it"
+    );
 }
 
 impl WorkflowActivities {
@@ -852,11 +890,13 @@ mod tests {
         let input = old_format_input(&id);
         assert!(input.first_execution_run_id.is_none());
 
-        let applied = finalize_status(&store, &input, Some("run-1")).await.unwrap();
+        // run-1 is an earlier chain: Temporal names run-1 as its own first run.
+        let applied =
+            finalize_status(&store, &input, Some("run-1"), || async { Some("run-1".to_string()) }).await.unwrap();
         assert!(!applied, "a finalizer scheduled by the earlier run must be fenced out");
         assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Running);
 
-        let applied = finalize_status(&store, &input, Some("run-2")).await.unwrap();
+        let applied = finalize_status(&store, &input, Some("run-2"), no_lookup).await.unwrap();
         assert!(applied);
         assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Completed);
     }
@@ -864,8 +904,38 @@ mod tests {
     #[tokio::test]
     async fn old_format_finalizer_without_any_identity_writes_nothing() {
         let (store, id) = store_recording("run-1").await;
-        let applied = finalize_status(&store, &old_format_input(&id), None).await.unwrap();
+        let applied = finalize_status(&store, &old_format_input(&id), None, no_lookup).await.unwrap();
         assert!(!applied);
+        assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Running);
+    }
+
+    async fn no_lookup() -> Option<String> {
+        panic!("no Temporal lookup expected here")
+    }
+
+    #[tokio::test]
+    async fn old_format_finalizer_scheduled_by_a_continued_run_writes_the_status() {
+        // Chain A -> B: the row records A, the finalizer was scheduled by B.
+        let (store, id) = store_recording("run-a").await;
+        let applied =
+            finalize_status(&store, &old_format_input(&id), Some("run-b"), || async { Some("run-a".to_string()) })
+                .await
+                .unwrap();
+        assert!(applied, "B belongs to the recorded chain A");
+        assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn old_format_finalizer_of_another_chain_or_unresolved_writes_nothing() {
+        let (store, id) = store_recording("run-a").await;
+        let other_chain =
+            finalize_status(&store, &old_format_input(&id), Some("run-y"), || async { Some("run-x".to_string()) })
+                .await
+                .unwrap();
+        assert!(!other_chain, "a run of a different chain is fenced out");
+        let unresolved =
+            finalize_status(&store, &old_format_input(&id), Some("run-b"), || async { None }).await.unwrap();
+        assert!(!unresolved, "no write when the chain cannot be established");
         assert_eq!(store.get_by_id(&id, "org-a").await.unwrap().status, WorkflowStatus::Running);
     }
 }

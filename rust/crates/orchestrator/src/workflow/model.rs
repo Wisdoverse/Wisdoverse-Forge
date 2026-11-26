@@ -187,8 +187,9 @@ pub enum ExecutionObservation {
     /// An execution exists and is not closed (running, paused, or a status
     /// this code does not know). Leave the row alone.
     Running,
-    /// The current execution closed with a terminal outcome.
-    Closed { run_id: String, status: WorkflowStatus },
+    /// The current execution closed with a terminal outcome. `first_run_id`
+    /// is the first run of its chain (continue-as-new, retry, reset).
+    Closed { run_id: String, first_run_id: String, status: WorkflowStatus },
     /// Temporal answered "workflow execution not found", and the namespace it
     /// answered for is proven to be the one the workflow was started in (or
     /// the operator acknowledged the current Temporal).
@@ -208,6 +209,14 @@ pub enum ExecutionState {
     Unverifiable,
     /// Temporal could not be asked in time.
     Unknown,
+}
+
+/// The one rule for "this execution is the row's" (#1352): it belongs to the
+/// execution chain the row recorded when the row's recorded run id (the run
+/// returned at start) is the execution's first run id or its own run id.
+/// Used by the reconciler for closed executions and by the finalizer fence.
+pub fn belongs_to_recorded_chain(recorded_run_id: Option<&str>, run_id: &str, first_run_id: &str) -> bool {
+    recorded_run_id.is_some_and(|recorded| !recorded.is_empty() && (recorded == run_id || recorded == first_run_id))
 }
 
 impl ExecutionObservation {

@@ -230,7 +230,11 @@ async fn present_and_running_execution_is_unchanged_and_mark_cleared(pool: PgPoo
 async fn closed_recorded_run_sets_matching_terminal_status(pool: PgPool) {
     let participant = seed_participant(&pool).await;
     let id = seed_running(&pool, &participant, "closed").await;
-    let closed = ExecutionObservation::Closed { run_id: "run-1".to_string(), status: WorkflowStatus::Completed };
+    let closed = ExecutionObservation::Closed {
+        run_id: "run-1".to_string(),
+        first_run_id: "run-1".to_string(),
+        status: WorkflowStatus::Completed,
+    };
     let fake = Arc::new(FakeTemporal::answering(Some(closed)));
 
     let outcome = worker(&pool, fake, false).tick().await.expect("tick");
@@ -242,11 +246,35 @@ async fn closed_recorded_run_sets_matching_terminal_status(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn closed_run_that_is_not_the_recorded_run_is_left_alone(pool: PgPool) {
-    // Reset or retry chain: the current run differs from the recorded one.
+async fn closed_continued_run_of_the_recorded_chain_is_reconciled(pool: PgPool) {
+    // Chain A -> B (continue-as-new, retry or reset): the row records run-1 (A),
+    // the current execution is run-2 (B), closed, whose first run is run-1.
     let participant = seed_participant(&pool).await;
-    let id = seed_running(&pool, &participant, "other-run").await;
-    let closed = ExecutionObservation::Closed { run_id: "run-2".to_string(), status: WorkflowStatus::Failed };
+    let id = seed_running(&pool, &participant, "continued-run").await;
+    let closed = ExecutionObservation::Closed {
+        run_id: "run-2".to_string(),
+        first_run_id: "run-1".to_string(),
+        status: WorkflowStatus::Completed,
+    };
+    let fake = Arc::new(FakeTemporal::answering(Some(closed)));
+
+    let outcome = worker(&pool, fake, false).tick().await.expect("tick");
+
+    assert_eq!(outcome.closed, 1);
+    let after = load(&pool, &id).await;
+    assert_eq!(after.status, WorkflowStatus::Completed, "a closed run of the recorded chain ends the row");
+    assert_eq!(after.status_cause.as_deref(), Some("reconciled_from_temporal"));
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn closed_run_of_a_different_chain_is_left_alone(pool: PgPool) {
+    let participant = seed_participant(&pool).await;
+    let id = seed_running(&pool, &participant, "other-chain").await;
+    let closed = ExecutionObservation::Closed {
+        run_id: "run-9".to_string(),
+        first_run_id: "run-9".to_string(),
+        status: WorkflowStatus::Failed,
+    };
     let fake = Arc::new(FakeTemporal::answering(Some(closed)));
 
     let outcome = worker(&pool, fake, false).tick().await.expect("tick");

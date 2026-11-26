@@ -35,6 +35,10 @@ services:
       # is lost in external mode. SAME BACKEND credential as agentforge-server —
       # `broadcast.>` publish is denied to per-agent/sidecar NATS creds.
       - ORCHESTRATOR_NATS_URL=${NATS_URL:-nats://backend:${NATS_BACKEND_PASSWORD:?NATS_BACKEND_PASSWORD required}@nats:4222}
+      # Workflow execution reconciler (#1352), repeated so this override keeps it.
+      - ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED=${ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED:-true}
+      - ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS=${ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS:-600}
+      - ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=${ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL:-false}
     networks:
       - default
       - external-network

@@ -8,8 +8,8 @@
 //! | Temporal answer                                   | Action                                              |
 //! |---------------------------------------------------|-----------------------------------------------------|
 //! | an execution exists (running, paused, unknown)    | clear any missing mark                              |
-//! | the recorded run closed (completed/failed/...)    | set the matching status, cause `reconciled_from_temporal` |
-//! | a different run closed                            | leave alone                                         |
+//! | a run of the recorded chain closed (completed/...) | set the matching status, cause `reconciled_from_temporal` |
+//! | a run of a different chain closed                 | leave alone                                         |
 //! | "not found", proven same Temporal, first sight    | record `execution_missing_since`                    |
 //! | "not found", proven, missing for the grace period | `failed`, cause `execution_lost` (re-runnable)      |
 //! | "not found", not provable (namespace id differs)  | leave alone, count as unverifiable                  |
@@ -41,7 +41,7 @@ use tokio::time::Instant;
 
 use crate::workflow::{
     CAUSE_EXECUTION_LOST, CAUSE_RECONCILED_FROM_TEMPORAL, ExecutionObservation, MissingMark, Result, Store, Workflow,
-    WorkflowRuntime, WorkflowStatus,
+    WorkflowRuntime, WorkflowStatus, belongs_to_recorded_chain,
 };
 
 /// Candidates examined per tick.
@@ -331,8 +331,10 @@ impl WorkflowReconcilerWorker {
                 self.store.record_execution_check(workflow, MissingMark::Clear, "running").await?;
                 outcome.running += 1;
             }
-            ExecutionObservation::Closed { run_id, status }
-                if workflow.temporal_run_id.as_deref() == Some(run_id.as_str()) =>
+            // Closed and part of the chain this row recorded (the recorded run,
+            // or a continued / retried / reset run whose first run it is).
+            ExecutionObservation::Closed { run_id, first_run_id, status }
+                if belongs_to_recorded_chain(workflow.temporal_run_id.as_deref(), &run_id, &first_run_id) =>
             {
                 if self.store.reconcile_status(workflow, status, CAUSE_RECONCILED_FROM_TEMPORAL, None).await? {
                     log_reconciled(workflow, status, CAUSE_RECONCILED_FROM_TEMPORAL);
@@ -341,8 +343,7 @@ impl WorkflowReconcilerWorker {
                     outcome.left_alone += 1;
                 }
             }
-            // The current run is not the recorded one (reset, retry or a
-            // successor): its outcome is not proof about this row.
+            // A closed run of a DIFFERENT chain: not proof about this row.
             ExecutionObservation::Closed { .. } => {
                 self.store.record_execution_check(workflow, MissingMark::Keep, "closed").await?;
                 outcome.left_alone += 1;

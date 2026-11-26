@@ -505,43 +505,131 @@ address and a real loss look the same:
 - every workflow, if Temporal was re-created instead of restored (a new
   namespace gets a new id).
 
+Before you start, find the Temporal namespace the orchestrator uses. The
+bundled Compose stack sets `ORCHESTRATOR_TEMPORAL_NAMESPACE=default` in
+`docker/compose.yml`. For a custom deployment, read the value from the running
+container:
+
+```bash
+$COMPOSE_PROD exec orchestrator printenv ORCHESTRATOR_TEMPORAL_NAMESPACE
+```
+
+Success looks like one line with the namespace name, for example `default`. The
+commands below use `TEMPORAL_NAMESPACE`; set it to that value:
+
+```bash
+TEMPORAL_NAMESPACE=default   # the value printed above
+```
+
+The orchestrator reads its settings only when its container is created. After
+you change a value in `docker/.env`, recreate the container with the `up`
+command shown below; `restart` keeps the old value. The bundled stack runs one
+orchestrator container. If your deployment runs several orchestrator replicas,
+do steps 3 and 7 against every one of them.
+
 To repair them:
 
-1. Check the connection. The orchestrator must point at the Temporal you
+1. **Check the connection.** The orchestrator must point at the Temporal you
    restored or re-created (`ORCHESTRATOR_TEMPORAL_HOST`,
-   `ORCHESTRATOR_TEMPORAL_NAMESPACE`). Confirm one workflow you know is
-   running:
+   `ORCHESTRATOR_TEMPORAL_NAMESPACE`). Ask Temporal about one workflow you know
+   was running:
 
    ```bash
    TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # orchestrator- plus a workflow id
    $COMPOSE_PROD exec temporal temporal workflow describe --address temporal-internal:7233 \
-     --namespace "${ORCHESTRATOR_TEMPORAL_NAMESPACE:-orchestrator}" --workflow-id "$TEMPORAL_WORKFLOW_ID"
+     --namespace "$TEMPORAL_NAMESPACE" --workflow-id "$TEMPORAL_WORKFLOW_ID"
    ```
 
-2. Note the current time, then set
-   `ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=true` for the
-   orchestrator and restart it so it reads the setting. While it is on, the
-   orchestrator logs a warning, `/metrics` shows
-   `orchestrator_workflow_reconcile_trust_current_temporal 1`, and
-   `/health/ready` shows `"workflowReconcileTrustCurrentTemporal": true`.
-3. Wait until every `running` row has been checked since you set it, and none
-   is left waiting out the grace period. Put the time from step 2 in
-   `SET_AT`. Run this until both counts are `0`, which takes at least the grace
-   period:
+   Success looks like the workflow's details. `not found` for every workflow
+   you try means the orchestrator may point at the wrong Temporal: stop here
+   and fix the connection first.
+
+2. **Turn the acknowledgment on.** Add this line to `docker/.env`:
 
    ```bash
-   SET_AT='2026-01-31 12:00:00+00'   # when you set the acknowledgment
-   $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -v set_at="$SET_AT" -c \
-     "select count(*) filter (where execution_checked_at is null or execution_checked_at < :'set_at') as not_checked_yet,
-             count(*) filter (where execution_missing_since is not null) as waiting_out_grace
-        from workflows where status = 'running' and temporal_workflow_id is not null"
+   ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=true
    ```
 
-   `not_checked_yet` counts rows the reconciler has not answered for since the
-   acknowledgment. `waiting_out_grace` counts rows it will still mark
-   `execution_lost`.
-4. Remove the setting (or set it to `false`) and restart the orchestrator so
-   it reads the change.
+   Then recreate the orchestrator container so it reads the new value:
+
+   ```bash
+   $COMPOSE_PROD up -d --force-recreate --no-deps --wait orchestrator
+   ```
+
+   Success looks like the command finishing without an error, with the
+   orchestrator container reported as healthy.
+
+3. **Confirm the acknowledgment is on.** Ask the orchestrator:
+
+   ```bash
+   $COMPOSE_PROD exec orchestrator curl -s http://localhost:4010/health/ready
+   ```
+
+   Success looks like `"workflowReconcileTrustCurrentTemporal":true` in the
+   output. If it says `false`, the container still runs with the old setting:
+   repeat step 2. Do not go on until every orchestrator replica says `true`,
+   because a replica without the acknowledgment keeps marking rows
+   `unverifiable`.
+
+4. **Note the cut-off time**, only after step 3 succeeded on every replica:
+
+   ```bash
+   CUTOFF=$(date -u '+%Y-%m-%d %H:%M:%S+00')
+   echo "$CUTOFF"
+   ```
+
+   Success looks like the current time in UTC. Keep this shell open: the next
+   step reads `CUTOFF`.
+
+5. **Wait until the reconciler has finished.** Run this check every few
+   minutes. It reads the cut-off time through `psql -v` and the query from
+   standard input:
+
+   ```bash
+   $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator \
+     -v ON_ERROR_STOP=1 -v cutoff="$CUTOFF" <<'SQL'
+   select
+     count(*) filter (where execution_checked_at is null or execution_checked_at < :'cutoff')
+       as not_checked_since_cutoff,
+     count(*) filter (where execution_missing_since is not null)
+       as waiting_out_grace,
+     count(*) filter (where execution_observation = 'unverifiable' and execution_checked_at >= :'cutoff')
+       as unverifiable_since_cutoff
+   from workflows
+   where status = 'running' and temporal_workflow_id is not null;
+   SQL
+   ```
+
+   - `not_checked_since_cutoff`: running workflows the reconciler has not
+     checked since the cut-off.
+   - `waiting_out_grace`: workflows that are missing in Temporal and will be
+     marked `failed` (`execution_lost`) when the grace period ends.
+   - `unverifiable_since_cutoff`: workflows still reported as not provable
+     after the cut-off. This should stay `0`. If it does not, a replica is
+     still running without the acknowledgment: go back to step 3.
+
+   Success looks like `0 | 0 | 0`. This takes at least the grace period
+   (default 10 minutes), and longer when many workflows are running: the
+   reconciler checks up to 50 per minute.
+
+6. **Turn the acknowledgment off.** Remove the line from `docker/.env` (or set
+   it to `false`) and recreate the container again:
+
+   ```bash
+   $COMPOSE_PROD up -d --force-recreate --no-deps --wait orchestrator
+   ```
+
+   Success looks like the command finishing without an error.
+
+7. **Confirm the acknowledgment is off**, on every replica:
+
+   ```bash
+   $COMPOSE_PROD exec orchestrator curl -s http://localhost:4010/health/ready
+   ```
+
+   Success looks like `"workflowReconcileTrustCurrentTemporal":false`. The
+   orchestrator also stops logging the acknowledgment warning, and `/metrics`
+   shows `orchestrator_workflow_reconcile_trust_current_temporal 0`.
 
 Rows that are still not provable without the acknowledgment (`unverifiable`):
 

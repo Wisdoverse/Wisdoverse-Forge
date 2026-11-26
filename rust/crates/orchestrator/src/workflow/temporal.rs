@@ -159,9 +159,9 @@ pub(crate) fn is_execution_not_found(err: &WorkflowInteractionError) -> bool {
 /// turns a Temporal answer into an observation; `Missing` here is not yet
 /// verified against the namespace (see [`verify_missing`]).
 pub(crate) fn classify_describe(
-    result: std::result::Result<(String, WorkflowExecutionStatus), WorkflowInteractionError>,
+    result: std::result::Result<DescribedExecution, WorkflowInteractionError>,
 ) -> WorkflowApiResult<ExecutionObservation> {
-    let (run_id, status) = match result {
+    let DescribedExecution { run_id, first_run_id, status } = match result {
         Ok(described) => described,
         Err(err) if is_execution_not_found(&err) => return Ok(ExecutionObservation::Missing),
         Err(err) => return Err(WorkflowError::Unavailable(format!("describe temporal workflow: {err}"))),
@@ -176,8 +176,44 @@ pub(crate) fn classify_describe(
         // Unknown and anything newer: an execution exists, leave the row alone.
         _ => return Ok(ExecutionObservation::Running),
     };
-    Ok(ExecutionObservation::Closed { run_id, status: closed })
+    Ok(ExecutionObservation::Closed { run_id, first_run_id, status: closed })
 }
+
+/// The parts of a describe response the classifier needs.
+pub(crate) struct DescribedExecution {
+    pub run_id: String,
+    /// First run of the execution chain (`WorkflowExecutionInfo.first_run_id`).
+    pub first_run_id: String,
+    pub status: WorkflowExecutionStatus,
+}
+
+impl DescribedExecution {
+    fn from_description(description: &temporalio_client::WorkflowExecutionDescription) -> Self {
+        let first_run_id = description
+            .raw_description
+            .workflow_execution_info
+            .as_ref()
+            .map(|info| info.first_run_id.clone())
+            .unwrap_or_default();
+        Self { run_id: description.run_id().to_string(), first_run_id, status: description.status() }
+    }
+}
+
+/// First run id of the chain that `run_id` belongs to, from one describe of
+/// that run (#1352). `None` when Temporal cannot tell.
+pub(crate) async fn first_run_id_of(
+    handle: &temporalio_client::WorkflowHandle<Client, OrchestratorWorkflowRun>,
+) -> Option<String> {
+    let description =
+        tokio::time::timeout(FIRST_RUN_LOOKUP_TIMEOUT, handle.describe(WorkflowDescribeOptions::default()))
+            .await
+            .ok()?
+            .ok()?;
+    Some(DescribedExecution::from_description(&description).first_run_id).filter(|id| !id.is_empty())
+}
+
+/// Bound on the finalizer's one describe call for a pre-#1352 input.
+const FIRST_RUN_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// "Not found" is only trusted when the row was started in the namespace the
 /// client is connected to now (same server-assigned id), or when the operator
@@ -368,7 +404,7 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
             .handle(temporal_workflow_id, None, None)
             .describe(WorkflowDescribeOptions::default())
             .await
-            .map(|description| (description.run_id().to_string(), description.status()));
+            .map(|description| DescribedExecution::from_description(&description));
         let observation = classify_describe(described)?;
         if observation != ExecutionObservation::Missing {
             return Ok(observation);
@@ -903,6 +939,22 @@ mod tests {
         assert!(matches!(classify_error(other), Err(WorkflowError::Unavailable(_))));
     }
 
+    fn described_as(run_id: &str, first_run_id: &str, status: WorkflowExecutionStatus) -> DescribedExecution {
+        DescribedExecution { run_id: run_id.to_string(), first_run_id: first_run_id.to_string(), status }
+    }
+
+    #[test]
+    fn chain_membership_is_decided_by_the_first_run() {
+        assert!(crate::workflow::belongs_to_recorded_chain(Some("run-a"), "run-a", "run-a"), "the recorded run itself");
+        assert!(
+            crate::workflow::belongs_to_recorded_chain(Some("run-a"), "run-b", "run-a"),
+            "a continued run of chain A"
+        );
+        assert!(!crate::workflow::belongs_to_recorded_chain(Some("run-a"), "run-x", "run-x"), "a different chain");
+        assert!(!crate::workflow::belongs_to_recorded_chain(None, "run-a", "run-a"));
+        assert!(!crate::workflow::belongs_to_recorded_chain(Some(""), "", ""));
+    }
+
     #[test]
     fn terminal_statuses_are_closed_with_the_matching_workflow_status() {
         for (status, expected) in [
@@ -913,8 +965,12 @@ mod tests {
             (WorkflowExecutionStatus::Canceled, WorkflowStatus::Cancelled),
         ] {
             assert_eq!(
-                classify_describe(Ok(("run-1".to_string(), status))).unwrap(),
-                ExecutionObservation::Closed { run_id: "run-1".to_string(), status: expected },
+                classify_describe(Ok(described_as("run-1", "run-1", status))).unwrap(),
+                ExecutionObservation::Closed {
+                    run_id: "run-1".to_string(),
+                    first_run_id: "run-1".to_string(),
+                    status: expected
+                },
                 "{status:?}"
             );
         }
@@ -932,7 +988,7 @@ mod tests {
             WorkflowExecutionStatus::Unknown,
         ] {
             assert_eq!(
-                classify_describe(Ok(("successor-run".to_string(), status))).unwrap(),
+                classify_describe(Ok(described_as("successor-run", "run-1", status))).unwrap(),
                 ExecutionObservation::Running,
                 "{status:?}"
             );
@@ -996,7 +1052,11 @@ mod tests {
         let workflow = running_workflow(&store).await;
         for observation in [
             ExecutionObservation::Unverifiable,
-            ExecutionObservation::Closed { run_id: "run-1".into(), status: WorkflowStatus::Completed },
+            ExecutionObservation::Closed {
+                run_id: "run-1".into(),
+                first_run_id: "run-1".into(),
+                status: WorkflowStatus::Completed,
+            },
             ExecutionObservation::Running,
         ] {
             let result = cancel_without_execution(&store, &workflow, observation.clone()).await;
@@ -1040,10 +1100,11 @@ mod tests {
         Ok(DescribeNamespaceResponse { namespace_info: Some(info), ..Default::default() }.encode_to_vec())
     }
 
-    fn described(run_id: &str, status: ProtoStatus) -> StubResult {
+    fn described(run_id: &str, first_run_id: &str, status: ProtoStatus) -> StubResult {
         let info = ProtoExecutionInfo {
             execution: Some(ProtoExecution { workflow_id: "orchestrator-x".to_string(), run_id: run_id.to_string() }),
             status: status as i32,
+            first_run_id: first_run_id.to_string(),
             ..Default::default()
         };
         Ok(DescribeWorkflowExecutionResponse { workflow_execution_info: Some(info), ..Default::default() }
@@ -1184,15 +1245,20 @@ mod tests {
         for (run_id, status, expected) in [
             ("run-2", ProtoStatus::Running, ExecutionObservation::Running),
             (
-                "run-1",
+                "run-2",
                 ProtoStatus::Completed,
-                ExecutionObservation::Closed { run_id: "run-1".into(), status: WorkflowStatus::Completed },
+                // The first run id comes off the wire (`first_run_id`, field 21).
+                ExecutionObservation::Closed {
+                    run_id: "run-2".into(),
+                    first_run_id: "run-1".into(),
+                    status: WorkflowStatus::Completed,
+                },
             ),
         ] {
             let (store, workflow) = store_with_running(Some("ns-1")).await;
             let respond: Responder =
                 Arc::new(move |_request: GrpcRequest| -> futures::future::BoxFuture<'static, StubResult> {
-                    Box::pin(async move { described(run_id, status) })
+                    Box::pin(async move { described(run_id, "run-1", status) })
                 });
             let runtime = stub_runtime(store, false, respond).await;
             assert_eq!(runtime.observe_execution(&workflow).await.unwrap(), expected);
