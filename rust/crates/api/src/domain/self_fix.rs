@@ -9,12 +9,15 @@ use uuid::Uuid;
 // AUTHORIZE, RECORD and WIRE self-fix delivery — the decision functions, the
 // queries those decisions run, the administrator policy and its re-check
 // query, the audit insert, the GitHub client (including its request and
-// audit-text builders), the routes, their registration, the composition root
-// that constructs the services, and the auth middleware. Safety limits such as
-// the merge-attempt cap are bounded inside the protected module, so
-// configuration alone cannot remove them. Shared row types, the database pool
-// and the error and HTTP framework types stay outside; that residual risk is
-// accepted because every self-fix change still needs an explicit
+// audit-text builders), the routes, their registration, the PR worker, the
+// review reaper, both composition roots (`state_services.rs`, the server
+// binary) and the auth middleware. Configurable safety limits are bounded in
+// listed files, so configuration alone cannot remove them: the merge-attempt
+// cap (1..=10, `services/self_fix/mod.rs`) and the review deadline (1 hour to
+// 30 days, `jobs/src/self_fix_review_reaper.rs`). The merge settle window and
+// decision budget are constants in this file. Shared row types, the database
+// pool and the error and HTTP framework types stay outside; that residual risk
+// is accepted because every self-fix change still needs an explicit
 // administrator approval. The lists are a tripwire that sends a change to a
 // human, not the only layer.
 
@@ -64,6 +67,12 @@ const SENSITIVE_EXACT: &[&str] = &[
     "rust/crates/api/src/domain/github_app.rs",
     // The composition root: wires every service, including self-fix delivery and its limits.
     "rust/crates/api/src/state_services.rs",
+    // Decides when an open review expires, and bounds the review deadline.
+    "rust/crates/jobs/src/self_fix_review_reaper.rs",
+    // Runs PR opening for self-fix tasks: dequeue, retry and drop decisions.
+    "rust/crates/api/src/services/self_fix_pr_worker.rs",
+    // The server composition root: starts the review reaper and the PR worker.
+    "rust/bins/server/src/main.rs",
 ];
 
 #[allow(dead_code)]
@@ -644,6 +653,24 @@ mod tests {
     }
 
     #[test]
+    fn exact_delivery_paths_are_sensitive() {
+        for path in [
+            "rust/crates/api/src/repositories/orchestration/self_fix_delivery.rs",
+            "rust/crates/api/src/repositories/user/mod.rs",
+            "rust/crates/api/src/domain/admin.rs",
+            "rust/crates/api/src/repositories/audit.rs",
+            "rust/crates/api/src/router.rs",
+            "rust/crates/api/src/domain/github_app.rs",
+            "rust/crates/api/src/state_services.rs",
+            "rust/crates/jobs/src/self_fix_review_reaper.rs",
+            "rust/crates/api/src/services/self_fix_pr_worker.rs",
+            "rust/bins/server/src/main.rs",
+        ] {
+            assert!(blocked(&[path]), "{path} must be sensitive");
+        }
+    }
+
+    #[test]
     fn benign_paths_do_not_trip() {
         assert!(!blocked(&["src/app/features/board/TaskCard.tsx"]));
         assert!(!blocked(&["rust/crates/api/src/routes/licenses.rs"]));
@@ -742,6 +769,7 @@ mod tests {
             ("repositories/orchestration/self_fix_delivery.rs", "pg_try_advisory_lock"),
             // Generic declaration (`<'e>`), so the token stops at the name.
             ("repositories/orchestration/self_fix_delivery.rs", "fn find_for_delivery_decision"),
+            ("repositories/orchestration/self_fix_delivery.rs", "fn set_base_commit_sha("),
             // The administrator re-check, its policy, the audit insert, route registration.
             ("repositories/user/mod.rs", "fn find_is_admin_by_id_in_tx("),
             ("domain/admin.rs", "fn require_platform_admin("),

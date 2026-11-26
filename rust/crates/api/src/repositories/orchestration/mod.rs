@@ -810,18 +810,6 @@ impl OrchestrationTaskRepository {
             .ok_or_else(OrchestrationRepositoryPolicy::result_conflict)
     }
 
-    /// Pin the base `origin/main` SHA a self-fix task's PR is rebuilt onto
-    /// (tenant-scoped). Written at dispatch by the PR Bridge.
-    pub async fn set_base_commit_sha(&self, scope: &TenantScope, id: Uuid, sha: &str) -> AppResult<()> {
-        sqlx::query("UPDATE orchestration_tasks SET base_commit_sha = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
-            .bind(sha)
-            .bind(id)
-            .bind(scope.org_id().as_uuid())
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
     /// Cancel a task (sets status='canceled' and records timestamp). Idempotent.
     pub async fn cancel(&self, scope: &TenantScope, id: Uuid) -> AppResult<OrchestrationTask> {
         let expected = self.find_by_id(scope, id).await?;

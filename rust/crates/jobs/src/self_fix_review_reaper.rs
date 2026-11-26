@@ -37,9 +37,9 @@ pub fn register_metrics() {
 }
 
 /// Reaper SQL — kept as a `pub(crate) const` so the query-shape unit test can
-/// pin the filter conditions. The `make_interval(secs => $1)` form accepts a
-/// `FLOAT8` binding and works for sub-second values in tests; production passes
-/// the configured deadline in whole seconds (default 604800 = 7 days).
+/// pin the filter conditions. The `make_interval(secs => $1)` form takes a
+/// `FLOAT8` binding; callers pass the bounded deadline in whole seconds
+/// (default 604800 = 7 days, range 1 hour to 30 days).
 ///
 /// Only `in_review` tasks are touched — `approved` and `merged` tasks must
 /// never be regressed, and `changes_requested` tasks are already in the
@@ -58,6 +58,30 @@ pub(crate) const REAP_STUCK_REVIEWS_SQL: &str = "UPDATE orchestration_tasks \
 /// (default 7 days), so the check cadence is irrelevant to correctness.
 pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(300);
 
+/// Bounds of the review deadline. They live here, in a protected file, so
+/// configuration alone cannot keep an unreviewed task approvable (`in_review`)
+/// indefinitely, nor expire reviews almost immediately.
+pub const MIN_REVIEW_DEADLINE_SECS: u64 = 60 * 60; // 1 hour
+pub const MAX_REVIEW_DEADLINE_SECS: u64 = 30 * 24 * 60 * 60; // 30 days
+
+/// Clamp the configured deadline into the bounds above, warning once per
+/// process when the configured value is out of range.
+fn bounded_deadline_secs(configured: u64) -> u64 {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    let used = configured.clamp(MIN_REVIEW_DEADLINE_SECS, MAX_REVIEW_DEADLINE_SECS);
+    if used != configured {
+        WARNED.call_once(|| {
+            tracing::warn!(
+                setting = "SELF_FIX_REVIEW_DEADLINE_SECS",
+                configured,
+                used,
+                "self-fix: review deadline is outside {MIN_REVIEW_DEADLINE_SECS}..={MAX_REVIEW_DEADLINE_SECS} seconds; using the nearest bound"
+            );
+        });
+    }
+    used
+}
+
 pub struct SelfFixReviewReaperWorker {
     pool: PgPool,
     deadline_secs: u64,
@@ -66,7 +90,7 @@ pub struct SelfFixReviewReaperWorker {
 
 impl SelfFixReviewReaperWorker {
     pub fn new(pool: PgPool, deadline_secs: u64) -> Self {
-        Self { pool, deadline_secs, interval: DEFAULT_INTERVAL }
+        Self { pool, deadline_secs: bounded_deadline_secs(deadline_secs), interval: DEFAULT_INTERVAL }
     }
 
     pub fn with_interval(mut self, interval: Duration) -> Self {
@@ -112,8 +136,10 @@ impl SelfFixReviewReaperWorker {
     }
 
     /// Single-shot reaper pass. Exposed for tests and one-off backfill.
+    /// The deadline is bounded here too, so every caller gets the same range.
     /// Returns the number of tasks reaped.
     pub async fn tick(pool: &PgPool, deadline_secs: u64) -> sqlx::Result<u64> {
+        let deadline_secs = bounded_deadline_secs(deadline_secs);
         let result = sqlx::query(REAP_STUCK_REVIEWS_SQL).bind(deadline_secs as f64).execute(pool).await?;
         Ok(result.rows_affected())
     }
@@ -121,6 +147,8 @@ impl SelfFixReviewReaperWorker {
 
 #[cfg(test)]
 mod tests {
+    use sqlx::types::Uuid;
+
     use super::{REAP_STUCK_REVIEWS_SQL, register_metrics};
 
     /// Verify that `register_metrics` can be called without panicking.
@@ -151,7 +179,6 @@ mod tests {
     #[sqlx::test(migrations = "../db/migrations")]
     async fn tick_ages_out_stuck_in_review_only(pool: sqlx::PgPool) {
         use chrono::Utc;
-        use sqlx::types::Uuid;
 
         // Seed the minimum required rows for FK constraints.
         let org_id = Uuid::new_v4();
@@ -231,5 +258,65 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(approved_status, "approved", "approved task must remain approved");
+    }
+
+    /// Seed one org, user and self-fix task `in_review` since `opened_at`.
+    async fn seed_review(pool: &sqlx::PgPool, opened_at: chrono::DateTime<chrono::Utc>) -> sqlx::types::Uuid {
+        let (org_id, user_id, task_id) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        sqlx::query("INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3)")
+            .bind(org_id)
+            .bind(format!("Reaper Bound Org {org_id}"))
+            .bind(format!("reaper-bound-{org_id}"))
+            .execute(pool)
+            .await
+            .expect("seed org");
+        sqlx::query("INSERT INTO users (id, email) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(format!("reaper-{user_id}@example.com"))
+            .execute(pool)
+            .await
+            .expect("seed user");
+        sqlx::query(
+            "INSERT INTO orchestration_tasks \
+             (id, organization_id, title, status, created_by, self_fix, review_status, review_opened_at) \
+             VALUES ($1, $2, 'bound', 'pending', $3, TRUE, 'in_review', $4)",
+        )
+        .bind(task_id)
+        .bind(org_id)
+        .bind(user_id)
+        .bind(opened_at)
+        .execute(pool)
+        .await
+        .expect("seed task");
+        task_id
+    }
+
+    async fn review_status(pool: &sqlx::PgPool, id: Uuid) -> String {
+        sqlx::query_scalar("SELECT review_status FROM orchestration_tasks WHERE id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    /// The configured deadline is bounded to 1 hour..=30 days inside the reaper.
+    #[sqlx::test(migrations = "../db/migrations")]
+    async fn tick_bounds_the_configured_deadline(pool: sqlx::PgPool) {
+        use super::SelfFixReviewReaperWorker as Reaper;
+        let now = chrono::Utc::now();
+        let month_old = seed_review(&pool, now - chrono::Duration::days(31)).await;
+        let half_hour_old = seed_review(&pool, now - chrono::Duration::minutes(30)).await;
+
+        // A one-year setting still expires a review older than the 30-day maximum.
+        assert_eq!(Reaper::tick(&pool, 365 * 24 * 60 * 60).await.unwrap(), 1, "the 30-day maximum applies");
+        assert_eq!(review_status(&pool, month_old).await, "changes_requested");
+
+        // A one-second setting uses the 1-hour minimum: a 30-minute-old review stays open ...
+        assert_eq!(Reaper::tick(&pool, 1).await.unwrap(), 0, "the 1-hour minimum applies");
+        assert_eq!(review_status(&pool, half_hour_old).await, "in_review");
+        // ... and a review older than an hour expires.
+        let two_hours_old = seed_review(&pool, now - chrono::Duration::hours(2)).await;
+        assert_eq!(Reaper::tick(&pool, 1).await.unwrap(), 1);
+        assert_eq!(review_status(&pool, two_hours_old).await, "changes_requested");
     }
 }

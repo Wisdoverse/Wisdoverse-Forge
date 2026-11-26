@@ -89,6 +89,18 @@ impl OrchestrationTaskRepository {
         Ok(())
     }
 
+    /// Pin the base `origin/main` SHA a self-fix task's PR is rebuilt onto
+    /// (tenant-scoped). Written at dispatch by the PR Bridge.
+    pub async fn set_base_commit_sha(&self, scope: &TenantScope, id: Uuid, sha: &str) -> AppResult<()> {
+        sqlx::query("UPDATE orchestration_tasks SET base_commit_sha = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3")
+            .bind(sha)
+            .bind(id)
+            .bind(scope.org_id().as_uuid())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     /// Update only the review status on a self-fix task (tenant-scoped). Mirrors
     /// the orchestrator `ReviewState` vocabulary but is driven API-side.
     pub async fn set_review_status(&self, scope: &TenantScope, id: Uuid, status: &str) -> AppResult<()> {
