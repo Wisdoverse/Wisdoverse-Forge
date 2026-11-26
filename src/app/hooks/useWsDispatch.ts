@@ -55,10 +55,12 @@ export function resetWsDispatchStateForTests(): void {
   unknownFrameCounts.clear()
 }
 
-function reportUnknown(key: string): WsDispatchOutcome {
+function reportUnknown(key: string, detail?: string): WsDispatchOutcome {
   const count = (unknownFrameCounts.get(key) ?? 0) + 1
   unknownFrameCounts.set(key, count)
-  if (count === 1) console.warn(`[ws] ignoring unknown realtime frame: ${key}`)
+  if (count === 1) {
+    console.warn(`[ws] ignoring unknown realtime frame: ${key}${detail ? ` (${detail})` : ''}`)
+  }
   return 'unknown'
 }
 
@@ -70,7 +72,7 @@ function unhandledFrame(_frame: never, type: string): WsDispatchOutcome {
 export function dispatchWsMessage(data: unknown): WsDispatchOutcome {
   const decoded = decodeServerMessage(data)
   if (decoded.kind === 'control') return 'ignored'
-  if (decoded.kind === 'unrecognized') return reportUnknown(decoded.key)
+  if (decoded.kind === 'unrecognized') return reportUnknown(decoded.key, decoded.detail)
   const msg = decoded.message
   if (isIgnoredFrame(msg)) return 'ignored'
   const type = msg.type

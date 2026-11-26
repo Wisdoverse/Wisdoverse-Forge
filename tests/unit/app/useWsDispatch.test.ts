@@ -1300,3 +1300,64 @@ describe('golden ws-protocol fixtures', () => {
     effect?.check()
   })
 })
+
+describe('task frame field rules', () => {
+  // A complete wire task frame (shape of orchestration_task_update.json).
+  function taskFrame(task: Record<string, unknown>) {
+    return {
+      type: 'orchestration:task_update',
+      payload: {
+        action: 'task.updated',
+        eventId: 'evt-task',
+        task: {
+          ...WIRE_TASK,
+          id: 'task-rules',
+          groupId: 'g1',
+          state: 'blocked',
+          method: 'tasks/send',
+          params: { task: 'Check rules', message: '' },
+          priority: 'normal',
+          progress: 0,
+          createdAt: '2026-04-03T00:00:00Z',
+          updatedAt: '2026-04-03T00:01:00Z',
+          ...task,
+        },
+      },
+    }
+  }
+
+  it.each([
+    ['null', null],
+    ['an array', ['waiting', 2]],
+    ['a scalar', 'waiting on agent'],
+  ])('keeps a task whose blockedMetadata is %s (Rust Option<Value>)', (_label, metadata) => {
+    useBoardStore.getState().setSelectedGroupId('g1')
+
+    expect(dispatchWsMessage(taskFrame({ blockedMetadata: metadata }))).toBe('handled')
+
+    expect(useBoardStore.getState().columns.blocked).toEqual([
+      expect.objectContaining({ id: 'task-rules', blockedMetadata: metadata }),
+    ])
+  })
+
+  it('rejects a fractional value in an integer field', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    useBoardStore.getState().setSelectedGroupId('g1')
+
+    expect(dispatchWsMessage(taskFrame({ progress: 42.5 }))).toBe('unknown')
+    expect(Object.values(useBoardStore.getState().columns).flat()).toHaveLength(0)
+  })
+
+  it('logs the field and value of an unrecognised closed-list value', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    expect(dispatchWsMessage(taskFrame({ state: 'archived' }))).toBe('unknown')
+    expect(dispatchWsMessage(taskFrame({ state: 'archived' }))).toBe('unknown')
+
+    expect(unknownWsFrameCount('orchestration:task_update (malformed)')).toBe(2)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith(
+      '[ws] ignoring unknown realtime frame: orchestration:task_update (malformed) (task.state has unrecognised value "archived")'
+    )
+  })
+})

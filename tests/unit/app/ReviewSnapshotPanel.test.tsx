@@ -92,6 +92,19 @@ describe('ReviewSnapshotPanel', () => {
     expect(screen.queryByText(/changed files/i)).toBeNull()
   })
 
+  it.each([
+    ['pending', 'Waiting for the check to start'],
+    ['rejected', 'Turned down by a reviewer'],
+    ['archived_later', 'Not shown here yet. Open the fix check page to see the current status.'],
+  ])('labels review status %s with readable text', async (reviewStatus, label) => {
+    // `pending` and `rejected` are allowed by the review_status CHECK; any other
+    // stored string still gets a visible label instead of an empty one.
+    vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(review({ reviewStatus }))
+    render(<ReviewSnapshotPanel task={task()} />)
+
+    expect(await screen.findByText(label)).toBeInTheDocument()
+  })
+
   it('enables Approve when checks are green and the change is not sensitive', async () => {
     vi.spyOn(orchestrationApi, 'getSelfFixReview').mockResolvedValue(
       review({ checksGreen: true, sensitive: false })

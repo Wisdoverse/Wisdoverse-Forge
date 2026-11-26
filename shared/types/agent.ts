@@ -375,8 +375,8 @@ export interface TaskSummary {
   blockedReason?: string
   /** Human-readable hint already localized server-side (e.g. "等待空闲 agent (2 个忙碌)"). */
   blockedHint?: string
-  /** Reason-specific structured payload (counts, missing fields, approver, etc.). */
-  blockedMetadata?: Record<string, unknown>
+  /** Reason-specific payload (counts, missing fields, approver, etc.): any stored JSON, narrow before use. */
+  blockedMetadata?: unknown
   createdAt: string
   updatedAt: string
   /** Database-owned monotonic revision. Absent only during rolling upgrades. */

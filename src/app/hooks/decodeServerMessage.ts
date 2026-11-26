@@ -15,12 +15,12 @@ import type {
 export type DecodedFrame =
   | { kind: 'message'; message: InboundServerMessage }
   | { kind: 'control'; frame: RealtimeControlFrame }
-  | { kind: 'unrecognized'; key: string }
+  | { kind: 'unrecognized'; key: string; detail?: string }
 
 class MalformedFrame extends Error {}
 
-function invalid(): never {
-  throw new MalformedFrame()
+function invalid(detail = ''): never {
+  throw new MalformedFrame(detail)
 }
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -31,14 +31,19 @@ function obj(v: unknown): Record<string, unknown> {
 function str(v: unknown): string {
   return typeof v === 'string' ? v : invalid()
 }
-function num(v: unknown): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : invalid()
+/** Rust integer fields (`i16`/`i32`/`i64`/`u32`). */
+function int(v: unknown): number {
+  return typeof v === 'number' && Number.isSafeInteger(v) ? v : invalid()
 }
 function bool(v: unknown): boolean {
   return typeof v === 'boolean' ? v : invalid()
 }
-function choice<V extends string>(v: unknown, values: readonly V[]): V {
-  return values.find((value) => value === v) ?? invalid()
+/** A closed vocabulary; the error names the field and the unrecognised value. */
+function choice<V extends string>(v: unknown, values: readonly V[], field: string): V {
+  return (
+    values.find((value) => value === v) ??
+    invalid(`${field} has unrecognised value ${JSON.stringify(v)?.slice(0, 64)}`)
+  )
 }
 /** A field Rust always sends, possibly as `null` (`Option` without `skip_serializing_if`). */
 function nullable<V>(v: unknown, read: (v: unknown) => V): V | null {
@@ -76,11 +81,11 @@ function taskSummary(v: unknown): TaskSummary {
   return {
     id: str(t.id),
     groupId: nullable(t.groupId, str),
-    state: choice(t.state, TASK_STATES),
+    state: choice(t.state, TASK_STATES, 'task.state'),
     method: str(t.method),
     params: { task: str(params.task), message: str(params.message) },
-    priority: choice(t.priority, TASK_PRIORITIES),
-    progress: num(t.progress),
+    priority: choice(t.priority, TASK_PRIORITIES, 'task.priority'),
+    progress: int(t.progress),
     createdBy: str(t.createdBy),
     assignedTo: optional(t.assignedTo, str),
     assignedAgentName: optional(t.assignedAgentName, str),
@@ -88,29 +93,30 @@ function taskSummary(v: unknown): TaskSummary {
     result: t.result,
     blockedReason: optional(t.blockedReason, str),
     blockedHint: optional(t.blockedHint, str),
-    blockedMetadata: optional(t.blockedMetadata, obj),
+    // `Option<Value>`: any JSON the row stores; consumers must narrow it.
+    blockedMetadata: t.blockedMetadata,
     createdAt: str(t.createdAt),
     updatedAt: str(t.updatedAt),
-    rowVersion: optional(t.rowVersion, num),
+    rowVersion: optional(t.rowVersion, int),
     completedAt: optional(t.completedAt, str),
     selfFix: bool(t.selfFix),
-    prNumber: optional(t.prNumber, num),
+    prNumber: optional(t.prNumber, int),
     prUrl: optional(t.prUrl, str),
     prHeadSha: optional(t.prHeadSha, str),
     reviewStatus: optional(t.reviewStatus, str),
     contextCounts: {
-      appliedMemories: num(counts.appliedMemories),
-      appliedSkills: num(counts.appliedSkills),
-      total: num(counts.total),
+      appliedMemories: int(counts.appliedMemories),
+      appliedSkills: int(counts.appliedSkills),
+      total: int(counts.total),
     },
-    attempt: num(t.attempt),
+    attempt: int(t.attempt),
     leaseExpiresAt: optional(t.leaseExpiresAt, str),
     waitEstimate: optional(t.waitEstimate, (v) => {
       const w = obj(v)
       return {
-        position: num(w.position),
-        typicalSeconds: num(w.typicalSeconds),
-        estimatedSeconds: num(w.estimatedSeconds),
+        position: int(w.position),
+        typicalSeconds: int(w.typicalSeconds),
+        estimatedSeconds: int(w.estimatedSeconds),
       }
     }),
   }
@@ -143,7 +149,7 @@ function message(type: string, f: Record<string, unknown>): InboundServerMessage
       }
     case 'turn_invalidate': {
       const p = obj(f.payload)
-      return { type, payload: { agentId: str(p.agentId), timestamp: num(p.timestamp) } }
+      return { type, payload: { agentId: str(p.agentId), timestamp: int(p.timestamp) } }
     }
     case 'terminal_output': {
       const p = obj(f.payload)
@@ -172,7 +178,11 @@ function message(type: string, f: Record<string, unknown>): InboundServerMessage
             id: str(participant.id),
             agentId: str(participant.agentId),
             name: str(participant.name),
-            status: choice(participant.status, ['online', 'busy', 'offline'] as const),
+            status: choice(
+              participant.status,
+              ['online', 'busy', 'offline'] as const,
+              'participant.status'
+            ),
           },
         },
       }
@@ -183,14 +193,14 @@ function message(type: string, f: Record<string, unknown>): InboundServerMessage
         type,
         payload: {
           tool: str(p.tool),
-          state: choice(p.state, ['updated', 'failed', 'update_available'] as const),
+          state: choice(p.state, ['updated', 'failed', 'update_available'] as const, 'state'),
           localDigest: nullable(p.localDigest, str),
           remoteDigest: nullable(p.remoteDigest, str),
           localVersion: nullable(p.localVersion, str),
           remoteVersion: nullable(p.remoteVersion, str),
           lastError: nullable(p.lastError, str),
           eventId: str(p.eventId),
-          unix: num(p.unix),
+          unix: int(p.unix),
         },
       }
     }
@@ -202,13 +212,11 @@ function message(type: string, f: Record<string, unknown>): InboundServerMessage
           action: str(p.action),
           eventId: str(p.eventId),
           projectId: str(p.projectId),
-          cloneStatus: choice(p.cloneStatus, [
-            'none',
-            'queued',
-            'cloning',
-            'ready',
-            'failed',
-          ] as const),
+          cloneStatus: choice(
+            p.cloneStatus,
+            ['none', 'queued', 'cloning', 'ready', 'failed'] as const,
+            'cloneStatus'
+          ),
           details: obj(p.details),
         },
       }
@@ -261,7 +269,7 @@ function message(type: string, f: Record<string, unknown>): InboundServerMessage
           reviewId: str(p.reviewId),
           taskId: str(p.taskId),
           dueAt: nullable(p.dueAt, str),
-          overdueSecs: nullable(p.overdueSecs, num),
+          overdueSecs: nullable(p.overdueSecs, int),
         },
       }
     }
@@ -283,7 +291,9 @@ export function decodeServerMessage(data: unknown): DecodedFrame {
     const decoded = message(type, data)
     return decoded ? { kind: 'message', message: decoded } : { kind: 'unrecognized', key: type }
   } catch (err) {
-    if (err instanceof MalformedFrame) return { kind: 'unrecognized', key: `${type} (malformed)` }
+    if (err instanceof MalformedFrame) {
+      return { kind: 'unrecognized', key: `${type} (malformed)`, detail: err.message || undefined }
+    }
     throw err
   }
 }

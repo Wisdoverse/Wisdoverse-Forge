@@ -91,8 +91,12 @@ async function installOwnerTaskWebSocket(page: Page, taskUpdate: OwnerTaskUpdate
             this.onmessage?.(
               new MessageEvent('message', {
                 data: JSON.stringify({
+                  // Full wire shape of the Rust TaskSummary frame (ws_protocol.rs);
+                  // the browser decoder rejects frames missing required fields.
                   type: 'orchestration:task_update',
                   payload: {
+                    action: 'task.updated',
+                    eventId: `evt-${update.id}`,
                     task: {
                       id: update.id,
                       groupId: 'grp-1',
@@ -108,6 +112,9 @@ async function installOwnerTaskWebSocket(page: Page, taskUpdate: OwnerTaskUpdate
                       updatedAt: now,
                       blockedHint,
                       result: update.result,
+                      selfFix: false,
+                      contextCounts: { appliedMemories: 0, appliedSkills: 0, total: 0 },
+                      attempt: 1,
                     },
                   },
                 }),

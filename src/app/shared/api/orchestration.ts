@@ -132,9 +132,18 @@ export interface TaskReviewCheck {
   updatedAt: string
 }
 
-/** Self-fix review-status vocabulary — mirrors `domain::self_fix::review_status` (Rust). */
+/**
+ * Review-status vocabulary the `orchestration_tasks.review_status` CHECK allows
+ * (rust/crates/db/migrations/075_schema_hardening_constraints.sql).
+ */
 export type SelfFixReviewStatus =
-  'in_review' | 'approved' | 'changes_requested' | 'merged' | 'sensitive_blocked'
+  | 'pending'
+  | 'in_review'
+  | 'approved'
+  | 'changes_requested'
+  | 'rejected'
+  | 'merged'
+  | 'sensitive_blocked'
 
 /**
  * Read-side review snapshot for a self-fix task's draft PR. Mirrors the Rust
@@ -149,7 +158,8 @@ export interface SelfFixReview {
   headSha?: string
   checksGreen: boolean
   sensitive: boolean
-  reviewStatus?: SelfFixReviewStatus
+  /** Stored review status sent as-is (`Option<String>` in Rust); see `SelfFixReviewStatus`. */
+  reviewStatus?: string
   /** Latest human verdict on the current maintenance revision is `rejected`; the server refuses merge. */
   currentRevisionRejected: boolean
 }

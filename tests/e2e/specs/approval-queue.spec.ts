@@ -150,8 +150,14 @@ test.describe('Approval queue', () => {
     )
     await page.evaluate(() => {
       ;(window as unknown as { __afEmitWs: (payload: unknown) => void }).__afEmitWs({
+        // Flat wire shape of ContextCandidateBroadcast::payload (domain/context.rs).
         type: 'context_candidate.created',
         candidateId: 'candidate-realtime',
+        itemKind: 'skill',
+        state: 'pending',
+        scopeKind: 'team',
+        scopeId: 'team-1',
+        timestamp: '2026-01-01T00:00:00+00:00',
       })
     })
     await expect(page.getByText('Realtime skill candidate')).toBeVisible()
