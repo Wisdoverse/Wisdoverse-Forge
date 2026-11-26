@@ -8,7 +8,7 @@ import {
   deploy,
   recover,
 } from '../../../scripts/lib/deploy-release/engine.js'
-import { createdVolumes, leftoverAdoptions } from '../../../scripts/lib/deploy-release/checks.js'
+import { createdVolumes } from '../../../scripts/lib/deploy-release/checks.js'
 import { emptyState, releaseId } from '../../../scripts/lib/deploy-release/journal.js'
 
 const DBS = [
@@ -172,22 +172,13 @@ export function goodPreflight(world) {
         : { exists: world.dockerVolumes.has(name), driver: 'local' },
     ])
   )
-  const adopted = leftoverAdoptions(
-    VOLUME_CLASSES,
-    { rendered: TARGET_RENDERED, volumeFacts },
-    JSON.parse(world.stateJson)
-  )
   return {
     envVersion: 'next',
     rendered: TARGET_RENDERED,
     prevRendered: PREV_RENDERED,
     prevContainers: PREV_CONTAINERS,
     volumeFacts,
-    createdVolumes: createdVolumes(TARGET_RENDERED, volumeFacts, adopted),
-    notes: adopted.map(
-      (a) =>
-        `adopting volume ${a.name} (class excluded), left by rolled-back attempt ${a.attemptId}`
-    ),
+    createdVolumes: createdVolumes(TARGET_RENDERED, volumeFacts),
     images: {},
     bindProbes: [],
     freeBytes: { private: 2 ** 40 },
@@ -945,22 +936,26 @@ export async function faultMatrix() {
     appearedErrors.push('expected a rollback before any snapshot, keeping the pre-existing agent')
   }
   results.push({ name: 'agent appears after preflight', errors: appearedErrors })
-  // Round 8 review R4: after a rollback the created (excluded-class) volume stays, and the retry
-  // adopts it from the journal instead of refusing.
+  // Round 9 review R4: after a rollback the created volume stays; the retry refuses it (never
+  // adopted, whatever its class) until the operator removes it; then the deploy goes through.
   const retried = createWorld()
   const firstCode = await deploy(ctxFor(retried, {}, fakeConfig({ simulateVerifyFailure: true })))
   const leftOver = retried.dockerVolumes.has(CREATED_VOLUME)
+  const refusedCode = await deploy(ctxFor(retried, {}))
+  retried.dockerVolumes.delete(CREATED_VOLUME) // the operator's `docker volume rm`
   const retryCode = await deploy(ctxFor(retried, {}))
   results.push({
-    name: 'a rolled-back attempt leaves its excluded volume; the retry adopts it',
+    name: 'a rolled-back attempt leaves its volume; the retry refuses until it is removed',
     errors:
       firstCode === EXIT.ROLLED_BACK &&
       leftOver &&
+      refusedCode === EXIT.PREFLIGHT_REFUSED &&
       retryCode === EXIT.OK &&
-      JSON.parse(retried.stateJson).current === NEXT &&
-      JSON.parse(retried.stateJson).attempt.createdVolumes.includes(CREATED_VOLUME)
+      JSON.parse(retried.stateJson).current === NEXT
         ? []
-        : [`first exit ${firstCode}, left over ${leftOver}, retry exit ${retryCode}`],
+        : [
+            `first exit ${firstCode}, left over ${leftOver}, refused exit ${refusedCode}, retry exit ${retryCode}`,
+          ],
   })
   const all = [...results, ...sweepResults]
   const removing = [...SEEN_OPS].filter(

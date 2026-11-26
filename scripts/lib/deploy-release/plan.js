@@ -53,6 +53,7 @@ export function planDeploy(config, state, observed, { at }) {
     inputs: null,
     at,
     createdVolumes: observed.createdVolumes ?? [],
+    sqlHelperImage: observed.sqlHelperImage ?? null,
   })
   const snap = (op, d) => ({
     op,

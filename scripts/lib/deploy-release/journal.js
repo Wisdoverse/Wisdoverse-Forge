@@ -58,6 +58,7 @@ export function newAttempt({
   inputs,
   at,
   createdVolumes = [],
+  sqlHelperImage = null,
 }) {
   return {
     attemptId,
@@ -71,6 +72,8 @@ export function newAttempt({
     // R4: named volumes absent at preflight (plus adopted leftovers); written with the intent,
     // before anything starts. The tool never deletes a volume; `status` lists what is left.
     createdVolumes,
+    // Round 9 review: the image id the SQL helper of this attempt runs (recovery reuses it).
+    sqlHelperImage,
     helperPrefix,
     startedAt: at,
     updatedAt: at,
@@ -171,6 +174,12 @@ function attemptProblems(a, ledgerKeys) {
     ...inputsProblems(a, 'attempt').map((field) => [false, field]),
     [Array.isArray(a.swaps), 'attempt.swaps'],
     [Array.isArray(a.createdVolumes) && a.createdVolumes.every(isText), 'attempt.createdVolumes'],
+    [
+      a.sqlHelperImage === undefined ||
+        a.sqlHelperImage === null ||
+        /^sha256:[0-9a-f]{64}$/.test(a.sqlHelperImage),
+      'attempt.sqlHelperImage',
+    ],
     [typeof s.complete === 'boolean', 'snapshot.complete'],
     ...expectProblems(s.expect, ledgerKeys).map((field) => [false, field]),
     [Array.isArray(s.databases) && s.databases.length > 0, 'snapshot.databases'],

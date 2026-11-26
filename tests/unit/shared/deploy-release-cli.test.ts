@@ -274,8 +274,10 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
       attempt: null,
     }
     fs.writeFileSync(p('private/state.json'), JSON.stringify(state))
+    const PG_IMAGE = `sha256:${'5'.repeat(64)}`
     stub.rules([
       { match: '^ps ', out: '' },
+      { match: inspectRule('postgres:18-alpine'), out: `${PG_IMAGE}\n` },
       { match: '^run -d ', out: 'sql-helper-id\n' },
       {
         match: '^compose .* config --format json$',
@@ -287,9 +289,14 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
     const r = cli('deploy', '--revision', REV)
     expect(r.out).toMatch(/refused: preflight could not run \(nothing was changed\)/)
     expect(r.code).toBe(12)
+    // Round 9: the SQL helper is started by the client image's id, never pulled.
+    const run = stub.calls().find((c) => c.argv[0] === 'run')
+    expect(run?.argv).toEqual(expect.arrayContaining(['--pull', 'never', PG_IMAGE]))
+    expect(run?.argv).not.toContain('postgres:18-alpine')
     const heads = stub.calls().map((c) => c.argv.slice(0, 2).join(' '))
     expect(heads).toEqual([
       'ps -aq',
+      'image inspect',
       'run -d',
       'compose --profile',
       'exec -i',
@@ -305,6 +312,49 @@ describe('deploy-release CLI (real entrypoint, stand-in docker)', () => {
     // Nothing was persisted: no attempt, the staged inputs are still staged.
     expect(JSON.parse(fs.readFileSync(p('private/state.json'), 'utf8')).attempt).toBeNull()
     expect(fs.existsSync(p('private/staged/deploy.env'))).toBe(true)
+  })
+
+  it('round 9: deploy refuses (12) when the PostgreSQL client image is not present locally; nothing is pulled or started', () => {
+    stage()
+    fs.mkdirSync(p('private/inputs/prevgen1'), { recursive: true })
+    fs.writeFileSync(p('private/inputs/prevgen1/deploy.env'), envText())
+    const state = {
+      schema: 1,
+      current: 'baseline',
+      previous: null,
+      protected: { baseline: null, lastGood: null },
+      records: {
+        baseline: {
+          rev: 'baseline',
+          revision: 'baseline',
+          config: p('private/configs/baseline.json'),
+          releaseDir: p('release/releases/baseline'),
+          indexSha256: 'x'.repeat(64),
+          frontendDir: null,
+          images: { s: 'sha256:1' },
+          refs: { s: 's:1' },
+          inputs: {
+            generation: 'prevgen1',
+            envSha256: 'a'.repeat(64),
+            identity: 'c'.repeat(64),
+            runner: REV,
+            runnerImage: RUNNER_IMAGE,
+          },
+        },
+      },
+      attempt: null,
+    }
+    fs.writeFileSync(p('private/state.json'), JSON.stringify(state))
+    stub.rules([
+      { match: '^ps ', out: '' },
+      { match: inspectRule('postgres:18-alpine'), code: 1, err: 'Error: No such image\n' },
+    ])
+    const r = cli('deploy', '--revision', REV)
+    expect(r.code).toBe(12)
+    expect(r.out).toMatch(
+      /the PostgreSQL client image postgres:18-alpine is not present locally \(it is never pulled\)/
+    )
+    expect(stub.calls().some((c) => ['run', 'pull'].includes(c.argv[0]))).toBe(false)
   })
 
   it('deploy without staged inputs refuses (12)', () => {
@@ -404,11 +454,8 @@ describe('loadConfig provides every field the modules read', () => {
       const cfg = loadConfig('deploy', ['--revision', REV])
       expect(CONFIG_KEYS.filter((k) => !(k in cfg) || cfg[k] === undefined)).toEqual([])
       expect(cfg.envFile).toBe(p('private/staged/deploy.env'))
-      expect(cfg.ports).toEqual({
-        api: '127.0.0.1:24003',
-        orchestrator: '127.0.0.1:24010',
-        natsMonitor: '127.0.0.1:28222',
-      })
+      // Round 9: probe addresses come from each release's rendered bindings, not from the env.
+      expect('ports' in cfg).toBe(false)
     } finally {
       process.env = saved
     }
@@ -438,34 +485,27 @@ describe('loadConfig provides every field the modules read', () => {
     expect(stub.calls()).toEqual([])
   })
 
-  it.each([
-    ['10.0.0.1', '10.0.0.1'],
-    ['[::1]', '[::1]'],
-    ['probe.example.com', 'probe.example.com'],
-    ['0.0.0.0', '127.0.0.1'],
-  ])('P3: BIND_ADDRESS=%s with ports 1 and 65535 is accepted; probes use it', (bind, host) => {
-    const saved = { ...process.env }
-    Object.assign(process.env, {
-      FORGE_RELEASE_ROOT: p('release'),
-      FORGE_PRIVATE_ROOT: p('private'),
-    })
-    try {
-      stage(
-        envText()
-          .replace(/^BIND_ADDRESS=.*$/m, `BIND_ADDRESS=${bind}`)
-          .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=65535')
-          .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=1')
-      )
-      const cfg = loadConfig('deploy', ['--revision', REV])
-      expect(cfg.ports).toEqual({
-        api: `${host}:24003`,
-        orchestrator: `${host}:1`,
-        natsMonitor: `${host}:65535`,
+  it.each(['10.0.0.1', '[::1]', 'probe.example.com', '0.0.0.0'])(
+    'P3: BIND_ADDRESS=%s with ports 1 and 65535 is accepted',
+    (bind) => {
+      const saved = { ...process.env }
+      Object.assign(process.env, {
+        FORGE_RELEASE_ROOT: p('release'),
+        FORGE_PRIVATE_ROOT: p('private'),
       })
-    } finally {
-      process.env = saved
+      try {
+        stage(
+          envText()
+            .replace(/^BIND_ADDRESS=.*$/m, `BIND_ADDRESS=${bind}`)
+            .replace(/^NATS_MONITOR_PORT=.*$/m, 'NATS_MONITOR_PORT=65535')
+            .replace(/^ORCHESTRATOR_PORT=.*$/m, 'ORCHESTRATOR_PORT=1')
+        )
+        expect(() => loadConfig('deploy', ['--revision', REV])).not.toThrow()
+      } finally {
+        process.env = saved
+      }
     }
-  })
+  )
 
   it.each(['0', '-1', '1.5', 'many', '9007199254740993'])(
     'P3: COMPOSE_PARALLEL_LIMIT=%s is a refusal (12) naming the variable',

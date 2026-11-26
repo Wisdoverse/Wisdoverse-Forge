@@ -65,10 +65,8 @@ export const CONFIG_KEYS = [
   'env',
   'envFile',
   'externalNetwork',
-  'host',
   'lockDir',
   'pgClientImage',
-  'ports',
   'privateRoot',
   'project',
   'releaseRoot',
@@ -80,6 +78,7 @@ export const CONFIG_KEYS = [
   'snapshotDir',
   'target',
   'volumeClasses',
+  'imageVolumes',
   'webRoot',
 ]
 
@@ -242,7 +241,7 @@ export function loadConfig(command, args) {
       )
     }
   }
-  const bind = env.BIND_ADDRESS === '0.0.0.0' ? '127.0.0.1' : env.BIND_ADDRESS
+  validatePorts(env)
   return {
     env,
     envFile,
@@ -260,19 +259,8 @@ export function loadConfig(command, args) {
     roles,
     databases,
     volumeClasses: loadVolumeClasses(),
+    imageVolumes: loadImageVolumes(),
     snapshotDir: path.join(privateRoot, 'snapshots', attemptId),
-    host: bind,
-    // `<host>:<port>` for each probe. A port variable may also use Compose's `<address>:<port>`
-    // form (the compose file publishes NATS without BIND_ADDRESS); the probe then uses that address.
-    ports: {
-      api: probeAddress(
-        env,
-        env.AGENTFORGE_HOST_PORT ? 'AGENTFORGE_HOST_PORT' : 'AGENTFORGE_PORT',
-        bind
-      ),
-      orchestrator: probeAddress(env, 'ORCHESTRATOR_PORT', bind),
-      natsMonitor: probeAddress(env, 'NATS_MONITOR_PORT', bind),
-    },
     appUrl: env.APP_URL,
     requireRedis: env.REQUIRE_EXTERNAL_STATE === 'true',
     simulateVerifyFailure: ['1', 'true'].includes(process.env.SIMULATE_VERIFY_FAILURE ?? ''),
@@ -303,6 +291,24 @@ export function loadVolumeClasses(
   return volumes ?? {}
 }
 
+// Round 9 review: anonymous volumes an image's `VOLUME` declares, by service and container path,
+// each `excluded` with a reason. None of the deployed images declares one today.
+export function loadImageVolumes(
+  file = path.join(path.dirname(SCRIPT), 'deploy-release.volumes.json')
+) {
+  const { imageVolumes } = JSON.parse(fs.readFileSync(file, 'utf8'))
+  for (const [service, paths] of Object.entries(imageVolumes ?? {})) {
+    for (const [p, v] of Object.entries(paths ?? {})) {
+      if (v?.class !== 'excluded' || typeof v.reason !== 'string' || !v.reason.trim()) {
+        throw new Error(
+          `${path.basename(file)}: imageVolumes ${service} ${p} needs class excluded and a reason`
+        )
+      }
+    }
+  }
+  return imageVolumes ?? {}
+}
+
 // Round 7 review, P3: an IPv4 address, a bracketed IPv6 address or a hostname, and a port 1-65535.
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
 const HOSTNAME =
@@ -323,16 +329,26 @@ export function validAddress(a) {
 }
 const validPort = (p) => /^[0-9]{1,5}$/.test(p) && Number(p) >= 1 && Number(p) <= 65535
 
-// Since #1362 the Compose files publish these ports as `${BIND_ADDRESS}:${PORT}:...`, so a port
-// variable is a bare port (an address form would render an invalid binding) and the probe uses
-// BIND_ADDRESS.
-function probeAddress(env, key, bind) {
-  if (!validPort(env[key] ?? '')) {
-    throw new InputsError(
-      `${key} must be a port 1-65535 (the Compose files publish it on BIND_ADDRESS)`
-    )
+// Since #1362 the Compose files publish every port as `${BIND_ADDRESS}:${PORT}:...`: a port
+// variable is a bare port (an address form would render an invalid binding). The probes do not
+// use these values: each release is probed on its own rendered bindings (checks.js probeTargets).
+const PORT_KEYS = [
+  'AGENTFORGE_HOST_PORT',
+  'AGENTFORGE_PORT',
+  'ORCHESTRATOR_PORT',
+  'NATS_PORT',
+  'NATS_MONITOR_PORT',
+  'TEMPORAL_PORT',
+  'TEMPORAL_UI_PORT',
+]
+function validatePorts(env) {
+  for (const key of PORT_KEYS.filter((k) => k in env)) {
+    if (!validPort(env[key])) {
+      throw new InputsError(
+        `${key} must be a port 1-65535 (the Compose files publish it on BIND_ADDRESS)`
+      )
+    }
   }
-  return `${bind}:${env[key]}`
 }
 
 // P3: forwarded to Compose only as a positive safe integer.

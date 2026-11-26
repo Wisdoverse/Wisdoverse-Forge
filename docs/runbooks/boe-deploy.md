@@ -226,21 +226,27 @@ deletes a volume.
    starts. A rollback and `recover` do not remove them; `status` lists each one
    that still exists as `volume <name>: left by rolled-back attempt <id>`.
 
-The next deploy treats such a leftover by its class:
+A volume that exists but that the running release does not use is always
+refused on the next deploy, whatever its class: a name alone does not prove who
+created it. The refusal says whether the last rolled-back attempt recorded the
+volume as one it would create (with the attempt id and start time). After a
+rollback of a release that added a volume, remove the leftover once, then run
+the deploy again:
 
-- `excluded`: adopted (the deploy says `adopting volume <name> ... left by
-rolled-back attempt <id>`), because it holds nothing a rollback restores.
-- `snapshot`: refused, because it holds data the failed release wrote. Look at
-  it, then remove it before you deploy again:
+```bash
+docker volume inspect <name>     # confirm it is the one status and the refusal name
+docker volume rm <name>          # only this volume; the running release does not use it
+```
 
-  ```bash
-  docker volume inspect <name>     # confirm it is the one status names
-  docker volume rm <name>          # only this volume; the running release does not use it
-  ```
+If the refusal says no rolled-back attempt recorded it, the volume belongs to
+another deployment or is an unknown leftover: inspect it and remove it only if
+you are sure.
 
-- An existing volume that the running release does not use and no rolled-back
-  attempt created is refused: it belongs to another deployment or is an
-  unknown leftover. Inspect it and remove it only if you are sure.
+Containers of the running release may carry no volume mount that its recorded
+configuration does not declare. An anonymous volume that an image declares
+with `VOLUME` is accepted only when `imageVolumes` in
+`scripts/deploy-release.volumes.json` lists it by service and path as
+`excluded` with a reason. None of the deployed images declares one today.
 
 ## Release image tags
 
@@ -252,8 +258,11 @@ a tag wins. Every image the pipeline builds carries the label
 host-wide lock `<DEPLOY_LOCK_DIR>/images.lock`, so give every deployment on one
 host the same `DEPLOY_LOCK_DIR`. Every check of a shared tag (its label and its
 image id) and its creation happen inside one hold of that lock, and a failed
-inspection is a refusal (exit 12), never "absent". Jenkins holds the lock in a
-short-lived helper container from `DEPLOY_PG_CLIENT_IMAGE`. An existing tag is
+inspection is a refusal (exit 12), never "absent". Each hold is one `flock`
+command with a time limit on the work inside. Jenkins needs util-linux `flock`
+and coreutils `timeout` on its agent, and must see `DEPLOY_LOCK_DIR` at its host
+path (bind-mount it at the same path if Jenkins runs in a container); it refuses
+otherwise. An existing tag is
 adopted, without a build, only when its label is this commit; a tag with another label is refused as
 `a release tag is immutable` (exit 12). Investigate who created it; never
 retag it.
@@ -730,7 +739,7 @@ it runs. Fill in the four placeholders first.
   SHARED="forge-deploy-runner:$REV"
   held() {
     # shellcheck disable=SC2016  # $1..$3 are expanded by the inner sh
-    flock -x -w 900 "$LOCK/images.lock" sh -c '
+    flock -x -E 75 -w 900 "$LOCK/images.lock" timeout 120 sh -c '
       if ! out=$(docker image inspect --format "{{.Id}}" "$1" 2>&1); then
         case "$out" in *"No such image"*|*"No such object"*) ;; *) exit 12 ;; esac
         [ -n "$2" ] || exit 3
@@ -746,7 +755,7 @@ it runs. Fill in the four placeholders first.
     rc=0; IMG=$(held "$(docker image inspect --format '{{.Id}}' "$TEMP")") || rc=$?
     docker image rm "$TEMP" >/dev/null
   fi
-  [ "$rc" = 0 ] || refuse "$SHARED: another revision label, a failed inspection, or the lock timed out"
+  [ "$rc" = 0 ] || refuse "$SHARED: another revision label or a failed inspection (12), lock wait timed out (75), or the work under the lock timed out (124): exit $rc"
   # Staged inputs: one directory, swapped in with a rename.
   umask 077
   rm -rf "$ROOT/private/staged.partial" && mkdir "$ROOT/private/staged.partial"

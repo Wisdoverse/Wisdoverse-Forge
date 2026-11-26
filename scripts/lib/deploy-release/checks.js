@@ -230,10 +230,14 @@ const mountAt = (svc, target) =>
     .find((t) => t.target === target) ??
   null
 const MANIFEST = 'scripts/deploy-release.volumes.json'
-// The last rolled-back attempt of this project: its created volumes may be adopted on retry.
+// The last rolled-back attempt of this project, named in a refusal of a volume it journaled.
 const lastRolledBack = (state) => (state?.attempt?.phase === 'rolled_back' ? state.attempt : null)
+const ANONYMOUS = /^[0-9a-f]{64}$/
 
-export function volumeFindings(classes, o, state = null) {
+// `imageVolumes[service][path]` lists anonymous volumes that come from an image's `VOLUME`
+// declaration, each `excluded` with a reason (round 9 review): the only volume mounts a container
+// may carry beyond its frozen config.
+export function volumeFindings(classes, o, state = null, imageVolumes = {}) {
   const out = []
   const target = o.rendered
   const prev = o.prevRendered
@@ -276,10 +280,23 @@ export function volumeFindings(classes, o, state = null) {
   // R2, from the complete inventory of the running release.
   for (const [service, psvc] of Object.entries(prev?.services ?? {})) {
     const before = namedMounts(prev, psvc)
+    const c = containers.get(psvc.container_name)
+    // Round 9: EVERY volume mount of an existing container must be explained by the frozen
+    // config (or be an image-declared anonymous volume listed in the manifest); recreating the
+    // container would otherwise detach data that was never snapshotted.
+    for (const m of c && !c.missing ? c.mounts.filter((x) => x.type === 'volume') : []) {
+      const known = before.some((b) => b.target === m.target && b.name === m.name)
+      const listed =
+        ANONYMOUS.test(m.name ?? '') && imageVolumes[service]?.[m.target]?.class === 'excluded'
+      if (!known && !listed) {
+        out.push(
+          `container ${c.name} mounts volume ${m.name || '(anonymous)'} at ${m.target}, which the recorded release does not declare${ANONYMOUS.test(m.name ?? '') ? ' (an anonymous volume: list it under imageVolumes in ' + MANIFEST + ' only if it comes from the image and holds nothing to keep)' : ''}`
+        )
+      }
+    }
     if (before.length === 0) {
       continue
     }
-    const c = containers.get(psvc.container_name)
     if (!c || c.missing) {
       out.push(
         `container ${psvc.container_name} of the running release (service ${service}, named volumes ${before.map((m) => m.name).join(', ')}) does not exist; restore it before deploying`
@@ -360,44 +377,25 @@ export function volumeFindings(classes, o, state = null) {
         }
         continue
       }
-      const fromAttempt = last?.createdVolumes?.includes(m.name)
-      const cls = classes[m.source]?.class
-      if (fromAttempt && cls === 'excluded') {
-        continue // adopted: see leftoverAdoptions
-      }
+      // Round 9: never adopted, whatever its class: a name match does not prove who created it.
+      const recorded = last?.createdVolumes?.includes(m.name)
+        ? `the journal of rolled-back attempt ${last.attemptId} (started ${last.startedAt}) recorded it as to be created by that attempt`
+        : 'no rolled-back attempt recorded it as to be created'
       out.push(
-        fromAttempt
-          ? `volume ${m.name} (class snapshot) was left by rolled-back attempt ${last.attemptId} and holds data that failed release wrote; inspect it with \`docker volume inspect ${m.name}\`, then remove it with \`docker volume rm ${m.name}\` before deploying again`
-          : `volume ${m.name} already exists but no container of the running release uses it and no rolled-back attempt created it (another deployment's, or an unknown leftover); inspect it with \`docker volume inspect ${m.name}\` and remove it only if you are sure it is a leftover`
+        `volume ${m.name} already exists but no container of the running release uses it; ${recorded}. Inspect it with \`docker volume inspect ${m.name}\` and, if it is a leftover, remove it with \`docker volume rm ${m.name}\`, then deploy again`
       )
     }
   }
   return out
 }
 
-// Excluded-class volumes that the last rolled-back attempt created and that still exist: adopted.
-export function leftoverAdoptions(classes, o, state) {
-  const last = lastRolledBack(state)
-  return Object.values(o.rendered.services)
-    .flatMap((svc) => namedMounts(o.rendered, svc))
-    .filter(
-      (m) =>
-        last?.createdVolumes?.includes(m.name) &&
-        classes[m.source]?.class === 'excluded' &&
-        o.volumeFacts?.[m.name]?.exists
-    )
-    .map((m) => ({ name: m.name, attemptId: last.attemptId }))
-    .filter((a, i, all) => all.findIndex((b) => b.name === a.name) === i)
-}
-
-// R4: the volumes this attempt did not find at preflight, plus adopted leftovers of a rolled-back
-// attempt (still not part of a committed release). Journaled with the intent; never deleted.
-export function createdVolumes(rendered, volumeFacts, adopted = []) {
+// R4: the volumes this attempt did not find at preflight. Journaled with the intent; never deleted.
+export function createdVolumes(rendered, volumeFacts) {
   const names = Object.values(rendered.services).flatMap((svc) =>
     namedMounts(rendered, svc).map((m) => m.name)
   )
   const absent = names.filter((name) => !volumeFacts?.[name]?.exists)
-  return [...new Set([...absent, ...adopted.map((a) => a.name)])].sort()
+  return [...new Set(absent)].sort()
 }
 
 // The archive list: snapshot-class volumes of the target that exist at preflight.
@@ -406,6 +404,37 @@ export function snapshotVolumes(classes, rendered, volumeFacts) {
     .filter(([key, v]) => v.class === 'snapshot' && rendered.volumes?.[key])
     .map(([key]) => volumeSpec(rendered, key).name)
     .filter((name) => volumeFacts?.[name]?.exists)
+}
+
+// Round 9 review: the probe addresses of a release, from ITS rendered config: the host side of
+// the API (4003), orchestrator (4010) and NATS monitor (8222) bindings. An unspecified or
+// all-interfaces host address is probed on loopback.
+const PROBES = {
+  api: ['agentforge-server', 4003],
+  orchestrator: ['orchestrator', 4010],
+  natsMonitor: ['nats', 8222],
+}
+export function probeTargets(rendered) {
+  return Object.fromEntries(
+    Object.entries(PROBES).map(([key, [service, port]]) => {
+      const p = (rendered?.services?.[service]?.ports ?? []).find(
+        (x) => Number(x.target) === port && x.published
+      )
+      if (!p) {
+        return [key, null]
+      }
+      const ip = p.host_ip ?? ''
+      const host =
+        ip === '' || ip === '0.0.0.0'
+          ? '127.0.0.1'
+          : ip === '::'
+            ? '[::1]'
+            : ip.includes(':')
+              ? `[${ip}]`
+              : ip
+      return [key, `${host}:${p.published}`]
+    })
+  )
 }
 
 // Round 7 review, P1-B: an image this pipeline builds carries its revision (and, when the build
@@ -544,7 +573,7 @@ export function preflightFindings(config, state, o) {
     )
   }
   out.push(...identityFindings(config.project, o.rendered, o.containers, o.prevRendered))
-  out.push(...volumeFindings(config.volumeClasses ?? {}, o, state))
+  out.push(...volumeFindings(config.volumeClasses ?? {}, o, state, config.imageVolumes ?? {}))
   out.push(...(o.provenanceProblems ?? []))
   out.push(...databaseFindings(config.databases, o.databases))
   out.push(...agentContainerFindings(o.agentContainers))

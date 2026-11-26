@@ -1,7 +1,6 @@
-// Round 8 review, item 4: the Jenkinsfile's runner-publish shell block, extracted and run for real
-// with `sh` against a stand-in `docker`. The stand-in keeps a file-backed tag registry and
-// implements the lock-holder container with the real `flock` on the real lock file, so the
-// block's lock discipline is exercised, not simulated. No Docker daemon is used.
+// Round 8/9 reviews, item 3/4: the Jenkinsfile's runner-publish shell block, extracted and run
+// for real with `sh` and the real `flock` on a real lock file. Only `docker` is a stand-in: a
+// file-backed tag registry. No Docker daemon is used.
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -19,7 +18,7 @@ function runnerBlock() {
   const text = fs.readFileSync(path.join(root, 'Jenkinsfile'), 'utf8')
   const block = [...text.matchAll(/'''(#!\/bin\/sh[\s\S]*?)'''/g)]
     .map((m) => m[1])
-    .find((b) => b.includes('forge-image-lock-'))
+    .find((b) => b.includes('images.lock') && b.includes('forge-deploy-runner:'))
   if (!block) {
     throw new Error('runner publish block not found in the Jenkinsfile')
   }
@@ -29,7 +28,6 @@ function runnerBlock() {
 const STUB = String.raw`#!/usr/bin/env node
 const fs = require('fs')
 const path = require('path')
-const { spawn } = require('child_process')
 const here = path.dirname(fs.realpathSync(process.argv[1]))
 const reg = path.join(here, 'registry.json')
 const read = () => (fs.existsSync(reg) ? JSON.parse(fs.readFileSync(reg, 'utf8')) : { tags: {}, images: {} })
@@ -38,28 +36,6 @@ const argv = process.argv.slice(2)
 fs.appendFileSync(path.join(here, 'calls.log'), JSON.stringify({ t: Date.now(), argv }) + '\n')
 const exit = (code, out = '', err = '') => { process.stdout.write(out); process.stderr.write(err); process.exit(code) }
 const val = (flag) => argv[argv.indexOf(flag) + 1]
-if (argv[0] === 'run' && argv.includes('-d')) {
-  const name = val('--name')
-  const src = /src=([^,]+)/.exec(val('--mount'))[1]
-  const log = path.join(here, name + '.log')
-  const child = spawn('flock', ['-x', path.join(src, 'images.lock'), 'sh', '-c', 'echo locked > "$1"; exec sleep 900', 'sh', log], { detached: true, stdio: 'ignore' })
-  fs.writeFileSync(path.join(here, name + '.pid'), String(child.pid))
-  child.unref()
-  exit(0, 'holder-id\n')
-}
-if (argv[0] === 'logs') {
-  const log = path.join(here, argv[1] + '.log')
-  exit(0, fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '')
-}
-if (argv[0] === 'rm') {
-  const pid = path.join(here, argv[argv.length - 1] + '.pid')
-  if (fs.existsSync(pid)) {
-    try { process.kill(-Number(fs.readFileSync(pid, 'utf8')), 'SIGKILL') } catch {}
-    fs.rmSync(pid)
-    fs.rmSync(path.join(here, argv[argv.length - 1] + '.log'), { force: true })
-  }
-  exit(0)
-}
 if (argv[0] === 'image' && argv[1] === 'inspect') {
   const r = read()
   const ref = argv[argv.length - 1]
@@ -83,7 +59,7 @@ if (argv[0] === 'image' && argv[1] === 'rm') { const r = read(); delete r.tags[a
 exit(0)
 `
 
-function run(script = runnerBlock()) {
+function run(script = runnerBlock(), extra: Record<string, string> = {}) {
   const env = {
     PATH: `${p('bin')}:${process.env.PATH}`,
     JENKINS_HOME: p('jenkins'),
@@ -91,7 +67,7 @@ function run(script = runnerBlock()) {
     FORGE_REV: REV,
     BUILD_NUMBER: '7',
     FORGE_LOCK_DIR: p('lock'),
-    FORGE_PG_CLIENT_IMAGE: 'postgres:18-alpine',
+    ...extra,
   }
   return new Promise<{ code: number | null; out: string; ms: number }>((resolve) => {
     const start = Date.now()
@@ -149,7 +125,6 @@ describe('Jenkinsfile runner publish (real sh, real flock, stand-in docker)', ()
     expect(recorded()).toBe(reg.tags[SHARED])
     expect(reg.images[reg.tags[SHARED]].labels['org.opencontainers.image.revision']).toBe(REV)
     expect(Object.keys(reg.tags)).toEqual([SHARED]) // the temporary tag is gone
-    expect(fs.readdirSync(p('bin')).filter((f) => f.endsWith('.pid'))).toEqual([]) // lock released
   })
 
   it('present with this revision label: adopted without a build', async () => {
@@ -166,19 +141,52 @@ describe('Jenkinsfile runner publish (real sh, real flock, stand-in docker)', ()
     seed({ 'org.opencontainers.image.revision': 'not-this-one' })
     const r = await run()
     expect(r.code).toBe(12)
-    expect(r.out).toMatch(/exists with another revision label; a release tag is immutable/)
+    expect(r.out).toMatch(/has another revision label \(a release tag is immutable/)
     expect(calls()).not.toContain('build')
     expect(calls()).not.toContain('tag')
     expect(fs.existsSync(p('jenkins/forge-deploy/job/private/staged/runner-image'))).toBe(false)
   })
 
-  it('waits while another process holds the image lock, then proceeds', async () => {
-    const holder = spawn('flock', ['-x', p('lock/images.lock'), 'sleep', '2'], { stdio: 'ignore' })
+  it('waits while another process holds the lock and publishes the tag, then adopts its id', async () => {
+    // The other publisher: holds the real lock, needs 2 s, then creates the tag with this label.
+    const other = `
+      sleep 2
+      node -e '
+        const fs = require("fs"); const f = process.argv[1]; const r = JSON.parse(fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "{\\"tags\\":{},\\"images\\":{}}")
+        r.images["sha256:first"] = { labels: { "org.opencontainers.image.revision": process.argv[2] } }
+        r.tags[process.argv[3]] = "sha256:first"
+        fs.writeFileSync(f, JSON.stringify(r))' "$0" "$1" "$2"`
+    const holder = spawn(
+      'flock',
+      ['-x', p('lock/images.lock'), 'sh', '-c', other, p('bin', 'registry.json'), REV, SHARED],
+      { stdio: 'ignore' }
+    )
+    const holderDone = new Promise((done) => holder.on('close', done))
     await new Promise((r) => setTimeout(r, 300))
     const r = await run()
-    holder.kill()
+    await holderDone
     expect(r.code, r.out).toBe(0)
     expect(r.ms).toBeGreaterThanOrEqual(1500)
-    expect(recorded()).toBe(registry().tags[SHARED])
+    expect(r.out).toContain('Adopted the existing runner image sha256:first')
+    expect(recorded()).toBe('sha256:first')
+    expect(calls()).not.toContain('build')
+    expect(calls()).not.toContain('tag')
   }, 30_000)
+
+  it('a lock wait timeout is a refusal: non-zero exit, nothing built, tagged or recorded', async () => {
+    const holder = spawn('flock', ['-x', p('lock/images.lock'), 'sleep', '5'], { stdio: 'ignore' })
+    await new Promise((r) => setTimeout(r, 300))
+    const r = await run(runnerBlock(), { FORGE_IMAGE_LOCK_WAIT: '1' })
+    holder.kill()
+    expect(r.code).toBe(12)
+    expect(r.out).toMatch(/images\.lock was not free within 1 s; nothing was deployed/)
+    expect(fs.existsSync(p('bin', 'registry.json'))).toBe(false)
+    expect(fs.existsSync(p('jenkins/forge-deploy/job/private/staged/runner-image'))).toBe(false)
+  }, 30_000)
+
+  it('refuses when DEPLOY_LOCK_DIR is not visible on the agent', async () => {
+    const r = await run(runnerBlock(), { FORGE_LOCK_DIR: p('no-such-dir') })
+    expect(r.code).toBe(12)
+    expect(r.out).toMatch(/is not a writable directory on the Jenkins agent/)
+  })
 })

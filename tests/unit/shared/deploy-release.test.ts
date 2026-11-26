@@ -10,7 +10,6 @@ import {
   compareBaseline,
   createdVolumes,
   INPUTS_LABEL,
-  leftoverAdoptions,
   IDENTITY_KEYS,
   compareLedger,
   databaseFindings,
@@ -24,6 +23,7 @@ import {
   parseEnvFile,
   parseMigrations,
   preflightFindings,
+  probeTargets,
   provenanceLabels,
   provenanceProblem,
   REVISION_LABEL,
@@ -36,7 +36,7 @@ import {
   tagDriftFindings,
   volumeFindings,
 } from '../../../scripts/lib/deploy-release/checks.js'
-import { loadVolumeClasses } from '../../../scripts/deploy-release.mjs'
+import { loadImageVolumes, loadVolumeClasses } from '../../../scripts/deploy-release.mjs'
 import {
   atomicWrite,
   createExecutor,
@@ -1532,7 +1532,7 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
     )
     const leftover = facts({ p_compliance: { exists: true, driver: 'local' } })
     expect(check(t, leftover).join('\n')).toMatch(
-      /volume p_compliance already exists but no container of the running release uses it and no rolled-back attempt created it.*docker volume inspect p_compliance/
+      /volume p_compliance already exists but no container of the running release uses it; no rolled-back attempt recorded it.*docker volume inspect p_compliance.*docker volume rm p_compliance/
     )
   })
   it('R2: a changed driver is refused', () => {
@@ -1681,32 +1681,28 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
   const rolledBack = {
     attempt: { attemptId: 'aaaa1111', phase: 'rolled_back', createdVolumes: ['p_compliance'] },
   }
-  it('round 8 R4: a retry adopts an excluded leftover that the last rolled-back attempt created', () => {
-    const { t, classes, left } = withCompliance('excluded')
-    expect(
-      volumeFindings(classes, { rendered: t, ...prevBound, volumeFacts: left }, rolledBack)
-    ).toEqual([])
-    expect(leftoverAdoptions(classes, { rendered: t, volumeFacts: left }, rolledBack)).toEqual([
-      { name: 'p_compliance', attemptId: 'aaaa1111' },
-    ])
-    // It stays listed as not part of a committed release.
-    expect(createdVolumes(t, left, [{ name: 'p_compliance', attemptId: 'aaaa1111' }])).toEqual([
-      'p_compliance',
-    ])
+  it('round 9 R4: a retry refuses a leftover that the rolled-back attempt journaled, whatever its class', () => {
+    for (const cls of ['excluded', 'snapshot']) {
+      const { t, classes, left } = withCompliance(cls)
+      const state = { attempt: { ...rolledBack.attempt, startedAt: '2026-11-26T01:00:00.000Z' } }
+      const out = volumeFindings(
+        classes,
+        { rendered: t, ...prevBound, volumeFacts: left },
+        state
+      ).join('\n')
+      expect(out).toMatch(
+        /volume p_compliance already exists but no container of the running release uses it; the journal of rolled-back attempt aaaa1111 \(started 2026-11-26T01:00:00.000Z\) recorded it as to be created/
+      )
+      expect(out).toContain('docker volume inspect p_compliance')
+      expect(out).toContain('docker volume rm p_compliance')
+    }
   })
-  it('round 8 R4: a retry refuses a snapshot-class leftover, with the commands and the attempt id', () => {
-    const { t, classes, left } = withCompliance('snapshot')
-    const out = volumeFindings(
-      classes,
-      { rendered: t, ...prevBound, volumeFacts: left },
-      rolledBack
-    ).join('\n')
-    expect(out).toMatch(
-      /volume p_compliance \(class snapshot\) was left by rolled-back attempt aaaa1111/
-    )
-    expect(out).toContain('docker volume inspect p_compliance')
-    expect(out).toContain('docker volume rm p_compliance')
-    expect(leftoverAdoptions(classes, { rendered: t, volumeFacts: left }, rolledBack)).toEqual([])
+  it('round 9 R4: the same name with a different driver is refused, never adopted', () => {
+    const { t, classes } = withCompliance('excluded')
+    const other = facts({ p_compliance: { exists: true, driver: 'nfs' } })
+    expect(
+      volumeFindings(classes, { rendered: t, ...prevBound, volumeFacts: other }, rolledBack)
+    ).not.toEqual([])
   })
   it('round 8 R4: an unused existing volume that no journal lists is refused', () => {
     const { t, classes, left } = withCompliance('excluded')
@@ -1719,9 +1715,58 @@ describe('round 7 review, P1-A: named volumes (R1-R4)', () => {
       expect(
         volumeFindings(classes, { rendered: t, ...prevBound, volumeFacts: left }, state).join('\n')
       ).toMatch(
-        /volume p_compliance already exists but no container of the running release uses it and no rolled-back attempt created it/
+        /volume p_compliance already exists but no container of the running release uses it; no rolled-back attempt recorded it/
       )
     }
+  })
+  it('round 9: an extra named volume on an existing container is refused', () => {
+    const extra = [
+      prevContainers[0],
+      {
+        ...prevContainers[1],
+        mounts: [
+          ...prevContainers[1].mounts,
+          { type: 'volume', name: 'foreign_data', target: '/extra' },
+        ],
+      },
+    ]
+    expect(withPrev(target(), { prevContainers: extra }).join('\n')).toMatch(
+      /container p-api mounts volume foreign_data at \/extra, which the recorded release does not declare/
+    )
+  })
+  const anon = 'f'.repeat(64)
+  const withAnon = [
+    prevContainers[0],
+    {
+      ...prevContainers[1],
+      mounts: [
+        ...prevContainers[1].mounts,
+        { type: 'volume', name: anon, target: '/var/cache/img' },
+      ],
+    },
+  ]
+  it('round 9: an extra anonymous volume on an existing container is refused unless the manifest lists it', () => {
+    expect(withPrev(target(), { prevContainers: withAnon }).join('\n')).toMatch(
+      new RegExp(
+        `container p-api mounts volume ${anon} at /var/cache/img, which the recorded release does not declare \\(an anonymous volume`
+      )
+    )
+    const listed = {
+      api: { '/var/cache/img': { class: 'excluded', reason: 'image cache, rebuilt on start' } },
+    }
+    const other = { api: { '/var/cache/other': { class: 'excluded', reason: 'x' } } }
+    const run = (imageVolumes: unknown) =>
+      volumeFindings(
+        CLASSES,
+        { rendered: target(), prevRendered, prevContainers: withAnon, volumeFacts: facts() },
+        null,
+        imageVolumes
+      )
+    expect(run(listed)).toEqual([])
+    expect(run(other).join('\n')).toMatch(/anonymous volume/)
+  })
+  it('round 9: the repository manifest lists no image-declared volume (none of the deployed images declares one)', () => {
+    expect(loadImageVolumes()).toEqual({})
   })
   it('round 8 R4: no rollback or recovery plan removes a volume, and the effect layer has no volume removal', () => {
     const attempt = { ...attemptFixture(true), createdVolumes: ['p_compliance'] }
@@ -1791,5 +1836,95 @@ describe('round 7 review: preflight wiring of the volume and provenance findings
       /already exists but no container of the running release uses it/
     )
     expect(plan.reasons.join('\n')).toMatch(/not labeled with revision next/)
+  })
+})
+
+describe('round 9 review: every release is probed on its own frozen bindings', () => {
+  const ports = (host: string, api: number, orch: number, nats: number) => ({
+    services: {
+      'agentforge-server': { ports: [{ target: 4003, published: String(api), host_ip: host }] },
+      orchestrator: { ports: [{ target: 4010, published: String(orch), host_ip: host }] },
+      nats: {
+        ports: [
+          { target: 4222, published: '24222', host_ip: '127.0.0.9' }, // NATS_BIND_ADDRESS: not probed
+          { target: 8222, published: String(nats), host_ip: host },
+        ],
+      },
+    },
+  })
+
+  it('probeTargets reads the host side of the API, orchestrator and NATS monitor bindings', () => {
+    expect(probeTargets(ports('127.0.0.2', 1, 2, 3))).toEqual({
+      api: '127.0.0.2:1',
+      orchestrator: '127.0.0.2:2',
+      natsMonitor: '127.0.0.2:3',
+    })
+    expect(probeTargets(ports('0.0.0.0', 1, 2, 3)).api).toBe('127.0.0.1:1')
+    expect(probeTargets(ports('', 1, 2, 3)).api).toBe('127.0.0.1:1')
+    expect(probeTargets(ports('::1', 1, 2, 3)).api).toBe('[::1]:1')
+    expect(probeTargets({ services: {} })).toEqual({
+      api: null,
+      orchestrator: null,
+      natsMonitor: null,
+    })
+  })
+
+  it('a release that moved BIND_ADDRESS: each release is probed on its own address, both ways', async () => {
+    const http = await import('node:http')
+    const tmp = tmpDir()
+    const serve = (host: string) =>
+      new Promise<{ port: number; close: () => void }>((resolve) => {
+        const server = http.createServer((req, res) => {
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ ok: true, host, path: req.url }))
+        })
+        server.listen(0, host, () =>
+          resolve({
+            port: (server.address() as { port: number }).port,
+            close: () => server.close(),
+          })
+        )
+      })
+    const oldSrv = await serve('127.0.0.2')
+    const newSrv = await serve('127.0.0.3')
+    const bin = path.join(tmp, 'bin')
+    fs.mkdirSync(bin)
+    fs.writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+    const savedPath = process.env.PATH
+    process.env.PATH = `${bin}:${savedPath}`
+    try {
+      const write = (rev: string, rendered: unknown) => {
+        const file = path.join(tmp, `${rev}.json`)
+        fs.writeFileSync(file, JSON.stringify(rendered))
+        return { ...fakeRecord(rev, PREV_INPUTS), config: file }
+      }
+      const state = {
+        ...emptyState(),
+        current: 'old',
+        records: {
+          old: write('old', ports('127.0.0.2', oldSrv.port, oldSrv.port, oldSrv.port)),
+          next: write('next', ports('127.0.0.3', newSrv.port, newSrv.port, newSrv.port)),
+        },
+      }
+      const cfg = { webRoot: tmp, env: {}, attemptId: 'a1b2c3d4', secrets: [], databases: [] }
+      const exec = createExecutor(
+        { ...cfg, project: 'forge', releaseRoot: tmp, privateRoot: tmp },
+        () => null
+      )
+      await exec.run({ op: 'seal' }, state) // sets the executor's journal view
+      // Preflight of the running release and verification after a rollback: the old address.
+      const old = await exec.backendFacts('old', {})
+      expect(old.apiHealth.body).toEqual({ ok: true, host: '127.0.0.2', path: '/health' })
+      expect(old.natsHealth.body.host).toBe('127.0.0.2')
+      // Verification of the target: its own (new) address.
+      const next = await exec.backendFacts('next', {})
+      expect(next.apiReady.body).toEqual({ ok: true, host: '127.0.0.3', path: '/api/health' })
+      expect(next.orchReady.body.host).toBe('127.0.0.3')
+    } finally {
+      process.env.PATH = savedPath
+      oldSrv.close()
+      newSrv.close()
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })

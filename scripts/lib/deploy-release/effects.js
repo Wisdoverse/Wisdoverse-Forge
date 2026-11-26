@@ -13,7 +13,7 @@ import {
   compareBaseline,
   createdVolumes,
   frontendFindings,
-  leftoverAdoptions,
+  probeTargets,
   provenanceLabels,
   provenanceProblem,
   REVISION_LABEL as REVISION,
@@ -605,20 +605,23 @@ export function createExecutor(cfg, log) {
   }
 
   async function backendFacts(rev, ledgers = ledgerRows()) {
-    const base = (address) => `http://${address}`
-    const containers = serviceContainers(loadConfig(rev))
+    // Round 9 review: every release is probed on ITS OWN frozen bindings (its rendered config),
+    // so a release that moves BIND_ADDRESS is verified, and rolled back to, on the right address.
+    const rendered = loadConfig(rev)
+    const at = probeTargets(rendered)
+    const get = (key, suffix) =>
+      at[key] ? fetchJson(`http://${at[key]}${suffix}`) : { error: 'not published' }
+    const containers = serviceContainers(rendered)
     const temporal = containers.find((c) => c.service === 'temporal-ext')
     const probe = words('temporal operator cluster health --address temporal-internal:7233')
     const health = temporal ? docker(['exec', temporal.id, ...probe], { allowFail: true }) : null
     return {
-      apiHealth: await fetchJson(`${base(cfg.ports.api)}/health`),
-      apiReady: await fetchJson(`${base(cfg.ports.api)}/api/health`),
-      orchHealth: await fetchJson(`${base(cfg.ports.orchestrator)}/health`),
-      orchReady: await fetchJson(`${base(cfg.ports.orchestrator)}/health/ready`),
-      natsHealth: await fetchJson(`${base(cfg.ports.natsMonitor)}/healthz`),
-      jsz: await fetchJson(
-        `${base(cfg.ports.natsMonitor)}/jsz?accounts=true&streams=true&consumers=true`
-      ),
+      apiHealth: await get('api', '/health'),
+      apiReady: await get('api', '/api/health'),
+      orchHealth: await get('orchestrator', '/health'),
+      orchReady: await get('orchestrator', '/health/ready'),
+      natsHealth: await get('natsMonitor', '/healthz'),
+      jsz: await get('natsMonitor', '/jsz?accounts=true&streams=true&consumers=true'),
       temporalServing: health?.status === 0 && /SERVING/.test(health.stdout),
       runningImages: Object.fromEntries(
         containers.filter((c) => c.running).map((c) => [c.service, c.imageId])
@@ -858,7 +861,6 @@ export function createExecutor(cfg, log) {
       ),
     ])
     const volumeFacts = Object.fromEntries([...volumeNames].map((name) => [name, volumeFact(name)]))
-    const adopted = leftoverAdoptions(cfg.volumeClasses, { rendered, volumeFacts }, st)
     const { facts: databases, ledgers } = catalog()
     const facts = await backendFacts(st.current, ledgers)
     const captured = captureExpectations(facts, cfg.requireRedis)
@@ -868,11 +870,6 @@ export function createExecutor(cfg, log) {
       const pending = files.filter((m) => !applied.has(m.version)).map((m) => m.version)
       return `${key}: new migration versions: ${pending.join(', ') || 'none'}`
     })
-    adopted.forEach((a) =>
-      notes.push(
-        `adopting volume ${a.name} (class excluded), left by rolled-back attempt ${a.attemptId}`
-      )
-    )
     return {
       envVersion: cfg.env.VERSION,
       rendered,
@@ -887,7 +884,8 @@ export function createExecutor(cfg, log) {
       prevRendered: prevConfig,
       prevContainers,
       volumeFacts,
-      createdVolumes: createdVolumes(rendered, volumeFacts, adopted),
+      createdVolumes: createdVolumes(rendered, volumeFacts),
+      sqlHelperImage: sqlHelper?.image ?? null,
       provenanceProblems,
       databases,
       agentContainers: agentInventory(),
@@ -1014,13 +1012,26 @@ export function createExecutor(cfg, log) {
     },
     startSql: () => {
       stats.helperStarts += 1
+      // Round 9 review: the client image is never pulled (`--pull never`) and is started by image
+      // id: the one an unfinished attempt recorded, else the id its tag has now. A tag that moved
+      // mid-deploy therefore cannot change the helper of a recovery.
+      const recorded =
+        current?.attempt && !TERMINAL.has(current.attempt.phase)
+          ? current.attempt.sqlHelperImage
+          : null
+      const image = recorded ?? imageId(cfg.pgClientImage)
+      if (!image) {
+        throw new Error(
+          `the PostgreSQL client image ${cfg.pgClientImage} is not present locally (it is never pulled)`
+        )
+      }
       const args = [
         ...words('run -d --pull never --network'),
         cfg.externalNetwork,
         ...helperArgs('sql'),
       ]
-      const id = docker([...args, cfg.pgClientImage, 'sleep', 'infinity']).stdout.trim()
-      sqlHelper = { id, name: helperName('sql') }
+      const id = docker([...args, image, 'sleep', 'infinity']).stdout.trim()
+      sqlHelper = { id, name: helperName('sql'), image }
     },
     stopSql: () => {
       if (sqlHelper) {
@@ -1030,6 +1041,7 @@ export function createExecutor(cfg, log) {
     },
     stats: () => ({ ...stats }),
     // Which of these named volumes exist now (`status`); unknown on an inspection error.
+    backendFacts,
     volumeStates: (names) => Object.fromEntries(names.map((n) => [n, volumeFact(n)])),
     activateStaged,
     inputsFacts,
