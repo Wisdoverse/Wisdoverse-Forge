@@ -113,6 +113,7 @@ async fn health_ready(State(state): State<AppState>) -> Response {
     let body = json!({
         "ok": db_ok,
         "workflowRuntime": state.workflow_runtime.as_str(),
+        "workflowReconcileTrustCurrentTemporal": state.config.workflow_reconcile_trust_current_temporal,
         "checks": { "database": db_ok },
     });
     if db_ok { Json(body).into_response() } else { (StatusCode::SERVICE_UNAVAILABLE, Json(body)).into_response() }

@@ -40,6 +40,10 @@ services:
   orchestrator:
     environment:
       - ORCHESTRATOR_DATABASE_URL=postgres://orchestrator:${ORCHESTRATOR_DB_PASSWORD:?ORCHESTRATOR_DB_PASSWORD is required in production (existing installs - see docs/runbooks/self-host-ops.md)}@orchestrator-db:5432/orchestrator?sslmode=disable
+      # Workflow execution reconciler (#1352), repeated so this override keeps it.
+      - ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED=${ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED:-true}
+      - ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS=${ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS:-600}
+      - ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=${ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL:-false}
     depends_on:
       temporal:
         condition: service_healthy

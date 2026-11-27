@@ -30,6 +30,97 @@ async fn legacy_table_exists(pool: &PgPool, table: &str) -> bool {
     .expect("legacy table existence query")
 }
 
+/// #1352 reconciliation columns on `workflows`, with their expected types.
+async fn assert_reconcile_columns(pool: &PgPool) {
+    for (column, udt) in [
+        ("temporal_namespace_id", "text"),
+        ("status_cause", "text"),
+        ("execution_missing_since", "timestamptz"),
+        ("execution_checked_at", "timestamptz"),
+        ("execution_observation", "text"),
+        ("reconciled_at", "timestamptz"),
+        ("state_version", "int8"),
+    ] {
+        assert_eq!(column_udt(pool, "workflows", column).await, udt, "workflows.{column}");
+    }
+}
+
+async fn version_of(pool: &PgPool, id: &str) -> (i64, chrono::DateTime<chrono::Utc>) {
+    sqlx::query_as("SELECT state_version, updated_at FROM workflows WHERE id = CAST($1 AS uuid)")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .expect("read version")
+}
+
+/// #1352 trigger contract on `workflows`: a bookkeeping-only update moves
+/// neither `updated_at` nor `state_version`; any other update bumps both, and
+/// two real updates in one transaction get two different versions.
+async fn assert_state_version_trigger(pool: &PgPool, id: &str) {
+    let start = version_of(pool, id).await;
+    sqlx::query(
+        "UPDATE workflows SET execution_checked_at = NOW(), execution_missing_since = NOW(),
+                              execution_observation = 'missing' WHERE id = CAST($1 AS uuid)",
+    )
+    .bind(id)
+    .execute(pool)
+    .await
+    .expect("bookkeeping update");
+    assert_eq!(version_of(pool, id).await, start, "bookkeeping-only update must change neither column");
+
+    sqlx::query("UPDATE workflows SET description = 'changed' WHERE id = CAST($1 AS uuid)")
+        .bind(id)
+        .execute(pool)
+        .await
+        .expect("real update");
+    let after_real = version_of(pool, id).await;
+    assert_eq!(after_real.0, start.0 + 1, "a real update increments state_version");
+    assert!(after_real.1 > start.1, "a real update sets updated_at");
+
+    // A real update that also touches bookkeeping still counts as real.
+    sqlx::query("UPDATE workflows SET status = 'failed', execution_checked_at = NOW() WHERE id = CAST($1 AS uuid)")
+        .bind(id)
+        .execute(pool)
+        .await
+        .expect("mixed update");
+    let after_mixed = version_of(pool, id).await;
+    assert_eq!(after_mixed.0, after_real.0 + 1, "status plus bookkeeping is a real update");
+
+    let mut tx = pool.begin().await.expect("begin");
+    let mut versions = Vec::new();
+    for name in ["first", "second"] {
+        let version: i64 = sqlx::query_scalar(
+            "UPDATE workflows SET description = $2 WHERE id = CAST($1 AS uuid) RETURNING state_version",
+        )
+        .bind(id)
+        .bind(name)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("update in transaction");
+        versions.push(version);
+    }
+    tx.commit().await.expect("commit");
+    assert_ne!(versions[0], versions[1], "two changes in one transaction share now() but not a version");
+}
+
+async fn seed_workflow(pool: &PgPool) -> String {
+    let participant: String = sqlx::query_scalar(
+        "INSERT INTO participants (type, display_name, casdoor_user_id, org_id)
+         VALUES ('human', 'schema-user', 'casdoor-schema-' || gen_random_uuid(), 'org-schema') RETURNING id::text",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("seed participant");
+    sqlx::query_scalar(
+        "INSERT INTO workflows (name, status, org_id, created_by)
+         VALUES ('schema-wf', 'running', 'org-schema', CAST($1 AS uuid)) RETURNING id::text",
+    )
+    .bind(participant)
+    .fetch_one(pool)
+    .await
+    .expect("seed workflow")
+}
+
 #[sqlx::test(migrations = "./migrations")]
 async fn fresh_schema_matches_rust_owned_uuid_contract(pool: PgPool) {
     for (table, column) in [
@@ -51,6 +142,24 @@ async fn fresh_schema_matches_rust_owned_uuid_contract(pool: PgPool) {
     ] {
         assert_eq!(column_udt(&pool, table, column).await, "uuid", "{table}.{column}");
     }
+    assert_reconcile_columns(&pool).await;
+    let id = seed_workflow(&pool).await;
+    assert_state_version_trigger(&pool, &id).await;
+}
+
+#[sqlx::test(migrations = false)]
+async fn upgrade_from_013_adds_state_version_trigger(pool: PgPool) {
+    let mut up_to_013 = sqlx::migrate!("./migrations");
+    up_to_013.migrations =
+        std::borrow::Cow::Owned(up_to_013.migrations.iter().filter(|m| m.version <= 13).cloned().collect());
+    up_to_013.run(&pool).await.expect("migrate to 013");
+    let id = seed_workflow(&pool).await;
+
+    sqlx::migrate!("./migrations").run(&pool).await.expect("migrate 013 -> 014");
+
+    assert_reconcile_columns(&pool).await;
+    assert_eq!(version_of(&pool, &id).await.0, 0, "existing rows start at version 0");
+    assert_state_version_trigger(&pool, &id).await;
 }
 
 #[sqlx::test(migrations = false)]
@@ -166,6 +275,7 @@ async fn legacy_integer_schema_is_preserved_and_replaced_with_uuid_tables(pool: 
     .expect("seed legacy integer schema");
 
     sqlx::migrate!("./migrations").run(&pool).await.expect("run orchestrator migrations");
+    assert_reconcile_columns(&pool).await;
 
     for (table, column) in [
         ("workflows", "id"),

@@ -204,16 +204,19 @@ Read this before you restore, so you know what to check afterwards.
     can therefore run twice.
 - **If you do not restore the Temporal databases** (for example they were lost,
   or you restore only `agentforge` and `orchestrator`), every workflow that was
-  running is **stranded**. Its row says `running`, but no Temporal execution
-  exists. Forge has no automatic or admin action that resolves this today:
-  - cancel and review decisions fail with an internal error and leave the
-    status unchanged;
-  - a re-run is refused while the status is `running`;
-  - no background job checks workflow rows.
+  running is **stranded**: its row says `running`, but no Temporal execution
+  exists.
 
-[The checks after a restore](#after-the-restore-check-for-skew) list every
-case above. Fixing the rows they find is manual today; automatic
-reconciliation is tracked in issue #1352.
+The orchestrator repairs workflow rows that say `running` by itself, once
+Temporal is back (see [After the restore](#after-the-restore-check-for-skew)):
+
+- a row whose recorded Temporal run has finished gets that run's final status;
+- a row whose execution is gone is marked `failed` after at least 10 minutes,
+  and can then be run again;
+- a row whose execution still runs is left alone.
+
+Rows that came back as `draft` are not touched; `draft` workflows can be run
+normally.
 
 ### PostgreSQL Restore (all bundled databases)
 
@@ -473,55 +476,237 @@ there are no `*_before_restore` copies; delete the `*_restore` copies instead.
 
 #### After the restore: check for skew
 
-These checks change no data; the first one creates only a temporary table
-that disappears when it ends. They find the skew described in
-[What a restore recovers](#what-a-restore-recovers). The first check compares
-every workflow row that is not finished with Temporal's record of the same
-workflow, which is the latest run in Temporal's visibility database. It lists
-each row whose status or run ID disagrees with it. The rows stream from one
-database server to the other through a pipe into a temporary table that exists
-only for this check, so any number of workflows fits:
+What happens on its own: once a minute, the workflow execution reconciler
+checks workflow rows that say `running` against Temporal, up to 50 rows a
+minute, the least recently checked first. It starts with the orchestrator even
+when Temporal is still down, and keeps trying to reach Temporal until it
+answers. It never starts, cancels or signals a workflow, and it changes nothing
+while Temporal cannot be asked. Each row it checks records the time
+(`execution_checked_at`) and the answer (`execution_observation`: `running`,
+`closed`, `missing` or `unverifiable`).
+
+| Temporal says about the workflow's current execution | What the reconciler does |
+| --- | --- |
+| It is running (or paused) | Nothing. |
+| The run the row recorded has finished | Sets the matching status (`completed`, `failed` or `cancelled`) with cause `reconciled_from_temporal`. |
+| It does not exist, first time seen | Records `execution_missing_since`. The row stays `running`. |
+| It does not exist, still after the grace period (default 10 minutes, `ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS`) | Sets `failed` with cause `execution_lost`. The outcome is unknown, not a business failure: the run may have finished or never got far. |
+| It does not exist, but the row cannot be proven to belong to this Temporal | Nothing; it is counted as `unverifiable`. |
+| Temporal cannot be asked, or the answer is not understood | Nothing; the reconciler backs off. |
+
+A "does not exist" answer only counts when the workflow was started in the
+same Temporal namespace the orchestrator is connected to now; the orchestrator
+records the namespace's server-assigned id when it starts a workflow. If you
+restored the Temporal databases, that id is unchanged and repairs need no
+action from you. Two cases need your confirmation, because a wrong Temporal
+address and a real loss look the same:
+
+- workflows started before the orchestrator recorded namespace ids, and
+- every workflow, if Temporal was re-created instead of restored (a new
+  namespace gets a new id).
+
+Before you start, find the Temporal namespace the orchestrator uses. The
+bundled Compose stack sets `ORCHESTRATOR_TEMPORAL_NAMESPACE=default` in
+`docker/compose.yml`. For a custom deployment, read the value from the running
+container:
 
 ```bash
-( set -o pipefail
-$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -v ON_ERROR_STOP=1 -c \
-  "copy (select id, status, temporal_run_id from workflows where status in ('draft', 'running', 'paused')) to stdout" |
-$COMPOSE_PROD exec -T db psql -U agentforge -d temporal_visibility -v ON_ERROR_STOP=1 \
-  -c 'create temp table r (id text, row_status text, row_run_id text)' -c '\copy r from pstdin' -c "
-WITH e AS (
-  SELECT DISTINCT ON (workflow_id) workflow_id, trim(run_id) AS run_id, status
-  FROM executions_visibility ORDER BY workflow_id, start_time DESC)
-SELECT r.id AS workflow, r.row_status, r.row_run_id, e.run_id AS temporal_run_id,
-  CASE e.status WHEN 1 THEN 'Running' WHEN 2 THEN 'Completed' WHEN 3 THEN 'Failed' WHEN 4 THEN 'Canceled'
-    WHEN 5 THEN 'Terminated' WHEN 6 THEN 'ContinuedAsNew' WHEN 7 THEN 'TimedOut' ELSE 'no execution' END AS temporal_status
-FROM r LEFT JOIN e ON e.workflow_id = 'orchestrator-' || r.id
-WHERE (e.workflow_id IS NULL AND r.row_status <> 'draft')
-   OR (e.status IS NOT NULL AND e.status <> 1)
-   OR (r.row_status = 'draft' AND e.workflow_id IS NOT NULL)
-   OR (r.row_run_id IS NOT NULL AND e.run_id IS NOT NULL AND r.row_run_id <> e.run_id)
-ORDER BY 1" ) || echo "the skew check did not finish; fix the error above and run it again" >&2
+$COMPOSE_PROD exec orchestrator printenv ORCHESTRATOR_TEMPORAL_NAMESPACE
 ```
 
-How to read the result:
-
-- `COPY <n>` is the number of unfinished workflow rows that were compared.
-  Then the mismatches follow; `(0 rows)` means none.
-- `no execution` on a `running` row: the workflow is stranded.
-- `Completed`, `Failed`, `Canceled`, `Terminated`, or `TimedOut` on a
-  `running` or `draft` row: the workflow finished between the two dumps.
-- `Running` on a `draft` row: this one corrects itself when it finishes.
-- A different `temporal_run_id`: the row points at an older run.
-
-Temporal's visibility database can lag its main database by a few seconds.
-Before you act on a row, confirm it with the Temporal CLI:
+Success looks like one line with the namespace name, for example `default`. The
+commands below use `TEMPORAL_NAMESPACE`; set it to that value:
 
 ```bash
-TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # orchestrator- plus a workflow id from the result
-$COMPOSE_PROD exec temporal temporal workflow describe --address temporal-internal:7233 \
-  --namespace default --workflow-id "$TEMPORAL_WORKFLOW_ID"
+TEMPORAL_NAMESPACE=default   # the value printed above
 ```
 
-The second check lists organization IDs used by orchestrator rows that the API
+The orchestrator reads its settings only when its container is created. After
+you change a value in `docker/.env`, recreate the container with the `up`
+command shown below; `restart` keeps the old value. The bundled stack runs one
+orchestrator container. If your deployment runs several orchestrator replicas,
+do steps 3 and 7 against every one of them.
+
+To repair them:
+
+1. **Check the connection.** The orchestrator must point at the Temporal you
+   restored or re-created. Do all three checks; the acknowledgment tells the
+   orchestrator to trust whatever it is connected to.
+
+   First, print where the orchestrator connects, and compare it with the
+   address of the Temporal you restored or re-created:
+
+   ```bash
+   $COMPOSE_PROD exec orchestrator printenv ORCHESTRATOR_TEMPORAL_HOST
+   ```
+
+   Success looks like one line with the address you expect. If it is a
+   different server, fix `docker/.env`, recreate the container and start again.
+
+   Second, ask that Temporal for the namespace:
+
+   ```bash
+   $COMPOSE_PROD exec temporal temporal operator namespace describe \
+     --address temporal-internal:7233 --namespace "$TEMPORAL_NAMESPACE"
+   ```
+
+   Success looks like the namespace's details. An error means the namespace
+   does not exist on this server: stop here and fix that first.
+
+   Third, decide which case you are in:
+   - **Temporal was restored from a backup** (some executions survived). Ask
+     about one workflow you know was running before the backup was taken:
+
+     ```bash
+     TEMPORAL_WORKFLOW_ID=orchestrator-WORKFLOW_ID   # orchestrator- plus a workflow id
+     $COMPOSE_PROD exec temporal temporal workflow describe --address temporal-internal:7233 \
+       --namespace "$TEMPORAL_NAMESPACE" --workflow-id "$TEMPORAL_WORKFLOW_ID"
+     ```
+
+     Success looks like the workflow's details. If every workflow you try is
+     `not found` although the backup should contain them, the orchestrator may
+     point at the wrong Temporal: stop here and fix the connection first.
+
+   - **Temporal was re-created empty** (every execution was lost). Every
+     workflow is `not found`, and that is expected. Continue only if the first
+     check showed the server you re-created, the second check succeeded, and
+     you have made sure that no other Temporal still holds these executions
+     (for example the old server is gone or shut down). After the procedure,
+     every workflow that was running is marked `failed` with the cause
+     `execution_lost` and can be re-run.
+
+2. **Turn the acknowledgment on.** Add this line to `docker/.env`:
+
+   ```bash
+   ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL=true
+   ```
+
+   Then recreate the orchestrator container so it reads the new value:
+
+   ```bash
+   $COMPOSE_PROD up -d --force-recreate --no-deps --wait orchestrator
+   ```
+
+   Success looks like the command finishing without an error, with the
+   orchestrator container reported as healthy.
+
+3. **Confirm the acknowledgment is on.** Ask the orchestrator:
+
+   ```bash
+   $COMPOSE_PROD exec orchestrator curl -s http://localhost:4010/health/ready
+   ```
+
+   Success looks like `"workflowReconcileTrustCurrentTemporal":true` in the
+   output. If it says `false`, the container still runs with the old setting:
+   repeat step 2. Do not go on until every orchestrator replica says `true`,
+   because a replica without the acknowledgment keeps marking rows
+   `unverifiable`.
+
+4. **Note the cut-off time**, only after step 3 succeeded on every replica:
+
+   ```bash
+   CUTOFF=$(date -u '+%Y-%m-%d %H:%M:%S+00')
+   echo "$CUTOFF"
+   ```
+
+   Success looks like the current time in UTC. Keep this shell open: the next
+   step reads `CUTOFF`.
+
+5. **Wait until the reconciler has finished.** Run this check every few
+   minutes. It reads the cut-off time through `psql -v` and the query from
+   standard input:
+
+   ```bash
+   $COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator \
+     -v ON_ERROR_STOP=1 -v cutoff="$CUTOFF" <<'SQL'
+   select
+     count(*) filter (where execution_checked_at is null or execution_checked_at < :'cutoff')
+       as not_checked_since_cutoff,
+     count(*) filter (where execution_missing_since is not null)
+       as waiting_out_grace,
+     count(*) filter (where execution_observation = 'unverifiable' and execution_checked_at >= :'cutoff')
+       as unverifiable_since_cutoff
+   from workflows
+   where status = 'running' and temporal_workflow_id is not null;
+   SQL
+   ```
+
+   - `not_checked_since_cutoff`: running workflows the reconciler has not
+     checked since the cut-off.
+   - `waiting_out_grace`: workflows that are missing in Temporal and will be
+     marked `failed` (`execution_lost`) when the grace period ends.
+   - `unverifiable_since_cutoff`: workflows still reported as not provable
+     after the cut-off. This should stay `0`. If it does not, a replica is
+     still running without the acknowledgment: go back to step 3.
+
+   Success looks like `0 | 0 | 0`. This takes at least the grace period
+   (default 10 minutes), and longer when many workflows are running: the
+   reconciler checks up to 50 per minute.
+
+6. **Turn the acknowledgment off.** Remove the line from `docker/.env` (or set
+   it to `false`) and recreate the container again:
+
+   ```bash
+   $COMPOSE_PROD up -d --force-recreate --no-deps --wait orchestrator
+   ```
+
+   Success looks like the command finishing without an error.
+
+7. **Confirm the acknowledgment is off**, on every replica:
+
+   ```bash
+   $COMPOSE_PROD exec orchestrator curl -s http://localhost:4010/health/ready
+   ```
+
+   Success looks like `"workflowReconcileTrustCurrentTemporal":false`. The
+   orchestrator also stops logging the acknowledgment warning, and `/metrics`
+   shows `orchestrator_workflow_reconcile_trust_current_temporal 0`.
+
+Rows that are still not provable without the acknowledgment (`unverifiable`):
+
+```bash
+$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -c \
+  "select id, org_id, execution_checked_at from workflows
+    where status = 'running' and execution_observation = 'unverifiable' order by execution_checked_at"
+```
+
+The reconciled list shows which workflows were repaired, when and why, and
+which ones are waiting out the grace period:
+
+```bash
+$COMPOSE_PROD exec -T orchestrator-db psql -U orchestrator -d orchestrator -c \
+  "select id, org_id, status, status_cause, execution_observation, execution_missing_since, reconciled_at
+     from workflows
+    where status_cause is not null or execution_missing_since is not null
+    order by coalesce(reconciled_at, execution_missing_since) desc"
+```
+
+You can also see it in the orchestrator log (one `workflow reconciled from
+Temporal` line per repaired workflow, and a warning when every workflow checked
+in one pass has no execution) and in the `/metrics` counter
+`orchestrator_workflow_reconcile_total{outcome=...}`. A workflow's status read
+(`GET /api/v1/workflows/WORKFLOW_ID/status` on the orchestrator) returns its
+`executionState` (`running`, `missing`, `closed`, `unverifiable` or `unknown`)
+next to the stored cause fields.
+
+Before you run a workflow marked `execution_lost` again, check Temporal first if
+the namespace or address changed recently: when its real execution still runs
+somewhere else, a re-run does the work twice. The same applies after a restore
+from an older backup: steps that were running at backup time can run again.
+
+Known limit — resetting a workflow with Temporal tooling. Forge never resets
+a workflow by itself. If you reset one by hand (Temporal CLI or UI) at the
+moment its last step is writing the result, that abandoned run can still record
+its outcome, so the workflow can show `completed` or `failed` while the reset
+run is still working. It corrects itself when the reset run finishes and
+records its own result. Until then, do not run the workflow again from Forge: a
+re-run ends the execution that is in progress and starts a new one, so the
+reset run's work would be thrown away and repeated. After a manual reset, wait
+until the reset run has closed in Temporal, then check the workflow's status.
+
+The reconciler is on by default (`ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED`).
+
+One check stays manual. It lists organization IDs used by orchestrator rows that the API
 database does not have:
 
 ```bash
@@ -531,8 +716,8 @@ echo "select o as org_id_missing_in_api from unnest(string_to_array(:'ids', ',')
   $COMPOSE_PROD exec -T db psql -U agentforge -d agentforge -v ids="$ORG_IDS"
 ```
 
-Fixing the rows these checks find is manual today, because Forge has no
-supported action for it. Automatic reconciliation is tracked in issue #1352.
+Orchestrator rows of an organization that no longer exists are not removed
+automatically; fixing them is manual.
 
 After a few days of normal operation, remove the old copies. This deletes them
 permanently:

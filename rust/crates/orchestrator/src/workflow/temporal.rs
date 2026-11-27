@@ -9,17 +9,24 @@ use futures::FutureExt;
 use futures::channel::oneshot;
 use futures::future::LocalBoxFuture;
 use futures::pin_mut;
+use prost::Message;
 use serde::{Deserialize, Serialize};
+use temporalio_client::errors::WorkflowInteractionError;
+use temporalio_client::grpc::WorkflowService as TemporalGrpc;
+use temporalio_client::tonic;
 use temporalio_client::{
     Client, ClientOptions, Connection, ConnectionOptions, NamespacedClient, WorkflowCancelOptions,
-    WorkflowExecutionInfo, WorkflowSignalOptions, WorkflowStartOptions,
+    WorkflowDescribeOptions, WorkflowExecutionInfo, WorkflowExecutionStatus, WorkflowSignalOptions,
+    WorkflowStartOptions,
 };
 use temporalio_common::data_converters::{
     GenericPayloadConverter, PayloadConverter, SerializationContext, SerializationContextData,
 };
+use temporalio_common::protos::google::rpc::Status as RpcStatus;
 use temporalio_common::protos::temporal::api::common::v1::Payloads;
 use temporalio_common::protos::temporal::api::common::v1::RetryPolicy;
 use temporalio_common::protos::temporal::api::enums::v1::{WorkflowIdConflictPolicy, WorkflowIdReusePolicy};
+use temporalio_common::protos::temporal::api::workflowservice::v1::DescribeNamespaceRequest;
 use temporalio_common::{HasWorkflowDefinition, WorkflowDefinition};
 use temporalio_sdk::workflow_interceptors::WorkflowOutputValue;
 use temporalio_sdk::workflows::{WorkflowError as TemporalWorkflowError, WorkflowImplementation};
@@ -34,7 +41,10 @@ use super::activities::{
     ExecuteAgentTaskInput, FinalizeWorkflowStatusInput, GateInput, GateOutput, HumanReviewInput, WorkflowActivities,
 };
 use super::errors::{Result as WorkflowApiResult, WorkflowError};
-use super::model::{Decision, NodeStatus, NodeType, SignalRequest, Workflow, WorkflowNode, WorkflowStatus};
+use super::model::{
+    CAUSE_EXECUTION_MISSING, Decision, ExecutionObservation, NodeStatus, NodeType, SignalRequest, Workflow,
+    WorkflowNode, WorkflowStatus,
+};
 use super::runtime::WorkflowRuntime;
 use super::store::Store;
 
@@ -86,29 +96,169 @@ pub struct HumanReviewSignalPayload {
 pub struct TemporalWorkflowRuntime {
     client: Client,
     store: Arc<dyn Store>,
+    /// Operator acknowledgment (#1352): treat "not found" as proven for rows
+    /// whose namespace id cannot be compared with the connected namespace.
+    trust_current_temporal: bool,
 }
 
 impl TemporalWorkflowRuntime {
-    pub fn new(client: Client, store: Arc<dyn Store>) -> Self {
-        Self { client, store }
+    pub fn new(client: Client, store: Arc<dyn Store>, trust_current_temporal: bool) -> Self {
+        Self { client, store, trust_current_temporal }
     }
 
-    fn workflow_handle(
+    fn handle(
         &self,
-        workflow: &Workflow,
-    ) -> WorkflowApiResult<temporalio_client::WorkflowHandle<Client, OrchestratorWorkflowRun>> {
-        let temporal_workflow_id = workflow
-            .temporal_workflow_id
-            .clone()
-            .ok_or_else(|| WorkflowError::Internal("workflow has no temporal execution".to_string()))?;
-        let info = WorkflowExecutionInfo {
-            namespace: self.client.namespace(),
-            workflow_id: temporal_workflow_id,
-            run_id: workflow.temporal_run_id.clone(),
-            first_execution_run_id: workflow.temporal_run_id.clone(),
-        };
-        Ok(temporalio_client::WorkflowHandle::new(self.client.clone(), info))
+        workflow_id: String,
+        run_id: Option<String>,
+        first_execution_run_id: Option<String>,
+    ) -> temporalio_client::WorkflowHandle<Client, OrchestratorWorkflowRun> {
+        let info =
+            WorkflowExecutionInfo { namespace: self.client.namespace(), workflow_id, run_id, first_execution_run_id };
+        temporalio_client::WorkflowHandle::new(self.client.clone(), info)
     }
+
+    /// Server-assigned id of the namespace this client is bound to. Read fresh
+    /// on every call: a re-created Temporal reuses the name but not the id.
+    async fn namespace_id(&self) -> WorkflowApiResult<String> {
+        let mut client = self.client.clone();
+        let request = DescribeNamespaceRequest { namespace: client.namespace(), ..Default::default() };
+        let response = TemporalGrpc::describe_namespace(&mut client, tonic::Request::new(request))
+            .await
+            .map_err(|status| WorkflowError::Unavailable(format!("describe temporal namespace: {status}")))?
+            .into_inner();
+        response
+            .namespace_info
+            .map(|info| info.id)
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| WorkflowError::Unavailable("temporal namespace has no id".to_string()))
+    }
+}
+
+/// True only when Temporal says the WORKFLOW EXECUTION does not exist (#1352).
+///
+/// The SDK maps every gRPC `NotFound` to [`WorkflowInteractionError::NotFound`],
+/// including "namespace not found". Temporal attaches a typed failure to the
+/// status details, so only a `NotFound` carrying
+/// `temporal.api.errordetails.v1.NotFoundFailure` counts. A missing namespace,
+/// a `NotFound` without details, and every other error (timeouts, transport,
+/// permissions, payload conversion) are errors that must change nothing.
+pub(crate) fn is_execution_not_found(err: &WorkflowInteractionError) -> bool {
+    let status = match err {
+        WorkflowInteractionError::NotFound(status) | WorkflowInteractionError::Rpc(status) => status,
+        _ => return false,
+    };
+    status.code() == tonic::Code::NotFound
+        && RpcStatus::decode(status.details()).is_ok_and(|details| {
+            details.details.iter().any(|detail| {
+                detail.type_url.rsplit('/').next() == Some("temporal.api.errordetails.v1.NotFoundFailure")
+            })
+        })
+}
+
+/// Classify a describe of the CURRENT execution (#1352). The one place that
+/// turns a Temporal answer into an observation; `Missing` here is not yet
+/// verified against the namespace (see [`verify_missing`]).
+pub(crate) fn classify_describe(
+    result: std::result::Result<DescribedExecution, WorkflowInteractionError>,
+) -> WorkflowApiResult<ExecutionObservation> {
+    let DescribedExecution { run_id, first_run_id, status } = match result {
+        Ok(described) => described,
+        Err(err) if is_execution_not_found(&err) => return Ok(ExecutionObservation::Missing),
+        Err(err) => return Err(WorkflowError::Unavailable(format!("describe temporal workflow: {err}"))),
+    };
+    let closed = match status {
+        WorkflowExecutionStatus::Completed => WorkflowStatus::Completed,
+        WorkflowExecutionStatus::Failed | WorkflowExecutionStatus::Terminated | WorkflowExecutionStatus::TimedOut => {
+            WorkflowStatus::Failed
+        }
+        WorkflowExecutionStatus::Canceled => WorkflowStatus::Cancelled,
+        // Running, Paused, ContinuedAsNew (a successor exists), Unspecified,
+        // Unknown and anything newer: an execution exists, leave the row alone.
+        _ => return Ok(ExecutionObservation::Running),
+    };
+    Ok(ExecutionObservation::Closed { run_id, first_run_id, status: closed })
+}
+
+/// The parts of a describe response the classifier needs.
+pub(crate) struct DescribedExecution {
+    pub run_id: String,
+    /// First run of the execution chain (`WorkflowExecutionInfo.first_run_id`).
+    pub first_run_id: String,
+    pub status: WorkflowExecutionStatus,
+}
+
+impl DescribedExecution {
+    fn from_description(description: &temporalio_client::WorkflowExecutionDescription) -> Self {
+        let first_run_id = description
+            .raw_description
+            .workflow_execution_info
+            .as_ref()
+            .map(|info| info.first_run_id.clone())
+            .unwrap_or_default();
+        Self { run_id: description.run_id().to_string(), first_run_id, status: description.status() }
+    }
+}
+
+/// First run id of the chain that `run_id` belongs to, from one describe of
+/// that run (#1352). `None` when Temporal cannot tell.
+pub(crate) async fn first_run_id_of(
+    handle: &temporalio_client::WorkflowHandle<Client, OrchestratorWorkflowRun>,
+) -> Option<String> {
+    let description =
+        tokio::time::timeout(FIRST_RUN_LOOKUP_TIMEOUT, handle.describe(WorkflowDescribeOptions::default()))
+            .await
+            .ok()?
+            .ok()?;
+    Some(DescribedExecution::from_description(&description).first_run_id).filter(|id| !id.is_empty())
+}
+
+/// Bound on the finalizer's one describe call for a pre-#1352 input.
+const FIRST_RUN_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// "Not found" is only trusted when the row was started in the namespace the
+/// client is connected to now (same server-assigned id), or when the operator
+/// acknowledged the current Temporal (#1352).
+pub(crate) fn verify_missing(stored_namespace_id: Option<&str>, current_namespace_id: &str, trust: bool) -> bool {
+    trust || stored_namespace_id == Some(current_namespace_id)
+}
+
+/// Temporal accepted the cancel of the execution recorded in `workflow`. Write
+/// `cancelled` only if the row still records that execution and nothing else
+/// changed since it was read (#1352): a delayed cancel of an earlier run must
+/// not overwrite a re-run. If the row moved on, it is fine when it already
+/// says `cancelled` (the workflow finalized itself); otherwise a conflict.
+pub(crate) async fn finish_cancel(store: &dyn Store, workflow: &Workflow) -> WorkflowApiResult<()> {
+    if store.set_status_if_unchanged(workflow, WorkflowStatus::Cancelled).await? {
+        return Ok(());
+    }
+    match store.get_by_id(&workflow.id, &workflow.org_id).await?.status {
+        WorkflowStatus::Cancelled => Ok(()),
+        _ => Err(WorkflowError::ExecutionNotRunning),
+    }
+}
+
+/// Cancel found no execution to cancel (#1352). The user's intent is already
+/// true when the execution is proven missing, so mark the row cancelled under
+/// compare-and-set; anything else (a closed or unverifiable execution, or a
+/// row that changed meanwhile) is a conflict and changes nothing.
+pub(crate) async fn cancel_without_execution(
+    store: &dyn Store,
+    workflow: &Workflow,
+    observation: ExecutionObservation,
+) -> WorkflowApiResult<()> {
+    if observation == ExecutionObservation::Missing
+        && store.reconcile_status(workflow, WorkflowStatus::Cancelled, CAUSE_EXECUTION_MISSING, None).await?
+    {
+        tracing::info!(
+            workflow_id = %workflow.id,
+            org_id = %workflow.org_id,
+            previous_status = workflow.status.as_str(),
+            cause = CAUSE_EXECUTION_MISSING,
+            "workflow cancelled without a temporal execution"
+        );
+        return Ok(());
+    }
+    Err(WorkflowError::ExecutionNotRunning)
 }
 
 #[async_trait::async_trait]
@@ -124,6 +274,16 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
         layers: &[Vec<String>],
     ) -> WorkflowApiResult<()> {
         let temporal_workflow_id = format!("orchestrator-{}", workflow.id);
+        // Recorded so a later "not found" can be proven to come from this same
+        // Temporal (#1352). Unknown stays NULL: such rows are never reconciled
+        // without the operator acknowledgment.
+        let namespace_id = match self.namespace_id().await {
+            Ok(id) => Some(id),
+            Err(err) => {
+                tracing::warn!(error = %err, workflow_id = %workflow.id, "could not read temporal namespace id");
+                None
+            }
+        };
         // Re-running a failed workflow reuses this id, so set explicit policies
         // instead of relying on Temporal's default duplicate behavior (F041):
         // AllowDuplicate permits a fresh run after the prior one closed, and
@@ -153,8 +313,10 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
             .ok_or_else(|| WorkflowError::Internal("temporal workflow start returned empty run id".to_string()))?
             .to_string();
 
-        if let Err(err) =
-            self.store.set_temporal_ids(&workflow.id, &workflow.org_id, temporal_workflow_id, temporal_run_id).await
+        if let Err(err) = self
+            .store
+            .set_temporal_ids(&workflow.id, &workflow.org_id, temporal_workflow_id, temporal_run_id, namespace_id)
+            .await
         {
             let _ = handle.cancel(WorkflowCancelOptions::default()).await;
             return Err(WorkflowError::Internal(format!("persist temporal IDs: {err}")));
@@ -169,12 +331,23 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
     }
 
     async fn cancel_workflow(&self, workflow: &Workflow) -> WorkflowApiResult<()> {
-        let handle = self.workflow_handle(workflow)?;
-        handle
-            .cancel(WorkflowCancelOptions::default())
-            .await
-            .map_err(|err| WorkflowError::Internal(format!("cancel temporal workflow: {err}")))?;
-        self.store.update_status(&workflow.id, &workflow.org_id, WorkflowStatus::Cancelled).await
+        let temporal_workflow_id = workflow
+            .temporal_workflow_id
+            .clone()
+            .ok_or_else(|| WorkflowError::Internal("workflow has no temporal execution".to_string()))?;
+        // Target the execution chain started for this row, not one pinned run:
+        // after a reset or retry the current run has a different run id.
+        let handle = self.handle(temporal_workflow_id, None, workflow.temporal_run_id.clone());
+        match handle.cancel(WorkflowCancelOptions::default()).await {
+            Ok(()) => finish_cancel(self.store.as_ref(), workflow).await,
+            // Temporal also answers NotFound for "already completed", so ask
+            // what is there before writing anything.
+            Err(err) if is_execution_not_found(&err) => {
+                let observation = self.observe_execution(workflow).await?;
+                cancel_without_execution(self.store.as_ref(), workflow, observation).await
+            }
+            Err(err) => Err(WorkflowError::Internal(format!("cancel temporal workflow: {err}"))),
+        }
     }
 
     async fn signal_workflow(
@@ -187,7 +360,14 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
         let decision = signal
             .decision
             .ok_or_else(|| WorkflowError::InvalidInput("decision must be 'approve' or 'reject'".to_string()))?;
-        let handle = self.workflow_handle(workflow)?;
+        let temporal_workflow_id = workflow
+            .temporal_workflow_id
+            .clone()
+            .ok_or_else(|| WorkflowError::Internal("workflow has no temporal execution".to_string()))?;
+        // No run id: Temporal delivers the signal to the CURRENT execution of
+        // this workflow id, so a successor after continue-as-new, reset or retry
+        // still receives it. Only "no running execution" becomes the conflict.
+        let handle = self.handle(temporal_workflow_id, None, None);
         let payload = HumanReviewSignalPayload { node_id: node_id.clone(), decision, comment: signal.comment.clone() };
 
         handle
@@ -197,7 +377,13 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
                 WorkflowSignalOptions::default(),
             )
             .await
-            .map_err(|err| WorkflowError::Internal(format!("signal temporal workflow: {err}")))?;
+            .map_err(|err| {
+                if is_execution_not_found(&err) {
+                    WorkflowError::ExecutionNotRunning
+                } else {
+                    WorkflowError::Internal(format!("signal temporal workflow: {err}"))
+                }
+            })?;
 
         let (status, error) = match decision {
             Decision::Approve => (NodeStatus::Completed, None),
@@ -205,6 +391,31 @@ impl WorkflowRuntime for TemporalWorkflowRuntime {
         };
         self.store.update_node_status(&node_id, status, error, None).await?;
         Ok(())
+    }
+
+    async fn observe_execution(&self, workflow: &Workflow) -> WorkflowApiResult<ExecutionObservation> {
+        let temporal_workflow_id = workflow
+            .temporal_workflow_id
+            .clone()
+            .ok_or_else(|| WorkflowError::Unavailable("workflow has no temporal execution".to_string()))?;
+        // No run id: ask about the CURRENT execution of this workflow id, so a
+        // missing historical run never ends a row whose successor still runs.
+        let described = self
+            .handle(temporal_workflow_id, None, None)
+            .describe(WorkflowDescribeOptions::default())
+            .await
+            .map(|description| DescribedExecution::from_description(&description));
+        let observation = classify_describe(described)?;
+        if observation != ExecutionObservation::Missing {
+            return Ok(observation);
+        }
+        let current_namespace_id = self.namespace_id().await?;
+        if verify_missing(workflow.temporal_namespace_id.as_deref(), &current_namespace_id, self.trust_current_temporal)
+        {
+            Ok(ExecutionObservation::Missing)
+        } else {
+            Ok(ExecutionObservation::Unverifiable)
+        }
     }
 }
 
@@ -520,7 +731,12 @@ async fn finalize_workflow_status(
 ) -> std::result::Result<(), WorkflowTermination> {
     ctx.execute_activity(
         WorkflowActivities::finalize_workflow_status,
-        FinalizeWorkflowStatusInput { workflow_id: input.workflow_id.clone(), org_id: input.org_id.clone(), status },
+        FinalizeWorkflowStatusInput {
+            workflow_id: input.workflow_id.clone(),
+            org_id: input.org_id.clone(),
+            status,
+            first_execution_run_id: Some(ctx.info().first_execution_run_id().to_string()),
+        },
         finalize_activity_options(),
     )
     .await
@@ -659,5 +875,496 @@ mod tests {
             OrchestratorWorkflow::decode_signal_input("unknown", Payloads::default(), &converter).unwrap().is_none()
         );
         assert!(OrchestratorWorkflow::definition().signals.is_empty());
+    }
+
+    // ---- #1352: classification of raw Temporal answers ----
+
+    const NOT_FOUND_FAILURE: &str = "temporal.api.errordetails.v1.NotFoundFailure";
+    const NAMESPACE_NOT_FOUND_FAILURE: &str = "temporal.api.errordetails.v1.NamespaceNotFoundFailure";
+
+    /// A gRPC status as the Temporal frontend sends it: the typed failure is a
+    /// `google.rpc.Status` detail.
+    fn grpc_status(code: tonic::Code, detail_type: Option<&str>) -> tonic::Status {
+        let Some(detail_type) = detail_type else {
+            return tonic::Status::new(code, "boom");
+        };
+        let mut details = RpcStatus { code: code as i32, message: "boom".to_string(), ..Default::default() };
+        details.details.push(Default::default());
+        details.details[0].type_url = format!("type.googleapis.com/{detail_type}");
+        tonic::Status::with_details(code, "boom", details.encode_to_vec().into())
+    }
+
+    /// The SDK's own mapping (`WorkflowInteractionError::from_status` is
+    /// crate-private): NotFound becomes `NotFound`, everything else `Rpc`.
+    fn sdk_error(status: tonic::Status) -> WorkflowInteractionError {
+        if status.code() == tonic::Code::NotFound {
+            WorkflowInteractionError::NotFound(status)
+        } else {
+            WorkflowInteractionError::Rpc(status)
+        }
+    }
+
+    fn classify_error(err: WorkflowInteractionError) -> WorkflowApiResult<ExecutionObservation> {
+        classify_describe(Err(err))
+    }
+
+    #[test]
+    fn execution_not_found_is_missing() {
+        let err = sdk_error(grpc_status(tonic::Code::NotFound, Some(NOT_FOUND_FAILURE)));
+        assert!(is_execution_not_found(&err));
+        assert_eq!(classify_error(err).unwrap(), ExecutionObservation::Missing);
+    }
+
+    #[test]
+    fn namespace_not_found_is_an_error_not_missing() {
+        let err = sdk_error(grpc_status(tonic::Code::NotFound, Some(NAMESPACE_NOT_FOUND_FAILURE)));
+        assert!(!is_execution_not_found(&err));
+        assert!(matches!(classify_error(err), Err(WorkflowError::Unavailable(_))));
+    }
+
+    #[test]
+    fn not_found_without_typed_details_is_an_error() {
+        let err = sdk_error(grpc_status(tonic::Code::NotFound, None));
+        assert!(matches!(classify_error(err), Err(WorkflowError::Unavailable(_))));
+    }
+
+    #[test]
+    fn timeout_from_temporal_is_unreachable_not_missing() {
+        for code in [tonic::Code::DeadlineExceeded, tonic::Code::Unavailable, tonic::Code::PermissionDenied] {
+            let err = sdk_error(grpc_status(code, Some(NOT_FOUND_FAILURE)));
+            assert!(!is_execution_not_found(&err), "{code:?} must not count as missing");
+            assert!(matches!(classify_error(err), Err(WorkflowError::Unavailable(_))), "{code:?}");
+        }
+        let other = WorkflowInteractionError::Other(Box::new(std::io::Error::other("transport closed")));
+        assert!(matches!(classify_error(other), Err(WorkflowError::Unavailable(_))));
+    }
+
+    fn described_as(run_id: &str, first_run_id: &str, status: WorkflowExecutionStatus) -> DescribedExecution {
+        DescribedExecution { run_id: run_id.to_string(), first_run_id: first_run_id.to_string(), status }
+    }
+
+    #[test]
+    fn chain_membership_is_decided_by_the_first_run() {
+        assert!(crate::workflow::belongs_to_recorded_chain(Some("run-a"), "run-a", "run-a"), "the recorded run itself");
+        assert!(
+            crate::workflow::belongs_to_recorded_chain(Some("run-a"), "run-b", "run-a"),
+            "a continued run of chain A"
+        );
+        assert!(!crate::workflow::belongs_to_recorded_chain(Some("run-a"), "run-x", "run-x"), "a different chain");
+        assert!(!crate::workflow::belongs_to_recorded_chain(None, "run-a", "run-a"));
+        assert!(!crate::workflow::belongs_to_recorded_chain(Some(""), "", ""));
+    }
+
+    #[test]
+    fn terminal_statuses_are_closed_with_the_matching_workflow_status() {
+        for (status, expected) in [
+            (WorkflowExecutionStatus::Completed, WorkflowStatus::Completed),
+            (WorkflowExecutionStatus::Failed, WorkflowStatus::Failed),
+            (WorkflowExecutionStatus::Terminated, WorkflowStatus::Failed),
+            (WorkflowExecutionStatus::TimedOut, WorkflowStatus::Failed),
+            (WorkflowExecutionStatus::Canceled, WorkflowStatus::Cancelled),
+        ] {
+            assert_eq!(
+                classify_describe(Ok(described_as("run-1", "run-1", status))).unwrap(),
+                ExecutionObservation::Closed {
+                    run_id: "run-1".to_string(),
+                    first_run_id: "run-1".to_string(),
+                    status: expected
+                },
+                "{status:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn existing_non_terminal_executions_are_left_alone() {
+        // Continue-as-new, a reset or a retry leave a successor; paused and
+        // unknown statuses still mean an execution exists.
+        for status in [
+            WorkflowExecutionStatus::Running,
+            WorkflowExecutionStatus::Paused,
+            WorkflowExecutionStatus::ContinuedAsNew,
+            WorkflowExecutionStatus::Unspecified,
+            WorkflowExecutionStatus::Unknown,
+        ] {
+            assert_eq!(
+                classify_describe(Ok(described_as("successor-run", "run-1", status))).unwrap(),
+                ExecutionObservation::Running,
+                "{status:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn missing_is_only_trusted_for_the_same_namespace_or_with_acknowledgment() {
+        assert!(verify_missing(Some("ns-1"), "ns-1", false));
+        assert!(!verify_missing(Some("ns-old"), "ns-1", false), "a different Temporal proves nothing");
+        assert!(!verify_missing(None, "ns-1", false), "rows started before #1352 are unverifiable");
+        assert!(verify_missing(None, "ns-1", true));
+        assert!(verify_missing(Some("ns-old"), "ns-1", true));
+    }
+
+    // ---- #1352: cancel when Temporal has no execution ----
+
+    async fn running_workflow(store: &crate::workflow::MemoryStore) -> Workflow {
+        let mut workflow = Workflow {
+            id: String::new(),
+            name: "wf".to_string(),
+            description: String::new(),
+            status: WorkflowStatus::Draft,
+            org_id: "org-a".to_string(),
+            created_by: "user".to_string(),
+            temporal_workflow_id: None,
+            temporal_run_id: None,
+            temporal_namespace_id: None,
+            status_cause: None,
+            execution_missing_since: None,
+            execution_checked_at: None,
+            execution_observation: None,
+            reconciled_at: None,
+            state_version: 0,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        store.create(&mut workflow, &mut Vec::new()).await.unwrap();
+        store
+            .set_temporal_ids(&workflow.id, "org-a", "orchestrator-x".into(), "run-1".into(), Some("ns-1".into()))
+            .await
+            .unwrap();
+        store.update_status(&workflow.id, "org-a", WorkflowStatus::Running).await.unwrap();
+        store.get_by_id(&workflow.id, "org-a").await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn cancel_on_missing_execution_marks_cancelled_with_cause() {
+        let store = crate::workflow::MemoryStore::new();
+        let workflow = running_workflow(&store).await;
+        cancel_without_execution(&store, &workflow, ExecutionObservation::Missing).await.expect("cancel succeeds");
+        let after = store.get_by_id(&workflow.id, "org-a").await.unwrap();
+        assert_eq!(after.status, WorkflowStatus::Cancelled);
+        assert_eq!(after.status_cause.as_deref(), Some(CAUSE_EXECUTION_MISSING));
+        assert!(after.reconciled_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn cancel_without_proof_or_after_a_concurrent_change_is_a_conflict_and_changes_nothing() {
+        let store = crate::workflow::MemoryStore::new();
+        let workflow = running_workflow(&store).await;
+        for observation in [
+            ExecutionObservation::Unverifiable,
+            ExecutionObservation::Closed {
+                run_id: "run-1".into(),
+                first_run_id: "run-1".into(),
+                status: WorkflowStatus::Completed,
+            },
+            ExecutionObservation::Running,
+        ] {
+            let result = cancel_without_execution(&store, &workflow, observation.clone()).await;
+            assert!(matches!(result, Err(WorkflowError::ExecutionNotRunning)), "{observation:?}");
+            assert_eq!(store.get_by_id(&workflow.id, "org-a").await.unwrap().status, WorkflowStatus::Running);
+        }
+        // The row completed between the read and the cancel: it is preserved.
+        store.update_status(&workflow.id, "org-a", WorkflowStatus::Completed).await.unwrap();
+        let result = cancel_without_execution(&store, &workflow, ExecutionObservation::Missing).await;
+        assert!(matches!(result, Err(WorkflowError::ExecutionNotRunning)));
+        assert_eq!(store.get_by_id(&workflow.id, "org-a").await.unwrap().status, WorkflowStatus::Completed);
+    }
+
+    // ---- #1352: the real client glue against an in-process Temporal stub ----
+    //
+    // `ConnectionOptions::service_override` routes every gRPC call of the real
+    // SDK client to this callback, so describe, describe-namespace, cancel and
+    // signal run through `TemporalWorkflowRuntime` exactly as in production,
+    // including the SDK's error mapping and the status details on the wire.
+
+    use temporalio_client::callback_based::{CallbackBasedGrpcService, GrpcRequest, GrpcSuccessResponse};
+    use temporalio_common::protos::temporal::api::common::v1::WorkflowExecution as ProtoExecution;
+    use temporalio_common::protos::temporal::api::enums::v1::WorkflowExecutionStatus as ProtoStatus;
+    use temporalio_common::protos::temporal::api::namespace::v1::NamespaceInfo;
+    use temporalio_common::protos::temporal::api::workflow::v1::WorkflowExecutionInfo as ProtoExecutionInfo;
+    use temporalio_common::protos::temporal::api::workflowservice::v1::{
+        DescribeNamespaceResponse, DescribeWorkflowExecutionRequest, DescribeWorkflowExecutionResponse,
+        GetSystemInfoResponse, RequestCancelWorkflowExecutionResponse, SignalWorkflowExecutionRequest,
+        SignalWorkflowExecutionResponse,
+    };
+
+    type StubResult = std::result::Result<Vec<u8>, tonic::Status>;
+    type Responder = Arc<dyn Fn(GrpcRequest) -> futures::future::BoxFuture<'static, StubResult> + Send + Sync>;
+
+    fn execution_not_found() -> tonic::Status {
+        grpc_status(tonic::Code::NotFound, Some(NOT_FOUND_FAILURE))
+    }
+
+    fn namespace_response(id: &str) -> StubResult {
+        let info = NamespaceInfo { id: id.to_string(), name: "orchestrator".to_string(), ..Default::default() };
+        Ok(DescribeNamespaceResponse { namespace_info: Some(info), ..Default::default() }.encode_to_vec())
+    }
+
+    fn described(run_id: &str, first_run_id: &str, status: ProtoStatus) -> StubResult {
+        let info = ProtoExecutionInfo {
+            execution: Some(ProtoExecution { workflow_id: "orchestrator-x".to_string(), run_id: run_id.to_string() }),
+            status: status as i32,
+            first_run_id: first_run_id.to_string(),
+            ..Default::default()
+        };
+        Ok(DescribeWorkflowExecutionResponse { workflow_execution_info: Some(info), ..Default::default() }
+            .encode_to_vec())
+    }
+
+    async fn stub_runtime(store: Arc<dyn Store>, trust: bool, respond: Responder) -> TemporalWorkflowRuntime {
+        let service = CallbackBasedGrpcService {
+            callback: Arc::new(
+                move |request: GrpcRequest| -> futures::future::BoxFuture<
+                    'static,
+                    std::result::Result<GrpcSuccessResponse, tonic::Status>,
+                > {
+                    let respond = respond.clone();
+                    Box::pin(async move {
+                        let proto = if request.rpc == "GetSystemInfo" {
+                            GetSystemInfoResponse::default().encode_to_vec()
+                        } else {
+                            respond(request).await?
+                        };
+                        Ok(GrpcSuccessResponse { headers: Default::default(), proto })
+                    })
+                },
+            ),
+        };
+        let options = ConnectionOptions::new(Url::parse("http://localhost:7233").unwrap())
+            .service_override(service)
+            .dns_load_balancing(None)
+            .build();
+        let connection = Connection::connect(options).await.expect("connect to stub");
+        let client = Client::new(connection, ClientOptions::new("orchestrator".to_string()).build()).expect("client");
+        TemporalWorkflowRuntime::new(client, store, trust)
+    }
+
+    /// A store with one running workflow (one human-review node), started as
+    /// `orchestrator-x` / `run-1` in namespace `namespace_id`.
+    async fn store_with_running(namespace_id: Option<&str>) -> (Arc<crate::workflow::MemoryStore>, Workflow) {
+        let store = Arc::new(crate::workflow::MemoryStore::new());
+        let mut workflow = Workflow {
+            id: String::new(),
+            name: "wf".to_string(),
+            description: String::new(),
+            status: WorkflowStatus::Draft,
+            org_id: "org-a".to_string(),
+            created_by: "user".to_string(),
+            temporal_workflow_id: None,
+            temporal_run_id: None,
+            temporal_namespace_id: None,
+            status_cause: None,
+            execution_missing_since: None,
+            execution_checked_at: None,
+            execution_observation: None,
+            reconciled_at: None,
+            state_version: 0,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        let mut nodes = vec![WorkflowNode {
+            id: String::new(),
+            workflow_id: String::new(),
+            name: "review".to_string(),
+            node_type: NodeType::HumanReview,
+            depends_on: vec![],
+            config: None,
+            position: 0,
+            status: NodeStatus::Running,
+            started_at: None,
+            completed_at: None,
+            error: None,
+            output: None,
+        }];
+        store.create(&mut workflow, &mut nodes).await.unwrap();
+        store
+            .set_temporal_ids(
+                &workflow.id,
+                "org-a",
+                "orchestrator-x".into(),
+                "run-1".into(),
+                namespace_id.map(str::to_string),
+            )
+            .await
+            .unwrap();
+        store.update_status(&workflow.id, "org-a", WorkflowStatus::Running).await.unwrap();
+        let workflow = store.get_by_id(&workflow.id, "org-a").await.unwrap();
+        (store, workflow)
+    }
+
+    /// Describe answers "execution not found", the namespace id is `ns-1`.
+    fn missing_everywhere(describe_run_ids: Arc<std::sync::Mutex<Vec<String>>>) -> Responder {
+        Arc::new(move |request: GrpcRequest| -> futures::future::BoxFuture<'static, StubResult> {
+            let describe_run_ids = describe_run_ids.clone();
+            Box::pin(async move {
+                match request.rpc.as_str() {
+                    "DescribeWorkflowExecution" => {
+                        let req = DescribeWorkflowExecutionRequest::decode(request.proto).unwrap();
+                        describe_run_ids.lock().unwrap().push(req.execution.unwrap_or_default().run_id);
+                        Err(execution_not_found())
+                    }
+                    "DescribeNamespace" => namespace_response("ns-1"),
+                    "RequestCancelWorkflowExecution" => Err(execution_not_found()),
+                    other => Err(tonic::Status::unimplemented(other.to_string())),
+                }
+            })
+        })
+    }
+
+    #[tokio::test]
+    async fn real_client_missing_is_proven_only_for_the_same_namespace() {
+        for (stored, expected) in [
+            (Some("ns-1"), ExecutionObservation::Missing),
+            (Some("ns-old"), ExecutionObservation::Unverifiable),
+            (None, ExecutionObservation::Unverifiable),
+        ] {
+            let run_ids = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let (store, workflow) = store_with_running(stored).await;
+            let runtime = stub_runtime(store, false, missing_everywhere(run_ids.clone())).await;
+            assert_eq!(runtime.observe_execution(&workflow).await.unwrap(), expected, "stored {stored:?}");
+            assert_eq!(*run_ids.lock().unwrap(), vec![String::new()], "describe asks about the CURRENT execution");
+        }
+        // The acknowledgment makes an unverifiable row count.
+        let (store, workflow) = store_with_running(None).await;
+        let runtime = stub_runtime(store, true, missing_everywhere(Default::default())).await;
+        assert_eq!(runtime.observe_execution(&workflow).await.unwrap(), ExecutionObservation::Missing);
+    }
+
+    #[tokio::test]
+    async fn real_client_namespace_not_found_is_an_error() {
+        let (store, workflow) = store_with_running(Some("ns-1")).await;
+        let respond: Responder = Arc::new(|_request: GrpcRequest| -> futures::future::BoxFuture<'static, StubResult> {
+            Box::pin(async { Err(grpc_status(tonic::Code::NotFound, Some(NAMESPACE_NOT_FOUND_FAILURE))) })
+        });
+        let runtime = stub_runtime(store, false, respond).await;
+        assert!(matches!(runtime.observe_execution(&workflow).await, Err(WorkflowError::Unavailable(_))));
+    }
+
+    #[tokio::test]
+    async fn real_client_running_successor_and_closed_recorded_run() {
+        for (run_id, status, expected) in [
+            ("run-2", ProtoStatus::Running, ExecutionObservation::Running),
+            (
+                "run-2",
+                ProtoStatus::Completed,
+                // The first run id comes off the wire (`first_run_id`, field 21).
+                ExecutionObservation::Closed {
+                    run_id: "run-2".into(),
+                    first_run_id: "run-1".into(),
+                    status: WorkflowStatus::Completed,
+                },
+            ),
+        ] {
+            let (store, workflow) = store_with_running(Some("ns-1")).await;
+            let respond: Responder =
+                Arc::new(move |_request: GrpcRequest| -> futures::future::BoxFuture<'static, StubResult> {
+                    Box::pin(async move { described(run_id, "run-1", status) })
+                });
+            let runtime = stub_runtime(store, false, respond).await;
+            assert_eq!(runtime.observe_execution(&workflow).await.unwrap(), expected);
+        }
+    }
+
+    #[tokio::test]
+    async fn real_client_cancel_on_missing_execution_marks_cancelled() {
+        let (store, workflow) = store_with_running(Some("ns-1")).await;
+        let runtime = stub_runtime(store.clone(), false, missing_everywhere(Default::default())).await;
+        runtime.cancel_workflow(&workflow).await.expect("cancel succeeds");
+        let after = store.get_by_id(&workflow.id, "org-a").await.unwrap();
+        assert_eq!(after.status, WorkflowStatus::Cancelled);
+        assert_eq!(after.status_cause.as_deref(), Some(CAUSE_EXECUTION_MISSING));
+    }
+
+    /// Temporal accepts the cancel; `rerun_before_reply` makes a re-run record
+    /// `run-2` while the cancel of `run-1` is in flight.
+    fn accepting_cancel(store: Arc<crate::workflow::MemoryStore>, id: String, rerun_before_reply: bool) -> Responder {
+        Arc::new(move |request: GrpcRequest| -> futures::future::BoxFuture<'static, StubResult> {
+            let store = store.clone();
+            let id = id.clone();
+            Box::pin(async move {
+                match request.rpc.as_str() {
+                    "RequestCancelWorkflowExecution" => {
+                        if rerun_before_reply {
+                            store
+                                .set_temporal_ids(&id, "org-a", "orchestrator-x".into(), "run-2".into(), None)
+                                .await
+                                .unwrap();
+                        }
+                        Ok(RequestCancelWorkflowExecutionResponse::default().encode_to_vec())
+                    }
+                    other => Err(tonic::Status::unimplemented(other.to_string())),
+                }
+            })
+        })
+    }
+
+    #[tokio::test]
+    async fn real_client_cancel_marks_cancelled() {
+        let (store, workflow) = store_with_running(Some("ns-1")).await;
+        let runtime =
+            stub_runtime(store.clone(), false, accepting_cancel(store.clone(), workflow.id.clone(), false)).await;
+        runtime.cancel_workflow(&workflow).await.expect("cancel succeeds");
+        assert_eq!(store.get_by_id(&workflow.id, "org-a").await.unwrap().status, WorkflowStatus::Cancelled);
+    }
+
+    #[tokio::test]
+    async fn real_client_delayed_cancel_of_an_earlier_run_cannot_overwrite_a_rerun() {
+        let (store, workflow) = store_with_running(Some("ns-1")).await;
+        let runtime =
+            stub_runtime(store.clone(), false, accepting_cancel(store.clone(), workflow.id.clone(), true)).await;
+        let result = runtime.cancel_workflow(&workflow).await;
+        assert!(matches!(result, Err(WorkflowError::ExecutionNotRunning)), "got {result:?}");
+        let after = store.get_by_id(&workflow.id, "org-a").await.unwrap();
+        assert_eq!(after.temporal_run_id.as_deref(), Some("run-2"));
+        assert_eq!(after.status, WorkflowStatus::Running, "the row keeps run-2's state");
+    }
+
+    /// Signals reach the run Temporal resolves as current; a request pinned to
+    /// a run id is answered like the closed `run-1` ("already completed").
+    fn signal_responder(any_running: bool, seen_run_ids: Arc<std::sync::Mutex<Vec<String>>>) -> Responder {
+        Arc::new(move |request: GrpcRequest| -> futures::future::BoxFuture<'static, StubResult> {
+            let seen_run_ids = seen_run_ids.clone();
+            Box::pin(async move {
+                match request.rpc.as_str() {
+                    "SignalWorkflowExecution" => {
+                        let req = SignalWorkflowExecutionRequest::decode(request.proto).unwrap();
+                        let run_id = req.workflow_execution.unwrap_or_default().run_id;
+                        seen_run_ids.lock().unwrap().push(run_id.clone());
+                        if any_running && run_id.is_empty() {
+                            Ok(SignalWorkflowExecutionResponse::default().encode_to_vec())
+                        } else {
+                            Err(execution_not_found())
+                        }
+                    }
+                    other => Err(tonic::Status::unimplemented(other.to_string())),
+                }
+            })
+        })
+    }
+
+    fn approve(node_id: &str) -> SignalRequest {
+        SignalRequest { node_id: Some(node_id.to_string()), decision: Some(Decision::Approve), comment: None }
+    }
+
+    #[tokio::test]
+    async fn real_client_signal_reaches_a_successor_of_the_recorded_run() {
+        let (store, workflow) = store_with_running(Some("ns-1")).await;
+        let node_id = store.get_nodes(&workflow.id).await.unwrap()[0].id.clone();
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let runtime = stub_runtime(store.clone(), false, signal_responder(true, seen.clone())).await;
+        runtime.signal_workflow(&workflow, approve(&node_id), &[]).await.expect("signal succeeds");
+        assert_eq!(*seen.lock().unwrap(), vec![String::new()], "the signal targets the current execution");
+        assert_eq!(store.get_nodes(&workflow.id).await.unwrap()[0].status, NodeStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn real_client_signal_without_a_running_execution_is_a_coded_conflict() {
+        let (store, workflow) = store_with_running(Some("ns-1")).await;
+        let node_id = store.get_nodes(&workflow.id).await.unwrap()[0].id.clone();
+        let before = store.get_nodes(&workflow.id).await.unwrap()[0].status;
+        let runtime = stub_runtime(store.clone(), false, signal_responder(false, Default::default())).await;
+        let result = runtime.signal_workflow(&workflow, approve(&node_id), &[]).await;
+        assert!(matches!(result, Err(WorkflowError::ExecutionNotRunning)), "got {result:?}");
+        assert_eq!(store.get_nodes(&workflow.id).await.unwrap()[0].status, before, "nothing written");
     }
 }

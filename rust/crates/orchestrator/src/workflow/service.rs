@@ -1,24 +1,50 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use super::dag::validate_dag;
 use super::errors::{Result, WorkflowError};
-use super::model::{NodeHistory, NodeRequest, SignalRequest, Workflow, WorkflowNode, WorkflowStatus};
+use tokio::sync::Semaphore;
+
+use super::model::{
+    ExecutionObservation, ExecutionState, NodeHistory, NodeRequest, SignalRequest, Workflow, WorkflowNode,
+    WorkflowStatus,
+};
 use super::runtime::WorkflowRuntime;
 use super::store::Store;
+
+/// Upper bound on ALL optional work in a status read (#1352): the live
+/// Temporal lookup and its bookkeeping. A slow Temporal delays the read by at
+/// most this much and never fails it.
+const STATUS_READ_OBSERVE_TIMEOUT: Duration = Duration::from_secs(2);
+/// Live lookups that status reads may run at once. A read that finds no free
+/// permit skips the lookup instead of waiting.
+const STATUS_READ_OBSERVE_PERMITS: usize = 4;
 
 #[derive(Clone)]
 pub struct WorkflowService {
     store: Arc<dyn Store>,
     runtime: Arc<dyn WorkflowRuntime>,
+    observe_permits: Arc<Semaphore>,
 }
 
 impl WorkflowService {
     pub fn new(store: Arc<dyn Store>, runtime: Arc<dyn WorkflowRuntime>) -> Self {
-        Self { store, runtime }
+        Self { store, runtime, observe_permits: Arc::new(Semaphore::new(STATUS_READ_OBSERVE_PERMITS)) }
+    }
+
+    /// Override how many status-read lookups may run at once (tests use 0).
+    pub fn with_status_observe_permits(mut self, permits: usize) -> Self {
+        self.observe_permits = Arc::new(Semaphore::new(permits));
+        self
     }
 
     pub fn runtime_kind(&self) -> &'static str {
         self.runtime.kind()
+    }
+
+    /// The runtime behind this service, for the execution reconciler (#1352).
+    pub fn runtime(&self) -> Arc<dyn WorkflowRuntime> {
+        self.runtime.clone()
     }
 
     pub async fn start_workflow(&self, workflow_id: &str, org_id: &str) -> Result<Workflow> {
@@ -44,10 +70,48 @@ impl WorkflowService {
         self.store.get_by_id(workflow_id, org_id).await
     }
 
-    pub async fn get_status(&self, workflow_id: &str, org_id: &str) -> Result<(Workflow, Vec<WorkflowNode>)> {
+    /// Stored workflow and nodes, plus a bounded live look at its execution
+    /// while the row says `running` (#1352). The look is optional: it is
+    /// skipped when too many run at once, it is bounded by one timeout, and any
+    /// failure in it returns the stored row with state `unknown`. It never ends
+    /// the workflow and never moves the reconciler's check time; it may only
+    /// record when the execution was first seen missing.
+    pub async fn get_status(
+        &self,
+        workflow_id: &str,
+        org_id: &str,
+    ) -> Result<(Workflow, Vec<WorkflowNode>, Option<ExecutionState>)> {
         let workflow = self.store.get_by_id(workflow_id, org_id).await?;
         let nodes = self.store.get_nodes(workflow_id).await?;
-        Ok((workflow, nodes))
+        if workflow.status != WorkflowStatus::Running || workflow.temporal_workflow_id.is_none() {
+            return Ok((workflow, nodes, None));
+        }
+        let Ok(_permit) = self.observe_permits.try_acquire() else {
+            return Ok((workflow, nodes, Some(ExecutionState::Unknown)));
+        };
+        match tokio::time::timeout(STATUS_READ_OBSERVE_TIMEOUT, self.observe_for_read(&workflow)).await {
+            Ok(Ok((observed, state))) => Ok((observed, nodes, Some(state))),
+            Ok(Err(err)) => {
+                tracing::debug!(error = %err, workflow_id, "status read: live execution lookup failed");
+                Ok((workflow, nodes, Some(ExecutionState::Unknown)))
+            }
+            Err(_) => Ok((workflow, nodes, Some(ExecutionState::Unknown))),
+        }
+    }
+
+    async fn observe_for_read(&self, workflow: &Workflow) -> Result<(Workflow, ExecutionState)> {
+        let state = match self.runtime.observe_execution(workflow).await? {
+            ExecutionObservation::Running => ExecutionState::Running,
+            ExecutionObservation::Closed { .. } => ExecutionState::Closed,
+            ExecutionObservation::Unverifiable => ExecutionState::Unverifiable,
+            ExecutionObservation::Missing => {
+                if workflow.execution_missing_since.is_none() && self.store.mark_execution_missing(workflow).await? {
+                    return Ok((self.store.get_by_id(&workflow.id, &workflow.org_id).await?, ExecutionState::Missing));
+                }
+                ExecutionState::Missing
+            }
+        };
+        Ok((workflow.clone(), state))
     }
 
     pub async fn cancel_workflow(&self, workflow_id: &str, org_id: &str) -> Result<()> {
@@ -99,7 +163,7 @@ mod tests {
     use super::WorkflowService;
     use crate::workflow::errors::{Result as WfResult, WorkflowError};
     use crate::workflow::model::{
-        Decision, NodeHistory, NodeStatus, NodeType, SignalRequest, Workflow, WorkflowNode, WorkflowStatus,
+        Decision, MissingMark, NodeHistory, NodeStatus, NodeType, SignalRequest, Workflow, WorkflowNode, WorkflowStatus,
     };
     use crate::workflow::runtime::WorkflowRuntime;
     use crate::workflow::store::Store;
@@ -114,6 +178,13 @@ mod tests {
             created_by: "user".into(),
             temporal_workflow_id: None,
             temporal_run_id: None,
+            temporal_namespace_id: None,
+            status_cause: None,
+            execution_missing_since: None,
+            execution_checked_at: None,
+            execution_observation: None,
+            reconciled_at: None,
+            state_version: 0,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -165,8 +236,45 @@ mod tests {
         async fn update_status(&self, _id: &str, _org: &str, _status: WorkflowStatus) -> WfResult<()> {
             Ok(())
         }
-        async fn set_temporal_ids(&self, _id: &str, _org: &str, _wf: String, _run: String) -> WfResult<()> {
+        async fn set_temporal_ids(
+            &self,
+            _id: &str,
+            _org: &str,
+            _wf: String,
+            _run: String,
+            _namespace_id: Option<String>,
+        ) -> WfResult<()> {
             Ok(())
+        }
+        async fn update_status_for_run(
+            &self,
+            _id: &str,
+            _org: &str,
+            _run: &str,
+            _status: WorkflowStatus,
+        ) -> WfResult<bool> {
+            Ok(true)
+        }
+        async fn reconcile_candidates(&self, _limit: usize) -> WfResult<Vec<Workflow>> {
+            Ok(vec![])
+        }
+        async fn record_execution_check(&self, _w: &Workflow, _mark: MissingMark, _o: &str) -> WfResult<bool> {
+            Ok(false)
+        }
+        async fn mark_execution_missing(&self, _w: &Workflow) -> WfResult<bool> {
+            Err(WorkflowError::Internal("bookkeeping store is down".to_string()))
+        }
+        async fn set_status_if_unchanged(&self, _w: &Workflow, _status: WorkflowStatus) -> WfResult<bool> {
+            Ok(true)
+        }
+        async fn reconcile_status(
+            &self,
+            _w: &Workflow,
+            _status: WorkflowStatus,
+            _cause: &str,
+            _missing_for_secs: Option<u64>,
+        ) -> WfResult<bool> {
+            Ok(false)
         }
         async fn update_node_status(
             &self,
@@ -300,5 +408,60 @@ mod tests {
         service.start_workflow("wf-1", "org-a").await.expect("draft run should start");
 
         assert_eq!(store.nodes.lock().unwrap()[0].status, NodeStatus::Running, "draft run must not reset nodes");
+    }
+
+    /// Temporal answers "proven missing" for every workflow; counts calls.
+    struct MissingRuntime {
+        calls: std::sync::atomic::AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl WorkflowRuntime for MissingRuntime {
+        fn kind(&self) -> &'static str {
+            "missing-test"
+        }
+        async fn start_workflow(&self, _w: &Workflow, _n: &[WorkflowNode], _l: &[Vec<String>]) -> WfResult<()> {
+            Ok(())
+        }
+        async fn cancel_workflow(&self, _w: &Workflow) -> WfResult<()> {
+            Ok(())
+        }
+        async fn signal_workflow(&self, _w: &Workflow, _s: SignalRequest, _l: &[Vec<String>]) -> WfResult<()> {
+            Ok(())
+        }
+        async fn observe_execution(&self, _w: &Workflow) -> WfResult<crate::workflow::model::ExecutionObservation> {
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(crate::workflow::model::ExecutionObservation::Missing)
+        }
+    }
+
+    fn running_with_execution() -> (Arc<InMemoryStore>, Arc<MissingRuntime>) {
+        let mut workflow = test_workflow("wf-1", "org-a");
+        workflow.temporal_workflow_id = Some("orchestrator-wf-1".to_string());
+        workflow.temporal_run_id = Some("run-1".to_string());
+        let store = Arc::new(InMemoryStore { workflow, nodes: Mutex::new(vec![]) });
+        (store, Arc::new(MissingRuntime { calls: std::sync::atomic::AtomicUsize::new(0) }))
+    }
+
+    #[tokio::test]
+    async fn status_read_without_a_free_permit_returns_stored_data() {
+        let (store, runtime) = running_with_execution();
+        let service = WorkflowService::new(store, runtime.clone()).with_status_observe_permits(0);
+        let (workflow, _nodes, state) = service.get_status("wf-1", "org-a").await.expect("read succeeds");
+        assert_eq!(workflow.status, WorkflowStatus::Running);
+        assert_eq!(state, Some(crate::workflow::model::ExecutionState::Unknown));
+        assert_eq!(runtime.calls.load(std::sync::atomic::Ordering::SeqCst), 0, "no permit, no Temporal call");
+    }
+
+    #[tokio::test]
+    async fn status_read_succeeds_when_its_bookkeeping_fails() {
+        // The test store's `mark_execution_missing` always errors.
+        let (store, runtime) = running_with_execution();
+        let service = WorkflowService::new(store, runtime.clone());
+        let (workflow, _nodes, state) = service.get_status("wf-1", "org-a").await.expect("read succeeds");
+        assert_eq!(runtime.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(workflow.status, WorkflowStatus::Running);
+        assert!(workflow.execution_missing_since.is_none(), "the stored row is returned");
+        assert_eq!(state, Some(crate::workflow::model::ExecutionState::Unknown));
     }
 }

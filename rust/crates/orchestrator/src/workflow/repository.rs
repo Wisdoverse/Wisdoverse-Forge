@@ -9,7 +9,7 @@ use sqlx::{PgPool, Row};
 use tokio::sync::Mutex;
 
 use super::errors::{Result, WorkflowError};
-use super::model::{NodeHistory, NodeStatus, NodeType, Workflow, WorkflowNode, WorkflowStatus};
+use super::model::{MissingMark, NodeHistory, NodeStatus, NodeType, Workflow, WorkflowNode, WorkflowStatus};
 use super::store::Store;
 
 struct WorkflowRecord {
@@ -93,20 +93,142 @@ impl Store for MemoryStore {
         let Some(record) = records.get_mut(id).filter(|record| record.workflow.org_id == org_id) else {
             return Err(WorkflowError::NotFound);
         };
-        record.workflow.status = status;
-        record.workflow.updated_at = Utc::now();
+        set_status(&mut record.workflow, status);
         Ok(())
     }
 
-    async fn set_temporal_ids(&self, id: &str, org_id: &str, workflow_id: String, run_id: String) -> Result<()> {
+    async fn set_temporal_ids(
+        &self,
+        id: &str,
+        org_id: &str,
+        workflow_id: String,
+        run_id: String,
+        namespace_id: Option<String>,
+    ) -> Result<()> {
         let mut records = self.records.lock().await;
         let Some(record) = records.get_mut(id).filter(|record| record.workflow.org_id == org_id) else {
             return Err(WorkflowError::NotFound);
         };
-        record.workflow.temporal_workflow_id = Some(workflow_id);
-        record.workflow.temporal_run_id = Some(run_id);
-        record.workflow.updated_at = Utc::now();
+        let workflow = &mut record.workflow;
+        workflow.temporal_workflow_id = Some(workflow_id);
+        workflow.temporal_run_id = Some(run_id);
+        workflow.temporal_namespace_id = namespace_id;
+        workflow.status_cause = None;
+        workflow.execution_missing_since = None;
+        workflow.execution_checked_at = None;
+        workflow.execution_observation = None;
+        workflow.reconciled_at = None;
+        touch(workflow);
         Ok(())
+    }
+
+    async fn update_status_for_run(
+        &self,
+        id: &str,
+        org_id: &str,
+        run_id: &str,
+        status: WorkflowStatus,
+    ) -> Result<bool> {
+        let mut records = self.records.lock().await;
+        let Some(record) = records.get_mut(id).filter(|record| record.workflow.org_id == org_id) else {
+            return Err(WorkflowError::NotFound);
+        };
+        if record.workflow.temporal_run_id.as_deref() != Some(run_id) {
+            return Ok(false);
+        }
+        set_status(&mut record.workflow, status);
+        Ok(true)
+    }
+
+    async fn reconcile_candidates(&self, limit: usize) -> Result<Vec<Workflow>> {
+        let mut candidates: Vec<Workflow> = self
+            .records
+            .lock()
+            .await
+            .values()
+            .filter(|record| {
+                record.workflow.status == WorkflowStatus::Running && record.workflow.temporal_workflow_id.is_some()
+            })
+            .map(|record| record.workflow.clone())
+            .collect();
+        // `None` sorts first, matching `NULLS FIRST` in the Postgres store.
+        candidates.sort_by(|a, b| {
+            (a.execution_checked_at, a.updated_at, &a.id).cmp(&(b.execution_checked_at, b.updated_at, &b.id))
+        });
+        candidates.truncate(limit);
+        Ok(candidates)
+    }
+
+    async fn record_execution_check(&self, workflow: &Workflow, mark: MissingMark, observation: &str) -> Result<bool> {
+        let mut records = self.records.lock().await;
+        let Some(record) = records.get_mut(&workflow.id).filter(|record| unchanged_since(&record.workflow, workflow))
+        else {
+            return Ok(false);
+        };
+        // Bookkeeping only: like the database trigger, no version bump.
+        let now = Utc::now();
+        record.workflow.execution_checked_at = Some(now);
+        record.workflow.execution_observation = Some(observation.to_string());
+        match mark {
+            MissingMark::Keep => {}
+            MissingMark::Clear => record.workflow.execution_missing_since = None,
+            MissingMark::Set => {
+                record.workflow.execution_missing_since.get_or_insert(now);
+            }
+        }
+        Ok(true)
+    }
+
+    async fn mark_execution_missing(&self, workflow: &Workflow) -> Result<bool> {
+        let mut records = self.records.lock().await;
+        let Some(record) = records.get_mut(&workflow.id).filter(|record| {
+            unchanged_since(&record.workflow, workflow) && record.workflow.execution_missing_since.is_none()
+        }) else {
+            return Ok(false);
+        };
+        record.workflow.execution_missing_since = Some(Utc::now());
+        Ok(true)
+    }
+
+    async fn set_status_if_unchanged(&self, workflow: &Workflow, status: WorkflowStatus) -> Result<bool> {
+        let mut records = self.records.lock().await;
+        let Some(record) = records.get_mut(&workflow.id).filter(|record| same_execution(&record.workflow, workflow))
+        else {
+            return Ok(false);
+        };
+        set_status(&mut record.workflow, status);
+        Ok(true)
+    }
+
+    async fn reconcile_status(
+        &self,
+        workflow: &Workflow,
+        status: WorkflowStatus,
+        cause: &str,
+        missing_for_secs: Option<u64>,
+    ) -> Result<bool> {
+        let mut records = self.records.lock().await;
+        let Some(record) = records.get_mut(&workflow.id).filter(|record| unchanged_since(&record.workflow, workflow))
+        else {
+            return Ok(false);
+        };
+        let now = Utc::now();
+        if let Some(secs) = missing_for_secs {
+            let long_enough = record
+                .workflow
+                .execution_missing_since
+                .is_some_and(|since| since <= now - chrono::Duration::seconds(secs as i64));
+            if !long_enough {
+                return Ok(false);
+            }
+        }
+        record.workflow.status = status;
+        record.workflow.status_cause = Some(cause.to_string());
+        record.workflow.reconciled_at = Some(now);
+        record.workflow.execution_checked_at = Some(now);
+        record.workflow.execution_observation = Some(observation_for_cause(cause).to_string());
+        touch(&mut record.workflow);
+        Ok(true)
     }
 
     async fn update_node_status(
@@ -175,6 +297,91 @@ impl Store for MemoryStore {
             .collect())
     }
 }
+
+/// A normal status change: the new status is the workflow's own, so any
+/// reconciliation cause or missing mark no longer describes it.
+fn set_status(workflow: &mut Workflow, status: WorkflowStatus) {
+    workflow.status = status;
+    workflow.status_cause = None;
+    workflow.execution_missing_since = None;
+    touch(workflow);
+}
+
+/// What the `workflows_track_change` trigger does for a real change.
+fn touch(workflow: &mut Workflow) {
+    workflow.updated_at = Utc::now();
+    workflow.state_version += 1;
+}
+
+/// Same organization, execution ids and `state_version` as when read.
+fn same_execution(current: &Workflow, observed: &Workflow) -> bool {
+    current.org_id == observed.org_id
+        && current.temporal_workflow_id == observed.temporal_workflow_id
+        && current.temporal_run_id == observed.temporal_run_id
+        && current.state_version == observed.state_version
+}
+
+/// The compare-and-set every reconciliation write uses (#1352).
+fn unchanged_since(current: &Workflow, observed: &Workflow) -> bool {
+    current.status == WorkflowStatus::Running && same_execution(current, observed)
+}
+
+/// Observation stored with a reconciled status.
+fn observation_for_cause(cause: &str) -> &'static str {
+    if cause == super::model::CAUSE_RECONCILED_FROM_TEMPORAL { "closed" } else { "missing" }
+}
+
+/// Columns read by [`row_to_workflow`].
+macro_rules! workflow_columns {
+    () => {
+        "id::text AS id, name, description, status, org_id, created_by::text AS created_by, \
+         temporal_workflow_id, temporal_run_id, temporal_namespace_id, status_cause, execution_missing_since, \
+         execution_checked_at, execution_observation, reconciled_at, state_version, created_at, updated_at"
+    };
+}
+
+/// Same organization, execution ids and `state_version` as when read (#1352).
+/// Binds `$1`..`$5`.
+macro_rules! same_execution_sql {
+    () => {
+        "id = CAST($1 AS uuid) AND org_id = $2 AND temporal_workflow_id = $3 \
+         AND temporal_run_id IS NOT DISTINCT FROM $4 AND state_version = $5"
+    };
+}
+
+pub(crate) const RECONCILE_CANDIDATES_SQL: &str = concat!(
+    "SELECT ",
+    workflow_columns!(),
+    " FROM workflows WHERE status = 'running' AND temporal_workflow_id IS NOT NULL \
+     ORDER BY execution_checked_at NULLS FIRST, updated_at, id LIMIT $1"
+);
+
+/// Bookkeeping only: the trigger leaves `updated_at` and `state_version` alone.
+pub(crate) const RECORD_EXECUTION_CHECK_SQL: &str = concat!(
+    "UPDATE workflows SET execution_checked_at = NOW(), execution_observation = $7, \
+     execution_missing_since = CASE $6 WHEN 'set' THEN COALESCE(execution_missing_since, NOW()) \
+     WHEN 'clear' THEN NULL ELSE execution_missing_since END WHERE status = 'running' AND ",
+    same_execution_sql!()
+);
+
+/// Bookkeeping only, and only when no mark is set yet.
+pub(crate) const MARK_EXECUTION_MISSING_SQL: &str = concat!(
+    "UPDATE workflows SET execution_missing_since = NOW() \
+     WHERE status = 'running' AND execution_missing_since IS NULL AND ",
+    same_execution_sql!()
+);
+
+pub(crate) const SET_STATUS_IF_UNCHANGED_SQL: &str = concat!(
+    "UPDATE workflows SET status = $6, status_cause = NULL, execution_missing_since = NULL WHERE ",
+    same_execution_sql!()
+);
+
+pub(crate) const RECONCILE_STATUS_SQL: &str = concat!(
+    "UPDATE workflows SET status = $6, status_cause = $7, reconciled_at = NOW(), execution_checked_at = NOW(), \
+     execution_observation = $9 WHERE status = 'running' AND ",
+    same_execution_sql!(),
+    " AND ($8::float8 IS NULL OR execution_missing_since <= NOW() - make_interval(secs => $8::float8))"
+);
 
 pub struct PgWorkflowStore {
     pool: PgPool,
@@ -266,9 +473,11 @@ impl Store for PgWorkflowStore {
     }
 
     async fn get_by_id(&self, id: &str, org_id: &str) -> Result<Workflow> {
-        let row = sqlx::query(
-            "SELECT id::text AS id, name, description, status, org_id, created_by::text AS created_by,                     temporal_workflow_id, temporal_run_id, created_at, updated_at              FROM workflows WHERE id = CAST($1 AS uuid) AND org_id = $2"
-        )
+        let row = sqlx::query(concat!(
+            "SELECT ",
+            workflow_columns!(),
+            " FROM workflows WHERE id = CAST($1 AS uuid) AND org_id = $2"
+        ))
         .bind(id)
         .bind(org_id)
         .fetch_optional(&self.pool)
@@ -311,9 +520,11 @@ impl Store for PgWorkflowStore {
     }
 
     async fn list(&self, org_id: &str, limit: usize, offset: usize) -> Result<Vec<Workflow>> {
-        let rows = sqlx::query(
-            "SELECT id::text AS id, name, description, status, org_id, created_by::text AS created_by,                     temporal_workflow_id, temporal_run_id, created_at, updated_at              FROM workflows WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
-        )
+        let rows = sqlx::query(concat!(
+            "SELECT ",
+            workflow_columns!(),
+            " FROM workflows WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
+        ))
         .bind(org_id)
         .bind(limit.max(1) as i64)
         .bind(offset as i64)
@@ -325,7 +536,8 @@ impl Store for PgWorkflowStore {
 
     async fn update_status(&self, id: &str, org_id: &str, status: WorkflowStatus) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE workflows SET status = $1, updated_at = NOW() WHERE id = CAST($2 AS uuid) AND org_id = $3",
+            "UPDATE workflows SET status = $1, status_cause = NULL, execution_missing_since = NULL, updated_at = NOW() \
+             WHERE id = CAST($2 AS uuid) AND org_id = $3",
         )
         .bind(status.as_str())
         .bind(id)
@@ -339,12 +551,23 @@ impl Store for PgWorkflowStore {
         Ok(())
     }
 
-    async fn set_temporal_ids(&self, id: &str, org_id: &str, workflow_id: String, run_id: String) -> Result<()> {
+    async fn set_temporal_ids(
+        &self,
+        id: &str,
+        org_id: &str,
+        workflow_id: String,
+        run_id: String,
+        namespace_id: Option<String>,
+    ) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE workflows SET temporal_workflow_id = $1, temporal_run_id = $2, updated_at = NOW()              WHERE id = CAST($3 AS uuid) AND org_id = $4"
+            "UPDATE workflows SET temporal_workflow_id = $1, temporal_run_id = $2, temporal_namespace_id = $3, \
+             status_cause = NULL, execution_missing_since = NULL, execution_checked_at = NULL, \
+             execution_observation = NULL, reconciled_at = NULL, updated_at = NOW() \
+             WHERE id = CAST($4 AS uuid) AND org_id = $5",
         )
         .bind(workflow_id)
         .bind(run_id)
+        .bind(namespace_id)
         .bind(id)
         .bind(org_id)
         .execute(&self.pool)
@@ -354,6 +577,86 @@ impl Store for PgWorkflowStore {
             return Err(WorkflowError::NotFound);
         }
         Ok(())
+    }
+
+    async fn update_status_for_run(
+        &self,
+        id: &str,
+        org_id: &str,
+        run_id: &str,
+        status: WorkflowStatus,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            "UPDATE workflows SET status = $1, status_cause = NULL, execution_missing_since = NULL, updated_at = NOW() \
+             WHERE id = CAST($2 AS uuid) AND org_id = $3 AND temporal_run_id = $4",
+        )
+        .bind(status.as_str())
+        .bind(id)
+        .bind(org_id)
+        .bind(run_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|err| WorkflowError::Internal(format!("update workflow status for run: {err}")))?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    async fn reconcile_candidates(&self, limit: usize) -> Result<Vec<Workflow>> {
+        let rows = sqlx::query(RECONCILE_CANDIDATES_SQL)
+            .bind(limit as i64)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|err| WorkflowError::Internal(format!("list reconcile candidates: {err}")))?;
+        rows.iter().map(row_to_workflow).collect()
+    }
+
+    async fn record_execution_check(&self, workflow: &Workflow, mark: MissingMark, observation: &str) -> Result<bool> {
+        let mark = match mark {
+            MissingMark::Keep => "keep",
+            MissingMark::Clear => "clear",
+            MissingMark::Set => "set",
+        };
+        let result = bind_execution(sqlx::query(RECORD_EXECUTION_CHECK_SQL), workflow)
+            .bind(mark)
+            .bind(observation)
+            .execute(&self.pool)
+            .await
+            .map_err(|err| WorkflowError::Internal(format!("record execution check: {err}")))?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    async fn mark_execution_missing(&self, workflow: &Workflow) -> Result<bool> {
+        let result = bind_execution(sqlx::query(MARK_EXECUTION_MISSING_SQL), workflow)
+            .execute(&self.pool)
+            .await
+            .map_err(|err| WorkflowError::Internal(format!("mark execution missing: {err}")))?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    async fn set_status_if_unchanged(&self, workflow: &Workflow, status: WorkflowStatus) -> Result<bool> {
+        let result = bind_execution(sqlx::query(SET_STATUS_IF_UNCHANGED_SQL), workflow)
+            .bind(status.as_str())
+            .execute(&self.pool)
+            .await
+            .map_err(|err| WorkflowError::Internal(format!("set workflow status if unchanged: {err}")))?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    async fn reconcile_status(
+        &self,
+        workflow: &Workflow,
+        status: WorkflowStatus,
+        cause: &str,
+        missing_for_secs: Option<u64>,
+    ) -> Result<bool> {
+        let result = bind_execution(sqlx::query(RECONCILE_STATUS_SQL), workflow)
+            .bind(status.as_str())
+            .bind(cause)
+            .bind(missing_for_secs.map(|secs| secs as f64))
+            .bind(observation_for_cause(cause))
+            .execute(&self.pool)
+            .await
+            .map_err(|err| WorkflowError::Internal(format!("reconcile workflow status: {err}")))?;
+        Ok(result.rows_affected() == 1)
     }
 
     async fn update_node_status(
@@ -423,6 +726,19 @@ impl Store for PgWorkflowStore {
     }
 }
 
+/// Binds `$1`..`$5` of `same_execution_sql!`.
+fn bind_execution<'q>(
+    query: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
+    workflow: &'q Workflow,
+) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {
+    query
+        .bind(&workflow.id)
+        .bind(&workflow.org_id)
+        .bind(&workflow.temporal_workflow_id)
+        .bind(&workflow.temporal_run_id)
+        .bind(workflow.state_version)
+}
+
 fn row_to_workflow(row: &PgRow) -> Result<Workflow> {
     let status = row
         .try_get::<String, _>("status")
@@ -444,6 +760,27 @@ fn row_to_workflow(row: &PgRow) -> Result<Workflow> {
         temporal_run_id: row
             .try_get("temporal_run_id")
             .map_err(|err| WorkflowError::Internal(format!("read temporal_run_id: {err}")))?,
+        temporal_namespace_id: row
+            .try_get("temporal_namespace_id")
+            .map_err(|err| WorkflowError::Internal(format!("read temporal_namespace_id: {err}")))?,
+        status_cause: row
+            .try_get("status_cause")
+            .map_err(|err| WorkflowError::Internal(format!("read workflow status_cause: {err}")))?,
+        execution_missing_since: row
+            .try_get("execution_missing_since")
+            .map_err(|err| WorkflowError::Internal(format!("read workflow execution_missing_since: {err}")))?,
+        execution_checked_at: row
+            .try_get("execution_checked_at")
+            .map_err(|err| WorkflowError::Internal(format!("read workflow execution_checked_at: {err}")))?,
+        execution_observation: row
+            .try_get("execution_observation")
+            .map_err(|err| WorkflowError::Internal(format!("read workflow execution_observation: {err}")))?,
+        reconciled_at: row
+            .try_get("reconciled_at")
+            .map_err(|err| WorkflowError::Internal(format!("read workflow reconciled_at: {err}")))?,
+        state_version: row
+            .try_get("state_version")
+            .map_err(|err| WorkflowError::Internal(format!("read workflow state_version: {err}")))?,
         created_at: row
             .try_get("created_at")
             .map_err(|err| WorkflowError::Internal(format!("read workflow created_at: {err}")))?,

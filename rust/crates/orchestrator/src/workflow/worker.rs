@@ -107,10 +107,37 @@ where
     };
 
     let client = connect(config.clone()).await?;
-    let runtime: Arc<dyn WorkflowRuntime> = Arc::new(TemporalWorkflowRuntime::new(client.clone(), store.clone()));
+    warn_if_trusting_current_temporal(config);
+    let runtime: Arc<dyn WorkflowRuntime> = Arc::new(TemporalWorkflowRuntime::new(
+        client.clone(),
+        store.clone(),
+        config.workflow_reconcile_trust_current_temporal,
+    ));
     let service = Arc::new(WorkflowService::new(store.clone(), runtime));
     let worker = start(client, outbound_mcp, store, broadcaster)?;
     Ok(Some(WorkflowRuntimeComponents { service, worker }))
+}
+
+/// Connect a Temporal-backed runtime on its own client (#1352). The workflow
+/// execution reconciler calls this lazily on each tick until it succeeds, so
+/// it recovers when Temporal comes back after the orchestrator started.
+pub async fn connect_workflow_runtime(
+    config: &Config,
+    store: Arc<dyn Store>,
+) -> anyhow::Result<Arc<dyn WorkflowRuntime>> {
+    let client = connect_temporal_client(config).await?;
+    Ok(Arc::new(TemporalWorkflowRuntime::new(client, store, config.workflow_reconcile_trust_current_temporal)))
+}
+
+/// A left-on acknowledgment silently widens what the reconciler may end, so
+/// say so loudly whenever a runtime is built with it (#1352).
+pub(crate) fn warn_if_trusting_current_temporal(config: &Config) {
+    if config.workflow_reconcile_trust_current_temporal {
+        tracing::warn!(
+            temporal_namespace = %config.temporal_namespace,
+            "ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL is on: workflows whose Temporal namespace cannot be verified are reconciled too; turn it off once the recovery is done"
+        );
+    }
 }
 
 /// Build the workflow runtime, classifying failures instead of propagating them.

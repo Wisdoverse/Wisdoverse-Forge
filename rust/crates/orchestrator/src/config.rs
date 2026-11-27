@@ -45,6 +45,14 @@ fn default_review_escalation_grace_secs() -> u64 {
     3600
 }
 
+fn default_workflow_reconcile_enabled() -> bool {
+    true
+}
+
+fn default_workflow_reconcile_grace_secs() -> u64 {
+    600
+}
+
 fn default_mcp_endpoint() -> String {
     "http://localhost:4003/mcp".to_string()
 }
@@ -161,6 +169,22 @@ pub struct Config {
     /// tick; the rest skip. Default false → single-replica behaviour unchanged.
     #[serde(default)]
     pub leader_election_enabled: bool,
+
+    /// #1352: run the workflow execution reconciler, which ends `running` rows
+    /// whose Temporal execution is closed or proven missing. Default true.
+    #[serde(default = "default_workflow_reconcile_enabled")]
+    pub workflow_reconcile_enabled: bool,
+
+    /// #1352: minimum seconds an execution must stay missing (seen on at least
+    /// two checks) before its workflow is marked `failed` / `execution_lost`.
+    #[serde(default = "default_workflow_reconcile_grace_secs")]
+    pub workflow_reconcile_grace_secs: u64,
+
+    /// #1352: operator acknowledgment that the orchestrator points at the right
+    /// Temporal. Lets "not found" count for rows whose namespace id cannot be
+    /// compared (started before #1352, or in a re-created Temporal). Default false.
+    #[serde(default)]
+    pub workflow_reconcile_trust_current_temporal: bool,
 }
 
 impl Default for Config {
@@ -191,6 +215,9 @@ impl Default for Config {
             mcp_endpoint: default_mcp_endpoint(),
             mcp_token: String::new(),
             leader_election_enabled: false,
+            workflow_reconcile_enabled: default_workflow_reconcile_enabled(),
+            workflow_reconcile_grace_secs: default_workflow_reconcile_grace_secs(),
+            workflow_reconcile_trust_current_temporal: false,
         }
     }
 }
@@ -244,6 +271,15 @@ impl Config {
             mcp_endpoint: read("ORCHESTRATOR_MCP_ENDPOINT").unwrap_or_else(default_mcp_endpoint),
             mcp_token: read("ORCHESTRATOR_MCP_TOKEN").unwrap_or_default(),
             leader_election_enabled: read("ORCHESTRATOR_LEADER_ELECTION_ENABLED")
+                .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
+                .unwrap_or(false),
+            workflow_reconcile_enabled: read("ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED")
+                .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
+                .unwrap_or_else(default_workflow_reconcile_enabled),
+            workflow_reconcile_grace_secs: read("ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS")
+                .and_then(|value| value.parse().ok())
+                .unwrap_or_else(default_workflow_reconcile_grace_secs),
+            workflow_reconcile_trust_current_temporal: read("ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL")
                 .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
                 .unwrap_or(false),
         };
@@ -306,6 +342,27 @@ mod tests {
     #[test]
     fn review_escalation_disabled_by_default() {
         assert!(!Config::default().review_escalation_enabled);
+    }
+
+    #[test]
+    fn workflow_reconcile_defaults_on_with_10min_grace_and_no_trust() {
+        let config = Config::default();
+        assert!(config.workflow_reconcile_enabled);
+        assert_eq!(config.workflow_reconcile_grace_secs, 600);
+        assert!(!config.workflow_reconcile_trust_current_temporal);
+        temp_env::with_vars(
+            [
+                ("ORCHESTRATOR_WORKFLOW_RECONCILE_ENABLED", Some("false")),
+                ("ORCHESTRATOR_WORKFLOW_RECONCILE_GRACE_SECS", Some("120")),
+                ("ORCHESTRATOR_WORKFLOW_RECONCILE_TRUST_CURRENT_TEMPORAL", Some("true")),
+            ],
+            || {
+                let config = Config::load().expect("load");
+                assert!(!config.workflow_reconcile_enabled);
+                assert_eq!(config.workflow_reconcile_grace_secs, 120);
+                assert!(config.workflow_reconcile_trust_current_temporal);
+            },
+        );
     }
 
     #[test]

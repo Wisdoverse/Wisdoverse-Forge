@@ -43,6 +43,7 @@ const MIGRATION_SOURCES: &[(&str, &str)] = &[
     ("011_task_dispatches_reap_index.sql", include_str!("../migrations/011_task_dispatches_reap_index.sql")),
     ("012_review_escalation.sql", include_str!("../migrations/012_review_escalation.sql")),
     ("013_task_dispatches_active_unique.sql", include_str!("../migrations/013_task_dispatches_active_unique.sql")),
+    ("014_workflow_execution_reconcile.sql", include_str!("../migrations/014_workflow_execution_reconcile.sql")),
 ];
 
 /// Run pending orchestrator migrations against the database.
